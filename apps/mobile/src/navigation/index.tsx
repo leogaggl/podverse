@@ -65,6 +65,7 @@ import { PlaylistDetailScreen } from '../screens/library/PlaylistDetailScreen';
 import { PlaylistFormScreen } from '../screens/library/PlaylistFormScreen';
 import { MoreAboutScreen } from '../screens/more/MoreAboutScreen';
 import { MoreAdvancedScreen } from '../screens/more/MoreAdvancedScreen';
+import { MoreCustomApiScreen } from '../screens/more/MoreCustomApiScreen';
 import { MoreE2ePlaybackScreen } from '../screens/more/MoreE2ePlaybackScreen';
 import { MoreErrorLogDetailScreen } from '../screens/more/MoreErrorLogDetailScreen';
 import { MoreErrorLogScreen } from '../screens/more/MoreErrorLogScreen';
@@ -223,6 +224,7 @@ export const MORE_STACK_ROUTES = {
   MoreSettingsTheme: 'MoreSettingsTheme',
   MoreSmoke: 'MoreSmoke',
   MoreAdvanced: 'MoreAdvanced',
+  MoreCustomApi: 'MoreCustomApi',
   MoreErrorLog: 'MoreErrorLog',
   MoreErrorLogDetail: 'MoreErrorLogDetail',
 } as const;
@@ -267,6 +269,7 @@ const homeTabLinkScreens = {
 const moreTabLinkScreens = {
   MoreAbout: 'more/about',
   MoreAdvanced: 'more/advanced',
+  MoreCustomApi: 'more/advanced/custom-api',
   MoreE2ePlayback: 'more/e2e/playback',
   MoreErrorLog: 'more/advanced/error-log',
   MoreFaq: 'more/faq',
@@ -531,6 +534,7 @@ export type MoreStackParamList = {
   MoreSettingsTheme: undefined;
   MoreSmoke: undefined;
   MoreAdvanced: undefined;
+  MoreCustomApi: undefined;
   MoreErrorLog: undefined;
   MoreErrorLogDetail: { entryId: number };
 };
@@ -1126,6 +1130,11 @@ function MoreStackNavigator({
         component={MoreAdvancedScreen}
         name={MORE_STACK_ROUTES.MoreAdvanced}
         options={{ title: t('more_advanced.title') }}
+      />
+      <MoreStack.Screen
+        component={MoreCustomApiScreen}
+        name={MORE_STACK_ROUTES.MoreCustomApi}
+        options={{ title: t('custom_api.title') }}
       />
       <MoreStack.Screen
         component={MoreErrorLogScreen}

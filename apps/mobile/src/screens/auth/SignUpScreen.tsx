@@ -12,6 +12,7 @@ import {
 
 import { createMobileApiRequestService } from '../../auth';
 import { CopyMarkdown } from '../../components/content/CopyMarkdown';
+import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { TextField } from '../../components/form';
 import { Accordion, Button } from '../../components/primitives';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
@@ -203,6 +204,7 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
         title={t('authentication.sign_up')}
       />
       <MobileScreenContainer testID="signup-form">
+        <CustomApiNotice />
         <View style={styles.fields}>
           <TextField
             accessibilityLabel={t('authentication.email')}

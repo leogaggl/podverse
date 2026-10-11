@@ -81,7 +81,5 @@ export function resolveTermsMarkdownPath(
 }
 
 export function loadTermsMarkdown(requestedLocale: string): string {
-  return interpolateTermsMarkdown(
-    readFileSync(resolveTermsMarkdownPath(requestedLocale), 'utf8')
-  );
+  return interpolateTermsMarkdown(readFileSync(resolveTermsMarkdownPath(requestedLocale), 'utf8'));
 }

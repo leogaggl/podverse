@@ -56,9 +56,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
       return account;
     }
 
-    async getWithMembershipStatusFromPrimary(
-      id: number
-    ): Promise<Record<string, unknown> | null> {
+    async getWithMembershipStatusFromPrimary(id: number): Promise<Record<string, unknown> | null> {
       return this.get(id);
     }
 

@@ -8,9 +8,9 @@ import { isPopularityTrackingPromptRequired } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../auth/authRequestWithRefresh';
-import { useTermsGate } from '../terms/TermsAcceptanceProvider';
 import { syncAllowListenStatsToAccountSettings } from '../auth/syncAccountPrefs';
 import { ModalSafeArea } from '../components/screen/ModalSafeArea';
+import { useTermsGate } from '../terms/TermsAcceptanceProvider';
 import { screenBodyInsets } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
 import { PopularityTrackingAgreementBody } from './PopularityTrackingAgreementBody';

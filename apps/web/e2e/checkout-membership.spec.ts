@@ -170,5 +170,4 @@ test.describe('Checkout membership', () => {
       expiry
     );
   });
-
 });

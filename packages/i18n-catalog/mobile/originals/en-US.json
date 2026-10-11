@@ -203,6 +203,28 @@
   "more_advanced": {
     "title": "Advanced"
   },
+  "custom_api": {
+    "title": "Custom API",
+    "menu_subtitle": "Point this app at a different server",
+    "intro": "Replace the server this app talks to. Save checks that the server answers with status 200 before the change is kept. Reset restores the original server. Log out before changing it so this phone does not send your login to another server.",
+    "url_label": "API URL",
+    "url_placeholder": "https://example.com/api/v2",
+    "original_label": "Original API",
+    "original_missing": "This build has no API address configured.",
+    "using_original": "This app is using the original API.",
+    "using_custom": "This app is using the custom API in the field below.",
+    "reset": "Reset",
+    "saved": "Saved. This app will use this API.",
+    "reset_done": "Restored the original API.",
+    "invalid_url": "Enter an http or https address that ends with /api and a version, such as /api/v2.",
+    "unreachable": "Could not reach that server. Nothing was saved.",
+    "unexpected_status": "That server responded with status {status}. Expected 200. Nothing was saved.",
+    "unexpected_body": "That server responded with status 200, but the health check did not report ok. Nothing was saved.",
+    "logout_title": "Log Out First",
+    "logout_body": "Log out before changing the API. This phone will not send your login to another server.",
+    "notice_label": "Custom API",
+    "notice_body": "Sign-in, sign-up, feed passwords, and store purchases in this app go to this server. A page opened in the browser uses the public website, which does not."
+  },
   "error_log": {
     "title": "Error Log",
     "menu_subtitle": "Playback, RSS feed, and sync problems recorded on this device",

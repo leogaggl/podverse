@@ -29,15 +29,8 @@ export function useTermsGate(): TermsGateValue {
 export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   const { i18n, t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
-  const {
-    accessToken,
-    account,
-    clearSession,
-    refreshToken,
-    setAccount,
-    setTokens,
-    status,
-  } = useAuth();
+  const { accessToken, account, clearSession, refreshToken, setAccount, setTokens, status } =
+    useAuth();
   const [agreement, setAgreement] = useState<DTOTermsAgreement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);

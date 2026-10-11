@@ -54,7 +54,7 @@ export async function getSSRAuthService(): Promise<{
   }
 
   const configuredTermsVersion = getConfig().public.legal.terms.version;
-  let termsAcceptanceRequired = false;
+  let termsAcceptanceRequired: boolean;
   try {
     const account = await ssrApiRequestService.reqAuthMe();
     termsAcceptanceRequired = isTermsAcceptanceRequired(account, configuredTermsVersion);

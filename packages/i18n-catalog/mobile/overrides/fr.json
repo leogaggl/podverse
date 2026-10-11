@@ -310,5 +310,27 @@
   },
   "more_advanced": {
     "title": ""
+  },
+  "custom_api": {
+    "title": "",
+    "menu_subtitle": "",
+    "intro": "",
+    "url_label": "",
+    "url_placeholder": "",
+    "original_label": "",
+    "original_missing": "",
+    "using_original": "",
+    "using_custom": "",
+    "reset": "",
+    "saved": "",
+    "reset_done": "",
+    "invalid_url": "",
+    "unreachable": "",
+    "unexpected_status": "",
+    "unexpected_body": "",
+    "logout_title": "",
+    "logout_body": "",
+    "notice_label": "",
+    "notice_body": ""
   }
 }

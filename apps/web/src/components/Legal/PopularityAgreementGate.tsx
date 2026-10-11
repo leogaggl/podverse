@@ -3,8 +3,8 @@
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
-import { getCopyMarkdownIntro } from '@podverse/helpers';
 import type { DTOPopularityTrackingAgreement } from '@podverse/helpers';
+import { getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { useAccount } from '../../contexts/Account';
 import { getApiRequestService } from '../../factories/apiRequestService';

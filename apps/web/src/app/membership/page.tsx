@@ -141,9 +141,7 @@ export default async function MembershipPage() {
               <section className={styles.expiryBanner} data-testid="membership-expiry">
                 <p className={styles.expiryTier}>{t('premium')}</p>
                 <p className={styles.expiryLabel}>{tSettingsMembership('expires_on')}</p>
-                <p className={styles.expiryDate}>
-                  {formatDateAbbrev(membershipExpiresAt, locale)}
-                </p>
+                <p className={styles.expiryDate}>{formatDateAbbrev(membershipExpiresAt, locale)}</p>
               </section>
             ) : null}
 

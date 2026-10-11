@@ -275,9 +275,9 @@ describe('ApiRequestService apiRequest console logging', () => {
       version: '/v1',
     });
 
-    await expect(svc.apiRequest({ path: '/channel/subscribed/recent', method: 'GET' })).rejects.toBe(
-      error
-    );
+    await expect(
+      svc.apiRequest({ path: '/channel/subscribed/recent', method: 'GET' })
+    ).rejects.toBe(error);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });

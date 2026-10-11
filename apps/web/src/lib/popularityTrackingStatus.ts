@@ -1,10 +1,7 @@
 import type { PopularityTrackingChoice } from '@podverse/helpers';
 
 export type PopularityTrackingStatusKey =
-  | 'already_agreed'
-  | 'status_opted_out'
-  | 'status_stale'
-  | 'status_undecided';
+  'already_agreed' | 'status_opted_out' | 'status_stale' | 'status_undecided';
 
 export function popularityTrackingStatusKey(
   choice: PopularityTrackingChoice

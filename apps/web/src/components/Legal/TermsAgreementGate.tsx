@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
-import { getCopyMarkdownIntro } from '@podverse/helpers';
 import type { DTOTermsAgreement } from '@podverse/helpers';
+import { getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
@@ -91,9 +91,7 @@ export function TermsAgreementGate() {
       checkboxChecked={checked}
       checkboxLabel={t('checkbox_label')}
       dateLabel={
-        agreement === null
-          ? null
-          : t('agreement_date', { agreement_date: agreement.version })
+        agreement === null ? null : t('agreement_date', { agreement_date: agreement.version })
       }
       errorMessage={hasError ? t('load_error') : null}
       fullMarkdown={agreement?.markdown ?? null}

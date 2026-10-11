@@ -7,6 +7,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { formatDateAbbrev } from '@podverse/helpers';
 
 import { createMobileApiRequestService } from '../../auth/mobileApi';
+import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { MembershipFeatureTable } from '../../components/membership/MembershipFeatureTable';
 import { TrialLimitationsAccordion } from '../../components/membership/TrialLimitationsAccordion';
 import { Button, Card } from '../../components/primitives';
@@ -137,6 +138,7 @@ export function MoreMembershipScreen() {
 
   return (
     <MobileScreenContainer testID="more-membership-screen">
+      <CustomApiNotice />
       {showsExpiry && expiresAt !== null ? (
         <View style={styles.section}>
           <Card testID="more-membership-expiry">

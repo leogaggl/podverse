@@ -60,8 +60,12 @@ test.describe('Terms version acceptance', () => {
           await expect(page).toHaveURL('/account-access');
           const accessScreen = page.getByRole('main', { name: 'Account Access' });
           await expect(accessScreen).toBeVisible();
-          await expect(accessScreen.getByRole('button', { name: 'Review Terms of Service' })).toBeVisible();
-          await expect(accessScreen.getByRole('button', { name: 'Download My Data' })).toBeVisible();
+          await expect(
+            accessScreen.getByRole('button', { name: 'Review Terms of Service' })
+          ).toBeVisible();
+          await expect(
+            accessScreen.getByRole('button', { name: 'Download My Data' })
+          ).toBeVisible();
           const meResponse = await page.request.get('http://localhost:4030/api/v2/auth/me');
           expect(meResponse.ok(), await meResponse.text()).toBeTruthy();
         },

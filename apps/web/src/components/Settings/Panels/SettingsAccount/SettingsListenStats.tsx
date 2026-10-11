@@ -45,31 +45,34 @@ export function SettingsListenStats() {
   };
 
   const showStatusHelp = choice !== 'allowed';
+  const switchProps = {
+    checked: allowed,
+    id: 'popularity-tracking',
+    label: t('title'),
+    loading: isSaving,
+    onChange: (next: boolean) => {
+      if (!next) {
+        void turnOff();
+        return;
+      }
+      router.push(ROUTES.POPULARITY_TRACKING);
+    },
+    stateOffLabel: tMisc('off'),
+    stateOnLabel: tMisc('on'),
+  };
 
   return (
     <SettingsSection>
       <h3>{t('title')}</h3>
-      <SwitchButton
-        checked={allowed}
-        id="popularity-tracking"
-        label={t('title')}
-        loading={isSaving}
-        onChange={(next) => {
-          if (!next) {
-            void turnOff();
-            return;
-          }
-          router.push(ROUTES.POPULARITY_TRACKING);
-        }}
-        stateOffLabel={tMisc('off')}
-        stateOnLabel={tMisc('on')}
-        {...(showStatusHelp
-          ? {
-              helpAriaLabel: tMisc('more_info'),
-              helpText: t(popularityTrackingStatusKey(choice)),
-            }
-          : {})}
-      />
+      {showStatusHelp ? (
+        <SwitchButton
+          {...switchProps}
+          helpAriaLabel={tMisc('more_info')}
+          helpText={t(popularityTrackingStatusKey(choice))}
+        />
+      ) : (
+        <SwitchButton {...switchProps} />
+      )}
     </SettingsSection>
   );
 }

@@ -1,5 +1,5 @@
-import { isCurrentTermsAccepted } from '@podverse/helpers';
 import type { DTOAccount } from '@podverse/helpers';
+import { isCurrentTermsAccepted } from '@podverse/helpers';
 
 export function isTermsAcceptanceRequired(
   loggedInAccount: DTOAccount | null,

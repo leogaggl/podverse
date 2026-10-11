@@ -310,5 +310,27 @@
   },
   "more_advanced": {
     "title": "Avanzado"
+  },
+  "custom_api": {
+    "title": "API personalizada",
+    "menu_subtitle": "Apuntar esta app a otro servidor",
+    "intro": "Sustituye el servidor con el que habla esta app. Guardar comprueba que el servidor responda con el estado 200 antes de conservar el cambio. Restablecer vuelve al servidor original. Cierra la sesión antes de cambiarlo para que este teléfono no envíe tu acceso a otro servidor.",
+    "url_label": "URL de la API",
+    "url_placeholder": "https://example.com/api/v2",
+    "original_label": "API original",
+    "original_missing": "Esta compilación no tiene una dirección de API configurada.",
+    "using_original": "Esta app está usando la API original.",
+    "using_custom": "Esta app está usando la API personalizada del campo de abajo.",
+    "reset": "Restablecer",
+    "saved": "Guardado. Esta app usará esta API.",
+    "reset_done": "Se restauró la API original.",
+    "invalid_url": "Escribe una dirección http o https que termine en /api y una versión, como /api/v2.",
+    "unreachable": "No se pudo contactar ese servidor. No se guardó nada.",
+    "unexpected_status": "Ese servidor respondió con el estado {status}. Se esperaba 200. No se guardó nada.",
+    "unexpected_body": "Ese servidor respondió con el estado 200, pero la comprobación de salud no informó ok. No se guardó nada.",
+    "logout_title": "Cierra la sesión primero",
+    "logout_body": "Cierra la sesión antes de cambiar la API. Este teléfono no enviará tu acceso a otro servidor.",
+    "notice_label": "API personalizada",
+    "notice_body": "El inicio de sesión, el registro, las contraseñas de feeds y las compras en la tienda dentro de esta app van a este servidor. Una página abierta en el navegador usa el sitio público, que no lo hace."
   }
 }

@@ -4,10 +4,7 @@ import { PAYPAL_ONE_TIME_PRODUCT_IDS } from '@podverse/helpers';
 
 import { buildPayPalInvoiceId, resolvePayPalProductId } from './payPalInvoiceId.js';
 
-const PRODUCT_IDS = [
-  PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
-  PAYPAL_ONE_TIME_PRODUCT_IDS.annual,
-];
+const PRODUCT_IDS = [PAYPAL_ONE_TIME_PRODUCT_IDS.monthly, PAYPAL_ONE_TIME_PRODUCT_IDS.annual];
 
 describe('PayPal invoice ids', () => {
   it('treats a bare product id as that product', () => {
@@ -22,9 +19,7 @@ describe('PayPal invoice ids', () => {
       '11111111-1111-4111-8111-111111111111'
     );
 
-    expect(resolvePayPalProductId(invoiceId, PRODUCT_IDS)).toBe(
-      PAYPAL_ONE_TIME_PRODUCT_IDS.annual
-    );
+    expect(resolvePayPalProductId(invoiceId, PRODUCT_IDS)).toBe(PAYPAL_ONE_TIME_PRODUCT_IDS.annual);
   });
 
   it('prefers the longer product id when one id prefixes another', () => {

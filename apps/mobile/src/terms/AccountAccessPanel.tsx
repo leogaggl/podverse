@@ -29,15 +29,8 @@ async function blobToBase64(blob: Blob): Promise<string> {
 export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
   const { t, i18n } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
-  const {
-    accessToken,
-    account,
-    clearSession,
-    logout,
-    refreshToken,
-    setAccount,
-    setTokens,
-  } = useAuth();
+  const { accessToken, account, clearSession, logout, refreshToken, setAccount, setTokens } =
+    useAuth();
   const [status, setStatus] = useState<DTOBillingStatus | null>(null);
   const [membershipFailed, setMembershipFailed] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);

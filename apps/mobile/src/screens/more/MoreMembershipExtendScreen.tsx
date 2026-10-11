@@ -1,3 +1,4 @@
+import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { MembershipStoreCheckout } from '../../components/membership/MembershipStoreCheckout';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 
@@ -8,6 +9,7 @@ import { MobileScreenContainer } from '../../components/screen/MobileScreenConta
 export function MoreMembershipExtendScreen() {
   return (
     <MobileScreenContainer testID="membership-extend-screen">
+      <CustomApiNotice />
       <MembershipStoreCheckout />
     </MobileScreenContainer>
   );

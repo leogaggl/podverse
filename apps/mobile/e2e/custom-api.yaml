@@ -1,0 +1,59 @@
+appId: com.podverse.app.next
+name: Custom API
+---
+# More › Advanced › Custom API. A malformed address is rejected on the device, so this flow
+# never calls the network. Reset restores the field without a probe.
+# More is two pages on phone; iOS XCUITest omits off-screen testIDs until this row is scrolled in.
+
+- runFlow: shared/launch-and-connect.yaml
+- tapOn:
+    id: tab-more
+- assertVisible:
+    id: more-screen
+- scrollUntilVisible:
+    element:
+      id: more-nav-advanced
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    centerElement: true
+- tapOn:
+    id: more-nav-advanced
+- assertVisible:
+    id: more-advanced-screen
+- tapOn:
+    id: more-advanced-custom-api
+- assertVisible:
+    id: custom-api-screen
+- assertVisible:
+    id: custom-api-save
+- assertVisible:
+    id: custom-api-cancel
+- assertVisible:
+    id: custom-api-reset
+- assertVisible:
+    id: custom-api-original-url
+- tapOn:
+    id: custom-api-url-input
+- inputText: "not-a-url"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: custom-api-save
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    centerElement: true
+- tapOn:
+    id: custom-api-save
+- assertVisible:
+    id: custom-api-error
+- scrollUntilVisible:
+    element:
+      id: custom-api-reset
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    centerElement: true
+- tapOn:
+    id: custom-api-reset
+- assertVisible:
+    id: custom-api-status
+- takeScreenshot: custom-api-reset

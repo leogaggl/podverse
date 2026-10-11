@@ -87,12 +87,7 @@ export function AgreementScreen({
         ) : null}
         {checkbox}
         <div className={styles.actions}>
-          <Button
-            disabled={pending}
-            onClick={onReject}
-            type="button"
-            variant="secondary"
-          >
+          <Button disabled={pending} onClick={onReject} type="button" variant="secondary">
             {rejectLabel}
           </Button>
           <Button

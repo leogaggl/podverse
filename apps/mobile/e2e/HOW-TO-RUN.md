@@ -398,6 +398,7 @@ npm run mobile:e2e:test -- hello-world
 npm run mobile:e2e:test -- locale-switch-home-smoke
 npm run mobile:e2e:test -- settings-select
 npm run mobile:e2e:test -- error-log
+npm run mobile:e2e:test -- custom-api
 ```
 
 ### API-backed areas

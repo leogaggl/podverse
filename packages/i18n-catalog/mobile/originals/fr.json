@@ -310,5 +310,27 @@
   },
   "more_advanced": {
     "title": "Avancé"
+  },
+  "custom_api": {
+    "title": "API personnalisée",
+    "menu_subtitle": "Diriger cette app vers un autre serveur",
+    "intro": "Remplace le serveur auquel cette app parle. Enregistrer vérifie que le serveur répond avec le statut 200 avant de conserver le changement. Réinitialiser rétablit le serveur d'origine. Déconnectez-vous avant de le changer pour que ce téléphone n'envoie pas votre session à un autre serveur.",
+    "url_label": "URL de l'API",
+    "url_placeholder": "https://example.com/api/v2",
+    "original_label": "API d'origine",
+    "original_missing": "Cette version n'a pas d'adresse d'API configurée.",
+    "using_original": "Cette app utilise l'API d'origine.",
+    "using_custom": "Cette app utilise l'API personnalisée du champ ci-dessous.",
+    "reset": "Réinitialiser",
+    "saved": "Enregistré. Cette app utilisera cette API.",
+    "reset_done": "L'API d'origine est rétablie.",
+    "invalid_url": "Saisissez une adresse http ou https qui se termine par /api et une version, comme /api/v2.",
+    "unreachable": "Impossible de joindre ce serveur. Rien n'a été enregistré.",
+    "unexpected_status": "Ce serveur a répondu avec le statut {status}. 200 était attendu. Rien n'a été enregistré.",
+    "unexpected_body": "Ce serveur a répondu avec le statut 200, mais le contrôle de santé n'a pas indiqué ok. Rien n'a été enregistré.",
+    "logout_title": "Déconnexion d'abord",
+    "logout_body": "Déconnectez-vous avant de changer l'API. Ce téléphone n'enverra pas votre session à un autre serveur.",
+    "notice_label": "API personnalisée",
+    "notice_body": "La connexion, l'inscription, les mots de passe de flux et les achats en boutique dans cette app vont vers ce serveur. Une page ouverte dans le navigateur utilise le site public, qui ne le fait pas."
   }
 }

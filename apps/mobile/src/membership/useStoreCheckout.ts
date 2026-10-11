@@ -3,8 +3,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
-import { deriveMembershipState } from '@podverse/helpers';
 import type { DTOBillingStatus } from '@podverse/helpers';
+import { deriveMembershipState } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
 import type { AuthRequestDeps } from '../auth/authRequestWithRefresh';

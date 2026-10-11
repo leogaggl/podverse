@@ -1,3 +1,4 @@
+import { readCustomApiBaseUrlOverride } from './customApiEndpoint';
 import {
   getMobileBillingModeFromEnv,
   getMobileContactEmailFromEnv,
@@ -37,9 +38,13 @@ export type MobileConfig = {
   webBaseUrl: string;
 };
 
+/** The build's API address, ignoring any custom override. */
+export const getBuiltInMobileApiBaseUrl = (): string | null => selectMobileApiBaseUrl().value;
+
 /**
  * Typed mobile app config. Sole consumer-facing entry for env-derived settings.
  * Outside `src/config/`, import `getMobileConfig()` — do not read `process.env.EXPO_PUBLIC_*`.
+ * A saved custom API address replaces `api` until Reset. Other fields stay on the build.
  */
 export const getMobileConfig = (): MobileConfig => {
   const selectedBaseUrl = selectMobileApiBaseUrl();
@@ -53,39 +58,7 @@ export const getMobileConfig = (): MobileConfig => {
   const webBaseUrl = getMobilePublicWebBaseUrlFromEnv();
   const contactEmail = getMobileContactEmailFromEnv();
 
-  if (selectedBaseUrl.value === null) {
-    return {
-      api: null,
-      billingMode,
-      contactEmail,
-      deepLinkSchemes,
-      isE2e,
-      isV4vEnabled,
-      pushProvider,
-      unifiedPushAuthKey,
-      unifiedPushEndpoint,
-      webBaseUrl,
-    };
-  }
-
-  if (!assertMobileApiEnvOrWarn(selectedBaseUrl.sourceEnvVarName)) {
-    return {
-      api: null,
-      billingMode,
-      contactEmail,
-      deepLinkSchemes,
-      isE2e,
-      isV4vEnabled,
-      pushProvider,
-      unifiedPushAuthKey,
-      unifiedPushEndpoint,
-      webBaseUrl,
-    };
-  }
-
-  const api = parseMobileApiConnection(selectedBaseUrl.value);
-  return {
-    api,
+  const shared = {
     billingMode,
     contactEmail,
     deepLinkSchemes,
@@ -95,5 +68,35 @@ export const getMobileConfig = (): MobileConfig => {
     unifiedPushAuthKey,
     unifiedPushEndpoint,
     webBaseUrl,
+  };
+
+  const override = readCustomApiBaseUrlOverride();
+  if (override !== null) {
+    const overrideApi = parseMobileApiConnection(override);
+    if (overrideApi !== null) {
+      return {
+        api: overrideApi,
+        ...shared,
+      };
+    }
+  }
+
+  if (selectedBaseUrl.value === null) {
+    return {
+      api: null,
+      ...shared,
+    };
+  }
+
+  if (!assertMobileApiEnvOrWarn(selectedBaseUrl.sourceEnvVarName)) {
+    return {
+      api: null,
+      ...shared,
+    };
+  }
+
+  return {
+    api: parseMobileApiConnection(selectedBaseUrl.value),
+    ...shared,
   };
 };

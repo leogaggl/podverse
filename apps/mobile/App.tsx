@@ -12,6 +12,7 @@ import { ForcedLogoutNotice } from './src/components/feedback/ForcedLogoutNotice
 import { MembershipExpiredBanner } from './src/components/feedback/MembershipExpiredBanner';
 import { OverlayA11yShield, OverlayHostProvider, OverlayOutlet } from './src/components/overlay';
 import { ShareSheetPassthroughOverlay } from './src/components/share/ShareSheetPassthroughOverlay';
+import { hydrateCustomApiEndpoint } from './src/config/customApiEndpoint';
 import { AutoQueueProvider } from './src/contexts/AutoQueueProvider';
 import { QueuesProvider } from './src/contexts/QueuesProvider';
 import { initializeDatabase } from './src/data/db';
@@ -30,7 +31,6 @@ import { isAuthGatedDeepLink } from './src/navigation/deepLinking';
 import { TabLayoutProvider, useTabLayout } from './src/navigation/TabLayoutProvider';
 import { PlaybackProvider } from './src/playback';
 import { PopularityTrackingProvider } from './src/popularityTracking/PopularityTrackingProvider';
-import { TermsAcceptanceProvider } from './src/terms/TermsAcceptanceProvider';
 import {
   getInitialNotificationDeepLinkUrl,
   subscribeToNotificationOpen,
@@ -38,6 +38,7 @@ import {
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { SignUpScreen } from './src/screens/auth/SignUpScreen';
 import { SyncProvider } from './src/sync';
+import { TermsAcceptanceProvider } from './src/terms/TermsAcceptanceProvider';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { useTheme } from './src/theme/useTheme';
 
@@ -55,6 +56,7 @@ startPerfUiMonitor();
 
 export default function App() {
   const [isI18nReady, setIsI18nReady] = useState(false);
+  const [isCustomApiReady, setIsCustomApiReady] = useState(false);
   const [pendingDeepLinkUrl, setPendingDeepLinkUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,6 +83,14 @@ export default function App() {
     void initializeI18n().finally(() => {
       setIsI18nReady(true);
     });
+
+    void hydrateCustomApiEndpoint()
+      .catch((error: unknown) => {
+        console.warn('[custom-api] hydrate failed', error);
+      })
+      .finally(() => {
+        setIsCustomApiReady(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -140,17 +150,19 @@ export default function App() {
         <OverlayHostProvider>
           <ThemeProvider>
             <TabLayoutProvider>
-              <AuthProvider>
-                {isI18nReady ? (
-                  <AppReadyGate
-                    onConsumePendingDeepLink={() => {
-                      setPendingDeepLinkUrl(null);
-                    }}
-                    pendingDeepLinkUrl={pendingDeepLinkUrl}
-                  />
-                ) : null}
-                <SplashController isI18nReady={isI18nReady} />
-              </AuthProvider>
+              {isCustomApiReady ? (
+                <AuthProvider>
+                  {isI18nReady ? (
+                    <AppReadyGate
+                      onConsumePendingDeepLink={() => {
+                        setPendingDeepLinkUrl(null);
+                      }}
+                      pendingDeepLinkUrl={pendingDeepLinkUrl}
+                    />
+                  ) : null}
+                  <SplashController isI18nReady={isI18nReady} />
+                </AuthProvider>
+              ) : null}
             </TabLayoutProvider>
           </ThemeProvider>
         </OverlayHostProvider>

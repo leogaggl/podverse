@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { HelperNote } from '../../components/feedback/HelperNote';
 import { FormActions, SettingsSwitchRow, TextField } from '../../components/form';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
@@ -96,6 +97,7 @@ export function AddByRssAddScreen({ navigation }: AddByRssAddScreenProps) {
   return (
     <MobileScreenContainer scrollEnabled testID="rss-add-screen">
       <View style={styles.content}>
+        <CustomApiNotice />
         <HelperNote
           message={t('features.add_by_rss.add_feed_instructions')}
           testID="rss-add-instructions"

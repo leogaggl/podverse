@@ -91,9 +91,9 @@ Tests that cover toast behavior should assert the correct toast type appears for
 The membership page (`/membership`) shows different CTAs per state:
 
 - Not logged in -> "Sign Up"
-- Expired -> "Extend My Membership"
+- Expired -> "Extend Membership"
 - Active trial -> "Buy Premium Membership"
-- Active Premium -> "Extend My Membership"
+- Active Premium -> "Extend Membership"
 
 ### 8. Quality bar
 

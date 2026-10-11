@@ -408,8 +408,7 @@ const verifyTokenAndMembership = (
           'account_membership_status.account_membership',
         ]);
       }
-      const enforceTerms =
-        options.skipTermsAcceptance !== true && config.terms.version !== '';
+      const enforceTerms = options.skipTermsAcceptance !== true && config.terms.version !== '';
       if (enforceTerms) {
         relations = mergeFindOptionsRelations<Account>(relations, ['account_terms_acceptance']);
       }
