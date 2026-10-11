@@ -3,7 +3,7 @@ name: Membership Checkout
 ---
 # Signed-in store checkout uses the fake billing client. One purchase posts a test-processor
 # payment. The seeded trial already has time left, so checkout shows when the added time starts.
-# After the purchase, Membership shows the expiry.
+# After the purchase, the success screen stays up briefly, then Membership shows the expiry.
 # API-backed. Re-seed so ios and android expose the test checkout channel.
 
 - runFlow: shared/launch-and-connect.yaml
@@ -28,15 +28,19 @@ name: Membership Checkout
       id: membership-checkout-ready
     timeout: ${TIMEOUT_SLOW}
 - assertVisible:
-    id: membership-checkout-added-time
+    id: membership-checkout-intro
 - assertVisible:
     id: membership-checkout-cadence-monthly
 - tapOn:
     id: membership-extend-purchase
 - extendedWaitUntil:
     visible:
-      id: more-membership-screen
+      id: membership-checkout-success
     timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    visible:
+      id: more-membership-screen
+    timeout: ${TIMEOUT_SLOWER}
 - extendedWaitUntil:
     visible:
       id: more-membership-expires

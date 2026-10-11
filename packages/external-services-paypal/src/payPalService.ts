@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type {
   CapturedPayment,
   Order,
@@ -15,6 +17,8 @@ import {
 
 import type { BillingCadence } from '@podverse/helpers';
 import { PAYPAL_ONE_TIME_PRODUCT_IDS } from '@podverse/helpers';
+
+import { buildPayPalInvoiceId } from './payPalInvoiceId.js';
 
 export type PayPalEnvironment = 'sandbox' | 'live';
 
@@ -96,6 +100,53 @@ function requireResult<T>(result: ControllerResult<T>, context: string): T {
   return result.result;
 }
 
+interface PayPalHttpError {
+  statusCode: number;
+  result?: unknown;
+}
+
+function isPayPalHttpError(error: unknown): error is PayPalHttpError {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  return typeof Reflect.get(error, 'statusCode') === 'number';
+}
+
+function formatPayPalHttpError(context: string, error: PayPalHttpError): string {
+  const parts = [`PayPal ${context} failed with status ${error.statusCode}`];
+  if (!isRecord(error.result)) {
+    return parts.join(': ');
+  }
+
+  const name = readString(error.result, 'name');
+  const message = readString(error.result, 'message');
+  if (name !== null) {
+    parts.push(name);
+  }
+  if (message !== null) {
+    parts.push(message);
+  }
+
+  const details = Reflect.get(error.result, 'details');
+  if (!Array.isArray(details)) {
+    return parts.join(': ');
+  }
+  for (const detail of details) {
+    if (!isRecord(detail)) {
+      continue;
+    }
+    const issue = readString(detail, 'issue');
+    const description = readString(detail, 'description');
+    if (issue !== null) {
+      parts.push(issue);
+    }
+    if (description !== null) {
+      parts.push(description);
+    }
+  }
+  return parts.join(': ');
+}
+
 export class PayPalService {
   private readonly clientId: string;
   private readonly clientSecret: string;
@@ -153,26 +204,29 @@ export class PayPalService {
 
   async createOrder(params: CreatePayPalOrderParams): Promise<Order> {
     const sku = PAYPAL_ONE_TIME_PRODUCT_IDS[params.cadence];
+    const money = {
+      currencyCode: params.currencyCode,
+      value: params.amount,
+    };
     const body: OrderRequest = {
       intent: CheckoutPaymentIntent.Capture,
       purchaseUnits: [
         {
           amount: {
-            currencyCode: params.currencyCode,
-            value: params.amount,
+            ...money,
+            breakdown: {
+              itemTotal: money,
+            },
           },
           customId: params.accountBillingCustomerRef,
-          invoiceId: sku,
+          invoiceId: buildPayPalInvoiceId(sku, randomUUID()),
           items: [
             {
               category: ItemCategory.DigitalGoods,
               name: 'Premium Membership',
               quantity: '1',
               sku,
-              unitAmount: {
-                currencyCode: params.currencyCode,
-                value: params.amount,
-              },
+              unitAmount: money,
             },
           ],
         },
@@ -186,27 +240,33 @@ export class PayPalService {
       };
     }
 
-    const response = await this.ordersController.createOrder({
-      body,
-      paypalRequestId: params.paypalRequestId,
-      prefer: 'return=representation',
-    });
+    const response = await this.callPayPal('create order', () =>
+      this.ordersController.createOrder({
+        body,
+        paypalRequestId: params.paypalRequestId,
+        prefer: 'return=representation',
+      })
+    );
     return requireResult(response, 'create order');
   }
 
   async captureOrder(params: CapturePayPalOrderParams): Promise<Order> {
-    const response = await this.ordersController.captureOrder({
-      id: params.orderId,
-      paypalRequestId: params.paypalRequestId,
-      prefer: 'return=representation',
-    });
+    const response = await this.callPayPal('capture order', () =>
+      this.ordersController.captureOrder({
+        id: params.orderId,
+        paypalRequestId: params.paypalRequestId,
+        prefer: 'return=representation',
+      })
+    );
     return requireResult(response, 'capture order');
   }
 
   async getPaymentInfo(paymentId: string): Promise<PaymentAuthorization | null> {
-    const response = await this.paymentsController.getAuthorizedPayment({
-      authorizationId: paymentId,
-    });
+    const response = await this.callPayPal('get authorized payment', () =>
+      this.paymentsController.getAuthorizedPayment({
+        authorizationId: paymentId,
+      })
+    );
     const result = response.result;
     if (!isPaymentAuthorization(result)) {
       return null;
@@ -215,10 +275,23 @@ export class PayPalService {
   }
 
   async getCaptureInfo(paymentId: string): Promise<CapturedPayment | null> {
-    const response = await this.paymentsController.getCapturedPayment({
-      captureId: paymentId,
-    });
+    const response = await this.callPayPal('get captured payment', () =>
+      this.paymentsController.getCapturedPayment({
+        captureId: paymentId,
+      })
+    );
     return response.result ?? null;
+  }
+
+  private async callPayPal<T>(context: string, request: () => Promise<T>): Promise<T> {
+    try {
+      return await request();
+    } catch (error) {
+      if (!isPayPalHttpError(error)) {
+        throw error;
+      }
+      throw new Error(formatPayPalHttpError(context, error), { cause: error });
+    }
   }
 
   async verifyWebhookSignature(params: PayPalWebhookVerificationPayload): Promise<boolean> {

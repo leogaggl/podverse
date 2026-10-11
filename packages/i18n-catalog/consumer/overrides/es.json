@@ -1031,7 +1031,8 @@
   },
   "checkout": {
     "checkout": "",
-    "payment_plan": "",
+    "page_intro": "",
+    "choose_a_plan": "",
     "payment_processor": "",
     "paypal": "",
     "complete_purchase": "",
@@ -1043,8 +1044,13 @@
     "plan_unavailable": "",
     "success_waiting": "",
     "success_active": "",
-    "success_timeout": "",
-    "added_time": ""
+    "success_extended_month": "",
+    "success_extended_year": "",
+    "success_extended_month_length": "",
+    "success_extended_year_length": "",
+    "success_active_expires": "",
+    "success_opening_membership": "",
+    "success_timeout": ""
   },
   "layouts": {
     "change_layout_view": "",

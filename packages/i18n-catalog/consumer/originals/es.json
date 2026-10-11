@@ -926,7 +926,7 @@
     "cta_upgrade_text": "Mejorar a Premium",
     "buy_premium_membership": "Comprar membresía Premium",
     "your_membership_expires_on": "Tu membresía Premium expira el {date}",
-    "extend_my_membership": "Extender mi membresía",
+    "extend_my_membership": "Extender membresía",
     "membership_expired_text_line1": "Tu membresía ha expirado.",
     "membership_expired_text_line2": "Por favor, extiende tu membresía para seguir disfrutando de las funciones Premium.",
     "trial_expired_text_line1": "Tu prueba gratuita ha expirado.",
@@ -1031,7 +1031,8 @@
   },
   "checkout": {
     "checkout": "Pago",
-    "payment_plan": "Plan de pago",
+    "page_intro": "Elige un plan Premium y completa el pago abajo. El tiempo que quede de tu membresía actual se suma a tu compra.",
+    "choose_a_plan": "Elige un plan",
     "payment_processor": "Procesador de pagos",
     "paypal": "PayPal",
     "complete_purchase": "Completar compra",
@@ -1043,8 +1044,13 @@
     "plan_unavailable": "Este plan no está disponible.",
     "success_waiting": "Confirmando tu membresía.",
     "success_active": "Tu membresía está activa.",
-    "success_timeout": "La membresía aún no está confirmada. Contacta con soporte si no aparece pronto.",
-    "added_time": "El tiempo nuevo empieza el {start}. La membresía vence entonces el {end}."
+    "success_extended_month": "Tu compra Premium está completa. La membresía se extendió 1 mes. Ahora vence el {date}.",
+    "success_extended_year": "Tu compra Premium está completa. La membresía se extendió 1 año. Ahora vence el {date}.",
+    "success_extended_month_length": "Tu compra Premium está completa. La membresía se extendió 1 mes.",
+    "success_extended_year_length": "Tu compra Premium está completa. La membresía se extendió 1 año.",
+    "success_active_expires": "Tu compra Premium está completa. Ahora vence el {date}.",
+    "success_opening_membership": "Abriendo la página de Membresía.",
+    "success_timeout": "La membresía aún no está confirmada. Contacta con soporte si no aparece pronto."
   },
   "layouts": {
     "change_layout_view": "Cambiar vista de diseño",
@@ -1214,7 +1220,7 @@
       "expires_on": "Caduca el",
       "compare_plans": "Comparar planes",
       "load_failed": "No se pudo cargar la facturación de la membresía.",
-      "buy_more_time": "Comprar más tiempo"
+      "buy_more_time": "Extender membresía"
     }
   },
   "contact": {

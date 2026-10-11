@@ -12,6 +12,7 @@ import {
   resolveBillingProcessorProductsFromEnv,
 } from '@podverse/helpers';
 
+import { resolvePayPalProductId } from './payPalInvoiceId.js';
 import type { PayPalEnvironment, PayPalServiceParams } from './payPalService.js';
 import { PayPalService } from './payPalService.js';
 
@@ -41,17 +42,21 @@ function loadSoldProducts(
   );
 }
 
-function isSoldProduct(
-  products: readonly SoldBillingProduct[],
-  externalProductId: string | null
-): boolean {
-  if (externalProductId === null || externalProductId === '') {
-    return false;
+function paypalProductIds(products: readonly SoldBillingProduct[]): string[] {
+  const ids: string[] = [];
+  for (const product of products) {
+    if (product.externalBasePlanId === null) {
+      ids.push(product.externalProductId);
+    }
   }
-  return products.some(
-    (product) =>
-      product.externalProductId === externalProductId && product.externalBasePlanId === null
-  );
+  return ids;
+}
+
+function soldProductId(
+  products: readonly SoldBillingProduct[],
+  invoiceId: string | null
+): string | null {
+  return resolvePayPalProductId(invoiceId, paypalProductIds(products));
 }
 
 function logUnmappedBillingProduct(productId: string | null, notificationType: string): void {
@@ -164,9 +169,10 @@ function mapCaptureCompletedEvent(
     return [];
   }
 
-  const externalProductId = readString(resource, 'invoice_id');
-  if (!isSoldProduct(soldProducts, externalProductId)) {
-    logUnmappedBillingProduct(externalProductId, 'PAYMENT.CAPTURE.COMPLETED');
+  const rawInvoiceId = readString(resource, 'invoice_id');
+  const externalProductId = soldProductId(soldProducts, rawInvoiceId);
+  if (externalProductId === null) {
+    logUnmappedBillingProduct(rawInvoiceId, 'PAYMENT.CAPTURE.COMPLETED');
     return [];
   }
 
@@ -202,9 +208,9 @@ function mapRefundOrRevokeEvent(
   if (transactionId === null) {
     return [];
   }
-  const externalProductId = readString(resource, 'invoice_id');
-  if (externalProductId !== null && !isSoldProduct(soldProducts, externalProductId)) {
-    logUnmappedBillingProduct(externalProductId, eventType);
+  const rawInvoiceId = readString(resource, 'invoice_id');
+  if (rawInvoiceId !== null && soldProductId(soldProducts, rawInvoiceId) === null) {
+    logUnmappedBillingProduct(rawInvoiceId, eventType);
     return [];
   }
   const occurredAt = readOccurredAt(payload, resource, nowIso);
@@ -286,9 +292,10 @@ function mapCaptureToSnapshot(
   isSandbox: boolean,
   fetchedAt: string
 ): NormalizedTransactionSnapshot {
-  const externalProductId = ref.externalProductId ?? readString(capture, 'invoiceId');
-  if (!isSoldProduct(soldProducts, externalProductId)) {
-    logUnmappedBillingProduct(externalProductId, 'fetchTransaction');
+  const rawProductId = ref.externalProductId ?? readString(capture, 'invoiceId');
+  const externalProductId = soldProductId(soldProducts, rawProductId);
+  if (externalProductId === null) {
+    logUnmappedBillingProduct(rawProductId, 'fetchTransaction');
     throw new BillingProcessorRecordNotFoundError('paypal', ref.externalId);
   }
   const status = readString(capture, 'status');

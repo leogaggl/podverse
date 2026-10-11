@@ -49,9 +49,10 @@ that email and password in the PayPal window. Podverse does not store them.
 
 Seeded app logins and the shared password are in the
 [QUICKSTART seed table](/docs/QUICKSTART.md#3-recreate-infra-and-seed-the-database).
-Those accounts already hold trial or premium time. **Your membership is active.** on the
-success page means billing status has a future expiry, including time from the seed.
-Write down **Expires On** before you pay, and treat a later date as the proof.
+Those accounts already hold trial or premium time. The success page names the Premium
+purchase, whether it added 1 month or 1 year, and the new expiration date. After a few
+seconds the browser opens Membership, where **Premium** and **Expires On** are at the
+top. Write down **Expires On** before you pay, and treat a later date as the proof.
 
 1. Sign in at http://localhost:3002.
 2. Open http://localhost:3002/settings?tab=account and note **Expires On**.
@@ -60,10 +61,12 @@ Write down **Expires On** before you pay, and treat a later date as the proof.
    the new time starts and when membership then expires.
 5. Complete the PayPal window with the personal sandbox account.
 6. The browser lands on http://localhost:3002/checkout/success. It shows **Confirming
-   your membership.** and then **Your membership is active.** The timeout sentence means
+   your membership.** and then a sentence that the Premium purchase is complete, that
+   membership was extended by 1 month or 1 year, and the new expiration date. After a
+   few seconds it opens http://localhost:3002/membership. The timeout sentence means
    billing status still had no future expiry after 30 seconds.
-7. Return to **Settings → Account**. **Expires On** should match the end date from
-   checkout.
+7. On Membership, **Premium** and **Expires On** are at the top. The date should be
+   later than the one you noted. **Settings → Account** lists the same **Expires On**.
 
 A second purchase stacks on that date. If the webhook arrives after the button already
 captured the order, the ledger records the payment once.
@@ -73,7 +76,7 @@ captured the order, the ledger records the payment once.
 | PayPal button on `/checkout`                     | Public client id is set, the web channel is on, and a product row exists |
 | `This plan is not available.`                    | PayPal is offered and that cadence has no product row                    |
 | `Memberships can't be purchased here right now.` | PayPal is not offered on this server                                     |
-| `Your membership is active.`                     | Status has a future expiry, including time the account already held      |
+| Premium purchase sentence with 1 month or 1 year | Status has a future expiry, including time the account already held      |
 | **Expires On** is later than the date you noted  | This purchase added a grant                                              |
 
 A contact address instead of the PayPal button is the same case as the "can't be

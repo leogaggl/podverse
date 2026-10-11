@@ -44,13 +44,13 @@ export function SettingsListenStats() {
     }
   };
 
+  const showStatusHelp = choice !== 'allowed';
+
   return (
     <SettingsSection>
       <h3>{t('title')}</h3>
       <SwitchButton
         checked={allowed}
-        helpAriaLabel={tMisc('more_info')}
-        helpText={t(popularityTrackingStatusKey(choice))}
         id="popularity-tracking"
         label={t('title')}
         loading={isSaving}
@@ -63,6 +63,12 @@ export function SettingsListenStats() {
         }}
         stateOffLabel={tMisc('off')}
         stateOnLabel={tMisc('on')}
+        {...(showStatusHelp
+          ? {
+              helpAriaLabel: tMisc('more_info'),
+              helpText: t(popularityTrackingStatusKey(choice)),
+            }
+          : {})}
       />
     </SettingsSection>
   );

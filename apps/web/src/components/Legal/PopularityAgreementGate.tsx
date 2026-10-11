@@ -84,11 +84,7 @@ export function PopularityAgreementGate({ onDecided }: PopularityAgreementGatePr
       acceptDisabled={agreement === null}
       acceptLabel={t('yes')}
       accordionTitle={t('full_agreement')}
-      dateLabel={
-        agreement === null
-          ? null
-          : t('agreement_date', { agreement_date: agreement.version })
-      }
+      dateLabel={null}
       errorMessage={hasError ? t('load_error') : null}
       fullMarkdown={agreement?.markdown ?? null}
       introMarkdown={agreement === null ? null : getCopyMarkdownIntro(agreement.markdown)}

@@ -1,3 +1,13 @@
+.intro {
+  margin-bottom: var(--spacing-4xl);
+}
+
+.intro p {
+  color: var(--text-color-primary);
+  font-size: var(--font-size-lg);
+  margin: var(--spacing-none);
+}
+
 .formSection {
   margin-bottom: var(--spacing-4xl);
 }
@@ -21,4 +31,14 @@
   font-size: var(--font-size-lg);
   color: var(--text-color-primary);
   margin: var(--spacing-none);
+}
+
+.successDetail {
+  font-size: var(--font-size-lg);
+}
+
+.successContinue {
+  display: block;
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-base);
 }

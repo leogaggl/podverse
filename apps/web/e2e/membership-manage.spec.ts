@@ -82,7 +82,7 @@ test.describe('Manage membership', () => {
     const membership = page.getByRole('region', { name: 'Membership' });
     await expect(membership.getByText('Premium', { exact: true })).toBeVisible();
     await expect(membership.getByText('Expires On', { exact: true })).toBeVisible();
-    await expect(membership.getByRole('link', { name: 'Buy More Time' })).toBeVisible();
+    await expect(membership.getByRole('link', { name: 'Extend Membership' })).toBeVisible();
 
     await capturePageLoad(
       page,

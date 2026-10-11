@@ -61,6 +61,12 @@ export function MembershipCheckoutPlans({
           ...typography.title,
           color: themeStyles.textPrimary.color,
         },
+        planPriceRow: {
+          alignItems: 'flex-start',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: tokens.spacing.sm,
+        },
         planRow: {
           flexDirection: 'row',
           gap: tokens.spacing.sm,
@@ -128,14 +134,16 @@ export function MembershipCheckoutPlans({
           >
             <Text style={styles.planName}>{name}</Text>
             {price !== null ? (
-              <Text style={styles.planPrice} testID={`membership-checkout-price-${value}`}>
-                {price}
-              </Text>
+              <View style={styles.planPriceRow}>
+                <Text style={styles.planPrice} testID={`membership-checkout-price-${value}`}>
+                  {price}
+                </Text>
+                {savings !== null ? (
+                  <Badge label={savings} testID="membership-checkout-percent-off" tone="accent" />
+                ) : null}
+              </View>
             ) : null}
             {price !== null ? <Text style={styles.planPeriod}>{period}</Text> : null}
-            {savings !== null ? (
-              <Badge label={savings} testID="membership-checkout-percent-off" tone="accent" />
-            ) : null}
           </Pressable>
         );
       })}

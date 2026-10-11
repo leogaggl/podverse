@@ -2,8 +2,8 @@ import type { BillingCadence } from '../billingDomain.js';
 import type { PaymentProcessorId } from './paymentProcessorId.js';
 
 /**
- * PayPal Orders v2 has no product catalog, so Podverse names the one-time products itself. The
- * PayPal adapter sends one of these as the purchase unit reference and reports it back as the
+ * PayPal Orders v2 has no product catalog, so Podverse names the one-time products itself.
+ * Each order invoice id starts with one of these ids. The adapter reports that id as the
  * event's `externalProductId`, which maps the capture to its cadence.
  */
 export const PAYPAL_ONE_TIME_PRODUCT_IDS = {

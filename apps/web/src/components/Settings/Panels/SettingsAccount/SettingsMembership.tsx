@@ -84,7 +84,9 @@ export function SettingsMembership({ showCheckoutActions = true }: SettingsMembe
             {showCheckoutActions ? (
               <div className={styles.actions}>
                 <ActionLink href={ROUTES.CHECKOUT} LinkComponent={Link}>
-                  {status.is_entitled ? t('buy_more_time') : tMembership('renew_membership')}
+                  {status.is_entitled
+                    ? tMembership('extend_my_membership')
+                    : tMembership('renew_membership')}
                 </ActionLink>
                 <ActionLink href={ROUTES.MEMBERSHIP} LinkComponent={Link}>
                   {t('compare_plans')}

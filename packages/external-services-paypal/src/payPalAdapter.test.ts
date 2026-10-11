@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { BillingWebhookVerificationError, PAYPAL_ONE_TIME_PRODUCT_IDS } from '@podverse/helpers';
 
 import { createPayPalAdapter } from './payPalAdapter.js';
+import { buildPayPalInvoiceId } from './payPalInvoiceId.js';
 import { PayPalService } from './payPalService.js';
 
 const WEBHOOK_HEADERS = {
@@ -111,6 +112,34 @@ describe('createPayPalAdapter', () => {
         },
       },
     ]);
+  });
+
+  it('maps a unique invoice id back to the sold product', async () => {
+    const adapter = createAdapter(createMockService({ isValidSignature: true }));
+    const invoiceId = buildPayPalInvoiceId(
+      PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
+      '11111111-1111-4111-8111-111111111111'
+    );
+
+    const result = await adapter.verifyAndParseWebhook({
+      rawBody: JSON.stringify({
+        id: 'WH-EVENT-UNIQUE',
+        event_type: 'PAYMENT.CAPTURE.COMPLETED',
+        resource: {
+          id: 'CAPTURE-UNIQUE',
+          custom_id: 'customer-ref-1',
+          invoice_id: invoiceId,
+          create_time: '2026-02-01T00:00:00Z',
+          amount: { value: '3.00', currency_code: 'USD' },
+        },
+      }),
+      headers: WEBHOOK_HEADERS,
+    });
+
+    expect(result.events[0]).toMatchObject({
+      type: 'payment_settled',
+      externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
+    });
   });
 
   it('maps a refunded capture to refund_or_revoke', async () => {
@@ -230,5 +259,31 @@ describe('createPayPalAdapter', () => {
       revokedAt: null,
       isSandbox: true,
     });
+  });
+
+  it('reads the sold product from a unique invoice id on the capture', async () => {
+    const invoiceId = buildPayPalInvoiceId(
+      PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
+      '22222222-2222-4222-8222-222222222222'
+    );
+    const adapter = createAdapter(
+      createMockService({
+        isValidSignature: true,
+        capture: {
+          id: 'CAPTURE-10',
+          customId: 'customer-ref-10',
+          invoiceId,
+          amount: { currencyCode: 'USD', value: '3.00' },
+          createTime: '2026-04-02T00:00:00Z',
+        },
+      })
+    );
+
+    const snapshot = await adapter.fetchTransaction({
+      externalId: 'CAPTURE-10',
+      externalProductId: invoiceId,
+    });
+
+    expect(snapshot.externalProductId).toBe(PAYPAL_ONE_TIME_PRODUCT_IDS.monthly);
   });
 });

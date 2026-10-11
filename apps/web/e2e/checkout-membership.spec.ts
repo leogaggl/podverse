@@ -54,6 +54,7 @@ function settledProductId(body: unknown): string | null {
 }
 
 test.describe('Checkout membership', () => {
+  test.describe.configure({ timeout: 20_000 });
   test('When the test processor is offered, a monthly purchase confirms membership.', async ({
     page,
   }, testInfo) => {
@@ -71,6 +72,12 @@ test.describe('Checkout membership', () => {
 
     await page.goto('/checkout');
     await expect(page.getByRole('checkbox')).toHaveCount(0);
+    const intro = page.getByTestId('checkout-intro');
+    await expect(intro).toBeVisible();
+    await expect(intro).toContainText(
+      'Choose a Premium plan, then complete payment below. Time left on your current membership is added to your purchase.'
+    );
+    await expect(page.getByRole('radiogroup', { name: 'Choose a Plan' })).toBeVisible();
 
     const simulateResponse = page.waitForResponse(
       (response) =>
@@ -84,13 +91,28 @@ test.describe('Checkout membership', () => {
     expect(processedAndEntitled(await response.json())).toBe(true);
 
     await expect(page).toHaveURL(/\/checkout\/success/);
-    await expect(page.getByText('Your membership is active.')).toBeVisible();
+    const success = page.getByTestId('checkout-success-detail');
+    await expect(success).toContainText(
+      'Your Premium purchase is complete. Membership was extended by 1 month.'
+    );
 
     await capturePageLoad(
       page,
       testInfo,
-      'The success page confirms membership after the monthly test purchase.',
-      page.getByText('Your membership is active.')
+      'The success page says the Premium purchase added 1 month.',
+      success
+    );
+
+    await expect(page).toHaveURL(/\/membership\/?$/);
+    const expiry = page.getByTestId('membership-expiry');
+    await expect(expiry).toContainText('Premium');
+    await expect(expiry).toContainText('Expires On');
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'Membership shows the Premium expiration at the top.',
+      expiry
     );
   });
 
@@ -124,35 +146,29 @@ test.describe('Checkout membership', () => {
     expect(processedAndEntitled(await response.json())).toBe(true);
 
     await expect(page).toHaveURL(/\/checkout\/success/);
-    await expect(page.getByText('Your membership is active.')).toBeVisible();
+    const success = page.getByTestId('checkout-success-detail');
+    await expect(success).toContainText(
+      'Your Premium purchase is complete. Membership was extended by 1 year.'
+    );
 
     await capturePageLoad(
       page,
       testInfo,
-      'The success page confirms membership after the annual test purchase.',
-      page.getByText('Your membership is active.')
+      'The success page says the Premium purchase added 1 year.',
+      success
     );
-  });
 
-  test('When the member already has time, checkout shows when the new time starts and ends.', async ({
-    page,
-  }, testInfo) => {
-    const loginResponse = await page.request.post(API_LOGIN_URL, {
-      data: { email: LOGIN_EMAIL, password: LOGIN_PASSWORD },
-    });
-    expect(loginResponse.ok(), await loginResponse.text()).toBeTruthy();
-
-    await page.goto('/checkout');
-    const addedTime = page.getByTestId('checkout-added-time');
-    await expect(addedTime).toBeVisible();
-    await expect(addedTime).toContainText(/New time starts on .+ Membership then expires on .+/);
-    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/membership\/?$/);
+    const expiry = page.getByTestId('membership-expiry');
+    await expect(expiry).toContainText('Premium');
+    await expect(expiry).toContainText('Expires On');
 
     await capturePageLoad(
       page,
       testInfo,
-      'Checkout shows the date new time starts and the resulting expiry.',
-      addedTime
+      'Membership shows the Premium expiration at the top.',
+      expiry
     );
   });
+
 });

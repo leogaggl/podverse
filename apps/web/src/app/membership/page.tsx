@@ -1,10 +1,11 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import React from 'react';
 
 import type { DTOAccount } from '@podverse/helpers';
 import {
   calculateTimeRemaining,
   deriveMembershipState,
+  formatDateAbbrev,
   MEMBERSHIP_COMPARISON_FEATURES,
 } from '@podverse/helpers';
 import { MainColumnStack, MainHeader, MainSidebarLayout, SideContent } from '@podverse/ui';
@@ -68,8 +69,10 @@ function MembershipContactMailto({
 
 export default async function MembershipPage() {
   const config = getConfig();
+  const locale = await getLocale();
   const t = await getTranslations('membership');
   const tCheckout = await getTranslations('checkout');
+  const tSettingsMembership = await getTranslations('settings.membership');
   const ssrLoggedInAccount = await getSSRLoggedInAccount();
   const ssrApiRequestService = getSSRApiRequestService();
   const signupMode = config.public.account.signupMode;
@@ -115,6 +118,11 @@ export default async function MembershipPage() {
   const isPremiumStatus = membership.tier === 'premium';
   const membershipExpiresAt = membership.expiresAt;
   const isMembershipExpired = membership.isExpired;
+  const showPremiumExpiry =
+    ssrLoggedInAccount !== null &&
+    isPremiumStatus &&
+    !isMembershipExpired &&
+    membershipExpiresAt !== null;
 
   // Calculate time left in membership if active
   const { daysLeft, hoursLeft, minutesLeft } =
@@ -129,6 +137,16 @@ export default async function MembershipPage() {
         <MainSidebarLayout>
           <SideContent />
           <MainColumnStack>
+            {showPremiumExpiry && membershipExpiresAt !== null ? (
+              <section className={styles.expiryBanner} data-testid="membership-expiry">
+                <p className={styles.expiryTier}>{t('premium')}</p>
+                <p className={styles.expiryLabel}>{tSettingsMembership('expires_on')}</p>
+                <p className={styles.expiryDate}>
+                  {formatDateAbbrev(membershipExpiresAt, locale)}
+                </p>
+              </section>
+            ) : null}
+
             {showPurchaseOffers && errorMessage && (
               <section className={styles.errorSection}>
                 <p>{errorMessage}</p>

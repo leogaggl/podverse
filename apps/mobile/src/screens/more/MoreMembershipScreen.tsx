@@ -21,7 +21,7 @@ import { useTheme } from '../../theme/useTheme';
 
 /**
  * Membership screen. Shows how long access lasts, the feature table, and trial limits.
- * Logged out, the action opens web sign-up. Logged in, Extend My Membership opens store
+ * Logged out, the action opens web sign-up. Logged in, Extend Membership opens store
  * checkout.
  */
 
@@ -97,6 +97,21 @@ export function MoreMembershipScreen() {
           marginBottom: tokens.spacing['4xl'],
           marginTop: tokens.spacing.sm,
         },
+        expiryBody: {
+          gap: tokens.spacing.xs,
+        },
+        expiryDate: {
+          ...typography.display,
+          color: themeStyles.textPrimary.color,
+        },
+        expiryLabel: {
+          ...typography.label,
+          color: themeStyles.textSecondary.color,
+        },
+        expiryTier: {
+          ...typography.heading,
+          color: themeStyles.textPrimary.color,
+        },
         featureSection: {
           marginBottom: tokens.spacing['4xl'],
         },
@@ -122,20 +137,27 @@ export function MoreMembershipScreen() {
 
   return (
     <MobileScreenContainer testID="more-membership-screen">
-      {statusLines.length > 0 || showsExpiry ? (
+      {showsExpiry && expiresAt !== null ? (
+        <View style={styles.section}>
+          <Card testID="more-membership-expiry">
+            <View style={styles.expiryBody}>
+              <Text style={styles.expiryTier}>{t('membership.premium')}</Text>
+              <Text style={styles.expiryLabel}>{t('settings.membership.expires_on')}</Text>
+              <Text style={styles.expiryDate} testID="more-membership-expires">
+                {formatDateAbbrev(expiresAt, i18n.language)}
+              </Text>
+            </View>
+          </Card>
+        </View>
+      ) : null}
+
+      {statusLines.length > 0 ? (
         <View style={styles.section} testID="more-membership-status">
           {statusLines.map((line, index) => (
             <Text key={`${index}-${line}`} style={styles.status}>
               {line}
             </Text>
           ))}
-          {showsExpiry && expiresAt !== null ? (
-            <Text style={styles.status} testID="more-membership-expires">
-              {t('membership.your_membership_expires_on', {
-                date: formatDateAbbrev(expiresAt, i18n.language),
-              })}
-            </Text>
-          ) : null}
         </View>
       ) : null}
 

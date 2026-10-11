@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  addedMembershipWindow,
   availableCadences,
   checkoutProduct,
   isClientUpdateRequired,
@@ -90,31 +89,6 @@ describe('store checkout selection', () => {
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: storeOnly })).toBe('purchase');
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: paypalOnly })).toBe('purchase');
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: both })).toBe('purchase');
-  });
-
-  it('describes added time only while membership time is still ahead', () => {
-    const later = Date.parse('2026-09-01T00:00:00.000Z');
-    const window = addedMembershipWindow({
-      cadence: 'monthly',
-      membershipExpiresAt: '2026-10-01T00:00:00.000Z',
-      nowMs: later,
-    });
-    expect(window?.start.toISOString()).toBe('2026-10-01T00:00:00.000Z');
-    expect(window?.end.toISOString()).toBe('2026-11-01T00:00:00.000Z');
-    expect(
-      addedMembershipWindow({
-        cadence: 'monthly',
-        membershipExpiresAt: '2026-08-01T00:00:00.000Z',
-        nowMs: later,
-      })
-    ).toBeNull();
-    expect(
-      addedMembershipWindow({
-        cadence: 'annual',
-        membershipExpiresAt: null,
-        nowMs: later,
-      })
-    ).toBeNull();
   });
 
   it('treats the update-required code as the store-update prompt', () => {

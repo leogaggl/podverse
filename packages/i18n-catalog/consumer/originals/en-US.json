@@ -926,7 +926,7 @@
     "cta_upgrade_text": "Upgrade to Premium",
     "buy_premium_membership": "Buy Premium Membership",
     "your_membership_expires_on": "Your Premium membership expires on {date}",
-    "extend_my_membership": "Extend My Membership",
+    "extend_my_membership": "Extend Membership",
     "membership_expired_text_line1": "Your membership has expired.",
     "membership_expired_text_line2": "Please extend your membership to continue enjoying Premium features.",
     "trial_expired_text_line1": "Your Trial status has expired.",
@@ -1031,7 +1031,8 @@
   },
   "checkout": {
     "checkout": "Checkout",
-    "payment_plan": "Payment Plan",
+    "page_intro": "Choose a Premium plan, then complete payment below. Time left on your current membership is added to your purchase.",
+    "choose_a_plan": "Choose a Plan",
     "payment_processor": "Payment Processor",
     "paypal": "PayPal",
     "paypal_unavailable": "PayPal is unavailable right now.",
@@ -1043,8 +1044,13 @@
     "disabled_message": "Checkout page is disabled.",
     "success_waiting": "Confirming your membership.",
     "success_active": "Your membership is active.",
-    "success_timeout": "The membership is not confirmed yet. Contact support if it does not appear soon.",
-    "added_time": "New time starts on {start}. Membership then expires on {end}."
+    "success_extended_month": "Your Premium purchase is complete. Membership was extended by 1 month. It now expires on {date}.",
+    "success_extended_year": "Your Premium purchase is complete. Membership was extended by 1 year. It now expires on {date}.",
+    "success_extended_month_length": "Your Premium purchase is complete. Membership was extended by 1 month.",
+    "success_extended_year_length": "Your Premium purchase is complete. Membership was extended by 1 year.",
+    "success_active_expires": "Your Premium purchase is complete. It now expires on {date}.",
+    "success_opening_membership": "Opening the Membership page.",
+    "success_timeout": "The membership is not confirmed yet. Contact support if it does not appear soon."
   },
   "layouts": {
     "change_layout_view": "Change Layout View",
@@ -1105,7 +1111,7 @@
       "expires_on": "Expires On",
       "compare_plans": "Compare Plans",
       "load_failed": "Membership billing could not be loaded.",
-      "buy_more_time": "Buy More Time"
+      "buy_more_time": "Extend Membership"
     },
     "profile": {
       "profile": "Profile",

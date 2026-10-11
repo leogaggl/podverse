@@ -1,5 +1,4 @@
 import type { BillingCadence, DTOBillingCheckoutOptions } from '@podverse/helpers';
-import { extendMembershipPeriodByCadence } from '@podverse/helpers';
 
 import type { BillingBackend } from '../billing/BillingClient';
 
@@ -123,32 +122,6 @@ export const availableCadences = (
   processorId: string
 ): StoreCheckoutCadence[] =>
   CADENCE_ORDER.filter((cadence) => checkoutProduct(processors, processorId, cadence) !== null);
-
-/**
- * When the member already has time left, the window new time covers: it starts at the current
- * expiry and ends one cadence later. Null when there is no future expiry.
- */
-export const addedMembershipWindow = (params: {
-  membershipExpiresAt: string | null;
-  cadence: StoreCheckoutCadence;
-  nowMs: number;
-}): { start: Date; end: Date } | null => {
-  if (params.membershipExpiresAt === null) {
-    return null;
-  }
-  const start = new Date(params.membershipExpiresAt);
-  if (Number.isNaN(start.getTime()) || start.getTime() <= params.nowMs) {
-    return null;
-  }
-  return {
-    end: extendMembershipPeriodByCadence({
-      cadence: params.cadence,
-      membershipExpiresAt: start,
-      now: new Date(params.nowMs),
-    }),
-    start,
-  };
-};
 
 export const isClientUpdateRequired = (errorCode: string | null): boolean =>
   errorCode === BILLING_CLIENT_UPDATE_REQUIRED;

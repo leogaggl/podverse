@@ -33,13 +33,7 @@ export function PopularityTrackingAgreementBody({
       acceptTestID={yesTestID}
       accordionTestID={accordionTestID}
       accordionTitle={t('popularity_tracking.full_agreement')}
-      dateLabel={
-        agreement === null
-          ? null
-          : t('popularity_tracking.agreement_date', {
-              agreement_date: agreement.version,
-            })
-      }
+      dateLabel={null}
       errorKey={errorKey}
       fullMarkdown={agreement?.markdown ?? null}
       isLoading={isLoading}

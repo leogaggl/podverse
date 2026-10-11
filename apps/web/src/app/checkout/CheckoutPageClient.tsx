@@ -1,15 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-import type {
-  BillingCadence,
-  DTOBillingCheckoutOptions,
-  DTOBillingStatus,
-} from '@podverse/helpers';
-import { extendMembershipPeriodByCadence, formatDateAbbrev } from '@podverse/helpers';
+import type { BillingCadence, DTOBillingCheckoutOptions } from '@podverse/helpers';
 import {
   Alert,
   Button,
@@ -47,18 +42,6 @@ type CheckoutPageClientProps = {
   contactEmail: string;
 };
 
-function futureExpiry(status: DTOBillingStatus | null): Date | null {
-  const value = status?.membership_expires_at;
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  const expiry = new Date(value);
-  if (Number.isNaN(expiry.getTime()) || expiry.getTime() <= Date.now()) {
-    return null;
-  }
-  return expiry;
-}
-
 export function CheckoutPageClient({
   pricingData,
   isContactOnlyMode,
@@ -67,7 +50,6 @@ export function CheckoutPageClient({
   const t = useTranslations('checkout');
   const tMembership = useTranslations('membership');
   const tAuth = useTranslations('authentication');
-  const locale = useLocale();
   const { loggedInAccount } = useAccount();
   const config = useConfig();
   const router = useRouter();
@@ -75,7 +57,7 @@ export function CheckoutPageClient({
 
   const [cadence, setCadence] = useState<BillingCadence>('monthly');
   const [options, setOptions] = useState<DTOBillingCheckoutOptions | null>(null);
-  const [status, setStatus] = useState<DTOBillingStatus | null>(null);
+  const [catalogPricing, setCatalogPricing] = useState<MembershipPricingData | null>(pricingData);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +74,9 @@ export function CheckoutPageClient({
       setLoading(true);
       setError(null);
       const optionsRequest = getApiRequestService().reqBillingGetCheckoutOptions();
-      const statusRequest = getApiRequestService().reqBillingGetStatus();
+      const pricingRequest = getApiRequestService()
+        .reqProductMembershipGet()
+        .catch(() => null);
       try {
         const nextOptions = await optionsRequest;
         if (!cancelled) {
@@ -104,14 +88,28 @@ export function CheckoutPageClient({
         }
       }
       try {
-        const nextStatus = await statusRequest;
-        if (!cancelled) {
-          setStatus(nextStatus);
+        const pricingResponse = await pricingRequest;
+        if (
+          !cancelled &&
+          pricingResponse !== null &&
+          'data' in pricingResponse &&
+          pricingResponse.data !== undefined
+        ) {
+          const catalog = pricingResponse.data;
+          const costMonthly = catalog.premiumMembershipCostMonthly;
+          const costAnnually = catalog.premiumMembershipCostAnnually;
+          const monthlyEquivalentAnnually = costMonthly * 12;
+          setCatalogPricing({
+            costMonthly,
+            costAnnually,
+            freeTrialExpiration: 0,
+            freeTrialDays: 0,
+            annuallySavingsPercent: catalog.annuallySavingsPercent,
+            monthlyEquivalentAnnually,
+          });
         }
       } catch {
-        if (!cancelled) {
-          setStatus(null);
-        }
+        // Keep SSR pricing when the catalog request fails.
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -137,21 +135,18 @@ export function CheckoutPageClient({
   const showTestPurchase = options !== null && offersProcessor(options, 'test');
   const cadenceHasProduct =
     (paypalPurchasable && paypalProduct !== null) || (showTestPurchase && testProduct !== null);
-  const currentExpiry = futureExpiry(status);
-  const extensionEnd =
-    currentExpiry === null
-      ? null
-      : extendMembershipPeriodByCadence({
-          membershipExpiresAt: currentExpiry,
-          cadence,
-        });
+
+  const formatCatalogUsd = (amount: number): string => {
+    const dollars = Math.round(amount * 100) / 100;
+    return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+  };
 
   const planPrice = (plan: BillingCadence): string => {
-    if (pricingData === null) {
+    if (catalogPricing === null) {
       return '';
     }
-    const amount = plan === 'monthly' ? pricingData.costMonthly : pricingData.costAnnually;
-    return `$${amount}`;
+    const amount = plan === 'monthly' ? catalogPricing.costMonthly : catalogPricing.costAnnually;
+    return formatCatalogUsd(amount);
   };
 
   const completeTestPurchase = async () => {
@@ -178,14 +173,6 @@ export function CheckoutPageClient({
       setSubmitting(false);
     }
   };
-
-  const addedTime =
-    currentExpiry === null || extensionEnd === null
-      ? null
-      : t('added_time', {
-          start: formatDateAbbrev(currentExpiry, locale),
-          end: formatDateAbbrev(extensionEnd, locale),
-        });
 
   return (
     <>
@@ -215,9 +202,12 @@ export function CheckoutPageClient({
             ) : null}
             {signedIn && !loading && canPurchase ? (
               <>
+                <section className={styles.intro} data-testid="checkout-intro">
+                  <p>{t('page_intro')}</p>
+                </section>
                 <MembershipPlanSelector
                   name="payment-plan"
-                  legend={t('payment_plan')}
+                  legend={t('choose_a_plan')}
                   selectedValue={cadence}
                   onChange={(value) => {
                     if (isBillingCadence(value)) {
@@ -237,20 +227,15 @@ export function CheckoutPageClient({
                       price: planPrice('annual'),
                       period: tMembership('pricing_per_year'),
                       savingsLabel:
-                        pricingData !== null && pricingData.annuallySavingsPercent > 0
-                          ? tMembership('pricing_save_percent', {
-                              percent: pricingData.annuallySavingsPercent,
+                        catalogPricing !== null && catalogPricing.annuallySavingsPercent > 0
+                          ? tMembership('pricing_percent_off', {
+                              percent: catalogPricing.annuallySavingsPercent,
                             })
                           : undefined,
                     },
                   ]}
                 />
                 {error !== null ? <Alert>{error}</Alert> : null}
-                {addedTime !== null ? (
-                  <Alert testId="checkout-added-time" variant="default">
-                    {addedTime}
-                  </Alert>
-                ) : null}
                 <section className={styles.formSection}>
                   <div className={styles.buttonSection}>
                     {paypalPurchasable && paypalProduct !== null ? (

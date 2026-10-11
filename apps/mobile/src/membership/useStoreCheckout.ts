@@ -3,6 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { deriveMembershipState } from '@podverse/helpers';
 import type { DTOBillingStatus } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
@@ -36,6 +37,14 @@ import {
 
 export type CheckoutNotice = 'failed' | 'success' | 'waiting';
 export type CheckoutNoticeSource = 'purchase' | 'restore';
+
+/** How long the purchase result stays on screen before Membership opens. */
+const SUCCESS_REDIRECT_DELAY_MS = 4_000;
+
+export type ConfirmedPurchase = {
+  cadence: StoreCheckoutCadence;
+  expiresAt: string | null;
+};
 
 export type CatalogPricing = {
   annuallySavingsPercent: number;
@@ -79,6 +88,7 @@ export type UseStoreCheckoutResult = {
   cadences: StoreCheckoutCadence[];
   catalogPricing: CatalogPricing | null;
   checkoutMode: StoreCheckoutMode;
+  confirmedPurchase: ConfirmedPurchase | null;
   dismissUpdate: () => void;
   loading: boolean;
   notice: CheckoutNotice | null;
@@ -124,6 +134,8 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   const [noticeSource, setNoticeSource] = useState<CheckoutNoticeSource | null>(null);
   const [updateRequired, setUpdateRequired] = useState(false);
   const [updateDialogVisible, setUpdateDialogVisible] = useState(false);
+  const [confirmedPurchase, setConfirmedPurchase] = useState<ConfirmedPurchase | null>(null);
+  const purchasedCadenceRef = useRef<StoreCheckoutCadence | null>(null);
 
   useEffect(() => {
     if (platform === null) {
@@ -247,13 +259,15 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
 
   const refreshAccount = async () => {
     if (screenAuthDeps.accessToken === null) {
-      return;
+      return null;
     }
     try {
       const account = await accountRepository.refreshSnapshot(screenAuthDeps);
       setAccountRef.current(account);
+      return account;
     } catch {
       // The purchase is already recorded. The next account refresh picks up the new expiry.
+      return null;
     }
   };
 
@@ -271,9 +285,17 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
       return;
     }
     if (outcome.phase === 'confirmed') {
-      await refreshAccount();
+      const account = await refreshAccount();
       if (source === 'purchase') {
-        navigation.popTo(MORE_STACK_ROUTES.MoreMembership);
+        const purchasedCadence = purchasedCadenceRef.current;
+        if (purchasedCadence === null) {
+          navigation.popTo(MORE_STACK_ROUTES.MoreMembership);
+          return;
+        }
+        setConfirmedPurchase({
+          cadence: purchasedCadence,
+          expiresAt: account === null ? null : deriveMembershipState(account).expiresAt,
+        });
         return;
       }
       setNotice('success');
@@ -287,9 +309,11 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   };
 
   const onPurchase = () => {
-    if (product === null) {
+    if (product === null || selectedCadence === undefined) {
       return;
     }
+    purchasedCadenceRef.current = selectedCadence;
+    setConfirmedPurchase(null);
     setSubmitting(true);
     setNotice(null);
     setNoticeSource('purchase');
@@ -322,11 +346,24 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
       });
   };
 
+  useEffect(() => {
+    if (confirmedPurchase === null) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      navigation.popTo(MORE_STACK_ROUTES.MoreMembership);
+    }, SUCCESS_REDIRECT_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [confirmedPurchase, navigation]);
+
   return {
     cadence: selectedCadence,
     cadences,
     catalogPricing,
     checkoutMode,
+    confirmedPurchase,
     dismissUpdate: () => {
       setUpdateDialogVisible(false);
     },

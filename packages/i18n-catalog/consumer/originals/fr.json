@@ -926,7 +926,7 @@
     "cta_upgrade_text": "Passer à Premium",
     "buy_premium_membership": "Acheter un abonnement Premium",
     "your_membership_expires_on": "Votre abonnement Premium expire le {date}",
-    "extend_my_membership": "Prolonger mon abonnement",
+    "extend_my_membership": "Prolonger l'abonnement",
     "membership_expired_text_line1": "Votre abonnement a expiré.",
     "membership_expired_text_line2": "Veuillez prolonger votre abonnement pour continuer à profiter des fonctionnalités Premium.",
     "trial_expired_text_line1": "Votre essai gratuit a expiré.",
@@ -1031,7 +1031,8 @@
   },
   "checkout": {
     "checkout": "Passer à la caisse",
-    "payment_plan": "Plan de paiement",
+    "page_intro": "Choisissez une formule Premium, puis finalisez le paiement ci-dessous. Le temps restant sur votre adhésion actuelle s'ajoute à votre achat.",
+    "choose_a_plan": "Choisir une formule",
     "payment_processor": "Processeur de paiement",
     "paypal": "PayPal",
     "complete_purchase": "Finaliser l'achat",
@@ -1043,8 +1044,13 @@
     "plan_unavailable": "Cette formule n'est pas disponible.",
     "success_waiting": "Confirmation de votre adhésion.",
     "success_active": "Votre adhésion est active.",
-    "success_timeout": "L'adhésion n'est pas encore confirmée. Contactez le support si elle n'apparaît pas bientôt.",
-    "added_time": "Le nouveau temps commence le {start}. L'adhésion expire ensuite le {end}."
+    "success_extended_month": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un mois. Elle expire maintenant le {date}.",
+    "success_extended_year": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un an. Elle expire maintenant le {date}.",
+    "success_extended_month_length": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un mois.",
+    "success_extended_year_length": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un an.",
+    "success_active_expires": "Votre achat Premium est terminé. Elle expire maintenant le {date}.",
+    "success_opening_membership": "Ouverture de la page Abonnement.",
+    "success_timeout": "L'adhésion n'est pas encore confirmée. Contactez le support si elle n'apparaît pas bientôt."
   },
   "layouts": {
     "change_layout_view": "Changer l'affichage",
@@ -1214,7 +1220,7 @@
       "expires_on": "Expire le",
       "compare_plans": "Comparer les formules",
       "load_failed": "Impossible de charger la facturation de l'adhésion.",
-      "buy_more_time": "Acheter plus de temps"
+      "buy_more_time": "Prolonger l'abonnement"
     }
   },
   "contact": {

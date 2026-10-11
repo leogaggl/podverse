@@ -6,8 +6,7 @@ import { formatDateAbbrev } from '@podverse/helpers';
 
 import { getMobileConfig } from '../../config';
 import { openCheckout, openWebPath } from '../../membership/checkoutEntry';
-import { addedMembershipWindow, storeListingUrl } from '../../membership/storeCheckout';
-import { useMembership } from '../../membership/useMembership';
+import { storeListingUrl } from '../../membership/storeCheckout';
 import { useStoreCheckout } from '../../membership/useStoreCheckout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
@@ -23,12 +22,12 @@ import { MembershipCheckoutPlans } from './MembershipCheckoutPlans';
  * the screen tells the member how to reach the team. The terms page is the legal document that
  * describes how the service handles data, so Privacy opens that page too.
  *
+ * A confirmed store purchase stays on this screen long enough to read, then Membership opens.
  * The card stays hidden until checkout options and that pricing catalog have settled.
  */
 export function MembershipStoreCheckout() {
   const { i18n, t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
-  const membership = useMembership();
   const checkout = useStoreCheckout();
 
   const styles = useMemo(
@@ -41,6 +40,11 @@ export function MembershipStoreCheckout() {
         disclosure: {
           ...typography.caption,
           color: themeStyles.textSecondary.color,
+        },
+        intro: {
+          ...typography.body,
+          color: themeStyles.textPrimary.color,
+          marginBottom: tokens.spacing.sm,
         },
         link: {
           ...typography.body,
@@ -60,18 +64,13 @@ export function MembershipStoreCheckout() {
           ...typography.body,
           color: themeStyles.textPrimary.color,
         },
+        success: {
+          ...typography.prose,
+          color: themeStyles.textPrimary.color,
+        },
       }),
     [themeStyles, tokens]
   );
-
-  const addedTime =
-    checkout.product === null
-      ? null
-      : addedMembershipWindow({
-          cadence: checkout.product.cadence,
-          membershipExpiresAt: membership.expiresAt,
-          nowMs: Date.now(),
-        });
 
   const noticeText =
     checkout.notice === 'success'
@@ -166,6 +165,31 @@ export function MembershipStoreCheckout() {
     );
   }
 
+  if (checkout.confirmedPurchase !== null) {
+    const purchase = checkout.confirmedPurchase;
+    const confirmedMessage =
+      purchase.expiresAt === null
+        ? purchase.cadence === 'annual'
+          ? t('checkout.success_extended_year_length')
+          : t('checkout.success_extended_month_length')
+        : purchase.cadence === 'annual'
+          ? t('checkout.success_extended_year', {
+              date: formatDateAbbrev(purchase.expiresAt, i18n.language),
+            })
+          : t('checkout.success_extended_month', {
+              date: formatDateAbbrev(purchase.expiresAt, i18n.language),
+            });
+    return (
+      <View style={styles.block} testID="membership-checkout-success">
+        <Text accessibilityLiveRegion="polite" style={styles.success}>
+          {confirmedMessage}
+        </Text>
+        <Text style={styles.disclosure}>{t('checkout.success_opening_membership')}</Text>
+        {updateDialog}
+      </View>
+    );
+  }
+
   if (!checkout.storePurchases) {
     return (
       <View style={styles.block} testID="membership-checkout-foss">
@@ -183,14 +207,9 @@ export function MembershipStoreCheckout() {
     >
       <Card>
         <View style={styles.stack}>
-          {addedTime !== null ? (
-            <Text style={styles.status} testID="membership-checkout-added-time">
-              {t('checkout.added_time', {
-                end: formatDateAbbrev(addedTime.end, i18n.language),
-                start: formatDateAbbrev(addedTime.start, i18n.language),
-              })}
-            </Text>
-          ) : null}
+          <Text style={styles.intro} testID="membership-checkout-intro">
+            {t('checkout.page_intro')}
+          </Text>
           {checkout.cadence !== undefined && checkout.cadences.length > 0 ? (
             <MembershipCheckoutPlans
               cadences={checkout.cadences}

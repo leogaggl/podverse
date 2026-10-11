@@ -171,7 +171,7 @@ Sign into Podverse with a local seed account. Password for every seed account
 is `Test!1Aa`. `local-premium@example.com` already has membership time, so the
 screen can say the new period is added after the current one.
 
-1. Open **More** → **Membership** → **Extend My Membership**.
+1. Open **More** → **Membership** → **Extend Membership**.
 2. Choose **Monthly** or **Annual**.
 3. Tap **Complete Purchase**.
 4. On the Play sheet, choose **Test card, always approves** and confirm.
