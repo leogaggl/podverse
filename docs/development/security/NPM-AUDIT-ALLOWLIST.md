@@ -14,7 +14,7 @@ overrides so nested installs (including `next` optional/`postcss`) resolve to pa
 | `sharp` / `next.sharp`        | `0.35.3`       | libvips HIGH via nested Next sharp           |
 | `uuid` (direct app use)       | `14.0.2`       | Direct UUID use; Firebase chain listed below |
 | `fast-xml-parser`             | `5.10.1`       | DOCTYPE entity-expansion HIGH                |
-| `brace-expansion`             | `5.0.9`        | unbounded expansion DoS HIGH                 |
+| `brace-expansion`             | `5.0.12`       | unbounded expansion DoS HIGH                 |
 
 After changing overrides, regenerate the lockfile cleanly (`rm package-lock.json` then `npm install`,
 or `./scripts/development/update-lockfile-linux.sh`) so nested `next/node_modules/*` entries are not
@@ -29,7 +29,7 @@ audit Expo / React Native. Mobile shares marketing version `X.Y.Z` via `bump-ver
 [DOCS-MOBILE-VERSIONING-RELEASE.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md)
 and **mobile-expo-monorepo** skill.
 
-Root overrides also pin **`@xmldom/xmldom@0.9.10`** so video.js / mpd-parser transitive chains clear
+Root overrides also pin **`@xmldom/xmldom@0.9.12`** so video.js / mpd-parser transitive chains clear
 those HIGH findings without allowlisting. Mobile pins **`@xmldom/xmldom@0.8.10`** instead: older
 `@expo/plist` call paths can invoke `DOMParser.parseFromString(xml)` without a mimeType, which throws
 on xmldom **0.9.x** (`mimeType "undefined" is not valid`) and breaks `expo run:ios --device` usbmux
@@ -41,16 +41,17 @@ coordinated SDK upgrades to replace those packages. The React Navigation `nanoid
 patched independently at `3.3.18`.
 
 The root **`ip-address`** override is kept because **express-rate-limit** declares a dependency on
-`^10.2.0`; the scoped override pins the hoisted package to **10.7.0**, which includes the current
-SSRF classification fixes.
+`^10.2.0`; the scoped override pins the hoisted package to **10.7.4**, which includes the current
+SSRF classification fixes, the cross-family subnet check, and the bounded address-parse diagnostic.
 
 ### Remaining root audit finding
 
-`npm audit --omit=dev` still reports six moderate UUID advisories through the optional
-`firebase-admin` → `@google-cloud/storage` → `gaxios` / `teeny-request` chain. The current Firebase
-Admin release does not provide a non-breaking upgrade that removes this chain; npm's proposed fix
-downgrades `firebase-admin` to `10.3.0`. No allowlist entry has been added. Revisit this when Firebase
-Admin or its Google Cloud dependencies provide a compatible patched chain.
+`npm audit --omit=dev` is clean, so the publish gate passes with an empty allowlist. A full
+`npm audit` (devDependencies included) still reports `braces` `<=3.0.3`
+([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), advisory **1240992**)
+through `nodemon` and `tsc-alias`. The latest `braces` release is `3.0.3`, so there is no patched
+version to pin, and npm's proposed fix is a major downgrade of those dev tools. The publish gate
+omits devDependencies, so this does not block staging or main promotion.
 
 ## Active allowlist
 
