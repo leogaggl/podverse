@@ -8,7 +8,9 @@ jobs:
   validate:
     # Run when a maintainer comments /test on a PR (manual trigger for external contributors).
     # Lint includes apps/mobile via scripts/ci/lint-with-summary.mjs (no Maestro / unit E2E in CI —
-    # operators run those locally, same policy as web). Dependabot: comment /test or add ci-dependabot.
+    # operators run those locally, same policy as web). Mobile is a standalone install, so its
+    # node_modules are installed after package build and before lint. Dependabot: comment /test
+    # or add ci-dependabot.
     if: |
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
@@ -114,6 +116,21 @@ jobs:
         id: build-packages
         run: npm run build:packages
 
+      - name: Install mobile dependencies
+        id: install-mobile
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if npm ci --prefix apps/mobile; then
+              break
+            fi
+            echo "npm ci --prefix apps/mobile failed (attempt $attempt/5); retrying in 15s..." >&2
+            sleep 15
+            if [[ "$attempt" -eq 5 ]]; then
+              exit 1
+            fi
+          done
+
       - name: Lint
         id: lint
         run: npm run lint
@@ -154,6 +171,7 @@ jobs:
               '| Runtime CREATE EXTENSION guard | ✅ |',
               '| Dependencies installed | ✅ |',
               '| Build packages | ✅ |',
+              '| Mobile dependencies installed | ✅ |',
               '| Lint (type-check, ESLint, Prettier; includes apps/mobile ESLint) | ✅ |',
               '| OpenAPI check | ✅ |',
               '| Build apps | ✅ |',
@@ -239,6 +257,7 @@ jobs:
           DB_BOOTSTRAP_CONTRACT: ${{ steps.db-bootstrap-contract.outcome }}
           DB_RUNTIME_EXTENSION_GUARD: ${{ steps.db-runtime-extension-guard.outcome }}
           INSTALL: ${{ steps.install.outcome }}
+          INSTALL_MOBILE: ${{ steps.install-mobile.outcome }}
           LINT: ${{ steps.lint.outcome }}
           OPENAPI_CHECK: ${{ steps.openapi-check.outcome }}
           BUILD_PACKAGES: ${{ steps.build-packages.outcome }}
@@ -278,6 +297,7 @@ jobs:
               `| Runtime CREATE EXTENSION guard | ${status(process.env.DB_RUNTIME_EXTENSION_GUARD)} |`,
               `| Dependencies installed | ${status(process.env.INSTALL)} |`,
               `| Build packages | ${status(process.env.BUILD_PACKAGES)} |`,
+              `| Mobile dependencies installed | ${status(process.env.INSTALL_MOBILE)} |`,
               `| Lint (type-check, ESLint, Prettier) | ${status(process.env.LINT)} |`,
               `| OpenAPI check | ${status(process.env.OPENAPI_CHECK)} |`,
               `| Build apps | ${status(process.env.BUILD_APPS)} |`,
