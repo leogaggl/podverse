@@ -1,5 +1,9 @@
 # Mobile development roadmap and milestones
 
+> **Status:** superseded. The [mobile master plan](/docs/proposals/mobile/_master-plan_/PHASES.md)
+> replaced this roadmap; its phases and statuses are the source of truth. Kept for the reasoning
+> behind the original milestone order.
+
 > **Executive summary.** Build the Podverse mobile app as **one React Native (Expo prebuild) app** in
 > the existing monorepo, reusing the web app's API, DTOs, and playback/queue semantics while adding a
 > **thin native layer** for background audio and CarPlay/Android Auto. De-risk first: prove native

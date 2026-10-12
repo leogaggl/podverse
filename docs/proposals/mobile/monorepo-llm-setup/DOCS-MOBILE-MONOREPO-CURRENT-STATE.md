@@ -1,5 +1,9 @@
 # Monorepo current-state assessment for mobile
 
+> **Status:** historical. This assessed the monorepo before `apps/mobile` existed. Phase 1 of the
+> [mobile master plan](/docs/proposals/mobile/_master-plan_/PHASES.md) acted on it; read the code
+> and `apps/mobile/APPS-MOBILE.md` for the current state.
+
 This document assesses how well the **current** Podverse monorepo supports adding a React Native
 (`apps/mobile`) app optimized for LLM-driven (Cursor) development. It is an assessment, not an
 implementation plan; the target structure and changes are proposed in the sibling doc

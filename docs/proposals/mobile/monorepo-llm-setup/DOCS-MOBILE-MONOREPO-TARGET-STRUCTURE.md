@@ -1,5 +1,9 @@
 # Monorepo target structure for mobile
 
+> **Status:** implemented. Phase 1 of the
+> [mobile master plan](/docs/proposals/mobile/_master-plan_/PHASES.md) built this structure
+> (`apps/mobile`, `packages/playback-core`, `packages/design-tokens`). Kept as design rationale.
+
 This proposal describes the **target** monorepo structure and the structural changes needed to add
 `apps/mobile` (React Native / Expo prebuild) without disrupting the server/web build or CI. It builds
 on the assessment in

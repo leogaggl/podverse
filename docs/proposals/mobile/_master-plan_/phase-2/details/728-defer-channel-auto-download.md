@@ -5,7 +5,9 @@ Runtime picture (triggers, server mirror, iOS vs Android):
 
 **Master step:** P2.3 (operational backlog)
 **Model (author + implement):** Auto
-**Status:** implementing (mobile-auto-download plan set)
+**Status:** done — per-channel toggle (`PodcastSettingsScreen`), global settings and catch-up
+(`MoreSettingsDownloadsScreen`, `MoreSettingsAutoDownloadCatchUpScreen`), background evaluation,
+and the server device mirror ship
 
 ## Scope
 

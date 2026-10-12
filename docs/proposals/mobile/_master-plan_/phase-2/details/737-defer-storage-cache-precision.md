@@ -2,7 +2,9 @@
 
 **Master step:** P2.3 (operational backlog)
 **Model (author + implement):** Auto
-**Status:** deferred
+**Status:** partially done — `CoverImage` uses `expo-image`, which settles the image-cache
+precision item. Clear cache and the concurrency setting are still deferred
+(`DOWNLOAD_MAX_CONCURRENCY` stays fixed at 5).
 
 ## Scope
 

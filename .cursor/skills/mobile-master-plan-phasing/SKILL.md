@@ -20,7 +20,7 @@ its own plan document and `details/` directory:
 | 2     | [phase-2/001-MASTER-PLAN-PHASE-2.md](/docs/proposals/mobile/_master-plan_/phase-2/001-MASTER-PLAN-PHASE-2.md) | Legacy-parity features + visual polish | **active**                                  |
 | 3     | [phase-3/001-MASTER-PLAN-PHASE-3.md](/docs/proposals/mobile/_master-plan_/phase-3/001-MASTER-PLAN-PHASE-3.md) | V4V                                    | not started                                 |
 | 4     | [phase-4/001-MASTER-PLAN-PHASE-4.md](/docs/proposals/mobile/_master-plan_/phase-4/001-MASTER-PLAN-PHASE-4.md) | Watch + TV                             | not started                                 |
-| 5     | [phase-5/001-MASTER-PLAN-PHASE-5.md](/docs/proposals/mobile/_master-plan_/phase-5/001-MASTER-PLAN-PHASE-5.md) | Native store IAP                       | not started                                 |
+| 5     | [phase-5/001-MASTER-PLAN-PHASE-5.md](/docs/proposals/mobile/_master-plan_/phase-5/001-MASTER-PLAN-PHASE-5.md) | Native store IAP                       | **done** — store-side setup remains         |
 
 **Phase 1 was agent-led; Phase 2 onward is operator-guided.** In Phase 2 the operator drives with
 **legacy app screenshots** and the agent asks questions before proposing anything — see

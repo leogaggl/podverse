@@ -2,7 +2,9 @@
 
 **Master step:** P2.3.12
 **Model (author + implement):** Opus 5
-**Status:** deferred until the phone UX is settled
+**Status:** partially done — the mini player is mounted on tablet (`tabletBottomChrome` in
+`apps/mobile/src/navigation/index.tsx`); the left-rail tab bar is still deferred until the phone
+UX is settled. Line numbers below describe the code when this doc was written.
 
 ## The intended rule
 
