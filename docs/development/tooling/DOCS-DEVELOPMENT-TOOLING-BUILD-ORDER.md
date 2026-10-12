@@ -27,7 +27,8 @@ The root build flow must therefore run in dependency-safe stages.
 
 `npm run build:packages` uses an explicit workspace order in `package.json` so foundational
 packages (for example `helpers`, `playback-core`, `observability`, request helpers,
-`external-services-paypal`, `external-services-strike`, ORM, parser) are built before dependents.
+`external-services-paypal`, `external-services-strike`, `external-services-apple-app-store`,
+`external-services-google-play`, ORM, parser) are built before dependents.
 
 ### 2) Apps and sidecars second
 

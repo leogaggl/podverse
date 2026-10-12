@@ -2,7 +2,9 @@
 
 **Master step:** P2.1.3
 **Model (author + implement):** Codex 5.3
-**Status:** deferred to a future phase
+**Status:** partially done — sort covers every Home media type (`isHomeSortableMediaType` in
+`homeListPrefs.ts` returns `true` for all of them); the **All** chip is still deferred to a future
+phase.
 
 ## Scope
 

@@ -1,15 +1,16 @@
 # Podverse Mobile — master plan phases
 
 The mobile master plan is split into **phases**. Each phase has its own plan document and its own
-`details/` directory. Phase 1 is closed history; Phase 2 is where active work happens.
+`details/` directory. Phase 1 is closed history; Phase 2 is where active work happens. Phase 5's
+native store purchase was built during Phase 2, so only store-side setup remains there.
 
-| Phase                                         | Theme                                  | Driven by           | State       |
-| --------------------------------------------- | -------------------------------------- | ------------------- | ----------- |
-| [Phase 1](phase-1/001-MASTER-PLAN.md)         | Framework build-out (Tracks 0–23)      | **Agent-led**       | **closed**  |
-| [Phase 2](phase-2/001-MASTER-PLAN-PHASE-2.md) | Legacy-parity features + visual polish | **Operator-guided** | **active**  |
-| [Phase 3](phase-3/001-MASTER-PLAN-PHASE-3.md) | V4V (LNURL boosts, Alby, boostagrams)  | Operator-guided     | not started |
-| [Phase 4](phase-4/001-MASTER-PLAN-PHASE-4.md) | Wear OS watch + Android TV             | Operator-guided     | not started |
-| [Phase 5](phase-5/001-MASTER-PLAN-PHASE-5.md) | Native store IAP                       | Operator-guided     | not started |
+| Phase                                         | Theme                                  | Driven by           | State                          |
+| --------------------------------------------- | -------------------------------------- | ------------------- | ------------------------------ |
+| [Phase 1](phase-1/001-MASTER-PLAN.md)         | Framework build-out (Tracks 0–23)      | **Agent-led**       | **closed**                     |
+| [Phase 2](phase-2/001-MASTER-PLAN-PHASE-2.md) | Legacy-parity features + visual polish | **Operator-guided** | **active**                     |
+| [Phase 3](phase-3/001-MASTER-PLAN-PHASE-3.md) | V4V (LNURL boosts, Alby, boostagrams)  | Operator-guided     | not started                    |
+| [Phase 4](phase-4/001-MASTER-PLAN-PHASE-4.md) | Wear OS watch + Android TV             | Operator-guided     | not started                    |
+| [Phase 5](phase-5/001-MASTER-PLAN-PHASE-5.md) | Native store IAP                       | Operator-guided     | **done** (store setup remains) |
 
 ## Phase 1 vs Phase 2 — the difference that matters
 

@@ -32,7 +32,7 @@
   "license": "AGPL-3.0",
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
-    "@paypal/react-paypal-js": "10.5.1",
+    "@paypal/react-paypal-js": "10.6.0",
     "@podverse/extension-metrics-sdk": "*",
     "@podverse/helpers": "*",
     "@podverse/helpers-backend": "*",
@@ -50,7 +50,7 @@
     "@podverse/v4v-metaboost": "*",
     "classnames": "^2.5.1",
     "hls.js": "^1.7.3",
-    "next": "^16.3.5",
+    "next": "^16.4.0",
     "next-intl": "^4.14.6",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
@@ -58,7 +58,7 @@
     "react-icons": "^5.7.0",
     "react-virtuoso": "^4.18.14",
     "sass": "^1.104.1",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "transcriptator": "^1.1.4",
     "uuid": "^14.0.2",
     "video.js": "^8.24.1",
@@ -76,12 +76,12 @@
     "@types/video.js": "^7.3.58",
     "@vitejs/plugin-react": "^5.1.1",
     "axios": "^1.19.0",
-    "dotenv": "^18.0.3",
+    "dotenv": "^18.0.6",
     "jsdom": "^26.1.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
-    "vitest": "^5.0.1",
+    "vitest": "^5.0.3",
     "webpack": "^5.105.4"
   }
 }

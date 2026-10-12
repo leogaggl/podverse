@@ -1,6 +1,8 @@
 # Car UX parity — overview (old podverse-rn → new native monorepo)
 
-**Status:** proposal (docs only; not yet implemented)
+**Status:** proposal (docs only; not yet implemented). Both car surfaces still ship the Library +
+Downloads scaffold. Tracked as Phase 2 backlog item P2.3.22 in
+[001-MASTER-PLAN-PHASE-2.md](/docs/proposals/mobile/_master-plan_/phase-2/001-MASTER-PLAN-PHASE-2.md).
 **Audience:** operators and agents detailing Track 12 CarPlay / Android Auto follow-on work
 **Related:** [DOCS-MOBILE-CARPLAY-ANDROID-AUTO.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-CARPLAY-ANDROID-AUTO.md),
 master plan Track 12 ([001-MASTER-PLAN.md](/docs/proposals/mobile/_master-plan_/phase-1/001-MASTER-PLAN.md)),
