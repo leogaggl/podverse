@@ -4,7 +4,11 @@ import { getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { getBillingContext } from '@api/lib/billing/billingContext.js';
 import { sendBillingError } from '@api/lib/billing/billingHttp.js';
 import { getBillingStatus } from '@api/lib/billing/billingStatus.js';
-import { getCheckoutOptions, normalizeStorefront } from '@api/lib/billing/checkoutOptions.js';
+import {
+  getCheckoutChannel,
+  getCheckoutOptions,
+  normalizeStorefront,
+} from '@api/lib/billing/checkoutOptions.js';
 import {
   billingAppleTransactionBodySchema,
   billingCheckoutOptionsQuerySchema,
@@ -13,6 +17,8 @@ import {
   billingPayPalOrderParamsSchema,
   billingRestoreBodySchema,
   billingSimulateBodySchema,
+  billingStrikeCheckoutBodySchema,
+  billingStrikeCheckoutParamsSchema,
   DEFAULT_JOI_VALIDATION_OPTIONS,
 } from '@api/lib/validation/index.js';
 import type { Request, Response } from 'express';
@@ -28,6 +34,7 @@ import {
   BillingEventError,
   transactionSnapshotToEvents,
 } from '@podverse/billing';
+import { StrikeReceiveNotCompletedError } from '@podverse/external-services-strike';
 import type {
   BillingPlatform,
   DTOBillingEventOutcome,
@@ -35,6 +42,7 @@ import type {
   DTOBillingPurchaseResult,
   DTOBillingSimulationResult,
   DTOBillingStatus,
+  DTOBillingStrikeCheckout,
   NormalizedTransactionSnapshot,
   PaymentProcessorAdapter,
   PaymentProcessorId,
@@ -45,9 +53,10 @@ import {
   BillingProcessorRecordNotFoundError,
   BillingWebhookVerificationError,
 } from '@podverse/helpers';
-import type { BillingProcessorProduct } from '@podverse/orm';
+import type { BillingCheckoutSession, BillingProcessorProduct } from '@podverse/orm';
 import {
   AccountService,
+  BillingCheckoutSessionService,
   BillingPriceCatalogService,
   BillingProcessorProductService,
 } from '@podverse/orm';
@@ -79,9 +88,16 @@ type RestoreBody = {
   }[];
 };
 type SimulateBody = { event: TestBillingEventSimulation };
+type StrikeCheckoutBody = {
+  processor_product_id: number;
+  platform: BillingPlatform;
+};
+type StrikeCheckoutParams = { id: number };
 
 const PAYPAL_APPROVAL_RELS = ['approve', 'payer-action'];
 const PAYPAL_CURRENCY_CODE = 'USD';
+const STRIKE_CHECKOUT_DESCRIPTION = 'Premium Membership';
+const STRIKE_CURRENCY_CODE = 'USD';
 
 let priceCatalogService: BillingPriceCatalogService | undefined;
 function getPriceCatalogService(): BillingPriceCatalogService {
@@ -141,6 +157,39 @@ function isPayPalProduct(
   product: BillingProcessorProduct | null
 ): product is BillingProcessorProduct {
   return product !== null && product.processor_id === 'paypal' && product.is_active;
+}
+
+function isStrikeProduct(
+  product: BillingProcessorProduct | null
+): product is BillingProcessorProduct {
+  return product !== null && product.processor_id === 'strike' && product.is_active;
+}
+
+function isStrikeInvoicePlatform(platform: BillingPlatform): boolean {
+  return platform === 'web' || platform === 'foss';
+}
+
+function formatStrikeAmount(amount: string): string {
+  const parsed = Number(amount);
+  if (!Number.isFinite(parsed)) {
+    return amount.trim();
+  }
+  return parsed.toFixed(2);
+}
+
+function toStrikeCheckout(
+  session: BillingCheckoutSession,
+  bolt11: string,
+  state: DTOBillingStrikeCheckout['state']
+): DTOBillingStrikeCheckout {
+  return {
+    checkout_id: session.id,
+    bolt11,
+    amount: formatStrikeAmount(session.amount),
+    currency_code: session.currency_code.trim(),
+    expires_at: session.expires_at.toISOString(),
+    state,
+  };
 }
 
 /** Records a verified payment against the signed-in account. */
@@ -443,6 +492,161 @@ export class BillingController {
         outcomes.push(...(await restoreOne(adapter, user.id, purchase)));
       }
       await sendPurchaseResult(res, user.id, outcomes);
+    } catch (error) {
+      handleBillingError(res, error);
+    }
+  }
+
+  static async createStrikeCheckout(req: Request, res: Response): Promise<void> {
+    const user = getAuthenticatedUser(req);
+    const body = parseInput<StrikeCheckoutBody>(billingStrikeCheckoutBodySchema, req.body, res);
+    if (body === null) {
+      return;
+    }
+    const { strikeAdapter } = getBillingContext();
+    if (strikeAdapter === null) {
+      sendBillingError(
+        res,
+        404,
+        BILLING_API_ERROR_CODES.processorUnavailable,
+        'Strike is not available'
+      );
+      return;
+    }
+    if (!isStrikeInvoicePlatform(body.platform)) {
+      sendBillingError(
+        res,
+        404,
+        BILLING_API_ERROR_CODES.productUnavailable,
+        'Strike checkout is not available on this platform'
+      );
+      return;
+    }
+    try {
+      const product = await new BillingProcessorProductService().getActiveById(
+        body.processor_product_id
+      );
+      if (!isStrikeProduct(product)) {
+        sendBillingError(
+          res,
+          404,
+          BILLING_API_ERROR_CODES.productUnavailable,
+          'This product is not sold through Strike'
+        );
+        return;
+      }
+      const channel = await getCheckoutChannel('strike', body.platform);
+      if (channel === null || channel.enabled !== true) {
+        sendBillingError(
+          res,
+          404,
+          BILLING_API_ERROR_CODES.productUnavailable,
+          'This product is not sold through Strike'
+        );
+        return;
+      }
+      const account = await new AccountService().getWithMembershipStatusFromPrimary(user.id);
+      if (account === null) {
+        res.status(404).json({ message: 'Account not found' });
+        return;
+      }
+      const pricing = await getPriceCatalogService().resolveProductMembership();
+      const amount =
+        product.billing_cadence === 'monthly'
+          ? pricing.premiumMembershipCostMonthly
+          : pricing.premiumMembershipCostAnnually;
+      const checkout = await strikeAdapter.createCheckout({
+        description: STRIKE_CHECKOUT_DESCRIPTION,
+        amount: amount.toFixed(2),
+        currencyCode: STRIKE_CURRENCY_CODE,
+      });
+      const expiresAt = new Date(checkout.expiresAt);
+      if (Number.isNaN(expiresAt.getTime())) {
+        throw new Error('Strike returned a checkout without an expiry');
+      }
+      const session = await new BillingCheckoutSessionService().create({
+        accountId: account.id,
+        processorId: 'strike',
+        externalId: checkout.receiveRequestId,
+        billingProcessorProductId: product.id,
+        amount: amount.toFixed(2),
+        currencyCode: STRIKE_CURRENCY_CODE,
+        expiresAt,
+      });
+      res.status(201).json(toStrikeCheckout(session, checkout.bolt11, 'unpaid'));
+    } catch (error) {
+      handleBillingError(res, error);
+    }
+  }
+
+  static async getStrikeCheckout(req: Request, res: Response): Promise<void> {
+    const user = getAuthenticatedUser(req);
+    const params = parseInput<StrikeCheckoutParams>(
+      billingStrikeCheckoutParamsSchema,
+      req.params,
+      res
+    );
+    if (params === null) {
+      return;
+    }
+    const { strikeAdapter, strikeClient } = getBillingContext();
+    if (strikeAdapter === null || strikeClient === null) {
+      sendBillingError(
+        res,
+        404,
+        BILLING_API_ERROR_CODES.processorUnavailable,
+        'Strike is not available'
+      );
+      return;
+    }
+    try {
+      const session = await new BillingCheckoutSessionService().getForAccount(params.id, user.id);
+      if (session === null) {
+        sendBillingError(res, 404, BILLING_API_ERROR_CODES.purchaseNotFound, 'Checkout not found');
+        return;
+      }
+      const invoice = await strikeClient.getReceiveRequest(session.external_id);
+      const bolt11 = invoice.bolt11?.invoice ?? '';
+      if (bolt11 === '') {
+        throw new Error('Strike receive request has no BOLT11 invoice');
+      }
+      if (session.settled_at !== null) {
+        res.status(200).json({
+          ...toStrikeCheckout(session, bolt11, 'settled'),
+          confirmed: true,
+          outcomes: [],
+          status: await requireStatus(user.id),
+        });
+        return;
+      }
+      const state = await strikeAdapter.readCheckoutState(session.external_id);
+      if (state === 'settled') {
+        try {
+          const snapshot = await strikeAdapter.fetchTransaction({
+            externalId: session.external_id,
+            externalProductId: null,
+          });
+          const outcomes = await ingestTransaction(snapshot, user.id);
+          res.status(200).json({
+            ...toStrikeCheckout(session, bolt11, 'settled'),
+            confirmed: isConfirmed(outcomes),
+            outcomes,
+            status: await requireStatus(user.id),
+          });
+          return;
+        } catch (error) {
+          if (!(error instanceof StrikeReceiveNotCompletedError)) {
+            throw error;
+          }
+        }
+        res.status(200).json(toStrikeCheckout(session, bolt11, 'pending'));
+        return;
+      }
+      if (session.expires_at.getTime() <= Date.now()) {
+        res.status(200).json(toStrikeCheckout(session, bolt11, 'expired'));
+        return;
+      }
+      res.status(200).json(toStrikeCheckout(session, bolt11, state));
     } catch (error) {
       handleBillingError(res, error);
     }

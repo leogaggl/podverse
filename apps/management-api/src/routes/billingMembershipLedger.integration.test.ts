@@ -335,6 +335,35 @@ describe('Billing membership ledger routes (app database)', () => {
       expect(account.grants[0]?.revoked_at).not.toBeNull();
     });
 
+    it('revokes a Strike purchase grant after the operator refunds it in Strike', async () => {
+      const accountId = await createAccount(null);
+      const transactionRows = await AppDbDataSourceReadWrite.query(
+        `INSERT INTO billing_transaction (account_id, processor_id, external_transaction_id, settled_at)
+         VALUES ($1, 'strike', $2, NOW()) RETURNING id`,
+        [accountId, `strike-ledger-${runId}-${accountId}`]
+      );
+      const grantRows = await AppDbDataSourceReadWrite.query(
+        `INSERT INTO billing_membership_grant (account_id, source, starts_at, ends_at, billing_transaction_id)
+         VALUES ($1, 'one_time_purchase', $2, $3, $4) RETURNING id`,
+        [accountId, new Date(), new Date(Date.now() + 30 * DAY_MS), transactionRows[0].id]
+      );
+      const grantId = Number(grantRows[0].id);
+      await new BillingEntitlementService({
+        dataSourceReadWrite: AppDbDataSourceReadWrite,
+      }).recompute(accountId);
+      const before = await getAccount(accountId);
+      expect(before.grants.find((grant) => grant.id === grantId)?.admin_editable).toBe(true);
+
+      await request(app)
+        .post(`${accountsPath}/${accountId}/grants/${grantId}/revoke`)
+        .set(superuserAuthHeaders())
+        .send({ note: 'Refunded in the Strike dashboard' })
+        .expect(200);
+
+      const after = await getAccount(accountId);
+      expect(after.grants.find((grant) => grant.id === grantId)?.revoked_at).not.toBeNull();
+    });
+
     it('answers 409 for a processor-paid grant and leaves it in place', async () => {
       const accountId = await createAccount(null);
       const grantId = await addProcessorPurchase(accountId, new Date(Date.now() + 30 * DAY_MS));

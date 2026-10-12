@@ -44,9 +44,11 @@ afterEach(() => {
 });
 
 const stubBillingApi = (overrides: Partial<BillingApi>): BillingApi => ({
+  createStrikeCheckout: () => Promise.reject(new Error('unused')),
   getCheckoutOptions: () => Promise.reject(new Error('unused')),
   getMembershipStatus: () => Promise.reject(new Error('unused')),
   getStatus: () => Promise.reject(new Error('unused')),
+  getStrikeCheckout: () => Promise.reject(new Error('unused')),
   postAppleTransaction: () => Promise.reject(new Error('unused')),
   postGooglePurchase: () => Promise.reject(new Error('unused')),
   restore: () => Promise.reject(new Error('unused')),

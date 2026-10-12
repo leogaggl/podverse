@@ -12,6 +12,15 @@ export const PAYPAL_ONE_TIME_PRODUCT_IDS = {
 } as const satisfies Record<BillingCadence, string>;
 
 /**
+ * Strike receive requests also have no product catalog, so Podverse maps each cadence to a fixed
+ * checkout product id.
+ */
+export const STRIKE_ONE_TIME_PRODUCT_IDS = {
+  monthly: 'podverse-premium-monthly',
+  annual: 'podverse-premium-annual',
+} as const satisfies Record<BillingCadence, string>;
+
+/**
  * Where a processor product's store ids come from in env. Store ids differ per environment, so
  * they are never committed; locally they live in `billing-products.env`.
  */
@@ -68,7 +77,7 @@ export const BILLING_PROCESSOR_PRODUCT_ENV_KEYS: readonly string[] = [
 export interface ResolvedBillingProcessorProduct {
   processor: PaymentProcessorId;
   cadence: BillingCadence;
-  /** Store product id, Google Play product id, or PayPal checkout product id. */
+  /** Store product id, Google Play product id, or PayPal/Strike checkout product id. */
   externalProductId: string;
   /** Google Play base plan id when one is required; null for other processors. */
   externalBasePlanId: string | null;
@@ -86,8 +95,8 @@ function readEnvValue(env: Readonly<Record<string, string | undefined>>, key: st
 
 /**
  * Reads the processor product catalog from env. A mapping whose keys are empty is skipped, so a
- * processor that is not configured yet stays unmapped. The PayPal one-time products are always
- * included because Podverse names them.
+ * processor that is not configured yet stays unmapped. The PayPal and Strike one-time products
+ * are always included because Podverse names them.
  */
 export function resolveBillingProcessorProductsFromEnv(
   env: Readonly<Record<string, string | undefined>>
@@ -103,6 +112,18 @@ export function resolveBillingProcessorProductsFromEnv(
       processor: 'paypal',
       cadence: 'annual',
       externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.annual,
+      externalBasePlanId: null,
+    },
+    {
+      processor: 'strike',
+      cadence: 'monthly',
+      externalProductId: STRIKE_ONE_TIME_PRODUCT_IDS.monthly,
+      externalBasePlanId: null,
+    },
+    {
+      processor: 'strike',
+      cadence: 'annual',
+      externalProductId: STRIKE_ONE_TIME_PRODUCT_IDS.annual,
       externalBasePlanId: null,
     },
   ];

@@ -5,10 +5,11 @@ Routes, adapters, and the grant ledger are described in [BILLING.md](BILLING.md)
 ## Reconcile
 
 `billingReconcile` brings the ledger in line with deliveries the server missed. It **never
-charges a payment method**. PayPal, the App Store, and Google Play take the payment, and this
-command only retries stored rows and applies Google Play voids.
+charges a payment method**. PayPal, Strike, the App Store, and Google Play take the payment,
+and this command only retries stored rows, applies Google Play voids, and re-checks open
+Strike invoices.
 
-Each run does two things, and a failure in one step does not stop the other:
+Each run does three things, and a failure in one step does not stop the other:
 
 1. **Failed webhook inbox rows.** Up to 100 `billing_webhook_event` rows with status `failed`,
    received more than 15 minutes ago, are retried, least recently attempted first. Each row is
@@ -18,6 +19,10 @@ Each run does two things, and a failure in one step does not stop the other:
    voided-purchase list is read and each refund or chargeback revokes the grants of the purchase
    it names. Voids for purchases this server never recorded are skipped. Re-reading the same void
    on a later run is recorded once.
+3. **Unsettled Strike checkouts.** When Strike is configured, checkouts created in the last 25
+   hours are re-read. A row whose invoice expired more than an hour ago is skipped. A
+   `COMPLETED` receive is ingested the same way a webhook would ingest it. A `PENDING` receive
+   is counted and grants nothing.
 
 The job exits non-zero when a whole step stops early (for example the database or a processor
 API is unreachable). A single inbox row or void that fails is logged and counted without failing
@@ -40,8 +45,12 @@ npm run build -w apps/workers
 npm run billing_reconcile -w apps/workers
 ```
 
-The last log line summarizes the run: inbox rows recovered and still failing, and Google Play
-voids applied and skipped.
+The last log line summarizes the run: inbox rows recovered and still failing, Google Play
+voids applied and skipped, and Strike checkouts checked, ingested, still pending, and failed.
+
+When a buyer reports a paid Strike invoice that never granted membership, run reconcile, then
+**Resync** on that account's Billing page. Reconcile re-reads the open invoice. Resync retries
+that account's failed inbox rows and refetches recorded purchases.
 
 ### Webhook replay
 
@@ -59,6 +68,12 @@ it needs no app release.
 The API caches the channel list for at most 60 seconds, so a change reaches checkout within a
 minute. In development, restart the API to see it immediately.
 
+PayPal on `ios` and `android` was already a link to web checkout. Strike uses that same link.
+A store row for either processor cannot be saved on while its storefront list is empty. The
+management API answers 422, `A store link needs at least one storefront country.` An empty
+list would mean every country, and Apple and Google do not allow a plain external-purchase
+link in every country. `web` and `foss` may stay on with an empty list.
+
 The same **Billing** section maps processor product ids to a cadence, shows one account's
 transactions, grants, and webhook events (linked from the user detail page) with resync and
 [manual membership management](#manual-membership-management), and lists the webhook inbox with
@@ -68,11 +83,13 @@ configured on this server is left uncounted.
 
 ## Enabling a processor
 
-PayPal, Apple In-App Purchase, and Google Play each stay off until that flag is `"true"`:
+PayPal, Strike, Apple In-App Purchase, and Google Play each stay off until that flag is
+`"true"`:
 
 | Flag                          | Processor             |
 | ----------------------------- | --------------------- |
 | `BILLING_PAYPAL_ENABLED`      | PayPal                |
+| `BILLING_STRIKE_ENABLED`      | Strike                |
 | `BILLING_APPLE_IAP_ENABLED`   | Apple In-App Purchase |
 | `BILLING_GOOGLE_PLAY_ENABLED` | Google Play           |
 
@@ -80,9 +97,10 @@ Empty or unset means off. `true` and `false` are case-insensitive. Any other val
 validation. With the flag on, every credential key that processor needs is required. With the
 flag off, credentials may be set and startup still passes; the processor is not registered.
 
-The API, workers, and management API read the same three flags. They must match, the same way
+The API, workers, and management API read the same flags. They must match, the same way
 their credentials already match. `make local_env_setup` copies each flag from its home override
-(`paypal.env`, `billing-apple.env`, `billing-google-play.env`) into all three. It copies
+(`paypal.env`, `billing.env` for Strike, `billing-apple.env`, `billing-google-play.env`) into
+all three. It copies
 `PAYPAL_CLIENT_ID` to the web sidecar as `NEXT_PUBLIC_PAYPAL_CLIENT_ID` only while
 `BILLING_PAYPAL_ENABLED` is `true`. Otherwise that sidecar key is cleared.
 
@@ -120,7 +138,8 @@ a gift because the account already has paid time.
 holds that time, the response is `applied: false`. An end that is not later than current
 access answers 422: "Use End Access to shorten a membership."
 
-Remediation notes live at `/billing/help` (gifting, Apple refunds, resync, wrong account).
+Remediation notes live at `/billing/help` (gifting, Apple refunds, Strike refunds, resync,
+wrong account).
 
 An optional note, at most 500 characters, is stored on the management audit log for the
 extend, the end, and the revoke. It is not stored on the grant.
@@ -135,12 +154,16 @@ than current access answers 422: "Use Extend to lengthen a membership."
 `POST .../grants/<grantId>/revoke` removes that grant's remaining time and recomputes.
 
 Processor-paid grants (`one_time_purchase`) and `claim_token` grants cannot be removed from the
-portal. End or revoke that would cut that access answers 409 and changes nothing. Refund or
-revoke that purchase with the processor; the webhook, a replay, or reconcile applies
-`refund_or_revoke`. When paid access still runs past the requested end, the message is "Paid
-access continues past the requested end. Cancel or refund it with the processor." and the body
-includes `access_ends_at`. Revoking the protected grant itself answers "This grant was paid
-through a processor or claim token and cannot be changed here."
+portal, except a Strike purchase. End or revoke that would cut other processor access answers
+409 and changes nothing. Refund or revoke that purchase with the processor; the webhook, a
+replay, or reconcile applies `refund_or_revoke`. When paid access still runs past the requested
+end, the message is "Paid access continues past the requested end. Cancel or refund it with
+the processor." and the body includes `access_ends_at`. Revoking the protected grant itself
+answers "This grant was paid through a processor or claim token and cannot be changed here."
+
+Strike does not send a refund webhook. Send the refund from the Strike dashboard, then use
+**Revoke** on that grant. Revoke removes the grant and recomputes `membership_expires_at`.
+The Strike transaction row says the refund itself is sent from the Strike dashboard.
 
 | `billing_account` bit | Allows                |
 | --------------------- | --------------------- |

@@ -27,6 +27,9 @@ name: Membership Checkout
     visible:
       id: membership-checkout-ready
     timeout: ${TIMEOUT_SLOW}
+# The seeded store checkout does not offer Strike, so the web link stays off.
+- assertNotVisible:
+    id: membership-checkout-strike
 - assertVisible:
     id: membership-checkout-intro
 - assertVisible:

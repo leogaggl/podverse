@@ -786,6 +786,7 @@
       "grantCadenceLabel": "",
       "expires": "",
       "transactions": "",
+      "strikeRefundHint": "",
       "grants": "",
       "events": "",
       "empty": "",
@@ -810,7 +811,8 @@
       "offNotice": "",
       "paypal": "",
       "apple": "",
-      "google_play": ""
+      "google_play": "",
+      "strike": ""
     },
     "help": {
       "title": "",
@@ -822,7 +824,9 @@
       "resyncTitle": "",
       "resyncBody": "",
       "wrongAccountTitle": "",
-      "wrongAccountBody": ""
+      "wrongAccountBody": "",
+      "strikeRefundsTitle": "",
+      "strikeRefundsBody": ""
     },
     "pageTitle": "",
     "checkoutChannelsCardTitle": "",
@@ -855,7 +859,8 @@
       "minVersionPlaceholder": "",
       "storefrontsLabel": "",
       "storefrontsPlaceholder": "",
-      "storefrontsHint": ""
+      "storefrontsHint": "",
+      "storeLinkHelp": ""
     },
     "products": {
       "title": "",

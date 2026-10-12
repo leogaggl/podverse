@@ -6,6 +6,7 @@ import {
   parseSandboxAllowedAccountIds,
 } from '@podverse/billing';
 import type { PayPalService } from '@podverse/external-services-paypal';
+import type { StrikeAdapter, StrikeClient } from '@podverse/external-services-strike';
 
 import type { BillingAdaptersConfig } from './registerBillingAdapters.js';
 import { registerBillingAdapters } from './registerBillingAdapters.js';
@@ -19,6 +20,8 @@ export interface BillingContext {
   registry: BillingAdapterRegistry;
   processor: BillingEventProcessor;
   paypalService: PayPalService | null;
+  strikeAdapter: StrikeAdapter | null;
+  strikeClient: StrikeClient | null;
   testAdapter: TestPaymentProcessorAdapter | null;
 }
 
@@ -27,7 +30,10 @@ let billingContext: BillingContext | null = null;
 /** Builds the adapters and the event processor once at startup; calling again replaces them. */
 export function initBillingContext(config: BillingContextConfig): BillingContext {
   const registry = new BillingAdapterRegistry();
-  const { paypalService, testAdapter } = registerBillingAdapters(registry, config);
+  const { paypalService, strikeAdapter, strikeClient, testAdapter } = registerBillingAdapters(
+    registry,
+    config
+  );
   const processor = new BillingEventProcessor({
     store: createOrmBillingLedgerStore(),
     sandboxPolicy: {
@@ -35,7 +41,7 @@ export function initBillingContext(config: BillingContextConfig): BillingContext
       allowedAccountIds: parseSandboxAllowedAccountIds(config.sandboxAllowedAccountIds),
     },
   });
-  billingContext = { registry, processor, paypalService, testAdapter };
+  billingContext = { registry, processor, paypalService, strikeAdapter, strikeClient, testAdapter };
   return billingContext;
 }
 

@@ -23,7 +23,9 @@ import { useConfig } from '../../contexts/Config';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { CheckoutPayPalButtons } from './CheckoutPayPalButtons';
 import { checkoutProduct, isBillingCadence, offersProcessor } from './checkoutProducts';
-import { hasWebPurchasableProcessor } from './purchaseAvailability';
+import { CheckoutStrikePanel } from './CheckoutStrikePanel';
+import type { WebCheckoutMethod } from './purchaseAvailability';
+import { hasWebPurchasableProcessor, webCheckoutMethods } from './purchaseAvailability';
 
 import styles from '../../styles/app/checkout/Checkout.module.scss';
 
@@ -56,6 +58,7 @@ export function CheckoutPageClient({
   const paypalClientId = config.public.paypal.clientId;
 
   const [cadence, setCadence] = useState<BillingCadence>('monthly');
+  const [chosenMethod, setChosenMethod] = useState<WebCheckoutMethod | null>(null);
   const [options, setOptions] = useState<DTOBillingCheckoutOptions | null>(null);
   const [catalogPricing, setCatalogPricing] = useState<MembershipPricingData | null>(pricingData);
   const [loading, setLoading] = useState(true);
@@ -123,6 +126,7 @@ export function CheckoutPageClient({
   }, [signedIn]);
 
   const paypalProduct = options === null ? null : checkoutProduct(options, 'paypal', cadence);
+  const strikeProduct = options === null ? null : checkoutProduct(options, 'strike', cadence);
   const testProduct = options === null ? null : checkoutProduct(options, 'test', cadence);
   const canPurchase =
     options !== null &&
@@ -132,9 +136,20 @@ export function CheckoutPageClient({
     });
   const paypalPurchasable =
     options !== null && offersProcessor(options, 'paypal') && paypalClientId !== '';
+  const strikeOffered = options !== null && offersProcessor(options, 'strike');
+  const methods = webCheckoutMethods({ paypalPurchasable, strikeOffered });
+  const showMethodChoice = methods.length > 1;
+  const activeMethod = showMethodChoice
+    ? chosenMethod !== null && methods.includes(chosenMethod)
+      ? chosenMethod
+      : null
+    : (methods[0] ?? null);
   const showTestPurchase = options !== null && offersProcessor(options, 'test');
+  const waitingForMethod = showMethodChoice && activeMethod === null;
   const cadenceHasProduct =
-    (paypalPurchasable && paypalProduct !== null) || (showTestPurchase && testProduct !== null);
+    (activeMethod === 'paypal' && paypalProduct !== null) ||
+    (activeMethod === 'strike' && strikeProduct !== null) ||
+    (showTestPurchase && testProduct !== null);
 
   const formatCatalogUsd = (amount: number): string => {
     const dollars = Math.round(amount * 100) / 100;
@@ -235,16 +250,47 @@ export function CheckoutPageClient({
                     },
                   ]}
                 />
+                {showMethodChoice ? (
+                  <MembershipPlanSelector
+                    legend={t('choose_a_payment_method')}
+                    name="payment-method"
+                    onChange={(value) => {
+                      if (value === 'paypal' || value === 'strike') {
+                        setChosenMethod(value);
+                        setError(null);
+                      }
+                    }}
+                    options={methods.map((method) => ({
+                      value: method,
+                      label: method === 'paypal' ? t('paypal') : t('bitcoin_lightning'),
+                      price: '',
+                      period: '',
+                    }))}
+                    selectedValue={activeMethod ?? ''}
+                  />
+                ) : null}
                 {error !== null ? <Alert>{error}</Alert> : null}
                 <section className={styles.formSection}>
                   <div className={styles.buttonSection}>
-                    {paypalPurchasable && paypalProduct !== null ? (
+                    {activeMethod === 'paypal' && paypalProduct !== null ? (
                       <CheckoutPayPalButtons
                         clientId={paypalClientId}
-                        processorProductId={paypalProduct.id}
                         onError={() => {
                           setError(t('purchase_failed'));
                         }}
+                        processorProductId={paypalProduct.id}
+                      />
+                    ) : null}
+                    {activeMethod === 'strike' && strikeProduct !== null ? (
+                      <CheckoutStrikePanel
+                        key={strikeProduct.id}
+                        onError={() => {
+                          setError(t('purchase_failed'));
+                        }}
+                        onRenew={() => {
+                          setError(null);
+                        }}
+                        processorProductId={strikeProduct.id}
                       />
                     ) : null}
                     {showTestPurchase ? (
@@ -259,7 +305,9 @@ export function CheckoutPageClient({
                         {t('complete_test_purchase')}
                       </Button>
                     ) : null}
-                    {!cadenceHasProduct ? <p>{t('plan_unavailable')}</p> : null}
+                    {!waitingForMethod && !cadenceHasProduct ? (
+                      <p>{t('plan_unavailable')}</p>
+                    ) : null}
                   </div>
                 </section>
               </>

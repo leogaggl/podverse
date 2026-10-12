@@ -2,6 +2,7 @@ import type {
   BillingPlatform,
   DTOBillingCheckoutOptions,
   DTOBillingStatus,
+  DTOBillingStrikeCheckout,
 } from '@podverse/helpers';
 import type { ApiRequestService } from '@podverse/helpers-requests';
 
@@ -12,9 +13,13 @@ export type BillingApi = {
   getStatus: (platform?: BillingPlatform) => Promise<{ billing_customer_ref: string }>;
   getMembershipStatus: (platform?: BillingPlatform) => Promise<DTOBillingStatus>;
   getCheckoutOptions: (params: {
-    platform: 'android' | 'ios';
+    platform: BillingPlatform;
     storefront: string | null;
   }) => Promise<DTOBillingCheckoutOptions>;
+  createStrikeCheckout: (params: {
+    processorProductId: number;
+  }) => Promise<DTOBillingStrikeCheckout>;
+  getStrikeCheckout: (checkoutId: number) => Promise<DTOBillingStrikeCheckout>;
   postAppleTransaction: (params: {
     transactionId: string;
     productId: string;
@@ -67,6 +72,13 @@ export const createBillingApi = (deps: AuthRequestDeps): BillingApi => {
     requestWithMobileAuthRefresh(deps, request);
 
   return {
+    createStrikeCheckout: (params) =>
+      run((api) =>
+        api.reqBillingStrikeCreateCheckout({
+          platform: 'foss',
+          processorProductId: params.processorProductId,
+        })
+      ),
     getCheckoutOptions: (params) =>
       run((api) =>
         api.reqBillingGetCheckoutOptions({
@@ -74,6 +86,7 @@ export const createBillingApi = (deps: AuthRequestDeps): BillingApi => {
           storefront: params.storefront,
         })
       ),
+    getStrikeCheckout: (checkoutId) => run((api) => api.reqBillingStrikeGetCheckout(checkoutId)),
     getMembershipStatus: (platform) =>
       run((api) => api.reqBillingGetStatus(platform === undefined ? undefined : { platform })),
     getStatus: (platform) =>

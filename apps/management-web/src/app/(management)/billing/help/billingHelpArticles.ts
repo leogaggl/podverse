@@ -1,10 +1,17 @@
-export const BILLING_HELP_SLUGS = ['gifting', 'apple-refunds', 'resync', 'wrong-account'] as const;
+export const BILLING_HELP_SLUGS = [
+  'gifting',
+  'apple-refunds',
+  'strike-refunds',
+  'resync',
+  'wrong-account',
+] as const;
 
 export type BillingHelpSlug = (typeof BILLING_HELP_SLUGS)[number];
 
 const TITLE_KEYS = {
   gifting: 'giftingTitle',
   'apple-refunds': 'appleRefundsTitle',
+  'strike-refunds': 'strikeRefundsTitle',
   resync: 'resyncTitle',
   'wrong-account': 'wrongAccountTitle',
 } as const;
@@ -12,6 +19,7 @@ const TITLE_KEYS = {
 const BODY_KEYS = {
   gifting: 'giftingBody',
   'apple-refunds': 'appleRefundsBody',
+  'strike-refunds': 'strikeRefundsBody',
   resync: 'resyncBody',
   'wrong-account': 'wrongAccountBody',
 } as const;

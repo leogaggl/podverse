@@ -786,6 +786,7 @@
       "grantCadenceLabel": "Cadencia",
       "expires": "La membresía caduca",
       "transactions": "Transacciones",
+      "strikeRefundHint": "El reembolso se envía desde el panel de Strike.",
       "grants": "Concesiones",
       "events": "Eventos webhook",
       "empty": "Ninguno.",
@@ -810,7 +811,8 @@
       "offNotice": "Los procesadores marcados como desactivados no están habilitados en esta instalación. Sus canales de pago no ofrecen nada hasta que un operador los active. Amplía las membresías manualmente desde la página de facturación de cada usuario.",
       "paypal": "PayPal",
       "apple": "App Store de Apple",
-      "google_play": "Google Play"
+      "google_play": "Google Play",
+      "strike": "Strike"
     },
     "help": {
       "title": "Ayuda de facturación",
@@ -822,7 +824,9 @@
       "resyncTitle": "Falta una compra en la app",
       "resyncBody": "Usa Resincronizar en la página de facturación de la cuenta. Resincronizar reintenta las notificaciones fallidas, vuelve a obtener las transacciones de la cuenta y aplica los reembolsos. Úsalo cuando una compra de la tienda no aparece en el libro. Si el procesador está desactivado en esta instalación, actívalo o amplía el acceso a mano.",
       "wrongAccountTitle": "Compra vinculada a la cuenta equivocada",
-      "wrongAccountBody": "Los recibos se vinculan a la cuenta de Podverse que compró. El miembro debe usar esa cuenta, o el soporte de Apple/Google para un traslado. No concedas tiempo en una segunda cuenta sin confirmar que la primera está cancelada."
+      "wrongAccountBody": "Los recibos se vinculan a la cuenta de Podverse que compró. El miembro debe usar esa cuenta, o el soporte de Apple/Google para un traslado. No concedas tiempo en una segunda cuenta sin confirmar que la primera está cancelada.",
+      "strikeRefundsTitle": "Reembolso de Strike",
+      "strikeRefundsBody": "Envía el reembolso en el panel de Strike y luego revoca la concesión en la página de facturación de la cuenta."
     },
     "pageTitle": "Facturación",
     "checkoutChannelsCardTitle": "Canales de pago",
@@ -832,7 +836,7 @@
     "webhookEventsCardTitle": "Bandeja de webhooks",
     "webhookEventsCardDescription": "Revisa las notificaciones del procesador y reenvía las que fallaron.",
     "helpCardTitle": "Ayuda de facturación",
-    "helpCardDescription": "Regalos, reembolsos de Apple, resincronización y una compra en la cuenta equivocada.",
+    "helpCardDescription": "Regalos, reembolsos de Apple, reembolsos de Strike, resincronización y una compra en la cuenta equivocada.",
     "channels": {
       "title": "Canales de pago",
       "failedToLoad": "No se pudieron cargar los canales de pago.",
@@ -855,7 +859,8 @@
       "minVersionPlaceholder": "5.5.0",
       "storefrontsLabel": "Tiendas",
       "storefrontsPlaceholder": "US, CA",
-      "storefrontsHint": "Códigos de país separados por comas. Déjalo vacío para todas las tiendas."
+      "storefrontsHint": "Códigos de país separados por comas. Déjalo vacío para todas las tiendas.",
+      "storeLinkHelp": "Una versión de la tienda abre el pago en la web, y esta fila no se puede activar hasta que se indique al menos un país."
     },
     "products": {
       "title": "Productos del procesador",

@@ -28,6 +28,12 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps billingStrikeEnsureWebhook to Base, ORM, and Billing', () => {
+    expect(sortCategories(getCategoriesForCommand('billingStrikeEnsureWebhook'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM, CATEGORY_BILLING]))
+    );
+  });
+
   it('maps billingImportLegacyMembershipExpiry to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('billingImportLegacyMembershipExpiry'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))

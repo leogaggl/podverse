@@ -1,7 +1,7 @@
 # PayPal sandbox
 
 Local processor webhooks need a public HTTPS URL that forwards to the API on
-`http://localhost:3000`. PayPal, Apple, and Google all use the same base URL.
+`http://localhost:3000`. PayPal, Strike, Apple, and Google all use the same base URL.
 
 ## Named tunnel
 
@@ -52,6 +52,7 @@ Webhook URLs:
 - `https://billing-local.example.com/api/v2/billing/webhooks/paypal`
 - `https://billing-local.example.com/api/v2/billing/webhooks/apple`
 - `https://billing-local.example.com/api/v2/billing/webhooks/google`
+- `https://billing-local.example.com/api/v2/billing/webhooks/strike`
 
 ## Sandbox app webhook
 

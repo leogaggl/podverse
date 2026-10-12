@@ -786,6 +786,7 @@
       "grantCadenceLabel": "Cadence",
       "expires": "Expiration de l'adhésion",
       "transactions": "Transactions",
+      "strikeRefundHint": "Le remboursement est envoyé depuis le tableau de bord Strike.",
       "grants": "Octrois",
       "events": "Événements webhook",
       "empty": "Aucun.",
@@ -810,7 +811,8 @@
       "offNotice": "Les processeurs marqués comme désactivés ne sont pas activés dans ce déploiement. Leurs canaux de paiement ne proposent rien tant qu'un opérateur ne les active pas. Prolongez les adhésions manuellement depuis la page de facturation de chaque utilisateur.",
       "paypal": "PayPal",
       "apple": "App Store d'Apple",
-      "google_play": "Google Play"
+      "google_play": "Google Play",
+      "strike": "Strike"
     },
     "help": {
       "title": "Aide facturation",
@@ -822,7 +824,9 @@
       "resyncTitle": "Un achat manque dans l'app",
       "resyncBody": "Utilisez Resynchroniser sur la page de facturation du compte. La resynchronisation réessaie les notifications en échec, récupère à nouveau les transactions du compte et applique les remboursements. Utilisez-la lorsqu'un achat en magasin manque dans le grand livre. Si le processeur est désactivé dans ce déploiement, activez-le ou prolongez l'accès à la main.",
       "wrongAccountTitle": "Achat lié au mauvais compte",
-      "wrongAccountBody": "Les reçus s'attachent au compte Podverse qui a acheté. Le membre doit utiliser ce compte, ou le support Apple/Google pour un transfert. N'accordez pas de temps sur un second compte sans confirmer l'annulation du premier."
+      "wrongAccountBody": "Les reçus s'attachent au compte Podverse qui a acheté. Le membre doit utiliser ce compte, ou le support Apple/Google pour un transfert. N'accordez pas de temps sur un second compte sans confirmer l'annulation du premier.",
+      "strikeRefundsTitle": "Remboursement Strike",
+      "strikeRefundsBody": "Envoyez le remboursement dans le tableau de bord Strike, puis révoquez la concession sur la page de facturation du compte."
     },
     "pageTitle": "Facturation",
     "checkoutChannelsCardTitle": "Canaux d'achat",
@@ -832,7 +836,7 @@
     "webhookEventsCardTitle": "Boîte webhook",
     "webhookEventsCardDescription": "Consultez les notifications du processeur et rejouez celles qui ont échoué.",
     "helpCardTitle": "Aide facturation",
-    "helpCardDescription": "Cadeaux, remboursements Apple, resynchronisation et un achat sur le mauvais compte.",
+    "helpCardDescription": "Cadeaux, remboursements Apple, remboursements Strike, resynchronisation et un achat sur le mauvais compte.",
     "channels": {
       "title": "Canaux d'achat",
       "failedToLoad": "Impossible de charger les canaux d'achat.",
@@ -855,7 +859,8 @@
       "minVersionPlaceholder": "5.5.0",
       "storefrontsLabel": "Storefronts",
       "storefrontsPlaceholder": "US, CA",
-      "storefrontsHint": "Codes pays séparés par des virgules. Laissez vide pour tous les storefronts."
+      "storefrontsHint": "Codes pays séparés par des virgules. Laissez vide pour tous les storefronts.",
+      "storeLinkHelp": "Une version boutique ouvre le paiement sur le web, et cette ligne ne peut pas être activée tant qu'au moins un pays de storefront n'est pas indiqué."
     },
     "products": {
       "title": "Produits processeur",

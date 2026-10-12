@@ -1,4 +1,4 @@
-import type { BillingCadence, DTOBillingCheckoutOptions } from '@podverse/helpers';
+import type { BillingCadence, BillingPlatform, DTOBillingCheckoutOptions } from '@podverse/helpers';
 
 import type { BillingBackend } from '../billing/BillingClient';
 
@@ -89,8 +89,8 @@ export const offersProcessor = (
 export type StoreCheckoutMode = 'purchase' | 'contact';
 
 /**
- * Purchase when this platform's store or PayPal is offered. Otherwise ask the member to contact
- * the team.
+ * Purchase when this platform's store, PayPal, or Strike is offered. Otherwise ask the member
+ * to contact the team.
  */
 export const resolveStoreCheckoutMode = (params: {
   processors: readonly CheckoutProcessorOffer[];
@@ -98,11 +98,67 @@ export const resolveStoreCheckoutMode = (params: {
 }): StoreCheckoutMode => {
   const storeId = storeProcessorId(params.backend);
   const storeOffered = storeId !== null && offersProcessor(params.processors, storeId);
-  if (storeOffered || offersProcessor(params.processors, 'paypal')) {
+  if (
+    storeOffered ||
+    offersProcessor(params.processors, 'paypal') ||
+    offersProcessor(params.processors, 'strike')
+  ) {
     return 'purchase';
   }
   return 'contact';
 };
+
+export type CheckoutOptionsRequest = {
+  platform: BillingPlatform;
+  storefront: string | null;
+};
+
+/**
+ * Unavailable billing reads the `foss` channel and ignores the device storefront. StoreKit, Play,
+ * and the E2E fake client keep the device platform and the storefront the store returns.
+ */
+export const checkoutOptionsRequest = (params: {
+  backend: BillingBackend;
+  devicePlatform: 'android' | 'ios' | null;
+  storefront: string | null;
+}): CheckoutOptionsRequest | null => {
+  if (params.backend === 'unavailable') {
+    return { platform: 'foss', storefront: null };
+  }
+  if (params.devicePlatform === null) {
+    return null;
+  }
+  return { platform: params.devicePlatform, storefront: params.storefront };
+};
+
+/**
+ * The store processor when this backend has one. Otherwise Strike, so the unavailable build can
+ * choose a monthly or annual invoice.
+ */
+export const checkoutPlanProcessorId = (
+  storeId: 'apple' | 'google_play' | 'test' | null,
+  processors: readonly CheckoutProcessorOffer[]
+): string | null => {
+  if (storeId !== null) {
+    return storeId;
+  }
+  if (offersProcessor(processors, 'strike')) {
+    return 'strike';
+  }
+  return null;
+};
+
+/** In-app Lightning invoice. Only the unavailable-billing build. */
+export const showsStrikeInvoice = (params: {
+  backend: BillingBackend;
+  strikeOffered: boolean;
+}): boolean => params.strikeOffered && params.backend === 'unavailable';
+
+/** Link that opens web checkout. Store backends only, and only when Strike is offered. */
+export const showsStrikeWebLink = (params: {
+  backend: BillingBackend;
+  strikeOffered: boolean;
+}): boolean => params.strikeOffered && params.backend !== 'unavailable';
 
 /** The product checkout buys for this processor and cadence. When several match, the first one is used. */
 export const checkoutProduct = (

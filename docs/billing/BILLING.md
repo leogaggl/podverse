@@ -1,14 +1,17 @@
 # Billing
 
 Premium membership is a one-time month or a one-time year. PayPal sells it on web (and F-Droid
-builds), the App Store sells a non-renewing purchase on iOS, and Google Play sells a prepaid base
-plan on Android. Each purchase adds a grant. Grants stack. The account's `membership_expires_at`
-is recomputed from that ledger.
+builds). Strike sells it the same way, paid with a Lightning invoice. The App Store sells a
+non-renewing purchase on iOS, and Google Play sells a prepaid base plan on Android. Each
+purchase adds a grant. Grants stack. The account's `membership_expires_at` is recomputed
+from that ledger.
 
 Processor sandbox setup and operations:
 
 - [BILLING-PAYPAL-SANDBOX.md](BILLING-PAYPAL-SANDBOX.md)
 - [BILLING-PAYPAL-SANDBOX-CHECKOUT.md](BILLING-PAYPAL-SANDBOX-CHECKOUT.md)
+- [BILLING-STRIKE.md](BILLING-STRIKE.md)
+- [BILLING-STRIKE-SANDBOX.md](BILLING-STRIKE-SANDBOX.md)
 - [BILLING-APPLE-SANDBOX.md](BILLING-APPLE-SANDBOX.md)
 - [BILLING-GOOGLE-PLAY-SANDBOX.md](BILLING-GOOGLE-PLAY-SANDBOX.md)
 - [BILLING-GOOGLE-PLAY-DEVICE.md](BILLING-GOOGLE-PLAY-DEVICE.md)
@@ -41,10 +44,13 @@ All routes are under `/api/v2/billing`. The API reference is `apps/api/openapi.y
 | GET    | `/status`                    | Required | The account's membership standing (`platform` optional)           |
 | POST   | `/paypal/orders`             | Required | Create a PayPal order for a month or a year                       |
 | POST   | `/paypal/orders/:id/capture` | Required | Capture an approved order and record the payment                  |
+| POST   | `/strike/checkouts`          | Required | Create a Lightning invoice for `web` or `foss`                    |
+| GET    | `/strike/checkouts/:id`      | Required | Poll that invoice (one request per account per 2 seconds)         |
 | POST   | `/apple/transactions`        | Required | Record an App Store transaction                                   |
 | POST   | `/google/purchases`          | Required | Verify a Play purchase, record it, then acknowledge it            |
 | POST   | `/restore`                   | Required | Re-record store purchases the device still holds                  |
 | POST   | `/webhooks/paypal`           | None     | PayPal webhook deliveries                                         |
+| POST   | `/webhooks/strike`           | None     | Strike `receive-request.receive-completed` deliveries             |
 | POST   | `/webhooks/apple`            | None     | App Store Server Notifications V2                                 |
 | POST   | `/webhooks/google`           | None     | Real-time developer notifications (Pub/Sub push)                  |
 | POST   | `/test/simulate`             | Required | Apply a test-processor event (non-production only)                |
@@ -55,8 +61,11 @@ All routes are under `/api/v2/billing`. The API reference is `apps/api/openapi.y
 platform is enabled and the processor is configured on this server. Channel rows are cached for
 up to 60 seconds, so a channel turned off in the database stops being offered within a minute.
 
-Each offered product is a one-time month or a one-time year. PayPal product ids are fixed in
-code. Apple and Google Play ids come from `billing_processor_product`.
+Each offered product is a one-time month or a one-time year. PayPal and Strike product ids
+are fixed in code. Apple and Google Play ids come from `billing_processor_product`.
+
+`POST /strike/checkouts` answers 404 when the platform is `ios` or `android`. Those builds
+open web checkout instead of creating an invoice.
 
 ### Client version floor
 
@@ -74,6 +83,7 @@ in `apps/api/src/app.ts` is mounted on `/api/v2/billing/webhooks` ahead of the J
 - `/api/v2/billing/webhooks/paypal`
 - `/api/v2/billing/webhooks/apple`
 - `/api/v2/billing/webhooks/google`
+- `/api/v2/billing/webhooks/strike`
 
 Responses:
 
@@ -100,6 +110,7 @@ The API reads them in `apps/api/.env.example` order (see [apps/api/ENV.md](/apps
 | Processor   | Flag                          | Keys                                                                                           |
 | ----------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
 | PayPal      | `BILLING_PAYPAL_ENABLED`      | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, optional `PAYPAL_ENVIRONMENT` |
+| Strike      | `BILLING_STRIKE_ENABLED`      | `STRIKE_API_KEY`, `STRIKE_WEBHOOK_SECRET`, `STRIKE_ENVIRONMENT` (`production` or `sandbox`)    |
 | App Store   | `BILLING_APPLE_IAP_ENABLED`   | `APPLE_*`                                                                                      |
 | Google Play | `BILLING_GOOGLE_PLAY_ENABLED` | `GOOGLE_PLAY_*`                                                                                |
 
@@ -119,8 +130,10 @@ deployment that runs with production settings. Otherwise `POST /test/simulate` a
 ## Workers reconcile, they do not charge
 
 Every charge happens at the processor. `billingReconcile` never charges a payment method. It
-retries failed webhook inbox rows and applies Google Play voids the webhook missed. The schedule
-and the local command are in [BILLING-OPERATIONS.md](BILLING-OPERATIONS.md).
+retries failed webhook inbox rows, applies Google Play voids the webhook missed, and re-checks
+unsettled Strike checkouts created in the last 25 hours whose invoice expired within the last
+hour or is still open. A completed receive is ingested the same way a webhook would ingest it.
+The schedule and the local command are in [BILLING-OPERATIONS.md](BILLING-OPERATIONS.md).
 
 ## Grant ledger
 
@@ -146,6 +159,22 @@ production they grant only for accounts listed in `BILLING_SANDBOX_ALLOWED_ACCOU
 (account id or `id_text`, comma-separated). Other accounts are logged after signature
 verification, and the webhook still returns 200.
 
+## Checkout sessions
+
+`billing_checkout_session` remembers which account a checkout belongs to when the processor
+payment does not carry that account. Strike is that case. The receive request id is
+`external_id`. Settlement and reconcile read `account_id` from the row. PayPal, Apple, and
+Google Play put the account on the payment itself and do not use this table.
+
+| Column                         | What it holds                                    |
+| ------------------------------ | ------------------------------------------------ |
+| `processor_id` + `external_id` | One row per Strike receive request               |
+| `account_id`                   | The signed-in account that asked for the invoice |
+| `billing_processor_product_id` | The month or year that was offered               |
+| `amount`, `currency_code`      | The USD amount quoted on the invoice             |
+| `expires_at`                   | When the Lightning invoice expires (15 minutes)  |
+| `settled_at`                   | Set when a `COMPLETED` receive has been recorded |
+
 ## Adding or removing a processor
 
 Each vendor has one adapter factory that returns `PaymentProcessorAdapter`. Register it at
@@ -163,10 +192,10 @@ that is not in `billing_processor_product` produces no events.
 
 Two switches, kept separate:
 
-| Switch                                                                                             | What it controls                                            | How to change it                                                          |
-| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Enable flag (`BILLING_PAYPAL_ENABLED`, `BILLING_APPLE_IAP_ENABLED`, `BILLING_GOOGLE_PLAY_ENABLED`) | Deployment capability: credentials, webhooks, and reconcile | Set the flag to `"true"` on the API, workers, and management API together |
-| Checkout channel                                                                                   | Sales on a platform and storefront                          | Turn `enabled` off under **Billing → Checkout Channels**                  |
+| Switch                                                                                                                       | What it controls                                            | How to change it                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Enable flag (`BILLING_PAYPAL_ENABLED`, `BILLING_STRIKE_ENABLED`, `BILLING_APPLE_IAP_ENABLED`, `BILLING_GOOGLE_PLAY_ENABLED`) | Deployment capability: credentials, webhooks, and reconcile | Set the flag to `"true"` on the API, workers, and management API together |
+| Checkout channel                                                                                                             | Sales on a platform and storefront                          | Turn `enabled` off under **Billing → Checkout Channels**                  |
 
 A fresh deployment leaves every flag empty, so it sells nothing. Admins extend memberships
 from each user's Billing page. Gifts stack on time the account already holds. See
@@ -186,6 +215,7 @@ its format. Review the pinned libraries when the vendor retires that API generat
 | Surface                         | Pinned in this repo                   | Schema versions                                                                |
 | ------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------ |
 | PayPal Orders v2                | `@paypal/paypal-server-sdk` 2.x       | `paypal-webhook-v1`, `paypal-capture-v1`                                       |
+| Strike receive requests         | `api.strike.me` / `api.dev.strike.me` | `strike-webhook-v1`, `strike-receive-request-v1`                               |
 | App Store Server API and ASN V2 | `@apple/app-store-server-library` 1.x | `apple-asn-v2`, `apple-transaction-v1`                                         |
 | StoreKit on device              | `expo-iap` 2.6.3                      | —                                                                              |
 | Google Play Developer API       | `@googleapis/androidpublisher` 14.x   | `google-play-rtdn-v1`, `google-play-subscription-v2`, `google-play-product-v1` |
@@ -203,21 +233,23 @@ loaded; it is not a notification. See
 Credential values stay out of ConfigMaps. The keys are listed in
 `infra/k8s/base/api/source/api.env`, `infra/k8s/base/workers/source/workers.env`, and
 `infra/k8s/base/management-api/source/management-api.env`. The bundle id and the package name
-are set there; they do not turn a processor on. PayPal, Apple, and Google credential values stay
-empty until the SOPS secrets below are applied. Generate them from the monorepo root (GitOps
-checkouts use their copy of the same scripts):
+are set there; they do not turn a processor on. PayPal, Strike, Apple, and Google credential
+values stay empty until the SOPS secrets below are applied. Generate them from the monorepo
+root (GitOps checkouts use their copy of the same scripts):
 
 ```bash
 bash ./infra/k8s/scripts/secret-generators/create_billing_paypal_secret.sh
+bash ./infra/k8s/scripts/secret-generators/create_billing_strike_secret.sh
 bash ./infra/k8s/scripts/secret-generators/create_billing_apple_iap_secret.sh
 bash ./infra/k8s/scripts/secret-generators/create_billing_google_play_secret.sh
 ```
 
-| Secret                                | Contents                                                        | Mount                                                                |
-| ------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `podverse-billing-paypal-opaque`      | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `envFrom` on the API, management API, and `worker-billing-reconcile` |
-| `podverse-billing-apple-iap-opaque`   | key `AuthKey.p8`                                                | `/var/secrets/apple-iap`                                             |
-| `podverse-billing-google-play-opaque` | key `service-account.json`                                      | `/var/secrets/google-play`                                           |
+| Secret                                | Contents                                                        | Mount                                                                         |
+| ------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `podverse-billing-paypal-opaque`      | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `envFrom` on the API, management API, and `worker-billing-reconcile`          |
+| `podverse-billing-strike-opaque`      | `STRIKE_API_KEY`, `STRIKE_WEBHOOK_SECRET`                       | optional `envFrom` on the API, management API, and `worker-billing-reconcile` |
+| `podverse-billing-apple-iap-opaque`   | key `AuthKey.p8`                                                | `/var/secrets/apple-iap`                                                      |
+| `podverse-billing-google-play-opaque` | key `service-account.json`                                      | `/var/secrets/google-play`                                                    |
 
 Set `APPLE_IAP_PRIVATE_KEY_PATH` to `/var/secrets/apple-iap/AuthKey.p8` and
 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` to `/var/secrets/google-play/service-account.json` only

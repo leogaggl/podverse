@@ -1,9 +1,13 @@
 import type { BillingEventProcessor } from '@podverse/billing';
+import { transactionSnapshotToEvents } from '@podverse/billing';
 import type { GooglePlayClient } from '@podverse/external-services-google-play';
 import {
   pollGooglePlayVoidedPurchases,
   voidedPurchaseToRevokeEvent,
 } from '@podverse/external-services-google-play';
+import { StrikeReceiveNotCompletedError } from '@podverse/external-services-strike';
+import type { PaymentProcessorAdapter } from '@podverse/helpers';
+import { BillingProcessorRecordNotFoundError } from '@podverse/helpers';
 
 /** A failed inbox row is left this long before a retry, so a webhook redelivery gets there first. */
 export const INBOX_RETRY_MIN_AGE_MS = 15 * 60 * 1000;
@@ -11,6 +15,17 @@ export const INBOX_RETRY_BATCH_SIZE = 100;
 /** Each run re-reads this much of Google's voided-purchase history; overlap is deduplicated. */
 export const GOOGLE_PLAY_VOIDED_LOOKBACK_MS = 48 * 60 * 60 * 1000;
 const GOOGLE_PLAY_VOIDED_PAGE_SIZE = 1000;
+/** Unsettled Strike checkouts created inside this window are eligible for a recheck. */
+export const STRIKE_RECONCILE_CREATED_LOOKBACK_MS = 25 * 60 * 60 * 1000;
+/** An invoice that expired longer ago than this is left alone. */
+export const STRIKE_RECONCILE_EXPIRY_GRACE_MS = 60 * 60 * 1000;
+const STRIKE_RECONCILE_BATCH = 200;
+
+export interface StrikeReconcileSession {
+  accountId: number;
+  expiresAt: Date;
+  externalId: string;
+}
 
 export interface ReconcileInboxRow {
   id: string;
@@ -35,6 +50,12 @@ export interface BillingReconcileDeps {
   }): Promise<ReconcileInboxRow[]>;
   /** The Google Play transaction this server recorded under that order id. */
   findRecordedGooglePlayPurchase(externalTransactionId: string): Promise<RecordedPurchase | null>;
+  /** Null when Strike is disabled. Omit both Strike fields to skip that step. */
+  strikeAdapter?: PaymentProcessorAdapter | null;
+  listUnsettledStrikeSessions?(params: {
+    since: Date;
+    limit: number;
+  }): Promise<StrikeReconcileSession[]>;
   logger: BillingReconcileLogger;
   now: Date;
 }
@@ -42,6 +63,7 @@ export interface BillingReconcileDeps {
 export interface BillingReconcileSummary {
   inbox: { recovered: number; stillFailing: number };
   googlePlayVoids: { ingested: number; unrecorded: number; failed: number };
+  strike: { checked: number; failed: number; ingested: number; pending: number };
   /** Steps that stopped early, such as a database or processor outage. */
   stepErrors: string[];
 }
@@ -128,10 +150,75 @@ async function applyGooglePlayVoids(
   } while (pageToken !== undefined);
 }
 
+function strikePaymentStillOpen(error: unknown): boolean {
+  return (
+    error instanceof StrikeReceiveNotCompletedError ||
+    error instanceof BillingProcessorRecordNotFoundError
+  );
+}
+
 /**
- * Brings the ledger in line with the processors: failed inbox rows and Google Play voids.
- * Never charges a payment method. Each step runs even when an earlier one stops early; those
- * failures are listed in `stepErrors`.
+ * Rechecks Strike checkouts created in the last 25 hours whose invoice expired within the last
+ * hour or is still open. A completed receive is ingested the same way a webhook would ingest it.
+ */
+async function reconcileStrikeCheckouts(
+  deps: BillingReconcileDeps,
+  strikeAdapter: PaymentProcessorAdapter,
+  listUnsettledStrikeSessions: NonNullable<BillingReconcileDeps['listUnsettledStrikeSessions']>,
+  summary: BillingReconcileSummary
+): Promise<void> {
+  const since = new Date(deps.now.getTime() - STRIKE_RECONCILE_CREATED_LOOKBACK_MS);
+  const expiryCutoff = deps.now.getTime() - STRIKE_RECONCILE_EXPIRY_GRACE_MS;
+  const sessions = await listUnsettledStrikeSessions({ since, limit: STRIKE_RECONCILE_BATCH });
+  for (const session of sessions) {
+    if (session.expiresAt.getTime() < expiryCutoff) {
+      continue;
+    }
+    summary.strike.checked += 1;
+    try {
+      const snapshot = await strikeAdapter.fetchTransaction({
+        externalId: session.externalId,
+        externalProductId: null,
+      });
+      const source = {
+        schemaVersion: snapshot.schemaVersion,
+        rawPayload: snapshot.rawPayload,
+      };
+      let sessionFailed = false;
+      const events = transactionSnapshotToEvents(snapshot, { accountId: session.accountId });
+      for (const event of events) {
+        const outcome = await deps.processor.ingestEvent(event, source);
+        if (outcome.status === 'failed') {
+          sessionFailed = true;
+          deps.logger.error('Billing reconcile could not apply a Strike payment', {
+            externalId: session.externalId,
+            error: outcome.message,
+          });
+        }
+      }
+      if (sessionFailed) {
+        summary.strike.failed += 1;
+      } else {
+        summary.strike.ingested += 1;
+      }
+    } catch (error) {
+      if (strikePaymentStillOpen(error)) {
+        summary.strike.pending += 1;
+        continue;
+      }
+      summary.strike.failed += 1;
+      deps.logger.error('Billing reconcile could not read a Strike checkout', {
+        externalId: session.externalId,
+        error: errorMessage(error),
+      });
+    }
+  }
+}
+
+/**
+ * Brings the ledger in line with the processors: failed inbox rows, Google Play voids, and
+ * unsettled Strike checkouts. Never charges a payment method. Each step runs even when an
+ * earlier one stops early; those failures are listed in `stepErrors`.
  */
 export async function reconcileBilling(
   deps: BillingReconcileDeps
@@ -139,6 +226,7 @@ export async function reconcileBilling(
   const summary: BillingReconcileSummary = {
     inbox: { recovered: 0, stillFailing: 0 },
     googlePlayVoids: { ingested: 0, unrecorded: 0, failed: 0 },
+    strike: { checked: 0, failed: 0, ingested: 0, pending: 0 },
     stepErrors: [],
   };
 
@@ -150,6 +238,15 @@ export async function reconcileBilling(
     steps.push({
       name: 'google_play_voids',
       run: () => applyGooglePlayVoids(deps, googlePlayClient, summary),
+    });
+  }
+  const strikeAdapter = deps.strikeAdapter ?? null;
+  const listUnsettledStrikeSessions = deps.listUnsettledStrikeSessions;
+  if (strikeAdapter !== null && listUnsettledStrikeSessions !== undefined) {
+    steps.push({
+      name: 'strike_checkouts',
+      run: () =>
+        reconcileStrikeCheckouts(deps, strikeAdapter, listUnsettledStrikeSessions, summary),
     });
   }
 

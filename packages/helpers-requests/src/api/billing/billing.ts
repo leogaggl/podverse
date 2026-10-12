@@ -6,6 +6,7 @@ import type {
   DTOBillingPurchaseResult,
   DTOBillingSimulationResult,
   DTOBillingStatus,
+  DTOBillingStrikeCheckout,
 } from '@podverse/helpers';
 
 import type { ApiRequestService } from '../_request.js';
@@ -16,6 +17,12 @@ export type ReqBillingPayPalCheckoutParams = {
   processorProductId: number;
   returnUrl: string;
   cancelUrl: string;
+};
+
+export type ReqBillingStrikeCreateCheckoutParams = {
+  processorProductId: number;
+  /** Omitted on web. The API defaults a missing platform to `web`. */
+  platform?: 'web' | 'foss';
 };
 
 export type ReqBillingSimulatePaymentParams = {
@@ -158,6 +165,29 @@ export async function reqBillingCapturePayPalOrder(api: ApiRequestService, order
   return api.apiRequest<DTOBillingPurchaseResult>({
     path: `/billing/paypal/orders/${encodeURIComponent(orderId)}/capture`,
     method: 'POST',
+    config: credentials,
+  });
+}
+
+export async function reqBillingStrikeCreateCheckout(
+  api: ApiRequestService,
+  params: ReqBillingStrikeCreateCheckoutParams
+) {
+  return api.apiRequest<DTOBillingStrikeCheckout>({
+    path: '/billing/strike/checkouts',
+    method: 'POST',
+    data: {
+      processor_product_id: params.processorProductId,
+      ...(params.platform !== undefined ? { platform: params.platform } : {}),
+    },
+    config: credentials,
+  });
+}
+
+export async function reqBillingStrikeGetCheckout(api: ApiRequestService, checkoutId: number) {
+  return api.apiRequest<DTOBillingStrikeCheckout>({
+    path: `/billing/strike/checkouts/${encodeURIComponent(String(checkoutId))}`,
+    method: 'GET',
     config: credentials,
   });
 }

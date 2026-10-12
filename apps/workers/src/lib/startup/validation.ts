@@ -52,6 +52,7 @@ import {
   validatePayPalProcessorEnv,
   validatePositiveNumber,
   validateRequired,
+  validateStrikeProcessorEnv,
 } from '@podverse/helpers-config';
 import { buildObservabilityValidationResults } from '@podverse/observability/config';
 
@@ -196,6 +197,7 @@ function validateBillingProcessors(): ValidationResult[] {
     ...validatePayPalProcessorEnv(process.env),
     ...validateAppleProcessorEnv(process.env),
     ...validateGooglePlayProcessorEnv(process.env),
+    ...validateStrikeProcessorEnv(process.env),
   ];
 }
 

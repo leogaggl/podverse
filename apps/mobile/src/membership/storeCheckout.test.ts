@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   availableCadences,
+  checkoutOptionsRequest,
+  checkoutPlanProcessorId,
   checkoutProduct,
   isClientUpdateRequired,
   mapCheckoutProcessors,
   offersProcessor,
   PLAY_PACKAGE_NAME,
   resolveStoreCheckoutMode,
+  showsStrikeInvoice,
+  showsStrikeWebLink,
   storeListingUrl,
   storeProcessorId,
 } from './storeCheckout';
@@ -70,13 +74,16 @@ describe('store checkout selection', () => {
     expect(offersProcessor(options, 'apple')).toBe(false);
   });
 
-  it('uses contact mode only when this platform has no store processor and no PayPal', () => {
+  it('uses contact mode only when this platform has no store processor, PayPal, or Strike', () => {
     const none = mapCheckoutProcessors({ processors: [] });
     const storeOnly = mapCheckoutProcessors({
       processors: [{ processor_id: 'test', products: [] }],
     });
     const paypalOnly = mapCheckoutProcessors({
       processors: [{ processor_id: 'paypal', products: [] }],
+    });
+    const strikeOnly = mapCheckoutProcessors({
+      processors: [{ processor_id: 'strike', products: [] }],
     });
     const both = mapCheckoutProcessors({
       processors: [
@@ -86,9 +93,74 @@ describe('store checkout selection', () => {
     });
 
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: none })).toBe('contact');
+    expect(resolveStoreCheckoutMode({ backend: 'unavailable', processors: none })).toBe('contact');
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: storeOnly })).toBe('purchase');
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: paypalOnly })).toBe('purchase');
     expect(resolveStoreCheckoutMode({ backend: 'fake', processors: both })).toBe('purchase');
+    expect(resolveStoreCheckoutMode({ backend: 'unavailable', processors: strikeOnly })).toBe(
+      'purchase'
+    );
+    expect(resolveStoreCheckoutMode({ backend: 'storekit', processors: strikeOnly })).toBe(
+      'purchase'
+    );
+  });
+
+  it('requests foss checkout options only for the unavailable backend', () => {
+    expect(
+      checkoutOptionsRequest({
+        backend: 'unavailable',
+        devicePlatform: 'ios',
+        storefront: 'US',
+      })
+    ).toEqual({ platform: 'foss', storefront: null });
+    expect(
+      checkoutOptionsRequest({
+        backend: 'fake',
+        devicePlatform: 'ios',
+        storefront: 'US',
+      })
+    ).toEqual({ platform: 'ios', storefront: 'US' });
+    expect(
+      checkoutOptionsRequest({
+        backend: 'storekit',
+        devicePlatform: 'ios',
+        storefront: 'US',
+      })
+    ).toEqual({ platform: 'ios', storefront: 'US' });
+    expect(
+      checkoutOptionsRequest({
+        backend: 'play',
+        devicePlatform: 'android',
+        storefront: null,
+      })
+    ).toEqual({ platform: 'android', storefront: null });
+    expect(
+      checkoutOptionsRequest({
+        backend: 'play',
+        devicePlatform: null,
+        storefront: 'US',
+      })
+    ).toBeNull();
+  });
+
+  it('keeps the store link separate from the in-app invoice', () => {
+    expect(showsStrikeInvoice({ backend: 'unavailable', strikeOffered: true })).toBe(true);
+    expect(showsStrikeInvoice({ backend: 'fake', strikeOffered: true })).toBe(false);
+    expect(showsStrikeInvoice({ backend: 'storekit', strikeOffered: true })).toBe(false);
+    expect(showsStrikeInvoice({ backend: 'unavailable', strikeOffered: false })).toBe(false);
+
+    expect(showsStrikeWebLink({ backend: 'storekit', strikeOffered: true })).toBe(true);
+    expect(showsStrikeWebLink({ backend: 'play', strikeOffered: true })).toBe(true);
+    expect(showsStrikeWebLink({ backend: 'fake', strikeOffered: true })).toBe(true);
+    expect(showsStrikeWebLink({ backend: 'unavailable', strikeOffered: true })).toBe(false);
+    expect(showsStrikeWebLink({ backend: 'play', strikeOffered: false })).toBe(false);
+
+    const strike = mapCheckoutProcessors({
+      processors: [{ processor_id: 'strike', products: [] }],
+    });
+    expect(checkoutPlanProcessorId('test', strike)).toBe('test');
+    expect(checkoutPlanProcessorId(null, strike)).toBe('strike');
+    expect(checkoutPlanProcessorId(null, [])).toBeNull();
   });
 
   it('treats the update-required code as the store-update prompt', () => {

@@ -11,4 +11,5 @@ There is no purchase-kind discriminator.
 
 A new processor implements `PaymentProcessorAdapter` and emits `payment_settled` and
 `refund_or_revoke` only. A product that is not mapped in `billing_processor_product` produces
-no events.
+no events. A processor whose payment does not carry the Podverse account uses
+`billing_checkout_session` so settlement can resolve that account.

@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../feedback/ConfirmDialog';
 import { Accordion, Button, Card } from '../primitives';
 import { LoadingSection } from '../state/LoadingSection';
 import { MembershipCheckoutPlans } from './MembershipCheckoutPlans';
+import { MembershipStrikeCheckout } from './MembershipStrikeCheckout';
 
 /**
  * Store checkout for a signed-in member. Monthly or annual, then buy. Plan prices and the annual
@@ -145,6 +146,18 @@ export function MembershipStoreCheckout() {
     </View>
   );
 
+  const strikeLink = checkout.showStrikeLink ? (
+    <Button
+      fullWidth
+      label={t('membership.checkout.pay_with_bitcoin_on_the_web')}
+      onPress={() => {
+        void openCheckout({ mode: 'extend' });
+      }}
+      testID="membership-checkout-strike"
+      variant="outline"
+    />
+  ) : null;
+
   const payPalButton = checkout.showPayPal ? (
     <Button
       fullWidth
@@ -194,7 +207,28 @@ export function MembershipStoreCheckout() {
     return (
       <View style={styles.block} testID="membership-checkout-foss">
         {payPalButton}
-        {!checkout.showPayPal ? contactBlock : null}
+        {checkout.showStrikeInvoice &&
+        checkout.cadence !== undefined &&
+        checkout.cadences.length > 0 ? (
+          <MembershipCheckoutPlans
+            cadences={checkout.cadences}
+            catalogPricing={checkout.catalogPricing}
+            onSelect={checkout.selectCadence}
+            prices={checkout.prices}
+            processorId="strike"
+            processors={checkout.processors}
+            selectedCadence={checkout.cadence}
+          />
+        ) : null}
+        {checkout.showStrikeInvoice && checkout.product !== null ? (
+          <MembershipStrikeCheckout
+            key={checkout.product.id}
+            onFailed={checkout.failCheckout}
+            onSettled={checkout.onStrikeSettled}
+            processorProductId={checkout.product.id}
+          />
+        ) : null}
+        {!checkout.showPayPal && !checkout.showStrikeInvoice ? contactBlock : null}
         {notices}
       </View>
     );
@@ -255,6 +289,7 @@ export function MembershipStoreCheckout() {
             </>
           ) : null}
           {payPalButton}
+          {strikeLink}
           {checkout.checkoutMode === 'contact' ? contactBlock : null}
           {checkout.storeOffered && checkout.product === null ? (
             <Text style={styles.disclosure}>{t('checkout.plan_unavailable')}</Text>

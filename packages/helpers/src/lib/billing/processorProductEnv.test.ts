@@ -4,6 +4,7 @@ import {
   BILLING_PROCESSOR_PRODUCT_ENV_KEYS,
   PAYPAL_ONE_TIME_PRODUCT_IDS,
   resolveBillingProcessorProductsFromEnv,
+  STRIKE_ONE_TIME_PRODUCT_IDS,
 } from './processorProductEnv.js';
 
 describe('resolveBillingProcessorProductsFromEnv', () => {
@@ -25,6 +26,18 @@ describe('resolveBillingProcessorProductsFromEnv', () => {
         processor: 'paypal',
         cadence: 'annual',
         externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.annual,
+        externalBasePlanId: null,
+      },
+      {
+        processor: 'strike',
+        cadence: 'monthly',
+        externalProductId: STRIKE_ONE_TIME_PRODUCT_IDS.monthly,
+        externalBasePlanId: null,
+      },
+      {
+        processor: 'strike',
+        cadence: 'annual',
+        externalProductId: STRIKE_ONE_TIME_PRODUCT_IDS.annual,
         externalBasePlanId: null,
       },
       {

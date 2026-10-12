@@ -38,6 +38,17 @@ export const billingPayPalOrderParamsSchema = Joi.object({
   id: externalId.required(),
 });
 
+export const billingStrikeCheckoutBodySchema = Joi.object({
+  processor_product_id: Joi.number().integer().positive().required(),
+  platform: Joi.string()
+    .valid(...BILLING_PLATFORMS)
+    .default('web'),
+});
+
+export const billingStrikeCheckoutParamsSchema = Joi.object({
+  id: Joi.number().integer().positive().required(),
+});
+
 export const billingAppleTransactionBodySchema = Joi.object({
   transaction_id: externalId.required(),
   product_id: externalId.optional(),

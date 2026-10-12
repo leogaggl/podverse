@@ -5,10 +5,19 @@ import type {
   GooglePlayClient,
   GooglePlayVoidedPurchasesPage,
 } from '@podverse/external-services-google-play';
-import type { NormalizedBillingEvent } from '@podverse/helpers';
+import { StrikeReceiveNotCompletedError } from '@podverse/external-services-strike';
+import type {
+  NormalizedBillingEvent,
+  NormalizedTransactionSnapshot,
+  PaymentProcessorAdapter,
+} from '@podverse/helpers';
 
 import type { BillingReconcileDeps, ReconcileInboxRow } from './reconcileBilling.js';
-import { INBOX_RETRY_MIN_AGE_MS, reconcileBilling } from './reconcileBilling.js';
+import {
+  INBOX_RETRY_MIN_AGE_MS,
+  reconcileBilling,
+  STRIKE_RECONCILE_CREATED_LOOKBACK_MS,
+} from './reconcileBilling.js';
 
 const NOW = new Date('2026-09-27T12:00:00.000Z');
 
@@ -150,5 +159,89 @@ describe('reconcileBilling', () => {
 
     expect(summary.stepErrors).toEqual(['inbox: connection refused']);
     expect(processor.ingestEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks Strike checkouts created in the last 25 hours that expired within the last hour', async () => {
+    const { deps, processor } = buildDeps({});
+    const hour = 60 * 60 * 1000;
+    const listUnsettledStrikeSessions = vi.fn(async () => [
+      {
+        accountId: 1,
+        externalId: 'expired-long-ago',
+        expiresAt: new Date(NOW.getTime() - 2 * hour),
+      },
+      {
+        accountId: 4,
+        externalId: 'recent-expired',
+        expiresAt: new Date(NOW.getTime() - 30 * 60 * 1000),
+      },
+      {
+        accountId: 8,
+        externalId: 'still-open',
+        expiresAt: new Date(NOW.getTime() + 10 * 60 * 1000),
+      },
+      {
+        accountId: 9,
+        externalId: 'pending',
+        expiresAt: new Date(NOW.getTime() + 5 * 60 * 1000),
+      },
+    ]);
+    const fetchTransaction = vi.fn(
+      async (ref: { externalId: string }): Promise<NormalizedTransactionSnapshot> => {
+        if (ref.externalId === 'pending') {
+          throw new StrikeReceiveNotCompletedError(ref.externalId);
+        }
+        return {
+          processor: 'strike',
+          externalTransactionId: ref.externalId,
+          accountBillingCustomerRef: null,
+          externalProductId: 'podverse-premium-monthly',
+          externalBasePlanId: null,
+          settledAt: NOW.toISOString(),
+          periodStart: null,
+          periodEnd: null,
+          amount: { value: '3.00', currencyCode: 'USD' },
+          revokedAt: null,
+          revocationReason: null,
+          isSandbox: true,
+          fetchedAt: NOW.toISOString(),
+          schemaVersion: 'strike-receive-request-v1',
+          rawPayload: {},
+        };
+      }
+    );
+    const strikeAdapter: PaymentProcessorAdapter = {
+      id: 'strike',
+      verifyAndParseWebhook: vi.fn(),
+      fetchTransaction,
+    };
+
+    const summary = await reconcileBilling({
+      ...deps,
+      strikeAdapter,
+      listUnsettledStrikeSessions,
+    });
+
+    expect(listUnsettledStrikeSessions).toHaveBeenCalledWith({
+      since: new Date(NOW.getTime() - STRIKE_RECONCILE_CREATED_LOOKBACK_MS),
+      limit: 200,
+    });
+    expect(fetchTransaction.mock.calls.map((call) => call[0].externalId)).toEqual([
+      'recent-expired',
+      'still-open',
+      'pending',
+    ]);
+    expect(processor.ingestEvent).toHaveBeenCalledTimes(2);
+    expect(processor.ingestEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processor: 'strike',
+        type: 'payment_settled',
+        externalTransactionId: 'still-open',
+        accountId: 8,
+      }),
+      expect.objectContaining({ schemaVersion: 'strike-receive-request-v1' })
+    );
+    expect(summary.strike).toEqual({ checked: 3, ingested: 2, pending: 1, failed: 0 });
+    expect(summary.stepErrors).toEqual([]);
   });
 });

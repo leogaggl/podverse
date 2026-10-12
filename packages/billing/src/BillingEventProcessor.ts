@@ -5,6 +5,7 @@ import type { BillingEventErrorCode } from './errors.js';
 import { BillingEventError } from './errors.js';
 import { isNormalizedBillingEvent } from './isNormalizedBillingEvent.js';
 import type { BillingAccountIdentity, BillingLedgerStore } from './ledgerStore.js';
+import { markStrikeCheckoutSettled } from './markStrikeCheckoutSettled.js';
 import type { BillingSandboxPolicy } from './sandboxPolicy.js';
 import { isSandboxPurchaseAllowed } from './sandboxPolicy.js';
 
@@ -160,6 +161,7 @@ export class BillingEventProcessor {
         (unitOfWork) => applyBillingEvent(unitOfWork, event)
       );
       await this.store.markInboxProcessed(inboxEventId, result.note);
+      await markStrikeCheckoutSettled(event);
       return { status: 'processed', inboxEventId, accountId: account.id, membershipExpiresAt };
     } catch (error) {
       const { errorCode, message } = describeError(error);

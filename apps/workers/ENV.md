@@ -22,7 +22,7 @@ The workers app validates environment variables **per command**. Each job only v
 | ----------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Base only                           | Base                                     | podcastIndexDeadFeedsDeleteCache                                                                                                                                                                                              |
 | Base + ORM only                     | Base, ORM                                | archiveAll, statsUpdateAggregated, devStatsSeedSimulatedAggregated, devSeedLocalUserContent, scheduledJobsRunDue, notificationsPlatformPurge, billingImportLegacyMembershipExpiry, billingSeedProcessorProductsFromEnv, orm\* |
-| Base + ORM + Billing                | Base, ORM, Billing                       | billingReconcile                                                                                                                                                                                                              |
+| Base + ORM + Billing                | Base, ORM, Billing                       | billingReconcile, billingStrikeEnsureWebhook                                                                                                                                                                                  |
 | Base + Podcast Index                | Base, PodcastIndex                       | podcastIndexTrendingPodcastsGet, podcastIndexValueUpdateAll                                                                                                                                                                   |
 | Base + ORM + Podcast Index          | Base, ORM, PodcastIndex                  | podcastIndexDeadFeedsFlagAndMerge                                                                                                                                                                                             |
 | Base + ORM + MQ                     | Base, ORM, MQ                            | mqRSSRunDlqConsumer, mqRSSAddAll                                                                                                                                                                                              |
@@ -144,13 +144,23 @@ With the flag on, every key that processor needs is required. Keys and meanings 
   keeps it off
 - **`GOOGLE_PLAY_PACKAGE_NAME`**, **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`**,
   **`GOOGLE_PLAY_RTDN_PUSH_AUDIENCE`**, **`GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL`**
+- **`BILLING_STRIKE_ENABLED`** (Optional, default off) - `true` turns Strike on; empty keeps it off
+- **`STRIKE_API_KEY`**, **`STRIKE_WEBHOOK_SECRET`**, **`STRIKE_ENVIRONMENT`**
+- **`STRIKE_ENVIRONMENT`** - `production` or `sandbox` when Strike is enabled
+
+`billingStrikeEnsureWebhook` creates or updates the Strike subscription for
+`<BILLING_WEBHOOK_PUBLIC_BASE_URL>/api/v2/billing/webhooks/strike` (`receive-request.receive-completed`,
+webhook version `v1`). Strike must be enabled, and `BILLING_WEBHOOK_PUBLIC_BASE_URL` must be set;
+the command exits when that URL is empty. The log line is the subscription id. The webhook
+secret is not logged.
 
 On **Kubernetes**, the same keys are listed in `infra/k8s/base/workers/source/workers.env`.
 CronJob `worker-billing-reconcile` mounts **`podverse-billing-apple-iap-opaque`** at
 **`/var/secrets/apple-iap/AuthKey.p8`** and **`podverse-billing-google-play-opaque`** at
 **`/var/secrets/google-play/service-account.json`**, and reads PayPal from
-**`podverse-billing-paypal-opaque`**. Leave each `_PATH` empty until that secret is applied,
-and set the matching `*_ENABLED` flag to `true` before that processor registers.
+**`podverse-billing-paypal-opaque`** and Strike from
+**`podverse-billing-strike-opaque`**. Leave each `_PATH` empty until that secret is applied, and
+set the matching `*_ENABLED` flag to `true` before that processor registers.
 See [docs/billing/BILLING.md](/docs/billing/BILLING.md).
 
 ### v4 membership expiry (`billingImportLegacyMembershipExpiry`)

@@ -30,6 +30,7 @@ import { AccountWebPushDevice } from '@orm/entities/account/accountWebPushDevice
 import { AdminNotificationCampaign } from '@orm/entities/account/adminNotificationCampaign.js';
 import { ScheduledJob } from '@orm/entities/account/scheduledJob.js';
 import { BillingCheckoutChannel } from '@orm/entities/billingCheckoutChannel.js';
+import { BillingCheckoutSession } from '@orm/entities/billingCheckoutSession.js';
 import { BillingMembershipGrant } from '@orm/entities/billingMembershipGrant.js';
 import { BillingPrice } from '@orm/entities/billingPrice.js';
 import { BillingPriceChangeAudit } from '@orm/entities/billingPriceChangeAudit.js';
@@ -163,6 +164,7 @@ export const entities = [
   AccountWebPushDevice,
   AccountVerification,
   BillingCheckoutChannel,
+  BillingCheckoutSession,
   BillingMembershipGrant,
   BillingProcessor,
   BillingProcessorProduct,

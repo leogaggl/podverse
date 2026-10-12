@@ -436,7 +436,7 @@ describe('Billing routes', () => {
         nodeEnv: 'production',
         allowTestAdapter: false,
         sandboxAllowedAccountIds: undefined,
-        processors: { paypal: null, apple: null, googlePlay: null },
+        processors: { paypal: null, apple: null, googlePlay: null, strike: null },
       });
       try {
         const res = await simulate(account, payment(`sim-prod-${runId}`)).expect(403);

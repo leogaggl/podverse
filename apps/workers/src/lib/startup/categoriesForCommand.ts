@@ -40,7 +40,7 @@ const BASE_ORM_COMMANDS = [
   'scheduledJobsRunDue',
 ] as const;
 
-const BASE_ORM_BILLING_COMMANDS = ['billingReconcile'] as const;
+const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;
 
 const BASE_ONLY_COMMANDS = ['podcastIndexDeadFeedsDeleteCache'] as const;
 

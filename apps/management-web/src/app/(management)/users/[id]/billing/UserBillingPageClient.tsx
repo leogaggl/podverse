@@ -532,7 +532,16 @@ export function UserBillingPageClient({ initialUser, accountId }: UserBillingPag
               <Table.Body>
                 {detail.transactions.map((transaction) => (
                   <Table.Row key={transaction.id}>
-                    <Table.Cell>{transaction.processor_id}</Table.Cell>
+                    <Table.Cell>
+                      {transaction.processor_id === 'strike' ? (
+                        <>
+                          {t('processors.strike')}
+                          <p>{t('account.strikeRefundHint')}</p>
+                        </>
+                      ) : (
+                        transaction.processor_id
+                      )}
+                    </Table.Cell>
                     <Table.Cell>{transaction.external_transaction_id}</Table.Cell>
                     <Table.Cell>
                       {transaction.amount === null

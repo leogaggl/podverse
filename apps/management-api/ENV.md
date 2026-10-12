@@ -113,11 +113,15 @@ resync rather than failing it.
 - **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty or unset keeps it off
 - **`GOOGLE_PLAY_PACKAGE_NAME`**, **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`**, **`GOOGLE_PLAY_RTDN_PUSH_AUDIENCE`**, **`GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL`** - Google Play Developer API credentials
+- **`BILLING_STRIKE_ENABLED`** (Optional, default off) - `true` turns Strike on; empty or unset keeps it off
+- **`STRIKE_API_KEY`**, **`STRIKE_WEBHOOK_SECRET`** - Strike API key and webhook signing secret
+- **`STRIKE_ENVIRONMENT`** - `production` or `sandbox` when Strike is enabled
 
 On **Kubernetes**, the management API deployment mounts the same Apple and Google key files
 as the API (`/var/secrets/apple-iap/AuthKey.p8`,
 `/var/secrets/google-play/service-account.json`) and reads PayPal from Secret
-**`podverse-billing-paypal-opaque`**. Keys are listed in
+**`podverse-billing-paypal-opaque`**. It reads Strike credentials from Secret
+**`podverse-billing-strike-opaque`**. Keys are listed in
 `infra/k8s/base/management-api/source/management-api.env`. See
 [docs/billing/BILLING.md](/docs/billing/BILLING.md).
 

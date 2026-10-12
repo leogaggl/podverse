@@ -22,6 +22,7 @@ import {
   validateOptionalAbsoluteHttpUrlIfSet,
   validatePayPalProcessorEnv,
   validateRequired,
+  validateStrikeProcessorEnv,
 } from '@podverse/helpers-config';
 import { buildObservabilityValidationResults } from '@podverse/observability/config';
 
@@ -169,6 +170,7 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(...validatePayPalProcessorEnv(process.env));
   results.push(...validateAppleProcessorEnv(process.env));
   results.push(...validateGooglePlayProcessorEnv(process.env));
+  results.push(...validateStrikeProcessorEnv(process.env));
 
   // General
   results.push(validateRequired('NODE_ENV', 'General'));

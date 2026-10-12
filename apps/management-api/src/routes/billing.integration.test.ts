@@ -76,34 +76,48 @@ const channel = {
   updated_at: new Date('2026-01-01T00:00:00.000Z'),
 };
 
-const { getWithRoleAndPermissionsMock, listChannelsMock, updateChannelMock, auditRecordMock } =
-  vi.hoisted(() => ({
-    getWithRoleAndPermissionsMock: vi.fn(async (id: number) => {
-      if (id === 1) {
-        return superuser;
+const {
+  getWithRoleAndPermissionsMock,
+  listChannelsMock,
+  getChannelMock,
+  updateChannelMock,
+  auditRecordMock,
+} = vi.hoisted(() => ({
+  getWithRoleAndPermissionsMock: vi.fn(async (id: number) => {
+    if (id === 1) {
+      return superuser;
+    }
+    if (id === 2) {
+      return reader;
+    }
+    if (id === 3) {
+      return noChannelRead;
+    }
+    return null;
+  }),
+  listChannelsMock: vi.fn(async () => [channel]),
+  getChannelMock: vi.fn(async (id: number) => (id === channel.id ? { ...channel } : null)),
+  updateChannelMock: vi.fn(
+    async (
+      id: number,
+      params: {
+        enabled?: boolean;
+        minClientVersion?: string | null;
+        storefrontAllowlist?: string[];
       }
-      if (id === 2) {
-        return reader;
-      }
-      if (id === 3) {
-        return noChannelRead;
-      }
-      return null;
-    }),
-    listChannelsMock: vi.fn(async () => [channel]),
-    updateChannelMock: vi.fn(
-      async (id: number, params: { enabled?: boolean; minClientVersion?: string | null }) => ({
-        ...channel,
-        id,
-        enabled: params.enabled ?? channel.enabled,
-        min_client_version:
-          params.minClientVersion === undefined
-            ? channel.min_client_version
-            : params.minClientVersion,
-      })
-    ),
-    auditRecordMock: vi.fn(async () => undefined),
-  }));
+    ) => ({
+      ...channel,
+      id,
+      enabled: params.enabled ?? channel.enabled,
+      min_client_version:
+        params.minClientVersion === undefined
+          ? channel.min_client_version
+          : params.minClientVersion,
+      storefront_allowlist: params.storefrontAllowlist ?? channel.storefront_allowlist,
+    })
+  ),
+  auditRecordMock: vi.fn(async () => undefined),
+}));
 
 vi.mock('@management-api/orm/services/adminAccount.js', () => {
   class AdminAccountService {
@@ -121,7 +135,17 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     async listAll() {
       return listChannelsMock();
     }
-    async updateById(id: number, params: { enabled?: boolean; minClientVersion?: string | null }) {
+    async getById(id: number) {
+      return getChannelMock(id);
+    }
+    async updateById(
+      id: number,
+      params: {
+        enabled?: boolean;
+        minClientVersion?: string | null;
+        storefrontAllowlist?: string[];
+      }
+    ) {
       return updateChannelMock(id, params);
     }
   }
@@ -153,6 +177,11 @@ const noChannelReadAuthHeaders = (): { Authorization: string } => bearerFor(3, '
 describe('/billing/checkout-channels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    channel.processor_id = 'paypal';
+    channel.platform = 'ios';
+    channel.enabled = true;
+    channel.storefront_allowlist = [];
+    channel.min_client_version = null;
   });
 
   it('returns 401 without authentication', async () => {
@@ -200,6 +229,109 @@ describe('/billing/checkout-channels', () => {
     expect(typeof res.body.message).toBe('string');
     expect(updateChannelMock).not.toHaveBeenCalled();
   });
+
+  it('rejects an enabled Strike iOS channel with an empty storefront list', async () => {
+    channel.processor_id = 'strike';
+    channel.platform = 'ios';
+    channel.enabled = false;
+    channel.storefront_allowlist = [];
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ enabled: true })
+      .expect(422);
+    expect(res.body.message).toBe('A store link needs at least one storefront country.');
+    expect(updateChannelMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects clearing the storefront list on an enabled Strike iOS channel', async () => {
+    channel.processor_id = 'strike';
+    channel.platform = 'ios';
+    channel.enabled = true;
+    channel.storefront_allowlist = ['US'];
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ storefront_allowlist: [] })
+      .expect(422);
+    expect(res.body.message).toBe('A store link needs at least one storefront country.');
+    expect(updateChannelMock).not.toHaveBeenCalled();
+  });
+
+  it('enables Strike on iOS when a storefront country is set', async () => {
+    channel.processor_id = 'strike';
+    channel.platform = 'ios';
+    channel.enabled = false;
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ enabled: true, storefront_allowlist: ['US'] })
+      .expect(200);
+    expect(res.body.data.storefront_allowlist).toEqual(['US']);
+    expect(res.body.data.enabled).toBe(true);
+  });
+
+  it('enables Strike on web with an empty storefront list', async () => {
+    channel.processor_id = 'strike';
+    channel.platform = 'web';
+    channel.enabled = false;
+    channel.storefront_allowlist = [];
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ enabled: true })
+      .expect(200);
+    expect(res.body.data.enabled).toBe(true);
+    expect(res.body.data.storefront_allowlist).toEqual([]);
+  });
+
+  it('rejects an enabled PayPal Android channel with an empty storefront list', async () => {
+    channel.processor_id = 'paypal';
+    channel.platform = 'android';
+    channel.enabled = false;
+    channel.storefront_allowlist = [];
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ enabled: true })
+      .expect(422);
+    expect(res.body.message).toBe('A store link needs at least one storefront country.');
+    expect(updateChannelMock).not.toHaveBeenCalled();
+  });
+
+  it('disables a Strike iOS channel that has an empty storefront list', async () => {
+    channel.processor_id = 'strike';
+    channel.platform = 'ios';
+    channel.enabled = true;
+    channel.storefront_allowlist = [];
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ enabled: false })
+      .expect(200);
+    expect(res.body.data.enabled).toBe(false);
+  });
+
+  it('enables Apple on iOS with an empty storefront list', async () => {
+    channel.processor_id = 'apple';
+    channel.platform = 'ios';
+    channel.enabled = false;
+    channel.storefront_allowlist = [];
+
+    const res = await request(app)
+      .patch(`${basePath}/checkout-channels/7`)
+      .set(superuserAuthHeaders())
+      .send({ enabled: true })
+      .expect(200);
+    expect(res.body.data.enabled).toBe(true);
+    expect(res.body.data.storefront_allowlist).toEqual([]);
+  });
 });
 
 describe('/billing/processors', () => {
@@ -228,7 +360,7 @@ describe('/billing/processors', () => {
     vi.clearAllMocks();
   });
 
-  it('returns three processors, each disabled, for a superuser', async () => {
+  it('returns four processors, each disabled, for a superuser', async () => {
     const res = await request(app)
       .get(`${basePath}/processors`)
       .set(superuserAuthHeaders())
@@ -237,6 +369,7 @@ describe('/billing/processors', () => {
       { processor_id: 'paypal', enabled: false },
       { processor_id: 'apple', enabled: false },
       { processor_id: 'google_play', enabled: false },
+      { processor_id: 'strike', enabled: false },
     ]);
   });
 

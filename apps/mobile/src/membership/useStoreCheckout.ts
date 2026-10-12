@@ -27,11 +27,15 @@ import type {
 } from './storeCheckout';
 import {
   availableCadences,
+  checkoutOptionsRequest,
+  checkoutPlanProcessorId,
   checkoutProduct,
   isClientUpdateRequired,
   mapCheckoutProcessors,
   offersProcessor,
   resolveStoreCheckoutMode,
+  showsStrikeInvoice,
+  showsStrikeWebLink,
   storeProcessorId,
 } from './storeCheckout';
 
@@ -90,11 +94,13 @@ export type UseStoreCheckoutResult = {
   checkoutMode: StoreCheckoutMode;
   confirmedPurchase: ConfirmedPurchase | null;
   dismissUpdate: () => void;
+  failCheckout: () => void;
   loading: boolean;
   notice: CheckoutNotice | null;
   noticeSource: CheckoutNoticeSource | null;
   onPurchase: () => void;
   onRestore: () => void;
+  onStrikeSettled: () => void;
   platform: 'android' | 'ios' | null;
   prices: readonly BillingLocalizedPrice[];
   processorId: 'apple' | 'google_play' | 'test' | null;
@@ -103,6 +109,8 @@ export type UseStoreCheckoutResult = {
   ready: boolean;
   selectCadence: (cadence: StoreCheckoutCadence) => void;
   showPayPal: boolean;
+  showStrikeInvoice: boolean;
+  showStrikeLink: boolean;
   storeOffered: boolean;
   storePurchases: boolean;
   submitting: boolean;
@@ -124,7 +132,13 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   const storePurchases = client.backend !== 'unavailable';
   const processorId = storeProcessorId(client.backend);
 
-  const [loading, setLoading] = useState(platform !== null);
+  const [loading, setLoading] = useState(
+    checkoutOptionsRequest({
+      backend: client.backend,
+      devicePlatform: platform,
+      storefront: null,
+    }) !== null
+  );
   const [processors, setProcessors] = useState<readonly CheckoutProcessorOffer[]>([]);
   const [prices, setPrices] = useState<readonly BillingLocalizedPrice[]>([]);
   const [catalogPricing, setCatalogPricing] = useState<CatalogPricing | null>(null);
@@ -138,7 +152,13 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   const purchasedCadenceRef = useRef<StoreCheckoutCadence | null>(null);
 
   useEffect(() => {
-    if (platform === null) {
+    if (
+      checkoutOptionsRequest({
+        backend: client.backend,
+        devicePlatform: platform,
+        storefront: null,
+      }) === null
+    ) {
       setLoading(false);
       return;
     }
@@ -167,14 +187,21 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
         const billingApi = createBillingApi(screenAuthDeps);
         let nextStatus: DTOBillingStatus | null = null;
         let mapped: CheckoutProcessorOffer[] = [];
-        try {
-          const options = await billingApi.getCheckoutOptions({ platform, storefront });
-          mapped = mapCheckoutProcessors(options);
-        } catch {
-          mapped = [];
+        const optionsRequest = checkoutOptionsRequest({
+          backend: client.backend,
+          devicePlatform: platform,
+          storefront,
+        });
+        if (optionsRequest !== null) {
+          try {
+            const options = await billingApi.getCheckoutOptions(optionsRequest);
+            mapped = mapCheckoutProcessors(options);
+          } catch {
+            mapped = [];
+          }
         }
         try {
-          nextStatus = await billingApi.getMembershipStatus(platform);
+          nextStatus = await billingApi.getMembershipStatus(platform ?? undefined);
         } catch {
           nextStatus = null;
         }
@@ -237,13 +264,23 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     };
   }, [client, platform]);
 
-  const cadences = processorId === null ? [] : availableCadences(processors, processorId);
+  const planProcessorId = checkoutPlanProcessorId(processorId, processors);
+  const cadences = planProcessorId === null ? [] : availableCadences(processors, planProcessorId);
   const selectedCadence = cadences.includes(cadence) ? cadence : cadences[0];
   const product =
-    processorId === null || selectedCadence === undefined
+    planProcessorId === null || selectedCadence === undefined
       ? null
-      : checkoutProduct(processors, processorId, selectedCadence);
+      : checkoutProduct(processors, planProcessorId, selectedCadence);
   const showPayPal = offersProcessor(processors, 'paypal');
+  const strikeOffered = offersProcessor(processors, 'strike');
+  const showStrikeInvoice = showsStrikeInvoice({
+    backend: client.backend,
+    strikeOffered,
+  });
+  const showStrikeLink = showsStrikeWebLink({
+    backend: client.backend,
+    strikeOffered,
+  });
   const storeOffered = processorId !== null && offersProcessor(processors, processorId);
   const checkoutMode = resolveStoreCheckoutMode({
     backend: client.backend,
@@ -331,6 +368,25 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
       });
   };
 
+  const failCheckout = () => {
+    setNotice('failed');
+    setNoticeSource('purchase');
+  };
+
+  const onStrikeSettled = () => {
+    if (selectedCadence === undefined) {
+      return;
+    }
+    const purchasedCadence = selectedCadence;
+    void (async () => {
+      const account = await refreshAccount();
+      setConfirmedPurchase({
+        cadence: purchasedCadence,
+        expiresAt: account === null ? null : deriveMembershipState(account).expiresAt,
+      });
+    })();
+  };
+
   const onRestore = () => {
     setSubmitting(true);
     setNotice(null);
@@ -367,11 +423,13 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     dismissUpdate: () => {
       setUpdateDialogVisible(false);
     },
+    failCheckout,
     loading,
     notice,
     noticeSource,
     onPurchase,
     onRestore,
+    onStrikeSettled,
     platform,
     prices,
     processorId,
@@ -380,6 +438,8 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     ready,
     selectCadence: setCadence,
     showPayPal,
+    showStrikeInvoice,
+    showStrikeLink,
     storeOffered,
     storePurchases,
     submitting,

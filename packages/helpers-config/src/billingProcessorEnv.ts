@@ -4,6 +4,7 @@ import { parseExpirationEnvValue, validateBooleanValue } from '@podverse/helpers
 type EnvSource = Record<string, string | undefined>;
 
 export type BillingPayPalEnvironment = 'sandbox' | 'live';
+export type BillingStrikeEnvironment = 'production' | 'sandbox';
 
 export interface BillingPayPalProcessorEnv {
   clientId: string;
@@ -31,11 +32,18 @@ export interface BillingGooglePlayProcessorEnv {
   rtdnPushServiceAccountEmail: string;
 }
 
+export interface BillingStrikeProcessorEnv {
+  apiKey: string;
+  webhookSecret: string;
+  environment: BillingStrikeEnvironment;
+}
+
 /** Each processor is null unless its enable flag is `true` and every key it needs is set. */
 export interface BillingProcessorEnv {
   paypal: BillingPayPalProcessorEnv | null;
   apple: BillingAppleProcessorEnv | null;
   googlePlay: BillingGooglePlayProcessorEnv | null;
+  strike: BillingStrikeProcessorEnv | null;
 }
 
 interface BillingProcessorEnvGroup {
@@ -76,6 +84,12 @@ export const BILLING_PROCESSOR_ENV_GROUPS = {
       'GOOGLE_PLAY_RTDN_PUSH_AUDIENCE',
       'GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL',
     ],
+  },
+  strike: {
+    label: 'Strike',
+    category: 'Billing / Strike',
+    enabledFlagKey: 'BILLING_STRIKE_ENABLED',
+    requiredKeys: ['STRIKE_API_KEY', 'STRIKE_WEBHOOK_SECRET', 'STRIKE_ENVIRONMENT'],
   },
 } as const satisfies Record<keyof BillingProcessorEnv, BillingProcessorEnvGroup>;
 
@@ -134,12 +148,38 @@ function parsePayPalEnvironment(value: string | undefined): BillingPayPalEnviron
   return normalized === 'sandbox' || normalized === 'live' ? normalized : undefined;
 }
 
+function parseStrikeEnvironment(value: string | undefined): BillingStrikeEnvironment | undefined {
+  const normalized = value?.toLowerCase();
+  return normalized === 'production' || normalized === 'sandbox' ? normalized : undefined;
+}
+
 function parsePositiveInteger(value: string | undefined): number | undefined {
   if (value === undefined || !/^\d+$/.test(value)) {
     return undefined;
   }
   const parsed = Number(value);
   return parsed > 0 ? parsed : undefined;
+}
+
+function readStrikeProcessor(env: EnvSource): BillingStrikeProcessorEnv | null {
+  const group = BILLING_PROCESSOR_ENV_GROUPS.strike;
+  if (!isBillingProcessorFlagOn(env, group)) {
+    return null;
+  }
+  if (!group.requiredKeys.every((key) => readTrimmed(env, key) !== undefined)) {
+    return null;
+  }
+
+  const environment = parseStrikeEnvironment(readTrimmed(env, 'STRIKE_ENVIRONMENT'));
+  if (environment === undefined) {
+    return null;
+  }
+
+  return {
+    apiKey: readTrimmed(env, 'STRIKE_API_KEY') ?? '',
+    webhookSecret: readTrimmed(env, 'STRIKE_WEBHOOK_SECRET') ?? '',
+    environment,
+  };
 }
 
 /** Reads each processor's settings. A flag that is off, or a missing required key, comes back null. */
@@ -165,6 +205,7 @@ export function readBillingProcessorEnv(env: EnvSource): BillingProcessorEnv {
       rtdnPushAudience: value('GOOGLE_PLAY_RTDN_PUSH_AUDIENCE'),
       rtdnPushServiceAccountEmail: value('GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL'),
     })),
+    strike: readStrikeProcessor(env),
   };
 }
 
@@ -337,6 +378,33 @@ export function validateGooglePlayProcessorEnv(env: EnvSource): ValidationResult
   return [
     validateProcessorFlag(env, group),
     ...group.requiredKeys.map((key) => validateProcessorKey(env, key, group, enabled)),
+  ];
+}
+
+/** Strike keys in `.env.example` order. */
+export function validateStrikeProcessorEnv(env: EnvSource): ValidationResult[] {
+  const group = BILLING_PROCESSOR_ENV_GROUPS.strike;
+  const enabled = isBillingProcessorFlagOn(env, group);
+  const environmentResult = validateProcessorKey(env, 'STRIKE_ENVIRONMENT', group, enabled);
+  const environmentRaw = readTrimmed(env, 'STRIKE_ENVIRONMENT');
+  const environmentSet = environmentRaw !== undefined;
+  const environmentParsed =
+    environmentRaw === undefined ? undefined : parseStrikeEnvironment(environmentRaw);
+
+  const strikeEnvironmentValidation: ValidationResult =
+    enabled && environmentSet && environmentParsed === undefined
+      ? {
+          ...environmentResult,
+          isValid: false,
+          message: 'Invalid value - use production or sandbox',
+        }
+      : environmentResult;
+
+  return [
+    validateProcessorFlag(env, group),
+    validateProcessorKey(env, 'STRIKE_API_KEY', group, enabled),
+    validateProcessorKey(env, 'STRIKE_WEBHOOK_SECRET', group, enabled),
+    strikeEnvironmentValidation,
   ];
 }
 

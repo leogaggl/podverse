@@ -56,6 +56,21 @@ router.post(
 );
 router.post('/restore', purchaseRateLimit, asyncHandler(BillingController.restorePurchases));
 
+/** Lightning clients poll until the invoice settles. One request per account per two seconds. */
+export const strikeCheckoutPollRateLimit = rateLimitAuthEndpoint({ windowMs: 2000, max: 1 });
+
+router.post(
+  '/strike/checkouts',
+  purchaseRateLimit,
+  asyncHandler(requireSupportedClientVersion('strike', 'web')),
+  asyncHandler(BillingController.createStrikeCheckout)
+);
+router.get(
+  '/strike/checkouts/:id',
+  strikeCheckoutPollRateLimit,
+  asyncHandler(BillingController.getStrikeCheckout)
+);
+
 /** Webhooks arrive with a raw body (see the parser mounted for this path in `app.ts`). */
 router.post(
   '/webhooks/paypal',
@@ -71,6 +86,11 @@ router.post(
   '/webhooks/google',
   rateLimitEndpointPerScope(config.rateLimits.billingWebhook, 'google_play'),
   asyncHandler(BillingController.receiveWebhook('google_play'))
+);
+router.post(
+  '/webhooks/strike',
+  rateLimitEndpointPerScope(config.rateLimits.billingWebhook, 'strike'),
+  asyncHandler(BillingController.receiveWebhook('strike'))
 );
 
 router.post('/test/simulate', requireAccount, asyncHandler(BillingController.simulateTestEvent));

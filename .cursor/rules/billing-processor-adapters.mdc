@@ -1,6 +1,6 @@
 ---
 description: Payment processor adapters, grant ledger, and webhook rules for membership billing.
-globs: packages/billing/**,packages/external-services-paypal/**,packages/external-services-apple-app-store/**,packages/external-services-google-play/**,packages/helpers/src/lib/billing/**,packages/helpers-config/src/billingProcessorEnv.ts,apps/api/src/lib/billing/**,apps/workers/src/lib/billing/**,apps/workers/src/commands/billing/**,apps/management-api/src/lib/billing/**,apps/management-api/src/routes/billing.ts,docs/billing/**
+globs: packages/billing/**,packages/external-services-paypal/**,packages/external-services-strike/**,packages/external-services-apple-app-store/**,packages/external-services-google-play/**,packages/helpers/src/lib/billing/**,packages/helpers-config/src/billingProcessorEnv.ts,apps/api/src/lib/billing/**,apps/workers/src/lib/billing/**,apps/workers/src/commands/billing/**,apps/management-api/src/lib/billing/**,apps/management-api/src/routes/billing.ts,docs/billing/**
 alwaysApply: false
 ---
 
@@ -29,7 +29,13 @@ the sales switch. Leave the two separate.
   flag on while recorded purchases still need refund webhooks.
 - Let `BillingEntitlementService` recompute `membership_expires_at` under a row lock. Trial,
   admin, and import time are grants. Admin shortening goes through `endAccess` or
-  `revokeGrant`. Those never change processor or claim grants.
+  `revokeGrant`. Those never change processor or claim grants, except a Strike purchase:
+  Strike does not send a refund event, so `revokeGrant` may remove that grant after the
+  operator refunds the payment in the Strike dashboard.
+- Strike is the example of an adapter that needs an app-level checkout session for account
+  resolution. The payment does not name the account; `billing_checkout_session` does.
+- `ios` and `android` for PayPal and Strike are links to web checkout, and a store row cannot
+  be enabled with an empty storefront list.
 - Have clients decide "nothing to buy" from `GET /billing/checkout-options` and show the
   contact state. They never read processor env.
 - In production, grant sandbox purchases only for accounts in

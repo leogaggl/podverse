@@ -332,7 +332,7 @@ export async function listBillingWebhookEvents(
 }
 
 export type BillingProcessorStatusRow = {
-  processor_id: 'paypal' | 'apple' | 'google_play';
+  processor_id: 'paypal' | 'apple' | 'google_play' | 'strike';
   enabled: boolean;
 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hasWebPurchasableProcessor } from './purchaseAvailability';
+import { hasWebPurchasableProcessor, webCheckoutMethods } from './purchaseAvailability';
 
 describe('hasWebPurchasableProcessor', () => {
   it('is false when no processor is listed', () => {
@@ -23,6 +23,10 @@ describe('hasWebPurchasableProcessor', () => {
     expect(hasWebPurchasableProcessor({ paypalClientId: '', processorIds: ['test'] })).toBe(true);
   });
 
+  it('is true when only Strike is listed', () => {
+    expect(hasWebPurchasableProcessor({ paypalClientId: '', processorIds: ['strike'] })).toBe(true);
+  });
+
   it('is false when only unknown processor ids are listed', () => {
     expect(
       hasWebPurchasableProcessor({
@@ -30,5 +34,27 @@ describe('hasWebPurchasableProcessor', () => {
         processorIds: ['apple', 'google_play'],
       })
     ).toBe(false);
+  });
+});
+
+describe('webCheckoutMethods', () => {
+  it('lists PayPal and Lightning when both can be used', () => {
+    expect(webCheckoutMethods({ paypalPurchasable: true, strikeOffered: true })).toEqual([
+      'paypal',
+      'strike',
+    ]);
+  });
+
+  it('lists the one method that can be used', () => {
+    expect(webCheckoutMethods({ paypalPurchasable: true, strikeOffered: false })).toEqual([
+      'paypal',
+    ]);
+    expect(webCheckoutMethods({ paypalPurchasable: false, strikeOffered: true })).toEqual([
+      'strike',
+    ]);
+  });
+
+  it('lists nothing when neither PayPal nor Lightning can be used', () => {
+    expect(webCheckoutMethods({ paypalPurchasable: false, strikeOffered: false })).toEqual([]);
   });
 });

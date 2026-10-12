@@ -14,6 +14,10 @@ const ARTICLES = [
     body: 'Podverse cannot refund an App Store charge.',
   },
   {
+    title: 'Strike Refund',
+    body: 'Send the refund in the Strike dashboard, then revoke the grant on the account Billing page.',
+  },
+  {
     title: 'A Purchase Is Missing From the App',
     body: "Resync retries failed notifications, re-fetches the account's transactions, and applies refunds.",
   },
@@ -24,7 +28,7 @@ const ARTICLES = [
 ] as const;
 
 test.describe('Management-web billing help', () => {
-  test('a superuser opens each of the four billing help articles', async ({ page }, testInfo) => {
+  test('a superuser opens each billing help article', async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await signIn(page);
     await page.goto(ROUTES.BILLING);
@@ -51,7 +55,7 @@ test.describe('Management-web billing help', () => {
       page,
       testInfo,
       'billing-help-wrong-account',
-      page.getByRole('heading', { name: ARTICLES[3].title, level: 1 })
+      page.getByRole('heading', { name: ARTICLES[ARTICLES.length - 1].title, level: 1 })
     );
   });
 

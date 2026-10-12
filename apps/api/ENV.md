@@ -223,13 +223,18 @@ out of checkout options and its webhook answers 404. Routes and webhook contract
 - **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty or unset keeps it off. When it is `true`, the Google Play credential keys below are required
 - **`GOOGLE_PLAY_PACKAGE_NAME`**, **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`**, **`GOOGLE_PLAY_RTDN_PUSH_AUDIENCE`**, **`GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL`** - Google Play Developer API credentials and the Pub/Sub push identity RTDN webhooks are checked against
+- **`BILLING_STRIKE_ENABLED`** (Optional, default off) - `true` turns Strike on; empty or unset keeps it off. When it is `true`, the Strike credential keys below are required
+- **`STRIKE_API_KEY`**, **`STRIKE_WEBHOOK_SECRET`** - Strike API key and webhook signing secret
+- **`STRIKE_ENVIRONMENT`** - `production` or `sandbox` when Strike is enabled
 
 On **Kubernetes**, credential values stay out of the API ConfigMap
 (`infra/k8s/base/api/source/api.env`). Secret **`podverse-billing-paypal-opaque`** supplies the
 PayPal client id, secret, and webhook id. Secret **`podverse-billing-apple-iap-opaque`** is
 mounted at **`/var/secrets/apple-iap/AuthKey.p8`**. Secret
 **`podverse-billing-google-play-opaque`** is mounted at
-**`/var/secrets/google-play/service-account.json`**. Set each `_PATH` to that mount only
+**`/var/secrets/google-play/service-account.json`**. Secret
+**`podverse-billing-strike-opaque`** supplies `STRIKE_API_KEY` and
+`STRIKE_WEBHOOK_SECRET`. Set each `_PATH` to that mount only
 together with the rest of that processor's keys and its `*_ENABLED` flag set to `true`. The
 path alone does not enable the processor.
 Generators: `infra/k8s/scripts/secret-generators/create_billing_*.sh`. See

@@ -7,6 +7,7 @@ import {
   validateBillingSandboxAllowlistEnv,
   validateGooglePlayProcessorEnv,
   validatePayPalProcessorEnv,
+  validateStrikeProcessorEnv,
 } from './billingProcessorEnv.js';
 
 const PAYPAL_ENV = {
@@ -15,6 +16,13 @@ const PAYPAL_ENV = {
   PAYPAL_CLIENT_SECRET: 'secret',
   PAYPAL_WEBHOOK_ID: 'webhook',
   PAYPAL_ENVIRONMENT: 'sandbox',
+};
+
+const STRIKE_ENV = {
+  BILLING_STRIKE_ENABLED: 'true',
+  STRIKE_API_KEY: 'strike-api-key',
+  STRIKE_WEBHOOK_SECRET: 'strike-webhook-secret',
+  STRIKE_ENVIRONMENT: 'sandbox',
 };
 
 function paypalWithoutFlag(): Record<string, string> {
@@ -30,7 +38,7 @@ describe('readBillingProcessorEnv', () => {
         APPLE_IAP_BUNDLE_ID: 'com.podverse.app.next',
         GOOGLE_PLAY_PACKAGE_NAME: 'com.podverse.app.next',
       })
-    ).toEqual({ paypal: null, apple: null, googlePlay: null });
+    ).toEqual({ paypal: null, apple: null, googlePlay: null, strike: null });
   });
 
   it('reads a processor only when the flag is on and every required key is set', () => {
@@ -60,6 +68,17 @@ describe('readBillingProcessorEnv', () => {
       environment: 'sandbox',
     });
   });
+
+  it('reads Strike only when enabled and fully configured', () => {
+    expect(readBillingProcessorEnv(STRIKE_ENV).strike).toEqual({
+      apiKey: 'strike-api-key',
+      webhookSecret: 'strike-webhook-secret',
+      environment: 'sandbox',
+    });
+    expect(
+      readBillingProcessorEnv({ ...STRIKE_ENV, STRIKE_ENVIRONMENT: 'staging' }).strike
+    ).toBeNull();
+  });
 });
 
 describe('processor validation', () => {
@@ -68,6 +87,7 @@ describe('processor validation', () => {
       ...validatePayPalProcessorEnv({}),
       ...validateAppleProcessorEnv({ APPLE_IAP_BUNDLE_ID: 'com.podverse.app.next' }),
       ...validateGooglePlayProcessorEnv({ GOOGLE_PLAY_PACKAGE_NAME: 'com.podverse.app.next' }),
+      ...validateStrikeProcessorEnv({}),
     ];
     expect(results.every((result) => result.isValid)).toBe(true);
   });
@@ -119,8 +139,16 @@ describe('processor validation', () => {
   });
 
   it('rejects an unknown PayPal environment', () => {
-    const results = validatePayPalProcessorEnv({ ...PAYPAL_ENV, PAYPAL_ENVIRONMENT: 'staging' });
+    const results = validatePayPalProcessorEnv({
+      ...PAYPAL_ENV,
+      PAYPAL_ENVIRONMENT: 'staging',
+    });
     expect(results.find((result) => result.name === 'PAYPAL_ENVIRONMENT')?.isValid).toBe(false);
+  });
+
+  it('rejects an unknown Strike environment', () => {
+    const results = validateStrikeProcessorEnv({ ...STRIKE_ENV, STRIKE_ENVIRONMENT: 'staging' });
+    expect(results.find((result) => result.name === 'STRIKE_ENVIRONMENT')?.isValid).toBe(false);
   });
 });
 

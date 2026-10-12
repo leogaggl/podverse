@@ -8,7 +8,7 @@ export interface DTOBillingCheckoutProduct {
   /** A `BillingProductCode`, left open like `processor_id` so new products do not break clients. */
   product_code: string;
   cadence: BillingCadence;
-  /** The App Store product id, the Play product id, or the PayPal checkout product id. */
+  /** The App Store product id, the Play product id, or the PayPal/Strike checkout product id. */
   external_product_id: string;
   /** Google Play base plan id; null for other processors. */
   external_base_plan_id: string | null;

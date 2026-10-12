@@ -2120,7 +2120,7 @@ paths:
       tags:
         - billing
       summary: PATCH /billing/checkout-channels/{id}
-      description: "Updates enabled, the minimum client version, or the storefront allowlist. Permission: billing_channels update."
+      description: "Updates enabled, the minimum client version, or the storefront allowlist. Enabling PayPal or Strike on iOS or Android requires at least one storefront country. Permission: billing_channels update."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -2172,6 +2172,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "422":
+          description: PayPal or Strike on iOS or Android was enabled with an empty storefront list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: A store link needs at least one storefront country.
         "500":
           description: Error
           content:

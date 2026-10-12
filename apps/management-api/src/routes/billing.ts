@@ -53,14 +53,14 @@ const WEBHOOK_EVENT_DEFAULT_LIMIT = 100;
 
 function isDeploymentProcessorId(
   processorId: PaymentProcessorId
-): processorId is 'paypal' | 'apple' | 'google_play' {
+): processorId is 'paypal' | 'apple' | 'google_play' | 'strike' {
   return processorId !== 'test';
 }
 
 const DEPLOYMENT_PROCESSOR_IDS = PAYMENT_PROCESSOR_IDS.filter(isDeploymentProcessorId);
 
 type BillingProcessorStatusRow = {
-  processor_id: 'paypal' | 'apple' | 'google_play';
+  processor_id: 'paypal' | 'apple' | 'google_play' | 'strike';
   enabled: boolean;
 };
 
@@ -92,6 +92,28 @@ function parsePositiveInt(raw: string | undefined): number | null {
   }
   const parsed = Number(raw);
   return parsed > 0 ? parsed : null;
+}
+
+/**
+ * PayPal and Strike on iOS or Android open a store listing. Enabling that listing requires
+ * at least one storefront country.
+ */
+function storeLinkNeedsCountry(
+  channel: BillingCheckoutChannel,
+  patch: { enabled?: boolean; storefront_allowlist?: string[] }
+): boolean {
+  const isStoreLink =
+    (channel.processor_id === 'paypal' || channel.processor_id === 'strike') &&
+    (channel.platform === 'ios' || channel.platform === 'android');
+  if (!isStoreLink) {
+    return false;
+  }
+  const enabled = patch.enabled !== undefined ? patch.enabled : channel.enabled;
+  const allowlist =
+    patch.storefront_allowlist !== undefined
+      ? patch.storefront_allowlist
+      : channel.storefront_allowlist;
+  return enabled && allowlist.length === 0;
 }
 
 function checkoutChannelToJson(channel: BillingCheckoutChannel) {
@@ -133,7 +155,12 @@ function transactionToJson(transaction: BillingTransaction) {
   };
 }
 
-function grantToJson(grant: BillingMembershipGrant) {
+function grantToJson(grant: BillingMembershipGrant, strikeTransactionIds: ReadonlySet<number>) {
+  const strikePurchase =
+    grant.revoked_at === null &&
+    grant.source === 'one_time_purchase' &&
+    grant.billing_transaction_id !== null &&
+    strikeTransactionIds.has(grant.billing_transaction_id);
   return {
     id: grant.id,
     source: grant.source,
@@ -141,7 +168,7 @@ function grantToJson(grant: BillingMembershipGrant) {
     ends_at: grant.ends_at.toISOString(),
     revoked_at: grant.revoked_at?.toISOString() ?? null,
     billing_transaction_id: grant.billing_transaction_id,
-    admin_editable: isAdminEditableGrant(grant),
+    admin_editable: isAdminEditableGrant(grant) || strikePurchase,
   };
 }
 
@@ -214,6 +241,16 @@ router.patch(
       const { error, value } = updateBillingCheckoutChannelSchema.validate(req.body);
       if (error) {
         res.status(400).json({ message: error.message });
+        return;
+      }
+
+      const existing = await checkoutChannelService.getById(id);
+      if (existing === null) {
+        res.status(404).json({ message: 'Checkout channel not found' });
+        return;
+      }
+      if (storeLinkNeedsCountry(existing, value)) {
+        res.status(422).json({ message: 'A store link needs at least one storefront country.' });
         return;
       }
 
@@ -363,6 +400,11 @@ router.get(
         webhookEventService.listForAdmin({ accountId, limit: ACCOUNT_LIST_LIMIT }),
         getAccountService().getWithMembershipStatusFromPrimary(accountId),
       ]);
+      const strikeTransactionIds = new Set(
+        transactions
+          .filter((transaction) => transaction.processor_id === 'strike')
+          .map((transaction) => transaction.id)
+      );
       res.json({
         data: {
           account_id: account.id,
@@ -370,7 +412,7 @@ router.get(
             accountWithStatus?.account_membership_status?.membership_expires_at?.toISOString() ??
             null,
           transactions: transactions.map(transactionToJson),
-          grants: grants.map(grantToJson),
+          grants: grants.map((grant) => grantToJson(grant, strikeTransactionIds)),
           webhook_events: webhookEvents.map(webhookEventToJson),
         },
       });

@@ -54,6 +54,9 @@ spec:
                 - secretRef:
                     name: podverse-billing-paypal-opaque
                     optional: true
+                - secretRef:
+                    name: podverse-billing-strike-opaque
+                    optional: true
               volumeMounts:
                 - name: logs-volume
                   mountPath: /logs

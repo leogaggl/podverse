@@ -26,6 +26,17 @@ export interface DTOBillingPayPalOrder {
   approve_url: string | null;
 }
 
+/** A Strike checkout session that waits for a Lightning payment. */
+export interface DTOBillingStrikeCheckout {
+  checkout_id: number;
+  /** BOLT11 invoice the buyer pays. */
+  bolt11: string;
+  amount: string;
+  currency_code: string;
+  expires_at: string;
+  state: 'unpaid' | 'pending' | 'settled' | 'expired';
+}
+
 /** The result of a non-production test-processor event. */
 export interface DTOBillingSimulationResult {
   outcome: DTOBillingEventOutcome;

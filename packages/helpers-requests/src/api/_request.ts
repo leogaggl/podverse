@@ -136,6 +136,7 @@ import type {
   ReqBillingPayPalCheckoutParams,
   ReqBillingRestorePurchasesParams,
   ReqBillingSimulatePaymentParams,
+  ReqBillingStrikeCreateCheckoutParams,
 } from './billing/billing.js';
 import {
   reqBillingCapturePayPalOrder,
@@ -146,6 +147,8 @@ import {
   reqBillingPostGooglePurchase,
   reqBillingRestorePurchases,
   reqBillingSimulatePayment,
+  reqBillingStrikeCreateCheckout,
+  reqBillingStrikeGetCheckout,
 } from './billing/billing.js';
 import { reqCategoryGetAll } from './category/category.js';
 import {
@@ -1116,6 +1119,14 @@ export class ApiRequestService {
 
   reqBillingSimulatePayment(params: ReqBillingSimulatePaymentParams) {
     return reqBillingSimulatePayment(this, params);
+  }
+
+  reqBillingStrikeCreateCheckout(params: ReqBillingStrikeCreateCheckoutParams) {
+    return reqBillingStrikeCreateCheckout(this, params);
+  }
+
+  reqBillingStrikeGetCheckout(checkoutId: number) {
+    return reqBillingStrikeGetCheckout(this, checkoutId);
   }
 
   /* METABOOST */

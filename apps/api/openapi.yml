@@ -3386,6 +3386,70 @@ components:
           type: string
           nullable: true
           example: https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T
+    BillingStrikeCheckoutRequest:
+      type: object
+      required:
+        - processor_product_id
+      properties:
+        processor_product_id:
+          type: integer
+          format: int64
+          example: 1
+        platform:
+          type: string
+          enum:
+            - web
+            - foss
+            - ios
+            - android
+          default: web
+          description: web and foss create an invoice. ios and android are link-out only.
+    BillingStrikeCheckout:
+      type: object
+      required:
+        - checkout_id
+        - bolt11
+        - amount
+        - currency_code
+        - expires_at
+        - state
+      properties:
+        checkout_id:
+          type: integer
+          format: int64
+          example: 42
+        bolt11:
+          type: string
+          example: lnbc30n1pexample
+        amount:
+          type: string
+          example: "3.00"
+        currency_code:
+          type: string
+          example: USD
+        expires_at:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum:
+            - unpaid
+            - pending
+            - settled
+            - expired
+    BillingStrikeCheckoutSettlement:
+      type: object
+      description: Present when state is settled. Same purchase fields PayPal capture returns.
+      properties:
+        confirmed:
+          type: boolean
+          example: true
+        outcomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillingEventOutcome"
+        status:
+          $ref: "#/components/schemas/BillingStatus"
     BillingAppleTransactionRequest:
       type: object
       required:
@@ -8455,6 +8519,217 @@ paths:
                 $ref: "#/components/schemas/BillingApiError"
               example:
                 message: paypal is not available
+                code: billing.processor_unavailable
+                i18nKey: billing.processor_unavailable
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /billing/strike/checkouts:
+    post:
+      operationId: apiPostBillingStrikeCheckouts
+      tags:
+        - billing
+      summary: POST /billing/strike/checkouts
+      description: >-
+        Creates a Strike Lightning invoice for a membership product at the catalog price.
+        web and foss create an invoice. ios and android answer 404 because those platforms
+        link out to a store. 404 when Strike is disabled, the channel is disabled, or the
+        product is not an active Strike product.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BillingClientVersionHeader"
+        - $ref: "#/components/parameters/BillingClientPlatformHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingStrikeCheckoutRequest"
+            example:
+              processor_product_id: 1
+              platform: web
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingStrikeCheckout"
+              example:
+                checkout_id: 42
+                bolt11: lnbc30n1pexample
+                amount: "3.00"
+                currency_code: USD
+                expires_at: "2026-10-11T18:15:00.000Z"
+                state: unpaid
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Strike or the product is not available on this platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingApiError"
+              example:
+                message: This product is not sold through Strike
+                code: billing.product_unavailable
+                i18nKey: billing.product_unavailable
+        "426":
+          description: The installed app is below the minimum version for this processor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingApiError"
+              example:
+                message: Update the app to make purchases
+                code: billing.client_update_required
+                i18nKey: billing.client_update_required
+                min_client_version: 5.2.0
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /billing/strike/checkouts/{id}:
+    get:
+      operationId: apiGetBillingStrikeCheckoutsId
+      tags:
+        - billing
+      summary: GET /billing/strike/checkouts/{id}
+      description: >-
+        Polls a Strike checkout owned by the signed-in account. One request per account
+        per two seconds. unpaid, pending, and expired return the checkout. settled also
+        returns the purchase result fields. A completed payment is ingested the same way
+        a PayPal capture is.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Checkout state. Settled responses include the purchase result.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BillingStrikeCheckout"
+                  - $ref: "#/components/schemas/BillingStrikeCheckoutSettlement"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Checkout not found, or Strike is not enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingApiError"
+              example:
+                message: Checkout not found
+                code: billing.purchase_not_found
+                i18nKey: billing.purchase_not_found
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /billing/webhooks/strike:
+    post:
+      operationId: apiPostBillingWebhooksStrike
+      tags:
+        - billing
+      summary: POST /billing/webhooks/strike
+      description: >-
+        Receives Strike deliveries. No auth: the raw body is verified against
+        X-Webhook-Signature. 400 only when the request is not authentic; once verified
+        every event is recorded and the answer is 200, even when applying one failed.
+        404 when Strike is not enabled.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: The processor payload exactly as delivered.
+              additionalProperties: true
+      responses:
+        "200":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingWebhookReceived"
+              example:
+                received: true
+        "400":
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingApiError"
+              example:
+                message: Webhook verification failed
+                code: billing.webhook_verification_failed
+                i18nKey: billing.webhook_verification_failed
+        "404":
+          description: Processor not enabled on this server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingApiError"
+              example:
+                message: strike is not available
                 code: billing.processor_unavailable
                 i18nKey: billing.processor_unavailable
         "429":

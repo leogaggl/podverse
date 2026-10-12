@@ -40,6 +40,7 @@ MANUAL_SCRIPTS=(
 	"create_cloudflared_tunnel_secret.sh    (requires Cloudflare Tunnel token; Secret cloudflared-tunnel-secret in external-infra)"
 	"create_firebase_secret.sh              (requires firebase-key.json file)"
 	"create_billing_paypal_secret.sh        (PayPal client id, secret, webhook id; Secret podverse-billing-paypal-opaque)"
+	"create_billing_strike_secret.sh        (Strike API key + webhook secret; Secret podverse-billing-strike-opaque)"
 	"create_billing_apple_iap_secret.sh     (App Store .p8; Secret podverse-billing-apple-iap-opaque at /var/secrets/apple-iap)"
 	"create_billing_google_play_secret.sh   (Play service-account JSON; Secret podverse-billing-google-play-opaque at /var/secrets/google-play)"
 	"create_workers_storage_bucket_secret.sh (requires S3-compatible access/secret keys; Secret podverse-workers-storage-bucket-opaque; see docs/image-shrinking/BUCKET-PROVIDERS.md)"

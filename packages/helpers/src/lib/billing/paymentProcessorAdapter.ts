@@ -48,7 +48,7 @@ export interface BillingWebhookParseResult {
  */
 export interface BillingProcessorRecordRef {
   /**
-   * Apple transaction id, Google Play purchase token, or PayPal capture id.
+   * Apple transaction id, Google Play purchase token, PayPal capture id, or Strike receive request id.
    */
   externalId: string;
   externalProductId: string | null;

@@ -5,10 +5,12 @@ import {
   PlayDeveloperClient,
 } from '@podverse/external-services-google-play';
 import { createPayPalAdapter } from '@podverse/external-services-paypal';
+import { createStrikeAdapter, StrikeClient } from '@podverse/external-services-strike';
 import type { BillingProcessorEnv } from '@podverse/helpers-config';
 
 import { createTestAdapter, isTestAdapterAllowed } from './adapters/testAdapter.js';
 import type { BillingAdapterRegistry } from './BillingAdapterRegistry.js';
+import { findStrikeCheckoutSession } from './findStrikeCheckoutSession.js';
 
 export interface ConfiguredBillingAdapters {
   nodeEnv: string;
@@ -19,6 +21,8 @@ export interface ConfiguredBillingAdapters {
 export interface RegisteredBillingAdapters {
   /** Shared with the Google Play adapter; reconciliation polls voided purchases through it. */
   googlePlayClient: GooglePlayClient | null;
+  /** Shared with the Strike adapter; the webhook command lists and updates subscriptions through it. */
+  strikeClient: StrikeClient | null;
 }
 
 /**
@@ -83,5 +87,22 @@ export function registerConfiguredBillingAdapters(
     );
   }
 
-  return { googlePlayClient };
+  let strikeClient: StrikeClient | null = null;
+  const strike = config.processors.strike;
+  if (strike !== null) {
+    strikeClient = new StrikeClient({
+      apiKey: strike.apiKey,
+      environment: strike.environment,
+    });
+    registry.register(
+      createStrikeAdapter({
+        client: strikeClient,
+        environment: strike.environment,
+        webhookSecret: strike.webhookSecret,
+        findCheckoutSession: findStrikeCheckoutSession,
+      })
+    );
+  }
+
+  return { googlePlayClient, strikeClient };
 }
