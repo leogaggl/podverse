@@ -174,6 +174,7 @@
     "complete_now_playing": "Mark Now-Playing Complete",
     "quick_login": "Sign in as E2E User",
     "quick_login_popularity": "Sign in as Undecided E2E User",
+    "quick_login_stale_terms": "Sign in as Stale Terms E2E User",
     "quick_login_perf": "Sign in as Perf E2E User",
     "session_ready": "E2E Session Ready"
   },
@@ -201,6 +202,28 @@
   },
   "more_advanced": {
     "title": "Advanced"
+  },
+  "custom_api": {
+    "title": "Custom API",
+    "menu_subtitle": "Point this app at a different server",
+    "intro": "Replace the server this app talks to. Save checks that the server answers with status 200 before the change is kept. Reset restores the original server. Log out before changing it so this phone does not send your login to another server.",
+    "url_label": "API URL",
+    "url_placeholder": "https://example.com/api/v2",
+    "original_label": "Original API",
+    "original_missing": "This build has no API address configured.",
+    "using_original": "This app is using the original API.",
+    "using_custom": "This app is using the custom API in the field below.",
+    "reset": "Reset",
+    "saved": "Saved. This app will use this API.",
+    "reset_done": "Restored the original API.",
+    "invalid_url": "Enter an http or https address that ends with /api and a version, such as /api/v2.",
+    "unreachable": "Could not reach that server. Nothing was saved.",
+    "unexpected_status": "That server responded with status {status}. Expected 200. Nothing was saved.",
+    "unexpected_body": "That server responded with status 200, but the health check did not report ok. Nothing was saved.",
+    "logout_title": "Log Out First",
+    "logout_body": "Log out before changing the API. This phone will not send your login to another server.",
+    "notice_label": "Custom API",
+    "notice_body": "Sign-in, sign-up, feed passwords, and store purchases in this app go to this server. A page opened in the browser uses the public website, which does not."
   },
   "error_log": {
     "title": "Error Log",
@@ -306,5 +329,8 @@
     "download_transfer_failed": "The download did not finish. Check your connection, then try again.",
     "download_file_missing": "The downloaded file is missing from this device.",
     "download_unknown": "The download failed. Try again."
+  },
+  "membership": {
+    "trial_limitations_missing_content": "If you have a Trial membership and content you would like is missing, contact {email} for help."
   }
 }

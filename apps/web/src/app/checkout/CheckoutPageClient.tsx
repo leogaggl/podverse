@@ -1,23 +1,16 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-import type {
-  BillingCadence,
-  DTOBillingCheckoutOptions,
-  DTOBillingStatus,
-} from '@podverse/helpers';
+import type { BillingCadence, DTOBillingCheckoutOptions } from '@podverse/helpers';
 import {
-  ActionLink,
   Alert,
   Button,
   MainColumnStack,
   MainHeader,
   MainSidebarLayout,
-  MembershipAutoRenewConsent,
   MembershipPlanSelector,
   SideContent,
 } from '@podverse/ui';
@@ -30,7 +23,9 @@ import { useConfig } from '../../contexts/Config';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { CheckoutPayPalButtons } from './CheckoutPayPalButtons';
 import { checkoutProduct, isBillingCadence, offersProcessor } from './checkoutProducts';
-import { hasWebPurchasableProcessor } from './purchaseAvailability';
+import { CheckoutStrikePanel } from './CheckoutStrikePanel';
+import type { WebCheckoutMethod } from './purchaseAvailability';
+import { hasWebPurchasableProcessor, webCheckoutMethods } from './purchaseAvailability';
 
 import styles from '../../styles/app/checkout/Checkout.module.scss';
 
@@ -63,9 +58,9 @@ export function CheckoutPageClient({
   const paypalClientId = config.public.paypal.clientId;
 
   const [cadence, setCadence] = useState<BillingCadence>('monthly');
-  const [autoRenew, setAutoRenew] = useState(true);
+  const [chosenMethod, setChosenMethod] = useState<WebCheckoutMethod | null>(null);
   const [options, setOptions] = useState<DTOBillingCheckoutOptions | null>(null);
-  const [status, setStatus] = useState<DTOBillingStatus | null>(null);
+  const [catalogPricing, setCatalogPricing] = useState<MembershipPricingData | null>(pricingData);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +77,9 @@ export function CheckoutPageClient({
       setLoading(true);
       setError(null);
       const optionsRequest = getApiRequestService().reqBillingGetCheckoutOptions();
-      const statusRequest = getApiRequestService().reqBillingGetStatus();
+      const pricingRequest = getApiRequestService()
+        .reqProductMembershipGet()
+        .catch(() => null);
       try {
         const nextOptions = await optionsRequest;
         if (!cancelled) {
@@ -94,14 +91,28 @@ export function CheckoutPageClient({
         }
       }
       try {
-        const nextStatus = await statusRequest;
-        if (!cancelled) {
-          setStatus(nextStatus);
+        const pricingResponse = await pricingRequest;
+        if (
+          !cancelled &&
+          pricingResponse !== null &&
+          'data' in pricingResponse &&
+          pricingResponse.data !== undefined
+        ) {
+          const catalog = pricingResponse.data;
+          const costMonthly = catalog.premiumMembershipCostMonthly;
+          const costAnnually = catalog.premiumMembershipCostAnnually;
+          const monthlyEquivalentAnnually = costMonthly * 12;
+          setCatalogPricing({
+            costMonthly,
+            costAnnually,
+            freeTrialExpiration: 0,
+            freeTrialDays: 0,
+            annuallySavingsPercent: catalog.annuallySavingsPercent,
+            monthlyEquivalentAnnually,
+          });
         }
       } catch {
-        if (!cancelled) {
-          setStatus(null);
-        }
+        // Keep SSR pricing when the catalog request fails.
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -114,11 +125,9 @@ export function CheckoutPageClient({
     };
   }, [signedIn]);
 
-  const purchaseKind = autoRenew ? 'auto_renew' : 'one_time';
-  const paypalProduct =
-    options === null ? null : checkoutProduct(options, 'paypal', cadence, purchaseKind);
-  const testProduct =
-    options === null ? null : checkoutProduct(options, 'test', cadence, purchaseKind);
+  const paypalProduct = options === null ? null : checkoutProduct(options, 'paypal', cadence);
+  const strikeProduct = options === null ? null : checkoutProduct(options, 'strike', cadence);
+  const testProduct = options === null ? null : checkoutProduct(options, 'test', cadence);
   const canPurchase =
     options !== null &&
     hasWebPurchasableProcessor({
@@ -127,22 +136,32 @@ export function CheckoutPageClient({
     });
   const paypalPurchasable =
     options !== null && offersProcessor(options, 'paypal') && paypalClientId !== '';
+  const strikeOffered = options !== null && offersProcessor(options, 'strike');
+  const methods = webCheckoutMethods({ paypalPurchasable, strikeOffered });
+  const showMethodChoice = methods.length > 1;
+  const activeMethod = showMethodChoice
+    ? chosenMethod !== null && methods.includes(chosenMethod)
+      ? chosenMethod
+      : null
+    : (methods[0] ?? null);
   const showTestPurchase = options !== null && offersProcessor(options, 'test');
+  const waitingForMethod = showMethodChoice && activeMethod === null;
   const cadenceHasProduct =
-    (paypalPurchasable && paypalProduct !== null) || (showTestPurchase && testProduct !== null);
-  const alreadyRenewing = status?.active_auto_renew === true;
-  const startsLater =
-    autoRenew &&
-    status?.membership_expires_at !== null &&
-    status?.membership_expires_at !== undefined &&
-    new Date(status.membership_expires_at).getTime() > Date.now();
+    (activeMethod === 'paypal' && paypalProduct !== null) ||
+    (activeMethod === 'strike' && strikeProduct !== null) ||
+    (showTestPurchase && testProduct !== null);
+
+  const formatCatalogUsd = (amount: number): string => {
+    const dollars = Math.round(amount * 100) / 100;
+    return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+  };
 
   const planPrice = (plan: BillingCadence): string => {
-    if (pricingData === null) {
+    if (catalogPricing === null) {
       return '';
     }
-    const amount = plan === 'monthly' ? pricingData.costMonthly : pricingData.costAnnually;
-    return `$${amount}`;
+    const amount = plan === 'monthly' ? catalogPricing.costMonthly : catalogPricing.costAnnually;
+    return formatCatalogUsd(amount);
   };
 
   const completeTestPurchase = async () => {
@@ -154,10 +173,8 @@ export function CheckoutPageClient({
     setError(null);
     try {
       const result = await getApiRequestService().reqBillingSimulatePayment({
-        purchaseKind,
         cadence,
         externalProductId: testProduct.external_product_id,
-        externalSubscriptionId: autoRenew ? crypto.randomUUID() : null,
         externalTransactionId: crypto.randomUUID(),
       });
       if (result.outcome.status === 'failed') {
@@ -187,32 +204,25 @@ export function CheckoutPageClient({
             ) : null}
             {!isContactOnlyMode && !signedIn ? <Alert>{tAuth('login_required')}</Alert> : null}
             {signedIn && !loading && !canPurchase ? (
-              <>
-                <Alert testId="checkout-contact" variant="default">
-                  {contactEmail !== '' ? (
-                    <>
-                      {tMembership('contact_mode_text_before')}{' '}
-                      <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
-                    </>
-                  ) : (
-                    t('purchase_unavailable')
-                  )}
-                </Alert>
-                {alreadyRenewing ? (
-                  <section className={styles.formSection}>
-                    <p>{t('already_renewing')}</p>
-                    <ActionLink href={`${ROUTES.SETTINGS}?tab=account`} LinkComponent={Link}>
-                      {t('manage_membership')}
-                    </ActionLink>
-                  </section>
-                ) : null}
-              </>
+              <Alert testId="checkout-contact" variant="default">
+                {contactEmail !== '' ? (
+                  <>
+                    {tMembership('contact_mode_text_before')}{' '}
+                    <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+                  </>
+                ) : (
+                  t('purchase_unavailable')
+                )}
+              </Alert>
             ) : null}
             {signedIn && !loading && canPurchase ? (
               <>
+                <section className={styles.intro} data-testid="checkout-intro">
+                  <p>{t('page_intro')}</p>
+                </section>
                 <MembershipPlanSelector
                   name="payment-plan"
-                  legend={t('payment_plan')}
+                  legend={t('choose_a_plan')}
                   selectedValue={cadence}
                   onChange={(value) => {
                     if (isBillingCadence(value)) {
@@ -232,67 +242,74 @@ export function CheckoutPageClient({
                       price: planPrice('annual'),
                       period: tMembership('pricing_per_year'),
                       savingsLabel:
-                        pricingData !== null && pricingData.annuallySavingsPercent > 0
-                          ? tMembership('pricing_save_percent', {
-                              percent: pricingData.annuallySavingsPercent,
+                        catalogPricing !== null && catalogPricing.annuallySavingsPercent > 0
+                          ? tMembership('pricing_percent_off', {
+                              percent: catalogPricing.annuallySavingsPercent,
                             })
                           : undefined,
                     },
                   ]}
                 />
+                {showMethodChoice ? (
+                  <MembershipPlanSelector
+                    legend={t('choose_a_payment_method')}
+                    name="payment-method"
+                    onChange={(value) => {
+                      if (value === 'paypal' || value === 'strike') {
+                        setChosenMethod(value);
+                        setError(null);
+                      }
+                    }}
+                    options={methods.map((method) => ({
+                      value: method,
+                      label: method === 'paypal' ? t('paypal') : t('bitcoin_lightning'),
+                      price: '',
+                      period: '',
+                    }))}
+                    selectedValue={activeMethod ?? ''}
+                  />
+                ) : null}
                 {error !== null ? <Alert>{error}</Alert> : null}
-                {alreadyRenewing ? (
-                  <section className={styles.formSection}>
-                    <p>{t('already_renewing')}</p>
-                    <ActionLink href={`${ROUTES.SETTINGS}?tab=account`} LinkComponent={Link}>
-                      {t('manage_membership')}
-                    </ActionLink>
-                  </section>
-                ) : (
-                  <section className={styles.formSection}>
-                    {startsLater &&
-                    status?.membership_expires_at !== undefined &&
-                    status.membership_expires_at !== null ? (
-                      <Alert variant="default">
-                        {t('billing_starts_on', {
-                          date: new Date(status.membership_expires_at).toLocaleDateString(),
-                        })}
-                      </Alert>
+                <section className={styles.formSection}>
+                  <div className={styles.buttonSection}>
+                    {activeMethod === 'paypal' && paypalProduct !== null ? (
+                      <CheckoutPayPalButtons
+                        clientId={paypalClientId}
+                        onError={() => {
+                          setError(t('purchase_failed'));
+                        }}
+                        processorProductId={paypalProduct.id}
+                      />
                     ) : null}
-                    <MembershipAutoRenewConsent
-                      id="auto-renew"
-                      checked={autoRenew}
-                      onChange={setAutoRenew}
-                      label={t('auto_renew')}
-                      disclosure={t('auto_renew_disclosure')}
-                    />
-                    <div className={styles.buttonSection}>
-                      {paypalPurchasable && paypalProduct !== null ? (
-                        <CheckoutPayPalButtons
-                          clientId={paypalClientId}
-                          processorProductId={paypalProduct.id}
-                          autoRenew={autoRenew}
-                          onError={() => {
-                            setError(t('purchase_failed'));
-                          }}
-                        />
-                      ) : null}
-                      {showTestPurchase ? (
-                        <Button
-                          disabled={submitting || testProduct === null}
-                          onClick={() => {
-                            void completeTestPurchase();
-                          }}
-                          type="button"
-                          variant="primary"
-                        >
-                          {t('complete_test_purchase')}
-                        </Button>
-                      ) : null}
-                      {cadenceHasProduct ? null : <p>{t('plan_unavailable')}</p>}
-                    </div>
-                  </section>
-                )}
+                    {activeMethod === 'strike' && strikeProduct !== null ? (
+                      <CheckoutStrikePanel
+                        key={strikeProduct.id}
+                        onError={() => {
+                          setError(t('purchase_failed'));
+                        }}
+                        onRenew={() => {
+                          setError(null);
+                        }}
+                        processorProductId={strikeProduct.id}
+                      />
+                    ) : null}
+                    {showTestPurchase ? (
+                      <Button
+                        disabled={submitting || testProduct === null}
+                        onClick={() => {
+                          void completeTestPurchase();
+                        }}
+                        type="button"
+                        variant="primary"
+                      >
+                        {t('complete_test_purchase')}
+                      </Button>
+                    ) : null}
+                    {!waitingForMethod && !cadenceHasProduct ? (
+                      <p>{t('plan_unavailable')}</p>
+                    ) : null}
+                  </div>
+                </section>
               </>
             ) : null}
           </MainColumnStack>

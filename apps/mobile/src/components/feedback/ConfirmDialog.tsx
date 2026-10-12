@@ -22,6 +22,7 @@ export type ConfirmDialogProps = {
   testID: string;
   cancelTestID: string;
   confirmTestID?: string;
+  stacked?: boolean;
 };
 
 export function ConfirmDialog({
@@ -35,6 +36,7 @@ export function ConfirmDialog({
   testID,
   cancelTestID,
   confirmTestID,
+  stacked = false,
 }: ConfirmDialogProps) {
   const { styles: themeStyles, tokens } = useTheme();
 
@@ -75,29 +77,22 @@ export function ConfirmDialog({
     [themeStyles, tokens]
   );
 
-  const actions: readonly FormAction[] =
+  const cancelAction: FormAction = {
+    label: cancelLabel,
+    onPress: onCancel,
+    testID: cancelTestID,
+    variant: 'secondary',
+  };
+  const confirmAction: FormAction | undefined =
     confirmLabel !== undefined && confirmTestID !== undefined && onConfirm !== undefined
-      ? [
-          {
-            label: cancelLabel,
-            onPress: onCancel,
-            testID: cancelTestID,
-            variant: 'secondary',
-          },
-          {
-            label: confirmLabel,
-            onPress: onConfirm,
-            testID: confirmTestID,
-          },
-        ]
-      : [
-          {
-            label: cancelLabel,
-            onPress: onCancel,
-            testID: cancelTestID,
-            variant: 'secondary',
-          },
-        ];
+      ? { label: confirmLabel, onPress: onConfirm, testID: confirmTestID }
+      : undefined;
+  const actions: readonly FormAction[] =
+    confirmAction === undefined
+      ? [cancelAction]
+      : stacked
+        ? [confirmAction, cancelAction]
+        : [cancelAction, confirmAction];
 
   return (
     <AppOverlay animation="fade" onRequestClose={onCancel} visible={visible}>
@@ -115,7 +110,7 @@ export function ConfirmDialog({
           >
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.body}>{body}</Text>
-            <FormActions actions={actions} />
+            <FormActions actions={actions} stacked={stacked} />
           </Pressable>
         </Pressable>
       </OverlayScrim>

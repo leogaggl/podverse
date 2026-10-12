@@ -12,6 +12,14 @@ const requireAccount = (req: Request, res: Response, next: NextFunction): void =
   ensureAuthenticated(req, res, next, { skipMembershipStatus: true });
 };
 
+/** Status only: reachable while terms acceptance is outstanding (Account Access page). */
+const requireAccountSkipTerms = (req: Request, res: Response, next: NextFunction): void => {
+  ensureAuthenticated(req, res, next, {
+    skipMembershipStatus: true,
+    skipTermsAcceptance: true,
+  });
+};
+
 /** Signs in the caller and limits purchase attempts per account. */
 const purchaseRateLimit = rateLimitAuthEndpoint(config.rateLimits.billingPurchase);
 
@@ -20,7 +28,7 @@ const router = Router();
 router.use(`${config.api.prefix}${config.api.version}/billing`, router);
 
 router.get('/checkout-options', asyncHandler(BillingController.getCheckoutOptions));
-router.get('/status', requireAccount, asyncHandler(BillingController.getStatus));
+router.get('/status', requireAccountSkipTerms, asyncHandler(BillingController.getStatus));
 
 router.post(
   '/paypal/orders',
@@ -35,17 +43,6 @@ router.post(
   asyncHandler(BillingController.capturePayPalOrder)
 );
 router.post(
-  '/paypal/subscriptions',
-  purchaseRateLimit,
-  asyncHandler(requireSupportedClientVersion('paypal', 'web')),
-  asyncHandler(BillingController.createPayPalSubscription)
-);
-router.post(
-  '/subscriptions/:id/cancel',
-  purchaseRateLimit,
-  asyncHandler(BillingController.cancelSubscription)
-);
-router.post(
   '/apple/transactions',
   purchaseRateLimit,
   asyncHandler(requireSupportedClientVersion('apple', 'ios')),
@@ -58,6 +55,21 @@ router.post(
   asyncHandler(BillingController.postGooglePurchase)
 );
 router.post('/restore', purchaseRateLimit, asyncHandler(BillingController.restorePurchases));
+
+/** Lightning clients poll until the invoice settles. One request per account per two seconds. */
+export const strikeCheckoutPollRateLimit = rateLimitAuthEndpoint({ windowMs: 2000, max: 1 });
+
+router.post(
+  '/strike/checkouts',
+  purchaseRateLimit,
+  asyncHandler(requireSupportedClientVersion('strike', 'web')),
+  asyncHandler(BillingController.createStrikeCheckout)
+);
+router.get(
+  '/strike/checkouts/:id',
+  strikeCheckoutPollRateLimit,
+  asyncHandler(BillingController.getStrikeCheckout)
+);
 
 /** Webhooks arrive with a raw body (see the parser mounted for this path in `app.ts`). */
 router.post(
@@ -74,6 +86,11 @@ router.post(
   '/webhooks/google',
   rateLimitEndpointPerScope(config.rateLimits.billingWebhook, 'google_play'),
   asyncHandler(BillingController.receiveWebhook('google_play'))
+);
+router.post(
+  '/webhooks/strike',
+  rateLimitEndpointPerScope(config.rateLimits.billingWebhook, 'strike'),
+  asyncHandler(BillingController.receiveWebhook('strike'))
 );
 
 router.post('/test/simulate', requireAccount, asyncHandler(BillingController.simulateTestEvent));

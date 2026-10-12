@@ -1,14 +1,12 @@
 import type {
   BillingCadence,
   BillingPlatform,
-  DTOBillingCancelSubscriptionResult,
   DTOBillingCheckoutOptions,
   DTOBillingPayPalOrder,
-  DTOBillingPayPalSubscription,
   DTOBillingPurchaseResult,
   DTOBillingSimulationResult,
   DTOBillingStatus,
-  PurchaseKind,
+  DTOBillingStrikeCheckout,
 } from '@podverse/helpers';
 
 import type { ApiRequestService } from '../_request.js';
@@ -21,11 +19,15 @@ export type ReqBillingPayPalCheckoutParams = {
   cancelUrl: string;
 };
 
+export type ReqBillingStrikeCreateCheckoutParams = {
+  processorProductId: number;
+  /** Omitted on web. The API defaults a missing platform to `web`. */
+  platform?: 'web' | 'foss';
+};
+
 export type ReqBillingSimulatePaymentParams = {
-  purchaseKind: PurchaseKind;
   cadence: BillingCadence;
   externalProductId: string | null;
-  externalSubscriptionId: string | null;
   externalTransactionId: string;
 };
 
@@ -44,13 +46,11 @@ export type ReqBillingAppleTransactionParams = {
 export type ReqBillingGooglePurchaseParams = {
   purchaseToken: string;
   productId: string;
-  purchaseKind: PurchaseKind;
 };
 
 export type ReqBillingRestorePurchase = {
   externalId: string;
   externalProductId?: string | null;
-  purchaseKind: PurchaseKind;
   /** StoreKit JWS for an Apple purchase. */
   signedTransaction?: string | null;
 };
@@ -75,9 +75,17 @@ export async function reqBillingGetCheckoutOptions(
   });
 }
 
-export async function reqBillingGetStatus(api: ApiRequestService) {
+export async function reqBillingGetStatus(
+  api: ApiRequestService,
+  params?: { platform?: BillingPlatform }
+) {
+  const search = new URLSearchParams();
+  if (params?.platform !== undefined) {
+    search.set('platform', params.platform);
+  }
+  const query = search.toString();
   return api.apiRequest<DTOBillingStatus>({
-    path: '/billing/status',
+    path: query === '' ? '/billing/status' : `/billing/status?${query}`,
     method: 'GET',
     config: credentials,
   });
@@ -111,7 +119,6 @@ export async function reqBillingPostGooglePurchase(
     data: {
       purchase_token: params.purchaseToken,
       product_id: params.productId,
-      purchase_kind: params.purchaseKind,
     },
     config: credentials,
   });
@@ -129,7 +136,6 @@ export async function reqBillingRestorePurchases(
       purchases: params.purchases.map((purchase) => ({
         external_id: purchase.externalId,
         external_product_id: purchase.externalProductId ?? null,
-        purchase_kind: purchase.purchaseKind,
         ...(typeof purchase.signedTransaction === 'string' && purchase.signedTransaction !== ''
           ? { signed_transaction: purchase.signedTransaction }
           : {}),
@@ -155,14 +161,6 @@ export async function reqBillingCreatePayPalOrder(
   });
 }
 
-export async function reqBillingCancelSubscription(api: ApiRequestService, subscriptionId: number) {
-  return api.apiRequest<DTOBillingCancelSubscriptionResult>({
-    path: `/billing/subscriptions/${subscriptionId}/cancel`,
-    method: 'POST',
-    config: credentials,
-  });
-}
-
 export async function reqBillingCapturePayPalOrder(api: ApiRequestService, orderId: string) {
   return api.apiRequest<DTOBillingPurchaseResult>({
     path: `/billing/paypal/orders/${encodeURIComponent(orderId)}/capture`,
@@ -171,26 +169,30 @@ export async function reqBillingCapturePayPalOrder(api: ApiRequestService, order
   });
 }
 
-export async function reqBillingCreatePayPalSubscription(
+export async function reqBillingStrikeCreateCheckout(
   api: ApiRequestService,
-  params: ReqBillingPayPalCheckoutParams
+  params: ReqBillingStrikeCreateCheckoutParams
 ) {
-  return api.apiRequest<DTOBillingPayPalSubscription>({
-    path: '/billing/paypal/subscriptions',
+  return api.apiRequest<DTOBillingStrikeCheckout>({
+    path: '/billing/strike/checkouts',
     method: 'POST',
     data: {
       processor_product_id: params.processorProductId,
-      return_url: params.returnUrl,
-      cancel_url: params.cancelUrl,
+      ...(params.platform !== undefined ? { platform: params.platform } : {}),
     },
     config: credentials,
   });
 }
 
-/**
- * Records a test-processor payment. One-time purchases leave the subscription id null; an
- * auto-renew payment names the subscription it settles.
- */
+export async function reqBillingStrikeGetCheckout(api: ApiRequestService, checkoutId: number) {
+  return api.apiRequest<DTOBillingStrikeCheckout>({
+    path: `/billing/strike/checkouts/${encodeURIComponent(String(checkoutId))}`,
+    method: 'GET',
+    config: credentials,
+  });
+}
+
+/** Records a test-processor payment. */
 export async function reqBillingSimulatePayment(
   api: ApiRequestService,
   params: ReqBillingSimulatePaymentParams
@@ -209,11 +211,9 @@ export async function reqBillingSimulatePayment(
     data: {
       event: {
         type: 'payment_settled',
-        purchaseKind: params.purchaseKind,
         externalProductId: params.externalProductId,
         externalBasePlanId: null,
         externalTransactionId: params.externalTransactionId,
-        externalSubscriptionId: params.externalSubscriptionId,
         periodStart: periodStart.toISOString(),
         periodEnd: periodEnd.toISOString(),
         amount: null,

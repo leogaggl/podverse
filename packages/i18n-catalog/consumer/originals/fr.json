@@ -106,7 +106,23 @@
       "basic_auth_username": "Nom d'utilisateur",
       "basic_auth_password": "Mot de passe",
       "basic_auth_required_both": "L'authentification de base nécessite un nom d'utilisateur et un mot de passe.",
-      "login_prompt": "Connectez-vous pour utiliser cette fonctionnalité."
+      "login_prompt": "Connectez-vous pour utiliser cette fonctionnalité.",
+      "needs_credentials_section_title": "Identifiant et mot de passe requis",
+      "needs_credentials_missing": "Saisir l'identifiant et le mot de passe",
+      "needs_credentials_rejected": "L'identifiant ou le mot de passe a été refusé",
+      "credentials_page_title": "Identifiant et mot de passe du flux",
+      "credentials_page_intro": "L'éditeur protège ce flux avec un identifiant et un mot de passe. Saisissez ceux qu'il vous a donnés.",
+      "credentials_page_device_note": "L'identifiant et le mot de passe restent sur cet appareil : vous devez les saisir à nouveau sur chaque appareil. Podverse les reçoit en HTTPS uniquement pour lire ce flux et ne les conserve pas.",
+      "credentials_page_media_note": "Sur le web, l'audio et la vidéo de ce flux se lisent sans identifiant ni mot de passe : certains épisodes peuvent ne pas se lire ici.",
+      "credentials_save_and_check": "Enregistrer et vérifier",
+      "credentials_remove_feed": "Retirer le flux",
+      "credentials_back_to_list": "Retour à Ajouter par RSS",
+      "credentials_rejected": "Le flux a refusé cet identifiant et ce mot de passe. Vérifiez-les puis réessayez.",
+      "credentials_withheld": "Le flux a redirigé vers une autre adresse, donc l'identifiant et le mot de passe n'ont pas été envoyés.",
+      "credentials_check_failed": "Impossible de vérifier ce flux. Réessayez plus tard.",
+      "credentials_not_saved_on_device": "Ce navigateur n'a pas pu enregistrer l'identifiant et le mot de passe : ils n'ont servi que pour cette vérification.",
+      "media_other_domain": "Ce média est hébergé sur un autre domaine que le flux protégé, ce qui n'est pas pris en charge.",
+      "media_needs_credentials": "Ce média peut exiger un identifiant et un mot de passe, que les navigateurs ne peuvent pas envoyer aux fichiers audio et vidéo. Utilisez plutôt l'app mobile. Le flux continue de se mettre à jour sur le web."
     },
     "my_library": "Ma bibliothèque",
     "queue": {
@@ -634,10 +650,18 @@
     "yes": "Oui, me suivre",
     "no": "Non merci",
     "learn_more": "En savoir plus",
+    "full_agreement": "Accord complet",
+    "retry": "Réessayer",
     "already_agreed": "Vous avez déjà accepté cette version.",
     "agreement_date": "Date de l'accord : {agreement_date}",
     "error": "Impossible d'enregistrer votre choix de suivi de popularité. Veuillez réessayer.",
-    "back_to_choice": "Retour"
+    "back_to_choice": "Retour",
+    "change": "Modifier le suivi de popularité",
+    "dismiss_note": "Fermer cette fenêtre ne change pas votre choix. Vous pourrez le modifier plus tard dans Paramètres.",
+    "load_error": "Impossible de charger l'accord de suivi de popularité. Veuillez réessayer.",
+    "status_opted_out": "Le suivi de popularité est désactivé.",
+    "status_stale": "L'accord a changé. Le suivi de popularité reste désactivé jusqu'à ce que vous acceptiez la nouvelle version.",
+    "status_undecided": "Vous n'avez pas encore choisi d'autoriser le suivi de popularité."
   },
   "misc": {
     "more_info": "Plus d'infos",
@@ -847,9 +871,32 @@
     "terms_version_invalid": "La version des conditions d'utilisation est obsolète. Actualisez la page et réessayez."
   },
   "terms_acceptance": {
-    "header": "Conditions d'utilisation mises à jour",
-    "message": "Nos conditions d'utilisation ont changé. Veuillez lire et accepter les conditions mises à jour pour continuer à utiliser votre compte.",
-    "checkbox_label": "J'ai lu et j'accepte les conditions d'utilisation mises à jour"
+    "header": "Conditions d'utilisation",
+    "message": "Lisez et acceptez les conditions d'utilisation pour continuer à utiliser votre compte.",
+    "checkbox_label": "J'ai lu et j'accepte les conditions d'utilisation.",
+    "accept": "Accepter",
+    "reject": "Refuser",
+    "agreement_date": "Valable depuis {agreement_date}",
+    "full_agreement": "Conditions complètes",
+    "load_error": "Impossible de charger les conditions d'utilisation. Veuillez réessayer.",
+    "retry": "Réessayer"
+  },
+  "account_access": {
+    "title": "Accès au compte",
+    "message": "Vous devez accepter les conditions d'utilisation pour utiliser Podverse avec ce compte. Vous pouvez revoir les conditions, gérer vos données ou vous déconnecter.",
+    "review_terms": "Revoir les conditions d'utilisation",
+    "sign_out": "Se déconnecter",
+    "membership_heading": "Abonnement",
+    "download_heading": "Télécharger mes données",
+    "download_description": "Téléchargez toutes les données de votre compte sous forme de fichier zip.",
+    "download_button": "Télécharger mes données",
+    "opml_heading": "Exporter OPML",
+    "opml_description": "Exportez vos chaînes abonnées et Ajouter par RSS sous forme de fichier OPML.",
+    "opml_button": "Exporter OPML",
+    "delete_heading": "Supprimer le compte",
+    "delete_description": "Supprimez définitivement votre compte et toutes les données associées. Cette action est irréversible.",
+    "delete_button": "Supprimer le compte",
+    "delete_error": "Impossible de supprimer votre compte. Veuillez réessayer."
   },
   "membership": {
     "membership": "Abonnement",
@@ -879,7 +926,7 @@
     "cta_upgrade_text": "Passer à Premium",
     "buy_premium_membership": "Acheter un abonnement Premium",
     "your_membership_expires_on": "Votre abonnement Premium expire le {date}",
-    "extend_my_membership": "Prolonger mon abonnement",
+    "extend_my_membership": "Prolonger l'abonnement",
     "membership_expired_text_line1": "Votre abonnement a expiré.",
     "membership_expired_text_line2": "Veuillez prolonger votre abonnement pour continuer à profiter des fonctionnalités Premium.",
     "trial_expired_text_line1": "Votre essai gratuit a expiré.",
@@ -957,6 +1004,24 @@
       "banner_dismiss": "Ignorer",
       "settings_row_title": "Abonnement expiré",
       "settings_row_subtitle": "Renouvelez-le pour réutiliser les fonctionnalités Premium."
+    },
+    "manage": {
+      "grace_renew_body": "Un prélèvement de renouvellement a échoué. L'accès continue pour l'instant. Annulez l'abonnement chez le processeur, ou commencez une nouvelle adhésion.",
+      "manage_membership": "Gérer l'adhésion"
+    },
+    "checkout": {
+      "pay_with_paypal_on_the_web": "Payer avec PayPal sur le web",
+      "pay_with_bitcoin_on_the_web": "Payer avec Bitcoin sur le web",
+      "restore_purchases": "Restaurer les achats",
+      "restore_purchases_help": "Si vous avez déjà payé une adhésion avec le compte magasin de cet appareil et qu'elle manque ici, restaurez-la. Cela ne déclenche pas un nouveau prélèvement.",
+      "troubleshooting": "Dépannage",
+      "privacy": "Confidentialité",
+      "update_required_title": "Mise à jour requise",
+      "update_required_body": "Mettez l'app à jour avant d'acheter une adhésion.",
+      "update_app": "Mettre à jour l'app",
+      "purchase_waiting": "Le magasin confirme encore cet achat.",
+      "unavailable": "L'achat d'adhésion n'est pas disponible dans cette version.",
+      "plan_price": "{plan} · {price}"
     }
   },
   "about": {
@@ -967,13 +1032,37 @@
   },
   "checkout": {
     "checkout": "Passer à la caisse",
-    "payment_plan": "Plan de paiement",
-    "auto_renew": "Renouvellement automatique",
+    "page_intro": "Choisissez une formule Premium, puis finalisez le paiement ci-dessous. Le temps restant sur votre adhésion actuelle s'ajoute à votre achat.",
+    "choose_a_plan": "Choisir une formule",
     "payment_processor": "Processeur de paiement",
     "paypal": "PayPal",
+    "bitcoin_lightning": "Bitcoin (Lightning)",
+    "choose_a_payment_method": "Choisir un moyen de paiement",
+    "lightning_invoice": "Facture Lightning",
+    "copy_invoice": "Copier la facture",
+    "open_wallet": "Ouvrir le portefeuille",
+    "invoice_copied": "Facture copiée.",
+    "invoice_expires_in": "Expire dans {time}",
+    "payment_detected": "Paiement détecté, confirmation en cours…",
+    "invoice_expired": "Cette facture a expiré.",
+    "get_a_new_invoice": "Obtenir une nouvelle facture",
+    "lightning_invoice_qr": "Facture Lightning",
     "complete_purchase": "Finaliser l'achat",
     "disabled_message": "La page de paiement est désactivée.",
-    "purchase_unavailable": "Les abonnements ne peuvent pas être achetés ici pour le moment. Votre abonnement actuel et sa date d'expiration restent les mêmes."
+    "purchase_unavailable": "Les abonnements ne peuvent pas être achetés ici pour le moment. Votre abonnement actuel et sa date d'expiration restent les mêmes.",
+    "paypal_unavailable": "PayPal est indisponible pour le moment.",
+    "complete_test_purchase": "Terminer l'achat de test",
+    "purchase_failed": "L'achat n'a pas pu aboutir. Réessayez.",
+    "plan_unavailable": "Cette formule n'est pas disponible.",
+    "success_waiting": "Confirmation de votre adhésion.",
+    "success_active": "Votre adhésion est active.",
+    "success_extended_month": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un mois. Elle expire maintenant le {date}.",
+    "success_extended_year": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un an. Elle expire maintenant le {date}.",
+    "success_extended_month_length": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un mois.",
+    "success_extended_year_length": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un an.",
+    "success_active_expires": "Votre achat Premium est terminé. Elle expire maintenant le {date}.",
+    "success_opening_membership": "Ouverture de la page Abonnement.",
+    "success_timeout": "L'adhésion n'est pas encore confirmée. Contactez le support si elle n'apparaît pas bientôt."
   },
   "layouts": {
     "change_layout_view": "Changer l'affichage",
@@ -1132,6 +1221,18 @@
       "shortcut_seek_detail": "Appuyez une fois sur la flèche Gauche ou Droite pour sauter de 10 secondes. Maintenir la touche ne répète pas l'action avant relâchement.",
       "shortcut_volume_label": "Volume (lorsque le curseur de volume a le focus)",
       "shortcut_volume_detail": "Avec le focus sur le curseur de volume du lecteur, les flèches Gauche et Droite diminuent ou augmentent le volume de 5 % par pression."
+    },
+    "membership": {
+      "heading": "Adhésion",
+      "tier": "Statut",
+      "tier_premium": "Premium",
+      "tier_trial": "Essai",
+      "tier_expired": "Expirée",
+      "tier_none": "Aucun",
+      "expires_on": "Expire le",
+      "compare_plans": "Comparer les formules",
+      "load_failed": "Impossible de charger la facturation de l'adhésion.",
+      "buy_more_time": "Prolonger l'abonnement"
     }
   },
   "contact": {
@@ -1156,30 +1257,7 @@
     "none_help": "Aucun cookie optionnel sur l'appareil ; la connexion reste possible."
   },
   "terms": {
-    "terms": "Conditions",
-    "legal_entity_heading": "{legal_name}",
-    "service_intro": "{brand_name} est exploité par {legal_name}. Ces conditions décrivent comment nous traitons vos données et notre service.",
-    "never_sell_data": "{brand_name} ne vendra ni ne partagera jamais les données privées des utilisateurs.",
-    "no_ads_without_permission": "Nous ne mettrons jamais de publicités à côté ou dans le contenu d'un podcast sans la permission de ce podcast.",
-    "audio_video_hosting": "Tous les fichiers audio ou vidéo trouvés sur {brand_domain} proviennent du serveur public du podcasteur. Nous n'hébergeons pas nous-mêmes les fichiers audio ou vidéo de podcast.",
-    "third_party_feeds": "Nous hébergeons des liens et du contenu de podcasts provenant de flux et de sites tiers. Ceux-ci ont leurs propres politiques de confidentialité indépendantes, et nous n'avons aucune responsabilité concernant leur contenu ou leurs activités.",
-    "clips_crowdsourced": "Tous les extraits hébergés sur {brand_domain} sont collectés par la foule et non officiels, sauf indication contraire du podcasteur.",
-    "clips_load_full_episode": "Les extraits se chargent dans le fichier média de l'épisode complet, donc l'utilisateur a toujours accès à l'enregistrement complet.",
-    "reduced_size_images": "Nous hébergeons également des images de podcast réduites provenant des flux de podcasteurs, pour économiser les données du réseau de l'utilisateur et accélérer les temps de chargement des pages.",
-    "data_service_necessary": "Les données de file d'attente, de connexion et de lecture du compte sont nécessaires pour faire fonctionner {brand_name}. Nous ne demandons pas de consentement séparé pour cette fonctionnalité essentielle. La mémorisation de la lecture hors connexion est optionnelle et se règle dans la bannière de cookies.",
-    "data_listen_stats_heading": "Statistiques d'écoute",
-    "data_listen_stats_body": "{legal_name} peut enregistrer des événements d'écoute pseudonymes pour afficher les tendances. Les événements sont conservés {retention_days} jours. Vous pouvez activer ou désactiver cette option dans les paramètres du compte.",
-    "data_listen_stats_anonymization": "Les statistiques utilisent un identifiant interne de compte. Il n'est pas affiché comme votre profil public ou votre nom d'utilisateur.",
-    "data_web_analytics": "L'analytique web anonyme (Cloudflare) ne se charge que si vous acceptez les cookies d'analytique dans la bannière de consentement.",
-    "data_retention": "Les événements d'écoute bruts sont supprimés après {retention_days} jours.",
-    "data_requests": "Pour les demandes d'accès ou de suppression, écrivez à {contact_email}.",
-    "cookie_choices_heading": "Choix de cookies",
-    "cookie_choice_all": "Tout accepter",
-    "cookie_choice_all_help": "Analytique et mémorisation de la lecture hors connexion.",
-    "cookie_choice_essential": "Essentiels uniquement",
-    "cookie_choice_essential_help": "Mémoriser la lecture hors connexion ; pas d'analytique.",
-    "cookie_choice_none": "Aucun",
-    "cookie_choice_none_help": "Aucun cookie optionnel sur l'appareil ; la connexion et la lecture du compte restent possibles."
+    "terms": "Conditions"
   },
   "socials": {
     "discord": "Discord",

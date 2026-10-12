@@ -106,7 +106,23 @@
       "basic_auth_username": "Nombre de usuario",
       "basic_auth_password": "Contraseña",
       "basic_auth_required_both": "La autenticación básica requiere nombre de usuario y contraseña.",
-      "login_prompt": "Inicia sesión para usar esta función."
+      "login_prompt": "Inicia sesión para usar esta función.",
+      "needs_credentials_section_title": "Hace falta usuario y contraseña",
+      "needs_credentials_missing": "Introduce usuario y contraseña",
+      "needs_credentials_rejected": "El usuario o la contraseña fueron rechazados",
+      "credentials_page_title": "Usuario y contraseña del feed",
+      "credentials_page_intro": "El editor protege este feed con un usuario y una contraseña. Introduce los que te dieron.",
+      "credentials_page_device_note": "El usuario y la contraseña se quedan en este dispositivo, así que debes introducirlos de nuevo en cada dispositivo que uses. Podverse los recibe por HTTPS solo para leer este feed y no los guarda.",
+      "credentials_page_media_note": "En la web, el audio y el vídeo de este feed se reproducen sin tu usuario y contraseña, así que algunos episodios pueden no sonar aquí.",
+      "credentials_save_and_check": "Guardar y comprobar",
+      "credentials_remove_feed": "Quitar feed",
+      "credentials_back_to_list": "Volver a añadir por RSS",
+      "credentials_rejected": "El feed rechazó este usuario y contraseña. Compruébalos e inténtalo de nuevo.",
+      "credentials_withheld": "El feed redirigió a otra dirección, así que no se enviaron el usuario y la contraseña.",
+      "credentials_check_failed": "No pudimos comprobar este feed. Inténtalo más tarde.",
+      "credentials_not_saved_on_device": "Este navegador no pudo guardar el usuario y la contraseña, así que solo se usaron para esta comprobación.",
+      "media_other_domain": "Este contenido está en un dominio distinto al del feed protegido, y eso no es compatible.",
+      "media_needs_credentials": "Este contenido puede exigir usuario y contraseña, que los navegadores no pueden enviar a archivos de audio y vídeo. Prueba la app móvil. El feed sí se actualiza en la web."
     },
     "my_library": "Mi biblioteca",
     "queue": {
@@ -634,10 +650,18 @@
     "yes": "Sí, incluirme",
     "no": "No, gracias",
     "learn_more": "Más información",
+    "full_agreement": "Acuerdo completo",
+    "retry": "Reintentar",
     "already_agreed": "Ya aceptaste esta versión.",
     "agreement_date": "Fecha del acuerdo: {agreement_date}",
     "error": "No se pudo guardar tu elección de seguimiento de popularidad. Inténtalo de nuevo.",
-    "back_to_choice": "Volver"
+    "back_to_choice": "Volver",
+    "change": "Cambiar el seguimiento de popularidad",
+    "dismiss_note": "Cerrar esta ventana no cambia tu elección. Puedes actualizarla más tarde en Configuraciones.",
+    "load_error": "No se pudo cargar el acuerdo de seguimiento de popularidad. Inténtalo de nuevo.",
+    "status_opted_out": "El seguimiento de popularidad está desactivado.",
+    "status_stale": "El acuerdo cambió. El seguimiento de popularidad permanece desactivado hasta que aceptes la nueva versión.",
+    "status_undecided": "Aún no has elegido si permites el seguimiento de popularidad."
   },
   "misc": {
     "more_info": "Más información",
@@ -847,9 +871,32 @@
     "terms_version_invalid": "La versión de los términos de servicio está desactualizada. Actualiza la página e inténtalo de nuevo."
   },
   "terms_acceptance": {
-    "header": "Términos de servicio actualizados",
-    "message": "Nuestros términos de servicio han cambiado. Lee y acepta los términos actualizados para seguir usando tu cuenta.",
-    "checkbox_label": "He leído y acepto los términos de servicio actualizados"
+    "header": "Términos de servicio",
+    "message": "Lee y acepta los términos de servicio para seguir usando tu cuenta.",
+    "checkbox_label": "He leído y acepto los términos de servicio.",
+    "accept": "Aceptar",
+    "reject": "Rechazar",
+    "agreement_date": "Válido desde {agreement_date}",
+    "full_agreement": "Términos completos",
+    "load_error": "No se pudieron cargar los términos de servicio. Inténtalo de nuevo.",
+    "retry": "Reintentar"
+  },
+  "account_access": {
+    "title": "Acceso a la cuenta",
+    "message": "Necesitas aceptar los términos de servicio para usar Podverse con esta cuenta. Puedes revisar los términos de nuevo, gestionar tus datos o cerrar sesión.",
+    "review_terms": "Revisar términos de servicio",
+    "sign_out": "Cerrar sesión",
+    "membership_heading": "Membresía",
+    "download_heading": "Descargar mis datos",
+    "download_description": "Descarga todos los datos de tu cuenta como un archivo zip.",
+    "download_button": "Descargar mis datos",
+    "opml_heading": "Exportar OPML",
+    "opml_description": "Exporta tus canales suscritos y de Añadir por RSS como un archivo OPML.",
+    "opml_button": "Exportar OPML",
+    "delete_heading": "Eliminar cuenta",
+    "delete_description": "Elimina permanentemente tu cuenta y todos los datos asociados. Esta acción no se puede deshacer.",
+    "delete_button": "Eliminar cuenta",
+    "delete_error": "No se pudo eliminar tu cuenta. Inténtalo de nuevo."
   },
   "membership": {
     "membership": "Membresía",
@@ -879,7 +926,7 @@
     "cta_upgrade_text": "Mejorar a Premium",
     "buy_premium_membership": "Comprar membresía Premium",
     "your_membership_expires_on": "Tu membresía Premium expira el {date}",
-    "extend_my_membership": "Extender mi membresía",
+    "extend_my_membership": "Extender membresía",
     "membership_expired_text_line1": "Tu membresía ha expirado.",
     "membership_expired_text_line2": "Por favor, extiende tu membresía para seguir disfrutando de las funciones Premium.",
     "trial_expired_text_line1": "Tu prueba gratuita ha expirado.",
@@ -957,6 +1004,24 @@
       "banner_dismiss": "Descartar",
       "settings_row_title": "Membresía caducada",
       "settings_row_subtitle": "Renuévala para volver a usar las funciones Premium."
+    },
+    "manage": {
+      "grace_renew_body": "Falló un cobro de renovación. El acceso continúa por ahora. Cancela la suscripción en el procesador o empieza una membresía nueva.",
+      "manage_membership": "Gestionar membresía"
+    },
+    "checkout": {
+      "pay_with_paypal_on_the_web": "Pagar con PayPal en la web",
+      "pay_with_bitcoin_on_the_web": "Pagar con Bitcoin en la web",
+      "restore_purchases": "Restaurar compras",
+      "restore_purchases_help": "Si ya pagaste una membresía con la cuenta de la tienda de este dispositivo y no aparece aquí, restáurala. Esto no inicia un cobro nuevo.",
+      "troubleshooting": "Solución de problemas",
+      "privacy": "Privacidad",
+      "update_required_title": "Actualización necesaria",
+      "update_required_body": "Actualiza la app antes de comprar una membresía.",
+      "update_app": "Actualizar la app",
+      "purchase_waiting": "La tienda sigue confirmando esta compra.",
+      "unavailable": "El pago de membresía no está disponible en esta versión.",
+      "plan_price": "{plan} · {price}"
     }
   },
   "about": {
@@ -967,13 +1032,37 @@
   },
   "checkout": {
     "checkout": "Pago",
-    "payment_plan": "Plan de pago",
-    "auto_renew": "Renovación automática",
+    "page_intro": "Elige un plan Premium y completa el pago abajo. El tiempo que quede de tu membresía actual se suma a tu compra.",
+    "choose_a_plan": "Elige un plan",
     "payment_processor": "Procesador de pagos",
     "paypal": "PayPal",
+    "bitcoin_lightning": "Bitcoin (Lightning)",
+    "choose_a_payment_method": "Elige un método de pago",
+    "lightning_invoice": "Factura Lightning",
+    "copy_invoice": "Copiar factura",
+    "open_wallet": "Abrir billetera",
+    "invoice_copied": "Factura copiada.",
+    "invoice_expires_in": "Vence en {time}",
+    "payment_detected": "Pago detectado, confirmando…",
+    "invoice_expired": "Esta factura venció.",
+    "get_a_new_invoice": "Obtener una factura nueva",
+    "lightning_invoice_qr": "Factura Lightning",
     "complete_purchase": "Completar compra",
     "disabled_message": "La página de pago está deshabilitada.",
-    "purchase_unavailable": "Las membresías no se pueden comprar aquí en este momento. Tu membresía actual y su fecha de vencimiento siguen igual."
+    "purchase_unavailable": "Las membresías no se pueden comprar aquí en este momento. Tu membresía actual y su fecha de vencimiento siguen igual.",
+    "paypal_unavailable": "PayPal no está disponible ahora.",
+    "complete_test_purchase": "Completar compra de prueba",
+    "purchase_failed": "No se pudo completar la compra. Inténtalo de nuevo.",
+    "plan_unavailable": "Este plan no está disponible.",
+    "success_waiting": "Confirmando tu membresía.",
+    "success_active": "Tu membresía está activa.",
+    "success_extended_month": "Tu compra Premium está completa. La membresía se extendió 1 mes. Ahora vence el {date}.",
+    "success_extended_year": "Tu compra Premium está completa. La membresía se extendió 1 año. Ahora vence el {date}.",
+    "success_extended_month_length": "Tu compra Premium está completa. La membresía se extendió 1 mes.",
+    "success_extended_year_length": "Tu compra Premium está completa. La membresía se extendió 1 año.",
+    "success_active_expires": "Tu compra Premium está completa. Ahora vence el {date}.",
+    "success_opening_membership": "Abriendo la página de Membresía.",
+    "success_timeout": "La membresía aún no está confirmada. Contacta con soporte si no aparece pronto."
   },
   "layouts": {
     "change_layout_view": "Cambiar vista de diseño",
@@ -1132,6 +1221,18 @@
       "shortcut_seek_detail": "Pulsa una vez la flecha Izquierda o Derecha para saltar 10 segundos. Mantener pulsada la tecla no repite la acción hasta soltarla.",
       "shortcut_volume_label": "Volumen (con el control de volumen enfocado)",
       "shortcut_volume_detail": "Con el foco en el control de volumen del reproductor, las flechas Izquierda y Derecha bajan o suben el volumen un 5% por pulsación."
+    },
+    "membership": {
+      "heading": "Membresía",
+      "tier": "Estado",
+      "tier_premium": "Premium",
+      "tier_trial": "Prueba",
+      "tier_expired": "Caducada",
+      "tier_none": "Ninguna",
+      "expires_on": "Caduca el",
+      "compare_plans": "Comparar planes",
+      "load_failed": "No se pudo cargar la facturación de la membresía.",
+      "buy_more_time": "Extender membresía"
     }
   },
   "contact": {
@@ -1156,30 +1257,7 @@
     "none_help": "Sin cookies opcionales del dispositivo; el inicio de sesión sigue funcionando."
   },
   "terms": {
-    "terms": "Términos",
-    "legal_entity_heading": "{legal_name}",
-    "service_intro": "{brand_name} es operado por {legal_name}. Estos términos describen cómo tratamos tus datos y nuestro servicio.",
-    "never_sell_data": "{brand_name} nunca venderá ni compartirá datos privados de los usuarios.",
-    "no_ads_without_permission": "Nunca pondremos anuncios al lado o dentro del contenido de un podcast sin el permiso de ese podcast.",
-    "audio_video_hosting": "Todos los archivos de audio o video encontrados en {brand_domain} se cargan desde el propio servidor público del podcaster. No alojamos archivos de audio o video de podcasts nosotros mismos.",
-    "third_party_feeds": "Alojamos enlaces y contenido de podcasts de fuentes y sitios de terceros. Estos tienen sus propias políticas de privacidad independientes, y no tenemos responsabilidad por su contenido o actividades.",
-    "clips_crowdsourced": "Todos los clips alojados en {brand_domain} son obtenidos de forma colaborativa y no oficiales, a menos que el propio podcaster indique lo contrario.",
-    "clips_load_full_episode": "Los clips se cargan dentro del archivo de medios del episodio completo, por lo que el usuario siempre tiene acceso a la grabación completa.",
-    "reduced_size_images": "También alojamos imágenes de podcasts de tamaño reducido de los feeds de los podcasters, para ahorrar datos de red del usuario y acelerar los tiempos de carga de la página.",
-    "data_service_necessary": "Los datos de cola, inicio de sesión y reproducción de la cuenta son necesarios para ejecutar {brand_name}. No pedimos consentimiento aparte para esta funcionalidad básica. Recordar la reproducción sin iniciar sesión es opcional y se controla en el banner de cookies.",
-    "data_listen_stats_heading": "Estadísticas de escucha",
-    "data_listen_stats_body": "{legal_name} puede registrar eventos de escucha seudónimos para mostrar contenido en tendencia. Los eventos se conservan {retention_days} días. Puedes activar o desactivar esta opción en la configuración de la cuenta.",
-    "data_listen_stats_anonymization": "Las estadísticas usan un identificador interno de cuenta. No se muestra como tu perfil público ni tu nombre de usuario.",
-    "data_web_analytics": "La analítica web anónima (Cloudflare) solo se carga si aceptas cookies de analítica en el banner de consentimiento.",
-    "data_retention": "Los eventos de escucha en bruto se eliminan después de {retention_days} días.",
-    "data_requests": "Para solicitudes de acceso o eliminación, escribe a {contact_email}.",
-    "cookie_choices_heading": "Opciones de cookies",
-    "cookie_choice_all": "Aceptar todo",
-    "cookie_choice_all_help": "Analítica y recordar la reproducción sin iniciar sesión.",
-    "cookie_choice_essential": "Solo esenciales",
-    "cookie_choice_essential_help": "Recordar la reproducción sin iniciar sesión; sin analítica.",
-    "cookie_choice_none": "Ninguna",
-    "cookie_choice_none_help": "Sin cookies opcionales del dispositivo; el inicio de sesión y la reproducción de la cuenta siguen funcionando."
+    "terms": "Términos"
   },
   "socials": {
     "discord": "Discord",

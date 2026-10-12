@@ -8,6 +8,7 @@ import {
   useAuth,
 } from '../../auth';
 import { resolveLocalDevLoginPrefill } from '../../auth/localDevLoginPrefill';
+import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { TextField } from '../../components/form';
 import { Button } from '../../components/primitives';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
@@ -95,6 +96,7 @@ export function LoginScreen({ onDismiss, onSwitchToSignUp }: LoginScreenProps) {
         title={t('authentication.login')}
       />
       <MobileScreenContainer testID="login-form">
+        <CustomApiNotice />
         <View style={styles.fields}>
           <TextField
             accessibilityLabel={t('authentication.email_or_username')}

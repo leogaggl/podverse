@@ -6,7 +6,7 @@
  * narrow it with `isPaymentProcessorId` and skip ids they do not recognize instead of failing,
  * which lets the server offer a new processor before every installed app knows about it.
  */
-export const PAYMENT_PROCESSOR_IDS = ['paypal', 'apple', 'google_play', 'test'] as const;
+export const PAYMENT_PROCESSOR_IDS = ['paypal', 'apple', 'google_play', 'strike', 'test'] as const;
 
 export type PaymentProcessorId = (typeof PAYMENT_PROCESSOR_IDS)[number];
 

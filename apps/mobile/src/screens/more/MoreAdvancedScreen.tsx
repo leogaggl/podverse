@@ -17,6 +17,14 @@ export function MoreAdvancedScreen() {
     () => [
       {
         onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreCustomApi);
+        },
+        subtitle: t('custom_api.menu_subtitle'),
+        testID: 'more-advanced-custom-api',
+        title: t('custom_api.title'),
+      },
+      {
+        onPress: () => {
           navigation.navigate(MORE_STACK_ROUTES.MoreErrorLog);
         },
         subtitle: t('error_log.menu_subtitle'),

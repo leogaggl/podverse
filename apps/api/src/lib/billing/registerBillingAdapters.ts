@@ -1,8 +1,14 @@
 import type { BillingAdapterRegistry, TestPaymentProcessorAdapter } from '@podverse/billing';
-import { createTestAdapter, isTestAdapterAllowed } from '@podverse/billing';
+import {
+  createTestAdapter,
+  findStrikeCheckoutSession,
+  isTestAdapterAllowed,
+} from '@podverse/billing';
 import { createAppleAdapter } from '@podverse/external-services-apple-app-store';
 import { createGooglePlayAdapter } from '@podverse/external-services-google-play';
 import { createPayPalAdapter, PayPalService } from '@podverse/external-services-paypal';
+import type { StrikeAdapter } from '@podverse/external-services-strike';
+import { createStrikeAdapter, StrikeClient } from '@podverse/external-services-strike';
 import type { BillingProcessorEnv } from '@podverse/helpers-config';
 
 export interface BillingAdaptersConfig {
@@ -12,8 +18,11 @@ export interface BillingAdaptersConfig {
 }
 
 export interface RegisteredBillingAdapters {
-  /** Shared with the PayPal adapter; checkout routes create orders and subscriptions through it. */
+  /** Shared with the PayPal adapter; checkout routes create and capture orders through it. */
   paypalService: PayPalService | null;
+  /** Shared with the Strike adapter; checkout routes create invoices and read payment state through it. */
+  strikeAdapter: StrikeAdapter | null;
+  strikeClient: StrikeClient | null;
   /** Null in production unless the test adapter is explicitly allowed. */
   testAdapter: TestPaymentProcessorAdapter | null;
 }
@@ -85,5 +94,22 @@ export function registerBillingAdapters(
     );
   }
 
-  return { paypalService, testAdapter };
+  let strikeClient: StrikeClient | null = null;
+  let strikeAdapter: StrikeAdapter | null = null;
+  const strike = config.processors.strike;
+  if (strike !== null) {
+    strikeClient = new StrikeClient({
+      apiKey: strike.apiKey,
+      environment: strike.environment,
+    });
+    strikeAdapter = createStrikeAdapter({
+      client: strikeClient,
+      environment: strike.environment,
+      webhookSecret: strike.webhookSecret,
+      findCheckoutSession: findStrikeCheckoutSession,
+    });
+    registry.register(strikeAdapter);
+  }
+
+  return { paypalService, strikeAdapter, strikeClient, testAdapter };
 }

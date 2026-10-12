@@ -8,6 +8,7 @@ import { canSubmitAddByRssCredentials } from '@podverse/helpers-validation/clien
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { FormActions, TextField } from '../../components/form';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { ListEmpty } from '../../components/state/ListEmpty';
@@ -241,6 +242,7 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
 
   return (
     <MobileScreenContainer testID="rss-credentials-screen">
+      <CustomApiNotice />
       <Text accessibilityRole="header" style={styles.feedTitle} testID="rss-credentials-title">
         {feed.title ?? feed.feedUrl}
       </Text>

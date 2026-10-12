@@ -7,6 +7,7 @@ import {
   registerConfiguredBillingAdapters,
 } from '@podverse/billing';
 import type { GooglePlayClient } from '@podverse/external-services-google-play';
+import type { StrikeClient } from '@podverse/external-services-strike';
 
 export interface BillingContextConfig extends ConfiguredBillingAdapters {
   /** Raw `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`. */
@@ -17,6 +18,7 @@ export interface BillingContext {
   registry: BillingAdapterRegistry;
   processor: BillingEventProcessor;
   googlePlayClient: GooglePlayClient | null;
+  strikeClient: StrikeClient | null;
 }
 
 let billingContext: BillingContext | null = null;
@@ -27,7 +29,7 @@ let billingContext: BillingContext | null = null;
  */
 export function initBillingContext(config: BillingContextConfig): BillingContext {
   const registry = new BillingAdapterRegistry();
-  const { googlePlayClient } = registerConfiguredBillingAdapters(registry, config);
+  const { googlePlayClient, strikeClient } = registerConfiguredBillingAdapters(registry, config);
   const processor = new BillingEventProcessor({
     store: createOrmBillingLedgerStore(),
     sandboxPolicy: {
@@ -35,7 +37,7 @@ export function initBillingContext(config: BillingContextConfig): BillingContext
       allowedAccountIds: parseSandboxAllowedAccountIds(config.sandboxAllowedAccountIds),
     },
   });
-  billingContext = { registry, processor, googlePlayClient };
+  billingContext = { registry, processor, googlePlayClient, strikeClient };
   return billingContext;
 }
 

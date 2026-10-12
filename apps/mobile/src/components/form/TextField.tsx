@@ -20,6 +20,8 @@ export type TextFieldProps = {
   accessibilityLabel: string;
   autoCapitalize?: TextInputProps['autoCapitalize'];
   autoCorrect?: boolean;
+  /** When false, the field stays visible and keeps its value but does not accept edits. */
+  editable?: boolean;
   /**
    * Inset caption inside the pill, matching web `TextInput` `eyebrow`. Omit on search and list
    * filters. When set, the pill is taller and the caption stays after the placeholder clears.
@@ -68,6 +70,7 @@ export function TextField({
   accessibilityLabel,
   autoCapitalize,
   autoCorrect,
+  editable = true,
   eyebrow,
   inputRef,
   keyboardType,
@@ -186,6 +189,7 @@ export function TextField({
           accessibilityLabel={accessibilityLabel}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
+          editable={editable}
           keyboardType={keyboardType}
           multiline={multiline}
           onBlur={() => {

@@ -33,6 +33,7 @@
     { "path": "../../packages/helpers" },
     { "path": "../../packages/external-services-firebase" },
     { "path": "../../packages/external-services-paypal" },
+    { "path": "../../packages/external-services-strike" },
     { "path": "../../packages/external-services-apple-app-store" },
     { "path": "../../packages/external-services-google-play" },
     { "path": "../../packages/external-services-podcast-index" },

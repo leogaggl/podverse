@@ -14,11 +14,8 @@
 
 export type BillingBackend = 'storekit' | 'play' | 'fake' | 'unavailable';
 
-export type BillingPurchaseKind = 'auto_renew' | 'one_time';
-
 export type BillingStoreProduct = {
   productId: string;
-  purchaseKind: BillingPurchaseKind;
   /** Google Play base plan id; null for Apple, PayPal, and the fake client. */
   basePlanId: string | null;
 };

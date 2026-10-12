@@ -66,22 +66,22 @@ sequenceDiagram
 
 ## Module Dependency Order
 
-| Tier | Packages                                                                                                                       | Depends On                                                                            |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| 1    | helpers, v4v-metaboost, v4v-helpers                                                                                            | (none)                                                                                |
-| 2    | helpers-validation, helpers-requests, helpers-backend, helpers-browser, helpers-config                                         | helpers                                                                               |
-| 3    | external-services-alby, external-services-firebase, external-services-paypal, external-services-podcast-index, orm, v4v-btc-ln | helpers, helpers-\*                                                                   |
-| 4    | notifications, billing, parser                                                                                                 | helpers, helpers-\*, external-services-firebase, external-services-podcast-index, orm |
-| 5    | mq                                                                                                                             | helpers, helpers-\*, external-services-podcast-index, orm, parser                     |
-| 6    | api, web, workers, management-\*                                                                                               | various                                                                               |
-| 7    | qa                                                                                                                             | helpers, helpers-\*, external-services-\*, orm, parser                                |
+| Tier | Packages                                                                                                                                                 | Depends On                                                                            |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1    | helpers, v4v-metaboost, v4v-helpers                                                                                                                      | (none)                                                                                |
+| 2    | helpers-validation, helpers-requests, helpers-backend, helpers-browser, helpers-config                                                                   | helpers                                                                               |
+| 3    | external-services-alby, external-services-firebase, external-services-paypal, external-services-strike, external-services-podcast-index, orm, v4v-btc-ln | helpers, helpers-\*                                                                   |
+| 4    | notifications, billing, parser                                                                                                                           | helpers, helpers-\*, external-services-firebase, external-services-podcast-index, orm |
+| 5    | mq                                                                                                                                                       | helpers, helpers-\*, external-services-podcast-index, orm, parser                     |
+| 6    | api, web, workers, management-\*                                                                                                                         | various                                                                               |
+| 7    | qa                                                                                                                                                       | helpers, helpers-\*, external-services-\*, orm, parser                                |
 
 ## Build Order
 
 ```
 1. helpers, v4v-metaboost, v4v-helpers (parallel)
 2. helpers-validation, helpers-requests, helpers-backend, helpers-browser, helpers-config (parallel)
-3. external-services-alby, external-services-firebase, external-services-paypal, external-services-podcast-index (parallel)
+3. external-services-alby, external-services-firebase, external-services-paypal, external-services-strike, external-services-podcast-index (parallel)
 4. orm, parser-mapping (parallel)
 5. notifications, billing
 6. parser
@@ -108,6 +108,7 @@ packages/                 # Publishable npm packages (@podverse/*)
   external-services-alby/       # Alby Sandbox + LNURL (V4V)
   external-services-firebase/   # Firebase (Google) integration
   external-services-paypal/     # PayPal integration
+  external-services-strike/     # Strike integration
   external-services-podcast-index/  # Podcast Index API integration
   orm/                    # Database entities, services, migrations
   parser-mapping/         # Partytime-to-Podverse mapping (compat)
@@ -170,7 +171,7 @@ infra/              # Infrastructure
 
 ### Billing
 
-Premium membership is sold through PayPal (web), the App Store, and Google Play. The
+Premium membership is sold through PayPal, Strike, the App Store, and Google Play. The
 processor charges the buyer. Podverse records the result in a grant ledger. Overview,
 sandbox setup, and operations: [docs/billing/BILLING.md](/docs/billing/BILLING.md).
 

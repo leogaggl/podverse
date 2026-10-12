@@ -148,6 +148,10 @@
     "storage": {
       "title": "Almacenamiento de objetos",
       "description": "Examinar, descargar y eliminar objetos del depósito configurado"
+    },
+    "billing": {
+      "title": "Facturación",
+      "description": "Canales de pago, productos del procesador y bandeja de webhooks"
     }
   },
   "feedsHub": {
@@ -510,7 +514,11 @@
         "feeds_moderation": "Gestionar feeds y razones de eliminación únicamente.",
         "admins_stats_read": "Gestionar admins y estadísticas; leer en otros lugares.",
         "storage_full": "Acceso completo solo al almacenamiento de objetos."
-      }
+      },
+      "billingChannels": "Canales de pago",
+      "billingProcessorProducts": "Productos del procesador",
+      "billingAccount": "Facturación de la cuenta",
+      "billingWebhookEvents": "Bandeja de webhooks"
     },
     "roleTemplates": {
       "pageTitle": "Crear plantilla de permisos",
@@ -611,7 +619,7 @@
       "premiumBillingCadence": "Periodo de facturación Premium",
       "billingMonthly": "Mensual",
       "billingAnnual": "Anual",
-      "premiumBillingCadenceHint": "La caducidad por defecto es un mes adelante para mensual, o un año adelante para anual (alineado con la periodicidad de la suscripción).",
+      "premiumBillingCadenceHint": "La caducidad por defecto es un mes adelante para mensual, o un año adelante para anual.",
       "trustTier": "Nivel de confianza",
       "untrusted": "No confiable",
       "trusted": "Confiable",
@@ -646,7 +654,8 @@
       "verified": "Verificado",
       "createdAt": "Creado",
       "actions": "Acciones"
-    }
+    },
+    "billingLink": "Facturación"
   },
   "database": {
     "title": "Base de datos",
@@ -764,7 +773,36 @@
         "failed": "No se pudo revocar la concesión."
       },
       "protectedAccess": "El acceso pagado a través del procesador continúa hasta el {date}. Cancélalo o solicita un reembolso al procesador.",
-      "datePickerAffix": "Abrir selector de fecha y hora"
+      "datePickerAffix": "Abrir selector de fecha y hora",
+      "title": "Facturación de la cuenta",
+      "failedToLoad": "No se pudo cargar la facturación de la cuenta.",
+      "failedToResync": "No se pudo resincronizar la cuenta.",
+      "failedToGrant": "No se pudo conceder la membresía.",
+      "resynced": "Cuenta resincronizada.",
+      "granted": "Membresía concedida.",
+      "grantNotApplied": "La concesión no se aplicó porque la cuenta ya tiene membresía posterior.",
+      "resync": "Resincronizar",
+      "grant": "Conceder membresía",
+      "grantCadenceLabel": "Cadencia",
+      "expires": "La membresía caduca",
+      "transactions": "Transacciones",
+      "strikeRefundHint": "El reembolso se envía desde el panel de Strike.",
+      "grants": "Concesiones",
+      "events": "Eventos webhook",
+      "empty": "Ninguno.",
+      "table": {
+        "processor": "Procesador",
+        "externalId": "ID externo",
+        "amount": "Importe",
+        "settledAt": "Liquidado",
+        "source": "Origen",
+        "starts": "Inicio",
+        "ends": "Fin",
+        "received": "Recibido",
+        "error": "Error",
+        "revoked": "Revocado"
+      },
+      "resyncCounts": "Reintentados {retried}. Recuperados {refetched}. Fallidos {failed}."
     },
     "processors": {
       "title": "Procesadores de pago",
@@ -773,7 +811,110 @@
       "offNotice": "Los procesadores marcados como desactivados no están habilitados en esta instalación. Sus canales de pago no ofrecen nada hasta que un operador los active. Amplía las membresías manualmente desde la página de facturación de cada usuario.",
       "paypal": "PayPal",
       "apple": "App Store de Apple",
-      "google_play": "Google Play"
+      "google_play": "Google Play",
+      "strike": "Strike"
+    },
+    "help": {
+      "title": "Ayuda de facturación",
+      "indexIntro": "Notas de corrección para la facturación de membresías. La administración nunca cobra un método de pago.",
+      "giftingTitle": "Regalar tiempo a un miembro",
+      "giftingBody": "Una concesión de administrador añade tiempo después del que el miembro ya tiene. No hay nada que comprobar antes.",
+      "appleRefundsTitle": "Reembolso de Apple",
+      "appleRefundsBody": "Podverse no puede reembolsar un cargo de la App Store. El miembro lo pide a Apple. Tras anular la compra, resincroniza la cuenta.",
+      "resyncTitle": "Falta una compra en la app",
+      "resyncBody": "Usa Resincronizar en la página de facturación de la cuenta. Resincronizar reintenta las notificaciones fallidas, vuelve a obtener las transacciones de la cuenta y aplica los reembolsos. Úsalo cuando una compra de la tienda no aparece en el libro. Si el procesador está desactivado en esta instalación, actívalo o amplía el acceso a mano.",
+      "wrongAccountTitle": "Compra vinculada a la cuenta equivocada",
+      "wrongAccountBody": "Los recibos se vinculan a la cuenta de Podverse que compró. El miembro debe usar esa cuenta, o el soporte de Apple/Google para un traslado. No concedas tiempo en una segunda cuenta sin confirmar que la primera está cancelada.",
+      "strikeRefundsTitle": "Reembolso de Strike",
+      "strikeRefundsBody": "Envía el reembolso en el panel de Strike y luego revoca la concesión en la página de facturación de la cuenta."
+    },
+    "pageTitle": "Facturación",
+    "checkoutChannelsCardTitle": "Canales de pago",
+    "checkoutChannelsCardDescription": "Activa o desactiva un procesador por plataforma y define la versión mínima del cliente.",
+    "processorProductsCardTitle": "Productos del procesador",
+    "processorProductsCardDescription": "Asocia el id de un producto del procesador a un producto del catálogo y una cadencia.",
+    "webhookEventsCardTitle": "Bandeja de webhooks",
+    "webhookEventsCardDescription": "Revisa las notificaciones del procesador y reenvía las que fallaron.",
+    "helpCardTitle": "Ayuda de facturación",
+    "helpCardDescription": "Regalos, reembolsos de Apple, reembolsos de Strike, resincronización y una compra en la cuenta equivocada.",
+    "channels": {
+      "title": "Canales de pago",
+      "failedToLoad": "No se pudieron cargar los canales de pago.",
+      "failedToUpdate": "No se pudo actualizar el canal de pago.",
+      "updated": "Canal de pago actualizado.",
+      "cacheNote": "Un cambio llega al pago en un minuto. En desarrollo, reinicia la API para verlo antes.",
+      "table": {
+        "processor": "Procesador",
+        "platform": "Plataforma",
+        "storefronts": "Tiendas",
+        "enabled": "Activado",
+        "minVersion": "Versión mínima"
+      },
+      "enabled": "Activado",
+      "disabled": "Desactivado",
+      "allStorefronts": "Todas las tiendas",
+      "edit": "Editar",
+      "editTitle": "Editar canal de pago",
+      "minVersionLabel": "Versión mínima",
+      "minVersionPlaceholder": "5.5.0",
+      "storefrontsLabel": "Tiendas",
+      "storefrontsPlaceholder": "US, CA",
+      "storefrontsHint": "Códigos de país separados por comas. Déjalo vacío para todas las tiendas.",
+      "storeLinkHelp": "Una versión de la tienda abre el pago en la web, y esta fila no se puede activar hasta que se indique al menos un país."
+    },
+    "products": {
+      "title": "Productos del procesador",
+      "failedToLoad": "No se pudieron cargar los productos del procesador.",
+      "failedToCreate": "No se pudo crear el producto del procesador.",
+      "failedToUpdate": "No se pudo actualizar el producto del procesador.",
+      "created": "Producto del procesador creado.",
+      "updated": "Producto del procesador actualizado.",
+      "empty": "Aún no hay productos del procesador.",
+      "create": "Añadir producto del procesador",
+      "table": {
+        "processor": "Procesador",
+        "externalId": "ID externo",
+        "basePlan": "Plan base",
+        "cadence": "Cadencia",
+        "active": "Activo",
+        "catalogProduct": "Producto del catálogo"
+      },
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "processorLabel": "Procesador",
+      "externalIdLabel": "ID externo",
+      "externalIdPlaceholder": "P-123",
+      "basePlanLabel": "Plan base",
+      "basePlanPlaceholder": "prepaid-monthly",
+      "cadenceLabel": "Cadencia",
+      "cadenceMonthly": "Mensual",
+      "cadenceAnnual": "Anual",
+      "edit": "Editar",
+      "editTitle": "Editar producto del procesador",
+      "activeLabel": "Activo"
+    },
+    "events": {
+      "title": "Bandeja de webhooks",
+      "failedToLoad": "No se pudieron cargar los eventos webhook.",
+      "failedToReplay": "No se pudo reenviar el evento webhook.",
+      "replayed": "Evento webhook reenviado.",
+      "empty": "Ningún evento webhook coincide con estos filtros.",
+      "statusLabel": "Estado",
+      "processorLabel": "Procesador",
+      "allStatuses": "Todos los estados",
+      "allProcessors": "Todos los procesadores",
+      "statusPending": "Pendiente",
+      "statusProcessed": "Procesado",
+      "statusFailed": "Fallido",
+      "replay": "Reenviar",
+      "table": {
+        "received": "Recibido",
+        "processor": "Procesador",
+        "event": "Evento",
+        "status": "Estado",
+        "attempts": "Intentos",
+        "error": "Error"
+      }
     }
   }
 }

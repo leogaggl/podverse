@@ -148,6 +148,10 @@
     "storage": {
       "title": "",
       "description": ""
+    },
+    "billing": {
+      "title": "",
+      "description": ""
     }
   },
   "feedsHub": {
@@ -510,7 +514,11 @@
         "feeds_moderation": "",
         "admins_stats_read": "",
         "storage_full": ""
-      }
+      },
+      "billingChannels": "",
+      "billingProcessorProducts": "",
+      "billingAccount": "",
+      "billingWebhookEvents": ""
     },
     "roleTemplates": {
       "pageTitle": "",
@@ -646,7 +654,8 @@
       "verified": "",
       "createdAt": "",
       "actions": ""
-    }
+    },
+    "billingLink": ""
   },
   "database": {
     "title": "",
@@ -764,7 +773,36 @@
         "failed": ""
       },
       "protectedAccess": "",
-      "datePickerAffix": ""
+      "datePickerAffix": "",
+      "title": "",
+      "failedToLoad": "",
+      "failedToResync": "",
+      "failedToGrant": "",
+      "resynced": "",
+      "granted": "",
+      "grantNotApplied": "",
+      "resync": "",
+      "grant": "",
+      "grantCadenceLabel": "",
+      "expires": "",
+      "transactions": "",
+      "strikeRefundHint": "",
+      "grants": "",
+      "events": "",
+      "empty": "",
+      "table": {
+        "processor": "",
+        "externalId": "",
+        "amount": "",
+        "settledAt": "",
+        "source": "",
+        "starts": "",
+        "ends": "",
+        "received": "",
+        "error": "",
+        "revoked": ""
+      },
+      "resyncCounts": ""
     },
     "processors": {
       "title": "",
@@ -773,7 +811,110 @@
       "offNotice": "",
       "paypal": "",
       "apple": "",
-      "google_play": ""
+      "google_play": "",
+      "strike": ""
+    },
+    "help": {
+      "title": "",
+      "indexIntro": "",
+      "giftingTitle": "",
+      "giftingBody": "",
+      "appleRefundsTitle": "",
+      "appleRefundsBody": "",
+      "resyncTitle": "",
+      "resyncBody": "",
+      "wrongAccountTitle": "",
+      "wrongAccountBody": "",
+      "strikeRefundsTitle": "",
+      "strikeRefundsBody": ""
+    },
+    "pageTitle": "",
+    "checkoutChannelsCardTitle": "",
+    "checkoutChannelsCardDescription": "",
+    "processorProductsCardTitle": "",
+    "processorProductsCardDescription": "",
+    "webhookEventsCardTitle": "",
+    "webhookEventsCardDescription": "",
+    "helpCardTitle": "",
+    "helpCardDescription": "",
+    "channels": {
+      "title": "",
+      "failedToLoad": "",
+      "failedToUpdate": "",
+      "updated": "",
+      "cacheNote": "",
+      "table": {
+        "processor": "",
+        "platform": "",
+        "storefronts": "",
+        "enabled": "",
+        "minVersion": ""
+      },
+      "enabled": "",
+      "disabled": "",
+      "allStorefronts": "",
+      "edit": "",
+      "editTitle": "",
+      "minVersionLabel": "",
+      "minVersionPlaceholder": "",
+      "storefrontsLabel": "",
+      "storefrontsPlaceholder": "",
+      "storefrontsHint": "",
+      "storeLinkHelp": ""
+    },
+    "products": {
+      "title": "",
+      "failedToLoad": "",
+      "failedToCreate": "",
+      "failedToUpdate": "",
+      "created": "",
+      "updated": "",
+      "empty": "",
+      "create": "",
+      "table": {
+        "processor": "",
+        "externalId": "",
+        "basePlan": "",
+        "cadence": "",
+        "active": "",
+        "catalogProduct": ""
+      },
+      "active": "",
+      "inactive": "",
+      "processorLabel": "",
+      "externalIdLabel": "",
+      "externalIdPlaceholder": "",
+      "basePlanLabel": "",
+      "basePlanPlaceholder": "",
+      "cadenceLabel": "",
+      "cadenceMonthly": "",
+      "cadenceAnnual": "",
+      "edit": "",
+      "editTitle": "",
+      "activeLabel": ""
+    },
+    "events": {
+      "title": "",
+      "failedToLoad": "",
+      "failedToReplay": "",
+      "replayed": "",
+      "empty": "",
+      "statusLabel": "",
+      "processorLabel": "",
+      "allStatuses": "",
+      "allProcessors": "",
+      "statusPending": "",
+      "statusProcessed": "",
+      "statusFailed": "",
+      "replay": "",
+      "table": {
+        "received": "",
+        "processor": "",
+        "event": "",
+        "status": "",
+        "attempts": "",
+        "error": ""
+      }
     }
   }
 }

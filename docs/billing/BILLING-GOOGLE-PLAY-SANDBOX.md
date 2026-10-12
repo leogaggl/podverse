@@ -43,30 +43,24 @@ Do not commit real values.
    - Service account: the same billing RTDN service account email
 6. Save `GOOGLE_PLAY_RTDN_PUSH_AUDIENCE` in `billing-google-play.env`.
 
-## Subscription product and base plans
+## Prepaid base plans
 
 1. Play Console -> **Monetize** -> **Products** -> **Subscriptions**.
-2. Create or reuse subscription id `premium`.
-3. Add base plans:
-   - `monthly` (auto-renew)
-   - `annual` (auto-renew)
-   - `prepaid-monthly` (prepaid)
-   - `prepaid-annual` (prepaid)
+2. Create or reuse product id `premium`.
+3. Add prepaid base plans:
+   - `prepaid-monthly`
+   - `prepaid-annual`
 4. Save these ids in `billing-products.env`:
    - `BILLING_PRODUCT_GOOGLE_SUBSCRIPTION_ID`
-   - `BILLING_PRODUCT_GOOGLE_AUTO_RENEW_MONTHLY_BASE_PLAN_ID`
-   - `BILLING_PRODUCT_GOOGLE_AUTO_RENEW_ANNUAL_BASE_PLAN_ID`
    - `BILLING_PRODUCT_GOOGLE_PREPAID_MONTHLY_BASE_PLAN_ID`
    - `BILLING_PRODUCT_GOOGLE_PREPAID_ANNUAL_BASE_PLAN_ID`
 
 Base plans must be **Active**. Inactive (draft) plans are not returned to the
 Play Billing client, so checkout cannot load an offer token for them.
 
-Auto-renew base plans (`monthly`, `annual`) renew on their own. Prepaid base
-plans (`prepaid-monthly`, `prepaid-annual`) are the one-time purchase: Play
-does not renew them, and Podverse records one grant for the prepaid period.
-The mobile client selects the offer by `external_base_plan_id` from checkout
-options so all four plans can share the subscription id `premium`.
+Checkout sells those prepaid base plans. The mobile client selects the offer by
+`external_base_plan_id` from checkout options. Renewing base plans already in
+Play Console are unused and need no setup.
 
 ## Play Console access for the service account
 
@@ -83,10 +77,54 @@ fails even when the device purchase sheet succeeds.
 Upload `com.podverse.app.next` to an internal (or other) testing track at least
 once. License testers must opt into that track. If Play answers "item not
 available", check package name, signing certificate, and `versionCode` against
-the uploaded build. This binary links Billing Library 7; Play rejects new apps
-and updates built with Billing Library 7 or older after 31 Aug 2026 (extension
-through 1 Nov 2026 when requested). See
+the uploaded build. Play rejects bundles built with Billing Library 7 or older;
+builds on Expo SDK 57 with `expo-iap` 5.x meet the requirement. See
 [APPS-MOBILE.md](../../apps/mobile/APPS-MOBILE.md#membership-billing).
+
+EAS builds the `.aab` in the cloud with the upload key it already stores. Run
+from the **Mobile** tab:
+
+```bash
+make mobile_eas_android_list
+make mobile_eas_android_download
+make mobile_eas_android_build
+```
+
+- `list` shows recent builds with versionCode and SDK version. Builds can share
+  a commit hash, because EAS uploads uncommitted changes but records HEAD.
+- `download` saves the newest finished `beta` build to
+  `.artifacts/mobile-builds/`. Pass `BUILD_ID=<id>` for a specific build.
+- `build` starts a new `beta` build, waits for it, then downloads it. The remote
+  versionCode increments on each build. Reuse the existing keystore if asked; a
+  new one would not match the upload key Play has.
+
+Upload the file in **Test and release** → **Testing** → **Internal testing** →
+**Create new release** → **App bundles**, then **Next** → **Save and publish**.
+
+Or send the build from the command line instead of uploading it:
+
+```bash
+make mobile_eas_android_submit
+make mobile_eas_android_submit ROLLOUT=1
+```
+
+- Submit sends the newest finished `beta` build (`BUILD_ID=<id>` for another)
+  to the internal track. It prints the build, track, and release status, then
+  asks before uploading. It needs an interactive terminal.
+- By default the upload is a **draft**: testers get nothing until someone
+  rolls it out in Play Console (**Internal testing** → **Edit release** →
+  **Next** → **Save and publish**).
+- `ROLLOUT=1` publishes to the track and asks you to type the versionCode. Play
+  rejects it with "Only releases with status draft may be created on draft
+  app" until the app has had one release rolled out.
+- The track and release status live in the `beta` and `beta-rollout` submit
+  profiles in `apps/mobile/eas.json`. The script refuses a profile that does
+  not set both, because the eas-cli default is a completed rollout.
+- Use a dedicated publisher service account, not the billing one the API uses.
+  In Play Console → **Users and permissions**, give it only **Release apps to
+  testing tracks** for this app.
+- On the first submit, eas-cli asks for that account's JSON key path and
+  offers to store the key on EAS. Later submits reuse it.
 
 ## Device and emulator
 
@@ -117,17 +155,18 @@ Google webhook URL.
 
 RTDN is optional for the first local purchase: the app posts the purchase token
 to the API, which verifies it with the Play Developer API and grants membership.
-RTDN keeps renewals and refunds in sync when the app is not open.
+RTDN keeps refunds and revocations in sync when the app is not open.
 
 ## License testers
 
 Play Console → **Settings** → **License testing**. Add the Google accounts that
 will buy on a device. Those accounts can complete a purchase with a Play test
-card. A declined test card is how a human exercises billing grace. Podverse
-does not store tester passwords. This path is manual; default CI does not call
-Play. Creating the account and signing the phone into it is
-[BILLING-GOOGLE-PLAY-DEVICE.md](BILLING-GOOGLE-PLAY-DEVICE.md). Renewal behavior
-is in [BILLING-AUTO-RENEW-TESTING.md](BILLING-AUTO-RENEW-TESTING.md).
+card. A declined test card does not grant membership. Podverse does not store
+tester passwords. This path is manual; default CI does not call Play. Creating
+the account and signing the phone into it is
+[BILLING-GOOGLE-PLAY-DEVICE.md](BILLING-GOOGLE-PLAY-DEVICE.md). License testing
+can shorten a prepaid period, so a monthly or yearly purchase can expire within
+minutes.
 
 ## Seed processor products
 
@@ -179,4 +218,3 @@ push subscription.
 - [BILLING-PAYPAL-SANDBOX.md](BILLING-PAYPAL-SANDBOX.md) (shared tunnel)
 - [BILLING-OPERATIONS.md](BILLING-OPERATIONS.md)
 - [BILLING-GOOGLE-PLAY-DEVICE.md](BILLING-GOOGLE-PLAY-DEVICE.md)
-- [BILLING-AUTO-RENEW-TESTING.md](BILLING-AUTO-RENEW-TESTING.md)

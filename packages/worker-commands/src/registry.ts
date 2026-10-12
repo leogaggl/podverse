@@ -13,13 +13,22 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run archive_all -w apps/workers',
   },
   {
-    name: 'billingReconcileSubscriptions',
-    label: 'Billing: reconcile subscriptions',
+    name: 'billingReconcile',
+    label: 'Billing: reconcile purchases',
     description:
-      'Re-read subscriptions within 48h of a period or grace end from their processor, retry failed webhook inbox rows, and apply Google Play voided purchases. Never charges a payment method.',
+      'Retry failed webhook inbox rows, apply Google Play voided purchases, and recheck unsettled Strike checkouts. Never charges a payment method.',
     category: 'billing',
     risk: 'normal',
-    example_cli: 'npm run billing_reconcile_subscriptions -w apps/workers',
+    example_cli: 'npm run billing_reconcile -w apps/workers',
+  },
+  {
+    name: 'billingStrikeEnsureWebhook',
+    label: 'Billing: ensure Strike webhook',
+    description:
+      'Create or update the Strike subscription that posts completed receives to this server. Logs the subscription id. Requires Strike to be enabled and BILLING_WEBHOOK_PUBLIC_BASE_URL.',
+    category: 'billing',
+    risk: 'normal',
+    example_cli: 'npm run billing_strike_ensure_webhook -w apps/workers',
   },
   {
     name: 'billingImportLegacyMembershipExpiry',

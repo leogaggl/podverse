@@ -20,11 +20,11 @@ import {
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import type { BillingEventOutcome, BillingSnapshotOutcome } from '@podverse/billing';
+import type { BillingEventOutcome } from '@podverse/billing';
+import { transactionSnapshotToEvents } from '@podverse/billing';
 import type { PaymentProcessorId } from '@podverse/helpers';
 import {
   AccountMembershipEnum,
-  BillingProcessorRecordNotFoundError,
   isAdminEditableGrant,
   isPaymentProcessorId,
   PAYMENT_PROCESSOR_IDS,
@@ -33,7 +33,6 @@ import type {
   BillingCheckoutChannel,
   BillingMembershipGrant,
   BillingProcessorProduct,
-  BillingSubscription,
   BillingTransaction,
   BillingWebhookEvent,
 } from '@podverse/orm';
@@ -43,7 +42,6 @@ import {
   BillingMembershipExtensionService,
   BillingMembershipGrantService,
   BillingProcessorProductService,
-  BillingSubscriptionService,
   BillingTransactionService,
   BillingWebhookEventService,
   MembershipGrantNotFoundError,
@@ -55,14 +53,14 @@ const WEBHOOK_EVENT_DEFAULT_LIMIT = 100;
 
 function isDeploymentProcessorId(
   processorId: PaymentProcessorId
-): processorId is 'paypal' | 'apple' | 'google_play' {
+): processorId is 'paypal' | 'apple' | 'google_play' | 'strike' {
   return processorId !== 'test';
 }
 
 const DEPLOYMENT_PROCESSOR_IDS = PAYMENT_PROCESSOR_IDS.filter(isDeploymentProcessorId);
 
 type BillingProcessorStatusRow = {
-  processor_id: 'paypal' | 'apple' | 'google_play';
+  processor_id: 'paypal' | 'apple' | 'google_play' | 'strike';
   enabled: boolean;
 };
 
@@ -76,7 +74,6 @@ const appDb = {
 
 const checkoutChannelService = new BillingCheckoutChannelService(appDb);
 const processorProductService = new BillingProcessorProductService(appDb);
-const subscriptionService = new BillingSubscriptionService(appDb);
 const transactionService = new BillingTransactionService(appDb);
 const grantService = new BillingMembershipGrantService(appDb);
 const webhookEventService = new BillingWebhookEventService(appDb);
@@ -95,6 +92,28 @@ function parsePositiveInt(raw: string | undefined): number | null {
   }
   const parsed = Number(raw);
   return parsed > 0 ? parsed : null;
+}
+
+/**
+ * PayPal and Strike on iOS or Android open a store listing. Enabling that listing requires
+ * at least one storefront country.
+ */
+function storeLinkNeedsCountry(
+  channel: BillingCheckoutChannel,
+  patch: { enabled?: boolean; storefront_allowlist?: string[] }
+): boolean {
+  const isStoreLink =
+    (channel.processor_id === 'paypal' || channel.processor_id === 'strike') &&
+    (channel.platform === 'ios' || channel.platform === 'android');
+  if (!isStoreLink) {
+    return false;
+  }
+  const enabled = patch.enabled !== undefined ? patch.enabled : channel.enabled;
+  const allowlist =
+    patch.storefront_allowlist !== undefined
+      ? patch.storefront_allowlist
+      : channel.storefront_allowlist;
+  return enabled && allowlist.length === 0;
 }
 
 function checkoutChannelToJson(channel: BillingCheckoutChannel) {
@@ -117,26 +136,8 @@ function processorProductToJson(product: BillingProcessorProduct) {
     external_base_plan_id: product.external_base_plan_id,
     billing_product_id: product.billing_product_id,
     billing_cadence: product.billing_cadence,
-    purchase_kind: product.purchase_kind,
     is_active: product.is_active,
     updated_at: product.updated_at.toISOString(),
-  };
-}
-
-function subscriptionToJson(subscription: BillingSubscription) {
-  return {
-    id: subscription.id,
-    processor_id: subscription.processor_id,
-    external_subscription_id: subscription.external_subscription_id,
-    external_product_id: subscription.billing_processor_product?.external_product_id ?? null,
-    status: subscription.status,
-    purchase_kind: subscription.purchase_kind,
-    current_period_start: subscription.current_period_start?.toISOString() ?? null,
-    current_period_end: subscription.current_period_end?.toISOString() ?? null,
-    grace_period_ends_at: subscription.grace_period_ends_at?.toISOString() ?? null,
-    cancel_at_period_end: subscription.cancel_at_period_end,
-    banked_seconds: subscription.banked_seconds,
-    is_sandbox: subscription.is_sandbox,
   };
 }
 
@@ -145,8 +146,6 @@ function transactionToJson(transaction: BillingTransaction) {
     id: transaction.id,
     processor_id: transaction.processor_id,
     external_transaction_id: transaction.external_transaction_id,
-    billing_subscription_id: transaction.billing_subscription_id,
-    purchase_kind: transaction.purchase_kind,
     amount: transaction.amount,
     currency_code: transaction.currency_code,
     settled_at: transaction.settled_at.toISOString(),
@@ -156,16 +155,20 @@ function transactionToJson(transaction: BillingTransaction) {
   };
 }
 
-function grantToJson(grant: BillingMembershipGrant) {
+function grantToJson(grant: BillingMembershipGrant, strikeTransactionIds: ReadonlySet<number>) {
+  const strikePurchase =
+    grant.revoked_at === null &&
+    grant.source === 'one_time_purchase' &&
+    grant.billing_transaction_id !== null &&
+    strikeTransactionIds.has(grant.billing_transaction_id);
   return {
     id: grant.id,
     source: grant.source,
     starts_at: grant.starts_at.toISOString(),
     ends_at: grant.ends_at.toISOString(),
     revoked_at: grant.revoked_at?.toISOString() ?? null,
-    billing_subscription_id: grant.billing_subscription_id,
     billing_transaction_id: grant.billing_transaction_id,
-    admin_editable: isAdminEditableGrant(grant),
+    admin_editable: isAdminEditableGrant(grant) || strikePurchase,
   };
 }
 
@@ -181,16 +184,6 @@ function webhookEventToJson(event: BillingWebhookEvent) {
     processed_at: event.processed_at?.toISOString() ?? null,
     process_error: event.process_error,
   };
-}
-
-function snapshotOutcomeToJson(outcome: BillingSnapshotOutcome) {
-  return outcome.status === 'applied'
-    ? {
-        status: outcome.status,
-        account_id: outcome.accountId,
-        membership_expires_at: outcome.membershipExpiresAt?.toISOString() ?? null,
-      }
-    : { status: outcome.status, account_id: outcome.accountId };
 }
 
 function eventOutcomeToJson(outcome: BillingEventOutcome) {
@@ -248,6 +241,16 @@ router.patch(
       const { error, value } = updateBillingCheckoutChannelSchema.validate(req.body);
       if (error) {
         res.status(400).json({ message: error.message });
+        return;
+      }
+
+      const existing = await checkoutChannelService.getById(id);
+      if (existing === null) {
+        res.status(404).json({ message: 'Checkout channel not found' });
+        return;
+      }
+      if (storeLinkNeedsCountry(existing, value)) {
+        res.status(422).json({ message: 'A store link needs at least one storefront country.' });
         return;
       }
 
@@ -329,7 +332,6 @@ router.post(
         externalProductId: value.external_product_id,
         externalBasePlanId: value.external_base_plan_id ?? null,
         cadence: value.billing_cadence,
-        purchaseKind: value.purchase_kind,
       });
       await recordAudit(req, 'create', 'billing_processor_product', processorProduct.id, value);
       res.status(201).json({ data: processorProductToJson(processorProduct) });
@@ -392,23 +394,25 @@ router.get(
         res.status(404).json({ message: 'Account not found' });
         return;
       }
-      const [subscriptions, transactions, grants, webhookEvents, accountWithStatus] =
-        await Promise.all([
-          subscriptionService.listForAccount(accountId),
-          transactionService.listForAccount(accountId, ACCOUNT_LIST_LIMIT),
-          grantService.listForAccount(accountId),
-          webhookEventService.listForAdmin({ accountId, limit: ACCOUNT_LIST_LIMIT }),
-          getAccountService().getWithMembershipStatusFromPrimary(accountId),
-        ]);
+      const [transactions, grants, webhookEvents, accountWithStatus] = await Promise.all([
+        transactionService.listForAccount(accountId, ACCOUNT_LIST_LIMIT),
+        grantService.listForAccount(accountId),
+        webhookEventService.listForAdmin({ accountId, limit: ACCOUNT_LIST_LIMIT }),
+        getAccountService().getWithMembershipStatusFromPrimary(accountId),
+      ]);
+      const strikeTransactionIds = new Set(
+        transactions
+          .filter((transaction) => transaction.processor_id === 'strike')
+          .map((transaction) => transaction.id)
+      );
       res.json({
         data: {
           account_id: account.id,
           membership_expires_at:
             accountWithStatus?.account_membership_status?.membership_expires_at?.toISOString() ??
             null,
-          subscriptions: subscriptions.map(subscriptionToJson),
           transactions: transactions.map(transactionToJson),
-          grants: grants.map(grantToJson),
+          grants: grants.map((grant) => grantToJson(grant, strikeTransactionIds)),
           webhook_events: webhookEvents.map(webhookEventToJson),
         },
       });
@@ -436,67 +440,64 @@ router.post(
       }
 
       const { registry, processor } = getManagementBillingContext();
-      const subscriptions = await subscriptionService.listForAccount(accountId);
-      const subscriptionResults = [];
-      for (const subscription of subscriptions) {
-        if (!isPaymentProcessorId(subscription.processor_id)) {
-          subscriptionResults.push({
-            subscription_id: subscription.id,
-            processor_id: subscription.processor_id,
-            status: 'skipped' as const,
-            reason: 'unknown_processor' as const,
-          });
-          continue;
-        }
-        const adapter = registry.get(subscription.processor_id);
-        if (adapter === null) {
-          subscriptionResults.push({
-            subscription_id: subscription.id,
-            processor_id: subscription.processor_id,
-            status: 'skipped' as const,
-            reason: 'processor_not_configured' as const,
-          });
-          continue;
-        }
-        try {
-          const snapshot = await adapter.fetchSubscription({
-            externalId: subscription.external_subscription_id,
-            externalProductId: subscription.billing_processor_product?.external_product_id ?? null,
-          });
-          const outcome = await processor.applySubscriptionSnapshot(snapshot, { accountId });
-          subscriptionResults.push({
-            subscription_id: subscription.id,
-            processor_id: subscription.processor_id,
-            ...snapshotOutcomeToJson(outcome),
-          });
-        } catch (error) {
-          subscriptionResults.push({
-            subscription_id: subscription.id,
-            processor_id: subscription.processor_id,
-            status: 'failed' as const,
-            reason:
-              error instanceof BillingProcessorRecordNotFoundError
-                ? ('not_found' as const)
-                : ('processor_error' as const),
-          });
-        }
-      }
-
       const failedEvents = await webhookEventService.listForAdmin({
         accountId,
         status: 'failed',
         limit: ACCOUNT_LIST_LIMIT,
       });
-      const inboxResults = [];
+      let retried = 0;
+      let failed = 0;
       for (const event of failedEvents) {
-        inboxResults.push(eventOutcomeToJson(await processor.retryInboxEvent(event.id)));
+        const outcome = await processor.retryInboxEvent(event.id);
+        if (outcome.status === 'failed') {
+          failed += 1;
+        } else {
+          retried += 1;
+        }
+      }
+
+      const transactions = await transactionService.listForAccount(accountId, ACCOUNT_LIST_LIMIT);
+      let refetched = 0;
+      for (const transaction of transactions) {
+        if (!isPaymentProcessorId(transaction.processor_id)) {
+          continue;
+        }
+        const adapter = registry.get(transaction.processor_id);
+        if (adapter === null) {
+          continue;
+        }
+        try {
+          const snapshot = await adapter.fetchTransaction({
+            externalId: transaction.external_transaction_id,
+            externalProductId: null,
+            externalTransactionId: transaction.external_transaction_id,
+          });
+          let refetchFailed = false;
+          for (const event of transactionSnapshotToEvents(snapshot, { accountId })) {
+            const outcome = await processor.ingestEvent(event, {
+              schemaVersion: snapshot.schemaVersion,
+              rawPayload: snapshot.rawPayload,
+            });
+            if (outcome.status === 'failed') {
+              refetchFailed = true;
+            }
+          }
+          if (refetchFailed) {
+            failed += 1;
+          } else {
+            refetched += 1;
+          }
+        } catch {
+          failed += 1;
+        }
       }
 
       const accountWithStatus =
         await getAccountService().getWithMembershipStatusFromPrimary(accountId);
       await recordAudit(req, 'update', 'billing_account_resync', accountId, {
-        subscriptions: subscriptionResults.length,
-        inbox_events: inboxResults.length,
+        retried,
+        refetched,
+        failed,
       });
       res.json({
         data: {
@@ -504,8 +505,9 @@ router.post(
           membership_expires_at:
             accountWithStatus?.account_membership_status?.membership_expires_at?.toISOString() ??
             null,
-          subscriptions: subscriptionResults,
-          inbox_events: inboxResults,
+          retried,
+          refetched,
+          failed,
         },
       });
     } catch (error) {

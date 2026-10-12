@@ -1,9 +1,9 @@
+import type { BillingCadence, BillingPlatform, DTOBillingCheckoutOptions } from '@podverse/helpers';
+
 import type { BillingBackend } from '../billing/BillingClient';
 
 /** `billing.client_update_required` from a 426 purchase response. */
 export const BILLING_CLIENT_UPDATE_REQUIRED = 'billing.client_update_required';
-
-export const APPLE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 /** Published Podverse App Store listing. */
 export const APP_STORE_LISTING_URL = 'https://apps.apple.com/us/app/podverse/id1390888454?mt=8';
@@ -13,14 +13,11 @@ export const PLAY_PACKAGE_NAME = 'com.podverse.app.next';
 
 export const PLAY_LISTING_URL = `https://play.google.com/store/apps/details?id=${PLAY_PACKAGE_NAME}`;
 
-export type StoreCheckoutCadence = 'annual' | 'monthly';
-
-export type StoreCheckoutPurchaseKind = 'auto_renew' | 'one_time';
+export type StoreCheckoutCadence = BillingCadence;
 
 export type CheckoutProductOffer = {
   id: number;
   cadence: StoreCheckoutCadence;
-  purchaseKind: StoreCheckoutPurchaseKind;
   externalProductId: string;
   /** Google Play base plan id; null for other processors. */
   basePlanId: string | null;
@@ -37,7 +34,6 @@ export type CheckoutOptionsShape = {
     products: readonly {
       id: number;
       cadence: string;
-      purchase_kind: string;
       external_product_id: string;
       external_base_plan_id?: string | null;
     }[];
@@ -46,9 +42,6 @@ export type CheckoutOptionsShape = {
 
 const isCadence = (value: string): value is StoreCheckoutCadence =>
   value === 'monthly' || value === 'annual';
-
-const isPurchaseKind = (value: string): value is StoreCheckoutPurchaseKind =>
-  value === 'auto_renew' || value === 'one_time';
 
 const CADENCE_ORDER: readonly StoreCheckoutCadence[] = ['monthly', 'annual'];
 
@@ -68,11 +61,13 @@ export const storeProcessorId = (
   }
 };
 
-export const mapCheckoutProcessors = (options: CheckoutOptionsShape): CheckoutProcessorOffer[] =>
+export const mapCheckoutProcessors = (
+  options: CheckoutOptionsShape | DTOBillingCheckoutOptions
+): CheckoutProcessorOffer[] =>
   options.processors.map((processor) => ({
     processorId: processor.processor_id,
     products: processor.products.flatMap((product) => {
-      if (!isCadence(product.cadence) || !isPurchaseKind(product.purchase_kind)) {
+      if (!isCadence(product.cadence)) {
         return [];
       }
       return [
@@ -81,7 +76,6 @@ export const mapCheckoutProcessors = (options: CheckoutOptionsShape): CheckoutPr
           cadence: product.cadence,
           externalProductId: product.external_product_id,
           id: product.id,
-          purchaseKind: product.purchase_kind,
         },
       ];
     }),
@@ -95,8 +89,8 @@ export const offersProcessor = (
 export type StoreCheckoutMode = 'purchase' | 'contact';
 
 /**
- * Purchase when this platform's store or PayPal is offered. Otherwise ask the member to contact
- * the team.
+ * Purchase when this platform's store, PayPal, or Strike is offered. Otherwise ask the member
+ * to contact the team.
  */
 export const resolveStoreCheckoutMode = (params: {
   processors: readonly CheckoutProcessorOffer[];
@@ -104,65 +98,89 @@ export const resolveStoreCheckoutMode = (params: {
 }): StoreCheckoutMode => {
   const storeId = storeProcessorId(params.backend);
   const storeOffered = storeId !== null && offersProcessor(params.processors, storeId);
-  if (storeOffered || offersProcessor(params.processors, 'paypal')) {
+  if (
+    storeOffered ||
+    offersProcessor(params.processors, 'paypal') ||
+    offersProcessor(params.processors, 'strike')
+  ) {
     return 'purchase';
   }
   return 'contact';
 };
 
+export type CheckoutOptionsRequest = {
+  platform: BillingPlatform;
+  storefront: string | null;
+};
+
+/**
+ * Unavailable billing reads the `foss` channel and ignores the device storefront. StoreKit, Play,
+ * and the E2E fake client keep the device platform and the storefront the store returns.
+ */
+export const checkoutOptionsRequest = (params: {
+  backend: BillingBackend;
+  devicePlatform: 'android' | 'ios' | null;
+  storefront: string | null;
+}): CheckoutOptionsRequest | null => {
+  if (params.backend === 'unavailable') {
+    return { platform: 'foss', storefront: null };
+  }
+  if (params.devicePlatform === null) {
+    return null;
+  }
+  return { platform: params.devicePlatform, storefront: params.storefront };
+};
+
+/**
+ * The store processor when this backend has one. Otherwise Strike, so the unavailable build can
+ * choose a monthly or annual invoice.
+ */
+export const checkoutPlanProcessorId = (
+  storeId: 'apple' | 'google_play' | 'test' | null,
+  processors: readonly CheckoutProcessorOffer[]
+): string | null => {
+  if (storeId !== null) {
+    return storeId;
+  }
+  if (offersProcessor(processors, 'strike')) {
+    return 'strike';
+  }
+  return null;
+};
+
+/** In-app Lightning invoice. Only the unavailable-billing build. */
+export const showsStrikeInvoice = (params: {
+  backend: BillingBackend;
+  strikeOffered: boolean;
+}): boolean => params.strikeOffered && params.backend === 'unavailable';
+
+/** Link that opens web checkout. Store backends only, and only when Strike is offered. */
+export const showsStrikeWebLink = (params: {
+  backend: BillingBackend;
+  strikeOffered: boolean;
+}): boolean => params.strikeOffered && params.backend !== 'unavailable';
+
+/** The product checkout buys for this processor and cadence. When several match, the first one is used. */
 export const checkoutProduct = (
   processors: readonly CheckoutProcessorOffer[],
   processorId: string,
-  cadence: StoreCheckoutCadence,
-  purchaseKind: StoreCheckoutPurchaseKind
+  cadence: StoreCheckoutCadence
 ): CheckoutProductOffer | null => {
   const processor = processors.find((item) => item.processorId === processorId);
   if (processor === undefined) {
     return null;
   }
-  return (
-    processor.products.find(
-      (product) => product.cadence === cadence && product.purchaseKind === purchaseKind
-    ) ?? null
-  );
+  return processor.products.find((product) => product.cadence === cadence) ?? null;
 };
 
 export const availableCadences = (
   processors: readonly CheckoutProcessorOffer[],
-  processorId: string,
-  purchaseKind: StoreCheckoutPurchaseKind
+  processorId: string
 ): StoreCheckoutCadence[] =>
-  CADENCE_ORDER.filter(
-    (cadence) => checkoutProduct(processors, processorId, cadence, purchaseKind) !== null
-  );
-
-/** Remaining membership time is banked on the server and runs after a store subscription period. */
-export const showsStackingNotice = (membershipExpiresAt: string | null, nowMs: number): boolean => {
-  if (membershipExpiresAt === null) {
-    return false;
-  }
-  const expiresAt = Date.parse(membershipExpiresAt);
-  return Number.isFinite(expiresAt) && expiresAt > nowMs;
-};
+  CADENCE_ORDER.filter((cadence) => checkoutProduct(processors, processorId, cadence) !== null);
 
 export const isClientUpdateRequired = (errorCode: string | null): boolean =>
   errorCode === BILLING_CLIENT_UPDATE_REQUIRED;
-
-export const playSubscriptionsUrl = (packageName: string): string =>
-  `https://play.google.com/store/account/subscriptions?package=${encodeURIComponent(packageName)}`;
-
-/** Apple and Play subscription management pages. Fake and FOSS builds have none. */
-export const subscriptionManagementUrl = (backend: BillingBackend): string | null => {
-  switch (backend) {
-    case 'storekit':
-      return APPLE_SUBSCRIPTIONS_URL;
-    case 'play':
-      return playSubscriptionsUrl(PLAY_PACKAGE_NAME);
-    case 'fake':
-    case 'unavailable':
-      return null;
-  }
-};
 
 export const storeListingUrl = (platform: 'android' | 'ios'): string =>
   platform === 'ios' ? APP_STORE_LISTING_URL : PLAY_LISTING_URL;

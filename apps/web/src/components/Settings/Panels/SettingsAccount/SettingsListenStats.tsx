@@ -1,56 +1,78 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import type { DTOPopularityTrackingAgreement } from '@podverse/helpers';
+import { getPopularityTrackingChoice, isPopularityTrackingAllowed } from '@podverse/helpers';
+import { SwitchButton } from '@podverse/ui';
 
+import { ROUTES } from '../../../../constants/routes';
+import { useAccount } from '../../../../contexts/Account';
+import { useConfig } from '../../../../contexts/Config';
 import { getApiRequestService } from '../../../../factories/apiRequestService';
-import { PopularityTrackingAgreementPanel } from '../../../PopularityTracking/PopularityTrackingAgreementPanel';
+import { popularityTrackingStatusKey } from '../../../../lib/popularityTrackingStatus';
+import { showToast } from '../../../Toast/Toast';
 import { SettingsSection } from '../../SettingsSection';
 
 export function SettingsListenStats() {
   const t = useTranslations('popularity_tracking');
-  const [agreement, setAgreement] = useState<DTOPopularityTrackingAgreement | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [hasError, setHasError] = useState<boolean>(false);
+  const tMisc = useTranslations('misc');
+  const router = useRouter();
+  const { loggedInAccount, setLoggedInAccount } = useAccount();
+  const config = useConfig();
+  const [isSaving, setIsSaving] = useState(false);
+  const version = config.public.legal.popularityTracking.version;
+  const choice = getPopularityTrackingChoice(loggedInAccount?.account_settings, version);
+  const allowed = isPopularityTrackingAllowed(loggedInAccount?.account_settings, version);
 
-  useEffect(() => {
-    setIsLoading(true);
-    setHasError(false);
-    let cancelled = false;
-    void getApiRequestService()
-      .reqLegalPopularityTracking()
-      .then((data) => {
-        if (!cancelled) {
-          setAgreement(data);
-          setHasError(false);
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('[SettingsListenStats] load failed:', error);
-        if (!cancelled) {
-          setHasError(true);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+  const turnOff = async () => {
+    if (isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const updatedAccount = await getApiRequestService().reqAccountSettingsListenStatsUpdate({
+        accepted: false,
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      setLoggedInAccount(updatedAccount);
+    } catch (error) {
+      console.error('[SettingsListenStats] update failed', error);
+      showToast(t('error'), 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const showStatusHelp = choice !== 'allowed';
+  const switchProps = {
+    checked: allowed,
+    id: 'popularity-tracking',
+    label: t('title'),
+    loading: isSaving,
+    onChange: (next: boolean) => {
+      if (!next) {
+        void turnOff();
+        return;
+      }
+      router.push(ROUTES.POPULARITY_TRACKING);
+    },
+    stateOffLabel: tMisc('off'),
+    stateOnLabel: tMisc('on'),
+  };
 
   return (
     <SettingsSection>
       <h3>{t('title')}</h3>
-      <PopularityTrackingAgreementPanel
-        agreement={agreement}
-        hasError={hasError}
-        isLoading={isLoading}
-      />
+      {showStatusHelp ? (
+        <SwitchButton
+          {...switchProps}
+          helpAriaLabel={tMisc('more_info')}
+          helpText={t(popularityTrackingStatusKey(choice))}
+        />
+      ) : (
+        <SwitchButton {...switchProps} />
+      )}
     </SettingsSection>
   );
 }

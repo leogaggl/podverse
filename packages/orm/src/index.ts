@@ -142,14 +142,13 @@ export * from './entities/queue/queueResource.js';
 
 export * from './entities/category.js';
 export * from './entities/billingCheckoutChannel.js';
+export * from './entities/billingCheckoutSession.js';
 export * from './entities/billingMembershipGrant.js';
 export * from './entities/billingProcessor.js';
 export * from './entities/billingProcessorProduct.js';
 export * from './entities/billingPrice.js';
 export * from './entities/billingPriceChangeAudit.js';
-export * from './entities/billingDomainEvent.js';
 export * from './entities/billingProduct.js';
-export * from './entities/billingSubscription.js';
 export * from './entities/billingTransaction.js';
 export * from './entities/billingWebhookEvent.js';
 export * from './entities/clip.js';
@@ -184,14 +183,12 @@ export { hashPassword } from './lib/password.js';
 
 export * from './services/category.js';
 export * from './services/billingCheckoutChannel.js';
+export * from './services/billingCheckoutSession.js';
 export * from './services/billingPriceCatalog.js';
-export * from './services/billingDomainEventLog.js';
 export * from './services/billingEntitlement.js';
 export * from './services/billingMembershipExtension.js';
 export * from './services/billingMembershipGrant.js';
 export * from './services/billingProcessorProduct.js';
-export * from './services/billingRenewalOrchestrator.js';
-export * from './services/billingSubscription.js';
 export * from './services/billingTransaction.js';
 export * from './services/billingWebhookEvent.js';
 

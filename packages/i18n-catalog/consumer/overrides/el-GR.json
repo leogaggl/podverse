@@ -106,7 +106,23 @@
       "basic_auth_username": "",
       "basic_auth_password": "",
       "basic_auth_required_both": "",
-      "login_prompt": ""
+      "login_prompt": "",
+      "needs_credentials_section_title": "",
+      "needs_credentials_missing": "",
+      "needs_credentials_rejected": "",
+      "credentials_page_title": "",
+      "credentials_page_intro": "",
+      "credentials_page_device_note": "",
+      "credentials_page_media_note": "",
+      "credentials_save_and_check": "",
+      "credentials_remove_feed": "",
+      "credentials_back_to_list": "",
+      "credentials_rejected": "",
+      "credentials_withheld": "",
+      "credentials_check_failed": "",
+      "credentials_not_saved_on_device": "",
+      "media_other_domain": "",
+      "media_needs_credentials": ""
     },
     "my_library": "",
     "queue": {
@@ -634,10 +650,18 @@
     "yes": "",
     "no": "",
     "learn_more": "",
+    "full_agreement": "",
+    "retry": "",
     "already_agreed": "",
     "agreement_date": "",
     "error": "",
-    "back_to_choice": ""
+    "back_to_choice": "",
+    "change": "",
+    "dismiss_note": "",
+    "load_error": "",
+    "status_opted_out": "",
+    "status_stale": "",
+    "status_undecided": ""
   },
   "misc": {
     "more_info": "",
@@ -849,7 +873,30 @@
   "terms_acceptance": {
     "header": "",
     "message": "",
-    "checkbox_label": ""
+    "checkbox_label": "",
+    "accept": "",
+    "reject": "",
+    "agreement_date": "",
+    "full_agreement": "",
+    "load_error": "",
+    "retry": ""
+  },
+  "account_access": {
+    "title": "",
+    "message": "",
+    "review_terms": "",
+    "sign_out": "",
+    "membership_heading": "",
+    "download_heading": "",
+    "download_description": "",
+    "download_button": "",
+    "opml_heading": "",
+    "opml_description": "",
+    "opml_button": "",
+    "delete_heading": "",
+    "delete_description": "",
+    "delete_button": "",
+    "delete_error": ""
   },
   "membership": {
     "membership": "",
@@ -957,6 +1004,24 @@
       "banner_dismiss": "",
       "settings_row_title": "",
       "settings_row_subtitle": ""
+    },
+    "manage": {
+      "grace_renew_body": "",
+      "manage_membership": ""
+    },
+    "checkout": {
+      "pay_with_paypal_on_the_web": "",
+      "pay_with_bitcoin_on_the_web": "",
+      "restore_purchases": "",
+      "restore_purchases_help": "",
+      "troubleshooting": "",
+      "privacy": "",
+      "update_required_title": "",
+      "update_required_body": "",
+      "update_app": "",
+      "purchase_waiting": "",
+      "unavailable": "",
+      "plan_price": ""
     }
   },
   "about": {
@@ -967,13 +1032,37 @@
   },
   "checkout": {
     "checkout": "",
-    "payment_plan": "",
-    "auto_renew": "",
+    "page_intro": "",
+    "choose_a_plan": "",
     "payment_processor": "",
     "paypal": "",
+    "bitcoin_lightning": "",
+    "choose_a_payment_method": "",
+    "lightning_invoice": "",
+    "copy_invoice": "",
+    "open_wallet": "",
+    "invoice_copied": "",
+    "invoice_expires_in": "",
+    "payment_detected": "",
+    "invoice_expired": "",
+    "get_a_new_invoice": "",
+    "lightning_invoice_qr": "",
     "complete_purchase": "",
     "disabled_message": "",
-    "purchase_unavailable": ""
+    "purchase_unavailable": "",
+    "paypal_unavailable": "",
+    "complete_test_purchase": "",
+    "purchase_failed": "",
+    "plan_unavailable": "",
+    "success_waiting": "",
+    "success_active": "",
+    "success_extended_month": "",
+    "success_extended_year": "",
+    "success_extended_month_length": "",
+    "success_extended_year_length": "",
+    "success_active_expires": "",
+    "success_opening_membership": "",
+    "success_timeout": ""
   },
   "layouts": {
     "change_layout_view": "",
@@ -1132,6 +1221,18 @@
       "shortcut_seek_detail": "",
       "shortcut_volume_label": "",
       "shortcut_volume_detail": ""
+    },
+    "membership": {
+      "heading": "",
+      "tier": "",
+      "tier_premium": "",
+      "tier_trial": "",
+      "tier_expired": "",
+      "tier_none": "",
+      "expires_on": "",
+      "compare_plans": "",
+      "load_failed": "",
+      "buy_more_time": ""
     }
   },
   "contact": {
@@ -1156,30 +1257,7 @@
     "none_help": ""
   },
   "terms": {
-    "terms": "",
-    "legal_entity_heading": "",
-    "service_intro": "",
-    "never_sell_data": "",
-    "no_ads_without_permission": "",
-    "audio_video_hosting": "",
-    "third_party_feeds": "",
-    "clips_crowdsourced": "",
-    "clips_load_full_episode": "",
-    "reduced_size_images": "",
-    "data_service_necessary": "",
-    "data_listen_stats_heading": "",
-    "data_listen_stats_body": "",
-    "data_listen_stats_anonymization": "",
-    "data_web_analytics": "",
-    "data_retention": "",
-    "data_requests": "",
-    "cookie_choices_heading": "",
-    "cookie_choice_all": "",
-    "cookie_choice_all_help": "",
-    "cookie_choice_essential": "",
-    "cookie_choice_essential_help": "",
-    "cookie_choice_none": "",
-    "cookie_choice_none_help": ""
+    "terms": ""
   },
   "socials": {
     "discord": "",

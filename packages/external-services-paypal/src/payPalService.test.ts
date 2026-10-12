@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { PAYPAL_ONE_TIME_PRODUCT_IDS } from '@podverse/helpers';
 
+import type { CreatePayPalOrderParams } from './payPalService.js';
 import { PayPalService } from './payPalService.js';
+
+const MONTHLY_INVOICE_ID = new RegExp(
+  `^${PAYPAL_ONE_TIME_PRODUCT_IDS.monthly}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
+);
 
 describe('PayPalService', () => {
   it('creates and captures one-time orders with the cadence SKU', async () => {
@@ -37,23 +42,20 @@ describe('PayPalService', () => {
         getAuthorizedPayment: vi.fn().mockResolvedValue({}),
         getCapturedPayment: vi.fn().mockResolvedValue({}),
       },
-      subscriptionsController: {
-        createSubscription: vi.fn().mockResolvedValue({}),
-        getSubscription: vi.fn().mockResolvedValue({}),
-        cancelSubscription: vi.fn().mockResolvedValue(undefined),
-      },
     });
 
-    await service.createOrder({
+    const orderParams: CreatePayPalOrderParams = {
       accountBillingCustomerRef: 'customer-ref-1',
       cadence: 'monthly',
       amount: '4.99',
       currencyCode: 'USD',
       paypalRequestId: 'request-1',
-    });
+    };
+    await service.createOrder(orderParams);
+    await service.createOrder(orderParams);
     await service.captureOrder({ orderId: 'ORDER-1', paypalRequestId: 'request-2' });
 
-    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(createOrder).toHaveBeenCalledTimes(2);
     expect(createOrder).toHaveBeenCalledWith(
       expect.objectContaining({
         paypalRequestId: 'request-1',
@@ -66,10 +68,24 @@ describe('PayPalService', () => {
           purchaseUnits: [
             expect.objectContaining({
               customId: 'customer-ref-1',
-              invoiceId: PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
+              invoiceId: expect.stringMatching(MONTHLY_INVOICE_ID),
+              amount: {
+                currencyCode: 'USD',
+                value: '4.99',
+                breakdown: {
+                  itemTotal: {
+                    currencyCode: 'USD',
+                    value: '4.99',
+                  },
+                },
+              },
               items: [
                 expect.objectContaining({
                   sku: PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
+                  unitAmount: {
+                    currencyCode: 'USD',
+                    value: '4.99',
+                  },
                 }),
               ],
             }),
@@ -78,6 +94,10 @@ describe('PayPalService', () => {
       })
     );
 
+    const firstInvoiceId = readInvoiceId(createOrder.mock.calls[0]?.[0]);
+    const secondInvoiceId = readInvoiceId(createOrder.mock.calls[1]?.[0]);
+    expect(firstInvoiceId).not.toBe(secondInvoiceId);
+
     expect(captureOrder).toHaveBeenCalledTimes(1);
     expect(captureOrder).toHaveBeenCalledWith({
       id: 'ORDER-1',
@@ -85,92 +105,66 @@ describe('PayPalService', () => {
       prefer: 'return=representation',
     });
   });
-});
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function serviceWithFetch(
-  fetchImpl: typeof fetch,
-  paypalEnvironment: 'live' | 'sandbox' = 'sandbox'
-): PayPalService {
-  return new PayPalService({
-    clientId: 'client-id',
-    clientSecret: 'client-secret',
-    paypalEnvironment,
-    fetchImpl,
-    ordersController: {
-      createOrder: vi.fn(),
-      captureOrder: vi.fn(),
-    },
-    paymentsController: {
-      getAuthorizedPayment: vi.fn(),
-      getCapturedPayment: vi.fn(),
-    },
-    subscriptionsController: {
-      createSubscription: vi.fn(),
-      getSubscription: vi.fn(),
-      cancelSubscription: vi.fn(),
-    },
-  });
-}
-
-describe('PayPalService.ensureDailyRenewalPlan', () => {
-  it('creates a sandbox plan that bills every day', async () => {
-    const fetchImpl = vi.fn<typeof fetch>();
-    fetchImpl
-      .mockResolvedValueOnce(jsonResponse({ access_token: 'token' }))
-      .mockResolvedValueOnce(jsonResponse({ products: [] }))
-      .mockResolvedValueOnce(jsonResponse({ id: 'PROD-1' }))
-      .mockResolvedValueOnce(jsonResponse({ plans: [] }))
-      .mockResolvedValueOnce(jsonResponse({ id: 'P-DAILY' }));
-
-    const plan = await serviceWithFetch(fetchImpl).ensureDailyRenewalPlan();
-    expect(plan).toEqual({ planId: 'P-DAILY' });
-
-    const createPlan = fetchImpl.mock.calls.find((call) => {
-      const [url, init] = call;
-      return (
-        typeof url === 'string' && url.endsWith('/v1/billing/plans') && init?.method === 'POST'
-      );
+  it('includes the PayPal status and issue when create order is rejected', async () => {
+    const createOrder =
+      vi.fn<
+        (params: {
+          body: unknown;
+          paypalRequestId?: string;
+          prefer?: string;
+        }) => Promise<{ result: Order }>
+      >();
+    createOrder.mockRejectedValue({
+      statusCode: 422,
+      result: {
+        name: 'UNPROCESSABLE_ENTITY',
+        details: [{ issue: 'ITEM_TOTAL_REQUIRED', description: 'item_total is required' }],
+      },
     });
-    expect(createPlan).toBeDefined();
-    const init = createPlan?.[1];
-    const body: unknown = JSON.parse(typeof init?.body === 'string' ? init.body : '{}');
-    expect(body).toMatchObject({
-      billing_cycles: [
-        {
-          frequency: { interval_unit: 'DAY', interval_count: 1 },
-        },
-      ],
+
+    const service = new PayPalService({
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      ordersController: {
+        createOrder,
+        captureOrder: async () => ({ result: { id: 'ORDER-1' } }),
+      },
+      paymentsController: {
+        getAuthorizedPayment: async () => ({ result: null }),
+        getCapturedPayment: async () => ({ result: null }),
+      },
     });
-  });
 
-  it('reuses a daily plan that already exists', async () => {
-    const fetchImpl = vi.fn<typeof fetch>();
-    fetchImpl
-      .mockResolvedValueOnce(jsonResponse({ access_token: 'token' }))
-      .mockResolvedValueOnce(
-        jsonResponse({ products: [{ id: 'PROD-1', name: 'Podverse Premium' }] })
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ plans: [{ id: 'P-EXISTING', name: 'Podverse Premium E2E Daily' }] })
-      );
-
-    const plan = await serviceWithFetch(fetchImpl).ensureDailyRenewalPlan();
-    expect(plan).toEqual({ planId: 'P-EXISTING' });
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-  });
-
-  it('refuses to create a daily plan against the live PayPal API', async () => {
-    const fetchImpl = vi.fn<typeof fetch>();
-    await expect(serviceWithFetch(fetchImpl, 'live').ensureDailyRenewalPlan()).rejects.toThrow(
-      /sandbox/
+    await expect(
+      service.createOrder({
+        accountBillingCustomerRef: 'customer-ref-1',
+        cadence: 'monthly',
+        amount: '4.99',
+        currencyCode: 'USD',
+      })
+    ).rejects.toThrow(
+      'PayPal create order failed with status 422: UNPROCESSABLE_ENTITY: ITEM_TOTAL_REQUIRED: item_total is required'
     );
-    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
+
+function readInvoiceId(params: unknown): string | null {
+  if (typeof params !== 'object' || params === null) {
+    return null;
+  }
+  const body = Reflect.get(params, 'body');
+  if (typeof body !== 'object' || body === null) {
+    return null;
+  }
+  const purchaseUnits = Reflect.get(body, 'purchaseUnits');
+  if (!Array.isArray(purchaseUnits)) {
+    return null;
+  }
+  const purchaseUnit = purchaseUnits[0];
+  if (typeof purchaseUnit !== 'object' || purchaseUnit === null) {
+    return null;
+  }
+  const invoiceId = Reflect.get(purchaseUnit, 'invoiceId');
+  return typeof invoiceId === 'string' ? invoiceId : null;
+}

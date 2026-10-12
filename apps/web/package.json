@@ -27,8 +27,7 @@
     "clean": "rm -rf .next",
     "type-check": "tsc --noEmit -p .",
     "validate-env": "ts-node --project tsconfig.scripts.json scripts/validate-env.ts",
-    "i18n-compile": "ts-node --project ../../packages/i18n-catalog/tsconfig.scripts.json ../../packages/i18n-catalog/scripts/i18n-compile.ts",
-    "i18n-llm-translations": "ts-node --project ../../packages/i18n-catalog/tsconfig.scripts.json ../../packages/i18n-catalog/scripts/i18n-translate.ts"
+    "i18n-compile": "ts-node --project ../../packages/i18n-catalog/tsconfig.scripts.json ../../packages/i18n-catalog/scripts/i18n-compile.ts"
   },
   "license": "AGPL-3.0",
   "dependencies": {
@@ -53,6 +52,7 @@
     "hls.js": "^1.7.3",
     "next": "^16.3.5",
     "next-intl": "^4.14.6",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-icons": "^5.7.0",
@@ -70,6 +70,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.12.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.2",
     "@types/video.js": "^7.3.58",
@@ -78,7 +79,6 @@
     "dotenv": "^18.0.3",
     "jsdom": "^26.1.0",
     "nodemon": "^3.1.14",
-    "openai": "^6.27.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
     "vitest": "^5.0.1",

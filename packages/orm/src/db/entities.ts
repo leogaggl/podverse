@@ -30,14 +30,13 @@ import { AccountWebPushDevice } from '@orm/entities/account/accountWebPushDevice
 import { AdminNotificationCampaign } from '@orm/entities/account/adminNotificationCampaign.js';
 import { ScheduledJob } from '@orm/entities/account/scheduledJob.js';
 import { BillingCheckoutChannel } from '@orm/entities/billingCheckoutChannel.js';
-import { BillingDomainEvent } from '@orm/entities/billingDomainEvent.js';
+import { BillingCheckoutSession } from '@orm/entities/billingCheckoutSession.js';
 import { BillingMembershipGrant } from '@orm/entities/billingMembershipGrant.js';
 import { BillingPrice } from '@orm/entities/billingPrice.js';
 import { BillingPriceChangeAudit } from '@orm/entities/billingPriceChangeAudit.js';
 import { BillingProcessor } from '@orm/entities/billingProcessor.js';
 import { BillingProcessorProduct } from '@orm/entities/billingProcessorProduct.js';
 import { BillingProduct } from '@orm/entities/billingProduct.js';
-import { BillingSubscription } from '@orm/entities/billingSubscription.js';
 import { BillingTransaction } from '@orm/entities/billingTransaction.js';
 import { BillingWebhookEvent } from '@orm/entities/billingWebhookEvent.js';
 import { Category } from '@orm/entities/category.js';
@@ -165,14 +164,13 @@ export const entities = [
   AccountWebPushDevice,
   AccountVerification,
   BillingCheckoutChannel,
+  BillingCheckoutSession,
   BillingMembershipGrant,
   BillingProcessor,
   BillingProcessorProduct,
   BillingPrice,
   BillingPriceChangeAudit,
-  BillingDomainEvent,
   BillingProduct,
-  BillingSubscription,
   BillingTransaction,
   BillingWebhookEvent,
   Category,

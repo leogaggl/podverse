@@ -12,7 +12,7 @@ export type BillingProcessorStatusProps = {
 
 function processorLabel(
   processorId: BillingProcessorStatusRow['processor_id'],
-  labels: { paypal: string; apple: string; google_play: string }
+  labels: { paypal: string; apple: string; google_play: string; strike: string }
 ): string {
   switch (processorId) {
     case 'paypal':
@@ -21,6 +21,8 @@ function processorLabel(
       return labels.apple;
     case 'google_play':
       return labels.google_play;
+    case 'strike':
+      return labels.strike;
     default: {
       const unexpected: never = processorId;
       return unexpected;
@@ -34,6 +36,7 @@ export function BillingProcessorStatus({ rows }: BillingProcessorStatusProps) {
     paypal: t('processors.paypal'),
     apple: t('processors.apple'),
     google_play: t('processors.google_play'),
+    strike: t('processors.strike'),
   };
   const anyOff = rows.some((row) => row.enabled === false);
 

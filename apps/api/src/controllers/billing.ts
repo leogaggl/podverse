@@ -4,7 +4,11 @@ import { getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { getBillingContext } from '@api/lib/billing/billingContext.js';
 import { sendBillingError } from '@api/lib/billing/billingHttp.js';
 import { getBillingStatus } from '@api/lib/billing/billingStatus.js';
-import { getCheckoutOptions, normalizeStorefront } from '@api/lib/billing/checkoutOptions.js';
+import {
+  getCheckoutChannel,
+  getCheckoutOptions,
+  normalizeStorefront,
+} from '@api/lib/billing/checkoutOptions.js';
 import {
   billingAppleTransactionBodySchema,
   billingCheckoutOptionsQuerySchema,
@@ -13,7 +17,8 @@ import {
   billingPayPalOrderParamsSchema,
   billingRestoreBodySchema,
   billingSimulateBodySchema,
-  billingSubscriptionParamsSchema,
+  billingStrikeCheckoutBodySchema,
+  billingStrikeCheckoutParamsSchema,
   DEFAULT_JOI_VALIDATION_OPTIONS,
 } from '@api/lib/validation/index.js';
 import type { Request, Response } from 'express';
@@ -22,7 +27,6 @@ import type { ObjectSchema } from 'joi';
 import type {
   BillingEventOutcome,
   BillingEventSource,
-  BillingSnapshotOutcome,
   TestBillingEventSimulation,
 } from '@podverse/billing';
 import {
@@ -30,33 +34,31 @@ import {
   BillingEventError,
   transactionSnapshotToEvents,
 } from '@podverse/billing';
+import { StrikeReceiveNotCompletedError } from '@podverse/external-services-strike';
 import type {
   BillingPlatform,
-  BillingSubscriptionStatus,
-  DTOBillingCancelSubscriptionResult,
   DTOBillingEventOutcome,
   DTOBillingPayPalOrder,
-  DTOBillingPayPalSubscription,
   DTOBillingPurchaseResult,
   DTOBillingSimulationResult,
   DTOBillingStatus,
+  DTOBillingStrikeCheckout,
   NormalizedTransactionSnapshot,
   PaymentProcessorAdapter,
   PaymentProcessorId,
-  PurchaseKind,
 } from '@podverse/helpers';
 import {
   BILLING_API_ERROR_CODES,
+  BILLING_CLIENT_VERSION_HEADER,
   BillingProcessorRecordNotFoundError,
   BillingWebhookVerificationError,
-  isPaymentProcessorId,
 } from '@podverse/helpers';
-import type { BillingProcessorProduct } from '@podverse/orm';
+import type { BillingCheckoutSession, BillingProcessorProduct } from '@podverse/orm';
 import {
   AccountService,
+  BillingCheckoutSessionService,
   BillingPriceCatalogService,
   BillingProcessorProductService,
-  BillingSubscriptionService,
 } from '@podverse/orm';
 
 type CheckoutOptionsQuery = { platform: BillingPlatform; storefront?: string };
@@ -66,7 +68,6 @@ type PayPalCheckoutBody = {
   cancel_url?: string;
 };
 type PayPalOrderParams = { id: string };
-type SubscriptionParams = { id: number };
 type AppleTransactionBody = {
   transaction_id: string;
   product_id?: string;
@@ -75,32 +76,28 @@ type AppleTransactionBody = {
 type GooglePurchaseBody = {
   purchase_token: string;
   product_id: string;
-  purchase_kind: PurchaseKind;
+  order_id: string;
 };
 type RestoreBody = {
   processor: 'apple' | 'google_play';
   purchases: {
     external_id: string;
     external_product_id?: string | null;
-    purchase_kind: PurchaseKind;
+    external_transaction_id?: string | null;
     signed_transaction?: string | null;
   }[];
 };
 type SimulateBody = { event: TestBillingEventSimulation };
-
-/** Statuses where the processor may still charge, so cancelling has work to do. */
-const CANCELLABLE_STATUSES: readonly BillingSubscriptionStatus[] = [
-  'pending',
-  'active',
-  'in_grace_period',
-  'past_due',
-];
-
-/** Statuses of an auto-renew subscription that already covers the account. */
-const RENEWING_STATUSES: readonly BillingSubscriptionStatus[] = ['active', 'in_grace_period'];
+type StrikeCheckoutBody = {
+  processor_product_id: number;
+  platform: BillingPlatform;
+};
+type StrikeCheckoutParams = { id: number };
 
 const PAYPAL_APPROVAL_RELS = ['approve', 'payer-action'];
 const PAYPAL_CURRENCY_CODE = 'USD';
+const STRIKE_CHECKOUT_DESCRIPTION = 'Premium Membership';
+const STRIKE_CURRENCY_CODE = 'USD';
 
 let priceCatalogService: BillingPriceCatalogService | undefined;
 function getPriceCatalogService(): BillingPriceCatalogService {
@@ -125,13 +122,6 @@ function toOutcomeDto(outcome: BillingEventOutcome): DTOBillingEventOutcome {
   return {
     status: outcome.status,
     error_code: outcome.status === 'failed' ? outcome.errorCode : null,
-  };
-}
-
-function toSnapshotOutcomeDto(outcome: BillingSnapshotOutcome): DTOBillingEventOutcome {
-  return {
-    status: outcome.status === 'applied' ? 'processed' : 'ignored_sandbox',
-    error_code: null,
   };
 }
 
@@ -163,16 +153,43 @@ function requireAdapter(processorId: PaymentProcessorId, res: Response) {
   return adapter;
 }
 
-function isProductFor(
-  product: BillingProcessorProduct | null,
-  processorId: PaymentProcessorId,
-  purchaseKind: PurchaseKind
+function isPayPalProduct(
+  product: BillingProcessorProduct | null
 ): product is BillingProcessorProduct {
-  return (
-    product !== null &&
-    product.processor_id === processorId &&
-    product.purchase_kind === purchaseKind
-  );
+  return product !== null && product.processor_id === 'paypal' && product.is_active;
+}
+
+function isStrikeProduct(
+  product: BillingProcessorProduct | null
+): product is BillingProcessorProduct {
+  return product !== null && product.processor_id === 'strike' && product.is_active;
+}
+
+function isStrikeInvoicePlatform(platform: BillingPlatform): boolean {
+  return platform === 'web' || platform === 'foss';
+}
+
+function formatStrikeAmount(amount: string): string {
+  const parsed = Number(amount);
+  if (!Number.isFinite(parsed)) {
+    return amount.trim();
+  }
+  return parsed.toFixed(2);
+}
+
+function toStrikeCheckout(
+  session: BillingCheckoutSession,
+  bolt11: string,
+  state: DTOBillingStrikeCheckout['state']
+): DTOBillingStrikeCheckout {
+  return {
+    checkout_id: session.id,
+    bolt11,
+    amount: formatStrikeAmount(session.amount),
+    currency_code: session.currency_code.trim(),
+    expires_at: session.expires_at.toISOString(),
+    state,
+  };
 }
 
 /** Records a verified payment against the signed-in account. */
@@ -233,11 +250,6 @@ function handleBillingError(res: Response, error: unknown): void {
   handleGenericErrorResponse(res, error);
 }
 
-/** Error codes for a restore entry the processor has no record of. */
-function recordNotFoundCode(purchaseKind: PurchaseKind): DTOBillingEventOutcome['error_code'] {
-  return purchaseKind === 'auto_renew' ? 'subscription_not_found' : 'transaction_not_found';
-}
-
 async function restoreOne(
   adapter: PaymentProcessorAdapter,
   accountId: number,
@@ -247,24 +259,13 @@ async function restoreOne(
     externalId: purchase.external_id,
     externalProductId: purchase.external_product_id ?? null,
     signedTransaction: purchase.signed_transaction ?? null,
+    externalTransactionId: purchase.external_transaction_id ?? null,
   };
   try {
-    if (purchase.purchase_kind === 'auto_renew') {
-      const snapshot = await adapter.fetchSubscription(ref);
-      // Google prepaid base plans share the subscription product id. When the subscription
-      // snapshot reports one_time, ingest it as a transaction grant rather than a subscription.
-      if (snapshot.purchaseKind === 'one_time') {
-        return await ingestTransaction(await adapter.fetchTransaction(ref), accountId);
-      }
-      const outcome = await getBillingContext().processor.applySubscriptionSnapshot(snapshot, {
-        accountId,
-      });
-      return [toSnapshotOutcomeDto(outcome)];
-    }
     return await ingestTransaction(await adapter.fetchTransaction(ref), accountId);
   } catch (error) {
     if (error instanceof BillingProcessorRecordNotFoundError) {
-      return [{ status: 'failed', error_code: recordNotFoundCode(purchase.purchase_kind) }];
+      return [{ status: 'failed', error_code: 'transaction_not_found' }];
     }
     if (error instanceof BillingEventError) {
       return [{ status: 'failed', error_code: error.code }];
@@ -288,6 +289,7 @@ export class BillingController {
         registry: getBillingContext().registry,
         platform: query.platform,
         storefront: normalizeStorefront(query.storefront),
+        clientVersion: req.get(BILLING_CLIENT_VERSION_HEADER) ?? null,
       });
       res.status(200).json(options);
     } catch (error) {
@@ -329,12 +331,12 @@ export class BillingController {
       const product = await new BillingProcessorProductService().getActiveById(
         body.processor_product_id
       );
-      if (!isProductFor(product, 'paypal', 'one_time')) {
+      if (!isPayPalProduct(product)) {
         sendBillingError(
           res,
           404,
           BILLING_API_ERROR_CODES.productUnavailable,
-          'This product is not sold through PayPal one-time checkout'
+          'This product is not sold through PayPal'
         );
         return;
       }
@@ -414,160 +416,6 @@ export class BillingController {
     }
   }
 
-  /**
-   * Time the account already holds is not overlapped: the subscription's first charge is set to
-   * the current expiry, so a member who renews early keeps every day they paid for.
-   */
-  static async createPayPalSubscription(req: Request, res: Response): Promise<void> {
-    const user = getAuthenticatedUser(req);
-    const body = parseInput<PayPalCheckoutBody>(billingPayPalCheckoutBodySchema, req.body, res);
-    if (body === null) {
-      return;
-    }
-    const { paypalService } = getBillingContext();
-    if (paypalService === null) {
-      sendBillingError(
-        res,
-        404,
-        BILLING_API_ERROR_CODES.processorUnavailable,
-        'PayPal is not available'
-      );
-      return;
-    }
-    try {
-      const product = await new BillingProcessorProductService().getActiveById(
-        body.processor_product_id
-      );
-      if (!isProductFor(product, 'paypal', 'auto_renew')) {
-        sendBillingError(
-          res,
-          404,
-          BILLING_API_ERROR_CODES.productUnavailable,
-          'This product is not sold as a PayPal subscription'
-        );
-        return;
-      }
-      const subscriptions = await new BillingSubscriptionService().listForAccount(user.id);
-      const renewing = subscriptions.some(
-        (subscription) =>
-          subscription.purchase_kind === 'auto_renew' &&
-          RENEWING_STATUSES.includes(subscription.status)
-      );
-      if (renewing) {
-        sendBillingError(
-          res,
-          409,
-          BILLING_API_ERROR_CODES.subscriptionAlreadyActive,
-          'The account already has a subscription that renews'
-        );
-        return;
-      }
-      const account = await new AccountService().getWithMembershipStatusFromPrimary(user.id);
-      if (account === null) {
-        res.status(404).json({ message: 'Account not found' });
-        return;
-      }
-      const expiresAt = account.account_membership_status?.membership_expires_at ?? null;
-      const startTime =
-        expiresAt !== null && expiresAt.getTime() > Date.now()
-          ? expiresAt.toISOString()
-          : undefined;
-
-      const subscription = await paypalService.createSubscription({
-        accountBillingCustomerRef: account.billing_customer_ref,
-        planId: product.external_product_id,
-        startTime,
-        returnUrl: body.return_url,
-        cancelUrl: body.cancel_url,
-      });
-      if (subscription.id === undefined) {
-        throw new Error('PayPal returned a subscription without an id');
-      }
-      const result: DTOBillingPayPalSubscription = {
-        subscription_id: subscription.id,
-        status: subscription.status ?? null,
-        approve_url: findLink(subscription.links, PAYPAL_APPROVAL_RELS),
-        start_time: startTime ?? null,
-      };
-      res.status(201).json(result);
-    } catch (error) {
-      handleBillingError(res, error);
-    }
-  }
-
-  static async cancelSubscription(req: Request, res: Response): Promise<void> {
-    const user = getAuthenticatedUser(req);
-    const params = parseInput<SubscriptionParams>(billingSubscriptionParamsSchema, req.params, res);
-    if (params === null) {
-      return;
-    }
-    try {
-      const subscription = await new BillingSubscriptionService().getForAccountById(
-        user.id,
-        params.id
-      );
-      if (subscription === null) {
-        sendBillingError(
-          res,
-          404,
-          BILLING_API_ERROR_CODES.subscriptionNotFound,
-          'Subscription not found'
-        );
-        return;
-      }
-      if (!CANCELLABLE_STATUSES.includes(subscription.status)) {
-        const alreadyOff: DTOBillingCancelSubscriptionResult = {
-          outcome: 'cancelled',
-          status: await requireStatus(user.id),
-        };
-        res.status(200).json(alreadyOff);
-        return;
-      }
-      const processorId = subscription.processor_id;
-      if (!isPaymentProcessorId(processorId)) {
-        sendBillingError(
-          res,
-          404,
-          BILLING_API_ERROR_CODES.processorUnavailable,
-          `${processorId} is not available`
-        );
-        return;
-      }
-      const adapter = requireAdapter(processorId, res);
-      if (adapter === null) {
-        return;
-      }
-
-      const cancelResult =
-        adapter.cancelAutoRenew === undefined
-          ? { outcome: 'manage_in_store' as const }
-          : await adapter.cancelAutoRenew(subscription.external_subscription_id);
-
-      if (cancelResult.outcome === 'cancelled') {
-        const occurredAt = new Date().toISOString();
-        await getBillingContext().processor.ingestEvent({
-          type: 'subscription_cancelled',
-          processor: processorId,
-          processorEventId: `cancel:${processorId}:${subscription.external_subscription_id}:${occurredAt}`,
-          accountBillingCustomerRef: null,
-          accountId: user.id,
-          occurredAt,
-          isSandbox: subscription.is_sandbox,
-          externalSubscriptionId: subscription.external_subscription_id,
-          periodEnd: subscription.current_period_end?.toISOString() ?? null,
-        });
-      }
-
-      const result: DTOBillingCancelSubscriptionResult = {
-        outcome: cancelResult.outcome,
-        status: await requireStatus(user.id),
-      };
-      res.status(200).json(result);
-    } catch (error) {
-      handleBillingError(res, error);
-    }
-  }
-
   static async postAppleTransaction(req: Request, res: Response): Promise<void> {
     const user = getAuthenticatedUser(req);
     const body = parseInput<AppleTransactionBody>(billingAppleTransactionBodySchema, req.body, res);
@@ -605,6 +453,7 @@ export class BillingController {
       const snapshot = await adapter.fetchTransaction({
         externalId: body.purchase_token,
         externalProductId: body.product_id,
+        externalTransactionId: body.order_id,
       });
       const outcomes = await ingestTransaction(snapshot, user.id);
       if (isConfirmed(outcomes) && adapter.acknowledgePurchase !== undefined) {
@@ -612,7 +461,6 @@ export class BillingController {
           await adapter.acknowledgePurchase({
             purchaseToken: body.purchase_token,
             externalProductId: body.product_id,
-            purchaseKind: body.purchase_kind,
           });
         } catch (error) {
           loggerService.logError(
@@ -649,11 +497,166 @@ export class BillingController {
     }
   }
 
+  static async createStrikeCheckout(req: Request, res: Response): Promise<void> {
+    const user = getAuthenticatedUser(req);
+    const body = parseInput<StrikeCheckoutBody>(billingStrikeCheckoutBodySchema, req.body, res);
+    if (body === null) {
+      return;
+    }
+    const { strikeAdapter } = getBillingContext();
+    if (strikeAdapter === null) {
+      sendBillingError(
+        res,
+        404,
+        BILLING_API_ERROR_CODES.processorUnavailable,
+        'Strike is not available'
+      );
+      return;
+    }
+    if (!isStrikeInvoicePlatform(body.platform)) {
+      sendBillingError(
+        res,
+        404,
+        BILLING_API_ERROR_CODES.productUnavailable,
+        'Strike checkout is not available on this platform'
+      );
+      return;
+    }
+    try {
+      const product = await new BillingProcessorProductService().getActiveById(
+        body.processor_product_id
+      );
+      if (!isStrikeProduct(product)) {
+        sendBillingError(
+          res,
+          404,
+          BILLING_API_ERROR_CODES.productUnavailable,
+          'This product is not sold through Strike'
+        );
+        return;
+      }
+      const channel = await getCheckoutChannel('strike', body.platform);
+      if (channel === null || channel.enabled !== true) {
+        sendBillingError(
+          res,
+          404,
+          BILLING_API_ERROR_CODES.productUnavailable,
+          'This product is not sold through Strike'
+        );
+        return;
+      }
+      const account = await new AccountService().getWithMembershipStatusFromPrimary(user.id);
+      if (account === null) {
+        res.status(404).json({ message: 'Account not found' });
+        return;
+      }
+      const pricing = await getPriceCatalogService().resolveProductMembership();
+      const amount =
+        product.billing_cadence === 'monthly'
+          ? pricing.premiumMembershipCostMonthly
+          : pricing.premiumMembershipCostAnnually;
+      const checkout = await strikeAdapter.createCheckout({
+        description: STRIKE_CHECKOUT_DESCRIPTION,
+        amount: amount.toFixed(2),
+        currencyCode: STRIKE_CURRENCY_CODE,
+      });
+      const expiresAt = new Date(checkout.expiresAt);
+      if (Number.isNaN(expiresAt.getTime())) {
+        throw new Error('Strike returned a checkout without an expiry');
+      }
+      const session = await new BillingCheckoutSessionService().create({
+        accountId: account.id,
+        processorId: 'strike',
+        externalId: checkout.receiveRequestId,
+        billingProcessorProductId: product.id,
+        amount: amount.toFixed(2),
+        currencyCode: STRIKE_CURRENCY_CODE,
+        expiresAt,
+      });
+      res.status(201).json(toStrikeCheckout(session, checkout.bolt11, 'unpaid'));
+    } catch (error) {
+      handleBillingError(res, error);
+    }
+  }
+
+  static async getStrikeCheckout(req: Request, res: Response): Promise<void> {
+    const user = getAuthenticatedUser(req);
+    const params = parseInput<StrikeCheckoutParams>(
+      billingStrikeCheckoutParamsSchema,
+      req.params,
+      res
+    );
+    if (params === null) {
+      return;
+    }
+    const { strikeAdapter, strikeClient } = getBillingContext();
+    if (strikeAdapter === null || strikeClient === null) {
+      sendBillingError(
+        res,
+        404,
+        BILLING_API_ERROR_CODES.processorUnavailable,
+        'Strike is not available'
+      );
+      return;
+    }
+    try {
+      const session = await new BillingCheckoutSessionService().getForAccount(params.id, user.id);
+      if (session === null) {
+        sendBillingError(res, 404, BILLING_API_ERROR_CODES.purchaseNotFound, 'Checkout not found');
+        return;
+      }
+      const invoice = await strikeClient.getReceiveRequest(session.external_id);
+      const bolt11 = invoice.bolt11?.invoice ?? '';
+      if (bolt11 === '') {
+        throw new Error('Strike receive request has no BOLT11 invoice');
+      }
+      if (session.settled_at !== null) {
+        res.status(200).json({
+          ...toStrikeCheckout(session, bolt11, 'settled'),
+          confirmed: true,
+          outcomes: [],
+          status: await requireStatus(user.id),
+        });
+        return;
+      }
+      const state = await strikeAdapter.readCheckoutState(session.external_id);
+      if (state === 'settled') {
+        try {
+          const snapshot = await strikeAdapter.fetchTransaction({
+            externalId: session.external_id,
+            externalProductId: null,
+          });
+          const outcomes = await ingestTransaction(snapshot, user.id);
+          res.status(200).json({
+            ...toStrikeCheckout(session, bolt11, 'settled'),
+            confirmed: isConfirmed(outcomes),
+            outcomes,
+            status: await requireStatus(user.id),
+          });
+          return;
+        } catch (error) {
+          if (!(error instanceof StrikeReceiveNotCompletedError)) {
+            throw error;
+          }
+        }
+        res.status(200).json(toStrikeCheckout(session, bolt11, 'pending'));
+        return;
+      }
+      if (session.expires_at.getTime() <= Date.now()) {
+        res.status(200).json(toStrikeCheckout(session, bolt11, 'expired'));
+        return;
+      }
+      res.status(200).json(toStrikeCheckout(session, bolt11, state));
+    } catch (error) {
+      handleBillingError(res, error);
+    }
+  }
+
   /**
    * Answers 400 only when the request is not authentic, so the processor stops redelivering it.
    * Once verified, every event is recorded in the inbox and the answer is 200 even when applying
    * one failed; reconciliation retries those. A 500 means nothing was recorded and asks the
-   * processor to redeliver.
+   * processor to redeliver. An authentic notification that produces no events is still 200.
    */
   static receiveWebhook(processorId: PaymentProcessorId) {
     return async (req: Request, res: Response): Promise<void> => {

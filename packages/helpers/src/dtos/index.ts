@@ -33,6 +33,7 @@ export * from './account/accountSettings/accountSettingsNotification.js';
 export * from './account/accountSettings/accountSettingsNotificationType.js';
 export * from './account/accountSettings/accountSettingsPlayback.js';
 export * from './legal/popularityTrackingAgreement.js';
+export * from './legal/termsAgreement.js';
 export * from './account/accountUPDevice.js';
 export * from './account/accountVerification.js';
 export * from './account/accountWebPushDevice.js';
@@ -41,7 +42,6 @@ export * from './billing/billingCheckoutOptions.js';
 export * from './billing/billingMembershipGrant.js';
 export * from './billing/billingPurchase.js';
 export * from './billing/billingStatus.js';
-export * from './billing/billingSubscription.js';
 export * from './billing/billingTransaction.js';
 
 export * from './channel/channel.js';

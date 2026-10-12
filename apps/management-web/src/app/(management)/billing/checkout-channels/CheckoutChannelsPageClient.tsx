@@ -24,6 +24,7 @@ import type {
 } from '../../../../lib/requests/billing';
 import {
   listBillingCheckoutChannels,
+  readBillingMembershipRequestError,
   reqBillingGetProcessors,
   updateBillingCheckoutChannel,
 } from '../../../../lib/requests/billing';
@@ -52,6 +53,13 @@ function parseStorefronts(value: string): string[] {
     .split(',')
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code !== '');
+}
+
+/** PayPal and Strike on a store platform open web checkout and need a country list. */
+function isStoreCheckoutLink(channel: BillingCheckoutChannel): boolean {
+  const linksToWeb = channel.processor_id === 'paypal' || channel.processor_id === 'strike';
+  const storePlatform = channel.platform === 'ios' || channel.platform === 'android';
+  return linksToWeb && storePlatform;
 }
 
 export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPageClientProps) {
@@ -134,8 +142,9 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
       );
       setDrafts((current) => ({ ...current, [result.data.id]: draftFromChannel(result.data) }));
       setNotice(t('channels.updated'));
-    } catch {
-      setError(t('channels.failedToUpdate'));
+    } catch (requestError: unknown) {
+      const parsed = readBillingMembershipRequestError(requestError);
+      setError(parsed === null ? t('channels.failedToUpdate') : parsed.message);
     } finally {
       setSavingId(null);
     }
@@ -180,7 +189,10 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
                   const draft = drafts[channel.id] ?? draftFromChannel(channel);
                   return (
                     <Table.Row key={channel.id}>
-                      <Table.Cell>{channel.processor_id}</Table.Cell>
+                      <Table.Cell>
+                        {channel.processor_id}
+                        {isStoreCheckoutLink(channel) ? <p>{t('channels.storeLinkHelp')}</p> : null}
+                      </Table.Cell>
                       <Table.Cell>{channel.platform}</Table.Cell>
                       <Table.Cell>
                         {canUpdate ? (

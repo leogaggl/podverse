@@ -24,11 +24,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { breakpoints } from '@podverse/design-tokens';
-import {
-  APP_ROUTES,
-  MOBILE_HOME_TAB_SEGMENT,
-  shouldSuppressExpiryReminder,
-} from '@podverse/helpers';
+import { APP_ROUTES, MOBILE_HOME_TAB_SEGMENT } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
 import { GlobalActivityBar } from '../components/feedback/GlobalActivityBar';
@@ -69,6 +65,7 @@ import { PlaylistDetailScreen } from '../screens/library/PlaylistDetailScreen';
 import { PlaylistFormScreen } from '../screens/library/PlaylistFormScreen';
 import { MoreAboutScreen } from '../screens/more/MoreAboutScreen';
 import { MoreAdvancedScreen } from '../screens/more/MoreAdvancedScreen';
+import { MoreCustomApiScreen } from '../screens/more/MoreCustomApiScreen';
 import { MoreE2ePlaybackScreen } from '../screens/more/MoreE2ePlaybackScreen';
 import { MoreErrorLogDetailScreen } from '../screens/more/MoreErrorLogDetailScreen';
 import { MoreErrorLogScreen } from '../screens/more/MoreErrorLogScreen';
@@ -87,6 +84,7 @@ import { MoreSettingsPopularityTrackingScreen } from '../screens/more/MoreSettin
 import { MoreSettingsScreen } from '../screens/more/MoreSettingsScreen';
 import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScreen';
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
+import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
@@ -221,10 +219,12 @@ export const MORE_STACK_ROUTES = {
   MoreSettingsNotifications: 'MoreSettingsNotifications',
   MoreSettingsPlayback: 'MoreSettingsPlayback',
   MoreSettingsPopularityTracking: 'MoreSettingsPopularityTracking',
+  MoreTermsOfService: 'MoreTermsOfService',
   MoreSettingsTabBar: 'MoreSettingsTabBar',
   MoreSettingsTheme: 'MoreSettingsTheme',
   MoreSmoke: 'MoreSmoke',
   MoreAdvanced: 'MoreAdvanced',
+  MoreCustomApi: 'MoreCustomApi',
   MoreErrorLog: 'MoreErrorLog',
   MoreErrorLogDetail: 'MoreErrorLogDetail',
 } as const;
@@ -269,6 +269,7 @@ const homeTabLinkScreens = {
 const moreTabLinkScreens = {
   MoreAbout: 'more/about',
   MoreAdvanced: 'more/advanced',
+  MoreCustomApi: 'more/advanced/custom-api',
   MoreE2ePlayback: 'more/e2e/playback',
   MoreErrorLog: 'more/advanced/error-log',
   MoreFaq: 'more/faq',
@@ -528,10 +529,12 @@ export type MoreStackParamList = {
   MoreSettingsNotifications: undefined;
   MoreSettingsPlayback: undefined;
   MoreSettingsPopularityTracking: undefined;
+  MoreTermsOfService: undefined;
   MoreSettingsTabBar: undefined;
   MoreSettingsTheme: undefined;
   MoreSmoke: undefined;
   MoreAdvanced: undefined;
+  MoreCustomApi: undefined;
   MoreErrorLog: undefined;
   MoreErrorLogDetail: { entryId: number };
 };
@@ -1064,6 +1067,11 @@ function MoreStackNavigator({
         options={{ title: t('popularity_tracking.title') }}
       />
       <MoreStack.Screen
+        component={MoreTermsOfServiceScreen}
+        name={MORE_STACK_ROUTES.MoreTermsOfService}
+        options={{ title: t('terms_acceptance.header') }}
+      />
+      <MoreStack.Screen
         component={MoreSettingsNotificationsScreen}
         name={MORE_STACK_ROUTES.MoreSettingsNotifications}
         options={{ title: t('settings.notifications.notifications') }}
@@ -1122,6 +1130,11 @@ function MoreStackNavigator({
         component={MoreAdvancedScreen}
         name={MORE_STACK_ROUTES.MoreAdvanced}
         options={{ title: t('more_advanced.title') }}
+      />
+      <MoreStack.Screen
+        component={MoreCustomApiScreen}
+        name={MORE_STACK_ROUTES.MoreCustomApi}
+        options={{ title: t('custom_api.title') }}
       />
       <MoreStack.Screen
         component={MoreErrorLogScreen}
@@ -1270,21 +1283,20 @@ function MoreRootScreen({
     title: t(tabLabelKey(tabId)),
   }));
 
-  // One of the four renewal reminder surfaces: a persistent row a lapsed member can always find,
-  // as opposed to the dismissible banner and the at-the-feature notice.
-  const renewalItems: MenuListItem[] =
-    membership.isExpired && !shouldSuppressExpiryReminder(membership)
-      ? [
-          {
-            onPress: () => {
-              navigation.navigate(MORE_STACK_ROUTES.MoreMembership);
-            },
-            subtitle: t('membership.gate.settings_row_subtitle'),
-            testID: 'more-nav-membership-renew',
-            title: t('membership.gate.settings_row_title'),
+  // A persistent row a lapsed member can always find, beside the dismissible banner and the
+  // at-the-feature notice.
+  const renewalItems: MenuListItem[] = membership.isExpired
+    ? [
+        {
+          onPress: () => {
+            navigation.navigate(MORE_STACK_ROUTES.MoreMembership);
           },
-        ]
-      : [];
+          subtitle: t('membership.gate.settings_row_subtitle'),
+          testID: 'more-nav-membership-renew',
+          title: t('membership.gate.settings_row_title'),
+        },
+      ]
+    : [];
 
   const authItems: MenuListItem[] = isAuthenticated
     ? [
@@ -1448,7 +1460,14 @@ function TabScaffold({
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: tokens.text.accent,
+        // The tablet rail fills the active item, so its icon and label take the primary button's
+        // foreground, like a selected chip. The phone bar has no fill and tints with the accent.
+        tabBarActiveBackgroundColor: isTabletLayout
+          ? themeStyles.buttonPrimary.backgroundColor
+          : undefined,
+        tabBarActiveTintColor: isTabletLayout
+          ? themeStyles.buttonPrimary.color
+          : tokens.text.accent,
         tabBarBadgeStyle: {
           backgroundColor: tokens.text.accent,
           color: tokens.background.primary,

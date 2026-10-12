@@ -1,15 +1,23 @@
 import type { BillingCadence } from '../billingDomain.js';
 import type { PaymentProcessorId } from './paymentProcessorId.js';
-import type { PurchaseKind } from './purchaseKind.js';
 
 /**
- * PayPal Orders v2 has no product catalog, so Podverse names the one-time products itself. The
- * PayPal adapter sends one of these as the purchase unit reference and reports it back as the
+ * PayPal Orders v2 has no product catalog, so Podverse names the one-time products itself.
+ * Each order invoice id starts with one of these ids. The adapter reports that id as the
  * event's `externalProductId`, which maps the capture to its cadence.
  */
 export const PAYPAL_ONE_TIME_PRODUCT_IDS = {
   monthly: 'podverse_premium_one_time_monthly',
   annual: 'podverse_premium_one_time_annual',
+} as const satisfies Record<BillingCadence, string>;
+
+/**
+ * Strike receive requests also have no product catalog, so Podverse maps each cadence to a fixed
+ * checkout product id.
+ */
+export const STRIKE_ONE_TIME_PRODUCT_IDS = {
+  monthly: 'podverse-premium-monthly',
+  annual: 'podverse-premium-annual',
 } as const satisfies Record<BillingCadence, string>;
 
 /**
@@ -19,8 +27,7 @@ export const PAYPAL_ONE_TIME_PRODUCT_IDS = {
 export interface BillingProcessorProductEnvMapping {
   processor: PaymentProcessorId;
   cadence: BillingCadence;
-  purchaseKind: PurchaseKind;
-  /** The store product id, PayPal plan id, or Google Play subscription id. */
+  /** The store product id, or the Google Play product id plus base plan id. */
   productIdEnvKey: string;
   /** Google Play base plan id; null for processors without base plans. */
   basePlanIdEnvKey: string | null;
@@ -31,72 +38,26 @@ const GOOGLE_SUBSCRIPTION_ID_ENV_KEY = 'BILLING_PRODUCT_GOOGLE_SUBSCRIPTION_ID';
 export const BILLING_PROCESSOR_PRODUCT_ENV_MAPPINGS: readonly BillingProcessorProductEnvMapping[] =
   [
     {
-      processor: 'paypal',
-      cadence: 'monthly',
-      purchaseKind: 'auto_renew',
-      productIdEnvKey: 'BILLING_PRODUCT_PAYPAL_AUTO_RENEW_MONTHLY_PLAN_ID',
-      basePlanIdEnvKey: null,
-    },
-    {
-      processor: 'paypal',
-      cadence: 'annual',
-      purchaseKind: 'auto_renew',
-      productIdEnvKey: 'BILLING_PRODUCT_PAYPAL_AUTO_RENEW_ANNUAL_PLAN_ID',
-      basePlanIdEnvKey: null,
-    },
-    {
       processor: 'apple',
       cadence: 'monthly',
-      purchaseKind: 'auto_renew',
-      productIdEnvKey: 'BILLING_PRODUCT_APPLE_AUTO_RENEW_MONTHLY_ID',
-      basePlanIdEnvKey: null,
-    },
-    {
-      processor: 'apple',
-      cadence: 'annual',
-      purchaseKind: 'auto_renew',
-      productIdEnvKey: 'BILLING_PRODUCT_APPLE_AUTO_RENEW_ANNUAL_ID',
-      basePlanIdEnvKey: null,
-    },
-    {
-      processor: 'apple',
-      cadence: 'monthly',
-      purchaseKind: 'one_time',
       productIdEnvKey: 'BILLING_PRODUCT_APPLE_ONE_TIME_MONTHLY_ID',
       basePlanIdEnvKey: null,
     },
     {
       processor: 'apple',
       cadence: 'annual',
-      purchaseKind: 'one_time',
       productIdEnvKey: 'BILLING_PRODUCT_APPLE_ONE_TIME_ANNUAL_ID',
       basePlanIdEnvKey: null,
     },
     {
       processor: 'google_play',
       cadence: 'monthly',
-      purchaseKind: 'auto_renew',
-      productIdEnvKey: GOOGLE_SUBSCRIPTION_ID_ENV_KEY,
-      basePlanIdEnvKey: 'BILLING_PRODUCT_GOOGLE_AUTO_RENEW_MONTHLY_BASE_PLAN_ID',
-    },
-    {
-      processor: 'google_play',
-      cadence: 'annual',
-      purchaseKind: 'auto_renew',
-      productIdEnvKey: GOOGLE_SUBSCRIPTION_ID_ENV_KEY,
-      basePlanIdEnvKey: 'BILLING_PRODUCT_GOOGLE_AUTO_RENEW_ANNUAL_BASE_PLAN_ID',
-    },
-    {
-      processor: 'google_play',
-      cadence: 'monthly',
-      purchaseKind: 'one_time',
       productIdEnvKey: GOOGLE_SUBSCRIPTION_ID_ENV_KEY,
       basePlanIdEnvKey: 'BILLING_PRODUCT_GOOGLE_PREPAID_MONTHLY_BASE_PLAN_ID',
     },
     {
       processor: 'google_play',
       cadence: 'annual',
-      purchaseKind: 'one_time',
       productIdEnvKey: GOOGLE_SUBSCRIPTION_ID_ENV_KEY,
       basePlanIdEnvKey: 'BILLING_PRODUCT_GOOGLE_PREPAID_ANNUAL_BASE_PLAN_ID',
     },
@@ -116,8 +77,9 @@ export const BILLING_PROCESSOR_PRODUCT_ENV_KEYS: readonly string[] = [
 export interface ResolvedBillingProcessorProduct {
   processor: PaymentProcessorId;
   cadence: BillingCadence;
-  purchaseKind: PurchaseKind;
+  /** Store product id, Google Play product id, or PayPal/Strike checkout product id. */
   externalProductId: string;
+  /** Google Play base plan id when one is required; null for other processors. */
   externalBasePlanId: string | null;
 }
 
@@ -133,8 +95,8 @@ function readEnvValue(env: Readonly<Record<string, string | undefined>>, key: st
 
 /**
  * Reads the processor product catalog from env. A mapping whose keys are empty is skipped, so a
- * processor that is not configured yet stays unmapped. The PayPal one-time products are always
- * included because Podverse names them.
+ * processor that is not configured yet stays unmapped. The PayPal and Strike one-time products
+ * are always included because Podverse names them.
  */
 export function resolveBillingProcessorProductsFromEnv(
   env: Readonly<Record<string, string | undefined>>
@@ -143,15 +105,25 @@ export function resolveBillingProcessorProductsFromEnv(
     {
       processor: 'paypal',
       cadence: 'monthly',
-      purchaseKind: 'one_time',
       externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.monthly,
       externalBasePlanId: null,
     },
     {
       processor: 'paypal',
       cadence: 'annual',
-      purchaseKind: 'one_time',
       externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.annual,
+      externalBasePlanId: null,
+    },
+    {
+      processor: 'strike',
+      cadence: 'monthly',
+      externalProductId: STRIKE_ONE_TIME_PRODUCT_IDS.monthly,
+      externalBasePlanId: null,
+    },
+    {
+      processor: 'strike',
+      cadence: 'annual',
+      externalProductId: STRIKE_ONE_TIME_PRODUCT_IDS.annual,
       externalBasePlanId: null,
     },
   ];
@@ -170,7 +142,6 @@ export function resolveBillingProcessorProductsFromEnv(
     products.push({
       processor: mapping.processor,
       cadence: mapping.cadence,
-      purchaseKind: mapping.purchaseKind,
       externalProductId,
       externalBasePlanId,
     });

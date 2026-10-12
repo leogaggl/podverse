@@ -20,7 +20,8 @@ import { defineConfig } from 'vitest/config';
  * half stays in `channelLiveStatusRepository.ts`), the Home row metadata join that indexes the four
  * local stores against the subscription list (`src/screens/home/homeRowMetadata.ts` — pure; the
  * repository reads stay in `homeFeedData.ts`), the env-driven deep-link scheme / prefix helpers
- * (`src/config/deepLinkSchemes.ts`), deep-link path mapping (`src/navigation/deepLinking.ts`), pure notification
+ * (`src/config/deepLinkSchemes.ts`), the custom API address and health verdict
+ * (`src/config/customApiUrl.ts`), deep-link path mapping (`src/navigation/deepLinking.ts`), pure notification
  * payload target extraction (`src/push/notificationTarget.ts`), share URL mapping (`src/lib/share/shareUrl.ts`),
  * prefs storage guards/hydration (`src/prefs/prefsStore.ts`), Home's remembered filter, sort, and
  * view-mode selections (`src/prefs/homeListPrefs.ts` — AsyncStorage-backed and mockable in node,
@@ -48,9 +49,12 @@ import { defineConfig } from 'vitest/config';
  * and failure isolation are testable; the job bodies that reach repositories (`src/sync/syncJobs.ts`)
  * and the RN triggers (`src/sync/SyncProvider.tsx`) are excluded), the derived connectivity rules
  * that decide whether the network is usable — entry debounce, success-only exit, probe backoff,
- * dwell floor, and device-versus-server attribution (`src/net/connectivityMachine.ts` — pure and
+ * dwell floor, device-versus-server attribution, and whether an already-armed probe timer should
+ * keep counting (`src/net/connectivityMachine.ts` — pure and
  * clock-injected, so no timer ever has to elapse in a test; the NetInfo subscription, timers, and
- * health probe stay in `src/net/connectivity.ts` and `src/net/connectivityProbe.ts`), the sync
+ * health probe stay in `src/net/connectivity.ts` and `src/net/connectivityProbe.ts`), the
+ * opportunistic cache fetch gate that stays on local data once the app is effectively offline
+ * (`src/data/sync/syncScheduler.ts` — connectivity is mocked so the gate is testable in node), the sync
  * failure taxonomy that
  * produces the quotable error code (`src/sync/syncErrorClassification.ts`), and the error log's
  * cap / eviction rule, detail storage, and copy/export format (`src/data/repositories/syncEventLog.ts`
@@ -72,7 +76,8 @@ import { defineConfig } from 'vitest/config';
  * transport glyph mapping that keeps the spinner to a
  * source that cannot start yet (`src/playback/playbackTransport.ts`), which clip or chapter the
  * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the marquee overflow and travel math
- * (`src/lib/text/marqueeScroll.ts`), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
+ * (`src/lib/text/marqueeScroll.ts`), the offset that scrolls a selected chip into its row
+ * (`src/components/form/chipRowReveal.ts`), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
  * and whether a server refresh should replace what a cache-first screen already painted
  * (`src/lib/cachedValue.ts`), the E2E-gated perf mark/counter buffer
  * (`src/lib/perf/perfSpans.ts` — env is mocked so both flag states are reachable in node), the
@@ -97,12 +102,14 @@ export default defineConfig({
       'src/auth/localDevLoginPrefill.test.ts',
       'src/auth/mobileClientHeaders.test.ts',
       'src/billing/**/*.test.ts',
+      'src/components/form/chipRowReveal.test.ts',
       'src/components/overlay/overlayStore.test.ts',
       'src/components/overlay/overlayTransitions.test.ts',
       'src/components/player/MediaRowActions.test.ts',
       'src/components/primitives/FillList.test.ts',
       'src/components/primitives/coverThumbnailCache.test.ts',
       'src/components/player/fullPlayerRows.test.ts',
+      'src/config/customApiUrl.test.ts',
       'src/config/deepLinkSchemes.test.ts',
       'src/data/db/migrations.test.ts',
       'src/data/repositories/channelItemWindow.test.ts',
@@ -115,6 +122,7 @@ export default defineConfig({
       'src/data/repositories/statsRepository.test.ts',
       'src/data/repositories/subscriptionsSignupPlan.test.ts',
       'src/data/repositories/syncEventLog.test.ts',
+      'src/data/sync/syncScheduler.test.ts',
       'src/downloads/**/*.test.ts',
       'src/feedback/actionErrorCopy.test.ts',
       'src/hooks/useReduceMotion.test.ts',

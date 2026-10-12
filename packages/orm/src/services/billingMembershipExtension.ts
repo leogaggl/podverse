@@ -1,6 +1,7 @@
 import { getDataSourceRead, getDataSourceReadWrite } from '@orm/context.js';
 import { AccountMembershipStatus } from '@orm/entities/account/accountMembershipStatus.js';
 import { BillingMembershipGrant } from '@orm/entities/billingMembershipGrant.js';
+import { BillingTransaction } from '@orm/entities/billingTransaction.js';
 import { BillingEntitlementService } from '@orm/services/billingEntitlement.js';
 import { BillingMembershipGrantService } from '@orm/services/billingMembershipGrant.js';
 import type { DataSource, EntityManager } from 'typeorm';
@@ -17,7 +18,6 @@ import {
 } from '@podverse/helpers';
 
 type GrantReferences = {
-  billingSubscriptionId?: number | null;
   billingTransactionId?: number | null;
   membershipClaimTokenId?: string | null;
 };
@@ -103,6 +103,23 @@ function assertPositiveInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 1) {
     throw new RangeError(`${name} must be a positive integer`);
   }
+}
+
+/** A Strike purchase grant that has not already been revoked. */
+async function isUnrevokedStrikePurchase(
+  manager: EntityManager,
+  grant: BillingMembershipGrant
+): Promise<boolean> {
+  if (grant.revoked_at !== null) {
+    return false;
+  }
+  if (grant.source !== 'one_time_purchase' || grant.billing_transaction_id === null) {
+    return false;
+  }
+  const transaction = await manager.getRepository(BillingTransaction).findOne({
+    where: { id: grant.billing_transaction_id, account_id: grant.account_id },
+  });
+  return transaction !== null && transaction.processor_id === 'strike';
 }
 
 /**
@@ -243,7 +260,6 @@ export class BillingMembershipExtensionService {
             source: params.source,
             startsAt,
             endsAt,
-            billingSubscriptionId: params.billingSubscriptionId,
             billingTransactionId: params.billingTransactionId,
             membershipClaimTokenId: params.membershipClaimTokenId,
           });
@@ -441,7 +457,11 @@ export class BillingMembershipExtensionService {
     return { membershipExpiresAt: entitlement.membershipExpiresAt };
   }
 
-  /** Revokes one admin-editable grant. Revoking an already-revoked grant changes nothing. */
+  /**
+   * Revokes one admin-editable grant, or a Strike purchase grant. Strike does not notify
+   * Podverse of a refund, so this is how that grant's time is removed after the operator
+   * refunds the payment in the Strike dashboard. Other processor grants stay protected.
+   */
   async revokeGrant(params: {
     accountId: number;
     grantId: number;
@@ -459,7 +479,8 @@ export class BillingMembershipExtensionService {
         if (grant === null) {
           throw new MembershipGrantNotFoundError();
         }
-        if (!isAdminEditableGrant(grant)) {
+        const strikePurchase = await isUnrevokedStrikePurchase(transactionalEntityManager, grant);
+        if (!isAdminEditableGrant(grant) && !strikePurchase) {
           throw new ProtectedMembershipAccessError(null);
         }
         await this.billingMembershipGrantService.revokeWithManager(

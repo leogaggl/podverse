@@ -10,20 +10,17 @@ import {
 } from 'expo-iap';
 
 import type { BillingApi } from './billingApi';
+import { externalProductIdsForProcessor } from './billingApi';
 import type {
   BillingClient,
   BillingLocalizedPrice,
-  BillingPurchaseKind,
   BillingPurchaseOutcome,
   BillingStoreProduct,
 } from './BillingClient';
-import {
-  BillingAccountTokenError,
-  BillingPurchaseError,
-  billingPurchaseOutcome,
-} from './BillingClient';
+import { BillingAccountTokenError, billingPurchaseOutcome } from './BillingClient';
 import {
   billingErrorCode,
+  isAlreadyOwnedStoreError,
   isCancelledStoreError,
   isRecord,
   isWaitingStoreError,
@@ -32,20 +29,17 @@ import { bindAccountToken } from './bindAccountToken';
 import { createFinishOnce } from './inflight';
 import { listStorePrices } from './localizedPrices';
 import { normalizeStorefrontCode } from './normalizeStorefront';
-import { normalizeStorePurchase } from './normalizeStorePurchase';
-import { resolvePurchaseKind } from './purchaseKinds';
+import { isPurchaseFromStore, normalizeStorePurchase } from './normalizeStorePurchase';
 import type { RestoreStoreRecord } from './restoreStorePurchases';
 import { restoreStorePurchases } from './restoreStorePurchases';
-import { selectPlayOfferToken } from './selectPlayOfferToken';
+import { resolvePrepaidPlayOffer } from './selectPlayOfferToken';
 import { settleStorePurchase } from './settleStorePurchase';
+import { playSubscriptionPurchaseRequest } from './storePurchaseRequest';
 
 /** Returned when checkout asks for a Google base plan Play does not offer to this client. */
 export const BILLING_PRODUCT_UNAVAILABLE = 'billing.product_unavailable';
 
-const isStorePurchase = (value: unknown): value is Purchase => {
-  const normalized = normalizeStorePurchase(value);
-  return normalized !== null && isRecord(value) && value.platform === 'android';
-};
+const isStorePurchase = (value: unknown): value is Purchase => isPurchaseFromStore(value, 'google');
 
 const isAndroidSubscriptionProduct = (
   value: unknown
@@ -59,13 +53,13 @@ const isAndroidSubscriptionProduct = (
 };
 
 /**
- * Play Billing purchases. A prepaid one-time membership is a subscription base plan when Play
- * returns an offer token; otherwise it is an in-app product. Transactions are acknowledged only
- * after the API confirms. The server acknowledges the same purchase.
+ * Play Billing purchases. Every membership product is a subscription charged with the prepaid
+ * base plan's offer token. Buying while prepaid time is still active is a new purchase token.
+ * When the store reports the product is already owned, restore runs once and its outcome is
+ * returned. Transactions are acknowledged only after the API confirms.
  */
 export const createPlayBillingClient = (api: BillingApi): BillingClient => {
   const finishOnce = createFinishOnce();
-  const kinds = new Map<string, BillingPurchaseKind>();
   let accountId: string | null = null;
   let started: Promise<void> | null = null;
   let listening = false;
@@ -85,7 +79,7 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
       }
       listening = true;
       purchaseUpdatedListener((purchase) => {
-        void settleIncoming(purchase, null).catch(() => undefined);
+        void settleIncoming(purchase).catch(() => undefined);
       });
     });
   };
@@ -113,6 +107,9 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
   };
 
   const offerTokenFor = async (sku: string, basePlanId: string | null): Promise<string | null> => {
+    if (basePlanId === null || basePlanId === '') {
+      return null;
+    }
     const products = await fetchProducts({ skus: [sku], type: 'subs' });
     if (products === null) {
       return null;
@@ -121,7 +118,7 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
       if (!isAndroidSubscriptionProduct(product) || product.id !== sku) {
         continue;
       }
-      const token = selectPlayOfferToken(product.subscriptionOffers ?? [], basePlanId);
+      const token = resolvePrepaidPlayOffer(product.subscriptionOffers ?? [], basePlanId);
       if (token !== null) {
         return token;
       }
@@ -134,10 +131,7 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
       await finishTransaction({ isConsumable: false, purchase });
     });
 
-  const settleIncoming = async (
-    purchase: Purchase,
-    explicitKind: BillingPurchaseKind | null
-  ): Promise<BillingPurchaseOutcome> => {
+  const settleIncoming = async (purchase: Purchase): Promise<BillingPurchaseOutcome> => {
     const normalized = normalizeStorePurchase(purchase);
     if (normalized === null || normalized.purchaseToken === null) {
       return billingPurchaseOutcome('failed', normalized?.productId ?? null);
@@ -146,26 +140,12 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
     if (normalized.pending) {
       return billingPurchaseOutcome('waiting', normalized.productId, externalId);
     }
-    const storefront = await getStorefront();
-    const purchaseKind =
-      explicitKind ??
-      (await resolvePurchaseKind({
-        api,
-        kinds,
-        platform: 'android',
-        productId: normalized.productId,
-        storefront,
-      }));
-    if (purchaseKind === null) {
-      return billingPurchaseOutcome('unconfirmed', normalized.productId, externalId);
-    }
     const settled = await settleStorePurchase({
       finish: () => finishPurchase(purchase, externalId),
       pending: false,
       post: () =>
         api.postGooglePurchase({
           productId: normalized.productId,
-          purchaseKind,
           purchaseToken: externalId,
         }),
     });
@@ -177,6 +157,45 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
     );
   };
 
+  const restore = async (): Promise<BillingPurchaseOutcome> => {
+    await start();
+    let productIds: ReadonlySet<string>;
+    try {
+      const storefront = await getStorefront();
+      const catalog = await api.getCheckoutOptions({ platform: 'android', storefront });
+      productIds = externalProductIdsForProcessor(catalog, 'google_play');
+    } catch (error) {
+      return billingPurchaseOutcome('failed', null, null, billingErrorCode(error));
+    }
+    const available = await getAvailablePurchases();
+    const records: RestoreStoreRecord[] = [];
+    let pendingCount = 0;
+    for (const purchaseRecord of available) {
+      const normalized = normalizeStorePurchase(purchaseRecord);
+      if (normalized === null || normalized.purchaseToken === null) {
+        continue;
+      }
+      if (!productIds.has(normalized.productId)) {
+        continue;
+      }
+      if (normalized.pending) {
+        pendingCount += 1;
+        continue;
+      }
+      const externalId = normalized.purchaseToken;
+      records.push({
+        externalId,
+        externalProductId: normalized.productId,
+        finish: () => finishPurchase(purchaseRecord, externalId),
+      });
+    }
+    return restoreStorePurchases({
+      pendingCount,
+      records,
+      restore: (purchases) => api.restore({ processor: 'google_play', purchases }),
+    });
+  };
+
   const purchase = async (product: BillingStoreProduct): Promise<BillingPurchaseOutcome> => {
     let obfuscatedAccountId: string;
     try {
@@ -185,11 +204,10 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
     } catch (error) {
       return billingPurchaseOutcome('failed', product.productId, null, billingErrorCode(error));
     }
-    kinds.set(product.productId, product.purchaseKind);
 
     try {
       const offerToken = await offerTokenFor(product.productId, product.basePlanId);
-      if (product.basePlanId !== null && offerToken === null) {
+      if (offerToken === null) {
         return billingPurchaseOutcome(
           'failed',
           product.productId,
@@ -197,31 +215,9 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
           BILLING_PRODUCT_UNAVAILABLE
         );
       }
-      const useSubscription = product.purchaseKind === 'auto_renew' || offerToken !== null;
-      if (useSubscription && offerToken === null) {
-        throw new BillingPurchaseError('missing_offer');
-      }
-      const requested =
-        useSubscription && offerToken !== null
-          ? await requestPurchase({
-              request: {
-                google: {
-                  obfuscatedAccountId,
-                  skus: [product.productId],
-                  subscriptionOffers: [{ offerToken, sku: product.productId }],
-                },
-              },
-              type: 'subs',
-            })
-          : await requestPurchase({
-              request: {
-                google: {
-                  obfuscatedAccountId,
-                  skus: [product.productId],
-                },
-              },
-              type: 'in-app',
-            });
+      const requested = await requestPurchase(
+        playSubscriptionPurchaseRequest(product.productId, offerToken, obfuscatedAccountId)
+      );
       const purchases = (Array.isArray(requested) ? requested : [requested]).filter(
         isStorePurchase
       );
@@ -230,7 +226,7 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
       }
       let outcome = billingPurchaseOutcome('confirmed', product.productId);
       for (const storePurchase of purchases) {
-        const next = await settleIncoming(storePurchase, product.purchaseKind);
+        const next = await settleIncoming(storePurchase);
         if (next.phase !== 'confirmed') {
           outcome = next;
         }
@@ -243,48 +239,20 @@ export const createPlayBillingClient = (api: BillingApi): BillingClient => {
       if (isWaitingStoreError(error)) {
         return billingPurchaseOutcome('waiting', product.productId, null, billingErrorCode(error));
       }
+      if (isAlreadyOwnedStoreError(error)) {
+        try {
+          return await restore();
+        } catch (restoreError) {
+          return billingPurchaseOutcome(
+            'failed',
+            product.productId,
+            null,
+            billingErrorCode(restoreError)
+          );
+        }
+      }
       return billingPurchaseOutcome('failed', product.productId, null, billingErrorCode(error));
     }
-  };
-
-  const restore = async (): Promise<BillingPurchaseOutcome> => {
-    await start();
-    const storefront = await getStorefront();
-    const available = await getAvailablePurchases();
-    const records: RestoreStoreRecord[] = [];
-    let pendingCount = 0;
-    for (const purchaseRecord of available) {
-      const normalized = normalizeStorePurchase(purchaseRecord);
-      if (normalized === null || normalized.purchaseToken === null) {
-        continue;
-      }
-      if (normalized.pending) {
-        pendingCount += 1;
-        continue;
-      }
-      const purchaseKind = await resolvePurchaseKind({
-        api,
-        kinds,
-        platform: 'android',
-        productId: normalized.productId,
-        storefront,
-      });
-      if (purchaseKind === null) {
-        continue;
-      }
-      const externalId = normalized.purchaseToken;
-      records.push({
-        externalId,
-        externalProductId: normalized.productId,
-        finish: () => finishPurchase(purchaseRecord, externalId),
-        purchaseKind,
-      });
-    }
-    return restoreStorePurchases({
-      pendingCount,
-      records,
-      restore: (purchases) => api.restore({ processor: 'google_play', purchases }),
-    });
   };
 
   void start().catch(() => undefined);

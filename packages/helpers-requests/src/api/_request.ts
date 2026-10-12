@@ -3,6 +3,7 @@ import type { BetweenParams } from '@podverse/helpers';
 import type { AddByRssSeenMarkEntry, ChannelSeenMarkEntry } from '@podverse/helpers';
 import type { MediaTypePreference } from '@podverse/helpers';
 import type { ManagedCopySlug } from '@podverse/helpers';
+import type { BillingPlatform } from '@podverse/helpers';
 import type { QueryParamsPodcastIndexSearchMedium } from '@podverse/helpers';
 import type {
   CreateAccountFCMDeviceParams,
@@ -135,18 +136,19 @@ import type {
   ReqBillingPayPalCheckoutParams,
   ReqBillingRestorePurchasesParams,
   ReqBillingSimulatePaymentParams,
+  ReqBillingStrikeCreateCheckoutParams,
 } from './billing/billing.js';
 import {
-  reqBillingCancelSubscription,
   reqBillingCapturePayPalOrder,
   reqBillingCreatePayPalOrder,
-  reqBillingCreatePayPalSubscription,
   reqBillingGetCheckoutOptions,
   reqBillingGetStatus,
   reqBillingPostAppleTransaction,
   reqBillingPostGooglePurchase,
   reqBillingRestorePurchases,
   reqBillingSimulatePayment,
+  reqBillingStrikeCreateCheckout,
+  reqBillingStrikeGetCheckout,
 } from './billing/billing.js';
 import { reqCategoryGetAll } from './category/category.js';
 import {
@@ -188,6 +190,7 @@ import {
 } from './itemSoundbite/itemSoundbite.js';
 import { reqItemTranscriptGet } from './itemTranscript/itemTranscript.js';
 import { reqLegalPopularityTracking } from './legal/popularityTracking.js';
+import { reqLegalTerms } from './legal/terms.js';
 import { reqLiveItemGetMany, reqLiveItemGetManyByChannel } from './liveItem/liveItem.js';
 import { reqManagedCopyGet } from './managedCopy/managedCopy.js';
 import { reqMembershipGetPricing, reqProductMembershipGet } from './membership/membership.js';
@@ -869,6 +872,10 @@ export class ApiRequestService {
     return reqLegalPopularityTracking(this);
   }
 
+  reqLegalTerms(options?: { locale?: string }) {
+    return reqLegalTerms(this, options);
+  }
+
   reqManagedCopyGet(slug: ManagedCopySlug, options?: { locale?: string }) {
     return reqManagedCopyGet(this, slug, options);
   }
@@ -1086,8 +1093,8 @@ export class ApiRequestService {
     return reqBillingGetCheckoutOptions(this, params);
   }
 
-  reqBillingGetStatus() {
-    return reqBillingGetStatus(this);
+  reqBillingGetStatus(params?: { platform?: BillingPlatform }) {
+    return reqBillingGetStatus(this, params);
   }
 
   reqBillingPostAppleTransaction(params: ReqBillingAppleTransactionParams) {
@@ -1106,20 +1113,20 @@ export class ApiRequestService {
     return reqBillingCreatePayPalOrder(this, params);
   }
 
-  reqBillingCancelSubscription(subscriptionId: number) {
-    return reqBillingCancelSubscription(this, subscriptionId);
-  }
-
   reqBillingCapturePayPalOrder(orderId: string) {
     return reqBillingCapturePayPalOrder(this, orderId);
   }
 
-  reqBillingCreatePayPalSubscription(params: ReqBillingPayPalCheckoutParams) {
-    return reqBillingCreatePayPalSubscription(this, params);
-  }
-
   reqBillingSimulatePayment(params: ReqBillingSimulatePaymentParams) {
     return reqBillingSimulatePayment(this, params);
+  }
+
+  reqBillingStrikeCreateCheckout(params: ReqBillingStrikeCreateCheckoutParams) {
+    return reqBillingStrikeCreateCheckout(this, params);
+  }
+
+  reqBillingStrikeGetCheckout(checkoutId: number) {
+    return reqBillingStrikeGetCheckout(this, checkoutId);
   }
 
   /* METABOOST */

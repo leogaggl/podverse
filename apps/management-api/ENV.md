@@ -96,15 +96,12 @@ When **`BUCKET_PROVIDER`** is set, startup validates the same **`BUCKET_*`** con
 
 ### Billing (optional)
 
-Account resync fetches each subscription from its processor, so this deployment reads the same
+Account resync refetches recorded purchases from their processors, so this deployment reads the same
 processor flags and credentials as the API and workers. A processor runs only when its
 `*_ENABLED` flag is `true`; credentials alone never turn it on. With the flag on, every key
 that processor needs is required. A processor that is not enabled is reported as skipped on
-resync rather than failing it. The entitlement buffer and grace windows feed the same ledger
-the API uses.
+resync rather than failing it.
 
-- **`BILLING_RENEWAL_ENTITLEMENT_BUFFER_EXPIRATION`** (Optional, default `172800`) - Seconds access continues past an auto-renew period end
-- **`BILLING_PAYMENT_FAILURE_GRACE_EXPIRATION`** (Optional, default `604800`) - Seconds access continues after a failed renewal charge
 - **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text` values whose sandbox purchases count in production
 - **`BILLING_ALLOW_TEST_ADAPTER`** (Optional) - `true` registers the test processor even when `NODE_ENV` is `production`; non-production always registers it
 - **`BILLING_PAYPAL_ENABLED`** (Optional, default off) - `true` turns PayPal on; empty or unset keeps it off
@@ -116,11 +113,15 @@ the API uses.
 - **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty or unset keeps it off
 - **`GOOGLE_PLAY_PACKAGE_NAME`**, **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`**, **`GOOGLE_PLAY_RTDN_PUSH_AUDIENCE`**, **`GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL`** - Google Play Developer API credentials
+- **`BILLING_STRIKE_ENABLED`** (Optional, default off) - `true` turns Strike on; empty or unset keeps it off
+- **`STRIKE_API_KEY`**, **`STRIKE_WEBHOOK_SECRET`** - Strike API key and webhook signing secret
+- **`STRIKE_ENVIRONMENT`** - `production` or `sandbox` when Strike is enabled
 
 On **Kubernetes**, the management API deployment mounts the same Apple and Google key files
 as the API (`/var/secrets/apple-iap/AuthKey.p8`,
 `/var/secrets/google-play/service-account.json`) and reads PayPal from Secret
-**`podverse-billing-paypal-opaque`**. Keys are listed in
+**`podverse-billing-paypal-opaque`**. It reads Strike credentials from Secret
+**`podverse-billing-strike-opaque`**. Keys are listed in
 `infra/k8s/base/management-api/source/management-api.env`. See
 [docs/billing/BILLING.md](/docs/billing/BILLING.md).
 

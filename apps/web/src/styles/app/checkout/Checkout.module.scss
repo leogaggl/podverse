@@ -1,3 +1,13 @@
+.intro {
+  margin-bottom: var(--spacing-4xl);
+}
+
+.intro p {
+  color: var(--text-color-primary);
+  font-size: var(--font-size-lg);
+  margin: var(--spacing-none);
+}
+
 .formSection {
   margin-bottom: var(--spacing-4xl);
 }
@@ -21,4 +31,70 @@
   font-size: var(--font-size-lg);
   color: var(--text-color-primary);
   margin: var(--spacing-none);
+}
+
+.successDetail {
+  font-size: var(--font-size-lg);
+}
+
+.successContinue {
+  display: block;
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-base);
+}
+
+.strikePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+}
+
+.strikeTitle {
+  color: var(--text-color-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  margin: var(--spacing-none);
+}
+
+.strikeQr {
+  height: auto;
+  width: 240px;
+}
+
+.strikeAmount {
+  color: var(--text-color-primary);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-light);
+  margin: var(--spacing-none);
+}
+
+.strikeCountdown {
+  color: var(--text-color-secondary);
+  font-size: var(--font-size-lg);
+  margin: var(--spacing-none);
+}
+
+.strikeActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-lg);
+}
+
+.walletLink {
+  color: var(--text-color-link);
+  font-size: var(--font-size-lg);
+}
+
+.walletLink:focus-visible {
+  outline: 2px solid var(--text-color-link);
+  outline-offset: 2px;
+}
+
+.strikeStatus {
+  color: var(--text-color-primary);
+  font-size: var(--font-size-lg);
+  margin: var(--spacing-none);
+  min-height: 1.5em;
 }

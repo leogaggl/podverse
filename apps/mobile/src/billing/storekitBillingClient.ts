@@ -10,43 +10,33 @@ import {
 } from 'expo-iap';
 
 import type { BillingApi } from './billingApi';
+import { externalProductIdsForProcessor } from './billingApi';
 import type {
   BillingClient,
   BillingLocalizedPrice,
-  BillingPurchaseKind,
   BillingPurchaseOutcome,
   BillingStoreProduct,
 } from './BillingClient';
 import { BillingAccountTokenError, billingPurchaseOutcome } from './BillingClient';
-import {
-  billingErrorCode,
-  isCancelledStoreError,
-  isRecord,
-  isWaitingStoreError,
-} from './billingGuards';
+import { billingErrorCode, isCancelledStoreError, isWaitingStoreError } from './billingGuards';
 import { bindAccountToken } from './bindAccountToken';
 import { createFinishOnce } from './inflight';
 import { listStorePrices } from './localizedPrices';
 import { normalizeStorefrontCode } from './normalizeStorefront';
-import { normalizeStorePurchase } from './normalizeStorePurchase';
-import { mergeCatalogKinds, resolvePurchaseKind } from './purchaseKinds';
+import { isPurchaseFromStore, normalizeStorePurchase } from './normalizeStorePurchase';
 import type { RestoreStoreRecord } from './restoreStorePurchases';
 import { restoreStorePurchases } from './restoreStorePurchases';
 import { settleStorePurchase } from './settleStorePurchase';
+import { storekitInAppPurchaseRequest } from './storePurchaseRequest';
 
-const isStorePurchase = (value: unknown): value is Purchase => {
-  const normalized = normalizeStorePurchase(value);
-  return normalized !== null && isRecord(value) && value.platform === 'ios';
-};
+const isStorePurchase = (value: unknown): value is Purchase => isPurchaseFromStore(value, 'apple');
 
 /**
- * StoreKit 2 purchases. Membership products are finished only after the API confirms the
- * transaction. `andDangerouslyFinishTransactionAutomaticallyIOS` stays off so StoreKit does not
- * finish before that confirm.
+ * StoreKit 2 purchases. Every membership product is a non-renewing in-app purchase. It is
+ * finished only after the API confirms the transaction. The store does not finish it first.
  */
 export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
   const finishOnce = createFinishOnce();
-  const kinds = new Map<string, BillingPurchaseKind>();
   let accountToken: string | null = null;
   let started: Promise<void> | null = null;
   let listening = false;
@@ -101,15 +91,6 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
     await listStorePrices(productIds, fetchProducts);
   };
 
-  const loadCatalogProducts = async (storefront: string | null): Promise<void> => {
-    const catalog = await api.getCheckoutOptions({ platform: 'ios', storefront });
-    mergeCatalogKinds(kinds, catalog);
-    const productIds = catalog.processors
-      .filter((processor) => processor.processor_id === 'apple')
-      .flatMap((processor) => processor.products.map((product) => product.external_product_id));
-    await loadStoreProducts(productIds);
-  };
-
   const finishPurchase = (purchase: Purchase, externalId: string): Promise<void> =>
     finishOnce(externalId, async () => {
       await finishTransaction({ isConsumable: false, purchase });
@@ -150,32 +131,12 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
     } catch (error) {
       return billingPurchaseOutcome('failed', product.productId, null, billingErrorCode(error));
     }
-    kinds.set(product.productId, product.purchaseKind);
 
     try {
       await loadStoreProducts([product.productId]);
-      const requested =
-        product.purchaseKind === 'auto_renew'
-          ? await requestPurchase({
-              request: {
-                apple: {
-                  andDangerouslyFinishTransactionAutomatically: false,
-                  appAccountToken,
-                  sku: product.productId,
-                },
-              },
-              type: 'subs',
-            })
-          : await requestPurchase({
-              request: {
-                apple: {
-                  andDangerouslyFinishTransactionAutomatically: false,
-                  appAccountToken,
-                  sku: product.productId,
-                },
-              },
-              type: 'in-app',
-            });
+      const requested = await requestPurchase(
+        storekitInAppPurchaseRequest(product.productId, appAccountToken)
+      );
       const purchases = (Array.isArray(requested) ? requested : [requested]).filter(
         isStorePurchase
       );
@@ -203,8 +164,15 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
 
   const restore = async (): Promise<BillingPurchaseOutcome> => {
     await start();
-    const storefront = await getStorefront();
-    await loadCatalogProducts(storefront).catch(() => undefined);
+    let productIds: ReadonlySet<string>;
+    try {
+      const storefront = await getStorefront();
+      const catalog = await api.getCheckoutOptions({ platform: 'ios', storefront });
+      productIds = externalProductIdsForProcessor(catalog, 'apple');
+    } catch (error) {
+      return billingPurchaseOutcome('failed', null, null, billingErrorCode(error));
+    }
+    await loadStoreProducts([...productIds]).catch(() => undefined);
     const available = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
     const records: RestoreStoreRecord[] = [];
     let pendingCount = 0;
@@ -213,18 +181,11 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
       if (normalized === null || normalized.transactionId === null) {
         continue;
       }
-      if (normalized.pending) {
-        pendingCount += 1;
+      if (!productIds.has(normalized.productId)) {
         continue;
       }
-      const purchaseKind = await resolvePurchaseKind({
-        api,
-        kinds,
-        platform: 'ios',
-        productId: normalized.productId,
-        storefront,
-      });
-      if (purchaseKind === null) {
+      if (normalized.pending) {
+        pendingCount += 1;
         continue;
       }
       const externalId = normalized.transactionId;
@@ -232,7 +193,6 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
         externalId,
         externalProductId: normalized.productId,
         finish: () => finishPurchase(purchaseRecord, externalId),
-        purchaseKind,
         signedTransaction: normalized.signedTransaction,
       });
     }

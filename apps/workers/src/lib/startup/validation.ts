@@ -44,7 +44,6 @@ import type { ValidationResult, ValidationSummary } from '@podverse/helpers-conf
 import {
   displayValidationResults,
   validateAppleProcessorEnv,
-  validateBillingExpirationEnv,
   validateBillingSandboxAllowlistEnv,
   validateBoolean,
   validateGooglePlayProcessorEnv,
@@ -53,6 +52,7 @@ import {
   validatePayPalProcessorEnv,
   validatePositiveNumber,
   validateRequired,
+  validateStrikeProcessorEnv,
 } from '@podverse/helpers-config';
 import { buildObservabilityValidationResults } from '@podverse/observability/config';
 
@@ -183,16 +183,6 @@ function validateBase(): ValidationResult[] {
     )
   );
   results.push(validateOptional('BILLING_WEBHOOK_PUBLIC_BASE_URL', 'Billing', 'Skipped'));
-  results.push(
-    validateBillingExpirationEnv(
-      process.env,
-      'BILLING_RENEWAL_ENTITLEMENT_BUFFER_EXPIRATION',
-      172800
-    )
-  );
-  results.push(
-    validateBillingExpirationEnv(process.env, 'BILLING_PAYMENT_FAILURE_GRACE_EXPIRATION', 604800)
-  );
   results.push(validateBillingSandboxAllowlistEnv(process.env));
   return results;
 }
@@ -207,6 +197,7 @@ function validateBillingProcessors(): ValidationResult[] {
     ...validatePayPalProcessorEnv(process.env),
     ...validateAppleProcessorEnv(process.env),
     ...validateGooglePlayProcessorEnv(process.env),
+    ...validateStrikeProcessorEnv(process.env),
   ];
 }
 

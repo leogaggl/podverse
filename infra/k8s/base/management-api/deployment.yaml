@@ -86,6 +86,9 @@ spec:
             - secretRef:
                 name: podverse-billing-paypal-opaque
                 optional: true
+            - secretRef:
+                name: podverse-billing-strike-opaque
+                optional: true
             - configMapRef:
                 name: podverse-product-membership-config
             - configMapRef:

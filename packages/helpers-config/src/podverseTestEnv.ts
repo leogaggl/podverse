@@ -69,8 +69,10 @@ const apiTestEnvBase = (): Record<string, string> => ({
   LEGAL_NAME: 'Test Legal',
   LEGAL_ADDRESS: 'Test Address',
   TERMS_OF_SERVICE_VERSION: '2026-01-01',
+  TERMS_OF_SERVICE_CONTENT_DIR: '',
+  CONTACT_EMAIL: 'contact@example.test',
+  STATS_TRACK_EVENT_RETENTION_DAYS: '30',
   POPULARITY_TRACKING_AGREEMENT_VERSION: '2026-09-11',
-  POPULARITY_TRACKING_AGREEMENT_DATE: '2026-09-11',
   POPULARITY_TRACKING_CONTENT_DIR: '',
   PODCAST_INDEX_AUTH_KEY: 'test',
   PODCAST_INDEX_BASE_URL: 'https://api.podcastindex.org/api/1.8.1',
@@ -95,10 +97,11 @@ const apiTestEnvBase = (): Record<string, string> => ({
   OTEL_TRACES_EXPORT: 'none',
   DEFAULT_ACCOUNT_SETTINGS_LOCALE: 'en',
   // Off in every test profile. These overwrite a developer .env, so local sandbox
-  // credentials cannot register PayPal, Apple, or Google Play during tests.
+  // credentials cannot register PayPal, Apple, Google Play, or Strike during tests.
   BILLING_PAYPAL_ENABLED: '',
   BILLING_APPLE_IAP_ENABLED: '',
   BILLING_GOOGLE_PLAY_ENABLED: '',
+  BILLING_STRIKE_ENABLED: '',
 });
 
 const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, string>> = {
@@ -189,10 +192,11 @@ const managementApiTestEnvBase = (): Record<string, string> => ({
   OTEL_TRACES_EXPORT: 'none',
   OTEL_EXPORTER_OTLP_ENDPOINT: '',
   // Off in every test profile. These overwrite a developer .env, so local sandbox
-  // credentials cannot register PayPal, Apple, or Google Play during tests.
+  // credentials cannot register PayPal, Apple, Google Play, or Strike during tests.
   BILLING_PAYPAL_ENABLED: '',
   BILLING_APPLE_IAP_ENABLED: '',
   BILLING_GOOGLE_PLAY_ENABLED: '',
+  BILLING_STRIKE_ENABLED: '',
 });
 
 const managementProfileOverrides: Record<

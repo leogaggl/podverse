@@ -33,6 +33,14 @@ export function MembershipPlanSelector({
       <div className={styles.options} role="radiogroup" aria-label={legend}>
         {options.map((option) => {
           const selected = option.value === selectedValue;
+          const hasPrice = option.price !== '';
+          const priceLabel = hasPrice
+            ? `${option.label}, ${option.price}${option.period}`
+            : option.label;
+          const accessibleName =
+            option.savingsLabel !== undefined && option.savingsLabel !== ''
+              ? `${priceLabel}, ${option.savingsLabel}`
+              : priceLabel;
           return (
             <label
               key={option.value}
@@ -43,22 +51,27 @@ export function MembershipPlanSelector({
                 name={name}
                 value={option.value}
                 checked={selected}
+                aria-label={accessibleName}
                 onChange={() => {
                   onChange(option.value);
                 }}
                 className={styles.radio}
               />
-              <span className={styles.label}>{option.label}</span>
-              {option.price !== '' ? (
-                <span className={styles.price}>
-                  {option.price}
-                  {option.period !== '' ? (
-                    <span className={styles.period}>{option.period}</span>
+              <span className={styles.label} aria-hidden="true">
+                {option.label}
+              </span>
+              {hasPrice ? (
+                <span className={styles.priceRow} aria-hidden="true">
+                  <span className={styles.price}>{option.price}</span>
+                  {option.savingsLabel !== undefined && option.savingsLabel !== '' ? (
+                    <span className={styles.savings}>{option.savingsLabel}</span>
                   ) : null}
                 </span>
               ) : null}
-              {option.savingsLabel !== undefined && option.savingsLabel !== '' ? (
-                <span className={styles.savings}>{option.savingsLabel}</span>
+              {hasPrice && option.period !== '' ? (
+                <span className={styles.period} aria-hidden="true">
+                  {option.period}
+                </span>
               ) : null}
             </label>
           );

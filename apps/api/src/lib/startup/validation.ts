@@ -16,7 +16,6 @@ import {
   displayValidationResultsSilent,
   isPodverseStartupValidationSilent,
   validateAppleProcessorEnv,
-  validateBillingExpirationEnv,
   validateBillingSandboxAllowlistEnv,
   validateBoolean,
   validateConditionalOptional,
@@ -26,6 +25,7 @@ import {
   validatePayPalProcessorEnv,
   validatePositiveNumber,
   validateRequired,
+  validateStrikeProcessorEnv,
 } from '@podverse/helpers-config';
 import { buildObservabilityValidationResults } from '@podverse/observability/config';
 
@@ -389,8 +389,11 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
     results.push(validateOptional('TERMS_OF_SERVICE_VERSION', 'Legal'));
   }
 
+  results.push(validateOptional('TERMS_OF_SERVICE_CONTENT_DIR', 'Legal'));
+  results.push(validateOptional('CONTACT_EMAIL', 'Legal'));
+  results.push(validateOptional('STATS_TRACK_EVENT_RETENTION_DAYS', 'Legal'));
+
   results.push(validateRequired('POPULARITY_TRACKING_AGREEMENT_VERSION', 'Legal'));
-  results.push(validateRequired('POPULARITY_TRACKING_AGREEMENT_DATE', 'Legal'));
   results.push(validateOptional('POPULARITY_TRACKING_CONTENT_DIR', 'Legal'));
   results.push(validateOptional('MANAGED_COPY_CONTENT_DIR', 'Legal'));
 
@@ -438,21 +441,12 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   // Billing (optional; each processor runs only when its *_ENABLED flag is "true", and then
   // every key it needs is required)
   results.push(validateOptional('BILLING_WEBHOOK_PUBLIC_BASE_URL', 'Billing', 'Skipped'));
-  results.push(
-    validateBillingExpirationEnv(
-      process.env,
-      'BILLING_RENEWAL_ENTITLEMENT_BUFFER_EXPIRATION',
-      172800
-    )
-  );
-  results.push(
-    validateBillingExpirationEnv(process.env, 'BILLING_PAYMENT_FAILURE_GRACE_EXPIRATION', 604800)
-  );
   results.push(validateBillingSandboxAllowlistEnv(process.env));
   results.push(validateBoolean('BILLING_ALLOW_TEST_ADAPTER', 'Billing'));
   results.push(...validatePayPalProcessorEnv(process.env));
   results.push(...validateAppleProcessorEnv(process.env));
   results.push(...validateGooglePlayProcessorEnv(process.env));
+  results.push(...validateStrikeProcessorEnv(process.env));
 
   // MetaBoost AppAssertion (optional pair)
   results.push(...validateMetaboostAppAssertionPair());

@@ -1,8 +1,9 @@
 appId: com.podverse.app.next
 name: Membership Checkout
 ---
-# Signed-in store checkout uses the fake billing client. Auto-renew starts checked.
-# Purchase posts a test-processor payment, then the screen returns to Membership.
+# Signed-in store checkout uses the fake billing client. One purchase posts a test-processor
+# payment. The seeded trial already has time left, so checkout shows when the added time starts.
+# After the purchase, the success screen stays up briefly, then Membership shows the expiry.
 # API-backed. Re-seed so ios and android expose the test checkout channel.
 
 - runFlow: shared/launch-and-connect.yaml
@@ -26,25 +27,25 @@ name: Membership Checkout
     visible:
       id: membership-checkout-ready
     timeout: ${TIMEOUT_SLOW}
-# Restore stays collapsed under Troubleshooting until the row is opened.
+# The seeded store checkout does not offer Strike, so the web link stays off.
+- assertNotVisible:
+    id: membership-checkout-strike
 - assertVisible:
-    id: membership-checkout-troubleshooting-toggle
-- tapOn:
-    id: membership-checkout-troubleshooting-toggle
+    id: membership-checkout-intro
 - assertVisible:
-    id: membership-checkout-restore-help
-- assertVisible:
-    id: membership-checkout-restore
-- takeScreenshot: membership-checkout-troubleshooting
-- assertVisible:
-    id: membership-checkout-auto-renew
-    checked: true
+    id: membership-checkout-cadence-monthly
 - tapOn:
     id: membership-extend-purchase
 - extendedWaitUntil:
     visible:
-      id: more-membership-screen
+      id: membership-checkout-success
     timeout: ${TIMEOUT_SLOW}
-- assertVisible:
-    id: more-membership-status
+- extendedWaitUntil:
+    visible:
+      id: more-membership-screen
+    timeout: ${TIMEOUT_SLOWER}
+- extendedWaitUntil:
+    visible:
+      id: more-membership-expires
+    timeout: ${TIMEOUT_SLOW}
 - takeScreenshot: membership-checkout-active
