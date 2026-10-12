@@ -61,7 +61,9 @@ Build packages in this order (dependencies must be built first):
    - `helpers-backend` (backend-specific utilities)
    - `helpers-browser` (browser-specific utilities)
    - `helpers-config` (configuration validation)
-4. `external-services-firebase`, `external-services-paypal`, `external-services-podcast-index` (parallel)
+4. `external-services-firebase`, `external-services-paypal`, `external-services-strike`,
+   `external-services-apple-app-store`, `external-services-google-play`,
+   `external-services-object-storage`, `external-services-podcast-index` (parallel)
 5. `orm`
 6. `notifications`, `billing` (parallel)
 7. `parser`
