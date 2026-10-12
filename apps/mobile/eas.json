@@ -9,6 +9,7 @@
     },
     "internal": {
       "extends": "base",
+      "environment": "development",
       "android": {
         "autoIncrement": true,
         "buildType": "apk"
@@ -23,6 +24,7 @@
     },
     "beta": {
       "extends": "base",
+      "environment": "preview",
       "android": {
         "autoIncrement": true
       },
@@ -34,6 +36,7 @@
     },
     "production": {
       "extends": "base",
+      "environment": "production",
       "android": {
         "autoIncrement": true
       },
@@ -50,7 +53,10 @@
         "releaseStatus": "draft",
         "track": "internal"
       },
-      "ios": {}
+      "ios": {
+        "ascAppId": "REPLACE_WITH_ASC_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+      }
     },
     "beta-rollout": {
       "android": {
@@ -60,7 +66,10 @@
     },
     "production": {
       "android": {},
-      "ios": {}
+      "ios": {
+        "ascAppId": "REPLACE_WITH_ASC_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+      }
     }
   }
 }

@@ -65,9 +65,9 @@ Fall back to the current placeholder with a `core.warning` when the compose scri
 notes problem never blocks image promotion that already happened. Also append the composed body to
 `$GITHUB_STEP_SUMMARY`.
 
-## `scripts/mobile/eas-android.sh`
+## `scripts/mobile/eas-store.sh`
 
-EAS cannot set Play release notes. In `submit`:
+EAS cannot set Play release notes. In Android `submit`:
 
 - Print `compose --version <target> --format play` before the confirmation prompt so the operator
   sees what to paste into Play Console.

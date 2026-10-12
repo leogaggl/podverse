@@ -8,13 +8,51 @@ This runbook covers Track 4 release operations for the next-gen mobile app (`com
 - Keep all builds/submits scoped to the `.next` app identity until convergence gate `4.25` is
   explicitly approved.
 
-## Branch-to-channel map
+## On-demand store builds (decision)
 
-| Branch    | Workflow                                         | EAS profile  | Distribution target             |
-| --------- | ------------------------------------------------ | ------------ | ------------------------------- |
-| `develop` | `.github/workflows/mobile-internal.yml`          | `internal`   | Internal testing                |
-| `staging` | `.github/workflows/mobile-staging-beta.yml`      | `beta`       | Beta testing                    |
-| `main`    | `.github/workflows/mobile-production-submit.yml` | `production` | Production submit (manual gate) |
+Mobile store builds are **operator-triggered only**. Merging to `staging` or `main` publishes
+**server images only**. It never builds or submits the mobile app.
+
+| EAS profile  | EAS environment | Distribution target                         | How to ship                                      |
+| ------------ | --------------- | ------------------------------------------- | ------------------------------------------------ |
+| `internal`   | `development`   | Dev client / internal distribution          | Local Make when needed (not a store track)       |
+| `beta`       | `preview`       | TestFlight internal + Play internal (draft) | `make mobile_eas_ios_*` / `mobile_eas_android_*` |
+| `production` | `production`    | App Store / Play production                 | Same Make targets with `PROFILE=production`      |
+
+Signing and `EXPO_PUBLIC_*` config live on EAS. Local and any future GitHub `workflow_dispatch`
+button must read the same profile → environment map so they produce the same binary. Do **not**
+add push/merge triggers that call `eas build` or `eas submit`. See
+[`.cursor/rules/mobile-store-builds-on-demand.mdc`](/.cursor/rules/mobile-store-builds-on-demand.mdc).
+
+### Release commands (**Mobile** tab)
+
+```bash
+# Android — beta .aab → Play internal draft (testers get nothing until Console rollout)
+make mobile_eas_android_build
+make mobile_eas_android_submit
+make mobile_eas_android_submit ROLLOUT=1   # type the versionCode to publish the track
+
+# iOS — beta .ipa → TestFlight (type the build number; no draft state)
+make mobile_eas_ios_build
+make mobile_eas_ios_submit
+
+# Inspect
+make mobile_eas_android_list
+make mobile_eas_ios_list
+make mobile_eas_android_version
+make mobile_eas_ios_version
+```
+
+Defaults: `PROFILE=beta`. For production binaries: `PROFILE=production`. Store profiles refuse a
+dirty working tree. The script runs with `EXPO_NO_DOTENV=1` so a local `apps/mobile/.env` cannot
+override the EAS environment.
+
+Before the first iOS submit, replace `REPLACE_WITH_ASC_APP_ID` and `REPLACE_WITH_APPLE_TEAM_ID` in
+[`apps/mobile/eas.json`](/apps/mobile/eas.json) `submit.beta.ios` (and `submit.production.ios`).
+Store the App Store Connect API key and Play service account on EAS (`eas credentials`).
+
+Alpha / internal-tester API pointing: set `EXPO_PUBLIC_*` on the EAS **`preview`** environment
+(see readiness and [DOCS-MOBILE-VERSIONING-RELEASE.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md)).
 
 ## OTA policy (EAS Update)
 
@@ -29,8 +67,10 @@ This runbook covers Track 4 release operations for the next-gen mobile app (`com
 
 - Source of truth: `apps/mobile/eas.json`.
 - Required profiles: `internal`, `beta`, `production`. Each extends `base`, which pins the build
-  server's Node to the repo's major version.
-- Run `eas` from `apps/mobile`; the CLI has no flag for another project directory.
+  server's Node to the repo's major version, and sets `environment` so EAS injects the matching
+  env-var set at build time.
+- Run `eas` from `apps/mobile` (or via `scripts/mobile/eas-store.sh`); the CLI has no flag for
+  another project directory.
 - The build server receives only committed-or-unignored files, so shared package `dist/` and
   compiled i18n catalogs do not exist there. `apps/mobile/package.json` hooks rebuild them:
   `eas-build-pre-install` runs `scripts/mobile/eas-build-pre-install.sh` (root `npm ci` plus the
@@ -48,8 +88,8 @@ This runbook covers Track 4 release operations for the next-gen mobile app (`com
 
 ## Secrets and signing checklist
 
-- CI runtime auth:
-  - `EXPO_TOKEN` (required for authenticated EAS operations)
+- Local / optional CI runtime auth:
+  - Expo login (`npx eas-cli@latest login` from `apps/mobile`), or `EXPO_TOKEN` for a robot account
 - Signing strategy:
   - Prefer EAS-managed credentials for iOS certs/profiles and Android keystores.
   - Keep `.next` credentials isolated from current production-app credentials.

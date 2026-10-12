@@ -25,9 +25,13 @@ test -f apps/mobile/eas.json
 test -f apps/mobile/e2e/hello-world.yaml
 test -f apps/mobile/e2e/TEST-ENV.md
 test -f docs/operations/mobile/MOBILE-RELEASE-RUNBOOK.md
-test -f .github/workflows/mobile-internal.yml
+test -f scripts/mobile/eas-store.sh
+test ! -f .github/workflows/mobile-internal.yml
+test ! -f .github/workflows/mobile-staging-beta.yml
+test ! -f .github/workflows/mobile-production-submit.yml
 test ! -f .github/workflows/mobile-e2e-stub.yml
 rg -n 'lint:mobile|apps/mobile' scripts/ci/lint-with-summary.mjs
+rg -n 'npm --prefix apps/mobile run test' .github/workflows/ci.yml
 # Mobile Maestro runs locally only (not in /test GitHub CI), same policy as web E2E.
 ```
 

@@ -1,0 +1,32 @@
+---
+description: Mobile store builds are on-demand only; never tie eas build/submit to staging or main merges.
+alwaysApply: true
+---
+
+# Mobile store builds are on-demand
+
+Merging to `staging` or `main` publishes **server images only**. It must **never** start an EAS
+build or store submit for `apps/mobile`.
+
+## Do
+
+- Ship store binaries with local Make targets that call [`scripts/mobile/eas-store.sh`](scripts/mobile/eas-store.sh):
+  `make mobile_eas_ios_build` / `mobile_eas_android_build`, then the matching `_submit` targets.
+- Keep `EXPO_PUBLIC_*` and signing on EAS (profile → `environment` in [`apps/mobile/eas.json`](apps/mobile/eas.json)).
+- If a GitHub Actions path is added later, use **`workflow_dispatch` only**, behind an approval
+  Environment that holds `EXPO_TOKEN`. No `push:` / `pull_request:` triggers for `eas build` or
+  `eas submit`.
+
+## Don't
+
+- Do not add or restore workflows that run `eas build` / `eas submit` on push to `develop`,
+  `staging`, or `main`.
+- Do not couple mobile store jobs into [`publish-staging.yml`](.github/workflows/publish-staging.yml)
+  or [`publish-main.yml`](.github/workflows/publish-main.yml) with `needs:`.
+- Do not treat the mobile `npm ci` step in server publish validate as a store release — it exists
+  only so lint can type-check `apps/mobile`.
+
+## References
+
+- [MOBILE-RELEASE-RUNBOOK.md](docs/operations/mobile/MOBILE-RELEASE-RUNBOOK.md)
+- [DOCS-MOBILE-VERSIONING-RELEASE.md](docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md)

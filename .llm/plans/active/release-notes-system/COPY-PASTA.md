@@ -72,7 +72,7 @@ Do not run tests during agent work; end with operator verification commands.
 ```
 Read and execute .llm/plans/active/release-notes-system/04-ci-and-publish-integration.md
 
-You own .github/workflows/*, scripts/publish/*, scripts/mobile/eas-android.sh, and the release docs.
+You own .github/workflows/*, scripts/publish/*, scripts/mobile/eas-store.sh, and the release docs.
 Do not touch apps/*/release-notes/*. Do not run any publish script.
 
 Do not run tests during agent work; end with the operator release order as commands.

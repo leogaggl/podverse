@@ -48,13 +48,18 @@ So a TestFlight build might be `5.5.0 (1042)` and the production build of the sa
 
 ## Mapping mobile onto develop → staging → main
 
-Reuse your branch model, but map each branch to a **store channel** instead of an image retag:
+Reuse the branch model for **server** promotion. Mobile store channels are **not** tied to branch
+pushes. Merging to `staging` or `main` never builds or submits the app.
 
-| Branch    | Server result                 | Mobile result                                             |
-| --------- | ----------------------------- | --------------------------------------------------------- |
-| `develop` | dev/test images               | Internal builds (Expo dev client / internal distribution) |
-| `staging` | `X.Y.Z-staging.N` images      | **TestFlight** (iOS) + **Play Closed/Internal testing**   |
-| `main`    | `X.Y.Z` promoted (no rebuild) | Submit build to **App Store / Play production review**    |
+| Branch    | Server result                 | Mobile (on demand only)                                           |
+| --------- | ----------------------------- | ----------------------------------------------------------------- |
+| `develop` | dev/test images               | Optional local `internal` (dev client) when you need one          |
+| `staging` | `X.Y.Z-staging.N` images      | Operator runs `beta` via Make → TestFlight + Play internal draft  |
+| `main`    | `X.Y.Z` promoted (no rebuild) | Operator runs `production` via Make → App Store / Play when ready |
+
+EAS profiles pin environments in [`apps/mobile/eas.json`](/apps/mobile/eas.json): `internal` →
+`development`, `beta` → `preview`, `production` → `production`. Put alpha `EXPO_PUBLIC_*` values on
+the **preview** environment so a beta build points at alpha without a local `.env`.
 
 Key differences to design for:
 
@@ -62,18 +67,18 @@ Key differences to design for:
   already-tested build to review," not a retag. Prefer promoting the _exact binary_ you tested in
   TestFlight/closed testing to production (both stores support this) so you ship what you QA'd.
 - **Review latency is part of the schedule.** A `main` merge ships servers in minutes but ships
-  mobile only after store approval. Plan releases so the API/web side does not assume all clients
-  upgraded.
-- **Decouple the workflows.** Add separate CI workflows (e.g. `mobile-internal.yml`,
-  `mobile-testflight.yml`, `mobile-production.yml`) on **macOS runners**, triggered by the same
-  branches but **not** part of the server `publish-staging` / `publish-main` jobs. A failed or slow
-  mobile build must never block a server release, and vice versa.
+  mobile only after an on-demand build **and** store approval. Plan releases so the API/web side
+  does not assume all clients upgraded.
+- **Decouple completely from server publish.** Local Make (`scripts/mobile/eas-store.sh`) is the
+  release path. Do not attach `eas build` / `eas submit` to push or merge events. A future GitHub
+  `workflow_dispatch` button is optional and must stay behind an approval environment. See
+  [MOBILE-RELEASE-RUNBOOK.md](/docs/operations/mobile/MOBILE-RELEASE-RUNBOOK.md).
 
 ## Tooling recommendation
 
-- **EAS Build + EAS Submit** (Expo's build/submit service) or **Fastlane** to build, sign, and
-  upload to TestFlight / Play tracks from CI. Either keeps signing credentials out of developer
-  machines and makes builds reproducible.
+- **EAS Build + EAS Submit** via `scripts/mobile/eas-store.sh` (and `make mobile_eas_ios_*` /
+  `mobile_eas_android_*`). Signing credentials stay on EAS; the Mac (or a future Actions runner)
+  only holds an Expo login / `EXPO_TOKEN`.
 - **Store metadata as code** (Fastlane `deliver`/`supply` or EAS metadata) so release notes,
   screenshots, and review info are versioned in the repo.
 - **OTA updates (EAS Update) for JS-only changes**, with care: you may push JS bug fixes between
@@ -92,6 +97,5 @@ Because old mobile clients persist:
 ## Bottom line
 
 Keep the single `X.Y.Z` marketing version for consistency, add a mobile-only monotonic build number,
-map `develop/staging/main` to internal/TestFlight-closed/production channels, and run mobile release
-on its own macOS CI track separate from the container promotion pipeline. Design the API to outlive
-old clients.
+ship store builds on demand (not on every staging/main merge), and keep mobile release separate from
+the container promotion pipeline. Design the API to outlive old clients.

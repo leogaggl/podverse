@@ -164,7 +164,8 @@ Auto now-playing. **Do not** use `react-native-track-player`.
 - **Unit tests (pure modules, no device):** the bridge command serialization + playback error
   taxonomy suites run under Vitest. `apps/mobile` is a standalone install (excluded from root
   `npm run test:unit`), so run them with `npm --prefix apps/mobile run test` (config:
-  [vitest.config.ts](vitest.config.ts); CI touchpoint: `mobile-internal.yml` on `apps/mobile/**`).
+  [vitest.config.ts](vitest.config.ts); CI touchpoint: `/test` in
+  [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) after mobile `npm ci`).
 - Car foundation constraints:
   [mobile-carplay-android-auto](/.cursor/rules/mobile-carplay-android-auto.mdc). Seamless car
   acceptance is **Track 12** (12.5–12.6, 12.17–12.18), not PG-2b.
@@ -276,23 +277,32 @@ Do **not** wrap `mobile:ios` / `mobile:android` with `./scripts/nix/with-env`. T
 internally (see § Native builds and the `-index-store-path` clang error); they only need `node` on
 PATH, which direnv already provides.
 
-### Play Store bundle (EAS)
+### Store bundles (EAS, on demand)
 
-The `.aab` for a Play Console testing track is built in the EAS cloud, not locally. The targets
-wrap [`scripts/mobile/eas-android.sh`](../../scripts/mobile/eas-android.sh) and default to the
-`beta` profile (`PROFILE=production` for the other store profile):
+Store binaries are built in the EAS cloud on demand — never on merge to `staging` / `main`. The
+targets wrap [`scripts/mobile/eas-store.sh`](../../scripts/mobile/eas-store.sh) and default to the
+`beta` profile (`PROFILE=production` for production). See
+[MOBILE-RELEASE-RUNBOOK.md](../../docs/operations/mobile/MOBILE-RELEASE-RUNBOOK.md).
 
 ```bash
-make mobile_eas_android_build     # build, wait, download to .artifacts/mobile-builds/
-make mobile_eas_android_download  # newest finished build (BUILD_ID=<id> for one build)
-make mobile_eas_android_submit    # upload it as a Play draft (ROLLOUT=1 publishes to the track)
-make mobile_eas_android_list      # recent builds: versionCode, SDK, commit
-make mobile_eas_android_version   # remote versionCode the next build increments
+# Android (.aab → Play internal draft)
+make mobile_eas_android_build
+make mobile_eas_android_download  # BUILD_ID=<id> for one build
+make mobile_eas_android_submit    # ROLLOUT=1 publishes to the track
+make mobile_eas_android_list
+make mobile_eas_android_version
+
+# iOS (.ipa → TestFlight; type the build number)
+make mobile_eas_ios_build
+make mobile_eas_ios_submit
+make mobile_eas_ios_list
+make mobile_eas_ios_version
 ```
 
-`build` and `submit` show what they will do and ask first; a rollout also asks you to type the
-versionCode. EAS must be logged in to the `podverse` account (`npx eas-cli@latest login` from `apps/mobile`).
-Play upload steps: [BILLING-GOOGLE-PLAY-SANDBOX.md](../../docs/billing/BILLING-GOOGLE-PLAY-SANDBOX.md#app-on-a-testing-track).
+`build` and `submit` show the EAS environment / `EXPO_PUBLIC_*` summary and ask first. Store
+profiles refuse a dirty tree. EAS must be logged in to the `podverse` account
+(`npx eas-cli@latest login` from `apps/mobile`). Play upload steps:
+[BILLING-GOOGLE-PLAY-SANDBOX.md](../../docs/billing/BILLING-GOOGLE-PLAY-SANDBOX.md#app-on-a-testing-track).
 
 ## Native toolchain prerequisites (outside Nix)
 
@@ -1039,47 +1049,40 @@ Google Play Console checklist (operator):
 - Do not upload `com.podverse.app.next` artifacts to production Podverse listing/tracks.
 - Keep signing and release credentials isolated from existing production app workflows.
 
-### Workflow isolation from server publish
+### Isolation from server publish
 
-Mobile release workflows are intentionally isolated from server release workflows:
-
-- Mobile: `.github/workflows/mobile-internal.yml`, `mobile-staging-beta.yml`,
-  `mobile-production-submit.yml`
-- Server publish: `.github/workflows/publish-staging.yml`, `publish-main.yml`
-
-Do not add `needs:` coupling between these groups. Mobile workflows must never block server publish
-jobs, and server publish workflows must not depend on mobile jobs.
+Mobile store builds are **on-demand Make targets**, not GitHub push workflows. Server publish
+(`.github/workflows/publish-staging.yml`, `publish-main.yml`) must never call `eas build` /
+`eas submit` and must never gain a `needs:` edge on a mobile store job. See
+[mobile-store-builds-on-demand](/.cursor/rules/mobile-store-builds-on-demand.mdc).
 
 ### Runner and signing guidance (PG-3)
 
 Runner choice by job type:
 
 - iOS simulator E2E and iOS-native mobile jobs use `runs-on: macos-latest` (Xcode/simulator required).
-- EAS cloud builds can run from macOS or Linux orchestration jobs because compile/signing happens in
-  EAS infrastructure; this repo currently keeps mobile workflow stubs on macOS for consistency.
+- EAS cloud builds run on Expo's servers; local Make (or a future `workflow_dispatch` on
+  `ubuntu-latest`) only orchestrates the CLI.
 - Android emulator UI testing can run on macOS or Linux with Android SDK/AVD, but default test target
   remains `Pixel_6_Pro_API_33` (no tablet AVD default).
 
 Signing and secrets checklist:
 
-- Use `EXPO_TOKEN` in CI runtime for authenticated EAS CLI operations.
 - Prefer EAS-managed credentials for iOS certificates/profiles and Android keystores.
 - Keep `.next` app credentials isolated from current production app credentials until convergence
   decision step 4.25.
 - Never commit signing artifacts, keystores, `.p12`, provisioning profiles, or API keys to git.
 
-### Branch channels and versions (PG-3)
+### Profiles, environments, and versions (PG-3)
 
-Branch-to-channel mapping for the next-gen `.next` app:
+| EAS profile  | EAS environment | Distribution target                         | Trigger                           |
+| ------------ | --------------- | ------------------------------------------- | --------------------------------- |
+| `internal`   | `development`   | Dev client / internal distribution          | Local Make when needed            |
+| `beta`       | `preview`       | TestFlight internal + Play internal (draft) | `make mobile_eas_{ios,android}_*` |
+| `production` | `production`    | App Store / Play production                 | Same, `PROFILE=production`        |
 
-| Branch    | Workflow                                         | Distribution channel target                           |
-| --------- | ------------------------------------------------ | ----------------------------------------------------- |
-| `develop` | `.github/workflows/mobile-internal.yml`          | Internal-only testing (`internal` profile)            |
-| `staging` | `.github/workflows/mobile-staging-beta.yml`      | Beta channel (`beta` profile; TestFlight/Play beta)   |
-| `main`    | `.github/workflows/mobile-production-submit.yml` | Production submit (`production` profile, manual gate) |
-
-Production submit is manual-gated and should promote only QA-validated binaries. Rollouts should
-stay staged (App Store phased release / Play staged rollout), not instant 100% rollout.
+Ship only QA-validated binaries. Rollouts should stay staged (App Store phased release / Play staged
+rollout), not instant 100% rollout.
 
 Versioning policy:
 

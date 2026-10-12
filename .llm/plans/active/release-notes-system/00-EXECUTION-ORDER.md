@@ -11,7 +11,7 @@ Phases run in sequence. Wait for every prompt in a phase to finish before starti
 ## Phase 2 — podverse integration (parallel, 2 agents)
 
 - **04 — CI and publish integration.** Owns `.github/workflows/*`, `scripts/publish/*`,
-  `scripts/mobile/eas-android.sh`, `scripts/publish/README.md`.
+  `scripts/mobile/eas-store.sh`, `scripts/publish/README.md`.
 - **05 — Seed podverse current version.** Owns `apps/*/release-notes/*` only.
 
 The two touch no file in common. 05 must not edit scripts; if a script bug blocks it, stop and

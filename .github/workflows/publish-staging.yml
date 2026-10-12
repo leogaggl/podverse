@@ -59,6 +59,20 @@ jobs:
       - name: Build all packages
         run: npm run build:packages
 
+      - name: Install mobile dependencies
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if npm ci --prefix apps/mobile; then
+              break
+            fi
+            echo "npm ci --prefix apps/mobile failed (attempt $attempt/5); retrying in 15s..." >&2
+            sleep 15
+            if [[ "$attempt" -eq 5 ]]; then
+              exit 1
+            fi
+          done
+
       - name: Lint
         run: npm run lint
 

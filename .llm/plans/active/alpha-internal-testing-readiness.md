@@ -28,14 +28,18 @@ release plumbing and an alpha environment that has drifted, not missing screens:
    - Confirm the new cron and worker jobs (billing reconcile, auto-download, notifications) are in
      the overlay.
    - Firebase push for the `.next` app ids, including the APNs key for the iOS bundle.
-3. **Point store builds at alpha.** Set EAS environment variables for the `beta` profile:
-   `EXPO_PUBLIC_MOBILE_API_BASE_URL` (alpha API, `/api/v2`), `EXPO_PUBLIC_MOBILE_WEB_BASE_URL`
-   (otherwise universal links default to `podverse.fm`), `EXPO_PUBLIC_CONTACT_EMAIL`,
-   `EXPO_PUBLIC_MOBILE_BILLING`, `EXPO_PUBLIC_MOBILE_PUSH_PROVIDER`. Leave
-   `EXPO_PUBLIC_MOBILE_V4V_ENABLED` empty so the V4V placeholder stays hidden.
-4. **Ship from the `beta` profile.** TestFlight internal and the Play internal track both take
-   store-distribution builds. Fill in `submit.beta.ios` (App Store Connect app id / API key); the
-   Make targets cover Android only.
+3. **Point store builds at alpha.** On expo.dev, set EAS **preview** environment variables (the
+   `beta` profile uses `environment: "preview"`): `EXPO_PUBLIC_MOBILE_API_BASE_URL` (alpha API,
+   `/api/v2`), `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (otherwise universal links default to
+   `podverse.fm`), `EXPO_PUBLIC_CONTACT_EMAIL`, `EXPO_PUBLIC_MOBILE_BILLING`,
+   `EXPO_PUBLIC_MOBILE_PUSH_PROVIDER`. Leave `EXPO_PUBLIC_MOBILE_V4V_ENABLED` empty so the V4V
+   placeholder stays hidden. Merging to `staging` does **not** build mobile.
+4. **Ship from the `beta` profile on demand.** From the **Mobile** tab:
+   `make mobile_eas_ios_build` / `make mobile_eas_android_build`, then
+   `make mobile_eas_ios_submit` / `make mobile_eas_android_submit` (Play stays a draft until
+   Console rollout or `ROLLOUT=1`). Replace `REPLACE_WITH_ASC_APP_ID` and
+   `REPLACE_WITH_APPLE_TEAM_ID` in `apps/mobile/eas.json` before the first iOS submit; store the
+   ASC API key and Play service account on EAS.
 
 ## 2. Store account setup (one-time)
 
