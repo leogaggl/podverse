@@ -1,4 +1,4 @@
-import he from 'he';
+import { decode } from 'he';
 
 function stripHtmlTags(input?: string): string {
   if (!input) {
@@ -11,7 +11,7 @@ export function decodeHtmlEntities(input?: string): string {
   if (!input) {
     return '';
   }
-  return he.decode(input);
+  return decode(input);
 }
 
 export function stripAndDecodeHtml(input?: string): string {
