@@ -12,8 +12,8 @@ overrides so nested installs (including `next` optional/`postcss`) resolve to pa
 | ----------------------------- | -------------- | -------------------------------------------- |
 | `postcss` / `next.postcss`    | `8.5.23`       | PostCSS XSS / sourceMappingURL HIGH+moderate |
 | `sharp` / `next.sharp`        | `0.35.3`       | libvips HIGH via nested Next sharp           |
-| `uuid` (direct app use)       | `14.0.2`       | Direct UUID use; Firebase chain listed below |
-| `fast-xml-parser`             | `5.10.1`       | DOCTYPE entity-expansion HIGH                |
+| `uuid` (direct app use)       | `14.0.3`       | Direct UUID use; Firebase chain listed below |
+| `fast-xml-parser`             | `5.11.2`       | DOCTYPE entity-expansion HIGH                |
 | `brace-expansion`             | `5.0.12`       | unbounded expansion DoS HIGH                 |
 
 After changing overrides, regenerate the lockfile cleanly (`rm package-lock.json` then `npm install`,
