@@ -1,5 +1,6 @@
-import { MediumEnum } from '@podverse/helpers/medium';
 import { describe, expect, it } from 'vitest';
+
+import { MediumEnum } from '@podverse/helpers/medium';
 
 import type { MediaEngineSourceMeta } from '../../../modules/podverse-media-engine';
 import {

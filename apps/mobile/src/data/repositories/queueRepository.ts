@@ -12,13 +12,13 @@ import { isMusicMediumId } from '@podverse/helpers/medium';
 // Import from the request module (not the auth barrel) to keep the React AuthProvider out of the
 // data-layer module graph.
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
-import { publishQueueDataChanged } from '../../sync/queueDataRevision';
-import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import {
   buildItemLabeledEnclosures,
   DEFAULT_ENCLOSURE_SELECTED_PARAMS,
   resolveItemEnclosureUrl,
 } from '../../lib/playback/resolveEnclosureUrl';
+import { publishQueueDataChanged } from '../../sync/queueDataRevision';
+import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { NativeCacheQueueEntry } from '../nativeCache';
 import { projectQueueSnapshotToNativeCache } from '../nativeCache';
 import { readThroughOrFetch, shouldSkipOpportunisticRemoteFetch } from '../sync';

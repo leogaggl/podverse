@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { isMeaningfulPlaybackEvent } from '@podverse/helpers/playbackEvents';
-import type { PlaybackEventKind } from '@podverse/helpers/playbackEvents';
 import { isPlainObject } from '@podverse/helpers/guards';
+import type { PlaybackEventKind } from '@podverse/helpers/playbackEvents';
+import { isMeaningfulPlaybackEvent } from '@podverse/helpers/playbackEvents';
 
 import { nativePlaybackBridge } from '../bridge/nativePlaybackBridge';
-import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import type { PlaybackOutboxResourceKind } from '../data/repositories/playbackOutbox';
+import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import type { LastPlaybackKind } from '../lib/playback/lastPlaybackStorage';
 import { writeLastPlaybackSnapshot } from '../lib/playback/lastPlaybackStorage';
 
@@ -146,7 +146,7 @@ export type DrainPlaybackJournalParams = {
 export const drainPlaybackJournal = async (
   params: DrainPlaybackJournalParams
 ): Promise<{ drained: number }> => {
-  let raw: string | null = null;
+  let raw: string | null;
   try {
     raw = await nativePlaybackBridge.readPlaybackJournal();
   } catch {

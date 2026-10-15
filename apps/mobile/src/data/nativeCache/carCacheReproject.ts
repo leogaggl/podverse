@@ -33,14 +33,6 @@ import {
 } from '../repositories/queueProjectionHelpers';
 import type { SubscribedChannel } from '../repositories/subscriptionsMerge';
 import { subscriptionsRepository } from '../repositories/subscriptionsRepository';
-import {
-  projectHistoryIndexToNativeCache,
-  projectLibraryBrowseIndexToNativeCache,
-  projectLibraryChildrenToNativeCache,
-  projectLiveIndexToNativeCache,
-  projectQueueSnapshotAvToNativeCache,
-  projectQueueSnapshotMusicToNativeCache,
-} from './projection';
 import type {
   NativeCacheBrowseNode,
   NativeCacheChildItem,
@@ -48,6 +40,14 @@ import type {
   NativeCacheLiveEntry,
   NativeCacheMediumBucket,
   NativeCacheQueueEntry,
+} from './projection';
+import {
+  projectHistoryIndexToNativeCache,
+  projectLibraryBrowseIndexToNativeCache,
+  projectLibraryChildrenToNativeCache,
+  projectLiveIndexToNativeCache,
+  projectQueueSnapshotAvToNativeCache,
+  projectQueueSnapshotMusicToNativeCache,
 } from './projection';
 
 const CHILDREN_WINDOW = 50;

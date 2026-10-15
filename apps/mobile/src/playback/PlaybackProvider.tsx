@@ -99,12 +99,6 @@ import {
 import { resolveE2eMediaUrl } from '../lib/e2e/resolveE2eMediaUrl';
 import { perfCount } from '../lib/perf/perfSpans';
 import {
-  adoptedItemNeedsEnrichment,
-  buildAdoptedPlaybackTarget,
-  buildChannelFromEngineMeta,
-  buildItemFromEngineMeta,
-} from '../lib/playback/engineSourceAdoption';
-import {
   buildChapterPlaybackTarget,
   buildClipPlaybackTarget,
   buildSoundbitePlaybackTarget,
@@ -114,6 +108,12 @@ import {
   playbackTargetToStatsTargets,
   resolveItemPlaybackStart,
 } from '../lib/playback/buildPlaybackTarget';
+import {
+  adoptedItemNeedsEnrichment,
+  buildAdoptedPlaybackTarget,
+  buildChannelFromEngineMeta,
+  buildItemFromEngineMeta,
+} from '../lib/playback/engineSourceAdoption';
 import type { LastPlaybackSnapshot } from '../lib/playback/lastPlaybackStorage';
 import {
   clearLastPlaybackSnapshot,
@@ -2362,7 +2362,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         return true;
       }
 
-      let stored: DTOItem | null = null;
+      let stored: DTOItem | null;
       let storedChannel: DTOChannel | null = null;
       try {
         stored = await playbackContentRepository.getStoredItemByIdText(meta.idText);

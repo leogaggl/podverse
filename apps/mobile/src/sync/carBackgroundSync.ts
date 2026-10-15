@@ -27,7 +27,7 @@ export type CarSyncIdentity = {
  * last-synced queue list. Works with the phone UI closed, so it never waits on React state.
  */
 export const resolveCarSyncIdentity = async (): Promise<CarSyncIdentity> => {
-  let accountIdText: string | null = null;
+  let accountIdText: string | null;
   try {
     accountIdText = (await accountRepository.getSnapshot())?.id_text ?? null;
   } catch {

@@ -8,8 +8,8 @@ import type {
 
 import type { DownloadRecord } from '../../downloads';
 import { downloadManager } from '../../downloads/downloadManager';
-import { downloadStore } from '../../downloads/downloadStore';
 import { resolveStoredDownloadFilePath } from '../../downloads/downloadStorage';
+import { downloadStore } from '../../downloads/downloadStore';
 import { isOfflineModeEnabled } from '../../prefs/offlineMode';
 import { buildItemLabeledEnclosures, resolveItemEnclosureUrl } from './resolveEnclosureUrl';
 
