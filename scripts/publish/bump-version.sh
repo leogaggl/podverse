@@ -104,3 +104,5 @@ echo -e "${YELLOW}Pushing to origin/$CURRENT_BRANCH...${NC}"
 git push --no-verify origin "$CURRENT_BRANCH"
 
 echo -e "${GREEN}✓ Version bumped to $VERSION and pushed${NC}"
+echo -e "${YELLOW}Before the next staging publish, commit release-notes/${VERSION}.md if it is not already there.${NC}"
+echo -e "${YELLOW}That file is the GitHub release body for every ${VERSION}-staging.N prerelease and for the ${VERSION} production release. Update it in place.${NC}"

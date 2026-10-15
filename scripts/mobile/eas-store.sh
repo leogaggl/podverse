@@ -401,6 +401,8 @@ submit_ios() {
 
 submit() {
   require_terminal 'submit'
+  bash "$REPO_ROOT/scripts/publish/require-release-notes.sh" HEAD
+  echo "Paste that file into Play Console or App Store What's New."
   if [[ "$PLATFORM" == 'android' ]]; then
     submit_android
   else

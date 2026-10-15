@@ -36,6 +36,8 @@ fi
 echo -e "${YELLOW}Fetching origin...${NC}"
 git fetch origin
 
+"$SCRIPT_DIR/require-release-notes.sh" refs/remotes/origin/staging
+
 for ref in refs/remotes/origin/staging refs/remotes/origin/main; do
   if ! git show-ref --verify --quiet "$ref"; then
     echo -e "${RED}Error: Missing ${ref}${NC}" >&2

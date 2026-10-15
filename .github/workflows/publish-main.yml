@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Require release notes
+        run: bash scripts/publish/require-release-notes.sh HEAD
+
       - name: Install crane
         run: |
           set -euo pipefail
@@ -158,14 +161,25 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            const fs = require("fs");
             const base = "${{ needs.promote.outputs.base_version }}";
             const sha = context.sha;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const body =
-              "Production release " +
-              base +
-              ". Add or edit release notes on GitHub if needed.";
+            const notesPath = "release-notes/" + base + ".md";
+            let body;
+            try {
+              body = fs.readFileSync(notesPath, "utf8").trim();
+            } catch (e) {
+              core.setFailed(
+                "Missing " + notesPath + ". Commit release notes before cutting a release."
+              );
+              return;
+            }
+            if (!body) {
+              core.setFailed(notesPath + " is empty.");
+              return;
+            }
             try {
               await github.rest.git.createRef({
                 owner, repo, ref: "refs/tags/" + base, sha

@@ -24,6 +24,23 @@ commands**; the operator runs these locally.
 - [PRODUCTION-RELEASE.md](/docs/operations/deploy/PRODUCTION-RELEASE.md) — RTM operator runbook
 - [ALPHA-DEPLOYMENT.md](/docs/operations/deploy/ALPHA-DEPLOYMENT.md) — preprod and local alpha
 
+## Release notes
+
+One file per formal version: `release-notes/X.Y.Z.md`. Partytime uses the same
+path. Podverse staging tags (`X.Y.Z-staging.N`) do not get their own files.
+
+Edit that file as the version takes shape. Each staging publish uses whatever
+is committed on `develop` at that moment as the GitHub prerelease body. The
+production release of `X.Y.Z` uses the same file from the `staging` commit, so
+finish the notes there before promoting `main`. Git history of the file is the
+record of what each staging prerelease said. Do not concatenate those
+prerelease bodies later.
+
+`sync-develop-to-staging.sh`, `preflight-rtm-promote.sh`,
+`sync-staging-to-main.sh`, and mobile store `submit` refuse when the file is
+missing, empty, or not committed on the revision being released. Publish
+workflows read the same file for the GitHub release body.
+
 ## Typical flow
 
 Run from repo root on **`develop`**:
@@ -34,6 +51,10 @@ Run from repo root on **`develop`**:
 ./scripts/publish/preflight-rtm-promote.sh
 ./scripts/publish/sync-staging-to-main.sh
 ```
+
+Commit `release-notes/X.Y.Z.md` before the first staging sync of that version,
+and update it in place before later staging syncs and before the main
+promotion.
 
 Requires `gh auth login` — sync scripts use `gh` internally to wait for publish workflows before
 exiting.

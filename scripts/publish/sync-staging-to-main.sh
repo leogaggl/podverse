@@ -71,6 +71,8 @@ if [ "$STAGING_COMMIT" != "$ORIGIN_STAGING_COMMIT" ]; then
   exit 1
 fi
 
+"$SCRIPT_DIR/require-release-notes.sh" "$STAGING_COMMIT"
+
 echo -e "${YELLOW}Running security audit on staging (moderate and above; low permitted)...${NC}"
 npm ci
 

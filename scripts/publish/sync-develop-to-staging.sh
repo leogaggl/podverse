@@ -68,6 +68,8 @@ if [ "$DEVELOP_COMMIT" != "$ORIGIN_DEVELOP_COMMIT" ]; then
   exit 1
 fi
 
+"$SCRIPT_DIR/require-release-notes.sh" "$DEVELOP_COMMIT"
+
 echo -e "${YELLOW}Running security audit on develop (moderate and above; low permitted)...${NC}"
 echo -e "${YELLOW}Using Linux Docker so npm ci matches CI (linux-canonical lockfile / optional natives).${NC}"
 

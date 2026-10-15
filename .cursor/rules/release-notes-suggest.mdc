@@ -14,8 +14,29 @@ operator in the order they run (**operator-only-git-operations**). The notes tra
 
 ## Where the notes come from
 
-1. `<app>/release-notes/<X.Y.Z>.md` when the app has one. A frozen file is final; quote it.
-2. Otherwise derive them from the changes since the last **formal** tag for that app's paths:
+Podverse keeps **one growing file per formal version** at `release-notes/X.Y.Z.md`
+(the root `package.json` version with any `-suffix` removed). Partytime uses that
+same path for a single release. Podverse does not add `release-notes/X.Y.Z-staging.N.md`.
+
+- Each staging cut (`sync-develop-to-staging.sh`) publishes the file committed on
+  `develop` as the GitHub prerelease body for `X.Y.Z-staging.N`.
+- Later staging cuts of the same version **update that same file**. Bullets can be
+  added, rewritten, or removed. The next prerelease shows the file as it stands,
+  not a delta and not a concatenation of earlier prerelease bodies.
+- The production release (`sync-staging-to-main.sh`) uses that same file from the
+  `staging` commit. Finish the complete notes there before promoting `main`.
+- The next formal version starts a new file. Do not copy the previous version's
+  notes forward.
+
+`sync-develop-to-staging.sh`, `preflight-rtm-promote.sh`, `sync-staging-to-main.sh`,
+and mobile store submit refuse when that file is missing, empty, or uncommitted.
+When you give those steps, quote the current file if it exists. If it does not,
+tell the operator to write it and commit it on `develop` before the command.
+Do not hand them a notes paste that is not in that file.
+
+1. `release-notes/<X.Y.Z>.md` when it exists. Quote it. It is the release body.
+2. Otherwise derive a draft for the operator to save in that file, from the changes
+   since the last **formal** tag:
 
 ```bash
 LAST_TAG="$(git tag --list --sort=-v:refname | rg '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
