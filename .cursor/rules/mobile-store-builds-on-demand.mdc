@@ -25,6 +25,9 @@ build or store submit for `apps/mobile`.
   or [`publish-main.yml`](.github/workflows/publish-main.yml) with `needs:`.
 - Do not treat the mobile `npm ci` step in server publish validate as a store release — it exists
   only so lint can type-check `apps/mobile`.
+- Do not point a store build at the old production listing. Identity stays
+  `com.podverse.app.next` until the operator explicitly replaces that app. See
+  **mobile-next-store-identity**.
 
 ## References
 

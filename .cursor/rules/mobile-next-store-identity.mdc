@@ -1,0 +1,28 @@
+---
+description: Next-gen store builds stay on com.podverse.app.next until the operator explicitly replaces the old production app
+alwaysApply: true
+---
+
+# Next-gen store identity stays isolated
+
+Alpha and beta builds of this app are a separate store app from the old-gen production app.
+`apps/mobile/app.config.ts` is the identity: iOS `bundleIdentifier` and Android `package` are
+`com.podverse.app.next`. The display name is Podverse Next.
+
+## Until the operator explicitly says to replace the old production app
+
+- Do not change `bundleIdentifier` or `package` away from `com.podverse.app.next`.
+- Do not set `ascAppId` in `apps/mobile/eas.json` to the old Podverse App Store app. It must be a
+  new App Store Connect app whose bundle id is `com.podverse.app.next`.
+- Do not upload a binary to the old Play listing or reuse that app's signing key. Play matches the
+  package name, so `com.podverse.app.next` is a different app.
+- `PROFILE=production` still means the next-gen listing. It does not mean the old production app.
+- EAS credentials (certificates, profiles, Play service account, App Store Connect API key) stay
+  the next-gen set, stored on EAS, not in git.
+
+A binary whose id is `com.podverse.app.next` cannot update the old app. The way that app gets
+replaced is a later, explicit change of this identity onto the old listing, with the old signing
+key. Do not do that as part of an alpha or beta build.
+
+The later cutover checklist (same bundle id, same listing, in-place upgrade) is
+**mobile-deep-links-and-prod-cutover**. The old production bundle id is not assumed here.
