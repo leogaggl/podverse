@@ -4,7 +4,8 @@ This directory tracks next-gen mobile store assets for `com.podverse.app.next`.
 
 ## Scope
 
-- Store listing copy drafts (release notes, descriptions)
+- Store listing copy drafts (descriptions). Versioned store release notes live in
+  `release-notes/mobile/`.
 - Screenshot inventories and source references
 - Asset manifests used by operator release workflows
 

@@ -11,6 +11,7 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REV="${1:-HEAD}"
 
 if ! git rev-parse --verify --quiet "$REV^{commit}" >/dev/null; then
@@ -20,20 +21,9 @@ fi
 
 RESOLVED="$(git rev-parse "$REV^{commit}")"
 
-BASE="$(
-  git show "$RESOLVED:package.json" | node --input-type=module -e '
-import { readFileSync } from "node:fs";
-
-const pkg = JSON.parse(readFileSync(0, "utf8"));
-const version = String(pkg.version ?? "");
-const formal = version.split("-")[0];
-if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(formal)) {
-  console.error("Error: package.json version is not X.Y.Z: " + version);
-  process.exit(1);
-}
-process.stdout.write(formal);
-'
-)"
+# shellcheck source=lib/formal-version.sh
+source "$SCRIPT_DIR/lib/formal-version.sh"
+BASE="$(formal_version_at "$RESOLVED")"
 
 NOTES="release-notes/${BASE}.md"
 

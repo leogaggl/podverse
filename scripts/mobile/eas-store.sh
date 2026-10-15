@@ -21,6 +21,9 @@
 # Store profiles (beta, production) refuse a dirty working tree so EAS records match what you ship.
 # The CLI runs with EXPO_NO_DOTENV=1 so a local apps/mobile/.env cannot change the resolved config.
 #
+# Store profiles (beta, production) require committed user-facing notes in
+# release-notes/mobile/ before build and submit. EAS uploads the binary only;
+# the script prints the text to paste into Play or the App Store.
 # Nothing reaches testers without a typed confirmation. Android `submit` uses the eas.json submit
 # profile named after --profile (`beta`), which leaves a Play draft. `--rollout` switches to
 # `<profile>-rollout`, which publishes to the track and must be confirmed by typing the build's
@@ -318,6 +321,10 @@ build() {
   echo
   print_build_config
   echo
+  if is_store_profile; then
+    bash "$REPO_ROOT/scripts/publish/require-mobile-release-notes.sh" "$PLATFORM" HEAD
+    echo
+  fi
   confirm_yes \
     "Start an EAS $PLATFORM cloud build with profile '$PROFILE'? It uses the next build number."
   if [[ "$PLATFORM" == 'android' ]]; then
@@ -366,9 +373,11 @@ submit_android() {
   fi
   if [[ "$ROLLOUT" -eq 1 ]]; then
     echo "Rolled out versionCode $version_code to the '$track' track."
+    echo "Paste the notes printed above into Release notes for that release."
   else
     echo "Draft created. Roll it out in Play Console: Test and release -> Testing ->" \
       "Internal testing -> Edit release -> Next -> Save and publish."
+    echo "Paste the notes printed above into Release notes on that page."
   fi
 }
 
@@ -397,12 +406,15 @@ submit_ios() {
     exit 1
   fi
   echo "Submitted build number $version_code to TestFlight."
+  echo "Paste the notes printed above into TestFlight What to Test."
 }
 
 submit() {
   require_terminal 'submit'
-  bash "$REPO_ROOT/scripts/publish/require-release-notes.sh" HEAD
-  echo "Paste that file into Play Console or App Store What's New."
+  if is_store_profile; then
+    bash "$REPO_ROOT/scripts/publish/require-mobile-release-notes.sh" "$PLATFORM" HEAD
+    echo
+  fi
   if [[ "$PLATFORM" == 'android' ]]; then
     submit_android
   else

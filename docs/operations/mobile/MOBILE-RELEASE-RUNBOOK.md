@@ -47,6 +47,13 @@ Defaults: `PROFILE=beta`. For production binaries: `PROFILE=production`. Store p
 dirty working tree. The script runs with `EXPO_NO_DOTENV=1` so a local `apps/mobile/.env` cannot
 override the EAS environment.
 
+Store profiles also require committed user-facing notes before `build` and `submit`.
+The shared file is `release-notes/mobile/X.Y.Z.md`. Add `X.Y.Z.ios.md` or
+`X.Y.Z.android.md` only when that store should differ. Update those files in place
+across builds of the same version. EAS uploads the binary only; the script prints
+the notes to paste into Play Release notes or TestFlight What to Test. GitHub
+release notes stay in `release-notes/X.Y.Z.md` and are not the store text.
+
 Before the first iOS submit, replace `REPLACE_WITH_ASC_APP_ID` and `REPLACE_WITH_APPLE_TEAM_ID` in
 [`apps/mobile/eas.json`](/apps/mobile/eas.json) `submit.beta.ios` (and `submit.production.ios`).
 Store the App Store Connect API key and Play service account on EAS (`eas credentials`).

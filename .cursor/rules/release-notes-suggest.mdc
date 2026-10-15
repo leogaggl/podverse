@@ -14,27 +14,33 @@ operator in the order they run (**operator-only-git-operations**). The notes tra
 
 ## Where the notes come from
 
-Podverse keeps **one growing file per formal version** at `release-notes/X.Y.Z.md`
-(the root `package.json` version with any `-suffix` removed). Partytime uses that
-same path for a single release. Podverse does not add `release-notes/X.Y.Z-staging.N.md`.
+Two files, one formal version (`X.Y.Z` from root `package.json`, suffix removed).
+Neither is a per-staging file. Update each in place until that version ships.
+The next version starts new files. Do not copy the previous version forward, and
+do not concatenate earlier prerelease bodies.
 
-- Each staging cut (`sync-develop-to-staging.sh`) publishes the file committed on
-  `develop` as the GitHub prerelease body for `X.Y.Z-staging.N`.
-- Later staging cuts of the same version **update that same file**. Bullets can be
-  added, rewritten, or removed. The next prerelease shows the file as it stands,
-  not a delta and not a concatenation of earlier prerelease bodies.
-- The production release (`sync-staging-to-main.sh`) uses that same file from the
-  `staging` commit. Finish the complete notes there before promoting `main`.
-- The next formal version starts a new file. Do not copy the previous version's
-  notes forward.
+**GitHub** — `release-notes/X.Y.Z.md`. More thorough than the store text: server
+and operator changes belong here, still short (at most six bullets). Each staging
+cut publishes this committed file as the `X.Y.Z-staging.N` prerelease body. The
+production release uses the same file from the `staging` commit.
+`sync-develop-to-staging.sh`, `preflight-rtm-promote.sh`, and
+`sync-staging-to-main.sh` refuse when it is missing, empty, or uncommitted.
 
-`sync-develop-to-staging.sh`, `preflight-rtm-promote.sh`, `sync-staging-to-main.sh`,
-and mobile store submit refuse when that file is missing, empty, or uncommitted.
-When you give those steps, quote the current file if it exists. If it does not,
+**Stores** — `release-notes/mobile/X.Y.Z.md`. Simpler. Only changes a regular
+user would notice or benefit from. At most four bullets, and 500 characters or
+fewer (Play What's New). iOS and Android share this file. Add
+`release-notes/mobile/X.Y.Z.ios.md` or `release-notes/mobile/X.Y.Z.android.md`
+only when that store should differ; that file then replaces the shared one for
+that platform. Store `build` and `submit` (`beta` and `production`) refuse
+without the resolved file committed on HEAD. EAS uploads the binary only. The
+script prints the text to paste into Play Release notes, TestFlight What to
+Test, and App Store What's New. Do not paste the GitHub file into a store, or
+the store file into the GitHub release, unless they are intentionally the same.
+
+When you give ship steps, quote the file for that destination. If it is missing,
 tell the operator to write it and commit it on `develop` before the command.
-Do not hand them a notes paste that is not in that file.
 
-1. `release-notes/<X.Y.Z>.md` when it exists. Quote it. It is the release body.
+1. The destination file above, when it exists. Quote it.
 2. Otherwise derive a draft for the operator to save in that file, from the changes
    since the last **formal** tag:
 
@@ -50,28 +56,17 @@ since the previous release. Read the diff when a subject line is too vague to de
 Never describe a change the commits do not show. Leave out refactors, tests, tooling, CI, docs,
 dependency bumps without a visible effect, and anything a user would not notice.
 
-## Tone by audience
+## Tone
 
-- **User-facing apps** (mobile, web, management-web): release notes are partly marketing. Plain
-  words, benefit first, no internals, no ticket numbers. At most six bullets. Lead with the most
-  exciting change.
-- **Developer-facing apps** (api, management-api, workers, libraries such as partytime): technical
-  and precise. Breaking changes first, then added, changed, fixed, and operator notes (env vars,
-  migrations).
+- **Store file:** plain words, benefit first, no internals, no ticket numbers. Lead with the
+  change a user would care about.
+- **GitHub file:** the same user-facing changes, plus short operator notes when a server release
+  includes them (env vars, migrations). Still at most six bullets.
+- **Partytime and other libraries:** technical. Breaking changes first, then added, changed, and
+  fixed.
 
-## Format by destination
+## Format
 
-- **Google Play:** one block per language, at most 500 characters inside the tags:
-
-```text
-<en-US>
-- Go Premium with Google Play: monthly or yearly
-- Faster startup and image loading
-</en-US>
-```
-
-- **App Store "What's New":** plain text, no tags, a few short lines.
-- **GitHub release / npm:** Markdown with the sections above.
-
-Put suggested notes in a fenced `text` block so the operator gets a copy button, and say they are
-a suggestion to edit before publishing.
+Store files are plain text, one bullet per line, with no language tags. GitHub files are short
+Markdown. Put a draft the operator has not saved yet in a fenced `text` block, and say it is a
+suggestion to edit before they commit it.

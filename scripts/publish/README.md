@@ -36,10 +36,16 @@ finish the notes there before promoting `main`. Git history of the file is the
 record of what each staging prerelease said. Do not concatenate those
 prerelease bodies later.
 
-`sync-develop-to-staging.sh`, `preflight-rtm-promote.sh`,
-`sync-staging-to-main.sh`, and mobile store `submit` refuse when the file is
-missing, empty, or not committed on the revision being released. Publish
-workflows read the same file for the GitHub release body.
+`sync-develop-to-staging.sh`, `preflight-rtm-promote.sh`, and
+`sync-staging-to-main.sh` refuse when the file is missing, empty, or not
+committed on the revision being released. Publish workflows read the same file
+for the GitHub release body.
+
+Store notes are separate and shorter: `release-notes/mobile/X.Y.Z.md`, with
+`X.Y.Z.ios.md` or `X.Y.Z.android.md` only when that store should differ. Store
+builds and submits refuse without the resolved file. EAS cannot upload that
+text; the script prints it to paste. See
+[release-notes/mobile/README.md](/release-notes/mobile/README.md).
 
 ## Typical flow
 
