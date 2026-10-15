@@ -9,6 +9,7 @@ import type {
 import type { DownloadRecord } from '../../downloads';
 import { downloadManager } from '../../downloads/downloadManager';
 import { downloadStore } from '../../downloads/downloadStore';
+import { resolveStoredDownloadFilePath } from '../../downloads/downloadStorage';
 import { isOfflineModeEnabled } from '../../prefs/offlineMode';
 import { buildItemLabeledEnclosures, resolveItemEnclosureUrl } from './resolveEnclosureUrl';
 
@@ -58,10 +59,16 @@ const resolveLocalDownloadUrl = async (itemIdText: string): Promise<string | nul
     return null;
   }
 
+  const documentDirectory = FileSystem.documentDirectory;
+  if (documentDirectory === null) {
+    return null;
+  }
+  const absolutePath = resolveStoredDownloadFilePath(record.filePath, documentDirectory);
+
   try {
-    const info = await FileSystem.getInfoAsync(record.filePath);
+    const info = await FileSystem.getInfoAsync(absolutePath);
     if (info.exists) {
-      return record.filePath;
+      return absolutePath;
     }
   } catch {
     return null;

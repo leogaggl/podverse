@@ -13,6 +13,8 @@ export {
   buildDownloadFileName,
   buildDownloadFilePath,
   hashEnclosureUri,
+  resolveStoredDownloadFilePath,
+  toStoredDownloadFileName,
 } from './downloadStorage';
 
 export {

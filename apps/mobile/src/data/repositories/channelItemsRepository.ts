@@ -271,6 +271,15 @@ const commitChannelWindow = async (
   // store keeps only followed channels. Stamp the downloads while the answer is here.
   await downloadsRepository.attachChannelToDownloads({ channelIdText, channelTitle });
 
+  void import('../nativeCache/carCacheReproject')
+    .then(async ({ reprojectLibraryChildrenForChannel }) => {
+      const { subscriptionsRepository } = await import('./subscriptionsRepository');
+      const channel = await subscriptionsRepository.getByIdText(channelIdText);
+      const mediumBucket = channel?.medium === 'music' ? 'music' : 'av';
+      await reprojectLibraryChildrenForChannel(channelIdText, mediumBucket);
+    })
+    .catch(() => undefined);
+
   return keep.length;
 };
 

@@ -9,6 +9,23 @@
 export type PlaybackStateValue =
   'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'stalled' | 'ended' | 'error';
 
+/** Who initiated the load — car browse vs phone JS. */
+export type MediaEngineSourceOrigin = 'js' | 'car';
+
+/** Identity + now-playing fields carried with every car load and preferred for phone loads. */
+export type MediaEngineSourceMeta = {
+  idText: string;
+  kind: 'item' | 'clip' | 'item_soundbite' | 'add_by_rss' | 'livestream';
+  queueMedium: 'av' | 'music';
+  title: string;
+  subtitle?: string | null;
+  artworkUrl?: string | null;
+  isLive?: boolean;
+  clipStartSeconds?: number | null;
+  clipEndSeconds?: number | null;
+  origin: MediaEngineSourceOrigin;
+};
+
 /**
  * Input to {@link NativePlaybackBridge.load} and {@link NativePlaybackBridge.loadAndStart}.
  * `initialSeekSeconds` applies after the item is ready.
@@ -33,6 +50,22 @@ export type MediaEngineSource = {
    * profile the engine last applied.
    */
   audioProfile?: MediaEngineAudioProfile;
+  /** Item identity and now-playing metadata. Car paths always pass this; phone JS should too. */
+  meta?: MediaEngineSourceMeta;
+};
+
+/** Snapshot returned by {@link NativePlaybackBridge.getCurrentSource}. */
+export type MediaEngineCurrentSource = {
+  url: string;
+  meta: MediaEngineSourceMeta | null;
+  positionSeconds: number;
+  durationSeconds: number;
+};
+
+/** Emitted when a load replaces the engine's current source. */
+export type SourceChangedEvent = {
+  url: string;
+  meta: MediaEngineSourceMeta | null;
 };
 
 /**
@@ -152,6 +185,7 @@ export type NativeRawPlaybackEvents = {
   ended: (event: EndedEvent) => void;
   error: (event: NativePlaybackErrorPayload) => void;
   stalled: (event: StalledEvent) => void;
+  sourceChanged: (event: SourceChangedEvent) => void;
 };
 
 /**
@@ -165,4 +199,5 @@ export type NativePlaybackEvents = {
   ended: (event: EndedEvent) => void;
   error: (event: PlaybackErrorEvent) => void;
   stalled: (event: StalledEvent) => void;
+  sourceChanged: (event: SourceChangedEvent) => void;
 };

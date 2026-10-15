@@ -11,6 +11,7 @@ import type {
   MediaEngineAudioProfile,
   MediaEngineBasicAuth,
   MediaEngineSource,
+  MediaEngineSourceMeta,
   VideoSurfaceRect,
   VideoSurfaceTargetId,
 } from './types';
@@ -20,8 +21,50 @@ export type LoadCommandArgs = readonly [
   url: string,
   initialSeekSeconds?: number | null,
   basicAuth?: MediaEngineBasicAuth | null,
-  audioProfile?: MediaEngineAudioProfile,
+  audioProfile?: MediaEngineAudioProfile | null,
+  /** JSON-encoded {@link MediaEngineSourceMeta}, or null when omitted. */
+  metaJson?: string | null,
 ];
+
+const META_KINDS = new Set([
+  'item',
+  'clip',
+  'item_soundbite',
+  'add_by_rss',
+  'livestream',
+]);
+
+function assertSourceMeta(meta: MediaEngineSourceMeta): MediaEngineSourceMeta {
+  const idText = meta.idText.trim();
+  if (idText.length === 0) {
+    throw new Error('serializeLoadCommand: `meta.idText` is required');
+  }
+  if (!META_KINDS.has(meta.kind)) {
+    throw new Error(`serializeLoadCommand: unsupported meta.kind ${meta.kind}`);
+  }
+  if (meta.queueMedium !== 'av' && meta.queueMedium !== 'music') {
+    throw new Error('serializeLoadCommand: `meta.queueMedium` must be av or music');
+  }
+  if (meta.origin !== 'js' && meta.origin !== 'car') {
+    throw new Error('serializeLoadCommand: `meta.origin` must be js or car');
+  }
+  const title = meta.title.trim();
+  if (title.length === 0) {
+    throw new Error('serializeLoadCommand: `meta.title` is required');
+  }
+  return {
+    artworkUrl: meta.artworkUrl ?? null,
+    clipEndSeconds: meta.clipEndSeconds ?? null,
+    clipStartSeconds: meta.clipStartSeconds ?? null,
+    idText,
+    isLive: meta.isLive === true,
+    kind: meta.kind,
+    origin: meta.origin,
+    queueMedium: meta.queueMedium,
+    subtitle: meta.subtitle ?? null,
+    title,
+  };
+}
 
 /** Positional args for the native `attachVideoSurface` function (iOS + Android agree on this order). */
 export type AttachVideoSurfaceCommandArgs = readonly [
@@ -86,6 +129,11 @@ export function serializeLoadCommand(source: MediaEngineSource): LoadCommandArgs
   }
 
   const basicAuth = source.basicAuth === undefined ? null : assertBasicAuth(source.basicAuth);
+  const metaJson =
+    source.meta === undefined ? null : JSON.stringify(assertSourceMeta(source.meta));
+  if (metaJson !== null) {
+    return [url, seek ?? null, basicAuth, source.audioProfile ?? null, metaJson];
+  }
   if (source.audioProfile !== undefined) {
     return [url, seek ?? null, basicAuth, source.audioProfile];
   }

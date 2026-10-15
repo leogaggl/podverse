@@ -10,6 +10,7 @@
  */
 
 import type {
+  MediaEngineCurrentSource,
   MediaEngineSource,
   NativeCacheWriteBridge,
   NativePlaybackBridge,
@@ -74,6 +75,10 @@ class NativePlaybackBridgeAdapter implements PodversePlaybackBridge {
     return getPodverseMediaEngineModule().getDuration();
   }
 
+  getCurrentSource(): Promise<MediaEngineCurrentSource | null> {
+    return getPodverseMediaEngineModule().getCurrentSource();
+  }
+
   destroy(): void {
     getPodverseMediaEngineModule().destroy();
   }
@@ -98,12 +103,48 @@ class NativePlaybackBridgeAdapter implements PodversePlaybackBridge {
     return getPodverseMediaEngineModule().writeQueueSnapshot(payloadJson);
   }
 
+  writeQueueSnapshotAv(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeQueueSnapshotAv(payloadJson);
+  }
+
+  writeQueueSnapshotMusic(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeQueueSnapshotMusic(payloadJson);
+  }
+
   writeDownloadsIndex(payloadJson: string): Promise<void> {
     return getPodverseMediaEngineModule().writeDownloadsIndex(payloadJson);
   }
 
   writeLibraryBrowseIndex(payloadJson: string): Promise<void> {
     return getPodverseMediaEngineModule().writeLibraryBrowseIndex(payloadJson);
+  }
+
+  writeLibraryChildren(channelIdText: string, payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeLibraryChildren(channelIdText, payloadJson);
+  }
+
+  writeHistoryIndex(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeHistoryIndex(payloadJson);
+  }
+
+  writeLiveIndex(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeLiveIndex(payloadJson);
+  }
+
+  writeAccountContext(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeAccountContext(payloadJson);
+  }
+
+  readPlaybackJournal(): Promise<string | null> {
+    return getPodverseMediaEngineModule().readPlaybackJournal();
+  }
+
+  writePlaybackJournal(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writePlaybackJournal(payloadJson);
+  }
+
+  setJsOwnsAdvance(owns: boolean): Promise<void> {
+    return getPodverseMediaEngineModule().setJsOwnsAdvance(owns);
   }
 
   addListener<Event extends keyof NativeRawPlaybackEvents>(

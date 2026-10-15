@@ -57,6 +57,7 @@ import type { PlaybackErrorEvent, PlaybackStateValue } from '../../modules/podve
 import { useAuth } from '../auth/AuthProvider';
 import { nativePlaybackBridge } from '../bridge/nativePlaybackBridge';
 import { useNativePlaybackBridge } from '../bridge/useNativePlaybackBridge';
+import { attachCarPlayConnectSyncListener } from '../sync/carBackgroundSync';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import {
   canAdvanceToNextQueueItem,
@@ -99,6 +100,7 @@ import {
   buildClipPlaybackTarget,
   buildSoundbitePlaybackTarget,
   playbackReloadSource,
+  playbackTargetRowMediaId,
   playbackTargetToHistoryTarget,
   playbackTargetToStatsTargets,
   resolveItemPlaybackStart,
@@ -582,6 +584,8 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   const advancingRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false);
   const lastSourceUrlRef = useRef<string | null>(null);
+  /** Identity of the item the native engine last loaded (`meta.idText`), if any. */
+  const engineSourceIdTextRef = useRef<string | null>(null);
   /** Last failure written to the error log. Cleared once playback actually runs again. */
   const lastLoggedPlaybackErrorRef = useRef<string | null>(null);
   /** Claimed while a download-complete source swap is in flight, including the file-exists check. */
@@ -643,6 +647,17 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     },
     []
   );
+
+  useEffect(() => {
+    void nativePlaybackBridge.setJsOwnsAdvance(true);
+    return () => {
+      void nativePlaybackBridge.setJsOwnsAdvance(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    attachCarPlayConnectSyncListener();
+  }, []);
 
   const activeQueueRef = useRef(activeQueue);
   useEffect(() => {
@@ -2451,6 +2466,37 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     }
     lastPlaybackRestoreStarted = true;
     void (async () => {
+      try {
+        const { drainPlaybackJournal } = await import('./drainPlaybackJournal');
+        await drainPlaybackJournal({
+          accountIdText: account?.id_text ?? null,
+          queueIdText: activeQueueRef.current?.id_text ?? null,
+        });
+      } catch {
+        // Soft-fail; restore still proceeds.
+      }
+
+      // Prefer an already-loaded engine source (car session) over snapshot / queue-head restore.
+      try {
+        const current = await nativePlaybackBridge.getCurrentSource();
+        const meta = current?.meta ?? null;
+        if (meta !== null && meta.idText.length > 0) {
+          engineSourceIdTextRef.current = meta.idText;
+          if (typeof current?.positionSeconds === 'number' && current.positionSeconds >= 0) {
+            positionRef.current = current.positionSeconds;
+            setPlaybackPositionSeconds(current.positionSeconds);
+          }
+          if (typeof current?.durationSeconds === 'number' && current.durationSeconds > 0) {
+            durationRef.current = current.durationSeconds;
+            setPlaybackDurationSeconds(current.durationSeconds);
+          }
+          lastPlaybackRestoreSettled = true;
+          return;
+        }
+      } catch {
+        // Fall through to snapshot restore.
+      }
+
       const snapshot = await readLastPlaybackSnapshot();
       if (snapshot !== null && statusRef.current !== 'unknown') {
         await restoreFromSnapshot(snapshot);
@@ -2458,7 +2504,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       lastPlaybackRestoreSettled = true;
       await adoptQueueHeadWhenPlayerEmpty();
     })();
-  }, [adoptQueueHeadWhenPlayerEmpty, restoreFromSnapshot, status]);
+  }, [account?.id_text, adoptQueueHeadWhenPlayerEmpty, restoreFromSnapshot, status]);
 
   useEffect(() => {
     if (status !== 'authenticated' || !lastPlaybackRestoreSettled) {
@@ -2493,7 +2539,25 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 
   useNativePlaybackBridge({
     ended: () => {
+      const engineId = engineSourceIdTextRef.current;
+      const activeId = playbackTargetRowMediaId(activeTargetRef.current);
+      if (engineId !== null && activeId !== null && engineId !== activeId) {
+        return;
+      }
       void advance('complete');
+    },
+    sourceChanged: (event) => {
+      const meta = event.meta;
+      engineSourceIdTextRef.current = meta?.idText ?? null;
+      if (meta === null || meta.origin !== 'car') {
+        return;
+      }
+      // Car-initiated load: keep the engine playing; only track identity so progress/ended
+      // attach to the correct item. Full target hydration waits on the next phone open path.
+      const activeId = playbackTargetRowMediaId(activeTargetRef.current);
+      if (activeId !== null && activeId === meta.idText) {
+        return;
+      }
     },
     error: (event) => {
       clearDownloadSourceSwap();
@@ -2576,6 +2640,15 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         durationRef.current = event.durationSeconds;
         setPlaybackDurationSeconds(event.durationSeconds);
       }
+
+      const engineId = engineSourceIdTextRef.current;
+      const activeId = playbackTargetRowMediaId(activeTargetRef.current);
+      const identityMatches =
+        engineId === null || activeId === null || engineId === activeId;
+      if (!identityMatches) {
+        return;
+      }
+
       const pauseAt = pauseAtRef.current;
       if (pauseAt !== null && event.positionSeconds >= pauseAt) {
         pauseAtRef.current = null;

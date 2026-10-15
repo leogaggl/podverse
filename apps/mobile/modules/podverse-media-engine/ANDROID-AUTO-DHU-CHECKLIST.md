@@ -1,113 +1,43 @@
-# Android Auto — DHU browse+play manual checklist (operator)
+# Android Auto — DHU checklist (car-phone continuity)
 
-**Master step:** 12.17. **Audience:** operator / QA.
-**Detail:** [396-dhu-test-checklist](/docs/proposals/mobile/_master-plan_/phase-1/details/396-dhu-test-checklist.md).
+**Audience:** operator / QA. Proves Android Auto works with the phone app force-stopped, and that
+the phone / headless sync catches up afterward.
 
-Proves the ship bar: **Android Auto browses the native cache (Library + Downloads) and plays through
-the shared engine with the phone app force-stopped.** Car E2E is not fully automatable, so this is a
-manual acceptance gate. The agent implemented 12.11–12.15; this checklist is the operator proof.
+**Prerequisites:** Dev client on emulator/device; DHU set up
+(<https://developer.android.com/training/cars/testing/dhu>); phone app opened once so JS wrote
+cache v2 files under `files/native-cache/` (`library-index.json`, `queue-snapshot-av.json`,
+`queue-snapshot-music.json`, `history-index.json`, `live-index.json`, `downloads-index.json`,
+`account-context.json`, `library-children/`).
 
-## Prerequisites
+## Scenarios (12)
 
-- A dev-client / release build installed on a device or emulator (app id `com.podverse.app.next`).
-- Android Auto installed; **Desktop Head Unit (DHU)** set up (Android Studio → SDK Tools → "Android
-  Auto Desktop Head Unit emulator"). See <https://developer.android.com/training/cars/testing/dhu>.
-- The phone app run **once** so JS wrote the native cache (see step 1).
+| # | Scenario | Steps | Pass when |
+| --- | --- | --- | --- |
+| 1 | Phone playing → Auto connects | Play on phone; start DHU / Auto | Playback continues; Auto now-playing has title/artist/artwork; transport works |
+| 2 | Auto disconnect | Unplug / stop DHU while playing | Playback pauses; phone shows same item at same second |
+| 3 | Auto picks item, phone closed | `adb shell am force-stop com.podverse.app.next`; play from Podcasts → channel; open phone | Mini-player shows Auto item + position (offline and signed out included) |
+| 4 | Signed in, phone never opened | Force-stop; listen on Auto | Headless sync drains journal when it can; otherwise journal drains on next open; other devices resume |
+| 5 | Passenger phone UI | Phone screen open while Auto plays | Phone UI follows car-initiated source without reload |
+| 6 | Phone changes item while Auto connected | Change now-playing on phone | Auto now-playing updates (shared ExoPlayer) |
+| 7 | Cold start, locked, offline | Reboot; lock; airplane mode; open Auto | Browse from cache; downloads play; stream rows fail softly; resume from journal/cache |
+| 8 | Episode ends, app closed | Force-stop; play last-but-one queue item; let finish | Next projected queue entry starts; journal has completed + started |
+| 9 | Interruptions | Call; navigation duck; another media app | Pause/resume/duck; Play works after focus loss |
+| 10 | Live | Podcasts → Live Now | Stream plays; marked live; no position restore |
+| 11 | Logout | Sign out; reopen Auto | Signed-out Recent; account-scoped cache cleared |
+| 12 | Other device | Play on web; open phone | 744 handoff: newest timestamp wins |
 
-## 1. Seed the native cache (phone app, once)
-
-Open the phone app and, so all three payloads exist:
-
-- Follow at least one podcast / playlist (writes `library-browse-index.json`).
-- Download at least one episode (writes `downloads-index.json`).
-- Start playing something so a now-playing/queue snapshot is written (`queue-snapshot.json`).
-
-Optionally confirm the files on disk:
+## Seed + force-stop
 
 ```bash
+# Mobile Android Auto — after seeding in the phone app:
 adb shell run-as com.podverse.app.next ls -la files/native-cache
-```
-
-## 2. Force-stop the phone app (Activity + JS dead)
-
-```bash
 adb shell am force-stop com.podverse.app.next
+adb logcat -s PodverseNativeCache:I PodverseMediaLibrary:I PodverseCarSync:I PodverseCarHeadless:I
 ```
 
-## 3. Watch the app-closed logs
+## Notes
 
-```bash
-adb logcat -c
-adb logcat -s PodverseNativeCache:I PodverseMediaLibrary:I
-```
-
-Expect (on connect, before any JS):
-
-- `PodverseNativeCache: debugDump queue=present(...) downloads=present(...) library_browse=present(...)`
-- `PodverseMediaLibrary: onGetLibraryRoot served root=podverse_root caller=...`
-
-## 4. Connect the DHU
-
-1. Launch the DHU (`./desktop-head-unit` from the SDK `extras/google/auto/` dir) with the emulator/device connected.
-2. Open Podverse from the DHU media apps. The head unit binds `PodverseMediaLibraryService` — the
-   phone app must stay **force-stopped** (never opened) for the whole run.
-
-## 5. Browse acceptance (app never opened)
-
-- [ ] Root shows **Library** and/or **Downloads** (a node is absent only when its cache is empty).
-- [ ] **Library** lists the followed podcasts / playlists from the cache.
-- [ ] **Downloads** lists the downloaded episodes as **playable** items.
-
-## 6. Play acceptance (app never opened)
-
-- [ ] Play a **Downloads** (offline) item → audio starts from the local `file://` with **no network**.
-- [ ] Play a **streamed** item (remote enclosure) → audio starts.
-- [ ] Now-playing shows correct **title / artwork**.
-- [ ] Play / pause and **skip** work from the head unit.
-- [ ] Playback runs on the shared engine (one media notification appears on the phone; no second player).
-
-## Fallback when no DHU is available
-
-Prove the native read with the app force-stopped without a head unit:
-
-1. Do steps 1–3 above.
-2. Trigger the media service without opening the UI — connect a Bluetooth media device or an
-   `adb` media-session client that binds `MediaLibraryService`. On bind, `onCreate` runs and logs the
-   `debugDump …` line.
-3. Confirm the `PodverseNativeCache: debugDump …` and `PodverseMediaLibrary: onGetLibraryRoot …`
-   lines show the payloads were read with the Activity/JS dead.
-
-Supplementary on-disk check (JS not involved):
-
-```bash
-adb shell run-as com.podverse.app.next cat files/native-cache/downloads-index.json | head -c 400; echo
-```
-
-## Evidence
-
-Record the DHU result (or fallback logcat) here for the release ticket:
-
-```
-# paste the PodverseMediaLibrary / PodverseNativeCache logcat lines + browse/play pass/fail
-```
-
-### 2026-07-27 — Pixel 4a (sunfish), DHU 2.1-mac-arm64
-
-- **Browse (app force-stopped):** Downloads node listed 3 downloaded episodes as playable. **PASS**.
-- **Play (app force-stopped):** offline Download item played from local file; play/pause/skip worked
-  from the head unit; single media session. **PASS**.
-- **Library node:** **absent** — the only subscription was a **directory** follow
-  (`account_following_channels`), which is not projected into `library-browse` yet (add-by-RSS only).
-  Root therefore showed Downloads alone (back from Downloads is a no-op — it is the effective root).
-  **Known limitation**, tracked as **12.22** /
-  [401-car-library-directory-follows](/docs/proposals/mobile/_master-plan_/phase-1/details/401-car-library-directory-follows.md).
-  To exercise a Library node today, follow a feed via **Add by RSS**, then re-open Podverse in DHU.
-- **Verdict:** 12.17 ship-bar (browse + play native cache, app-closed) **met** for Downloads; Library
-  breadth deferred to 12.22.
-
-## Cross-links
-
-- App-closed cache read spike: [`NATIVE-CACHE-SPIKE-ANDROID.md`](./NATIVE-CACHE-SPIKE-ANDROID.md)
-- Engine gate + Android Auto browse+play row: [`GO-NO-GO.md`](./GO-NO-GO.md)
-- Play Console declaration: [`ANDROID-AUTO-DECLARATION.md`](./ANDROID-AUTO-DECLARATION.md)
-- Car rule: [mobile-carplay-android-auto](/.cursor/rules/mobile-carplay-android-auto.mdc)
+- Tree: Podcasts / Music / Queue / Downloads (content-style grid for channels).
+- Untrusted controllers (Bluetooth AVRCP, Assistant) get player commands only.
+- Headless JS may fail under bridgeless Expo SDK 57; journal path still covers catch-up.
+- Membership never gates browse or play.

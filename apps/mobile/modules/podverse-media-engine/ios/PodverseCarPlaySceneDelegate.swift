@@ -1,30 +1,25 @@
 import CarPlay
 import Foundation
 
-// The Next app is a CarPlay *audio* app: iOS instantiates this delegate for the CarPlay scene role
-// declared in Info.plist (`UIApplicationSceneManifest` → `CPTemplateApplicationSceneSessionRole
-// Application`) even when the phone app has never been foregrounded / is force-quit. This class is
-// referenced by name from Info.plist, so it must stay `@objc(PodverseCarPlaySceneDelegate)` and
-// resolvable in the Objective-C runtime (it compiles into the PodverseMediaEngine pod).
-//
-// Browse IA mirrors the Android Auto tree: a root list with **Library** and/or **Downloads**, each
-// omitted when its native-cache payload is empty. Library nodes are browsable with empty
-// grandchildren. Download rows are playable. No SQLite and no network here — cache JSON only, JS
-// may be dead.
+// CarPlay audio scene. iOS instantiates this for the CarPlay scene role even when the phone app
+// has never been foregrounded / is force-quit. Browse IA: Podcasts | Music | Queue | Downloads.
+// Cache JSON only — no SQLite, no network for browse.
 @objc(PodverseCarPlaySceneDelegate)
 public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate {
   private var interfaceController: CPInterfaceController?
+  private var cacheDirectorySource: DispatchSourceFileSystemObject?
+  private var cacheDirectoryFileDescriptor: Int32 = -1
+  private var cacheReloadWorkItem: DispatchWorkItem?
 
   public func templateApplicationScene(
     _ templateApplicationScene: CPTemplateApplicationScene,
     didConnect interfaceController: CPInterfaceController
   ) {
     self.interfaceController = interfaceController
-
-    // Cold-connect read: confirms the shared App Group cache is loadable without JS.
     PodverseNativeCache.debugDump()
-
-    interfaceController.setRootTemplate(makeRootTemplate(), animated: false, completion: nil)
+    NotificationCenter.default.post(name: .podverseCarPlayDidConnect, object: nil)
+    interfaceController.setRootTemplate(makeTabBar(), animated: false, completion: nil)
+    startCacheDirectoryWatcher()
   }
 
   public func templateApplicationScene(
@@ -32,121 +27,374 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     didDisconnectInterfaceController interfaceController: CPInterfaceController
   ) {
     if self.interfaceController === interfaceController {
+      stopCacheDirectoryWatcher()
       self.interfaceController = nil
     }
   }
 
-  // MARK: - Browse tree — mirrors Android rootChildren / libraryChildren / downloadChildren
+  // MARK: - Cache change reload
 
-  /// Root list: a `Library` row and/or a `Downloads` row, each omitted when its cache is empty.
-  /// Native labels are used because there is no i18next runtime when JS is dead.
-  private func makeRootTemplate() -> CPListTemplate {
-    let browseNodes = readBrowseNodes()
-    let downloads = readDownloadEntries()
-
-    var items: [CPListItem] = []
-    if !browseNodes.isEmpty {
-      let library = CPListItem(text: "Library", detailText: nil)
-      library.handler = { [weak self] _, completion in
-        self?.pushLibrary(browseNodes)
-        completion()
-      }
-      items.append(library)
+  /// Watch the App Group native-cache directory so browse tabs refresh when JS reprojects (CarPlay
+  /// connect sync, phone foreground sync) while the scene is still connected.
+  private func startCacheDirectoryWatcher() {
+    stopCacheDirectoryWatcher()
+    guard let directory = PodverseNativeCache.cacheDirectoryURL() else { return }
+    let fd = open(directory.path, O_EVTONLY)
+    guard fd >= 0 else { return }
+    cacheDirectoryFileDescriptor = fd
+    let source = DispatchSource.makeFileSystemObjectSource(
+      fileDescriptor: fd, eventMask: [.write, .extend, .attrib, .rename, .delete],
+      queue: .main)
+    source.setEventHandler { [weak self] in
+      self?.scheduleRootTemplateReload()
     }
-    if !downloads.isEmpty {
-      let downloadsItem = CPListItem(text: "Downloads", detailText: nil)
-      downloadsItem.handler = { [weak self] _, completion in
-        self?.pushDownloads(downloads)
-        completion()
-      }
-      items.append(downloadsItem)
+    source.setCancelHandler {
+      close(fd)
     }
-
-    let section = CPListSection(items: items)
-    return CPListTemplate(title: "Podverse", sections: [section])
+    cacheDirectorySource = source
+    source.resume()
   }
 
-  /// One browsable row per cached library node; tapping pushes an empty grandchild list, identical to
-  /// Android's `libraryChildren`.
-  private func pushLibrary(_ nodes: [PodverseCarPlayCacheModel.BrowseNode]) {
-    let items = nodes.map { node -> CPListItem in
+  private func stopCacheDirectoryWatcher() {
+    cacheReloadWorkItem?.cancel()
+    cacheReloadWorkItem = nil
+    cacheDirectorySource?.cancel()
+    cacheDirectorySource = nil
+    cacheDirectoryFileDescriptor = -1
+  }
+
+  private func scheduleRootTemplateReload() {
+    cacheReloadWorkItem?.cancel()
+    let work = DispatchWorkItem { [weak self] in
+      self?.reloadRootTemplate()
+    }
+    cacheReloadWorkItem = work
+    // Debounce bursty multi-file projection writes into one tab rebuild.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+  }
+
+  private func reloadRootTemplate() {
+    guard let interfaceController = interfaceController else { return }
+    // Rebuild only when the root tab bar is showing so a mid-drill-down push is not discarded.
+    if interfaceController.templates.count <= 1 {
+      interfaceController.setRootTemplate(makeTabBar(), animated: false, completion: nil)
+    }
+  }
+
+  private func makeTabBar() -> CPTabBarTemplate {
+    let podcasts = makePodcastsTemplate()
+    podcasts.tabTitle = "Podcasts"
+    podcasts.tabImage = UIImage(systemName: "mic.fill")
+
+    let music = makeMusicTemplate()
+    music.tabTitle = "Music"
+    music.tabImage = UIImage(systemName: "music.note")
+
+    let queue = makeQueueTemplate()
+    let signedIn = PodverseCarPlayCacheModel.isSignedIn(PodverseNativeCache.read(.accountContext))
+    queue.tabTitle = signedIn ? "Queue" : "Recent"
+    queue.tabImage = UIImage(systemName: "list.bullet")
+
+    let downloads = makeDownloadsTemplate()
+    downloads.tabTitle = "Downloads"
+    downloads.tabImage = UIImage(systemName: "arrow.down.circle.fill")
+
+    return CPTabBarTemplate(templates: [podcasts, music, queue, downloads])
+  }
+
+  private func makePodcastsTemplate() -> CPListTemplate {
+    let live = PodverseCarPlayCacheModel.parseLiveEntries(PodverseNativeCache.read(.live))
+    let nodes = PodverseCarPlayCacheModel.parseBrowseNodes(PodverseNativeCache.read(.libraryBrowse))
+      .filter { $0.mediumBucket != "music" }
+
+    var sections: [CPListSection] = []
+    if !live.isEmpty {
+      let items = live.map { entry -> CPListItem in
+        let item = CPListItem(text: entry.title, detailText: entry.channelTitle)
+        item.handler = { [weak self] _, completion in
+          self?.playLive(entry)
+          completion()
+        }
+        return item
+      }
+      sections.append(CPListSection(items: items, header: "Live Now", sectionIndexTitle: nil))
+    }
+    let channelItems = nodes.map { node -> CPListItem in
       let item = CPListItem(text: node.title, detailText: nil)
       item.handler = { [weak self] _, completion in
-        self?.pushEmptyNode(title: node.title)
+        self?.pushChannelChildren(node)
         completion()
       }
       return item
     }
-    let template = CPListTemplate(title: "Library", sections: [CPListSection(items: items)])
-    interfaceController?.pushTemplate(template, animated: true, completion: nil)
+    if channelItems.isEmpty && live.isEmpty {
+      sections.append(
+        CPListSection(items: [
+          CPListItem(text: "Open Podverse on your phone to sync", detailText: nil)
+        ]))
+    } else if !channelItems.isEmpty {
+      sections.append(CPListSection(items: channelItems, header: "Podcasts", sectionIndexTitle: nil))
+    }
+    return CPListTemplate(title: "Podcasts", sections: sections)
   }
 
-  /// One playable row per offline download. The select hook resolves the local `file://` path (or
-  /// remote enclosure), loads the single shared `PodverseAudioEngine`, then presents now-playing.
-  /// Do not add play logic here.
-  private func pushDownloads(_ entries: [PodverseCarPlayCacheModel.DownloadEntry]) {
-    let items = entries.map { entry -> CPListItem in
-      let item = CPListItem(text: entry.title, detailText: nil)
+  private func makeMusicTemplate() -> CPListTemplate {
+    let nodes = PodverseCarPlayCacheModel.parseBrowseNodes(PodverseNativeCache.read(.libraryBrowse))
+      .filter { $0.mediumBucket == "music" }
+    let items = nodes.map { node -> CPListItem in
+      let item = CPListItem(text: node.title, detailText: nil)
+      item.handler = { [weak self] _, completion in
+        self?.pushChannelChildren(node)
+        completion()
+      }
+      return item
+    }
+    let sectionItems =
+      items.isEmpty
+      ? [CPListItem(text: "Open Podverse on your phone to sync", detailText: nil)] : items
+    return CPListTemplate(title: "Music", sections: [CPListSection(items: sectionItems)])
+  }
+
+  private func makeQueueTemplate() -> CPListTemplate {
+    let av = PodverseCarPlayCacheModel.parseQueueSnapshot(PodverseNativeCache.read(.queueAv))
+    let music = PodverseCarPlayCacheModel.parseQueueSnapshot(PodverseNativeCache.read(.queueMusic))
+    let history = PodverseCarPlayCacheModel.parseHistoryEntries(PodverseNativeCache.read(.history))
+    let signedIn = PodverseCarPlayCacheModel.isSignedIn(PodverseNativeCache.read(.accountContext))
+
+    var sections: [CPListSection] = []
+    if signedIn {
+      if !av.entries.isEmpty {
+        sections.append(
+          CPListSection(
+            items: queueItems(av.entries), header: "Up Next", sectionIndexTitle: nil))
+      }
+      if !music.entries.isEmpty {
+        sections.append(
+          CPListSection(
+            items: queueItems(music.entries), header: "Up Next Music", sectionIndexTitle: nil))
+      }
+      if !history.isEmpty {
+        sections.append(
+          CPListSection(
+            items: historyItems(history), header: "Recently Played", sectionIndexTitle: nil))
+      }
+    } else {
+      let resume = av.entries.first ?? music.entries.first
+      if let resume = resume {
+        sections.append(CPListSection(items: queueItems([resume]), header: "Resume", sectionIndexTitle: nil))
+      }
+      if !history.isEmpty {
+        sections.append(
+          CPListSection(items: historyItems(history), header: "Recent", sectionIndexTitle: nil))
+      }
+    }
+    if sections.isEmpty {
+      sections.append(
+        CPListSection(items: [
+          CPListItem(text: "Open Podverse on your phone to sync", detailText: nil)
+        ]))
+    }
+    return CPListTemplate(title: signedIn ? "Queue" : "Recent", sections: sections)
+  }
+
+  private func makeDownloadsTemplate() -> CPListTemplate {
+    let downloads = PodverseCarPlayCacheModel.parseDownloadEntries(
+      PodverseNativeCache.read(.downloads))
+    let items = downloads.map { entry -> CPListItem in
+      let item = CPListItem(text: entry.title, detailText: entry.channelTitle)
       item.handler = { [weak self] _, completion in
         self?.playDownload(entry)
         completion()
       }
       return item
     }
-    let template = CPListTemplate(title: "Downloads", sections: [CPListSection(items: items)])
+    let sectionItems =
+      items.isEmpty
+      ? [CPListItem(text: "No downloads yet", detailText: nil)] : items
+    return CPListTemplate(title: "Downloads", sections: [CPListSection(items: sectionItems)])
+  }
+
+  private func queueItems(_ entries: [PodverseCarPlayCacheModel.QueueEntry]) -> [CPListItem] {
+    entries.map { entry in
+      let item = CPListItem(text: entry.title, detailText: entry.podcastTitle)
+      item.handler = { [weak self] _, completion in
+        self?.playQueueEntry(entry, queueMedium: "av")
+        completion()
+      }
+      return item
+    }
+  }
+
+  private func historyItems(_ entries: [PodverseCarPlayCacheModel.HistoryEntry]) -> [CPListItem] {
+    entries.map { entry in
+      let item = CPListItem(text: entry.title, detailText: entry.channelTitle)
+      item.handler = { [weak self] _, completion in
+        self?.playHistory(entry)
+        completion()
+      }
+      return item
+    }
+  }
+
+  private func pushChannelChildren(_ node: PodverseCarPlayCacheModel.BrowseNode) {
+    let children = PodverseCarPlayCacheModel.parseChildItems(
+      PodverseNativeCache.readLibraryChildren(channelIdText: node.idText))
+    let items = children.map { child -> CPListItem in
+      var detail: String? = child.subtitle
+      if child.played == true {
+        detail = [detail, "Played"].compactMap { $0 }.joined(separator: " · ")
+      } else if let progress = child.progressSeconds, progress > 0 {
+        detail = [detail, "In progress"].compactMap { $0 }.joined(separator: " · ")
+      }
+      if child.downloadFileName != nil {
+        detail = [detail, "Downloaded"].compactMap { $0 }.joined(separator: " · ")
+      }
+      let item = CPListItem(text: child.title, detailText: detail)
+      item.handler = { [weak self] _, completion in
+        self?.playChild(child, queueMedium: node.mediumBucket)
+        completion()
+      }
+      return item
+    }
+    let sectionItems =
+      items.isEmpty
+      ? [CPListItem(text: "Open Podverse on your phone to sync", detailText: nil)] : items
+    let template = CPListTemplate(title: node.title, sections: [CPListSection(items: sectionItems)])
     interfaceController?.pushTemplate(template, animated: true, completion: nil)
   }
 
-  // MARK: - Play — one shared engine, one command center
-
-  /// Play a cached download on the single shared `PodverseAudioEngine` and present CarPlay
-  /// now-playing. `CPNowPlayingTemplate.shared` binds to `MPNowPlayingInfoCenter` +
-  /// `MPRemoteCommandCenter`, both already owned by the engine — no second player or command
-  /// center is created here. Queue/auto-queue policy stays in `@podverse/playback-core` (JS); this is
-  /// a single direct transport action for one cached item, matching Android `onAddMediaItems`.
-  private func playDownload(_ entry: PodverseCarPlayCacheModel.DownloadEntry) {
-    guard let url = resolvePlayableURL(filePath: entry.filePath, mediaUrl: entry.mediaUrl) else {
-      // Soft-fail: a download with no local path (and no remote fallback) is not playable offline.
-      NSLog("[carplay] download idText=%@ has no resolvable URL (soft-fail)", entry.idText)
+  private func playChild(_ child: PodverseCarPlayCacheModel.ChildItem, queueMedium: String) {
+    let url = resolvePlayableURL(
+      filePath: child.downloadFileName ?? "", mediaUrl: child.mediaUrl)
+    guard let url = url else {
+      presentOfflineAlert()
       return
     }
+    let journal = PodverseNativeCache.latestJournalPosition(idText: child.idText)
+    let seek = journal?.position ?? child.progressSeconds
+    playURL(
+      url, idText: child.idText, title: child.title, artworkUrl: child.artworkUrl,
+      queueMedium: queueMedium, isLive: false, seek: seek)
+  }
+
+  private func playQueueEntry(
+    _ entry: PodverseCarPlayCacheModel.QueueEntry, queueMedium: String
+  ) {
+    let url = resolvePlayableURL(
+      filePath: entry.downloadFileName ?? "", mediaUrl: entry.mediaUrl)
+    guard let url = url else {
+      presentOfflineAlert()
+      return
+    }
+    let journal = PodverseNativeCache.latestJournalPosition(idText: entry.idText)
+    let seek = journal?.position ?? entry.startPositionSeconds
+    playURL(
+      url, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
+      queueMedium: queueMedium, isLive: false, seek: seek, subtitle: entry.podcastTitle)
+  }
+
+  private func playHistory(_ entry: PodverseCarPlayCacheModel.HistoryEntry) {
+    let url = resolvePlayableURL(
+      filePath: entry.downloadFileName ?? "", mediaUrl: entry.mediaUrl)
+    guard let url = url else {
+      presentOfflineAlert()
+      return
+    }
+    playURL(
+      url, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
+      queueMedium: "av", isLive: false, seek: nil, subtitle: entry.channelTitle)
+  }
+
+  private func playDownload(_ entry: PodverseCarPlayCacheModel.DownloadEntry) {
+    guard let url = resolvePlayableURL(filePath: entry.filePath, mediaUrl: entry.mediaUrl) else {
+      presentOfflineAlert()
+      return
+    }
+    let journal = PodverseNativeCache.latestJournalPosition(idText: entry.idText)
+    playURL(
+      url, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
+      queueMedium: "av", isLive: false, seek: journal?.position, subtitle: entry.channelTitle)
+  }
+
+  private func playLive(_ entry: PodverseCarPlayCacheModel.LiveEntry) {
+    playURL(
+      entry.mediaUrl, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
+      queueMedium: "av", isLive: true, seek: nil, subtitle: entry.channelTitle)
+  }
+
+  private func playURL(
+    _ url: String, idText: String, title: String, artworkUrl: String?, queueMedium: String,
+    isLive: Bool, seek: Double?, subtitle: String? = nil
+  ) {
+    var meta: [String: Any] = [
+      "idText": idText,
+      "kind": "item",
+      "queueMedium": queueMedium,
+      "title": title,
+      "origin": "car",
+      "isLive": isLive,
+    ]
+    if let artworkUrl = artworkUrl { meta["artworkUrl"] = artworkUrl }
+    if let subtitle = subtitle { meta["subtitle"] = subtitle }
+    let metaJson =
+      (try? JSONSerialization.data(withJSONObject: meta)).flatMap {
+        String(data: $0, encoding: .utf8)
+      }
     do {
-      try PodverseAudioEngine.shared.loadAndStart(url: url, initialSeekSeconds: nil)
-      PodverseAudioEngine.shared.setNowPlayingMetadata(title: entry.title)
+      try PodverseAudioEngine.shared.loadAndStart(
+        url: url, initialSeekSeconds: isLive ? nil : seek, basicAuth: nil, audioProfile: nil,
+        metaJson: metaJson)
+      PodverseAudioEngine.shared.setNowPlayingMetadata(title: title, artist: subtitle)
       interfaceController?.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
     } catch {
-      NSLog("[carplay] play failed idText=%@: %@", entry.idText, error.localizedDescription)
+      NSLog("[carplay] play failed idText=%@: %@", idText, error.localizedDescription)
+      presentOfflineAlert()
     }
   }
 
-  /// Resolve a cache entry to a playable URL with the same preference as Android (`fileUriOrRemote`):
-  /// prefer the offline local file (as a `file://`/`content://` URI) so offline
-  /// items never touch network, else fall back to a remote enclosure URL. Returns nil when neither
-  /// exists.
+  private func presentOfflineAlert() {
+    let ok = CPAlertAction(title: "OK", style: .default) { _ in }
+    let alert = CPAlertTemplate(
+      titleVariants: ["A connection is needed to play this item."], actions: [ok])
+    interfaceController?.presentTemplate(alert, animated: true, completion: nil)
+  }
+
   private func resolvePlayableURL(filePath: String, mediaUrl: String?) -> String? {
     if !filePath.isEmpty {
-      if filePath.hasPrefix("file://") || filePath.hasPrefix("content://") { return filePath }
-      return "file://" + filePath
+      if let local = resolveDownloadFileURL(filePath) { return local }
     }
     if let mediaUrl = mediaUrl, !mediaUrl.isEmpty { return mediaUrl }
     return nil
   }
 
-  /// Deeper hydration (a podcast's episodes) needs a richer cached index than the library-browse
-  /// projection. Push an empty list so the drill-down never dead-ends (matches Android returning
-  /// `emptyList()` for deeper parents).
-  private func pushEmptyNode(title: String) {
-    let template = CPListTemplate(title: title, sections: [CPListSection(items: [])])
-    interfaceController?.pushTemplate(template, animated: true, completion: nil)
+  private func resolveDownloadFileURL(_ stored: String) -> String? {
+    if stored.hasPrefix("content://") { return stored }
+    let fileName: String
+    if stored.hasPrefix("file://") || stored.hasPrefix("/") {
+      fileName = (stored as NSString).lastPathComponent
+    } else if stored.hasPrefix("downloads/") {
+      fileName = String(stored.dropFirst("downloads/".count))
+    } else {
+      fileName = stored
+    }
+    guard !fileName.isEmpty else { return nil }
+    guard
+      let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+    else { return nil }
+    let url = documents.appendingPathComponent("downloads", isDirectory: true)
+      .appendingPathComponent(fileName, isDirectory: false)
+    if FileManager.default.fileExists(atPath: url.path) {
+      return url.absoluteString
+    }
+    if stored.hasPrefix("file://"), let legacy = URL(string: stored),
+      FileManager.default.fileExists(atPath: legacy.path)
+    {
+      return stored
+    }
+    return nil
   }
+}
 
-  // MARK: - Cache reads (shared App Group container; JS may be dead)
-
-  private func readBrowseNodes() -> [PodverseCarPlayCacheModel.BrowseNode] {
-    PodverseCarPlayCacheModel.parseBrowseNodes(PodverseNativeCache.read(.libraryBrowse))
-  }
-
-  private func readDownloadEntries() -> [PodverseCarPlayCacheModel.DownloadEntry] {
-    PodverseCarPlayCacheModel.parseDownloadEntries(PodverseNativeCache.read(.downloads))
-  }
+extension Notification.Name {
+  static let podverseCarPlayDidConnect = Notification.Name("podverseCarPlayDidConnect")
 }

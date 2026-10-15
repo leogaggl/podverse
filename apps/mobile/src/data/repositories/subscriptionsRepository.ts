@@ -259,6 +259,9 @@ export const subscriptionsRepository = {
       .catch(() => {
         // Seeding is best-effort; the user can toggle podcast settings later.
       });
+    void import('../nativeCache/carCacheReproject')
+      .then(({ reprojectLibraryIndex }) => reprojectLibraryIndex())
+      .catch(() => undefined);
   },
 
   /** Remove a directory subscription locally. Never gated — unsubscribe works in every state. */
@@ -276,6 +279,9 @@ export const subscriptionsRepository = {
     await channelLiveStatusRepository.remove(idText);
     await autoDownloadRepository.removeChannel(idText);
     rememberChannelSubscribed(idText, false);
+    void import('../nativeCache/carCacheReproject')
+      .then(({ reprojectLibraryIndex }) => reprojectLibraryIndex())
+      .catch(() => undefined);
   },
 
   /**

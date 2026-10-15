@@ -14,7 +14,10 @@ export type {
 export type {
   MediaEngineAudioProfile,
   MediaEngineBasicAuth,
+  MediaEngineCurrentSource,
   MediaEngineSource,
+  MediaEngineSourceMeta,
+  MediaEngineSourceOrigin,
   PlaybackStateValue,
   PlaybackStateEvent,
   ProgressEvent,
@@ -22,6 +25,7 @@ export type {
   PlaybackErrorEvent,
   PlaybackErrorKind,
   NativePlaybackErrorPayload,
+  SourceChangedEvent,
   StalledEvent,
   NativePlaybackEvents,
   NativeRawPlaybackEvents,

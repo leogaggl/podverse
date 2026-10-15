@@ -14,28 +14,31 @@ import { requireNativeModule } from 'expo-modules-core';
 import type {
   MediaEngineAudioProfile,
   MediaEngineBasicAuth,
+  MediaEngineCurrentSource,
   NativeRawPlaybackEvents,
 } from './types';
 
 /**
  * Raw native module surface as exposed by the Swift/Kotlin `Module` definition. Note this uses the
- * native **positional** `load(url, initialSeekSeconds?, basicAuth?, audioProfile?)` signature — the
- * higher-level, object-based `NativePlaybackBridge.load(source)` is provided by the JS adapter,
- * which wraps this.
+ * native **positional** `load(url, initialSeekSeconds?, basicAuth?, audioProfile?, metaJson?)`
+ * signature — the higher-level, object-based `NativePlaybackBridge.load(source)` is provided by the
+ * JS adapter, which wraps this.
  */
 export type PodverseMediaEngineNativeModule = {
   load(
     url: string,
     initialSeekSeconds?: number | null,
     basicAuth?: MediaEngineBasicAuth | null,
-    audioProfile?: MediaEngineAudioProfile
+    audioProfile?: MediaEngineAudioProfile | null,
+    metaJson?: string | null
   ): Promise<void>;
   /** Positional `load` + `play` in one native hop. The adapter wraps the object form. */
   loadAndStart(
     url: string,
     initialSeekSeconds?: number | null,
     basicAuth?: MediaEngineBasicAuth | null,
-    audioProfile?: MediaEngineAudioProfile
+    audioProfile?: MediaEngineAudioProfile | null,
+    metaJson?: string | null
   ): Promise<void>;
   play(): Promise<void>;
   pause(): void;
@@ -43,6 +46,7 @@ export type PodverseMediaEngineNativeModule = {
   setRate(rate: number): void;
   getPosition(): Promise<number>;
   getDuration(): Promise<number>;
+  getCurrentSource(): Promise<MediaEngineCurrentSource | null>;
   destroy(): void;
   /**
    * Positional video-surface attach. The object-based `attachVideoSurface(targetId, rect)`
@@ -61,8 +65,17 @@ export type PodverseMediaEngineNativeModule = {
   /** JS-desired video-surface visibility; gated by native video capability. */
   setVideoSurfaceVisible(visible: boolean): void;
   writeQueueSnapshot(payloadJson: string): Promise<void>;
+  writeQueueSnapshotAv(payloadJson: string): Promise<void>;
+  writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
   writeDownloadsIndex(payloadJson: string): Promise<void>;
   writeLibraryBrowseIndex(payloadJson: string): Promise<void>;
+  writeLibraryChildren(channelIdText: string, payloadJson: string): Promise<void>;
+  writeHistoryIndex(payloadJson: string): Promise<void>;
+  writeLiveIndex(payloadJson: string): Promise<void>;
+  writeAccountContext(payloadJson: string): Promise<void>;
+  readPlaybackJournal(): Promise<string | null>;
+  writePlaybackJournal(payloadJson: string): Promise<void>;
+  setJsOwnsAdvance(owns: boolean): Promise<void>;
   addListener<Event extends keyof NativeRawPlaybackEvents>(
     eventName: Event,
     listener: NativeRawPlaybackEvents[Event]

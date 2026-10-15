@@ -140,6 +140,9 @@ export const channelLiveStatusRepository = {
       .delete(schema.channelLiveStatus)
       .where(eq(schema.channelLiveStatus.kind, 'channel'));
     await writeStatuses([...statuses.values()]);
+    void import('../nativeCache/carCacheReproject')
+      .then(({ reprojectLiveIndexFromItems }) => reprojectLiveIndexFromItems(items))
+      .catch(() => undefined);
   },
 
   /**

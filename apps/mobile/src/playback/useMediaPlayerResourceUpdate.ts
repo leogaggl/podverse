@@ -10,6 +10,7 @@ import type { MobileAuthRequestContext } from '../data';
 import { queueRepository } from '../data';
 import { EMPTY_ABRIDGED_INDEX } from '../lib/addByRss/domain';
 import { resolveEngineAudioProfile } from '../lib/playback/engineAudioProfile';
+import { mediaEngineSourceMetaFromTarget } from '../lib/playback/mediaEngineSourceMeta';
 import { withAddByRssPlaybackAuth } from './addByRssMediaAuth';
 
 /**
@@ -59,9 +60,11 @@ export function useMediaPlayerResourceUpdate() {
       const decision =
         playbackDecisionOverride ?? resolvePlaybackLoadDecision(request, { abridged });
       const shouldAutoPlay = autoPlayOverride ?? decision.shouldAutoPlay;
+      const meta = mediaEngineSourceMetaFromTarget(request.target, 'js');
       const source = await withAddByRssPlaybackAuth(request.target, {
         audioProfile: resolveEngineAudioProfile(request.target),
         initialSeekSeconds: decision.initialSeekSeconds,
+        ...(meta !== null ? { meta } : {}),
         url,
       });
       // Autoplay uses the atomic `loadAndStart` (2.25); session restore stays load-only (paused) so a

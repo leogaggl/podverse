@@ -7,7 +7,12 @@
  * the web ESLint boundary around `useMediaElementBridge`.
  */
 
-import type { MediaEngineSource, VideoSurfaceRect, VideoSurfaceTargetId } from './types';
+import type {
+  MediaEngineCurrentSource,
+  MediaEngineSource,
+  VideoSurfaceRect,
+  VideoSurfaceTargetId,
+} from './types';
 
 /** Imperative transport contract. See `../README.md` for per-method args, returns, errors, threading. */
 export interface NativePlaybackBridge {
@@ -33,6 +38,8 @@ export interface NativePlaybackBridge {
   getPosition(): Promise<number>;
   /** Current item duration in seconds (`0` when unknown/live). */
   getDuration(): Promise<number>;
+  /** Loaded source identity + position, or `null` when nothing is loaded. */
+  getCurrentSource(): Promise<MediaEngineCurrentSource | null>;
   /** Tear down the current item/observers. The shared player/session ownership stays native. */
   destroy(): void;
   /**
@@ -65,12 +72,25 @@ export interface NativePlaybackBridge {
  * Native stores opaque snapshots — it does not re-decide queue rules.
  */
 export interface NativeCacheWriteBridge {
-  /** Now-playing + upcoming items for car skip/advance and now-playing. */
+  /** Legacy / dual-write now-playing + upcoming (prefer AV/Music writers). */
   writeQueueSnapshot(payloadJson: string): Promise<void>;
+  writeQueueSnapshotAv(payloadJson: string): Promise<void>;
+  writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
   /** Local `file://` paths + metadata for offline car browse. */
   writeDownloadsIndex(payloadJson: string): Promise<void>;
   /** Podcast/playlist lists for car browse templates. */
   writeLibraryBrowseIndex(payloadJson: string): Promise<void>;
+  writeLibraryChildren(channelIdText: string, payloadJson: string): Promise<void>;
+  writeHistoryIndex(payloadJson: string): Promise<void>;
+  writeLiveIndex(payloadJson: string): Promise<void>;
+  /** Signed-in flag + accountIdText for journal attribution. */
+  writeAccountContext(payloadJson: string): Promise<void>;
+  /** Read the durable playback journal JSON (or null when absent). */
+  readPlaybackJournal(): Promise<string | null>;
+  /** Replace the journal payload after a successful drain. */
+  writePlaybackJournal(payloadJson: string): Promise<void>;
+  /** When true, JS owns queue advance on ended; native must not auto-advance. */
+  setJsOwnsAdvance(owns: boolean): Promise<void>;
 }
 
 /** Full native module surface: playback transport + reserved cache-write hooks. */

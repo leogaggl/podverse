@@ -8,11 +8,13 @@ import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import org.json.JSONObject
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -81,6 +83,13 @@ object PodverseAudioEngine {
   private var loadGeneration: Int = 0
   /** When this equals [loadGeneration], start playback once the item reports ready (after a seek). */
   private var playWhenReadyGeneration: Int = -1
+  /** Last loaded URL + optional meta for JS adoption. */
+  private var loadedUrl: String? = null
+  private var loadedMeta: Map<String, Any?>? = null
+  /** When true, JS owns queue advance on ended; native must not auto-advance. */
+  @Volatile private var jsOwnsAdvance: Boolean = false
+  private var clipEndSeconds: Double? = null
+  private var lastJournalProgressAtMs: Long = 0L
 
   private object PlaybackState {
     const val IDLE = "idle"
@@ -196,9 +205,10 @@ object PodverseAudioEngine {
     initialSeekSeconds: Double?,
     basicAuth: ScopedBasicAuth? = null,
     audioProfile: AudioProfile? = null,
+    metaJson: String? = null,
   ) {
     prepareSource(
-      context, url, initialSeekSeconds, basicAuth, audioProfile, playWhenPrepared = false)
+      context, url, initialSeekSeconds, basicAuth, audioProfile, metaJson, playWhenPrepared = false)
   }
 
   /**
@@ -212,9 +222,65 @@ object PodverseAudioEngine {
     initialSeekSeconds: Double?,
     basicAuth: ScopedBasicAuth? = null,
     audioProfile: AudioProfile? = null,
+    metaJson: String? = null,
   ) {
     prepareSource(
-      context, url, initialSeekSeconds, basicAuth, audioProfile, playWhenPrepared = true)
+      context, url, initialSeekSeconds, basicAuth, audioProfile, metaJson, playWhenPrepared = true)
+  }
+
+  fun getCurrentSource(): Map<String, Any?>? {
+    val url = loadedUrl ?: return null
+    return mapOf(
+      "url" to url,
+      "meta" to loadedMeta,
+      "positionSeconds" to getPosition(),
+      "durationSeconds" to getDuration(),
+    )
+  }
+
+  fun setJsOwnsAdvance(owns: Boolean) {
+    onMain { jsOwnsAdvance = owns }
+  }
+
+  private fun advanceToNextCachedItem() {
+    val ctx = appContext ?: return
+    val medium = (loadedMeta?.get("queueMedium") as? String) ?: "av"
+    val kind =
+      if (medium == "music") PodverseNativeCacheKind.QUEUE_MUSIC else PodverseNativeCacheKind.QUEUE_AV
+    val snapshot = PodverseNativeCacheModel.parseQueueSnapshot(PodverseNativeCache.read(ctx, kind))
+    if (snapshot.entries.isEmpty()) return
+    val currentId = loadedMeta?.get("idText") as? String
+    val startIndex =
+      if (currentId == null) 0
+      else {
+        val idx = snapshot.entries.indexOfFirst { it.idText == currentId }
+        if (idx < 0) 0 else idx + 1
+      }
+    if (startIndex >= snapshot.entries.size) return
+    val next = snapshot.entries[startIndex]
+    val uri =
+      when {
+        !next.downloadFileName.isNullOrBlank() -> {
+          val fileName =
+            if (next.downloadFileName!!.startsWith("downloads/"))
+              next.downloadFileName!!.removePrefix("downloads/")
+            else next.downloadFileName!!
+          val file = File(ctx.filesDir, "downloads/$fileName")
+          if (file.exists()) Uri.fromFile(file).toString() else next.mediaUrl
+        }
+        else -> next.mediaUrl
+      } ?: return
+    val metaJson =
+      JSONObject()
+        .put("idText", next.idText)
+        .put("kind", "item")
+        .put("queueMedium", medium)
+        .put("title", next.title)
+        .put("origin", "car")
+        .put("isLive", false)
+        .apply { next.artworkUrl?.let { put("artworkUrl", it) } }
+        .toString()
+    loadAndStart(ctx, uri, next.startPositionSeconds, null, null, metaJson)
   }
 
   @androidx.annotation.OptIn(UnstableApi::class)
@@ -237,6 +303,7 @@ object PodverseAudioEngine {
     initialSeekSeconds: Double?,
     basicAuth: ScopedBasicAuth?,
     audioProfile: AudioProfile?,
+    metaJson: String?,
     playWhenPrepared: Boolean,
   ) {
     onMain {
@@ -253,7 +320,11 @@ object PodverseAudioEngine {
       val p = getOrCreatePlayer(context)
       audioProfile?.let { applyAudioProfile(p, it) }
       publish(PlaybackState.LOADING)
-      val item = MediaItem.fromUri(url)
+      val meta = parseSourceMeta(metaJson)
+      loadedUrl = url
+      loadedMeta = meta
+      clipEndSeconds = (meta?.get("clipEndSeconds") as? Number)?.toDouble()
+      val item = buildMediaItem(url, meta)
       val startMs = (seekSeconds * 1000).toLong()
       val isRemote = url.startsWith("https://") || url.startsWith("http://")
       if (basicAuth != null && isRemote) {
@@ -265,10 +336,83 @@ object PodverseAudioEngine {
         p.setMediaItem(item)
       }
       p.prepare()
+      emit("sourceChanged", mapOf("url" to url, "meta" to meta))
+      appendJournal(context, "started", if (hasSeek) seekSeconds else 0.0)
       if (playWhenPrepared && !hasSeek) {
         startPlayback(context, p)
       }
     }
+  }
+
+  private fun appendJournal(context: Context, eventKind: String, positionSeconds: Double) {
+    val meta = loadedMeta ?: return
+    val idText = meta["idText"] as? String ?: return
+    PodverseNativeCache.appendJournalEntry(
+      context,
+      mapOf(
+        "accountIdText" to PodverseNativeCache.accountIdTextFromContext(context),
+        "idText" to idText,
+        "kind" to (meta["kind"] ?: "item"),
+        "queueMedium" to (meta["queueMedium"] ?: "av"),
+        "positionSeconds" to positionSeconds,
+        "durationSeconds" to getDurationUnsafe(),
+        "eventKind" to eventKind,
+        "origin" to (meta["origin"] ?: "js"),
+      ),
+    )
+  }
+
+  private fun parseSourceMeta(metaJson: String?): Map<String, Any?>? {
+    if (metaJson.isNullOrBlank()) return null
+    return try {
+      val obj = JSONObject(metaJson)
+      val idText = obj.optString("idText", "")
+      val title = obj.optString("title", "")
+      if (idText.isBlank() || title.isBlank()) return null
+      mapOf(
+        "idText" to idText,
+        "kind" to obj.optString("kind", "item"),
+        "queueMedium" to obj.optString("queueMedium", "av"),
+        "title" to title,
+        "subtitle" to obj.optString("subtitle").takeIf { it.isNotBlank() },
+        "artworkUrl" to obj.optString("artworkUrl").takeIf { it.isNotBlank() },
+        "isLive" to obj.optBoolean("isLive", false),
+        "clipStartSeconds" to
+          if (obj.has("clipStartSeconds") && !obj.isNull("clipStartSeconds")) {
+            obj.optDouble("clipStartSeconds")
+          } else null,
+        "clipEndSeconds" to
+          if (obj.has("clipEndSeconds") && !obj.isNull("clipEndSeconds")) {
+            obj.optDouble("clipEndSeconds")
+          } else null,
+        "origin" to obj.optString("origin", "js"),
+      )
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  private fun buildMediaItem(url: String, meta: Map<String, Any?>?): MediaItem {
+    val builder = MediaItem.Builder().setUri(url)
+    val idText = meta?.get("idText") as? String
+    if (!idText.isNullOrBlank()) {
+      builder.setMediaId(idText)
+    }
+    if (meta != null) {
+      val metadataBuilder =
+        MediaMetadata.Builder()
+          .setTitle(meta["title"] as? String ?: "Podverse")
+          .setIsBrowsable(false)
+          .setIsPlayable(true)
+      (meta["subtitle"] as? String)?.let { metadataBuilder.setArtist(it) }
+      (meta["artworkUrl"] as? String)?.let { metadataBuilder.setArtworkUri(Uri.parse(it)) }
+      if (meta["isLive"] == true) {
+        metadataBuilder.setIsBrowsable(false)
+        metadataBuilder.setMediaType(MediaMetadata.MEDIA_TYPE_RADIO_STATION)
+      }
+      builder.setMediaMetadata(metadataBuilder.build())
+    }
+    return builder.build()
   }
 
   private fun startPlayback(context: Context, p: ExoPlayer) {
@@ -291,7 +435,13 @@ object PodverseAudioEngine {
   }
 
   fun pause() {
-    onMain { player?.pause() }
+    onMain {
+      val ctx = appContext
+      if (ctx != null) {
+        appendJournal(ctx, "paused", getPositionUnsafe())
+      }
+      player?.pause()
+    }
   }
 
   fun seek(seconds: Double) {
@@ -367,9 +517,17 @@ object PodverseAudioEngine {
           }
         }
         Player.STATE_ENDED -> {
+          val ctx = appContext
+          if (ctx != null) {
+            appendJournal(ctx, "completed", getPositionUnsafe())
+          }
           publish(PlaybackState.ENDED)
           emit("ended", mapOf("positionSeconds" to getPositionUnsafe()))
           stopProgressUpdates()
+          if (!jsOwnsAdvance) {
+            advanceToNextCachedItem()
+          }
+          ctx?.let { PodverseCarSyncScheduler.onPlaybackPausedOrEnded(it) }
         }
         Player.STATE_IDLE -> {}
       }
@@ -450,10 +608,29 @@ object PodverseAudioEngine {
 
   private val progressRunnable = object : Runnable {
     override fun run() {
+      val position = getPositionUnsafe()
+      val clipEnd = clipEndSeconds
+      val ctx = appContext
+      if (clipEnd != null && clipEnd > 0 && position >= clipEnd) {
+        clipEndSeconds = null
+        player?.pause()
+        if (ctx != null) {
+          appendJournal(ctx, "completed", position)
+        }
+        publish(PlaybackState.ENDED)
+        emit("ended", mapOf("positionSeconds" to position))
+        stopProgressUpdates()
+        return
+      }
+      val nowMs = System.currentTimeMillis()
+      if (player?.isPlaying == true && nowMs - lastJournalProgressAtMs >= 15_000L && ctx != null) {
+        lastJournalProgressAtMs = nowMs
+        appendJournal(ctx, "progress", position)
+      }
       emit(
         "progress",
         mapOf(
-          "positionSeconds" to getPositionUnsafe(),
+          "positionSeconds" to position,
           "durationSeconds" to getDurationUnsafe(),
         ))
       if (progressPosting) {

@@ -12,7 +12,9 @@ public class PodverseMediaEngineModule: Module {
     Name("PodverseMediaEngine")
 
     // Native → JS events.
-    Events("playbackState", "progress", "ended", "error", "stalled")
+    Events(
+      "playbackState", "progress", "ended", "error", "stalled", "sourceChanged",
+      "podverseCarPlayDidConnect")
 
     // Forward engine events to JS while this module (and the JS runtime) is alive. When JS is not
     // running, the engine still plays and updates the lock screen / car now-playing on its own.
@@ -22,10 +24,16 @@ public class PodverseMediaEngineModule: Module {
         { [weak self] event, payload in
           self?.sendEvent(event.rawValue, payload)
         }, owner: self)
+      NotificationCenter.default.addObserver(
+        forName: .podverseCarPlayDidConnect, object: nil, queue: .main
+      ) { [weak self] _ in
+        self?.sendEvent("podverseCarPlayDidConnect", [:])
+      }
     }
 
     OnDestroy {
       PodverseAudioEngine.shared.clearEventSink(owner: self)
+      NotificationCenter.default.removeObserver(self)
     }
 
     // --- Playback transport ---
@@ -35,24 +43,26 @@ public class PodverseMediaEngineModule: Module {
     AsyncFunction("load") {
       (
         url: String, initialSeekSeconds: Double?, basicAuth: MediaBasicAuthRecord?,
-        audioProfile: String?
+        audioProfile: String?, metaJson: String?
       ) in
       try PodverseAudioEngine.shared.load(
         url: url, initialSeekSeconds: initialSeekSeconds,
         basicAuth: basicAuth?.toScopedBasicAuth(),
-        audioProfile: audioProfile.flatMap(PodverseAudioProfile.init(rawValue:)))
+        audioProfile: audioProfile.flatMap(PodverseAudioProfile.init(rawValue:)),
+        metaJson: metaJson)
     }
 
     // Atomic load + play. Used by the primary autoplay path.
     AsyncFunction("loadAndStart") {
       (
         url: String, initialSeekSeconds: Double?, basicAuth: MediaBasicAuthRecord?,
-        audioProfile: String?
+        audioProfile: String?, metaJson: String?
       ) in
       try PodverseAudioEngine.shared.loadAndStart(
         url: url, initialSeekSeconds: initialSeekSeconds,
         basicAuth: basicAuth?.toScopedBasicAuth(),
-        audioProfile: audioProfile.flatMap(PodverseAudioProfile.init(rawValue:)))
+        audioProfile: audioProfile.flatMap(PodverseAudioProfile.init(rawValue:)),
+        metaJson: metaJson)
     }
 
     AsyncFunction("play") {
@@ -77,6 +87,10 @@ public class PodverseMediaEngineModule: Module {
 
     AsyncFunction("getDuration") { () -> Double in
       return PodverseAudioEngine.shared.getDuration()
+    }
+
+    AsyncFunction("getCurrentSource") { () -> [String: Any]? in
+      return PodverseAudioEngine.shared.getCurrentSource()
     }
 
     Function("destroy") {
@@ -121,12 +135,54 @@ public class PodverseMediaEngineModule: Module {
       PodverseNativeCache.write(.queue, json: payloadJson)
     }
 
+    AsyncFunction("writeQueueSnapshotAv") { (payloadJson: String) in
+      PodverseNativeCache.write(.queueAv, json: payloadJson)
+    }
+
+    AsyncFunction("writeQueueSnapshotMusic") { (payloadJson: String) in
+      PodverseNativeCache.write(.queueMusic, json: payloadJson)
+    }
+
     AsyncFunction("writeDownloadsIndex") { (payloadJson: String) in
       PodverseNativeCache.write(.downloads, json: payloadJson)
     }
 
     AsyncFunction("writeLibraryBrowseIndex") { (payloadJson: String) in
       PodverseNativeCache.write(.libraryBrowse, json: payloadJson)
+    }
+
+    AsyncFunction("writeLibraryChildren") { (channelIdText: String, payloadJson: String) in
+      PodverseNativeCache.writeLibraryChildren(channelIdText: channelIdText, json: payloadJson)
+    }
+
+    AsyncFunction("writeHistoryIndex") { (payloadJson: String) in
+      PodverseNativeCache.write(.history, json: payloadJson)
+    }
+
+    AsyncFunction("writeLiveIndex") { (payloadJson: String) in
+      PodverseNativeCache.write(.live, json: payloadJson)
+    }
+
+    AsyncFunction("writeAccountContext") { (payloadJson: String) in
+      if let data = payloadJson.data(using: .utf8),
+        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let signedIn = object["signedIn"] as? Bool, signedIn == false
+      {
+        PodverseNativeCache.clearAccountScopedFiles()
+      }
+      PodverseNativeCache.write(.accountContext, json: payloadJson)
+    }
+
+    AsyncFunction("readPlaybackJournal") { () -> String? in
+      return PodverseNativeCache.read(.playbackJournal)
+    }
+
+    AsyncFunction("writePlaybackJournal") { (payloadJson: String) in
+      PodverseNativeCache.write(.playbackJournal, json: payloadJson)
+    }
+
+    AsyncFunction("setJsOwnsAdvance") { (owns: Bool) in
+      PodverseAudioEngine.shared.setJsOwnsAdvance(owns)
     }
   }
 }

@@ -19,6 +19,16 @@ const trimToNull = (value: string | null | undefined): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const browseKindForChannel = (channel: SubscribedChannel): NativeCacheBrowseNode['kind'] => {
+  if (channel.kind === 'artists') {
+    return 'artist';
+  }
+  if (channel.kind === 'albums') {
+    return 'album';
+  }
+  return 'podcast';
+};
+
 /**
  * Map a merged subscribed channel (directory or add-by-RSS) to a car browse node. The shared repo
  * guarantees a non-empty `title` and a stable `idText` (`id_text` for directory, `feed_url` for
@@ -28,8 +38,9 @@ export const mapSubscribedChannelToNode = (channel: SubscribedChannel): NativeCa
   return {
     idText: channel.idText,
     title: channel.title,
-    kind: 'podcast',
+    kind: browseKindForChannel(channel),
     artworkUrl: channel.imageUrl,
+    mediumBucket: channel.medium === 'music' ? 'music' : 'av',
   };
 };
 

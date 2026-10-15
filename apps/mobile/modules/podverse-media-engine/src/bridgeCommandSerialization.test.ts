@@ -55,6 +55,26 @@ describe('serializeLoadCommand', () => {
     ).toEqual(['https://example.com/a.mp3', 30, { ...basicAuth, scopeHost: 'example.com' }]);
   });
 
+  it('appends metaJson as the fifth arg when meta is provided', () => {
+    const meta = {
+      idText: 'ep1',
+      kind: 'item' as const,
+      origin: 'js' as const,
+      queueMedium: 'av' as const,
+      title: 'Episode One',
+    };
+    const args = serializeLoadCommand({ meta, url: 'https://example.com/a.mp3' });
+    expect(args[0]).toBe('https://example.com/a.mp3');
+    expect(args[1]).toBeNull();
+    expect(args[2]).toBeNull();
+    expect(args[3]).toBeNull();
+    expect(JSON.parse(args[4] as string)).toMatchObject({
+      idText: 'ep1',
+      origin: 'js',
+      title: 'Episode One',
+    });
+  });
+
   it('appends audioProfile as the fourth arg, holding earlier omitted args as null', () => {
     expect(
       serializeLoadCommand({ audioProfile: 'music', url: 'https://example.com/a.mp3' })

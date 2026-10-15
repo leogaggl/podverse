@@ -29,6 +29,8 @@ import {
   buildDownloadFilePath,
   DOWNLOADS_SUBDIRECTORY,
   hashEnclosureUri,
+  resolveStoredDownloadFilePath,
+  toStoredDownloadFileName,
 } from './downloadStorage';
 import { downloadStore } from './downloadStore';
 import {
@@ -38,6 +40,15 @@ import {
 } from './downloadTransferValidation';
 import type { DownloadPatch, DownloadRecord } from './downloadTypes';
 import { DOWNLOAD_MAX_CONCURRENCY } from './downloadTypes';
+
+/** Absolute `file://` for a stored relative (or legacy absolute) download path. */
+const absoluteDownloadPath = (storedPath: string): string | null => {
+  const baseDirectory = FileSystem.documentDirectory;
+  if (baseDirectory === null) {
+    return null;
+  }
+  return resolveStoredDownloadFilePath(storedPath, baseDirectory);
+};
 
 /**
  * Download runner. Owns Expo FileSystem transfers, a capped concurrent queue
@@ -281,7 +292,10 @@ const rejectInvalidTransfer = async (
 const eraseDownload = async (record: DownloadRecord | null, itemIdText: string): Promise<void> => {
   if (record !== null && record.filePath !== null) {
     try {
-      await FileSystem.deleteAsync(record.filePath, { idempotent: true });
+      const absolute = absoluteDownloadPath(record.filePath);
+      if (absolute !== null) {
+        await FileSystem.deleteAsync(absolute, { idempotent: true });
+      }
     } catch {
       // Best-effort file cleanup.
     }
@@ -436,7 +450,8 @@ const runTransfer = async (itemIdText: string): Promise<void> => {
     lastProgressPersistAt.delete(itemIdText);
     await applyChange(itemIdText, {
       dismissedFromList: false,
-      filePath: result.uri,
+      // Persist the file name only — absolute paths embed the iOS container UUID.
+      filePath: toStoredDownloadFileName(result.uri),
       status: 'complete',
     });
     await maybeAutoDelete(itemIdText);
@@ -600,14 +615,19 @@ export const downloadManager = {
     for (const record of interrupted) {
       if (record.filePath !== null) {
         try {
-          const info = await FileSystem.getInfoAsync(record.filePath);
-          if (info.exists && !info.isDirectory && (info.size ?? 0) > 0) {
-            await applyChange(record.itemIdText, {
-              byteSize: info.size ?? record.byteSize,
-              bytesDownloaded: info.size ?? record.bytesDownloaded,
-              status: 'complete',
-            });
-            continue;
+          const absolute = absoluteDownloadPath(record.filePath);
+          if (absolute !== null) {
+            const info = await FileSystem.getInfoAsync(absolute);
+            if (info.exists && !info.isDirectory && (info.size ?? 0) > 0) {
+              await applyChange(record.itemIdText, {
+                byteSize: info.size ?? record.byteSize,
+                bytesDownloaded: info.size ?? record.bytesDownloaded,
+                // Normalize legacy absolute rows to a relative file name.
+                filePath: toStoredDownloadFileName(record.filePath),
+                status: 'complete',
+              });
+              continue;
+            }
           }
         } catch {
           // Fall through to re-queue.
@@ -906,7 +926,10 @@ export const downloadManager = {
     for (const record of all) {
       if (record.filePath !== null) {
         try {
-          await FileSystem.deleteAsync(record.filePath, { idempotent: true });
+          const absolute = absoluteDownloadPath(record.filePath);
+          if (absolute !== null) {
+            await FileSystem.deleteAsync(absolute, { idempotent: true });
+          }
         } catch {
           // Best-effort file cleanup.
         }

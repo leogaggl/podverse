@@ -85,6 +85,10 @@ const refreshNativeCacheProjection = async (): Promise<void> => {
       title: schema.download.title,
       filePath: schema.download.filePath,
       status: schema.download.status,
+      artworkUrl: schema.download.artworkUrl,
+      enclosureUri: schema.download.enclosureUri,
+      byteSize: schema.download.byteSize,
+      channelTitle: schema.download.channelTitle,
     })
     .from(schema.download)
     .where(eq(schema.download.status, 'complete'));
@@ -95,7 +99,15 @@ const refreshNativeCacheProjection = async (): Promise<void> => {
         return [];
       }
       return [
-        { idText: row.itemIdText, title: row.title ?? row.itemIdText, filePath: row.filePath },
+        {
+          idText: row.itemIdText,
+          title: row.title ?? row.itemIdText,
+          filePath: row.filePath,
+          artworkUrl: row.artworkUrl,
+          mediaUrl: row.enclosureUri,
+          bytes: row.byteSize,
+          channelTitle: row.channelTitle,
+        },
       ];
     }),
   });

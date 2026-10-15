@@ -52,3 +52,50 @@ export const buildDownloadFilePath = (baseDirectory: string, fileName: string): 
   const normalizedBase = baseDirectory.endsWith('/') ? baseDirectory : `${baseDirectory}/`;
   return `${normalizedBase}${DOWNLOADS_SUBDIRECTORY}/${fileName}`;
 };
+
+/**
+ * Persist only the file name under `downloads/`. Absolute `file://` paths embed the iOS container
+ * UUID, which changes on update/reinstall; readers always rejoin against the current
+ * `documentDirectory`.
+ */
+export const toStoredDownloadFileName = (absoluteOrRelativePath: string): string => {
+  const trimmed = absoluteOrRelativePath.trim();
+  if (trimmed === '') {
+    return trimmed;
+  }
+  const withoutQuery = trimmed.split('?')[0] ?? trimmed;
+  const normalized = withoutQuery.replace(/\\/g, '/');
+  const segments = normalized.split('/').filter((segment) => segment.length > 0);
+  const last = segments[segments.length - 1] ?? normalized;
+  if (last === DOWNLOADS_SUBDIRECTORY) {
+    return last;
+  }
+  return last;
+};
+
+/**
+ * Resolve a stored download path (file name, `downloads/<name>`, or legacy absolute `file://`)
+ * against the current document directory. Returns an absolute `file://` URI when possible.
+ */
+export const resolveStoredDownloadFilePath = (
+  storedPath: string,
+  documentDirectory: string
+): string => {
+  const trimmed = storedPath.trim();
+  if (trimmed === '') {
+    return trimmed;
+  }
+  if (trimmed.startsWith('file://') || trimmed.startsWith('content://')) {
+    // Legacy absolute rows: rebase by file name onto the current container.
+    const fileName = toStoredDownloadFileName(trimmed);
+    return buildDownloadFilePath(documentDirectory, fileName);
+  }
+  if (trimmed.startsWith('/')) {
+    const fileName = toStoredDownloadFileName(trimmed);
+    return buildDownloadFilePath(documentDirectory, fileName);
+  }
+  const relative = trimmed.startsWith(`${DOWNLOADS_SUBDIRECTORY}/`)
+    ? trimmed.slice(DOWNLOADS_SUBDIRECTORY.length + 1)
+    : trimmed;
+  return buildDownloadFilePath(documentDirectory, relative);
+};
