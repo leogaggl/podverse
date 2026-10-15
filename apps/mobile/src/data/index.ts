@@ -47,6 +47,7 @@ export {
   clipRepository,
   downloadsRepository,
   exampleRepository,
+  playableItemRepository,
   playbackContentRepository,
   playbackOutboxRepository,
   playlistRepository,

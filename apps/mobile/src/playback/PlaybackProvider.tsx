@@ -53,11 +53,14 @@ import {
 import { clampPlaybackPositionForStorage } from '@podverse/playback-core/clampNearEndSeconds';
 import { resolveQueueAdvance } from '@podverse/playback-core/resolveQueueAdvance';
 
-import type { PlaybackErrorEvent, PlaybackStateValue } from '../../modules/podverse-media-engine';
+import type {
+  MediaEngineSourceMeta,
+  PlaybackErrorEvent,
+  PlaybackStateValue,
+} from '../../modules/podverse-media-engine';
 import { useAuth } from '../auth/AuthProvider';
 import { nativePlaybackBridge } from '../bridge/nativePlaybackBridge';
 import { useNativePlaybackBridge } from '../bridge/useNativePlaybackBridge';
-import { attachCarPlayConnectSyncListener } from '../sync/carBackgroundSync';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import {
   canAdvanceToNextQueueItem,
@@ -96,6 +99,12 @@ import {
 import { resolveE2eMediaUrl } from '../lib/e2e/resolveE2eMediaUrl';
 import { perfCount } from '../lib/perf/perfSpans';
 import {
+  adoptedItemNeedsEnrichment,
+  buildAdoptedPlaybackTarget,
+  buildChannelFromEngineMeta,
+  buildItemFromEngineMeta,
+} from '../lib/playback/engineSourceAdoption';
+import {
   buildChapterPlaybackTarget,
   buildClipPlaybackTarget,
   buildSoundbitePlaybackTarget,
@@ -128,10 +137,15 @@ import {
 } from '../lib/playback/resolveEnclosureUrl';
 import { resolvePlaybackUrl } from '../lib/playback/resolvePlaybackUrl';
 import { shouldPostSeekEventNow } from '../lib/playback/seekEventCoalescing';
+import { isEffectivelyOffline, subscribeConnectivity } from '../net/connectivity';
 import { shouldSkipListenStatsForAccount } from '../popularityTracking/popularityTrackingGate';
 import { isOfflineModeEnabled } from '../prefs/offlineMode';
 import { readPlaybackMediaTypePref } from '../prefs/preferredMediaType';
 import { getPref, setPref } from '../prefs/prefsStore';
+import {
+  attachCarPlayConnectSyncListener,
+  drainCarPlaybackJournal,
+} from '../sync/carBackgroundSync';
 import {
   readPlaybackPositionAdoptions,
   subscribePlaybackPositionAdoptions,
@@ -586,6 +600,8 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   const lastSourceUrlRef = useRef<string | null>(null);
   /** Identity of the item the native engine last loaded (`meta.idText`), if any. */
   const engineSourceIdTextRef = useRef<string | null>(null);
+  /** An adopted engine source still showing partial data, filled in when a fetch can succeed. */
+  const pendingAdoptionEnrichmentRef = useRef<MediaEngineSourceMeta | null>(null);
   /** Last failure written to the error log. Cleared once playback actually runs again. */
   const lastLoggedPlaybackErrorRef = useRef<string | null>(null);
   /** Claimed while a download-complete source swap is in flight, including the file-exists check. */
@@ -2281,6 +2297,149 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     [buildContext, ensureChannel, startClipPlayback, startItemPlayback, startSoundbitePlayback]
   );
 
+  const isAdoptedSourceCurrent = useCallback((idText: string): boolean => {
+    const target = activeTargetRef.current;
+    return (
+      engineSourceIdTextRef.current === idText &&
+      target !== null &&
+      playbackTargetRowMediaId(target) === idText
+    );
+  }, []);
+
+  /**
+   * Replace an adopted item's partial data with the whole item and channel, without touching the
+   * audio. Offline, or when the fetch fails, the source is remembered and retried when the
+   * connection returns.
+   */
+  const enrichAdoptedSource = useCallback(
+    async (meta: MediaEngineSourceMeta): Promise<void> => {
+      if (isEffectivelyOffline()) {
+        pendingAdoptionEnrichmentRef.current = meta;
+        return;
+      }
+      pendingAdoptionEnrichmentRef.current = null;
+      try {
+        const item = await playbackContentRepository.getItemByIdText(buildContext(), meta.idText);
+        const channel = await ensureChannel(item);
+        if (channel === null) {
+          pendingAdoptionEnrichmentRef.current = meta;
+          return;
+        }
+        if (!isAdoptedSourceCurrent(meta.idText)) {
+          return;
+        }
+        const target = buildAdoptedPlaybackTarget(item, channel, meta);
+        activeTargetRef.current = target;
+        setActiveTarget(target);
+        setNowPlaying(summaryFromItem(item, channel));
+        await resolvePlaybackSelectionForItem(item);
+      } catch {
+        if (isAdoptedSourceCurrent(meta.idText)) {
+          pendingAdoptionEnrichmentRef.current = meta;
+        }
+      }
+    },
+    [buildContext, ensureChannel, isAdoptedSourceCurrent, resolvePlaybackSelectionForItem]
+  );
+
+  /**
+   * Make a source the engine is already playing the phone's active item, without reloading audio:
+   * one the car started, or one still loaded when the phone app opens. The whole item comes from a
+   * device store when one holds it; otherwise it is built from the engine's metadata and filled in
+   * once it can be fetched. Returns false when the engine moved on to another source meanwhile.
+   */
+  const adoptEngineSource = useCallback(
+    async (source: {
+      url: string;
+      meta: MediaEngineSourceMeta;
+      positionSeconds?: number;
+      durationSeconds?: number;
+      isPlaying?: boolean;
+    }): Promise<boolean> => {
+      const { meta } = source;
+      const current = activeTargetRef.current;
+      if (current !== null && playbackTargetRowMediaId(current) === meta.idText) {
+        return true;
+      }
+
+      let stored: DTOItem | null = null;
+      let storedChannel: DTOChannel | null = null;
+      try {
+        stored = await playbackContentRepository.getStoredItemByIdText(meta.idText);
+        if (stored !== null) {
+          storedChannel =
+            stored.channel ??
+            (await playbackContentRepository.getLocalChannelForItem(stored.id_text));
+        }
+      } catch {
+        stored = null;
+        storedChannel = null;
+      }
+      if (engineSourceIdTextRef.current !== meta.idText) {
+        return false;
+      }
+
+      const durationSeconds =
+        typeof source.durationSeconds === 'number' && source.durationSeconds > 0
+          ? source.durationSeconds
+          : 0;
+      const positionSeconds =
+        typeof source.positionSeconds === 'number' && source.positionSeconds > 0
+          ? source.positionSeconds
+          : 0;
+      const item = stored ?? buildItemFromEngineMeta(meta, source.url, durationSeconds);
+      const channel = storedChannel ?? buildChannelFromEngineMeta(meta);
+      const target = buildAdoptedPlaybackTarget(item, channel, meta);
+
+      applyAutoQueueDirective({ mode: 'clear' });
+      clearDownloadSourceSwap();
+      releasePendingStart();
+      pauseAtRef.current = null;
+      lastSourceUrlRef.current = source.url;
+      setPlaybackSourceMarker(source.url);
+      sourcePlayableRef.current = true;
+      activeTargetRef.current = target;
+      positionRef.current = positionSeconds;
+      durationRef.current = durationSeconds;
+      setActiveTarget(target);
+      setNowPlaying(summaryFromItem(item, channel));
+      setLastPlaybackError(null);
+      setPlaybackProgress({ durationSeconds, positionSeconds });
+      if (source.isPlaying !== undefined) {
+        setPlaybackPlaying(source.isPlaying);
+        setTransportState(source.isPlaying ? 'playing' : 'paused');
+      }
+      writeLastPlaybackSnapshotForTarget(target, positionSeconds);
+      void resolvePlaybackSelectionForItem(item);
+
+      if (adoptedItemNeedsEnrichment({ builtFromMeta: stored === null, channel, item })) {
+        void enrichAdoptedSource(meta);
+      } else {
+        pendingAdoptionEnrichmentRef.current = null;
+      }
+      return true;
+    },
+    [
+      applyAutoQueueDirective,
+      clearDownloadSourceSwap,
+      enrichAdoptedSource,
+      releasePendingStart,
+      resolvePlaybackSelectionForItem,
+      setPlaybackPlaying,
+      writeLastPlaybackSnapshotForTarget,
+    ]
+  );
+
+  useEffect(() => {
+    return subscribeConnectivity((state) => {
+      const pending = pendingAdoptionEnrichmentRef.current;
+      if (state !== 'online' || pending === null || !isAdoptedSourceCurrent(pending.idText)) {
+        return;
+      }
+      void enrichAdoptedSource(pending);
+    });
+  }, [enrichAdoptedSource, isAdoptedSourceCurrent]);
+
   const adoptQueueHeadWhenPlayerEmpty = useCallback(async (): Promise<void> => {
     if (!lastPlaybackRestoreSettled) {
       return;
@@ -2466,30 +2625,22 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     }
     lastPlaybackRestoreStarted = true;
     void (async () => {
-      try {
-        const { drainPlaybackJournal } = await import('./drainPlaybackJournal');
-        await drainPlaybackJournal({
-          accountIdText: account?.id_text ?? null,
-          queueIdText: activeQueueRef.current?.id_text ?? null,
-        });
-      } catch {
-        // Soft-fail; restore still proceeds.
-      }
+      await drainCarPlaybackJournal();
 
-      // Prefer an already-loaded engine source (car session) over snapshot / queue-head restore.
+      // A source the engine already holds (a car session, or audio that outlived the JS runtime)
+      // wins over snapshot and queue-head restore, which would reload over it.
       try {
         const current = await nativePlaybackBridge.getCurrentSource();
         const meta = current?.meta ?? null;
-        if (meta !== null && meta.idText.length > 0) {
+        if (current !== null && meta !== null && meta.idText.length > 0) {
           engineSourceIdTextRef.current = meta.idText;
-          if (typeof current?.positionSeconds === 'number' && current.positionSeconds >= 0) {
-            positionRef.current = current.positionSeconds;
-            setPlaybackPositionSeconds(current.positionSeconds);
-          }
-          if (typeof current?.durationSeconds === 'number' && current.durationSeconds > 0) {
-            durationRef.current = current.durationSeconds;
-            setPlaybackDurationSeconds(current.durationSeconds);
-          }
+          await adoptEngineSource({
+            durationSeconds: current.durationSeconds,
+            isPlaying: current.isPlaying,
+            meta,
+            positionSeconds: current.positionSeconds,
+            url: current.url,
+          });
           lastPlaybackRestoreSettled = true;
           return;
         }
@@ -2504,7 +2655,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       lastPlaybackRestoreSettled = true;
       await adoptQueueHeadWhenPlayerEmpty();
     })();
-  }, [account?.id_text, adoptQueueHeadWhenPlayerEmpty, restoreFromSnapshot, status]);
+  }, [adoptEngineSource, adoptQueueHeadWhenPlayerEmpty, restoreFromSnapshot, status]);
 
   useEffect(() => {
     if (status !== 'authenticated' || !lastPlaybackRestoreSettled) {
@@ -2540,7 +2691,8 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   useNativePlaybackBridge({
     ended: () => {
       const engineId = engineSourceIdTextRef.current;
-      const activeId = playbackTargetRowMediaId(activeTargetRef.current);
+      const activeTarget = activeTargetRef.current;
+      const activeId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
       if (engineId !== null && activeId !== null && engineId !== activeId) {
         return;
       }
@@ -2552,12 +2704,14 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       if (meta === null || meta.origin !== 'car') {
         return;
       }
-      // Car-initiated load: keep the engine playing; only track identity so progress/ended
-      // attach to the correct item. Full target hydration waits on the next phone open path.
-      const activeId = playbackTargetRowMediaId(activeTargetRef.current);
-      if (activeId !== null && activeId === meta.idText) {
-        return;
-      }
+      // The car started this load. The engine keeps playing; the phone adopts the item, then
+      // applies the journal so the car's start reaches local state and the outbox.
+      void (async () => {
+        const adopted = await adoptEngineSource({ meta, url: event.url });
+        if (adopted) {
+          await drainCarPlaybackJournal();
+        }
+      })();
     },
     error: (event) => {
       clearDownloadSourceSwap();
@@ -2642,7 +2796,8 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       }
 
       const engineId = engineSourceIdTextRef.current;
-      const activeId = playbackTargetRowMediaId(activeTargetRef.current);
+      const activeTarget = activeTargetRef.current;
+      const activeId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
       const identityMatches =
         engineId === null || activeId === null || engineId === activeId;
       if (!identityMatches) {
@@ -3079,6 +3234,20 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     await advance('skip');
   }, [advance, probeHasQueueAhead]);
   const completeNowPlaying = useCallback(() => advance('complete'), [advance]);
+
+  const remoteTrackCommandHandlersRef = useRef({ skipToNextTrack, skipToPreviousTrack });
+  remoteTrackCommandHandlersRef.current = { skipToNextTrack, skipToPreviousTrack };
+  useEffect(() => {
+    const subscription = nativePlaybackBridge.addListener('remoteTrackCommand', (event) => {
+      const handlers = remoteTrackCommandHandlersRef.current;
+      void (event.command === 'next'
+        ? handlers.skipToNextTrack()
+        : handlers.skipToPreviousTrack());
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const sessionValue = useMemo<PlaybackSessionContextValue>(
     () => ({

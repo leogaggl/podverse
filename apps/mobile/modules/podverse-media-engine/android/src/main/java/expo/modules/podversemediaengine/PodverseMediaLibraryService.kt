@@ -27,7 +27,7 @@ class PodverseMediaLibraryService : MediaLibraryService() {
   override fun onCreate() {
     super.onCreate()
     PodverseNativeCache.debugDump(this)
-    val player = PodverseAudioEngine.getOrCreatePlayer(this)
+    val player = PodverseSessionPlayer(this, PodverseAudioEngine.getOrCreatePlayer(this))
     val sessionBuilder =
       MediaLibrarySession.Builder(this, player, LibraryCallback())
         .setId("podverse_media_library")
@@ -159,30 +159,11 @@ class PodverseMediaLibraryService : MediaLibraryService() {
             (playable.startPositionSeconds * 1000).toLong()
           else -> C.TIME_UNSET
         }
-      val playlist = buildUpcomingPlaylist(idText, playable)
-      val metaJson =
-        JSONObject()
-          .put("idText", idText)
-          .put("kind", "item")
-          .put("queueMedium", playable.queueMedium)
-          .put("title", playable.title)
-          .put("origin", "car")
-          .put("isLive", playable.isLive)
-          .apply {
-            playable.artworkUrl?.let { put("artworkUrl", it) }
-            playable.subtitle?.let { put("subtitle", it) }
-          }
-          .toString()
-      PodverseAudioEngine.loadAndStart(
-        this@PodverseMediaLibraryService,
-        playable.uri,
-        if (seekMs == C.TIME_UNSET || playable.isLive) null else seekMs / 1000.0,
-        null,
-        null,
-        metaJson,
-      )
+      // One item: the session player loads it through the engine, and what plays after it is the
+      // queue's decision (JS when running, the projected snapshot when not).
       return Futures.immediateFuture(
-        MediaSession.MediaItemsWithStartPosition(playlist, 0, seekMs))
+        MediaSession.MediaItemsWithStartPosition(
+          listOf(engineMediaItem(first.mediaId, idText, playable)), 0, seekMs))
     }
 
     override fun onPlaybackResumption(
@@ -199,12 +180,7 @@ class PodverseMediaLibraryService : MediaLibraryService() {
         resolvePlayable(nowPlaying.idText)
           ?: return Futures.immediateFailedFuture(
             UnsupportedOperationException("Resume media has no resolvable URL"))
-      val item =
-        MediaItem.Builder()
-          .setMediaId("queue/${nowPlaying.idText}")
-          .setUri(Uri.parse(resolved.uri))
-          .setMediaMetadata(playableMetadata(resolved.title, resolved.artworkUrl, resolved.subtitle))
-          .build()
+      val item = engineMediaItem("queue/${nowPlaying.idText}", nowPlaying.idText, resolved)
       val journal =
         PodverseNativeCache.latestJournalPosition(this@PodverseMediaLibraryService, nowPlaying.idText)
       val startMs =
@@ -408,31 +384,28 @@ class PodverseMediaLibraryService : MediaLibraryService() {
     return null
   }
 
-  private fun buildUpcomingPlaylist(
-    startIdText: String, start: ResolvedMedia
-  ): List<MediaItem> {
-    val kind =
-      if (start.queueMedium == "music") PodverseNativeCacheKind.QUEUE_MUSIC
-      else PodverseNativeCacheKind.QUEUE_AV
-    val snapshot = readQueueSnapshot(kind)
-    val startIndex = snapshot.entries.indexOfFirst { it.idText == startIdText }.takeIf { it >= 0 } ?: 0
-    val slice = snapshot.entries.drop(startIndex)
-    if (slice.isEmpty()) {
-      return listOf(
-        MediaItem.Builder()
-          .setMediaId("queue/$startIdText")
-          .setUri(Uri.parse(start.uri))
-          .setMediaMetadata(playableMetadata(start.title, start.artworkUrl, start.subtitle))
-          .build())
-    }
-    return slice.mapNotNull { entry ->
-      val resolved = resolvePlayable(entry.idText) ?: return@mapNotNull null
-      MediaItem.Builder()
-        .setMediaId("queue/${entry.idText}")
-        .setUri(Uri.parse(resolved.uri))
-        .setMediaMetadata(playableMetadata(resolved.title, resolved.artworkUrl, resolved.subtitle))
-        .build()
-    }
+  /** A resolved item carrying the engine source metadata [PodverseSessionPlayer] loads it with. */
+  private fun engineMediaItem(mediaId: String, idText: String, playable: ResolvedMedia): MediaItem {
+    val metaJson =
+      JSONObject()
+        .put("idText", idText)
+        .put("kind", "item")
+        .put("queueMedium", playable.queueMedium)
+        .put("title", playable.title)
+        .put("origin", "car")
+        .put("isLive", playable.isLive)
+        .apply {
+          playable.artworkUrl?.let { put("artworkUrl", it) }
+          playable.subtitle?.let { put("subtitle", it) }
+        }
+        .toString()
+    val metadata = playableMetadata(playable.title, playable.artworkUrl, playable.subtitle)
+    val extras = Bundle().apply { putString(PodverseSessionPlayer.META_JSON_EXTRA, metaJson) }
+    return MediaItem.Builder()
+      .setMediaId(mediaId)
+      .setUri(Uri.parse(playable.uri))
+      .setMediaMetadata(metadata.buildUpon().setExtras(extras).build())
+      .build()
   }
 
   private fun fileUriOrRemote(filePath: String, mediaUrl: String?): String? {

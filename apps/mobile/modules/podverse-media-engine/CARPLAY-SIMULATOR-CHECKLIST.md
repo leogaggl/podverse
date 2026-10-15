@@ -8,7 +8,7 @@ dev client built after cache v2 + tab IA landed; phone app opened once while sig
 out) so JS wrote `library-index`, `library-children/*`, dual queues, `history-index`, `live-index`,
 `downloads-index`, and `account-context` under the App Group `native-cache` directory.
 
-## Scenarios (12)
+## Scenarios (15)
 
 Mark each pass/fail. Force-quit means swipe away from app switcher; reboot means restart the phone
 before connecting CarPlay; locked means phone locked in a pocket.
@@ -26,7 +26,10 @@ before connecting CarPlay; locked means phone locked in a pocket.
 | 9 | Interruptions | Call / Siri; navigation prompt; another media app | Pause/resume/duck as appropriate; Play works again after another app takes over |
 | 10 | Live | Open Podcasts → Live Now; play | Stream plays; seeking disabled / live in now-playing; not restored by position |
 | 11 | Logout | Sign out on phone; reconnect car | Car shows signed-out Recent; account-scoped cache cleared |
-| 12 | Other device | Play on web in between; open phone | 744 handoff: newest timestamp wins; car session counts as this device |
+| 12 | Other device | Play on web in between; open phone | Handoff: newest timestamp wins; car session counts as this device |
+| 13 | Unknown item adopted | Force-quit; play a channel episode never opened on the phone; airplane mode; open phone | Mini-player shows the car's title, show, and artwork at once; Summary, chapters, and channel link fill in after going back online, with no audio reload |
+| 14 | Progress in car lists | Listen partway on phone; finish another; reconnect car; open that channel | Partial episode reads "In progress" and resumes at its position; finished one reads "Played" and starts over |
+| 15 | Music track skips | Play a Music queue track from the car | Now-playing shows next/previous track (not 15/30 s skips); next plays the following track (app open and force-quit); previous restarts after 3 s, otherwise plays the previous track when the app is open |
 
 ## Quick seed
 

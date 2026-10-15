@@ -4,9 +4,11 @@ import ExpoModulesCore
 // It does NOT own the AVPlayer, audio session, or remote command center; the engine singleton does,
 // so CarPlay binds now-playing to the same player and command center WITHOUT starting the JS runtime.
 //
-// Car foundation (00-CAR-FOUNDATION.md): one player, one command center, no second path for "car
-// later". Do NOT use react-native-track-player.
+// One player and one command center serve the phone and the car. Do NOT use
+// react-native-track-player.
 public class PodverseMediaEngineModule: Module {
+  private var carPlayConnectObserver: NSObjectProtocol?
+
   public func definition() -> ModuleDefinition {
     // Must match requireNativeModule('PodverseMediaEngine') on the JS side.
     Name("PodverseMediaEngine")
@@ -14,7 +16,7 @@ public class PodverseMediaEngineModule: Module {
     // Native → JS events.
     Events(
       "playbackState", "progress", "ended", "error", "stalled", "sourceChanged",
-      "podverseCarPlayDidConnect")
+      "remoteTrackCommand", "podverseCarPlayDidConnect")
 
     // Forward engine events to JS while this module (and the JS runtime) is alive. When JS is not
     // running, the engine still plays and updates the lock screen / car now-playing on its own.
@@ -24,7 +26,7 @@ public class PodverseMediaEngineModule: Module {
         { [weak self] event, payload in
           self?.sendEvent(event.rawValue, payload)
         }, owner: self)
-      NotificationCenter.default.addObserver(
+      self.carPlayConnectObserver = NotificationCenter.default.addObserver(
         forName: .podverseCarPlayDidConnect, object: nil, queue: .main
       ) { [weak self] _ in
         self?.sendEvent("podverseCarPlayDidConnect", [:])
@@ -33,7 +35,10 @@ public class PodverseMediaEngineModule: Module {
 
     OnDestroy {
       PodverseAudioEngine.shared.clearEventSink(owner: self)
-      NotificationCenter.default.removeObserver(self)
+      if let observer = self.carPlayConnectObserver {
+        NotificationCenter.default.removeObserver(observer)
+        self.carPlayConnectObserver = nil
+      }
     }
 
     // --- Playback transport ---

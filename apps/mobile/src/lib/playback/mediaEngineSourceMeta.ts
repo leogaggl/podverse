@@ -125,9 +125,11 @@ const clipBoundsFromTarget = (
     };
   }
   if (target.kind === 'soundbite') {
+    const start = secondsFromDto(target.soundbite.start_time);
+    const duration = secondsFromDto(target.soundbite.duration);
     return {
-      start: secondsFromDto(target.soundbite.start_time),
-      end: secondsFromDto(target.soundbite.end_time),
+      start,
+      end: start !== null && duration !== null && duration > 0 ? start + duration : null,
     };
   }
   if (target.kind === 'chapter') {

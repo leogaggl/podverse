@@ -9,7 +9,7 @@ cache v2 files under `files/native-cache/` (`library-index.json`, `queue-snapsho
 `queue-snapshot-music.json`, `history-index.json`, `live-index.json`, `downloads-index.json`,
 `account-context.json`, `library-children/`).
 
-## Scenarios (12)
+## Scenarios (15)
 
 | # | Scenario | Steps | Pass when |
 | --- | --- | --- | --- |
@@ -24,7 +24,10 @@ cache v2 files under `files/native-cache/` (`library-index.json`, `queue-snapsho
 | 9 | Interruptions | Call; navigation duck; another media app | Pause/resume/duck; Play works after focus loss |
 | 10 | Live | Podcasts → Live Now | Stream plays; marked live; no position restore |
 | 11 | Logout | Sign out; reopen Auto | Signed-out Recent; account-scoped cache cleared |
-| 12 | Other device | Play on web; open phone | 744 handoff: newest timestamp wins |
+| 12 | Other device | Play on web; open phone | Handoff: newest timestamp wins |
+| 13 | Unknown item adopted | Force-stop; play a channel episode never opened on the phone; airplane mode; open phone | Mini-player shows the Auto title, show, and artwork at once; Summary, chapters, and channel link fill in after going back online, with no audio reload |
+| 14 | Progress in Auto lists | Listen partway on phone; finish another; reconnect Auto; open that channel | Partial episode shows the in-progress marker and resumes at its position; finished one shows played and starts over |
+| 15 | Music track skips | Play a Music queue track from Auto | Next/previous buttons appear; next plays the following track (app open and force-stopped); previous restarts after 3 s, otherwise plays the previous track when the app is open; `adb logcat` shows one `sourceChanged` per track |
 
 ## Seed + force-stop
 

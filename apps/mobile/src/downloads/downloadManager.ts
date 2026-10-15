@@ -4,7 +4,11 @@ import { primaryListArtworkUrl } from '@podverse/helpers';
 import type { DTOItem } from '@podverse/helpers/dto';
 import type { EnclosureSelectedParams } from '@podverse/helpers/item/itemEnclosure';
 
-import { channelItemsRepository, downloadsRepository } from '../data/repositories';
+import {
+  channelItemsRepository,
+  downloadsRepository,
+  playableItemRepository,
+} from '../data/repositories';
 import { autoDownloadRepository } from '../data/repositories/autoDownloadRepository';
 import { resolveE2eMediaUrl } from '../lib/e2e/resolveE2eMediaUrl';
 import { isEffectivelyOffline, subscribeConnectivity } from '../net/connectivity';
@@ -718,6 +722,9 @@ export const downloadManager = {
         console.warn('[downloads] could not persist enqueued download', error);
       }
     });
+    // The download row keeps display scalars only. The whole item is what lets the phone adopt
+    // this episode in full after the car plays it, even once the channel's stored window moves on.
+    void playableItemRepository.put('download', item).catch(() => undefined);
 
     if (!pauseAllActive) {
       pumpQueue();

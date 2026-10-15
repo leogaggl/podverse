@@ -16,6 +16,7 @@ import {
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { DownloadRow } from '../db/schema';
 import { projectDownloadsIndexToNativeCache } from '../nativeCache';
+import { playableItemRepository } from './playableItemRepository';
 
 const rowToRecord = (row: DownloadRow): DownloadRecord => {
   const mediaType: DownloadMediaType = isDownloadMediaType(row.mediaType) ? row.mediaType : 'audio';
@@ -557,6 +558,7 @@ export const downloadsRepository = {
   remove: async (itemIdText: string): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.download).where(eq(schema.download.itemIdText, itemIdText));
+    await playableItemRepository.remove('download', itemIdText);
     await refreshNativeCacheProjection();
   },
 
@@ -564,6 +566,7 @@ export const downloadsRepository = {
   clear: async (): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.download);
+    await playableItemRepository.clearSource('download');
     await refreshNativeCacheProjection();
   },
 };

@@ -137,6 +137,7 @@ export default defineConfig({
       'src/lib/home/homeFeedRefresh.test.ts',
       'src/lib/perf/frameStats.test.ts',
       'src/lib/perf/perfSpans.test.ts',
+      'src/lib/playback/engineSourceAdoption.test.ts',
       'src/lib/playback/lastPlaybackStorage.test.ts',
       'src/lib/playback/planDownloadCompletePlaybackHandoff.test.ts',
       'src/lib/rows/homeRowMappers.test.ts',

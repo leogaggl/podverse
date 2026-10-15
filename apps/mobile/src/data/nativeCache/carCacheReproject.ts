@@ -7,6 +7,7 @@
 
 import { primaryListArtworkUrl } from '@podverse/helpers';
 import type { DTOItem, DTOQueueResource } from '@podverse/helpers/dto';
+import { LiveItemStatusEnum } from '@podverse/helpers/dto';
 
 import {
   buildItemLabeledEnclosures,
@@ -22,9 +23,12 @@ import {
   mapSubscribedChannelToNode,
   mergeLibraryBrowseNodes,
 } from '../repositories/libraryBrowseProjection';
+import { playableItemRepository } from '../repositories/playableItemRepository';
 import { playlistRepository } from '../repositories/playlistRepository';
+import type { ItemProgressLookup } from '../repositories/queueProjectionHelpers';
 import {
   readHistoryForProjection,
+  readItemProgressForProjection,
   readQueueCachesForProjection,
 } from '../repositories/queueProjectionHelpers';
 import type { SubscribedChannel } from '../repositories/subscriptionsMerge';
@@ -36,12 +40,14 @@ import {
   projectLiveIndexToNativeCache,
   projectQueueSnapshotAvToNativeCache,
   projectQueueSnapshotMusicToNativeCache,
-  type NativeCacheBrowseNode,
-  type NativeCacheChildItem,
-  type NativeCacheHistoryEntry,
-  type NativeCacheLiveEntry,
-  type NativeCacheMediumBucket,
-  type NativeCacheQueueEntry,
+} from './projection';
+import type {
+  NativeCacheBrowseNode,
+  NativeCacheChildItem,
+  NativeCacheHistoryEntry,
+  NativeCacheLiveEntry,
+  NativeCacheMediumBucket,
+  NativeCacheQueueEntry,
 } from './projection';
 
 const CHILDREN_WINDOW = 50;
@@ -110,9 +116,11 @@ const durationMsFromItem = (item: DTOItem): number | null => {
 
 const toChildItem = (
   item: DTOItem,
-  downloadById: Map<string, string | null>
+  downloadById: Map<string, string | null>,
+  progressFor: ItemProgressLookup
 ): NativeCacheChildItem => {
   const downloadFileName = downloadById.get(item.id_text) ?? null;
+  const progress = progressFor(item);
   return {
     idText: item.id_text,
     title: item.title ?? item.id_text,
@@ -124,8 +132,31 @@ const toChildItem = (
       typeof item.pub_date === 'string' && item.pub_date.length > 0
         ? Date.parse(item.pub_date)
         : null,
+    // A played item starts over in the car, so it carries no resume point.
+    progressSeconds:
+      progress !== null && !progress.played && progress.positionSeconds > 0
+        ? progress.positionSeconds
+        : null,
+    played: progress?.played ?? false,
     downloadFileName,
   };
+};
+
+const readAccountIdText = async (): Promise<string | null> => {
+  try {
+    const { accountRepository } = await import('../repositories/accountRepository');
+    return (await accountRepository.getSnapshot())?.id_text ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const readProgressLookup = async (): Promise<ItemProgressLookup> => {
+  try {
+    return await readItemProgressForProjection(await readAccountIdText());
+  } catch {
+    return () => null;
+  }
 };
 
 const soft = async (label: string, work: () => Promise<void>): Promise<void> => {
@@ -188,16 +219,18 @@ export const reprojectLibraryIndex = async (): Promise<void> => {
   });
 };
 
-/** Project recent children for one channel (cap 50). */
+/** Project recent children for one channel (cap 50), with where the account left off in each. */
 export const reprojectLibraryChildrenForChannel = async (
   channelIdText: string,
-  mediumBucket: NativeCacheMediumBucket = 'av'
+  mediumBucket: NativeCacheMediumBucket = 'av',
+  progressLookup?: ItemProgressLookup
 ): Promise<void> => {
   await soft(`library-children/${channelIdText}`, async () => {
     const items = await channelItemsRepository.listByChannel(channelIdText, { sort: 'recent' });
     const window = items.slice(0, CHILDREN_WINDOW);
     const downloadById = await completeDownloadMap();
-    const childItems = window.map((item) => toChildItem(item, downloadById));
+    const progressFor = progressLookup ?? (await readProgressLookup());
+    const childItems = window.map((item) => toChildItem(item, downloadById, progressFor));
     await projectLibraryChildrenToNativeCache({
       channelIdText,
       mediumBucket,
@@ -210,11 +243,16 @@ export const reprojectLibraryChildrenForChannel = async (
 export const reprojectLibraryChildrenAll = async (): Promise<void> => {
   await soft('library-children-all', async () => {
     const subscribed = await subscriptionsRepository.list();
+    const progressFor = await readProgressLookup();
     for (const channel of subscribed) {
       if (channel.source === 'addByRss') {
         continue;
       }
-      await reprojectLibraryChildrenForChannel(channel.idText, mediumBucketForChannel(channel));
+      await reprojectLibraryChildrenForChannel(
+        channel.idText,
+        mediumBucketForChannel(channel),
+        progressFor
+      );
     }
   });
 };
@@ -223,13 +261,9 @@ const projectQueueBucket = async (
   queueIdText: string | null | undefined,
   bucket: NativeCacheMediumBucket
 ): Promise<void> => {
-  const empty = { nowPlayingIdText: null, entries: [] as NativeCacheQueueEntry[] };
+  // An unknown queue id is not an empty queue. Sign-out empties the snapshots itself, so a
+  // missing id leaves what the car already shows.
   if (queueIdText === null || queueIdText === undefined || queueIdText === '') {
-    if (bucket === 'music') {
-      await projectQueueSnapshotMusicToNativeCache(empty);
-    } else {
-      await projectQueueSnapshotAvToNativeCache(empty);
-    }
     return;
   }
 
@@ -272,7 +306,6 @@ export const reprojectDualQueues = async (params: {
 export const reprojectHistoryIndex = async (queueIdText?: string | null): Promise<void> => {
   await soft('history-index', async () => {
     if (queueIdText === null || queueIdText === undefined || queueIdText === '') {
-      await projectHistoryIndexToNativeCache({ entries: [] });
       return;
     }
     const resources = await readHistoryForProjection(queueIdText, HISTORY_CAP);
@@ -301,39 +334,56 @@ export const reprojectHistoryIndex = async (queueIdText?: string | null): Promis
   });
 };
 
-/** Project Live Now rows from freshly fetched live items (stream URL required). */
-export const reprojectLiveIndexFromItems = async (items: readonly DTOItem[]): Promise<void> => {
-  await soft('live-index', async () => {
-    const entries: NativeCacheLiveEntry[] = [];
-    for (const item of items) {
-      const mediaUrl = resolveMediaUrl(item);
-      if (mediaUrl === null || mediaUrl === '') {
-        continue;
-      }
-      const channelIdText = item.channel?.id_text;
-      if (channelIdText === null || channelIdText === undefined || channelIdText === '') {
-        continue;
-      }
-      entries.push({
-        idText: item.id_text,
-        title: item.title ?? item.channel?.title ?? item.id_text,
-        channelIdText,
-        channelTitle: item.channel?.title ?? null,
-        artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
-        mediaUrl,
-        mediumBucket: 'av',
-      });
+const writeLiveIndex = async (items: readonly DTOItem[]): Promise<void> => {
+  const entries: NativeCacheLiveEntry[] = [];
+  for (const item of items) {
+    // Pending and ended items have no stream to join yet or anymore.
+    if (item.live_item?.live_item_status_id !== LiveItemStatusEnum.Live) {
+      continue;
     }
-    await projectLiveIndexToNativeCache({ entries });
-  });
+    const mediaUrl = resolveMediaUrl(item);
+    if (mediaUrl === null || mediaUrl === '') {
+      continue;
+    }
+    const channelIdText = item.channel?.id_text;
+    if (channelIdText === null || channelIdText === undefined || channelIdText === '') {
+      continue;
+    }
+    entries.push({
+      idText: item.id_text,
+      title: item.title ?? item.channel?.title ?? item.id_text,
+      channelIdText,
+      channelTitle: item.channel?.title ?? null,
+      artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
+      mediaUrl,
+      mediumBucket: 'av',
+    });
+  }
+  await projectLiveIndexToNativeCache({ entries });
 };
 
-/** Live Now index from broadcasting keys only — empty when no stream URLs were projected. */
+/** Project Live Now rows from freshly fetched live items (stream URL required). */
+export const reprojectLiveIndexFromItems = async (items: readonly DTOItem[]): Promise<void> => {
+  await soft('live-index', () => writeLiveIndex(items));
+};
+
+/**
+ * Live Now from the stored live items, limited to channels whose broadcast status is still
+ * trusted. A broadcast ends whether or not this device hears about it, so a stale status drops
+ * its row rather than offering a stream that has stopped.
+ */
 export const reprojectLiveIndex = async (): Promise<void> => {
-  await soft('live-index-keys', async () => {
-    // Status keys alone cannot play; keep an empty index unless `reprojectLiveIndexFromItems` ran.
-    await channelLiveStatusRepository.listBroadcastingKeys();
-    await projectLiveIndexToNativeCache({ entries: [] });
+  await soft('live-index-stored', async () => {
+    const [items, broadcasting] = await Promise.all([
+      playableItemRepository.listBySource('live'),
+      channelLiveStatusRepository.listBroadcastingKeys(),
+    ]);
+    await writeLiveIndex(
+      items.filter((item) => {
+        const channelIdText = item.channel?.id_text;
+        return channelIdText !== undefined && broadcasting.has(channelIdText);
+      })
+    );
   });
 };
 

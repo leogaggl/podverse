@@ -56,6 +56,8 @@ export type {
   PlaybackOutboxEvictionCandidate,
   PlaybackOutboxResourceKind,
 } from './playbackOutbox';
+export { playableItemRepository } from './playableItemRepository';
+export type { PlayableItemSource } from './playableItemRepository';
 export { playbackOutboxRepository } from './playbackOutboxRepository';
 export type {
   PlaybackLocalStateRecord,

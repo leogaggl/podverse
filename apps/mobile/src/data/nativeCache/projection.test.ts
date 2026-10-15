@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   buildAccountContextPayload,
@@ -10,6 +10,10 @@ import {
   buildQueueSnapshotPayload,
   NATIVE_CACHE_SCHEMA_VERSION,
 } from './projection';
+
+// Vitest hoists this above the imports. The payload builders are pure; only the write path
+// reaches the native module, which needs Expo.
+vi.mock('../../bridge/nativePlaybackBridge', () => ({ nativePlaybackBridge: {} }));
 
 describe('native cache projection envelopes', () => {
   it('stamps schema version 2 on queue snapshots', () => {

@@ -235,12 +235,44 @@ object PodverseAudioEngine {
       "meta" to loadedMeta,
       "positionSeconds" to getPosition(),
       "durationSeconds" to getDuration(),
+      // Play intent, so a source still buffering after a car start reads as playing.
+      "isPlaying" to onMainSync { player?.playWhenReady == true },
     )
   }
 
   fun setJsOwnsAdvance(owns: Boolean) {
     onMain { jsOwnsAdvance = owns }
   }
+
+  /** Main-thread only. True when the loaded source belongs to the Music queue. */
+  fun isMusicSourceLoaded(): Boolean = (loadedMeta?.get("queueMedium") as? String) == "music"
+
+  /**
+   * Track skip from the car, a headset, or the media notification. Previous restarts a track that
+   * is more than a few seconds in. Otherwise the phone's queue decides while JS is running, and the
+   * projected queue snapshot does when it is not.
+   */
+  fun handleRemoteTrackCommand(command: String) {
+    onMain {
+      val p = player ?: return@onMain
+      if (command == "previous" && p.currentPosition > PREVIOUS_RESTARTS_AFTER_MS) {
+        p.seekTo(0)
+        return@onMain
+      }
+      if (jsOwnsAdvance) {
+        emit("remoteTrackCommand", mapOf("command" to command))
+        return@onMain
+      }
+      if (command == "next") {
+        advanceToNextCachedItem()
+      } else {
+        // The projected snapshot holds only what comes next, so previous restarts the track.
+        p.seekTo(0)
+      }
+    }
+  }
+
+  private const val PREVIOUS_RESTARTS_AFTER_MS = 3_000L
 
   private fun advanceToNextCachedItem() {
     val ctx = appContext ?: return

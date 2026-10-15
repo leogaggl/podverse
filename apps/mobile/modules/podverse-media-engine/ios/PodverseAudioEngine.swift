@@ -18,6 +18,7 @@ enum PodverseMediaEngineEvent: String {
   case error
   case stalled
   case sourceChanged
+  case remoteTrackCommand
 }
 
 /// High-level playback state mirrored to JS via `playbackState`. Matches the TS `PlaybackStateValue`.
@@ -351,6 +352,7 @@ public final class PodverseAudioEngine: NSObject {
       }
       self.player.replaceCurrentItem(with: item)
       self.updateNowPlayingInfo()
+      self.applyRemoteCommandAvailability()
       if let artworkUrl = meta?.artworkUrl {
         self.loadArtwork(urlString: artworkUrl, generation: generation)
       }
@@ -395,6 +397,8 @@ public final class PodverseAudioEngine: NSObject {
       "url": source.url,
       "positionSeconds": getPosition(),
       "durationSeconds": getDuration(),
+      // Play intent, so a source still buffering after a car start reads as playing.
+      "isPlaying": player.timeControlStatus != .paused || playAfterPendingSeek,
     ]
     if let meta = source.meta {
       payload["meta"] = meta.asDictionary()
@@ -838,6 +842,50 @@ public final class PodverseAudioEngine: NSObject {
       guard let self = self else { return .commandFailed }
       self.seek(seconds: max(0, self.getPosition() - 15))
       return .success
+    }
+    center.nextTrackCommand.addTarget { [weak self] _ in
+      guard let self = self else { return .commandFailed }
+      self.handleRemoteTrackCommand("next")
+      return .success
+    }
+    center.previousTrackCommand.addTarget { [weak self] _ in
+      guard let self = self else { return .commandFailed }
+      self.handleRemoteTrackCommand("previous")
+      return .success
+    }
+    applyRemoteCommandAvailability()
+  }
+
+  /// Music offers track skips; podcasts and everything else offer the time skips. The car and lock
+  /// screen show one pair or the other, so the pair follows the loaded source.
+  private func applyRemoteCommandAvailability() {
+    let center = MPRemoteCommandCenter.shared()
+    let isMusic = loadedSource?.meta?.queueMedium == "music"
+    center.nextTrackCommand.isEnabled = isMusic
+    center.previousTrackCommand.isEnabled = isMusic
+    center.skipForwardCommand.isEnabled = !isMusic
+    center.skipBackwardCommand.isEnabled = !isMusic
+  }
+
+  /// Previous restarts a track that is more than a few seconds in. Otherwise the phone's queue
+  /// decides while JS is running, and the projected queue snapshot does when it is not.
+  private func handleRemoteTrackCommand(_ command: String) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      if command == "previous", self.getPosition() > 3 {
+        self.seek(seconds: 0)
+        return
+      }
+      if self.jsOwnsAdvance {
+        self.emit(.remoteTrackCommand, ["command": command])
+        return
+      }
+      if command == "next" {
+        self.advanceToNextCachedItem()
+      } else {
+        // The projected snapshot holds only what comes next, so previous restarts the track.
+        self.seek(seconds: 0)
+      }
     }
   }
 

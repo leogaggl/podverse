@@ -4,6 +4,8 @@ import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh'
 import { buildChannelFromDownload } from '../../lib/playback/buildChannelFromDownload';
 import { channelItemsRepository } from './channelItemsRepository';
 import { downloadsRepository } from './downloadsRepository';
+import { playableItemRepository } from './playableItemRepository';
+import { findQueueCachedItem } from './queueProjectionHelpers';
 import type { MobileAuthRequestContext } from './types';
 
 /**
@@ -16,8 +18,24 @@ import type { MobileAuthRequestContext } from './types';
  * same channel, or the download row when Offline Mode blocks the channel fetch.
  */
 export const playbackContentRepository = {
+  /**
+   * The whole item from whichever device store holds it: a channel's stored episodes, a stored
+   * live item or download, or a queue row. Null only when the device never saw the item.
+   */
+  getStoredItemByIdText: async (idText: string): Promise<DTOItem | null> => {
+    const fromChannel = await channelItemsRepository.getByIdText(idText);
+    if (fromChannel !== null) {
+      return fromChannel;
+    }
+    const playable = await playableItemRepository.getByIdText(idText);
+    if (playable !== null) {
+      return playable;
+    }
+    return findQueueCachedItem(idText);
+  },
+
   getItemByIdText: async (context: MobileAuthRequestContext, idText: string): Promise<DTOItem> => {
-    const stored = await channelItemsRepository.getByIdText(idText);
+    const stored = await playbackContentRepository.getStoredItemByIdText(idText);
     // A channel-list cache omits item_values. Playback reads that array to decide whether
     // value-for-value is available, so a missing array is filled from the single-item request.
     if (stored !== null && Array.isArray(stored.item_values)) {
@@ -73,7 +91,7 @@ export const playbackContentRepository = {
   },
 
   getLocalChannelForItem: async (itemIdText: string): Promise<DTOChannel | null> => {
-    const stored = await channelItemsRepository.getByIdText(itemIdText);
+    const stored = await playbackContentRepository.getStoredItemByIdText(itemIdText);
     if (stored?.channel !== undefined) {
       return stored.channel;
     }

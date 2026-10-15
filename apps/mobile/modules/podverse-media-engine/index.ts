@@ -25,6 +25,7 @@ export type {
   PlaybackErrorEvent,
   PlaybackErrorKind,
   NativePlaybackErrorPayload,
+  RemoteTrackCommandEvent,
   SourceChangedEvent,
   StalledEvent,
   NativePlaybackEvents,

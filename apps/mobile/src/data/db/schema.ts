@@ -410,3 +410,27 @@ export const autoDownloadCandidate = sqliteTable('auto_download_candidate', {
 
 export type AutoDownloadCandidateRow = typeof autoDownloadCandidate.$inferSelect;
 export type AutoDownloadCandidateInsert = typeof autoDownloadCandidate.$inferInsert;
+
+/**
+ * Whole item payloads for items the car can start that no other table keeps whole.
+ *
+ * `live` rows are the account's broadcasting items, replaced wholesale by each live refresh and
+ * cleared with the session. `download` rows live as long as the download row does. Both exist so
+ * the phone can adopt an item the car started — chapters, people, funding, and value recipients
+ * included — with no connection.
+ */
+export const playableItem = sqliteTable(
+  'playable_item',
+  {
+    itemIdText: text('item_id_text').notNull(),
+    source: text('source').notNull(),
+    payloadJson: text('payload_json').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.itemIdText, table.source] }),
+  })
+);
+
+export type PlayableItemRow = typeof playableItem.$inferSelect;
+export type PlayableItemInsert = typeof playableItem.$inferInsert;

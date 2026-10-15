@@ -176,6 +176,10 @@ const projectQueueForQueue = async (queueIdText: string): Promise<void> => {
     mediumBucket,
   });
 
+  // The car's Recent list is the podcast queue's history; a Music queue write must not replace it.
+  if (mediumBucket !== 'av') {
+    return;
+  }
   try {
     const { reprojectHistoryIndex } = await import('../nativeCache/carCacheReproject');
     await reprojectHistoryIndex(queueIdText);

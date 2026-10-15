@@ -18,7 +18,9 @@ class PodverseMediaEngineModule : Module() {
     Name("PodverseMediaEngine")
 
     // Native → JS events.
-    Events("playbackState", "progress", "ended", "error", "stalled", "sourceChanged")
+    Events(
+      "playbackState", "progress", "ended", "error", "stalled", "sourceChanged",
+      "remoteTrackCommand")
 
     // Forward engine events to JS while this module (and the JS runtime) is alive. When JS is not
     // running, the engine still plays and updates the media notification on its own.

@@ -60,6 +60,8 @@ export type MediaEngineCurrentSource = {
   meta: MediaEngineSourceMeta | null;
   positionSeconds: number;
   durationSeconds: number;
+  /** Play intent: playing, buffering toward play, or waiting on a start seek. */
+  isPlaying?: boolean;
 };
 
 /** Emitted when a load replaces the engine's current source. */
@@ -155,6 +157,15 @@ export type StalledEvent = {
 };
 
 /**
+ * A Music track skip from the car, a headset, or the lock screen that the phone's queue should
+ * decide. Native sends it only while JS owns advance, and has already restarted the track when
+ * previous arrives more than a few seconds in.
+ */
+export type RemoteTrackCommandEvent = {
+  command: 'next' | 'previous';
+};
+
+/**
  * Named layout targets the single video surface can occupy.
  * There is only ever one surface; these ids select which registered rect it moves to.
  */
@@ -186,6 +197,9 @@ export type NativeRawPlaybackEvents = {
   error: (event: NativePlaybackErrorPayload) => void;
   stalled: (event: StalledEvent) => void;
   sourceChanged: (event: SourceChangedEvent) => void;
+  remoteTrackCommand: (event: RemoteTrackCommandEvent) => void;
+  /** iOS only: the CarPlay scene connected. Background car sync listens for it. */
+  podverseCarPlayDidConnect: () => void;
 };
 
 /**

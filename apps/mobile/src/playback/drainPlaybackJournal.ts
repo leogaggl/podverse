@@ -7,10 +7,8 @@ import { isPlainObject } from '@podverse/helpers/guards';
 import { nativePlaybackBridge } from '../bridge/nativePlaybackBridge';
 import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import type { PlaybackOutboxResourceKind } from '../data/repositories/playbackOutbox';
-import {
-  type LastPlaybackKind,
-  writeLastPlaybackSnapshot,
-} from '../lib/playback/lastPlaybackStorage';
+import type { LastPlaybackKind } from '../lib/playback/lastPlaybackStorage';
+import { writeLastPlaybackSnapshot } from '../lib/playback/lastPlaybackStorage';
 
 const JOURNAL_CURSOR_KEY = 'pv_mobile_playback_journal_cursor';
 
@@ -135,8 +133,10 @@ const writeCursor = async (seq: number): Promise<void> => {
 
 export type DrainPlaybackJournalParams = {
   accountIdText: string | null;
-  /** Active AV queue id when signed in; required to enqueue outbox rows. */
-  queueIdText: string | null;
+  /** Podcast queue id when signed in; podcast entries need it to reach the outbox. */
+  avQueueIdText: string | null;
+  /** Music queue id when signed in; Music entries need it to reach the outbox. */
+  musicQueueIdText: string | null;
 };
 
 /**
@@ -205,9 +205,11 @@ export const drainPlaybackJournal = async (
       }
     }
 
+    const queueIdText =
+      entry.queueMedium === 'music' ? params.musicQueueIdText : params.avQueueIdText;
     if (
       params.accountIdText !== null &&
-      params.queueIdText !== null &&
+      queueIdText !== null &&
       (entry.accountIdText === null || entry.accountIdText === params.accountIdText)
     ) {
       const resourceKind = toOutboxResourceKind(entry.kind);
@@ -221,7 +223,7 @@ export const drainPlaybackJournal = async (
             mediaFileDuration: entry.durationSeconds,
             occurredAt: entry.occurredAtMs,
             playbackPosition: entry.positionSeconds,
-            queueIdText: params.queueIdText,
+            queueIdText,
             resourceIdText: entry.idText,
             resourceKind,
           });
