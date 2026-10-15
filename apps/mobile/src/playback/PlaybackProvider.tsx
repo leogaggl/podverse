@@ -2798,8 +2798,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       const engineId = engineSourceIdTextRef.current;
       const activeTarget = activeTargetRef.current;
       const activeId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
-      const identityMatches =
-        engineId === null || activeId === null || engineId === activeId;
+      const identityMatches = engineId === null || activeId === null || engineId === activeId;
       if (!identityMatches) {
         return;
       }
@@ -3240,9 +3239,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const subscription = nativePlaybackBridge.addListener('remoteTrackCommand', (event) => {
       const handlers = remoteTrackCommandHandlersRef.current;
-      void (event.command === 'next'
-        ? handlers.skipToNextTrack()
-        : handlers.skipToPreviousTrack());
+      void (event.command === 'next' ? handlers.skipToNextTrack() : handlers.skipToPreviousTrack());
     });
     return () => {
       subscription.remove();

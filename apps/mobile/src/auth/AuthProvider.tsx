@@ -194,7 +194,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await writeSecureToken('refreshToken', storedRefreshToken);
       }
     } catch (rewriteError) {
-      console.warn('Failed to rewrite auth tokens with updated keychain accessibility', rewriteError);
+      console.warn(
+        'Failed to rewrite auth tokens with updated keychain accessibility',
+        rewriteError
+      );
     }
 
     if (storedRefreshToken !== null) {

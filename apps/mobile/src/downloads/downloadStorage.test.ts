@@ -58,7 +58,9 @@ describe('toStoredDownloadFileName', () => {
 
   it('strips a legacy absolute file URI to the file name', () => {
     expect(
-      toStoredDownloadFileName('file:///var/mobile/Containers/Data/Application/UUID/Documents/downloads/itemABC.mp3')
+      toStoredDownloadFileName(
+        'file:///var/mobile/Containers/Data/Application/UUID/Documents/downloads/itemABC.mp3'
+      )
     ).toBe('itemABC.mp3');
   });
 });

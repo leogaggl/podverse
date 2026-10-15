@@ -92,9 +92,7 @@ const artworkFromTarget = (target: PlaybackTarget): string | null => {
         ) ?? null
       );
     case 'livestream':
-      return (
-        primaryListArtworkUrl(target.item?.item_images, target.channel.channel_images) ?? null
-      );
+      return primaryListArtworkUrl(target.item?.item_images, target.channel.channel_images) ?? null;
     case 'clip':
     case 'soundbite':
     case 'chapter':

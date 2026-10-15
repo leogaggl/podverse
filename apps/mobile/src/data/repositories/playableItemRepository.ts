@@ -105,10 +105,7 @@ export const playableItemRepository = {
     await getDb()
       .delete(schema.playableItem)
       .where(
-        and(
-          eq(schema.playableItem.source, source),
-          eq(schema.playableItem.itemIdText, itemIdText)
-        )
+        and(eq(schema.playableItem.source, source), eq(schema.playableItem.itemIdText, itemIdText))
       );
   },
 

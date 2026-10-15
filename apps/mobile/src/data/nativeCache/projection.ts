@@ -287,9 +287,7 @@ export const projectHistoryIndexToNativeCache = async (
   await writeToNativeCache('writeHistoryIndex', buildHistoryIndexPayload(index));
 };
 
-export const projectLiveIndexToNativeCache = async (
-  index: LiveIndexProjection
-): Promise<void> => {
+export const projectLiveIndexToNativeCache = async (index: LiveIndexProjection): Promise<void> => {
   await writeToNativeCache('writeLiveIndex', buildLiveIndexPayload(index));
 };
 

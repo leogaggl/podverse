@@ -23,8 +23,7 @@ const resolveStorageKey = (key: AuthTokenKey): string => {
 };
 
 export type SecureTokenReadResult =
-  | { status: 'ok'; value: string | null }
-  | { status: 'unavailable'; error: unknown };
+  { status: 'ok'; value: string | null } | { status: 'unavailable'; error: unknown };
 
 /**
  * Read a token. `unavailable` means the store could not be opened (e.g. still locked before first

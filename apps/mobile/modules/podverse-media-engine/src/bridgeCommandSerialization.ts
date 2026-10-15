@@ -26,13 +26,7 @@ export type LoadCommandArgs = readonly [
   metaJson?: string | null,
 ];
 
-const META_KINDS = new Set([
-  'item',
-  'clip',
-  'item_soundbite',
-  'add_by_rss',
-  'livestream',
-]);
+const META_KINDS = new Set(['item', 'clip', 'item_soundbite', 'add_by_rss', 'livestream']);
 
 function assertSourceMeta(meta: MediaEngineSourceMeta): MediaEngineSourceMeta {
   const idText = meta.idText.trim();
@@ -129,8 +123,7 @@ export function serializeLoadCommand(source: MediaEngineSource): LoadCommandArgs
   }
 
   const basicAuth = source.basicAuth === undefined ? null : assertBasicAuth(source.basicAuth);
-  const metaJson =
-    source.meta === undefined ? null : JSON.stringify(assertSourceMeta(source.meta));
+  const metaJson = source.meta === undefined ? null : JSON.stringify(assertSourceMeta(source.meta));
   if (metaJson !== null) {
     return [url, seek ?? null, basicAuth, source.audioProfile ?? null, metaJson];
   }
