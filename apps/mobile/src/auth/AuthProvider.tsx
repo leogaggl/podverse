@@ -35,7 +35,11 @@ import {
   shouldNotifyForcedLogout,
 } from './forcedLogoutNotice';
 import { logoutWithMobileRevoke } from './logoutWithMobileRevoke';
-import { clearAllSecureTokens, readSecureToken, writeSecureToken } from './secureTokenStorage';
+import {
+  clearAllSecureTokens,
+  readSecureTokenResult,
+  writeSecureToken,
+} from './secureTokenStorage';
 import { reconcileAccountPrefsFromAccount } from './syncAccountPrefs';
 
 export type AuthStatus = 'unknown' | 'anonymous' | 'authenticated';
@@ -71,6 +75,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // Concurrent 401s all race into clearSession; they share one wipe rather than each re-clearing
   // storage, re-marking the notice, and re-running repository clears.
   const clearSessionInFlightRef = useRef<Promise<void> | null>(null);
+  const hydrateFromSecureStorageRef = useRef<() => Promise<void>>(async () => undefined);
 
   const setTokens = useCallback(async ({ accessToken, refreshToken }: SetTokensInput) => {
     const generationAtStart = getAuthSessionGeneration();
@@ -157,16 +162,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    const [storedAccessToken, storedRefreshToken] = await Promise.all([
-      readSecureToken('accessToken'),
-      readSecureToken('refreshToken'),
+    const [accessResult, refreshResult] = await Promise.all([
+      readSecureTokenResult('accessToken'),
+      readSecureTokenResult('refreshToken'),
     ]);
+
+    // Store unreadable (e.g. before first unlock) is not signed-out — leave status unknown and
+    // retry; never clearSession from a failed read.
+    if (accessResult.status === 'unavailable' || refreshResult.status === 'unavailable') {
+      console.warn('SecureStore unavailable during auth bootstrap; will retry');
+      setTimeout(() => {
+        void hydrateFromSecureStorageRef.current();
+      }, 1000);
+      return;
+    }
+
+    const storedAccessToken = accessResult.value;
+    const storedRefreshToken = refreshResult.value;
 
     setAccessToken(storedAccessToken);
     setRefreshToken(storedRefreshToken);
     if (storedAccessToken === null) {
       setStatus('anonymous');
       return;
+    }
+
+    // Rewrite with AFTER_FIRST_UNLOCK so tokens written under the old accessibility upgrade.
+    try {
+      await writeSecureToken('accessToken', storedAccessToken);
+      if (storedRefreshToken !== null && storedRefreshToken !== '') {
+        await writeSecureToken('refreshToken', storedRefreshToken);
+      }
+    } catch (rewriteError) {
+      console.warn('Failed to rewrite auth tokens with updated keychain accessibility', rewriteError);
     }
 
     if (storedRefreshToken !== null) {
@@ -201,6 +229,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     }
   }, [clearSession, setTokens]);
+  hydrateFromSecureStorageRef.current = hydrateFromSecureStorage;
 
   const refreshWithStoredToken = useCallback(async () => {
     return refreshAccessTokenSingleFlight({

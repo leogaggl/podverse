@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import MediaPlayer
+import UIKit
 
 // This is the single, process-wide audio engine. It owns the one `AVPlayer`, the one
 // `AVAudioSession` configuration, and the one `MPRemoteCommandCenter` registration for phone, lock
@@ -16,6 +17,8 @@ enum PodverseMediaEngineEvent: String {
   case ended
   case error
   case stalled
+  case sourceChanged
+  case remoteTrackCommand
 }
 
 /// High-level playback state mirrored to JS via `playbackState`. Matches the TS `PlaybackStateValue`.
@@ -34,6 +37,61 @@ enum PodversePlaybackState: String {
 struct PodverseNowPlayingInfo {
   var title: String?
   var artist: String?
+  var artwork: MPMediaItemArtwork?
+  var isLive: Bool = false
+}
+
+/// Item identity carried with a load so JS can adopt car-initiated playback.
+struct PodverseSourceMeta {
+  let idText: String
+  let kind: String
+  let queueMedium: String
+  let title: String
+  let subtitle: String?
+  let artworkUrl: String?
+  let isLive: Bool
+  let clipStartSeconds: Double?
+  let clipEndSeconds: Double?
+  let origin: String
+
+  func asDictionary() -> [String: Any] {
+    var dict: [String: Any] = [
+      "idText": idText,
+      "kind": kind,
+      "queueMedium": queueMedium,
+      "title": title,
+      "origin": origin,
+      "isLive": isLive,
+    ]
+    if let subtitle = subtitle { dict["subtitle"] = subtitle }
+    if let artworkUrl = artworkUrl { dict["artworkUrl"] = artworkUrl }
+    if let clipStartSeconds = clipStartSeconds { dict["clipStartSeconds"] = clipStartSeconds }
+    if let clipEndSeconds = clipEndSeconds { dict["clipEndSeconds"] = clipEndSeconds }
+    return dict
+  }
+
+  static func parse(json: String?) -> PodverseSourceMeta? {
+    guard let json = json, let data = json.data(using: .utf8),
+      let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let idText = object["idText"] as? String, !idText.isEmpty,
+      let kind = object["kind"] as? String,
+      let queueMedium = object["queueMedium"] as? String,
+      let title = object["title"] as? String, !title.isEmpty,
+      let origin = object["origin"] as? String
+    else { return nil }
+    return PodverseSourceMeta(
+      idText: idText,
+      kind: kind,
+      queueMedium: queueMedium,
+      title: title,
+      subtitle: object["subtitle"] as? String,
+      artworkUrl: object["artworkUrl"] as? String,
+      isLive: (object["isLive"] as? Bool) ?? false,
+      clipStartSeconds: object["clipStartSeconds"] as? Double,
+      clipEndSeconds: object["clipEndSeconds"] as? Double,
+      origin: origin
+    )
+  }
 }
 
 /// How the system treats this audio when something else needs the speaker. Matches the TS
@@ -58,6 +116,7 @@ enum PodverseAudioProfile: String {
 private struct PodverseLoadedSource {
   let url: String
   let basicAuth: ScopedBasicAuth?
+  let meta: PodverseSourceMeta?
 }
 
 /// Process-wide shared audio engine. Access via `PodverseAudioEngine.shared`.
@@ -121,6 +180,8 @@ public final class PodverseAudioEngine: NSObject {
   private var resumeAfterInterruption = false
   /// True between an interruption's `.began` and `.ended`. Main-thread only.
   private var isInterrupted = false
+  /// When true, JS owns queue advance on `ended`; native must not auto-advance.
+  private var jsOwnsAdvance = false
   private var nowPlaying = PodverseNowPlayingInfo()
   /// `AVAssetResourceLoader` holds its delegate weakly, so the current protected item's delegate is
   /// retained here for as long as that item is loaded. `nil` for items without credentials.
@@ -142,6 +203,12 @@ public final class PodverseAudioEngine: NSObject {
   private var pendingInitialSeekSeconds: Double?
   /// Start playback only after `pendingInitialSeekSeconds` finishes.
   private var playAfterPendingSeek = false
+  /// Clip end boundary in seconds; when set, playback completes at this position.
+  private var clipEndSeconds: Double?
+  /// Artwork URL whose async load is in flight (generation-guarded).
+  private var artworkLoadGeneration: Int = 0
+  /// Last wall-clock ms a progress journal row was written.
+  private var lastJournalProgressAtMs: Int = 0
 
   private override init() {
     super.init()
@@ -187,11 +254,11 @@ public final class PodverseAudioEngine: NSObject {
   /// `audioProfile` sets the session mode for this item; `nil` keeps the last one applied.
   func load(
     url: String, initialSeekSeconds: Double?, basicAuth: ScopedBasicAuth? = nil,
-    audioProfile: PodverseAudioProfile? = nil
+    audioProfile: PodverseAudioProfile? = nil, metaJson: String? = nil
   ) throws {
     try load(
       url: url, initialSeekSeconds: initialSeekSeconds, basicAuth: basicAuth,
-      audioProfile: audioProfile, playWhenPrepared: false)
+      audioProfile: audioProfile, metaJson: metaJson, playWhenPrepared: false)
   }
 
   /// Convenience combining `load` + `play`. If `load` throws (invalid URL / missing file), the error
@@ -199,16 +266,16 @@ public final class PodverseAudioEngine: NSObject {
   /// waits until that seek completes.
   func loadAndStart(
     url: String, initialSeekSeconds: Double?, basicAuth: ScopedBasicAuth? = nil,
-    audioProfile: PodverseAudioProfile? = nil
+    audioProfile: PodverseAudioProfile? = nil, metaJson: String? = nil
   ) throws {
     try load(
       url: url, initialSeekSeconds: initialSeekSeconds, basicAuth: basicAuth,
-      audioProfile: audioProfile, playWhenPrepared: true)
+      audioProfile: audioProfile, metaJson: metaJson, playWhenPrepared: true)
   }
 
   private func load(
     url: String, initialSeekSeconds: Double?, basicAuth: ScopedBasicAuth?,
-    audioProfile: PodverseAudioProfile?, playWhenPrepared: Bool
+    audioProfile: PodverseAudioProfile?, metaJson: String?, playWhenPrepared: Bool
   ) throws {
     guard let parsed = resolveSourceURL(url) else {
       let payload: [String: Any] = ["code": "invalid_url", "message": "Invalid URL: \(url)"]
@@ -258,26 +325,87 @@ public final class PodverseAudioEngine: NSObject {
     observeItemEnd(item)
     observeItemStalled(item)
 
-    // Seed now-playing metadata from the source URL until the caller supplies item metadata.
-    nowPlaying = PodverseNowPlayingInfo(title: parsed.lastPathComponent, artist: nil)
+    let meta = PodverseSourceMeta.parse(json: metaJson)
+    // Prefer caller meta; fall back to the URL file name until setNowPlayingMetadata runs.
+    nowPlaying = PodverseNowPlayingInfo(
+      title: meta?.title ?? parsed.lastPathComponent,
+      artist: meta?.subtitle,
+      artwork: nil,
+      isLive: meta?.isLive ?? false
+    )
     lastPublishedState = .loading
     currentItem = item
-    loadedSource = PodverseLoadedSource(url: url, basicAuth: basicAuth)
+    loadedSource = PodverseLoadedSource(url: url, basicAuth: basicAuth, meta: meta)
+    clipEndSeconds = meta?.clipEndSeconds
     onMain { [weak self] in
       guard let self = self else { return }
       guard generation == self.loadGeneration else { return }
       self.resumeAfterInterruption = false
+      // loadAndStart (and any playWhenPrepared load) is an explicit play intent — clear a stuck
+      // interruption so autoplay is not deferred forever after another app took the session
+      // without delivering `.ended`.
+      if playWhenPrepared {
+        self.isInterrupted = false
+      }
       if let profile = audioProfile {
         self.applyAudioProfile(profile)
       }
       self.player.replaceCurrentItem(with: item)
       self.updateNowPlayingInfo()
+      self.applyRemoteCommandAvailability()
+      if let artworkUrl = meta?.artworkUrl {
+        self.loadArtwork(urlString: artworkUrl, generation: generation)
+      }
+      var payload: [String: Any] = ["url": url]
+      if let meta = meta {
+        payload["meta"] = meta.asDictionary()
+      } else {
+        payload["meta"] = NSNull()
+      }
+      self.emit(.sourceChanged, payload)
+      self.appendJournal(eventKind: "started", positionSeconds: seek > 0 ? seek : 0)
       if playWhenPrepared, seek <= 0 {
         self.startLoadedItem()
       } else if item.status == .readyToPlay {
         self.completePendingInitialSeek(generation: generation)
       }
     }
+  }
+
+  private func appendJournal(eventKind: String, positionSeconds: Double) {
+    guard let source = loadedSource, let meta = source.meta else { return }
+    var entry: [String: Any] = [
+      "accountIdText": PodverseNativeCache.accountIdTextFromContext() as Any,
+      "idText": meta.idText,
+      "kind": meta.kind,
+      "queueMedium": meta.queueMedium,
+      "positionSeconds": positionSeconds,
+      "durationSeconds": getDuration(),
+      "eventKind": eventKind,
+      "origin": meta.origin,
+    ]
+    if PodverseNativeCache.accountIdTextFromContext() == nil {
+      entry["accountIdText"] = NSNull()
+    }
+    PodverseNativeCache.appendJournalEntry(entry)
+  }
+
+  /// Current loaded source for JS adoption / restore. Nil when nothing is loaded.
+  func getCurrentSource() -> [String: Any]? {
+    guard let source = loadedSource else { return nil }
+    var payload: [String: Any] = [
+      "url": source.url,
+      "positionSeconds": getPosition(),
+      "durationSeconds": getDuration(),
+      // Play intent, so a source still buffering after a car start reads as playing.
+      "isPlaying": player.timeControlStatus != .paused || playAfterPendingSeek,
+    ]
+    if let meta = source.meta {
+      payload["meta"] = meta.asDictionary()
+    } else {
+      payload["meta"] = NSNull()
+    }
+    return payload
   }
 
   /// Seek to the pending position once the loaded item is the current player item, then start if
@@ -326,6 +454,10 @@ public final class PodverseAudioEngine: NSObject {
   func play() {
     onMain { [weak self] in
       guard let self = self else { return }
+      // Explicit play (lock screen, CarPlay, JS) clears a stuck interruption flag — another media
+      // app can take the session without delivering `.ended`, which would otherwise leave every
+      // later start deferred forever.
+      self.isInterrupted = false
       self.resumeAfterInterruption = false
       self.startPlayer()
     }
@@ -350,11 +482,18 @@ public final class PodverseAudioEngine: NSObject {
   }
 
   /// Main-thread only. Starts an item a load asked to autoplay. During an interruption the start
-  /// waits for the interruption to end rather than competing with the call or alarm.
+  /// waits for the interruption to end rather than competing with the call or alarm. If the session
+  /// can be activated again (stuck flag after another app took audio without `.ended`), clear the
+  /// flag and start; only defer when activation still fails.
   private func startLoadedItem() {
     if isInterrupted {
-      resumeAfterInterruption = true
-      return
+      do {
+        try AVAudioSession.sharedInstance().setActive(true)
+        isInterrupted = false
+      } catch {
+        resumeAfterInterruption = true
+        return
+      }
     }
     resumeAfterInterruption = false
     startPlayer()
@@ -364,6 +503,7 @@ public final class PodverseAudioEngine: NSObject {
   private func pausePlayer() {
     player.pause()
     updateNowPlayingElapsed()
+    appendJournal(eventKind: "paused", positionSeconds: getPosition())
   }
 
   /// Absolute seek in seconds; clamps to `[0, duration]` when a finite duration is known.
@@ -512,7 +652,12 @@ public final class PodverseAudioEngine: NSObject {
       }
       onMain { [weak self] in
         guard let self = self else { return }
-        let wasPlaying = self.player.timeControlStatus != .paused || self.playAfterPendingSeek
+        // Play intent: already playing, waiting to play after seek, or a load asked to autoplay
+        // once ready. Reading only `timeControlStatus` misses a pending autoplay.
+        let wasPlaying =
+          self.player.timeControlStatus != .paused
+          || self.playAfterPendingSeek
+          || self.resumeAfterInterruption
         self.playAfterPendingSeek = false
         self.isInterrupted = true
         self.resumeAfterInterruption = wasPlaying
@@ -561,7 +706,7 @@ public final class PodverseAudioEngine: NSObject {
       do {
         try self.load(
           url: source.url, initialSeekSeconds: position, basicAuth: source.basicAuth,
-          audioProfile: nil, playWhenPrepared: false)
+          audioProfile: nil, metaJson: nil, playWhenPrepared: false)
         self.setNowPlayingMetadata(title: title, artist: artist)
       } catch {
         // `load` already emitted the error for JS.
@@ -613,13 +758,33 @@ public final class PodverseAudioEngine: NSObject {
     if let artist = nowPlaying.artist {
       info[MPMediaItemPropertyArtist] = artist
     }
+    if let artwork = nowPlaying.artwork {
+      info[MPMediaItemPropertyArtwork] = artwork
+    }
+    info[MPNowPlayingInfoPropertyIsLiveStream] = nowPlaying.isLive
     let duration = getDuration()
-    if duration > 0 {
+    if duration > 0, !nowPlaying.isLive {
       info[MPMediaItemPropertyPlaybackDuration] = duration
     }
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = getPosition()
     info[MPNowPlayingInfoPropertyPlaybackRate] = player.rate
     MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+  }
+
+  private func loadArtwork(urlString: String, generation: Int) {
+    artworkLoadGeneration = generation
+    guard let url = URL(string: urlString) else { return }
+    URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+      guard let self = self, let data = data, let image = UIImage(data: data) else { return }
+      let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+      self.onMain {
+        guard generation == self.artworkLoadGeneration, generation == self.loadGeneration else {
+          return
+        }
+        self.nowPlaying.artwork = artwork
+        self.updateNowPlayingInfo()
+      }
+    }.resume()
   }
 
   private func updateNowPlayingElapsed() {
@@ -678,6 +843,50 @@ public final class PodverseAudioEngine: NSObject {
       self.seek(seconds: max(0, self.getPosition() - 15))
       return .success
     }
+    center.nextTrackCommand.addTarget { [weak self] _ in
+      guard let self = self else { return .commandFailed }
+      self.handleRemoteTrackCommand("next")
+      return .success
+    }
+    center.previousTrackCommand.addTarget { [weak self] _ in
+      guard let self = self else { return .commandFailed }
+      self.handleRemoteTrackCommand("previous")
+      return .success
+    }
+    applyRemoteCommandAvailability()
+  }
+
+  /// Music offers track skips; podcasts and everything else offer the time skips. The car and lock
+  /// screen show one pair or the other, so the pair follows the loaded source.
+  private func applyRemoteCommandAvailability() {
+    let center = MPRemoteCommandCenter.shared()
+    let isMusic = loadedSource?.meta?.queueMedium == "music"
+    center.nextTrackCommand.isEnabled = isMusic
+    center.previousTrackCommand.isEnabled = isMusic
+    center.skipForwardCommand.isEnabled = !isMusic
+    center.skipBackwardCommand.isEnabled = !isMusic
+  }
+
+  /// Previous restarts a track that is more than a few seconds in. Otherwise the phone's queue
+  /// decides while JS is running, and the projected queue snapshot does when it is not.
+  private func handleRemoteTrackCommand(_ command: String) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      if command == "previous", self.getPosition() > 3 {
+        self.seek(seconds: 0)
+        return
+      }
+      if self.jsOwnsAdvance {
+        self.emit(.remoteTrackCommand, ["command": command])
+        return
+      }
+      if command == "next" {
+        self.advanceToNextCachedItem()
+      } else {
+        // The projected snapshot holds only what comes next, so previous restarts the track.
+        self.seek(seconds: 0)
+      }
+    }
   }
 
   // MARK: - Observations / events
@@ -708,10 +917,24 @@ public final class PodverseAudioEngine: NSObject {
     timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) {
       [weak self] _ in
       guard let self = self else { return }
+      let position = self.getPosition()
+      if let clipEnd = self.clipEndSeconds, clipEnd > 0, position >= clipEnd {
+        self.clipEndSeconds = nil
+        self.pausePlayer()
+        self.appendJournal(eventKind: "completed", positionSeconds: position)
+        self.publish(state: .ended)
+        self.emit(.ended, ["positionSeconds": position])
+        return
+      }
+      let nowMs = Int(Date().timeIntervalSince1970 * 1000)
+      if self.player.timeControlStatus == .playing, nowMs - self.lastJournalProgressAtMs >= 15_000 {
+        self.lastJournalProgressAtMs = nowMs
+        self.appendJournal(eventKind: "progress", positionSeconds: position)
+      }
       self.emit(
         .progress,
         [
-          "positionSeconds": self.getPosition(),
+          "positionSeconds": position,
           "durationSeconds": self.getDuration(),
         ])
     }
@@ -815,9 +1038,75 @@ public final class PodverseAudioEngine: NSObject {
       name: .AVPlayerItemPlaybackStalled, object: item)
   }
 
+  func setJsOwnsAdvance(_ owns: Bool) {
+    onMain { self.jsOwnsAdvance = owns }
+  }
+
   @objc private func handleItemEnded(_ notification: Notification) {
+    let position = getPosition()
+    appendJournal(eventKind: "completed", positionSeconds: position)
     publish(state: .ended)
-    emit(.ended, ["positionSeconds": getPosition()])
+    emit(.ended, ["positionSeconds": position])
+    if !jsOwnsAdvance {
+      advanceToNextCachedItem()
+    }
+  }
+
+  /// Advance through the projected queue snapshot when JS is not listening.
+  private func advanceToNextCachedItem() {
+    let medium = loadedSource?.meta?.queueMedium ?? "av"
+    let kind: PodverseNativeCacheKind = medium == "music" ? .queueMusic : .queueAv
+    let snapshot = PodverseCarPlayCacheModel.parseQueueSnapshot(PodverseNativeCache.read(kind))
+    guard !snapshot.entries.isEmpty else { return }
+    let currentId = loadedSource?.meta?.idText
+    let startIndex: Int = {
+      guard let currentId = currentId,
+        let idx = snapshot.entries.firstIndex(where: { $0.idText == currentId })
+      else { return 0 }
+      return idx + 1
+    }()
+    guard startIndex < snapshot.entries.count else { return }
+    let next = snapshot.entries[startIndex]
+    guard let url = resolveQueuePlayableURL(next) else { return }
+    let meta: [String: Any] = [
+      "idText": next.idText,
+      "kind": "item",
+      "queueMedium": medium,
+      "title": next.title,
+      "origin": "car",
+      "isLive": false,
+    ]
+    let metaJson =
+      (try? JSONSerialization.data(withJSONObject: meta)).flatMap {
+        String(data: $0, encoding: .utf8)
+      }
+    let seek = next.startPositionSeconds
+    do {
+      try loadAndStart(
+        url: url, initialSeekSeconds: seek, basicAuth: nil, audioProfile: nil, metaJson: metaJson)
+    } catch {
+      NSLog("[engine] native advance failed: %@", error.localizedDescription)
+    }
+  }
+
+  private func resolveQueuePlayableURL(_ entry: PodverseCarPlayCacheModel.QueueEntry) -> String? {
+    if let downloadName = entry.downloadFileName, !downloadName.isEmpty {
+      // Relative download file under Documents/downloads.
+      if let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        .first
+      {
+        let fileName =
+          downloadName.hasPrefix("downloads/")
+          ? String(downloadName.dropFirst("downloads/".count)) : downloadName
+        let url = documents.appendingPathComponent("downloads", isDirectory: true)
+          .appendingPathComponent(fileName, isDirectory: false)
+        if FileManager.default.fileExists(atPath: url.path) {
+          return url.absoluteString
+        }
+      }
+    }
+    if let mediaUrl = entry.mediaUrl, !mediaUrl.isEmpty { return mediaUrl }
+    return nil
   }
 
   @objc private func handleItemStalled(_ notification: Notification) {

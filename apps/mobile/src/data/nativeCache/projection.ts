@@ -7,74 +7,57 @@
  * that own queue / downloads / library-index state MUST call the matching projection helper on
  * every successful local mutation (and after sync reconcile) so the native cache stays coherent.
  *
- * Each helper stamps the versioned envelope and
- * forwards the JSON to the media-engine bridge (`writeQueueSnapshot` / `writeDownloadsIndex` /
- * `writeLibraryBrowseIndex`), which persists durably on device (iOS
- * `PodverseNativeCache` / Android `PodverseNativeCache`). Bridge writes are **best-effort
- * and soft-fail**: a failure (or a JS-only context where the native module is not linked, e.g.
- * unit tests) must never roll back the SQLite mutation that triggered the projection. In `__DEV__`
- * a failure logs once.
- *
- * Every persistent server-queue
- * mutation projects exactly once per commit via `queueRepository` — add item/clip next & last,
- * move-now-playing-to-history, and the now-playing / upcoming background syncs (see
- * `projectQueueForQueue`). There is no server `update-is-active` write on mobile yet (the active
- * queue is only in-memory store state in `QueuesProvider` / `useQueueResourcesLoadActive`), and the
- * auto-queue store is in-memory/transient (no persistent commit for car/watch to read); an
- * auto-queue advance materializes a manual-queue move-to-history (which projects) plus a transient
- * now-playing state. Do not project from React
- * providers/screens — projection stays in the data layer.
- *
- * `downloadsRepository` rebuilds the full
- * completed-downloads set and calls `projectDownloadsIndexToNativeCache` on every mutation
- * (complete / delete / clear) so offline car browse reads local `file://` paths
- * without SQLite.
- *
- * `accountRepository` projects a browse index derived
- * from the account's add-by-RSS followed channels on snapshot save/clear. Followed
- * channel/playlist entities (numeric-id-only in `DTOAccount`) need hydration before they can be
- * browse nodes.
+ * Bridge writes are **best-effort and soft-fail**: a failure must never roll back the SQLite
+ * mutation that triggered the projection.
  */
 
 import { nativePlaybackBridge } from '../../bridge/nativePlaybackBridge';
 
 /**
- * Canonical native-cache schema version. Bump only on a
- * **breaking** payload change (removing or repurposing a required field). Native readers ignore
- * unknown keys, so additive optional fields do **not** require a bump. Native readers consume
- * payloads tagged with this version.
+ * Canonical native-cache schema version. Bump only on a **breaking** payload change. Native
+ * readers ignore unknown keys; additive optional fields do not require a bump. Native readers
+ * consume payloads tagged with this version and ignore older envelopes.
  */
-export const NATIVE_CACHE_SCHEMA_VERSION = 1 as const;
+export const NATIVE_CACHE_SCHEMA_VERSION = 2 as const;
 
 export type NativeCacheSchemaVersion = typeof NATIVE_CACHE_SCHEMA_VERSION;
 
+export type NativeCacheMediumBucket = 'av' | 'music';
+
 /**
  * Denormalized queue entry for car/watch now-playing + skip/advance. Required fields must always be
- * present; optional fields are additive (see schema versioning above). No SQLite/Drizzle types.
+ * present; optional fields are additive.
  */
 export type NativeCacheQueueEntry = {
   idText: string;
   title: string;
   artworkUrl: string | null;
-  /** Remote enclosure or local `file://` playback URL; `null` when unavailable. */
+  /** Remote enclosure or relative download file name; `null` when unavailable. */
   mediaUrl: string | null;
   durationMs?: number | null;
   podcastTitle?: string | null;
+  startPositionSeconds?: number | null;
+  kind?: string | null;
 };
 
 export type QueueSnapshotProjection = {
   nowPlayingIdText: string | null;
   entries: NativeCacheQueueEntry[];
+  mediumBucket?: NativeCacheMediumBucket;
 };
 
 export type NativeCacheDownloadEntry = {
   idText: string;
   title: string;
-  /** Absolute sandbox path readable by the native car process. */
+  /**
+   * Download file name (or `downloads/<name>`), resolved by native against the current app
+   * documents directory. Legacy absolute `file://` paths may still appear from older builds.
+   */
   filePath: string;
   artworkUrl?: string | null;
   mediaUrl?: string | null;
   bytes?: number | null;
+  channelTitle?: string | null;
 };
 
 export type DownloadsIndexProjection = {
@@ -84,13 +67,67 @@ export type DownloadsIndexProjection = {
 export type NativeCacheBrowseNode = {
   idText: string;
   title: string;
-  kind: 'podcast' | 'playlist' | 'category';
+  kind: 'podcast' | 'album' | 'artist' | 'playlist' | 'category';
   artworkUrl?: string | null;
   childCount?: number | null;
+  mediumBucket?: NativeCacheMediumBucket;
 };
 
 export type LibraryBrowseIndexProjection = {
   nodes: NativeCacheBrowseNode[];
+};
+
+export type NativeCacheChildItem = {
+  idText: string;
+  title: string;
+  subtitle?: string | null;
+  artworkUrl?: string | null;
+  mediaUrl: string | null;
+  durationMs?: number | null;
+  pubDateMs?: number | null;
+  progressSeconds?: number | null;
+  played?: boolean | null;
+  downloadFileName?: string | null;
+};
+
+export type LibraryChildrenProjection = {
+  channelIdText: string;
+  mediumBucket: NativeCacheMediumBucket;
+  items: NativeCacheChildItem[];
+};
+
+export type NativeCacheHistoryEntry = {
+  idText: string;
+  title: string;
+  channelTitle?: string | null;
+  artworkUrl?: string | null;
+  mediaUrl: string | null;
+  mediumBucket?: NativeCacheMediumBucket;
+  playedAtMs?: number | null;
+  downloadFileName?: string | null;
+};
+
+export type HistoryIndexProjection = {
+  entries: NativeCacheHistoryEntry[];
+};
+
+export type NativeCacheLiveEntry = {
+  idText: string;
+  title: string;
+  channelIdText: string;
+  channelTitle?: string | null;
+  artworkUrl?: string | null;
+  mediaUrl: string;
+  mediumBucket?: NativeCacheMediumBucket;
+};
+
+export type LiveIndexProjection = {
+  entries: NativeCacheLiveEntry[];
+};
+
+export type AccountContextProjection = {
+  signedIn: boolean;
+  accountIdText: string | null;
 };
 
 /** Common envelope stamped on every persisted payload so native readers can validate the shape. */
@@ -103,42 +140,70 @@ type NativeCacheEnvelope = {
 export type QueueSnapshotCachePayload = NativeCacheEnvelope & QueueSnapshotProjection;
 export type DownloadsIndexCachePayload = NativeCacheEnvelope & DownloadsIndexProjection;
 export type LibraryBrowseIndexCachePayload = NativeCacheEnvelope & LibraryBrowseIndexProjection;
+export type LibraryChildrenCachePayload = NativeCacheEnvelope & LibraryChildrenProjection;
+export type HistoryIndexCachePayload = NativeCacheEnvelope & HistoryIndexProjection;
+export type LiveIndexCachePayload = NativeCacheEnvelope & LiveIndexProjection;
+export type AccountContextCachePayload = NativeCacheEnvelope & AccountContextProjection;
 
 const nowMs = (updatedAtMs?: number): number =>
   updatedAtMs !== undefined ? updatedAtMs : Date.now();
+
+const withEnvelope = <T extends object>(
+  body: T,
+  updatedAtMs?: number
+): NativeCacheEnvelope & T => ({
+  schemaVersion: NATIVE_CACHE_SCHEMA_VERSION,
+  updatedAtMs: nowMs(updatedAtMs),
+  ...body,
+});
 
 /** Wrap a queue snapshot in the versioned native-cache envelope (pure). */
 export const buildQueueSnapshotPayload = (
   snapshot: QueueSnapshotProjection,
   updatedAtMs?: number
-): QueueSnapshotCachePayload => ({
-  schemaVersion: NATIVE_CACHE_SCHEMA_VERSION,
-  updatedAtMs: nowMs(updatedAtMs),
-  ...snapshot,
-});
+): QueueSnapshotCachePayload => withEnvelope(snapshot, updatedAtMs);
 
 /** Wrap a downloads index in the versioned native-cache envelope (pure). */
 export const buildDownloadsIndexPayload = (
   index: DownloadsIndexProjection,
   updatedAtMs?: number
-): DownloadsIndexCachePayload => ({
-  schemaVersion: NATIVE_CACHE_SCHEMA_VERSION,
-  updatedAtMs: nowMs(updatedAtMs),
-  ...index,
-});
+): DownloadsIndexCachePayload => withEnvelope(index, updatedAtMs);
 
 /** Wrap a library browse index in the versioned native-cache envelope (pure). */
 export const buildLibraryBrowseIndexPayload = (
   index: LibraryBrowseIndexProjection,
   updatedAtMs?: number
-): LibraryBrowseIndexCachePayload => ({
-  schemaVersion: NATIVE_CACHE_SCHEMA_VERSION,
-  updatedAtMs: nowMs(updatedAtMs),
-  ...index,
-});
+): LibraryBrowseIndexCachePayload => withEnvelope(index, updatedAtMs);
+
+export const buildLibraryChildrenPayload = (
+  children: LibraryChildrenProjection,
+  updatedAtMs?: number
+): LibraryChildrenCachePayload => withEnvelope(children, updatedAtMs);
+
+export const buildHistoryIndexPayload = (
+  index: HistoryIndexProjection,
+  updatedAtMs?: number
+): HistoryIndexCachePayload => withEnvelope(index, updatedAtMs);
+
+export const buildLiveIndexPayload = (
+  index: LiveIndexProjection,
+  updatedAtMs?: number
+): LiveIndexCachePayload => withEnvelope(index, updatedAtMs);
+
+export const buildAccountContextPayload = (
+  context: AccountContextProjection,
+  updatedAtMs?: number
+): AccountContextCachePayload => withEnvelope(context, updatedAtMs);
 
 type NativeCacheWriteMethod =
-  'writeQueueSnapshot' | 'writeDownloadsIndex' | 'writeLibraryBrowseIndex';
+  | 'writeQueueSnapshot'
+  | 'writeQueueSnapshotAv'
+  | 'writeQueueSnapshotMusic'
+  | 'writeDownloadsIndex'
+  | 'writeLibraryBrowseIndex'
+  | 'writeHistoryIndex'
+  | 'writeLiveIndex'
+  | 'writeAccountContext';
 
 /**
  * Serialize + forward a versioned payload to the durable native-cache bridge write. Best-effort:
@@ -161,7 +226,32 @@ const writeToNativeCache = async (
 export const projectQueueSnapshotToNativeCache = async (
   snapshot: QueueSnapshotProjection
 ): Promise<void> => {
-  await writeToNativeCache('writeQueueSnapshot', buildQueueSnapshotPayload(snapshot));
+  const bucket = snapshot.mediumBucket ?? 'av';
+  const payload = buildQueueSnapshotPayload({ ...snapshot, mediumBucket: bucket });
+  // Legacy single-file write keeps older readers warm during the dual-queue transition.
+  await writeToNativeCache('writeQueueSnapshot', payload);
+  if (bucket === 'music') {
+    await writeToNativeCache('writeQueueSnapshotMusic', payload);
+  } else {
+    await writeToNativeCache('writeQueueSnapshotAv', payload);
+  }
+};
+
+export const projectQueueSnapshotAvToNativeCache = async (
+  snapshot: QueueSnapshotProjection
+): Promise<void> => {
+  const payload = buildQueueSnapshotPayload({ ...snapshot, mediumBucket: 'av' });
+  await writeToNativeCache('writeQueueSnapshotAv', payload);
+  await writeToNativeCache('writeQueueSnapshot', payload);
+};
+
+export const projectQueueSnapshotMusicToNativeCache = async (
+  snapshot: QueueSnapshotProjection
+): Promise<void> => {
+  await writeToNativeCache(
+    'writeQueueSnapshotMusic',
+    buildQueueSnapshotPayload({ ...snapshot, mediumBucket: 'music' })
+  );
 };
 
 export const projectDownloadsIndexToNativeCache = async (
@@ -174,4 +264,37 @@ export const projectLibraryBrowseIndexToNativeCache = async (
   index: LibraryBrowseIndexProjection
 ): Promise<void> => {
   await writeToNativeCache('writeLibraryBrowseIndex', buildLibraryBrowseIndexPayload(index));
+};
+
+export const projectLibraryChildrenToNativeCache = async (
+  children: LibraryChildrenProjection
+): Promise<void> => {
+  try {
+    await nativePlaybackBridge.writeLibraryChildren(
+      children.channelIdText,
+      JSON.stringify(buildLibraryChildrenPayload(children))
+    );
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[native-cache] writeLibraryChildren bridge unavailable (soft-fail)', error);
+    }
+  }
+};
+
+export const projectHistoryIndexToNativeCache = async (
+  index: HistoryIndexProjection
+): Promise<void> => {
+  await writeToNativeCache('writeHistoryIndex', buildHistoryIndexPayload(index));
+};
+
+export const projectLiveIndexToNativeCache = async (
+  index: LiveIndexProjection
+): Promise<void> => {
+  await writeToNativeCache('writeLiveIndex', buildLiveIndexPayload(index));
+};
+
+export const projectAccountContextToNativeCache = async (
+  context: AccountContextProjection
+): Promise<void> => {
+  await writeToNativeCache('writeAccountContext', buildAccountContextPayload(context));
 };

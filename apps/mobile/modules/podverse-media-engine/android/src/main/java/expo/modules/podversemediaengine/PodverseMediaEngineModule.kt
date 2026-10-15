@@ -3,6 +3,7 @@ package expo.modules.podversemediaengine
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import org.json.JSONObject
 
 // This Expo module is a thin transport surface over the process-wide `PodverseAudioEngine` object.
 // It does NOT own the ExoPlayer, MediaSession, or foreground service; the engine and
@@ -17,7 +18,9 @@ class PodverseMediaEngineModule : Module() {
     Name("PodverseMediaEngine")
 
     // Native → JS events.
-    Events("playbackState", "progress", "ended", "error", "stalled")
+    Events(
+      "playbackState", "progress", "ended", "error", "stalled", "sourceChanged",
+      "remoteTrackCommand")
 
     // Forward engine events to JS while this module (and the JS runtime) is alive. When JS is not
     // running, the engine still plays and updates the media notification on its own.
@@ -41,13 +44,15 @@ class PodverseMediaEngineModule : Module() {
         url: String,
         initialSeekSeconds: Double?,
         basicAuth: MediaBasicAuthRecord?,
-        audioProfile: String? ->
+        audioProfile: String?,
+        metaJson: String? ->
       PodverseAudioEngine.load(
         reactContext(),
         url,
         initialSeekSeconds,
         basicAuth?.toScopedBasicAuth(),
         PodverseAudioEngine.AudioProfile.fromWireValue(audioProfile),
+        metaJson,
       )
     }
 
@@ -56,13 +61,15 @@ class PodverseMediaEngineModule : Module() {
         url: String,
         initialSeekSeconds: Double?,
         basicAuth: MediaBasicAuthRecord?,
-        audioProfile: String? ->
+        audioProfile: String?,
+        metaJson: String? ->
       PodverseAudioEngine.loadAndStart(
         reactContext(),
         url,
         initialSeekSeconds,
         basicAuth?.toScopedBasicAuth(),
         PodverseAudioEngine.AudioProfile.fromWireValue(audioProfile),
+        metaJson,
       )
     }
 
@@ -88,6 +95,10 @@ class PodverseMediaEngineModule : Module() {
 
     AsyncFunction("getDuration") {
       PodverseAudioEngine.getDuration()
+    }
+
+    AsyncFunction("getCurrentSource") {
+      PodverseAudioEngine.getCurrentSource()
     }
 
     Function("destroy") {
@@ -131,12 +142,55 @@ class PodverseMediaEngineModule : Module() {
       PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.QUEUE, payloadJson)
     }
 
+    AsyncFunction("writeQueueSnapshotAv") { payloadJson: String ->
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.QUEUE_AV, payloadJson)
+    }
+
+    AsyncFunction("writeQueueSnapshotMusic") { payloadJson: String ->
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.QUEUE_MUSIC, payloadJson)
+    }
+
     AsyncFunction("writeDownloadsIndex") { payloadJson: String ->
       PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.DOWNLOADS, payloadJson)
     }
 
     AsyncFunction("writeLibraryBrowseIndex") { payloadJson: String ->
       PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.LIBRARY_BROWSE, payloadJson)
+    }
+
+    AsyncFunction("writeLibraryChildren") { channelIdText: String, payloadJson: String ->
+      PodverseNativeCache.writeLibraryChildren(reactContext(), channelIdText, payloadJson)
+    }
+
+    AsyncFunction("writeHistoryIndex") { payloadJson: String ->
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.HISTORY, payloadJson)
+    }
+
+    AsyncFunction("writeLiveIndex") { payloadJson: String ->
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.LIVE, payloadJson)
+    }
+
+    AsyncFunction("writeAccountContext") { payloadJson: String ->
+      try {
+        val signedIn = JSONObject(payloadJson).optBoolean("signedIn", true)
+        if (!signedIn) {
+          PodverseNativeCache.clearAccountScopedFiles(reactContext())
+        }
+      } catch (_: Exception) {
+      }
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.ACCOUNT_CONTEXT, payloadJson)
+    }
+
+    AsyncFunction("readPlaybackJournal") {
+      PodverseNativeCache.read(reactContext(), PodverseNativeCacheKind.PLAYBACK_JOURNAL)
+    }
+
+    AsyncFunction("writePlaybackJournal") { payloadJson: String ->
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.PLAYBACK_JOURNAL, payloadJson)
+    }
+
+    AsyncFunction("setJsOwnsAdvance") { owns: Boolean ->
+      PodverseAudioEngine.setJsOwnsAdvance(owns)
     }
   }
 

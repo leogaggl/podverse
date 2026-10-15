@@ -16,6 +16,7 @@ import {
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { DownloadRow } from '../db/schema';
 import { projectDownloadsIndexToNativeCache } from '../nativeCache';
+import { playableItemRepository } from './playableItemRepository';
 
 const rowToRecord = (row: DownloadRow): DownloadRecord => {
   const mediaType: DownloadMediaType = isDownloadMediaType(row.mediaType) ? row.mediaType : 'audio';
@@ -85,6 +86,10 @@ const refreshNativeCacheProjection = async (): Promise<void> => {
       title: schema.download.title,
       filePath: schema.download.filePath,
       status: schema.download.status,
+      artworkUrl: schema.download.artworkUrl,
+      enclosureUri: schema.download.enclosureUri,
+      byteSize: schema.download.byteSize,
+      channelTitle: schema.download.channelTitle,
     })
     .from(schema.download)
     .where(eq(schema.download.status, 'complete'));
@@ -95,7 +100,15 @@ const refreshNativeCacheProjection = async (): Promise<void> => {
         return [];
       }
       return [
-        { idText: row.itemIdText, title: row.title ?? row.itemIdText, filePath: row.filePath },
+        {
+          idText: row.itemIdText,
+          title: row.title ?? row.itemIdText,
+          filePath: row.filePath,
+          artworkUrl: row.artworkUrl,
+          mediaUrl: row.enclosureUri,
+          bytes: row.byteSize,
+          channelTitle: row.channelTitle,
+        },
       ];
     }),
   });
@@ -545,6 +558,7 @@ export const downloadsRepository = {
   remove: async (itemIdText: string): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.download).where(eq(schema.download.itemIdText, itemIdText));
+    await playableItemRepository.remove('download', itemIdText);
     await refreshNativeCacheProjection();
   },
 
@@ -552,6 +566,7 @@ export const downloadsRepository = {
   clear: async (): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.download);
+    await playableItemRepository.clearSource('download');
     await refreshNativeCacheProjection();
   },
 };

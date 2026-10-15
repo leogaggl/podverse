@@ -55,6 +55,7 @@ describe('mapSubscribedChannelToNode', () => {
       title: 'Directory',
       kind: 'podcast',
       artworkUrl: 'https://img/1.jpg',
+      mediumBucket: 'av',
     });
   });
 

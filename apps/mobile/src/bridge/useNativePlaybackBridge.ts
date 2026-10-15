@@ -38,6 +38,9 @@ export function useNativePlaybackBridge(
       nativePlaybackBridge.addListener('stalled', (event) => {
         handlersRef.current?.stalled?.(event);
       }),
+      nativePlaybackBridge.addListener('sourceChanged', (event) => {
+        handlersRef.current?.sourceChanged?.(event);
+      }),
     ];
     return () => {
       subscriptions.forEach((subscription) => {

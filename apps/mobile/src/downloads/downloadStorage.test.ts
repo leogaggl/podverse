@@ -5,6 +5,8 @@ import {
   buildDownloadFilePath,
   DOWNLOADS_SUBDIRECTORY,
   hashEnclosureUri,
+  resolveStoredDownloadFilePath,
+  toStoredDownloadFileName,
 } from './downloadStorage';
 
 describe('hashEnclosureUri', () => {
@@ -46,5 +48,34 @@ describe('buildDownloadFilePath', () => {
     expect(buildDownloadFilePath('file:///docs', 'itemABC.mp3')).toBe(
       `file:///docs/${DOWNLOADS_SUBDIRECTORY}/itemABC.mp3`
     );
+  });
+});
+
+describe('toStoredDownloadFileName', () => {
+  it('keeps a bare file name', () => {
+    expect(toStoredDownloadFileName('itemABC.mp3')).toBe('itemABC.mp3');
+  });
+
+  it('strips a legacy absolute file URI to the file name', () => {
+    expect(
+      toStoredDownloadFileName('file:///var/mobile/Containers/Data/Application/UUID/Documents/downloads/itemABC.mp3')
+    ).toBe('itemABC.mp3');
+  });
+});
+
+describe('resolveStoredDownloadFilePath', () => {
+  it('joins a relative file name to the current document directory', () => {
+    expect(resolveStoredDownloadFilePath('itemABC.mp3', 'file:///docs/')).toBe(
+      `file:///docs/${DOWNLOADS_SUBDIRECTORY}/itemABC.mp3`
+    );
+  });
+
+  it('rebases a legacy absolute path onto the current document directory', () => {
+    expect(
+      resolveStoredDownloadFilePath(
+        'file:///old/Containers/UUID/Documents/downloads/itemABC.mp3',
+        'file:///docs/'
+      )
+    ).toBe(`file:///docs/${DOWNLOADS_SUBDIRECTORY}/itemABC.mp3`);
   });
 });

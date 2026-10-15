@@ -26,5 +26,8 @@
         <action android:name="android.media.browse.MediaBrowserService"/>
       </intent-filter>
     </service>
+    <service
+      android:name="expo.modules.podversemediaengine.PodverseCarHeadlessSyncService"
+      android:exported="false"/>
   </application>
 </manifest>

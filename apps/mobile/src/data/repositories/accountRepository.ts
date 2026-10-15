@@ -8,7 +8,10 @@ import { isObjectLike } from '@podverse/helpers/guards';
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
 import { getDb, initializeDatabase, schema } from '../db';
 import type { NativeCacheBrowseNode } from '../nativeCache';
-import { projectLibraryBrowseIndexToNativeCache } from '../nativeCache';
+import {
+  projectAccountContextToNativeCache,
+  projectLibraryBrowseIndexToNativeCache,
+} from '../nativeCache';
 import {
   mapPlaylistToNode,
   mapSubscribedChannelToNode,
@@ -86,6 +89,10 @@ export const accountRepository = {
         target: schema.accountSnapshot.id,
         set: { payloadJson, updatedAt },
       });
+    await projectAccountContextToNativeCache({
+      accountIdText: account.id_text,
+      signedIn: true,
+    });
   },
 
   /**
@@ -99,6 +106,10 @@ export const accountRepository = {
   clearSnapshot: async (): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.accountSnapshot);
+    await projectAccountContextToNativeCache({
+      accountIdText: null,
+      signedIn: false,
+    });
   },
 
   /**

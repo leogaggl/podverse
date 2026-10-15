@@ -345,6 +345,22 @@ export const MIGRATIONS: Migration[] = [
       );`,
     ],
   },
+  {
+    version: 21,
+    statements: [
+      // Whole item payloads for items the car can play that no other table keeps whole: live
+      // items (excluded from every regular item query) and downloads (whose row holds only
+      // display scalars). The phone needs the full item to adopt what the car started.
+      `CREATE TABLE IF NOT EXISTS playable_item (
+        item_id_text TEXT NOT NULL,
+        source TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (item_id_text, source)
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_playable_item_source ON playable_item (source);`,
+    ],
+  },
 ];
 
 export const LATEST_MIGRATION_VERSION: number = MIGRATIONS.reduce(

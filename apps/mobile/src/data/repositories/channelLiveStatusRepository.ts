@@ -13,6 +13,7 @@ import {
   selectBroadcastingKeys,
   toChannelLiveStatuses,
 } from './channelLiveStatus';
+import { playableItemRepository } from './playableItemRepository';
 import type { MobileAuthRequestContext, SubscriptionKind } from './types';
 
 /**
@@ -140,6 +141,18 @@ export const channelLiveStatusRepository = {
       .delete(schema.channelLiveStatus)
       .where(eq(schema.channelLiveStatus.kind, 'channel'));
     await writeStatuses([...statuses.values()]);
+    // The whole items are kept so the car can start a broadcast with the phone app closed and the
+    // phone can then adopt it with chapters, people, and value recipients intact.
+    try {
+      await playableItemRepository.replaceSource('live', items);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[live-status] could not store live items', error);
+      }
+    }
+    void import('../nativeCache/carCacheReproject')
+      .then(({ reprojectLiveIndexFromItems }) => reprojectLiveIndexFromItems(items))
+      .catch(() => undefined);
   },
 
   /**
@@ -199,5 +212,6 @@ export const channelLiveStatusRepository = {
   clear: async (): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.channelLiveStatus);
+    await playableItemRepository.clearSource('live');
   },
 };

@@ -7,12 +7,18 @@ import type {
   DTOQueueResourceAbridgedResponseData,
   QueueExtraParams,
 } from '@podverse/helpers/dto';
+import { isMusicMediumId } from '@podverse/helpers/medium';
 
 // Import from the request module (not the auth barrel) to keep the React AuthProvider out of the
 // data-layer module graph.
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
 import { publishQueueDataChanged } from '../../sync/queueDataRevision';
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
+import {
+  buildItemLabeledEnclosures,
+  DEFAULT_ENCLOSURE_SELECTED_PARAMS,
+  resolveItemEnclosureUrl,
+} from '../../lib/playback/resolveEnclosureUrl';
 import type { NativeCacheQueueEntry } from '../nativeCache';
 import { projectQueueSnapshotToNativeCache } from '../nativeCache';
 import { readThroughOrFetch, shouldSkipOpportunisticRemoteFetch } from '../sync';
@@ -110,12 +116,25 @@ const toNativeCacheEntry = (resource: DTOQueueResource): NativeCacheQueueEntry |
   if (item === null || item === undefined) {
     return null;
   }
+  const labeled = buildItemLabeledEnclosures(item);
+  const mediaUrl = resolveItemEnclosureUrl({
+    labeledItemEnclosures: labeled,
+    selectedParams: DEFAULT_ENCLOSURE_SELECTED_PARAMS,
+  });
+  const positionSeconds = Number(resource.playback_position);
+  const durationSeconds = Number(resource.media_file_duration);
   return {
     idText: item.id_text,
     title: item.title ?? item.id_text,
     artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
-    // Enclosure resolution for car/watch playback is handled by the native playback path.
-    mediaUrl: null,
+    mediaUrl,
+    podcastTitle: item.channel?.title ?? null,
+    startPositionSeconds:
+      Number.isFinite(positionSeconds) && positionSeconds > 0 ? positionSeconds : null,
+    durationMs:
+      Number.isFinite(durationSeconds) && durationSeconds > 0
+        ? Math.round(durationSeconds * 1000)
+        : null,
   };
 };
 
@@ -124,19 +143,49 @@ const toNativeCacheEntry = (resource: DTOQueueResource): NativeCacheQueueEntry |
  * after every successful queue sync/mutation — CarPlay / Android Auto / watch complications read
  * this native cache, never SQLite (see DOCS-MOBILE-DATA-LAYER-OFFLINE.md §7.1).
  */
+const mediumBucketForQueueId = async (queueIdText: string): Promise<'av' | 'music'> => {
+  const queues = (await readQueueCache<DTOQueue[]>(CACHE_KEY_QUEUES))?.value ?? [];
+  const match = queues.find((queue) => queue.id_text === queueIdText);
+  return isMusicMediumId(match?.medium_id) ? 'music' : 'av';
+};
+
 const projectQueueForQueue = async (queueIdText: string): Promise<void> => {
   const nowPlaying =
     (await readQueueCache<DTOQueueResource>(nowPlayingCacheKey(queueIdText)))?.value ?? null;
   const upcoming =
     (await readQueueCache<DTOQueueResource[]>(upcomingCacheKey(queueIdText)))?.value ?? [];
 
+  const entries: NativeCacheQueueEntry[] = [];
+  if (nowPlaying !== null) {
+    const nowPlayingEntry = toNativeCacheEntry(nowPlaying);
+    if (nowPlayingEntry !== null) {
+      entries.push(nowPlayingEntry);
+    }
+  }
+  for (const resource of upcoming) {
+    const entry = toNativeCacheEntry(resource);
+    if (entry !== null && entry.idText !== nowPlaying?.item?.id_text) {
+      entries.push(entry);
+    }
+  }
+
+  const mediumBucket = await mediumBucketForQueueId(queueIdText);
   await projectQueueSnapshotToNativeCache({
     nowPlayingIdText: nowPlaying?.item?.id_text ?? null,
-    entries: upcoming.flatMap((resource) => {
-      const entry = toNativeCacheEntry(resource);
-      return entry === null ? [] : [entry];
-    }),
+    entries,
+    mediumBucket,
   });
+
+  // The car's Recent list is the podcast queue's history; a Music queue write must not replace it.
+  if (mediumBucket !== 'av') {
+    return;
+  }
+  try {
+    const { reprojectHistoryIndex } = await import('../nativeCache/carCacheReproject');
+    await reprojectHistoryIndex(queueIdText);
+  } catch {
+    // Soft-fail history projection.
+  }
 };
 
 /** Skip the car snapshot when the session that started this read has already ended. */
@@ -786,11 +835,19 @@ export const queueRepository = {
     }
   },
 
-  /** Drop every cached queue row and empty the native now-playing projection. */
+  /** Drop every cached queue row and empty both car queue snapshots plus history. */
   clearAll: async (): Promise<void> => {
     queueCacheGeneration += 1;
     await initializeDatabase();
     await getDb().delete(schema.queueCache);
-    await projectQueueSnapshotToNativeCache({ nowPlayingIdText: null, entries: [] });
+    const empty = { nowPlayingIdText: null, entries: [] };
+    const {
+      projectHistoryIndexToNativeCache,
+      projectQueueSnapshotAvToNativeCache,
+      projectQueueSnapshotMusicToNativeCache,
+    } = await import('../nativeCache/projection');
+    await projectQueueSnapshotAvToNativeCache(empty);
+    await projectQueueSnapshotMusicToNativeCache(empty);
+    await projectHistoryIndexToNativeCache({ entries: [] });
   },
 };

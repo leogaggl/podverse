@@ -15,73 +15,94 @@ import org.json.JSONObject
 object PodverseNativeCacheModel {
   private const val TAG = "PodverseNativeCache"
 
-  // Must match NATIVE_CACHE_SCHEMA_VERSION in projection.ts. Additive optional fields do NOT bump
-  // this; only a breaking payload change does (then this constant + the readers move together).
-  private const val EXPECTED_SCHEMA_VERSION = 1
+  // Must match NATIVE_CACHE_SCHEMA_VERSION in projection.ts.
+  private const val EXPECTED_SCHEMA_VERSION = 2
 
-  /** A browsable library node (podcast / playlist / category). See NativeCacheBrowseNode. */
   data class BrowseNode(
     val idText: String,
     val title: String,
     val kind: String,
     val artworkUrl: String?,
     val childCount: Int?,
+    val mediumBucket: String,
   )
 
-  /** A completed offline download, playable from its local file path. See NativeCacheDownloadEntry. */
   data class DownloadEntry(
     val idText: String,
     val title: String,
     val filePath: String,
     val artworkUrl: String?,
     val mediaUrl: String?,
+    val channelTitle: String?,
   )
 
-  /** A queue entry for car now-playing / resume. See NativeCacheQueueEntry. */
   data class QueueEntry(
     val idText: String,
     val title: String,
     val artworkUrl: String?,
     val mediaUrl: String?,
+    val podcastTitle: String?,
+    val startPositionSeconds: Double?,
+    val downloadFileName: String?,
   )
 
-  /** The queue snapshot: the now-playing id (if any) plus ordered entries. See QueueSnapshotProjection. */
   data class QueueSnapshot(
     val nowPlayingIdText: String?,
     val entries: List<QueueEntry>,
   )
 
-  /**
-   * Decode the `library-browse` payload into browse nodes. Returns an empty list when the JSON is
-   * null/blank, the schemaVersion is absent or mismatched, or the payload is unparseable. Individual
-   * nodes missing required fields (`idText`, `title`) are skipped.
-   */
+  data class ChildItem(
+    val idText: String,
+    val title: String,
+    val subtitle: String?,
+    val artworkUrl: String?,
+    val mediaUrl: String?,
+    val downloadFileName: String?,
+    val progressSeconds: Double?,
+    val played: Boolean?,
+  )
+
+  data class HistoryEntry(
+    val idText: String,
+    val title: String,
+    val channelTitle: String?,
+    val artworkUrl: String?,
+    val mediaUrl: String?,
+    val downloadFileName: String?,
+  )
+
+  data class LiveEntry(
+    val idText: String,
+    val title: String,
+    val channelIdText: String,
+    val channelTitle: String?,
+    val artworkUrl: String?,
+    val mediaUrl: String,
+  )
+
   fun parseBrowseNodes(json: String?): List<BrowseNode> {
-    val root = decodeEnvelope(json, "library-browse") ?: return emptyList()
+    val root = decodeEnvelope(json, "library-index") ?: return emptyList()
     val array = root.optJSONArray("nodes") ?: return emptyList()
     val nodes = ArrayList<BrowseNode>(array.length())
     for (i in 0 until array.length()) {
       val obj = array.optJSONObject(i) ?: continue
       val idText = obj.optString("idText").takeIf { it.isNotBlank() } ?: continue
       val title = obj.optString("title").takeIf { it.isNotBlank() } ?: continue
-      val kind = obj.optString("kind").takeIf { it.isNotBlank() } ?: "podcast"
       nodes.add(
         BrowseNode(
           idText = idText,
           title = title,
-          kind = kind,
+          kind = obj.optString("kind").takeIf { it.isNotBlank() } ?: "podcast",
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
-          childCount = if (obj.has("childCount") && !obj.isNull("childCount")) obj.optInt("childCount") else null,
+          childCount =
+            if (obj.has("childCount") && !obj.isNull("childCount")) obj.optInt("childCount")
+            else null,
+          mediumBucket = obj.optString("mediumBucket").takeIf { it.isNotBlank() } ?: "av",
         ))
     }
     return nodes
   }
 
-  /**
-   * Decode the `downloads` payload into offline entries. Returns an empty list under the same
-   * tolerant rules as [parseBrowseNodes]; entries missing `idText`, `title`, or `filePath` are
-   * skipped (a download with no local path is not playable offline).
-   */
   fun parseDownloadEntries(json: String?): List<DownloadEntry> {
     val root = decodeEnvelope(json, "downloads") ?: return emptyList()
     val array = root.optJSONArray("entries") ?: return emptyList()
@@ -98,16 +119,12 @@ object PodverseNativeCacheModel {
           filePath = filePath,
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
           mediaUrl = optStringOrNull(obj, "mediaUrl"),
+          channelTitle = optStringOrNull(obj, "channelTitle"),
         ))
     }
     return entries
   }
 
-  /**
-   * Decode the `queue` payload into a snapshot for car resume / now-playing. Returns an empty
-   * snapshot (no now-playing, no entries) under the same tolerant rules as [parseBrowseNodes].
-   * Entries missing `idText` or `title` are skipped; `mediaUrl` may be null until resolved.
-   */
   fun parseQueueSnapshot(json: String?): QueueSnapshot {
     val root = decodeEnvelope(json, "queue") ?: return QueueSnapshot(null, emptyList())
     val nowPlayingIdText = optStringOrNull(root, "nowPlayingIdText")
@@ -123,16 +140,92 @@ object PodverseNativeCacheModel {
           title = title,
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
           mediaUrl = optStringOrNull(obj, "mediaUrl"),
+          podcastTitle = optStringOrNull(obj, "podcastTitle"),
+          startPositionSeconds =
+            if (obj.has("startPositionSeconds") && !obj.isNull("startPositionSeconds"))
+              obj.optDouble("startPositionSeconds")
+            else null,
+          downloadFileName = optStringOrNull(obj, "downloadFileName"),
         ))
     }
     return QueueSnapshot(nowPlayingIdText, entries)
   }
 
-  /**
-   * Parse the JSON envelope and verify the schemaVersion. Returns the root object only when the
-   * version matches [EXPECTED_SCHEMA_VERSION]; otherwise logs once and returns null so the caller
-   * renders an empty tree.
-   */
+  fun parseChildItems(json: String?): List<ChildItem> {
+    val root = decodeEnvelope(json, "library-children") ?: return emptyList()
+    val array = root.optJSONArray("items") ?: return emptyList()
+    val items = ArrayList<ChildItem>(array.length())
+    for (i in 0 until array.length()) {
+      val obj = array.optJSONObject(i) ?: continue
+      val idText = obj.optString("idText").takeIf { it.isNotBlank() } ?: continue
+      val title = obj.optString("title").takeIf { it.isNotBlank() } ?: continue
+      items.add(
+        ChildItem(
+          idText = idText,
+          title = title,
+          subtitle = optStringOrNull(obj, "subtitle"),
+          artworkUrl = optStringOrNull(obj, "artworkUrl"),
+          mediaUrl = optStringOrNull(obj, "mediaUrl"),
+          downloadFileName = optStringOrNull(obj, "downloadFileName"),
+          progressSeconds =
+            if (obj.has("progressSeconds") && !obj.isNull("progressSeconds"))
+              obj.optDouble("progressSeconds")
+            else null,
+          played = if (obj.has("played") && !obj.isNull("played")) obj.optBoolean("played") else null,
+        ))
+    }
+    return items
+  }
+
+  fun parseHistoryEntries(json: String?): List<HistoryEntry> {
+    val root = decodeEnvelope(json, "history") ?: return emptyList()
+    val array = root.optJSONArray("entries") ?: return emptyList()
+    val entries = ArrayList<HistoryEntry>(array.length())
+    for (i in 0 until array.length()) {
+      val obj = array.optJSONObject(i) ?: continue
+      val idText = obj.optString("idText").takeIf { it.isNotBlank() } ?: continue
+      val title = obj.optString("title").takeIf { it.isNotBlank() } ?: continue
+      entries.add(
+        HistoryEntry(
+          idText = idText,
+          title = title,
+          channelTitle = optStringOrNull(obj, "channelTitle"),
+          artworkUrl = optStringOrNull(obj, "artworkUrl"),
+          mediaUrl = optStringOrNull(obj, "mediaUrl"),
+          downloadFileName = optStringOrNull(obj, "downloadFileName"),
+        ))
+    }
+    return entries
+  }
+
+  fun parseLiveEntries(json: String?): List<LiveEntry> {
+    val root = decodeEnvelope(json, "live") ?: return emptyList()
+    val array = root.optJSONArray("entries") ?: return emptyList()
+    val entries = ArrayList<LiveEntry>(array.length())
+    for (i in 0 until array.length()) {
+      val obj = array.optJSONObject(i) ?: continue
+      val idText = obj.optString("idText").takeIf { it.isNotBlank() } ?: continue
+      val title = obj.optString("title").takeIf { it.isNotBlank() } ?: continue
+      val channelIdText = obj.optString("channelIdText").takeIf { it.isNotBlank() } ?: continue
+      val mediaUrl = obj.optString("mediaUrl").takeIf { it.isNotBlank() } ?: continue
+      entries.add(
+        LiveEntry(
+          idText = idText,
+          title = title,
+          channelIdText = channelIdText,
+          channelTitle = optStringOrNull(obj, "channelTitle"),
+          artworkUrl = optStringOrNull(obj, "artworkUrl"),
+          mediaUrl = mediaUrl,
+        ))
+    }
+    return entries
+  }
+
+  fun isSignedIn(json: String?): Boolean {
+    val root = decodeEnvelope(json, "account-context") ?: return false
+    return root.optBoolean("signedIn", false)
+  }
+
   private fun decodeEnvelope(json: String?, label: String): JSONObject? {
     if (json.isNullOrBlank()) return null
     return try {
