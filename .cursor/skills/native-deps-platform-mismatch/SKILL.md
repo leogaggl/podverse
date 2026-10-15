@@ -1,12 +1,12 @@
 ---
 name: native-deps-platform-mismatch
 description: Detect and surface missing-native-binary errors (e.g. @rollup/rollup-darwin-arm64) without mutating node_modules or the lockfile.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Native deps platform mismatch
 
-The Podverse lockfile is Linux-canonical but lists optional deps for every platform (see [LOCKFILE-LINUX.md](/docs/development/tooling/LOCKFILE-LINUX.md)). The repo also has a Docker-based script ([scripts/development/update-lockfile-linux.sh](/scripts/development/update-lockfile-linux.sh)) that regenerates the lockfile; after it runs on macOS, the host's `node_modules` no longer has darwin native binaries until the host runs `npm install` again.
+The Podverse lockfile is Linux-canonical but lists optional deps for every platform (see [LOCKFILE-LINUX.md](/docs/development/tooling/LOCKFILE-LINUX.md)). A host-mounted Linux `npm ci` or `npm install` (staging sync, lockfile regeneration, version bump) leaves the Mac `node_modules` without darwin binaries. When you recommend one of those commands, include the restore in that same step list. See **reinstall-node-modules-after-linux-npm**.
 
 ## When to use
 
@@ -20,8 +20,8 @@ Errors like:
 ## Do
 
 - Surface the error to the user with the missing package name and host platform.
-- Recommend the user run `npm install` on the host – this materializes the platform-specific optional deps already listed in the lockfile and does not modify `package-lock.json`.
-- If the user recently ran `update-lockfile-linux.sh`, point them at the "After running on macOS" section of [LOCKFILE-LINUX.md](/docs/development/tooling/LOCKFILE-LINUX.md).
+- Recommend the host restore from **reinstall-node-modules-after-linux-npm**: `rm -rf node_modules && npm install` in **Root**. It materializes the platform-specific optional deps already listed in the lockfile and does not modify `package-lock.json`.
+- If the user recently ran `update-lockfile-linux.sh` or `bump-version.sh`, also give **Mobile** `npm run mobile:install`, and point them at the "After running on macOS" section of [LOCKFILE-LINUX.md](/docs/development/tooling/LOCKFILE-LINUX.md).
 
 ## Do not
 

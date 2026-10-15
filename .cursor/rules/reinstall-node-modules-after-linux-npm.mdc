@@ -1,0 +1,32 @@
+---
+description: After a host-mounted Linux npm ci or install, always give the Mac node_modules reinstall so local dev keeps working
+alwaysApply: true
+---
+
+# Restore Mac node_modules after Linux npm
+
+When you give the operator a command that bind-mounts this repo into a Linux container and runs `npm ci` or `npm install` there, host `node_modules` is left as Linux binaries or deleted. Local Mac dev stops working until they reinstall. The GitHub publish does not need this step. The operator's machine does.
+
+Include the reinstall in the **same step list** as the command that causes it. Label **Root**. Do not omit it because CI installs its own dependencies, and do not substitute a bare `npm install` while Linux `node_modules` may still be on disk. A plain install can treat those packages as already present.
+
+```bash
+rm -rf node_modules && npm install
+```
+
+That command does not change `package-lock.json`. The lockfile already lists each platform's optional dependencies.
+
+## Commands that require it
+
+- `./scripts/publish/sync-develop-to-staging.sh` — Docker `npm ci` replaces the root workspace tree. `apps/mobile/node_modules` stays.
+- `./scripts/development/update-lockfile-linux.sh` — deletes every `node_modules` tree, including `apps/mobile`.
+- `./scripts/publish/bump-version.sh` — runs the lockfile script, so it deletes those trees too.
+
+After `update-lockfile-linux.sh` or `bump-version.sh`, also give **Mobile**:
+
+```bash
+npm run mobile:install
+```
+
+`sync-staging-to-main.sh` runs `npm ci` on the operator's machine. On a Mac that already restores darwin binaries. Do not add the reinstall for that script.
+
+The reinstall is safe in a second **Root** tab once Docker has exited. For the staging sync, that is the line `node_modules now matches Linux optional deps`. Do not start it while that container's `npm` is still running.
