@@ -140,6 +140,30 @@ Under a channel header, **`listHeaderStackGap(tokens.spacing)`** (`spacing.lg`) 
 **above** the chip row (header → chips). Do not mix `md` on one seam and `lg` on another for that
 header stack.
 
+## Stacked preview identity
+
+A screen that stacks a large cover, a title, a byline, and a full description uses the helpers in
+`apps/mobile/src/theme/screenLayout.ts`. Put each seam on that line as `marginTop`, so a missing
+author or description adds no empty band. The scroll column around the identity block, the
+explainer, and the action keeps `gap: spacing.lg`. Page padding stays **`screenBodyInsets`** plus
+`paddingBottom: spacing.lg`.
+
+| Name                            | Returns        | Seam                                                                    |
+| ------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| `PREVIEW_IDENTITY_ARTWORK_EDGE` | `160`          | Cover edge. The style and `decodeEdge` share it.                       |
+| `previewIdentityArtworkGap`     | `spacing.lg`   | Cover to title                                                          |
+| `previewIdentityBylineGap`      | `spacing.base` | Title to author                                                         |
+| `previewIdentityDescriptionGap` | `spacing.xl`   | Author to description, or title to description when there is no author |
+
+Type on that stack: title **`typography.display`**, author **`typography.prose`** in secondary
+color, description **`typography.prose`** in primary color. The directory explainer is
+**`HelperNote`** with `scale="reading"` (`typography.body`, `HELPER_NOTE_READING_ICON_SIZE`).
+Adding, error, and notice lines on that screen use **`typography.body`**.
+
+List rows stay on a column `gap` of `spacing.sm`. **`ChannelHeader`** stays the side-by-side
+header. The next screen with this stack uses these helpers. Screens that already exist keep
+their current spacing and type.
+
 ## Chip row → next block
 
 Space **below** a **`SectionChipRow`** (Home / Browse media types, podcast sections) is
@@ -261,7 +285,9 @@ The exception is a **fill empty**: the whole body is missing because the feature
 account (Library history, playlists). That still uses **`CallToActionSection`** below.
 
 Helper copy that is not the content itself (directory explainer, why-add notes) uses
-**`HelperNote`** — tertiary fill and a leading info icon — so it does not read as a description.
+**`HelperNote`** — tertiary fill and a leading info icon, centered on the sentence. The default
+scale is `compact` (caption type, `HELPER_NOTE_ICON_SIZE`). A stacked preview passes
+`scale="reading"`.
 
 ## Login-gated fill states
 

@@ -1,0 +1,14 @@
+.message {
+  color: var(--text-color-primary);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.emailLink {
+  color: var(--text-color-link);
+  text-decoration: underline;
+
+  &:hover {
+    color: var(--text-color-link-hover);
+  }
+}

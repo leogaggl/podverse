@@ -215,6 +215,7 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
               screenBodyInsets(tokens.spacing),
               { paddingBottom: tokens.spacing['2xl'] },
             ]}
+            keyboardShouldPersistTaps="handled"
           >
             <AccountAccessPanel
               onReviewTerms={() => {

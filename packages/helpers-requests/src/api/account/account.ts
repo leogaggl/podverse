@@ -1,4 +1,4 @@
-import type { DTOAccount } from '@podverse/helpers';
+import type { AccountCreateResponseCode, DTOAccount } from '@podverse/helpers';
 
 import type { ApiRequestService } from '../_request.js';
 import type { ApiListResponse } from '../_response.js';
@@ -68,8 +68,8 @@ export async function reqAccountCreate(
     locale: string;
     terms_version: string;
   }
-): Promise<{ message: string }> {
-  return api.apiRequest<{ message: string }>({
+): Promise<{ message: string; code?: AccountCreateResponseCode }> {
+  return api.apiRequest<{ message: string; code?: AccountCreateResponseCode }>({
     path: '/account',
     method: 'POST',
     data: params,

@@ -9,8 +9,8 @@ export { isAddByRssInsecureCredentialsAllowedFromEnv, isMobileE2eFromEnv } from 
 
 /**
  * Literal `process.env.EXPO_PUBLIC_*` reads for mobile app settings live in this file,
- * `billingEnv.ts`, `e2eEnv.ts`, and `perfEnv.ts`. Expo only inlines literal member access — never use dynamic
- * `process.env[name]`.
+ * `accountSignupModeEnv.ts`, `billingEnv.ts`, `e2eEnv.ts`, and `perfEnv.ts`. Expo only inlines
+ * literal member access — never use dynamic `process.env[name]`.
  */
 
 export type MobileApiEnvVarName =

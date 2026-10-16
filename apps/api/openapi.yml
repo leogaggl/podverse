@@ -296,6 +296,11 @@ components:
           type: string
           description: Confirmation message
           example: Account created
+        code:
+          type: string
+          description: Present when the account exists but the verification email was not sent
+          enum:
+            - verification_email_not_sent
     AccountTermsAcceptance:
       type: object
       required:
@@ -1635,6 +1640,19 @@ components:
         message:
           type: string
           example: Verification email sent
+    ApiPostAccountSendVerificationEmailResponse503:
+      type: object
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          example: Verification email not sent
+        code:
+          type: string
+          enum:
+            - verification_email_not_sent
     ApiPostAccountSetPasswordRequest:
       type: object
       required:
@@ -6498,6 +6516,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+        "503":
+          description: The account exists but the verification email was not sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountSendVerificationEmailResponse503"
   /account/set-password:
     post:
       operationId: apiPostAccountSetPassword

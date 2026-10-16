@@ -4,15 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { Share, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOBillingStatus } from '@podverse/helpers';
-import { formatDateAbbrev } from '@podverse/helpers';
+import { formatDateAbbrev, getAccountSignupModeCapabilities } from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh, useAuth } from '../auth';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { FormActions } from '../components/form';
 import { Button, Card } from '../components/primitives';
+import { getMobileConfig } from '../config';
 import { isMobileE2eFromEnv } from '../config/env';
 import { formActionsTopGap } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
+import { AccountAccessChangeEmail } from './AccountAccessChangeEmail';
 
 type AccountAccessPanelProps = {
   onReviewTerms: () => void;
@@ -137,6 +139,9 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
     status?.membership_expires_at !== null && status?.membership_expires_at !== undefined
       ? formatDateAbbrev(status.membership_expires_at, i18n.language)
       : null;
+  const canChangeEmail = getAccountSignupModeCapabilities(
+    getMobileConfig().accountSignupMode,
+  ).canUseEmailVerificationFlows;
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -269,6 +274,8 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
           </>
         ) : null}
       </Card>
+
+      {canChangeEmail ? <AccountAccessChangeEmail /> : null}
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>{t('account_access.download_heading')}</Text>

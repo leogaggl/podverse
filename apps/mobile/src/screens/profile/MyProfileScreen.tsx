@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../auth/AuthProvider';
+import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
 import { AuthAwareLoadState } from '../../components/state/AuthAwareLoadState';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { useMyProfileContentLoad } from '../../hooks/useProfileContentLoad';
@@ -59,10 +60,24 @@ export function MyProfileScreen({ navigation }: MyProfileScreenProps) {
 
   const profileTitle =
     account?.account_profile?.display_name ?? account?.id_text ?? t('features.my_profile');
+  const canEdit = status === 'authenticated' && account !== null && !offlineModeEnabled;
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: profileTitle });
-  }, [navigation, profileTitle]);
+    navigation.setOptions({
+      headerRight: () =>
+        canEdit ? (
+          <HeaderBarAction
+            accessibilityLabel={t('misc.edit')}
+            label={t('misc.edit')}
+            onPress={() => {
+              navigation.navigate(MORE_STACK_ROUTES.MoreProfileEdit);
+            }}
+            testID="my-profile-edit"
+          />
+        ) : null,
+      title: profileTitle,
+    });
+  }, [canEdit, navigation, profileTitle, t]);
 
   const handleRetry = useCallback(() => {
     void reload();

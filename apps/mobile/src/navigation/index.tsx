@@ -88,6 +88,7 @@ import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScre
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
+import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
 import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { AddByRssAddScreen } from '../screens/rss/AddByRssAddScreen';
@@ -208,6 +209,7 @@ export const MORE_STACK_ROUTES = {
   MoreOverflowSearch: 'MoreOverflowSearch',
   MorePublicProfile: 'MorePublicProfile',
   MoreProfile: 'MoreProfile',
+  MoreProfileEdit: 'MoreProfileEdit',
   PlaylistDetail: 'PlaylistDetail',
   MoreRoot: 'MoreRoot',
   MoreSettings: 'MoreSettings',
@@ -518,6 +520,7 @@ export type MoreStackParamList = {
   MoreOverflowSearch: NavigatorScreenParams<SearchStackParamList> | undefined;
   MorePublicProfile: { accountIdText: string };
   MoreProfile: undefined;
+  MoreProfileEdit: undefined;
   PlaylistDetail: { playlistId: string };
   MoreRoot: undefined;
   MoreSettings: undefined;
@@ -1100,6 +1103,11 @@ function MoreStackNavigator({
         component={MyProfileScreen}
         name={MORE_STACK_ROUTES.MoreProfile}
         options={{ title: t('features.profile') }}
+      />
+      <MoreStack.Screen
+        component={MyProfileEditScreen}
+        name={MORE_STACK_ROUTES.MoreProfileEdit}
+        options={{ title: t('settings.profile.profile') }}
       />
       <MoreStack.Screen
         component={PlaylistDetailScreen}
