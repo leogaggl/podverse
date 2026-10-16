@@ -13,14 +13,14 @@ export type ContentTabId = (typeof CONTENT_TAB_IDS)[number];
 
 export const DEFAULT_VISIBLE_TABS: readonly ContentTabId[] = [
   'Home',
+  'Browse',
   'Search',
   'My Library',
-  'Browse',
 ];
 
 /** Earlier factory bars. Treated as unset so a later default order reaches existing devices. */
 const PREVIOUS_DEFAULT_VISIBLE_TABS: readonly (readonly ContentTabId[])[] = [
-  ['Home', 'Browse', 'Search', 'My Library'],
+  ['Home', 'Search', 'My Library', 'Browse'],
   ['Home', 'Search', 'Browse', 'My Library'],
 ];
 

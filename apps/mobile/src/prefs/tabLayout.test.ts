@@ -13,12 +13,12 @@ import {
 
 describe('tabLayout', () => {
   it('uses the default bar when storage is empty or invalid', () => {
-    expect(DEFAULT_VISIBLE_TABS).toEqual(['Home', 'Search', 'My Library', 'Browse']);
+    expect(DEFAULT_VISIBLE_TABS).toEqual(['Home', 'Browse', 'Search', 'My Library']);
     expect(parseVisibleTabs(null)).toEqual([...DEFAULT_VISIBLE_TABS]);
     expect(parseVisibleTabs('not-json')).toEqual([...DEFAULT_VISIBLE_TABS]);
     expect(parseVisibleTabs('[]')).toEqual([...DEFAULT_VISIBLE_TABS]);
     expect(parseVisibleTabs('["More"]')).toEqual([...DEFAULT_VISIBLE_TABS]);
-    expect(parseVisibleTabs('["Home","Browse","Search","My Library"]')).toEqual([
+    expect(parseVisibleTabs('["Home","Search","My Library","Browse"]')).toEqual([
       ...DEFAULT_VISIBLE_TABS,
     ]);
     expect(parseVisibleTabs('["Home","Search","Browse","My Library"]')).toEqual([
@@ -48,8 +48,8 @@ describe('tabLayout', () => {
     ]);
     expect(addVisibleTab([...DEFAULT_VISIBLE_TABS], 'Notifications')).toEqual([
       'Home',
+      'Browse',
       'Search',
-      'My Library',
       'Notifications',
     ]);
     expect(removeVisibleTab(['Home'], 'Home')).toEqual(['Home']);
@@ -60,8 +60,8 @@ describe('tabLayout', () => {
     expect(addVisibleTabAt([...DEFAULT_VISIBLE_TABS], 'Notifications', 0)).toEqual([
       'Notifications',
       'Home',
+      'Browse',
       'Search',
-      'My Library',
     ]);
   });
 
@@ -74,7 +74,7 @@ describe('tabLayout', () => {
         toIndex: 0,
         toSection: 'overflow',
       })
-    ).toEqual(['Home', 'Search', 'Browse']);
+    ).toEqual(['Home', 'Browse', 'Search']);
     expect(
       applyTabBarDrop(['Home'], {
         fromIndex: 0,
