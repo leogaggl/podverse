@@ -124,9 +124,12 @@ name: Membership Gate
     visible:
       id: premium-gate-modal
     timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: premium-gate-renew
+    text: "Buy Membership"
 - takeScreenshot: membership-gate-modal
 
-# Renew (logged-in) routes to the Membership screen for the seeded Trial account.
+# Buy Membership routes to the Membership screen for the seeded Trial account.
 - tapOn:
     id: premium-gate-renew
 - extendedWaitUntil:
@@ -141,6 +144,7 @@ name: Membership Gate
     id: more-membership-expires
 - assertVisible:
     id: more-membership-cta
+    text: "Buy Membership"
 - assertNotVisible:
     text: "Upgrade to Premium"
 - takeScreenshot: membership-gate-membership-screen

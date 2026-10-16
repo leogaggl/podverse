@@ -63,6 +63,9 @@ export function AgreementChoices({
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        accordion: {
+          marginTop: formActionsTopGap(tokens.spacing),
+        },
         actions: {
           marginTop: formActionsTopGap(tokens.spacing),
         },
@@ -134,13 +137,14 @@ export function AgreementChoices({
             testID: acceptTestID,
           },
         ]}
-        stacked
         style={styles.actions}
       />
       {canAccept && fullMarkdown !== null ? (
-        <Accordion testID={accordionTestID} title={accordionTitle}>
-          <CopyMarkdown markdown={fullMarkdown} />
-        </Accordion>
+        <View style={styles.accordion}>
+          <Accordion testID={accordionTestID} title={accordionTitle}>
+            <CopyMarkdown markdown={fullMarkdown} />
+          </Accordion>
+        </View>
       ) : null}
     </View>
   );

@@ -12,7 +12,7 @@ import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { DescriptionText } from '../../components/content';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
-import { Button } from '../../components/primitives';
+import { FormActions } from '../../components/form';
 import { ListError } from '../../components/state/ListError';
 import { ListLoading } from '../../components/state/ListLoading';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
@@ -21,6 +21,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { navigateToMakeClipScreen } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { formActionsTopGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
@@ -121,9 +122,7 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
           marginTop: tokens.spacing.sm,
         },
         ownerActions: {
-          flexDirection: 'row',
-          gap: tokens.spacing.md,
-          marginTop: tokens.spacing.md,
+          marginTop: formActionsTopGap(tokens.spacing),
         },
       }),
     [themeStyles, tokens]
@@ -286,22 +285,25 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
               <Text style={styles.notice}>{t(playbackNoticeKey)}</Text>
             ) : null}
             {isOwnedClip ? (
-              <View style={styles.ownerActions}>
-                <Button
-                  label={t('features.clip.edit_clip')}
-                  onPress={handleOpenEdit}
-                  testID="clip-detail-edit"
-                  variant="secondary"
-                />
-                <Button
-                  label={t('features.clip.delete_clip')}
-                  onPress={() => {
-                    setShowDeleteConfirm(true);
-                  }}
-                  testID="clip-detail-delete"
-                  variant="danger"
-                />
-              </View>
+              <FormActions
+                actions={[
+                  {
+                    label: t('features.clip.edit_clip'),
+                    onPress: handleOpenEdit,
+                    testID: 'clip-detail-edit',
+                    variant: 'secondary',
+                  },
+                  {
+                    label: t('features.clip.delete_clip'),
+                    onPress: () => {
+                      setShowDeleteConfirm(true);
+                    },
+                    testID: 'clip-detail-delete',
+                    variant: 'danger',
+                  },
+                ]}
+                style={styles.ownerActions}
+              />
             ) : null}
           </View>
 

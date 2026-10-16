@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatDateAbbrev } from '@podverse/helpers';
+import {
+  formatDateAbbrev,
+  membershipPurchaseAction,
+  membershipPurchaseMessageKey,
+} from '@podverse/helpers';
 
 import { createMobileApiRequestService } from '../../auth/mobileApi';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
@@ -204,7 +208,11 @@ export function MoreMembershipScreen() {
         <View style={styles.cta}>
           <Button
             fullWidth
-            label={t('membership.extend_my_membership')}
+            label={t(
+              `membership.${membershipPurchaseMessageKey(
+                membershipPurchaseAction({ isLoggedIn, tier })
+              )}`
+            )}
             onPress={() => {
               navigation.navigate(MORE_STACK_ROUTES.MoreMembershipExtend);
             }}

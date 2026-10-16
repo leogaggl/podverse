@@ -147,8 +147,8 @@ export function formActionsTopGap(spacing: ThemeTokens['spacing']): number {
 }
 
 /**
- * Space between stacked full-width CTAs on a static form-style screen. Tighter than the
- * content→actions seam; wider than in-body prose gaps.
+ * Space between stacked full-width CTAs on a static form-style screen, including the gap
+ * inside `FormActions`. Tighter than the content→actions seam; wider than in-body prose gaps.
  */
 export function formActionsGap(spacing: ThemeTokens['spacing']): number {
   return spacing.lg;

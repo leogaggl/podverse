@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AccessDenialReason } from '@podverse/helpers';
+import type { AccessDenialReason, MembershipTier } from '@podverse/helpers';
 
 import {
   membershipGateConfirmDestination,
@@ -17,10 +17,21 @@ const REASONS: AccessDenialReason[] = [
   'needs_membership',
 ];
 
+const signedOut = { isLoggedIn: false, tier: null };
+const trial: { isLoggedIn: true; tier: MembershipTier } = { isLoggedIn: true, tier: 'trial' };
+const premium: { isLoggedIn: true; tier: MembershipTier } = { isLoggedIn: true, tier: 'premium' };
+
 describe('membershipGateMessageKeys', () => {
-  it('returns expired title and body only for membership_expired', () => {
-    expect(membershipGateMessageKeys('membership_expired')).toEqual({
-      bodyKey: 'membership.gate.body_expired',
+  it('returns the trial expired body unless the tier is premium', () => {
+    expect(membershipGateMessageKeys('membership_expired', 'trial')).toEqual({
+      bodyKey: 'membership.gate.body_expired_trial',
+      titleKey: 'membership.gate.title_expired',
+    });
+    expect(membershipGateMessageKeys('membership_expired', null).bodyKey).toBe(
+      'membership.gate.body_expired_trial'
+    );
+    expect(membershipGateMessageKeys('membership_expired', 'premium')).toEqual({
+      bodyKey: 'membership.gate.body_expired_premium',
       titleKey: 'membership.gate.title_expired',
     });
 
@@ -28,15 +39,16 @@ describe('membershipGateMessageKeys', () => {
       if (reason === 'membership_expired') {
         continue;
       }
-      const keys = membershipGateMessageKeys(reason);
+      const keys = membershipGateMessageKeys(reason, 'premium');
       expect(keys.titleKey).not.toBe('membership.gate.title_expired');
-      expect(keys.bodyKey).not.toBe('membership.gate.body_expired');
+      expect(keys.bodyKey).not.toBe('membership.gate.body_expired_premium');
+      expect(keys.bodyKey).not.toBe('membership.gate.body_expired_trial');
     }
   });
 
   it('gives each denial its own title and body keys', () => {
-    const titles = REASONS.map((reason) => membershipGateMessageKeys(reason).titleKey);
-    const bodies = REASONS.map((reason) => membershipGateMessageKeys(reason).bodyKey);
+    const titles = REASONS.map((reason) => membershipGateMessageKeys(reason, null).titleKey);
+    const bodies = REASONS.map((reason) => membershipGateMessageKeys(reason, null).bodyKey);
     expect(new Set(titles).size).toBe(REASONS.length);
     expect(new Set(bodies).size).toBe(REASONS.length);
   });
@@ -53,17 +65,26 @@ describe('membershipGateConfirmDestination', () => {
 
 describe('membershipGateConfirmLabelKey', () => {
   it('uses login only for needs_account', () => {
-    expect(membershipGateConfirmLabelKey('needs_account', false)).toBe('authentication.login');
-    expect(membershipGateConfirmLabelKey('needs_account', true)).toBe('authentication.login');
+    expect(membershipGateConfirmLabelKey('needs_account', signedOut)).toBe('authentication.login');
+    expect(membershipGateConfirmLabelKey('needs_account', premium)).toBe('authentication.login');
   });
 
-  it('uses renew or sign up from login state for every other denial', () => {
-    expect(membershipGateConfirmLabelKey('needs_membership', true)).toBe('membership.gate.renew');
-    expect(membershipGateConfirmLabelKey('needs_membership', false)).toBe(
+  it('uses extend for premium and buy for trial, including when the membership is expired', () => {
+    expect(membershipGateConfirmLabelKey('membership_expired', premium)).toBe(
+      'membership.extend_my_membership'
+    );
+    expect(membershipGateConfirmLabelKey('membership_expired', trial)).toBe(
+      'membership.buy_membership'
+    );
+    expect(membershipGateConfirmLabelKey('needs_membership', premium)).toBe(
+      'membership.extend_my_membership'
+    );
+    expect(membershipGateConfirmLabelKey('needs_membership', trial)).toBe(
+      'membership.buy_membership'
+    );
+    expect(membershipGateConfirmLabelKey('limit_reached', signedOut)).toBe(
       'membership.gate.sign_up'
     );
-    expect(membershipGateConfirmLabelKey('membership_expired', true)).toBe('membership.gate.renew');
-    expect(membershipGateConfirmLabelKey('limit_reached', false)).toBe('membership.gate.sign_up');
   });
 });
 
@@ -77,10 +98,19 @@ describe('membershipGateConfirmTestID', () => {
 });
 
 describe('membershipGateNoticeActionKey', () => {
-  it('maps each denial to an explicit notice action key', () => {
-    expect(membershipGateNoticeActionKey('needs_account')).toBe('authentication.login');
-    expect(membershipGateNoticeActionKey('membership_expired')).toBe('membership.gate.renew');
-    expect(membershipGateNoticeActionKey('needs_membership')).toBe('membership.get_premium');
-    expect(membershipGateNoticeActionKey('limit_reached')).toBe('membership.get_premium');
+  it('uses the same purchase labels as the modal', () => {
+    expect(membershipGateNoticeActionKey('needs_account', signedOut)).toBe('authentication.login');
+    expect(membershipGateNoticeActionKey('membership_expired', premium)).toBe(
+      'membership.extend_my_membership'
+    );
+    expect(membershipGateNoticeActionKey('membership_expired', trial)).toBe(
+      'membership.buy_membership'
+    );
+    expect(membershipGateNoticeActionKey('needs_membership', trial)).toBe(
+      'membership.buy_membership'
+    );
+    expect(membershipGateNoticeActionKey('limit_reached', premium)).toBe(
+      'membership.extend_my_membership'
+    );
   });
 });

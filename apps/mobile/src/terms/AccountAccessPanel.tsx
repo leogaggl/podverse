@@ -8,8 +8,10 @@ import { formatDateAbbrev } from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh, useAuth } from '../auth';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
+import { FormActions } from '../components/form';
 import { Button, Card } from '../components/primitives';
 import { isMobileE2eFromEnv } from '../config/env';
+import { formActionsTopGap } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
 
 type AccountAccessPanelProps = {
@@ -70,7 +72,6 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
         message: {
           color: themeStyles.textSecondary.color,
           fontSize: 16,
-          marginBottom: tokens.spacing.lg,
         },
         notice: {
           color: themeStyles.textPrimary.color,
@@ -78,8 +79,8 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
           marginBottom: tokens.spacing.md,
         },
         primaryActions: {
-          gap: tokens.spacing.md,
           marginBottom: tokens.spacing.xl,
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         section: {
           marginBottom: tokens.spacing.lg,
@@ -226,21 +227,24 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
       <Text style={styles.title}>{t('account_access.title')}</Text>
       <Text style={styles.message}>{t('account_access.message')}</Text>
 
-      <View style={styles.primaryActions}>
-        <Button
-          label={t('account_access.review_terms')}
-          onPress={onReviewTerms}
-          testID="account-access-review-terms"
-        />
-        <Button
-          label={t('account_access.sign_out')}
-          onPress={() => {
-            void logout();
-          }}
-          testID="account-access-sign-out"
-          variant="secondary"
-        />
-      </View>
+      <FormActions
+        actions={[
+          {
+            label: t('account_access.review_terms'),
+            onPress: onReviewTerms,
+            testID: 'account-access-review-terms',
+          },
+          {
+            label: t('account_access.sign_out'),
+            onPress: () => {
+              void logout();
+            },
+            testID: 'account-access-sign-out',
+            variant: 'secondary',
+          },
+        ]}
+        style={styles.primaryActions}
+      />
 
       {noticeKey !== null ? <Text style={styles.notice}>{t(noticeKey)}</Text> : null}
       {errorKey !== null ? <Text style={styles.error}>{t(errorKey)}</Text> : null}

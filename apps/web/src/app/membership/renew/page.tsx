@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
+import type { MembershipTier } from '@podverse/helpers';
+
 import { getConfig } from '../../../config';
 import { ROUTES } from '../../../constants/routes';
 import { getSSRApiRequestService } from '../../../factories/apiRequestService';
@@ -20,11 +22,13 @@ export default async function MembershipRenewPage() {
   const jwt = await getSSRJwtFromCookies();
   let inGrace = false;
   let purchasable = false;
+  let tier: MembershipTier | null = null;
   if (jwt !== undefined) {
     const api = getSSRApiRequestService(jwt);
     try {
       const status = await api.reqBillingGetStatus();
       inGrace = status.in_grace_period;
+      tier = status.tier;
     } catch {
       inGrace = false;
     }
@@ -43,7 +47,7 @@ export default async function MembershipRenewPage() {
 
   return (
     <div className="container">
-      <h1>{t('renew_membership')}</h1>
+      <h1>{t(tier === 'premium' ? 'extend_my_membership' : 'buy_membership')}</h1>
       {inGrace ? (
         <>
           <p>{t('manage.grace_renew_body')}</p>
@@ -58,7 +62,11 @@ export default async function MembershipRenewPage() {
         </>
       ) : (
         <>
-          <p>{t('membership_expired_text_line2')}</p>
+          <p>
+            {t(
+              tier === 'premium' ? 'membership_expired_text_line2' : 'trial_expired_text_line2'
+            )}
+          </p>
           <p>
             <Link href={ROUTES.MEMBERSHIP}>{t('membership_link_text')}</Link>
           </p>

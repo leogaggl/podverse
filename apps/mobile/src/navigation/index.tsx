@@ -1291,7 +1291,11 @@ function MoreRootScreen({
           onPress: () => {
             navigation.navigate(MORE_STACK_ROUTES.MoreMembership);
           },
-          subtitle: t('membership.gate.settings_row_subtitle'),
+          subtitle: t(
+            membership.tier === 'premium'
+              ? 'membership.gate.settings_row_subtitle_premium'
+              : 'membership.gate.settings_row_subtitle'
+          ),
           testID: 'more-nav-membership-renew',
           title: t('membership.gate.settings_row_title'),
         },

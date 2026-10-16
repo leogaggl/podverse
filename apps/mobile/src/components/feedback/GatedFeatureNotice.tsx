@@ -9,6 +9,7 @@ import {
   membershipGateMessageKeys,
   membershipGateNoticeActionKey,
 } from '../../membership/membershipGateCopy';
+import { useMembership } from '../../membership/useMembership';
 import { useTheme } from '../../theme/useTheme';
 import { Button } from '../primitives';
 
@@ -33,6 +34,7 @@ export function GatedFeatureNotice({
   testID,
 }: GatedFeatureNoticeProps) {
   const { t } = useTranslation();
+  const membership = useMembership();
   const { styles: themeStyles, tokens } = useTheme();
 
   const styles = useMemo(
@@ -67,8 +69,8 @@ export function GatedFeatureNotice({
   }
 
   const { reason } = access;
-  const messageKeys = membershipGateMessageKeys(reason);
-  const actionLabel = t(membershipGateNoticeActionKey(reason));
+  const messageKeys = membershipGateMessageKeys(reason, membership.tier);
+  const actionLabel = t(membershipGateNoticeActionKey(reason, membership));
   const onPress =
     membershipGateConfirmDestination(reason) === 'login' ? onRequestLogin : onRequestMembership;
 

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import type { MembershipState } from '@podverse/helpers';
+import { membershipPurchaseAction, membershipPurchaseMessageKey } from '@podverse/helpers';
 import {
   accessDenialReasonFromGate,
   membershipDenialReason,
@@ -21,6 +23,7 @@ export function getMembership403ModalProps(params: {
   error: unknown;
   contactEmail: string;
   featureContext: Membership403FeatureContext;
+  membership: Pick<MembershipState, 'isLoggedIn' | 'tier'>;
   tMembership: MembershipTranslator;
 }): ModalMessage | null {
   const payload = parseMembershipGateError(params.error);
@@ -29,7 +32,10 @@ export function getMembership403ModalProps(params: {
   }
 
   const { message: apiMessage, renewPath } = payload;
-  const { contactEmail, featureContext, tMembership } = params;
+  const { contactEmail, featureContext, membership, tMembership } = params;
+  const purchaseLabel = tMembership(
+    membershipPurchaseMessageKey(membershipPurchaseAction(membership))
+  );
 
   // Branch on the shared denial vocabulary so a server 403 and a client-side tier check describe
   // themselves the same way. `needs_account` cannot arise here: a 403 means the request carried
@@ -41,8 +47,7 @@ export function getMembership403ModalProps(params: {
       title: null,
       message: apiMessage ?? tMembership('membership_expired'),
       messageNode: null,
-      actionLabel:
-        renewPath !== undefined && renewPath !== '' ? tMembership('renew_membership') : null,
+      actionLabel: renewPath !== undefined && renewPath !== '' ? purchaseLabel : null,
       actionHref: renewPath ?? null,
     };
   }
@@ -64,7 +69,7 @@ export function getMembership403ModalProps(params: {
       title: tMembership('premium_required'),
       message,
       messageNode,
-      actionLabel: tMembership('get_premium'),
+      actionLabel: purchaseLabel,
       actionHref: '/membership',
     };
   }

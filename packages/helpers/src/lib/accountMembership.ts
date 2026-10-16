@@ -154,9 +154,9 @@ function tierFromMembershipId(membershipId: number | undefined): MembershipTier 
 }
 
 /**
- * Pure derivation of the current user's membership state from the `/auth/me` account snapshot. Shared
- * by web and mobile so the surfaces cannot drift. The renew/sign-up button label at call sites is
- * auth-based (`isLoggedIn`); `isExpired` / `tier` drive banner + message copy only.
+ * Pure derivation of the current user's membership state from the `/auth/me` account snapshot.
+ * Shared by web and mobile so the surfaces cannot drift. Purchase labels use
+ * `membershipPurchaseAction`. `isExpired` drives expiry copy and does not choose that label.
  */
 export function deriveMembershipState(account: AccountLike): MembershipState {
   if (account === null || account === undefined) {
@@ -180,4 +180,43 @@ export function deriveMembershipState(account: AccountLike): MembershipState {
     tier: tierFromMembershipId(membershipId),
     expiresAt: typeof rawExpiresAt === 'string' ? rawExpiresAt : null,
   };
+}
+
+export type MembershipPurchaseAction = 'sign_up' | 'buy' | 'extend';
+
+/** Catalog key under the `membership` namespace. */
+export type MembershipPurchaseMessageKey =
+  | 'buy_membership'
+  | 'extend_my_membership'
+  | 'gate.sign_up';
+
+/**
+ * Which purchase label an account gets. Premium, including an expired Premium membership, is
+ * extend. Any other signed-in tier is buy. Signed out is sign-up. Expiry does not change the
+ * result: `tier` stays `premium` after the membership expires. An account-required gate stays
+ * Login and does not call this.
+ */
+export function membershipPurchaseAction(
+  membership: Pick<MembershipState, 'isLoggedIn' | 'tier'>
+): MembershipPurchaseAction {
+  if (!membership.isLoggedIn) {
+    return 'sign_up';
+  }
+  if (membership.tier === 'premium') {
+    return 'extend';
+  }
+  return 'buy';
+}
+
+export function membershipPurchaseMessageKey(
+  action: MembershipPurchaseAction
+): MembershipPurchaseMessageKey {
+  switch (action) {
+    case 'sign_up':
+      return 'gate.sign_up';
+    case 'buy':
+      return 'buy_membership';
+    case 'extend':
+      return 'extend_my_membership';
+  }
 }

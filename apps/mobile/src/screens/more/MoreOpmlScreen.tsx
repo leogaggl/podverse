@@ -7,6 +7,7 @@ import type { OpmlImportStatusResponse } from '@podverse/helpers-requests';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
+import { FormActions } from '../../components/form';
 import { AppOverlay, OverlayPanel, OverlayScrim } from '../../components/overlay';
 import { Button, Card } from '../../components/primitives';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
@@ -16,6 +17,8 @@ import { useOpmlImport } from '../../hooks/useOpmlImport';
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { useOfflineMode } from '../../prefs/offlineMode';
+import { formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 type OpmlImportOutcome = OpmlImportStatusResponse['results'][number]['outcome'];
@@ -122,11 +125,11 @@ export function MoreOpmlScreen() {
           paddingTop: tokens.spacing.lg,
         },
         sheetActions: {
-          marginTop: tokens.spacing.md,
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         sheetMessage: {
+          ...typography.prose,
           color: themeStyles.textPrimary.color,
-          fontSize: 15,
           marginTop: tokens.spacing.sm,
         },
         sheetTitle: {
@@ -338,14 +341,17 @@ export function MoreOpmlScreen() {
               {rateLimitMessage !== null ? (
                 <Text style={styles.sheetMessage}>{rateLimitMessage}</Text>
               ) : null}
-              <View style={styles.sheetActions}>
-                <Button
-                  label={t('misc.close')}
-                  onPress={closeRateLimitModal}
-                  testID="opml-rate-limit-close"
-                  variant="secondary"
-                />
-              </View>
+              <FormActions
+                actions={[
+                  {
+                    label: t('misc.close'),
+                    onPress: closeRateLimitModal,
+                    testID: 'opml-rate-limit-close',
+                    variant: 'secondary',
+                  },
+                ]}
+                style={styles.sheetActions}
+              />
             </Pressable>
           </OverlayPanel>
         </Pressable>

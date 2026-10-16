@@ -10,6 +10,8 @@ import {
   hasValidMembership,
   isMembershipExpiredAt,
   MEMBERSHIP_EXPIRY_WARNING_DAYS,
+  membershipPurchaseAction,
+  membershipPurchaseMessageKey,
 } from './accountMembership.js';
 
 describe('isMembershipExpiredAt', () => {
@@ -171,6 +173,42 @@ describe('deriveMembershipState', () => {
     expect(state.tier).toBe('premium');
     expect(state.isMember).toBe(true);
     expect(state.expiresAt).toBe(FUTURE);
+  });
+});
+
+describe('membershipPurchaseAction', () => {
+  const state = (tier: MembershipState['tier'], isExpired: boolean): MembershipState => ({
+    isLoggedIn: true,
+    isMember: !isExpired && tier !== null,
+    isExpired,
+    tier,
+    expiresAt: isExpired ? PAST : FUTURE,
+  });
+
+  it('is sign-up when signed out', () => {
+    expect(
+      membershipPurchaseAction({
+        isLoggedIn: false,
+        isMember: false,
+        isExpired: false,
+        tier: null,
+        expiresAt: null,
+      })
+    ).toBe('sign_up');
+    expect(membershipPurchaseMessageKey('sign_up')).toBe('gate.sign_up');
+  });
+
+  it('is extend for premium, including an expired premium membership', () => {
+    expect(membershipPurchaseAction(state('premium', false))).toBe('extend');
+    expect(membershipPurchaseAction(state('premium', true))).toBe('extend');
+    expect(membershipPurchaseMessageKey('extend')).toBe('extend_my_membership');
+  });
+
+  it('is buy for trial, an expired trial, and a signed-in account with no tier', () => {
+    expect(membershipPurchaseAction(state('trial', false))).toBe('buy');
+    expect(membershipPurchaseAction(state('trial', true))).toBe('buy');
+    expect(membershipPurchaseAction(state(null, true))).toBe('buy');
+    expect(membershipPurchaseMessageKey('buy')).toBe('buy_membership');
   });
 });
 

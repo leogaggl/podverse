@@ -3,18 +3,20 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text } from 'react-native';
 
 import type { AddByRSSResourceData, DTOPlaylist } from '@podverse/helpers';
 
 import { useAuth } from '../../auth/AuthProvider';
+import type { FormAction } from '../../components/form';
+import { FormActions } from '../../components/form';
 import { AppOverlay, OverlayPanel, OverlayScrim } from '../../components/overlay';
-import { Button } from '../../components/primitives';
 import { playlistRepository } from '../../data';
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { LIBRARY_STACK_ROUTES } from '../../navigation';
+import { formActionsTopGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -196,9 +198,8 @@ export function useAddToPlaylist(): UseAddToPlaylist {
           paddingTop: tokens.spacing.sm,
         },
         sheetActions: {
-          gap: tokens.spacing.md,
+          marginTop: formActionsTopGap(tokens.spacing),
           paddingHorizontal: tokens.spacing.lg,
-          paddingTop: tokens.spacing.md,
         },
         sheetTitle: {
           color: themeStyles.textSecondary.color,
@@ -212,6 +213,23 @@ export function useAddToPlaylist(): UseAddToPlaylist {
   );
 
   const showEmpty = !isLoading && noticeKey === null && playlists.length === 0;
+  const closeSheetAction: FormAction = {
+    label: t('misc.close'),
+    onPress: closeSheet,
+    testID: 'add-to-playlist-close',
+    variant: 'secondary',
+  };
+  const playlistSheetActions: readonly FormAction[] = canOpenPlaylistCreate
+    ? [
+        {
+          label: t('features.playlist.create_playlist'),
+          onPress: handleCreatePlaylist,
+          testID: 'add-to-playlist-create',
+          variant: 'secondary',
+        },
+        closeSheetAction,
+      ]
+    : [closeSheetAction];
 
   const addToPlaylistSheet = (
     <AppOverlay animation="slide" onRequestClose={closeSheet} visible={target !== null}>
@@ -260,22 +278,7 @@ export function useAddToPlaylist(): UseAddToPlaylist {
                 {t(noticeKey)}
               </Text>
             ) : null}
-            <View style={styles.sheetActions}>
-              {canOpenPlaylistCreate ? (
-                <Button
-                  label={t('features.playlist.create_playlist')}
-                  onPress={handleCreatePlaylist}
-                  testID="add-to-playlist-create"
-                  variant="secondary"
-                />
-              ) : null}
-              <Button
-                label={t('misc.close')}
-                onPress={closeSheet}
-                testID="add-to-playlist-close"
-                variant="secondary"
-              />
-            </View>
+            <FormActions actions={playlistSheetActions} style={styles.sheetActions} />
           </Pressable>
         </OverlayPanel>
       </Pressable>
