@@ -123,6 +123,11 @@ describe('terms acceptance gate', () => {
     expect(res.body.version).toBe(CURRENT_TERMS_VERSION);
     expect(res.body.markdown).toContain('PodverseTest will never sell');
     expect(res.body.markdown).toContain('Test Legal');
+    expect(res.body.markdown).toContain('Popularity Tracking');
+    expect(res.body.markdown).toContain('optional');
+    expect(res.body.markdown).toContain('Test Address');
+    expect(res.body.markdown).not.toContain('{legal_address}');
+    expect(res.body.markdown).not.toContain('Listen Statistics');
   });
 
   it('returns Spanish terms when Accept-Language is es', async () => {

@@ -83,7 +83,7 @@ export function PopularityAgreementGate({ onDecided }: PopularityAgreementGatePr
     <AgreementScreen
       acceptDisabled={agreement === null}
       acceptLabel={t('yes')}
-      accordionTitle={t('full_agreement')}
+      accordionTitle={t('how_it_works')}
       dateLabel={null}
       errorMessage={hasError ? t('load_error') : null}
       fullMarkdown={agreement?.markdown ?? null}

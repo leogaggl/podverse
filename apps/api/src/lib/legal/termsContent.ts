@@ -31,22 +31,31 @@ function retentionDaysLabel(): string {
   return String(DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS);
 }
 
+function omitLinesWithPlaceholder(markdown: string, placeholder: string): string {
+  return markdown
+    .split('\n')
+    .filter((line) => !line.includes(placeholder))
+    .join('\n');
+}
+
 export function interpolateTermsMarkdown(markdown: string): string {
   const contactEmail = config.terms.contactEmail.trim();
-  const withPlaceholders =
-    contactEmail === ''
-      ? markdown
-          .split('\n')
-          .filter((line) => !line.includes('{contact_email}'))
-          .join('\n')
-      : markdown;
+  const legalAddress = config.legal.address.trim();
+  let prepared = markdown;
+  if (contactEmail === '') {
+    prepared = omitLinesWithPlaceholder(prepared, '{contact_email}');
+  }
+  if (legalAddress === '') {
+    prepared = omitLinesWithPlaceholder(prepared, '{legal_address}');
+  }
 
-  return withPlaceholders
+  return prepared
     .replaceAll('{brand_name}', config.brandName)
     .replaceAll('{legal_name}', config.legal.name)
     .replaceAll('{brand_domain}', config.web.domain)
     .replaceAll('{retention_days}', retentionDaysLabel())
-    .replaceAll('{contact_email}', contactEmail);
+    .replaceAll('{contact_email}', contactEmail)
+    .replaceAll('{legal_address}', legalAddress);
 }
 
 function resolveDefaultLocale(): string {
