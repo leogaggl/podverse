@@ -49,13 +49,16 @@ Do **not** import `@podverse/ui` (web components / SCSS). Tokens come from `@pod
 via **mobile-theme-parity**.
 
 **Static form-style screens:** Body copy/fields stay in one tight stack. Choice chips use
-`FormField` (the label names the field and does not repeat an option). Actions use `FormActions`:
-one action is full width; two or more share the row equally with confirm last, on the right.
-`FormActions` uses `Button` `size="form"` (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) so form,
-dialog, and checkout decisions share one height. Header and row actions stay `sm` or `md`.
-`formActionsTopGap` sits above that block and `formActionsGap` separates a destructive action
-under it (`screenLayout.ts`). Do not share one `gap` across prose and CTAs, and do not repeat the
-stack title as an in-body heading. See **mobile-screen-layout**.
+`FormField` (the label names the field and does not repeat an option). `FormActions` is a column:
+every action is full width, and array order is top to bottom. Page and sheet forms pass dismiss
+or secondary first and confirm last, so confirm sits at the bottom. `ConfirmDialog` passes
+confirm then cancel, so confirm sits on top. A paragraph in a dialog, sheet, or form starts at
+`typography.prose`. `formActionsTopGap` is the seam above the action block. `formActionsGap` is
+the gap between those buttons and above a destructive action under the column. `FormActions`
+uses `Button` `size="form"` (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) so form, dialog, and
+checkout decisions share one height. Header and row actions stay `sm` or `md`. Do not share one
+`gap` across prose and CTAs, and do not repeat the stack title as an in-body heading. See
+**mobile-screen-layout**.
 
 **Text fields:** `TextField` is the only painted input (tertiary fill, focus ring — never a
 stroked `TextInput`). Pass **`eyebrow` + `placeholder`** for forms (login, sign-up, playlist,
