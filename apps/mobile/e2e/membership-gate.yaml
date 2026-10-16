@@ -4,7 +4,7 @@ name: Membership Gate
 # A Trial member attempting a Premium-only action (Podcast Index directory add)
 # gets a REAL membership.feature_not_available_for_account_type 403, which the app surfaces as the
 # premium gate modal; "Renew" routes to the Membership screen. Also asserts the auth-based CTA:
-# logged-out shows "Sign Up", logged-in shows "Extend Membership".
+# logged-out shows "Sign Up"; logged-in shows the purchase button and the Trial status block.
 #
 # API-backed + test-assets. The seeded e2e-user is a valid Trial member, so subscribe/playlist
 # would NOT 403 — the directory-add capability gate (allowDirectoryAddByRSS=false for Trial, and NOT
@@ -33,36 +33,6 @@ name: Membership Gate
     text: "CarPlay"
 - assertVisible:
     text: "Android Auto"
-# The feature table is taller than a phone viewport. iOS omits off-screen
-# identifiers; the accordion's accessible name is the title.
-- scrollUntilVisible:
-    element:
-      text: "Trial Limitations"
-    direction: DOWN
-    timeout: ${TIMEOUT_SLOW}
-- tapOn: "Trial Limitations"
-- scrollUntilVisible:
-    element:
-      text: "Some features are unavailable during Trial to help reduce spam and abuse."
-    direction: DOWN
-    timeout: ${TIMEOUT_FAST}
-- scrollUntilVisible:
-    element:
-      text: "• Listen stats are not available on Trial. Contributing to trending requires Premium."
-    direction: DOWN
-    timeout: ${TIMEOUT_FAST}
-- scrollUntilVisible:
-    element:
-      id: trial-limitations-missing-content
-    direction: DOWN
-    timeout: ${TIMEOUT_FAST}
-- assertVisible:
-    text: ".*If you have a Trial membership and content you would like is missing, contact.*"
-# React Native gives a nested link its own accessibility element, labelled with the address, but
-# never copies the nested testID onto it. Match the element whose whole label is an address; the
-# sentence around it has spaces, so it cannot match.
-- assertVisible:
-    text: "[^ ]+@[^ ]+"
 - takeScreenshot: membership-gate-signup-cta
 
 - tapOn:
@@ -156,7 +126,7 @@ name: Membership Gate
     timeout: ${TIMEOUT_SLOW}
 - takeScreenshot: membership-gate-modal
 
-# Renew (logged-in) routes to the Membership screen with the "Extend Membership" CTA.
+# Renew (logged-in) routes to the Membership screen for the seeded Trial account.
 - tapOn:
     id: premium-gate-renew
 - extendedWaitUntil:
@@ -164,6 +134,28 @@ name: Membership Gate
       id: more-membership-screen
     timeout: ${TIMEOUT_FAST}
 - assertVisible:
+    text: "Free Trial"
+- assertVisible:
+    text: "Expires On"
+- assertVisible:
+    id: more-membership-expires
+- assertVisible:
     id: more-membership-cta
-    text: "Extend Membership"
+- assertNotVisible:
+    text: "Upgrade to Premium"
 - takeScreenshot: membership-gate-membership-screen
+- tapOn:
+    id: more-membership-trial-limitations-link
+- assertVisible:
+    id: more-membership-trial-limitations-sheet
+- assertVisible:
+    text: "Some features are unavailable during Trial to help reduce spam and abuse."
+- assertVisible:
+    text: "• Listen stats are not available on Trial. Contributing to trending requires Premium."
+- assertVisible:
+    id: trial-limitations-missing-content
+- takeScreenshot: membership-gate-trial-limitations-sheet
+- tapOn:
+    id: more-membership-trial-limitations-close
+- assertNotVisible:
+    id: more-membership-trial-limitations-sheet

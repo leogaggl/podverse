@@ -2,14 +2,14 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatDateAbbrev } from '@podverse/helpers';
 
 import { createMobileApiRequestService } from '../../auth/mobileApi';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { MembershipFeatureTable } from '../../components/membership/MembershipFeatureTable';
-import { TrialLimitationsAccordion } from '../../components/membership/TrialLimitationsAccordion';
+import { TrialLimitationsSheet } from '../../components/membership/TrialLimitationsSheet';
 import { Button, Card } from '../../components/primitives';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { SectionHeading } from '../../components/section/SectionHeading';
@@ -21,9 +21,9 @@ import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 /**
- * Membership screen. Shows how long access lasts, the feature table, and trial limits.
- * Logged out, the action opens web sign-up. Logged in, Extend Membership opens store
- * checkout.
+ * Membership screen. An active Trial or Premium membership shows its tier and expiry
+ * under the stack title. Trial opens its limitations in a sheet. Logged out, the action
+ * opens web sign-up. Logged in, the purchase button opens store checkout.
  */
 
 /** The pricing fields this screen renders (subset of the API's membership pricing payload). */
@@ -39,8 +39,11 @@ export function MoreMembershipScreen() {
   const { styles: themeStyles, tokens } = useTheme();
   const { expiresAt, isExpired, isLoggedIn, isMember, tier } = useMembership();
   const [pricing, setPricing] = useState<MembershipPricing | null>(null);
-  const showsExpiry =
-    isLoggedIn && isMember && !isExpired && tier === 'premium' && expiresAt !== null;
+  const [trialSheetVisible, setTrialSheetVisible] = useState(false);
+  const showsStatus =
+    isLoggedIn && isMember && !isExpired && (tier === 'premium' || tier === 'trial');
+  const showsExpiryDate = showsStatus && expiresAt !== null;
+  const showsTrialLink = showsStatus && tier === 'trial' && expiresAt !== null;
 
   useEffect(() => {
     let isActive = true;
@@ -81,11 +84,8 @@ export function MoreMembershipScreen() {
             t('membership.membership_expired_text_line2'),
           ];
     }
-    if (isMember && tier === 'trial') {
-      return [t('membership.cta_upgrade_text')];
-    }
     return [];
-  }, [isExpired, isLoggedIn, isMember, t, tier]);
+  }, [isExpired, isLoggedIn, t, tier]);
 
   const styles = useMemo(
     () =>
@@ -98,20 +98,15 @@ export function MoreMembershipScreen() {
           marginBottom: tokens.spacing['4xl'],
           marginTop: tokens.spacing.sm,
         },
-        expiryBody: {
-          gap: tokens.spacing.xs,
-        },
         expiryDate: {
-          ...typography.display,
+          ...typography.title,
           color: themeStyles.textPrimary.color,
+          textAlign: 'center',
         },
         expiryLabel: {
           ...typography.label,
           color: themeStyles.textSecondary.color,
-        },
-        expiryTier: {
-          ...typography.heading,
-          color: themeStyles.textPrimary.color,
+          textAlign: 'center',
         },
         featureSection: {
           marginBottom: tokens.spacing['4xl'],
@@ -132,6 +127,26 @@ export function MoreMembershipScreen() {
           ...typography.prose,
           color: themeStyles.textPrimary.color,
         },
+        statusBlock: {
+          alignItems: 'center',
+          gap: tokens.spacing.sm,
+          marginBottom: tokens.spacing.lg,
+        },
+        statusTier: {
+          ...typography.display,
+          textAlign: 'center',
+        },
+        trialLink: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 44,
+        },
+        trialLinkLabel: {
+          ...typography.body,
+          color: tokens.text.link,
+          textAlign: 'center',
+          textDecorationLine: 'underline',
+        },
       }),
     [themeStyles, tokens]
   );
@@ -139,17 +154,39 @@ export function MoreMembershipScreen() {
   return (
     <MobileScreenContainer testID="more-membership-screen">
       <CustomApiNotice />
-      {showsExpiry && expiresAt !== null ? (
-        <View style={styles.section}>
-          <Card testID="more-membership-expiry">
-            <View style={styles.expiryBody}>
-              <Text style={styles.expiryTier}>{t('membership.premium')}</Text>
+      {showsStatus ? (
+        <View style={styles.statusBlock}>
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.statusTier,
+              { color: tier === 'trial' ? tokens.text.warning : tokens.text.accent },
+            ]}
+            testID="more-membership-status-tier"
+          >
+            {tier === 'trial' ? t('membership.status_free_trial') : t('membership.premium')}
+          </Text>
+          {showsExpiryDate && expiresAt !== null ? (
+            <>
               <Text style={styles.expiryLabel}>{t('settings.membership.expires_on')}</Text>
               <Text style={styles.expiryDate} testID="more-membership-expires">
                 {formatDateAbbrev(expiresAt, i18n.language)}
               </Text>
-            </View>
-          </Card>
+            </>
+          ) : null}
+          {showsTrialLink ? (
+            <Pressable
+              accessibilityLabel={t('membership.trial_limitations_only')}
+              accessibilityRole="link"
+              onPress={() => {
+                setTrialSheetVisible(true);
+              }}
+              style={styles.trialLink}
+              testID="more-membership-trial-limitations-link"
+            >
+              <Text style={styles.trialLinkLabel}>{t('membership.trial_limitations_only')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -216,7 +253,12 @@ export function MoreMembershipScreen() {
         <MembershipFeatureTable />
       </View>
 
-      <TrialLimitationsAccordion testID="more-membership-trial-limitations" />
+      <TrialLimitationsSheet
+        onClose={() => {
+          setTrialSheetVisible(false);
+        }}
+        visible={trialSheetVisible}
+      />
     </MobileScreenContainer>
   );
 }

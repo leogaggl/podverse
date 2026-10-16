@@ -310,7 +310,9 @@
     "account_created_body": "Ελέγξτε το email σας για τον σύνδεσμο επιβεβαίωσης."
   },
   "membership": {
-    "trial_limitations_missing_content": "Αν έχετε συνδρομή δοκιμής και λείπει περιεχόμενο που θα θέλατε, στείλτε email στο {email} για βοήθεια."
+    "status_free_trial": "Δωρεάν δοκιμή",
+    "trial_limitations_missing_content": "Αν έχετε συνδρομή δοκιμής και λείπει περιεχόμενο που θα θέλατε, στείλτε email στο {email} για βοήθεια.",
+    "trial_limitations_only": "Μόνο περιορισμοί δοκιμής"
   },
   "more_advanced": {
     "title": "Για προχωρημένους"

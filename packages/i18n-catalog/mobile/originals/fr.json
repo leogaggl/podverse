@@ -310,7 +310,9 @@
     "account_created_body": "Vérifiez votre e-mail pour le lien de vérification."
   },
   "membership": {
-    "trial_limitations_missing_content": "Si vous avez un abonnement d'essai et qu'il manque un contenu que vous aimeriez, contactez {email} pour obtenir de l'aide."
+    "status_free_trial": "Essai gratuit",
+    "trial_limitations_missing_content": "Si vous avez un abonnement d'essai et qu'il manque un contenu que vous aimeriez, contactez {email} pour obtenir de l'aide.",
+    "trial_limitations_only": "Uniquement les limitations de l'essai"
   },
   "more_advanced": {
     "title": "Avancé"

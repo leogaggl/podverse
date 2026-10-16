@@ -310,7 +310,9 @@
     "account_created_body": ""
   },
   "membership": {
-    "trial_limitations_missing_content": ""
+    "status_free_trial": "",
+    "trial_limitations_missing_content": "",
+    "trial_limitations_only": ""
   },
   "more_advanced": {
     "title": ""

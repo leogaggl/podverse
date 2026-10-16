@@ -310,7 +310,9 @@
     "account_created_body": "Revisa tu correo para el enlace de verificación."
   },
   "membership": {
-    "trial_limitations_missing_content": "Si tienes una membresía de prueba y falta contenido que te gustaría, escribe a {email} para pedir ayuda."
+    "status_free_trial": "Prueba gratuita",
+    "trial_limitations_missing_content": "Si tienes una membresía de prueba y falta contenido que te gustaría, escribe a {email} para pedir ayuda.",
+    "trial_limitations_only": "Solo limitaciones de la prueba"
   },
   "more_advanced": {
     "title": "Avanzado"
