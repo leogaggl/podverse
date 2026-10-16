@@ -59,6 +59,13 @@ composite exists, `npm --prefix apps/mobile run <script>` — mobile unit tests 
 not reach mobile. Mobile device E2E uses Maestro/Detox (not `make e2e_*`). See
 **mobile-expo-monorepo**, **mobile-master-plan-phasing**, and `apps/mobile/APPS-MOBILE.md`.
 
+A tool that reads `apps/mobile` from the current directory (`eas-cli` has no `--cwd`) does not get
+a `(cd apps/mobile && …)` command. `npm --prefix apps/mobile exec` does not change that directory
+either. Add a root `package.json` script (`mobile:eas:ios:credentials`) that calls
+`scripts/mobile/eas-store.sh`. The shell script is the place that changes into `apps/mobile`.
+Add the matching `mobile_eas_*` target in `makefiles/local/Makefile.local.mobile.mk` and tell the
+operator to run that target from the **Mobile** tab.
+
 ## Examples
 
 **Workers (devPiBulkFeedsAddFromFile):**

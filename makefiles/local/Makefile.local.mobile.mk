@@ -5,9 +5,9 @@
 #     versionCode. iOS submit always requires typing the build number (no draft state).
 
 .PHONY: mobile_eas_android_build mobile_eas_android_download mobile_eas_android_submit \
-	mobile_eas_android_list mobile_eas_android_version \
+	mobile_eas_android_list mobile_eas_android_version mobile_eas_android_credentials \
 	mobile_eas_ios_build mobile_eas_ios_download mobile_eas_ios_submit \
-	mobile_eas_ios_list mobile_eas_ios_version
+	mobile_eas_ios_list mobile_eas_ios_version mobile_eas_ios_credentials
 
 PROFILE ?= beta
 
@@ -40,3 +40,9 @@ mobile_eas_ios_list:
 
 mobile_eas_ios_version:
 	@npm run mobile:eas:ios:version -- --profile $(PROFILE)
+
+mobile_eas_ios_credentials:
+	@npm run mobile:eas:ios:credentials
+
+mobile_eas_android_credentials:
+	@npm run mobile:eas:android:credentials

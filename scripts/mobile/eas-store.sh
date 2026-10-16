@@ -11,7 +11,9 @@
 #   make mobile_eas_android_submit ROLLOUT=1       # upload and roll out to the Play track
 #   make mobile_eas_android_list                   # recent Android builds
 #   make mobile_eas_ios_version                    # remote iOS build number EAS builds from
-#   bash scripts/mobile/eas-store.sh <build|download|submit|list|version> \
+#   make mobile_eas_ios_credentials                # interactive iOS credentials menu
+#   make mobile_eas_android_credentials            # interactive Android credentials menu
+#   bash scripts/mobile/eas-store.sh <build|download|submit|list|version|credentials> \
 #     --platform <ios|android> [--profile beta] [--build-id <id>] [--rollout]
 #
 # Profiles come from apps/mobile/eas.json. `beta` and `production` produce store binaries;
@@ -409,6 +411,11 @@ submit_ios() {
   echo "Paste the notes printed above into TestFlight What to Test."
 }
 
+credentials() {
+  require_terminal 'credentials'
+  eas credentials --platform "$PLATFORM"
+}
+
 submit() {
   require_terminal 'submit'
   if is_store_profile; then
@@ -428,9 +435,10 @@ case "$COMMAND" in
   submit) submit ;;
   list) eas build:list --platform "$PLATFORM" --limit 10 ;;
   version) print_version ;;
+  credentials) credentials ;;
   '' | -h | --help) usage ;;
   *)
     usage >&2
-    die "unknown command: $COMMAND (supported: build, download, submit, list, version)"
+    die "unknown command: $COMMAND (supported: build, download, submit, list, version, credentials)"
     ;;
 esac
