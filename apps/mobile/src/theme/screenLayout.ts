@@ -9,6 +9,12 @@ import type { ThemeTokens } from '@podverse/design-tokens';
 export const LIST_ROW_ARTWORK_SIZE = 60;
 
 /**
+ * Square edge of a stacked preview cover. The view size and `CoverImage` `decodeEdge` both read
+ * this.
+ */
+export const PREVIEW_IDENTITY_ARTWORK_EDGE = 160;
+
+/**
  * Hit target for icon-only row controls (Play circle, More, Download / trash). Matches legacy
  * TimeRemainingWidget / MoreButton (44) so bordered and bare faces share one finger target.
  */
@@ -77,6 +83,24 @@ export function listRowVerticalPadding(
  */
 export function listRowArtworkGap(spacing: ThemeTokens['spacing']): number {
   return spacing.base;
+}
+
+/** Cover to title on a stacked preview. The cover is a block, so the seam is the page gutter. */
+export function previewIdentityArtworkGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.lg;
+}
+
+/** Title to the author byline on a stacked preview. */
+export function previewIdentityBylineGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.base;
+}
+
+/**
+ * Seam above the description paragraph on a stacked preview. It sits under the author, or under
+ * the title when the author is absent.
+ */
+export function previewIdentityDescriptionGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.xl;
 }
 
 /**

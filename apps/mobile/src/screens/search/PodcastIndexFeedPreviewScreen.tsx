@@ -23,6 +23,14 @@ import {
   CHANNEL_BROWSE_STACK_ROUTES,
 } from '../../navigation';
 import { useOfflineMode } from '../../prefs/offlineMode';
+import {
+  PREVIEW_IDENTITY_ARTWORK_EDGE,
+  previewIdentityArtworkGap,
+  previewIdentityBylineGap,
+  previewIdentityDescriptionGap,
+  screenBodyInsets,
+} from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { isParsedReadyChannel, pollUntilParsedReadyChannel } from './podcastIndexFeedPreview';
 
@@ -303,40 +311,36 @@ export function PodcastIndexFeedPreviewScreen({
     () =>
       StyleSheet.create({
         author: {
+          ...typography.prose,
           color: themeStyles.textSecondary.color,
-          fontSize: 15,
+          marginTop: previewIdentityBylineGap(tokens.spacing),
         },
         container: {
           backgroundColor: themeStyles.screen.backgroundColor,
           flex: 1,
         },
         content: {
+          ...screenBodyInsets(tokens.spacing),
           gap: tokens.spacing.lg,
-          padding: tokens.spacing.lg,
+          paddingBottom: tokens.spacing.lg,
         },
         description: {
+          ...typography.prose,
           color: themeStyles.textPrimary.color,
-          fontSize: 14,
-        },
-        header: {
-          gap: tokens.spacing.sm,
+          marginTop: previewIdentityDescriptionGap(tokens.spacing),
         },
         image: {
-          height: 160,
-          width: 160,
+          height: PREVIEW_IDENTITY_ARTWORK_EDGE,
+          width: PREVIEW_IDENTITY_ARTWORK_EDGE,
         },
         message: {
+          ...typography.body,
           color: themeStyles.textPrimary.color,
-          fontSize: 14,
-        },
-        messageError: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 14,
         },
         title: {
+          ...typography.display,
           color: themeStyles.textPrimary.color,
-          fontSize: 22,
-          fontWeight: '700',
+          marginTop: previewIdentityArtworkGap(tokens.spacing),
         },
       }),
     [themeStyles, tokens]
@@ -376,9 +380,10 @@ export function PodcastIndexFeedPreviewScreen({
   return (
     <View style={styles.container} testID="pi-feed-preview-screen">
       <ScrollView contentContainerStyle={styles.content} testID="search-result-detail-screen">
-        <View style={styles.header}>
+        <View>
           <CoverImage
             accessibilityLabel={feed.title}
+            decodeEdge={PREVIEW_IDENTITY_ARTWORK_EDGE}
             style={styles.image}
             testID="pi-feed-preview-image"
             uri={feed.imageUrl}
@@ -392,6 +397,7 @@ export function PodcastIndexFeedPreviewScreen({
 
         <HelperNote
           message={t('features.search.not_available_yet')}
+          scale="reading"
           testID="pi-feed-preview-helper"
         />
 
@@ -412,7 +418,7 @@ export function PodcastIndexFeedPreviewScreen({
         ) : null}
 
         {addErrorKey !== null ? (
-          <Text style={styles.messageError} testID="pi-feed-add-error">
+          <Text style={styles.message} testID="pi-feed-add-error">
             {t(addErrorKey)}
           </Text>
         ) : null}

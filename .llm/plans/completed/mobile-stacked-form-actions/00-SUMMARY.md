@@ -37,7 +37,7 @@ uses the gap helpers that already exist.
 
 ## Separate plans
 
-[mobile-search-result-preview-spacing](../../active/mobile-search-result-preview-spacing.md) restyles the
+[mobile-search-result-preview-spacing](../mobile-search-result-preview-spacing.md) restyles the
 feed preview above the Add button. Do not edit `PodcastIndexFeedPreviewScreen` or `HelperNote`
 in this set. Both this set and that plan edit `.cursor/rules/mobile-screen-layout.mdc`, in
 different sections. Do not run them in parallel.
