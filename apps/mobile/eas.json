@@ -54,8 +54,8 @@
         "track": "internal"
       },
       "ios": {
-        "ascAppId": "REPLACE_WITH_ASC_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ascAppId": "6823398032",
+        "appleTeamId": "DF9KG8H54B"
       }
     },
     "beta-rollout": {
@@ -67,8 +67,8 @@
     "production": {
       "android": {},
       "ios": {
-        "ascAppId": "REPLACE_WITH_ASC_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ascAppId": "6823398032",
+        "appleTeamId": "DF9KG8H54B"
       }
     }
   }
