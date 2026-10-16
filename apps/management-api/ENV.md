@@ -106,11 +106,11 @@ resync rather than failing it.
 - **`BILLING_ALLOW_TEST_ADAPTER`** (Optional) - `true` registers the test processor even when `NODE_ENV` is `production`; non-production always registers it
 - **`BILLING_PAYPAL_ENABLED`** (Optional, default off) - `true` turns PayPal on; empty or unset keeps it off
 - **`PAYPAL_CLIENT_ID`**, **`PAYPAL_CLIENT_SECRET`**, **`PAYPAL_WEBHOOK_ID`** - PayPal credentials
-- **`PAYPAL_ENVIRONMENT`** (Optional) - `sandbox` or `live`; empty uses live in production, sandbox otherwise
+- **`PAYPAL_ENVIRONMENT`** (Optional) - `sandbox` or `live`; empty stays sandbox. `live` is opt-in and is independent of `NODE_ENV`
 - **`BILLING_APPLE_IAP_ENABLED`** (Optional, default off) - `true` turns Apple In-App Purchase on; empty or unset keeps it off
 - **`APPLE_IAP_ISSUER_ID`**, **`APPLE_IAP_KEY_ID`**, **`APPLE_IAP_PRIVATE_KEY_PATH`**, **`APPLE_IAP_BUNDLE_ID`** - App Store Server API credentials
 - **`APPLE_IAP_APP_APPLE_ID`** (Optional) - Numeric App Store app id
-- **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
+- **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty stays sandbox. `production` is opt-in and is independent of `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty or unset keeps it off
 - **`GOOGLE_PLAY_PACKAGE_NAME`**, **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`**, **`GOOGLE_PLAY_RTDN_PUSH_AUDIENCE`**, **`GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL`** - Google Play Developer API credentials
 - **`BILLING_STRIKE_ENABLED`** (Optional, default off) - `true` turns Strike on; empty or unset keeps it off

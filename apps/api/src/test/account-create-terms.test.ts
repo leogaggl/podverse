@@ -5,7 +5,7 @@ import type { ORMContext } from '@podverse/orm';
 
 import { getBaseApiUrl, startTestApp, stopTestApp } from './helpers/index.js';
 
-const VALID_TERMS_VERSION = '2026-01-01';
+const VALID_TERMS_VERSION = '2026-10-15';
 
 const validAccountCreateBody = {
   email: 'new@example.com',

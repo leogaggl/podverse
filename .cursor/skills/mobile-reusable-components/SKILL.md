@@ -51,6 +51,8 @@ via **mobile-theme-parity**.
 **Static form-style screens:** Body copy/fields stay in one tight stack. Choice chips use
 `FormField` (the label names the field and does not repeat an option). Actions use `FormActions`:
 one action is full width; two or more share the row equally with confirm last, on the right.
+`FormActions` uses `Button` `size="form"` (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) so form,
+dialog, and checkout decisions share one height. Header and row actions stay `sm` or `md`.
 `formActionsTopGap` sits above that block and `formActionsGap` separates a destructive action
 under it (`screenLayout.ts`). Do not share one `gap` across prose and CTAs, and do not repeat the
 stack title as an in-body heading. See **mobile-screen-layout**.

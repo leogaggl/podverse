@@ -877,7 +877,7 @@
     "accept": "Accept",
     "reject": "Reject",
     "agreement_date": "Valid since {agreement_date}",
-    "full_agreement": "Full Terms",
+    "full_agreement": "View Terms of Service",
     "load_error": "Could not load the Terms of Service. Please try again.",
     "retry": "Try Again"
   },

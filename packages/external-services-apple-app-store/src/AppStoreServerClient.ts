@@ -91,8 +91,9 @@ function parseAppleEnvironment(value: string | undefined): AppleRuntimeEnvironme
 }
 
 /**
- * Throws for `xcode` in production: that mode trusts a transaction the device sends without
- * Apple confirming it, so any caller could grant themselves membership.
+ * Empty stays sandbox. `production`, `prod`, and `live` select the production App Store.
+ * `xcode` trusts a transaction the device sends without Apple confirming it, so any caller
+ * could grant themselves membership. That mode is refused when `NODE_ENV` is production.
  */
 export function resolveAppleRuntimeEnvironment(
   appleEnvironment: string | undefined,
@@ -105,7 +106,7 @@ export function resolveAppleRuntimeEnvironment(
   if (configured !== null) {
     return configured;
   }
-  return nodeEnv === 'production' ? 'production' : 'sandbox';
+  return 'sandbox';
 }
 
 function resolveAppleServerEnvironment(

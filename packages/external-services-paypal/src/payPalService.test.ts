@@ -10,6 +10,17 @@ const MONTHLY_INVOICE_ID = new RegExp(
   `^${PAYPAL_ONE_TIME_PRODUCT_IDS.monthly}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
 );
 
+describe('PayPalService.resolveEnvironment', () => {
+  it('stays sandbox when unset', () => {
+    expect(PayPalService.resolveEnvironment(undefined)).toBe('sandbox');
+  });
+
+  it('uses live only when that value is set', () => {
+    expect(PayPalService.resolveEnvironment('live')).toBe('live');
+    expect(PayPalService.resolveEnvironment('sandbox')).toBe('sandbox');
+  });
+});
+
 describe('PayPalService', () => {
   it('creates and captures one-time orders with the cadence SKU', async () => {
     const createOrder =

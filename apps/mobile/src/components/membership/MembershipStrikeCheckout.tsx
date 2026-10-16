@@ -391,6 +391,7 @@ export function MembershipStrikeCheckout({
                 label={t('checkout.copy_invoice')}
                 loading={copying}
                 onPress={copyInvoice}
+                size="form"
                 testID="membership-checkout-strike-copy"
                 variant="primary"
               />
@@ -399,6 +400,7 @@ export function MembershipStrikeCheckout({
                 label={t('checkout.open_wallet')}
                 loading={openingWallet}
                 onPress={openWallet}
+                size="form"
                 testID="membership-checkout-strike-wallet"
                 variant="outline"
               />
@@ -414,6 +416,7 @@ export function MembershipStrikeCheckout({
               onPress={() => {
                 setAttempt((current) => current + 1);
               }}
+              size="form"
               testID="membership-checkout-strike-renew"
               variant="primary"
             />

@@ -52,7 +52,6 @@ export function registerBillingAdapters(
       clientId: paypal.clientId,
       clientSecret: paypal.clientSecret,
       paypalEnvironment: paypal.environment,
-      nodeEnv: config.nodeEnv,
       webhookId: paypal.webhookId,
     });
     registry.register(
@@ -60,7 +59,6 @@ export function registerBillingAdapters(
         clientId: paypal.clientId,
         clientSecret: paypal.clientSecret,
         paypalEnvironment: paypal.environment,
-        nodeEnv: config.nodeEnv,
         webhookId: paypal.webhookId,
         service: paypalService,
       })

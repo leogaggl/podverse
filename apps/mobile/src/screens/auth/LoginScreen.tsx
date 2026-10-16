@@ -9,8 +9,7 @@ import {
 } from '../../auth';
 import { resolveLocalDevLoginPrefill } from '../../auth/localDevLoginPrefill';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
-import { TextField } from '../../components/form';
-import { Button } from '../../components/primitives';
+import { FormActions, TextField } from '../../components/form';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { getMobileConfig } from '../../config';
@@ -122,18 +121,20 @@ export function LoginScreen({ onDismiss, onSwitchToSignUp }: LoginScreenProps) {
             value={password}
           />
         </View>
-        <View style={styles.submit}>
-          <Button
-            disabled={isLoading}
-            fullWidth
-            label={t('misc.submit')}
-            loading={isLoading}
-            onPress={() => {
-              void handleSubmit();
-            }}
-            testID="login-submit"
-          />
-        </View>
+        <FormActions
+          actions={[
+            {
+              disabled: isLoading,
+              label: t('misc.submit'),
+              loading: isLoading,
+              onPress: () => {
+                void handleSubmit();
+              },
+              testID: 'login-submit',
+            },
+          ]}
+          style={styles.submit}
+        />
         {error !== null ? (
           <Text style={styles.error} testID="login-error">
             {error}

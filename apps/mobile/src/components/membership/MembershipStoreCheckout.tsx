@@ -153,6 +153,7 @@ export function MembershipStoreCheckout() {
       onPress={() => {
         void openCheckout({ mode: 'extend' });
       }}
+      size="form"
       testID="membership-checkout-strike"
       variant="outline"
     />
@@ -165,6 +166,7 @@ export function MembershipStoreCheckout() {
       onPress={() => {
         void openCheckout({ mode: 'extend' });
       }}
+      size="form"
       testID="membership-checkout-paypal"
       variant="outline"
     />
@@ -283,6 +285,7 @@ export function MembershipStoreCheckout() {
                 label={t('checkout.complete_purchase')}
                 loading={checkout.submitting && checkout.noticeSource === 'purchase'}
                 onPress={checkout.onPurchase}
+                size="form"
                 testID="membership-extend-purchase"
                 variant="primary"
               />
@@ -312,6 +315,7 @@ export function MembershipStoreCheckout() {
               label={t('membership.checkout.restore_purchases')}
               loading={checkout.submitting && checkout.noticeSource === 'restore'}
               onPress={checkout.onRestore}
+              size="form"
               testID="membership-checkout-restore"
               variant="secondary"
             />

@@ -15,6 +15,12 @@ export const LIST_ROW_ARTWORK_SIZE = 60;
 export const LIST_ROW_ACTION_SIZE = 44;
 
 /**
+ * Form, dialog, and checkout decision buttons. 52pt is above the 44pt tap floor and below an
+ * eyebrow field (~66pt), with room for a 17pt label.
+ */
+export const FORM_BUTTON_MIN_HEIGHT = 52;
+
+/**
  * Glyph size for bare icon controls (More, Download, trash). Slightly under the hit target so the
  * icon reads clearly without looking cramped — same optical weight for More and trash.
  */

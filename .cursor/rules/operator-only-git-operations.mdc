@@ -22,7 +22,7 @@ Also prohibited without explicit user request: admin merges to protected branche
 ## Agents must do instead
 
 1. Leave changes in the working tree (or commit **only** when the user explicitly requested a commit).
-2. End with a fenced `bash` block of **exact `git` and `gh` commands for the operator** to review, commit, push, open PR, merge, and publish.
+2. End with a fenced `bash` block of **exact `git` and `gh` commands for the operator** to review, commit, push, open PR, merge, and publish. The block must parse in fish (**fish-operator-commands**). Pass a one-line commit message as `git commit -m '...'`. Do not use `<<'EOF'`.
 3. State which branch the PR should target (e.g. `staging` for Podverse publish tags) and what to wait for after merge (CI tag, image publish).
 
 ## Why

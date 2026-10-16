@@ -137,7 +137,7 @@ With the flag on, every key that processor needs is required. Keys and meanings 
   empty keeps it off
 - **`APPLE_IAP_ISSUER_ID`**, **`APPLE_IAP_KEY_ID`**, **`APPLE_IAP_PRIVATE_KEY_PATH`**,
   **`APPLE_IAP_BUNDLE_ID`**, **`APPLE_IAP_APP_APPLE_ID`**, **`APPLE_IAP_ENVIRONMENT`**
-- **`APPLE_IAP_ENVIRONMENT`** - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode`
+- **`APPLE_IAP_ENVIRONMENT`** - `sandbox` or `production`; empty stays sandbox. `production` is opt-in and is independent of `NODE_ENV`. `xcode`
   (local only, refused when `NODE_ENV` is `production`) needs only `APPLE_IAP_BUNDLE_ID`. Those
   purchases exist only on the device that bought them.
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty

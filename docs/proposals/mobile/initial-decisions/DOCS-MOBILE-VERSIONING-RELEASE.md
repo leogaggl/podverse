@@ -81,9 +81,9 @@ Key differences to design for:
   only holds an Expo login / `EXPO_TOKEN`.
 - **Store metadata as code** (Fastlane `deliver`/`supply` or EAS metadata) so release notes,
   screenshots, and review info are versioned in the repo.
-- **OTA updates (EAS Update) for JS-only changes**, with care: you may push JS bug fixes between
-  store releases, but **native changes (including CarPlay/Android Auto modules) require a full store
-  release.** Keep OTA strictly for JS/asset fixes and always within store policy.
+- **No over-the-air updates.** JavaScript and native changes both ship in the next store binary.
+  EAS Update stays off unless the operator explicitly asks for it in that conversation. It is a
+  major change. See **mobile-store-builds-on-demand**.
 
 ## API backward-compatibility discipline
 

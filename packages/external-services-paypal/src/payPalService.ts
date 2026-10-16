@@ -48,7 +48,6 @@ export interface PayPalServiceParams {
   clientId: string;
   clientSecret: string;
   paypalEnvironment?: PayPalEnvironment;
-  nodeEnv?: string;
   webhookId?: string;
   ordersController?: OrdersControllerLike;
   paymentsController?: PaymentsControllerLike;
@@ -160,10 +159,7 @@ export class PayPalService {
     this.clientId = params.clientId;
     this.clientSecret = params.clientSecret;
     this.fetchImpl = params.fetchImpl ?? fetch;
-    this.paypalEnvironment = PayPalService.resolveEnvironment(
-      params.paypalEnvironment,
-      params.nodeEnv
-    );
+    this.paypalEnvironment = PayPalService.resolveEnvironment(params.paypalEnvironment);
     this.webhookId = params.webhookId ?? null;
 
     const ordersController = params.ordersController;
@@ -188,14 +184,12 @@ export class PayPalService {
     this.paymentsController = params.paymentsController ?? new PaymentsController(client);
   }
 
-  static resolveEnvironment(
-    paypalEnvironment?: PayPalEnvironment,
-    nodeEnv: string | undefined = 'development'
-  ): PayPalEnvironment {
+  /** Empty stays sandbox. `live` is the only value that uses the PayPal live API. */
+  static resolveEnvironment(paypalEnvironment?: PayPalEnvironment): PayPalEnvironment {
     if (paypalEnvironment === 'sandbox' || paypalEnvironment === 'live') {
       return paypalEnvironment;
     }
-    return nodeEnv === 'production' ? 'live' : 'sandbox';
+    return 'sandbox';
   }
 
   isSandboxEnvironment(): boolean {

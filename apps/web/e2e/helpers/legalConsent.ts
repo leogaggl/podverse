@@ -3,7 +3,7 @@
  * `apps/web/playwright.e2e-server-env.ts` (`E2E_TERMS_OF_SERVICE_VERSION`).
  */
 
-export const E2E_CONFIGURED_TERMS_VERSION = '2026-01-01';
+export const E2E_CONFIGURED_TERMS_VERSION = '2026-10-15';
 
 export const E2E_OUTDATED_TERMS_VERSION = '2025-01-01';
 

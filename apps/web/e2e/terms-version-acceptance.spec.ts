@@ -39,7 +39,7 @@ test.describe('Terms version acceptance', () => {
       await expect(termsScreen.getByText(TERMS_DATE)).toBeVisible();
       await expect(termsScreen.getByRole('button', { name: 'Accept' })).toBeDisabled();
 
-      await termsScreen.getByText('Full Terms').click();
+      await termsScreen.getByText('View Terms of Service').click();
       await expect(termsScreen.getByRole('heading', { name: 'The Service' })).toBeVisible();
 
       await capturePageLoad(

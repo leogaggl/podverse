@@ -6,7 +6,7 @@ import {
   isPopularityTrackingPromptRequired,
 } from './popularityTracking.js';
 
-const current = '2026-09-11';
+const current = '2026-10-15';
 
 describe('isPopularityTrackingAllowed', () => {
   it('is false when there is no decision', () => {

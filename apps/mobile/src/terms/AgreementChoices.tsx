@@ -4,11 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { CopyMarkdown } from '../components/content/CopyMarkdown';
+import { FormActions } from '../components/form/FormActions';
 import { Accordion } from '../components/primitives/Accordion';
-import { Button } from '../components/primitives/Button';
 import { LoadingSection } from '../components/state/LoadingSection';
 import { RetryableError } from '../components/state/RetryableError';
-import { formActionsGap, formActionsTopGap } from '../theme/screenLayout';
+import { formActionsTopGap } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
 
 type AgreementChoicesProps = {
@@ -64,10 +64,7 @@ export function AgreementChoices({
     () =>
       StyleSheet.create({
         actions: {
-          alignSelf: 'stretch',
-          gap: formActionsGap(tokens.spacing),
           marginTop: formActionsTopGap(tokens.spacing),
-          width: '100%',
         },
         body: {
           gap: tokens.spacing.md,
@@ -121,23 +118,25 @@ export function AgreementChoices({
           </Pressable>
         ) : null}
       </View>
-      <View style={styles.actions}>
-        <Button
-          disabled={isLoading}
-          fullWidth
-          label={rejectLabel}
-          onPress={onReject}
-          testID={rejectTestID}
-          variant="secondary"
-        />
-        <Button
-          disabled={acceptDisabled}
-          fullWidth
-          label={acceptLabel}
-          onPress={onAccept}
-          testID={acceptTestID}
-        />
-      </View>
+      <FormActions
+        actions={[
+          {
+            disabled: isLoading,
+            label: rejectLabel,
+            onPress: onReject,
+            testID: rejectTestID,
+            variant: 'secondary',
+          },
+          {
+            disabled: acceptDisabled,
+            label: acceptLabel,
+            onPress: onAccept,
+            testID: acceptTestID,
+          },
+        ]}
+        stacked
+        style={styles.actions}
+      />
       {canAccept && fullMarkdown !== null ? (
         <Accordion testID={accordionTestID} title={accordionTitle}>
           <CopyMarkdown markdown={fullMarkdown} />

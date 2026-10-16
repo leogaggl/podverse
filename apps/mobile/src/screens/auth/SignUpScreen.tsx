@@ -13,14 +13,15 @@ import {
 import { createMobileApiRequestService } from '../../auth';
 import { CopyMarkdown } from '../../components/content/CopyMarkdown';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
-import { TextField } from '../../components/form';
-import { Accordion, Button } from '../../components/primitives';
+import { FormActions, TextField } from '../../components/form';
+import { Accordion } from '../../components/primitives';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { RetryableError } from '../../components/state/RetryableError';
 import { getMobileConfig } from '../../config';
 import { writeSignupMergeEmail } from '../../data/repositories/subscriptionsSignupMarker';
 import { formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 type SignUpScreenProps = {
@@ -41,7 +42,7 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isE2e } = getMobileConfig();
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [accountCreated, setAccountCreated] = useState(false);
   const { styles: themeStyles, tokens } = useTheme();
 
   const resolveValidationError = (validationError: string): string => {
@@ -98,9 +99,12 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
     submit: {
       marginTop: formActionsTopGap(tokens.spacing),
     },
-    success: {
+    successBody: {
+      ...typography.prose,
       color: themeStyles.textPrimary.color,
-      marginTop: tokens.spacing.md,
+    },
+    termsAccordion: {
+      marginTop: tokens.spacing.xl,
     },
   });
 
@@ -175,7 +179,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
 
     setIsLoading(true);
     setError(null);
-    setSuccessMessage(null);
     try {
       await apiRequestService.reqAccountCreate({
         email,
@@ -186,13 +189,46 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
       // Sign-up does not sign the user in, so subscriptions made while signed out are pushed up by
       // the login that follows. Recording the email here authorizes that one merge.
       await writeSignupMergeEmail(email);
-      setSuccessMessage(t('authentication.account_created_message'));
+      setAccountCreated(true);
     } catch {
       setError(t('authentication.could_not_sign_in'));
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (accountCreated) {
+    return (
+      <View style={styles.root} testID="signup-screen">
+        <HeaderBarChrome
+          backAccessibilityLabel={t('misc.dismiss')}
+          backIcon="chevron-down"
+          backTestID="auth-dismiss"
+          onBack={onDismiss}
+          title={t('authentication.account_created_title')}
+        />
+        <MobileScreenContainer testID="signup-success">
+          <Text
+            accessibilityLiveRegion="polite"
+            style={styles.successBody}
+            testID="signup-success-message"
+          >
+            {t('authentication.account_created_body')}
+          </Text>
+          <FormActions
+            actions={[
+              {
+                label: t('authentication.login'),
+                onPress: onSwitchToLogin,
+                testID: 'signup-success-login',
+              },
+            ]}
+            style={styles.submit}
+          />
+        </MobileScreenContainer>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root} testID="signup-screen">
@@ -264,31 +300,30 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
             <Text style={styles.date}>
               {t('terms_acceptance.agreement_date', { agreement_date: agreement.version })}
             </Text>
-            <Accordion testID="signup-terms-full" title={t('terms_acceptance.full_agreement')}>
-              <CopyMarkdown markdown={agreement.markdown} />
-            </Accordion>
+            <View style={styles.termsAccordion}>
+              <Accordion testID="signup-terms-full" title={t('terms_acceptance.full_agreement')}>
+                <CopyMarkdown markdown={agreement.markdown} />
+              </Accordion>
+            </View>
           </>
         ) : null}
-        <View style={styles.submit}>
-          <Button
-            disabled={isLoading || !agreed || agreement === null}
-            fullWidth
-            label={t('authentication.create_account')}
-            loading={isLoading}
-            onPress={() => {
-              void handleSubmit();
-            }}
-            testID="signup-submit"
-          />
-        </View>
+        <FormActions
+          actions={[
+            {
+              disabled: isLoading || !agreed || agreement === null,
+              label: t('authentication.create_account'),
+              loading: isLoading,
+              onPress: () => {
+                void handleSubmit();
+              },
+              testID: 'signup-submit',
+            },
+          ]}
+          style={styles.submit}
+        />
         {error !== null ? (
           <Text style={styles.error} testID="signup-error">
             {error}
-          </Text>
-        ) : null}
-        {successMessage !== null ? (
-          <Text style={styles.success} testID="signup-success">
-            {successMessage}
           </Text>
         ) : null}
         <View style={styles.promptBlock}>

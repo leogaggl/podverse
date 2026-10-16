@@ -31,7 +31,7 @@ Save these in home overrides under
 Set these static values in `billing-apple.env`:
 
 - `APPLE_IAP_BUNDLE_ID="com.podverse.app.next"`
-- `APPLE_IAP_ENVIRONMENT="sandbox"` (local default unless testing production fallback)
+- `APPLE_IAP_ENVIRONMENT="sandbox"` (empty stays sandbox; set `production` for the production App Store)
 
 ### Product IDs
 

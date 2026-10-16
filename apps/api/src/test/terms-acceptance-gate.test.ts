@@ -14,7 +14,7 @@ import {
 } from './helpers/index.js';
 
 const TEST_USER_ID = 1;
-const CURRENT_TERMS_VERSION = '2026-01-01';
+const CURRENT_TERMS_VERSION = '2026-10-15';
 
 type TermsAcceptanceRow = { terms_version: string; accepted_at: Date } | null;
 

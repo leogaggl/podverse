@@ -33,6 +33,10 @@ configMapGenerator:
       - source/database/runner/verify-bootstrap-contract.sh
       - source/database/runner/rebootstrap-full-bootstrap.sh
   - name: podverse-ops-app-linear-migrations
+    options:
+      annotations:
+        # Larger than the 256KiB last-applied-configuration annotation. Argo must server-side apply it.
+        argocd.argoproj.io/sync-options: ServerSideApply=true
     files:
       - source/database/linear-migrations/app/0000_init_helpers.sql
       - source/database/linear-migrations/app/0001_app_schema.sql
@@ -50,6 +54,9 @@ configMapGenerator:
       - source/database/linear-migrations/app/0013_membership_billing_ledger.sql
       - source/database/linear-migrations/app/0014_billing_strike.sql
   - name: podverse-ops-management-linear-migrations
+    options:
+      annotations:
+        argocd.argoproj.io/sync-options: ServerSideApply=true
     files:
       - source/database/linear-migrations/management/0000_init_helpers.sql
       - source/database/linear-migrations/management/0001_management_schema.sql

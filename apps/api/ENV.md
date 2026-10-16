@@ -150,11 +150,11 @@ The mailer is automatically disabled when `ACCOUNT_SIGNUP_MODE` is not `'user_si
 
 - **`LEGAL_NAME`** (Required when signup mode is 'user_signup_email') - Legal or display business name (e.g. Podverse LLC). `config.legal.name` (e.g. HTML email footer, other call sites).
 - **`LEGAL_ADDRESS`** (Required when signup mode is 'user_signup_email') - Legal or mailing address. `config.legal.address`.
-- **`TERMS_OF_SERVICE_VERSION`** (Required when signup mode is 'user_signup_email') - Date-shaped id of the current terms (for example `2026-05-28`). Stored when an account accepts. A different stored value blocks authenticated routes until the account accepts again. The same value is shown as "Valid since".
+- **`TERMS_OF_SERVICE_VERSION`** (Required when signup mode is 'user_signup_email') - Date-shaped id of the current terms (for example `2026-10-15`). Stored when an account accepts. A different stored value blocks authenticated routes until the account accepts again. The same value is shown as "Valid since".
 - **`TERMS_OF_SERVICE_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` terms files. Empty uses the Markdown bundled at `apps/api/legal/terms`.
 - **`CONTACT_EMAIL`** (Optional) - Address interpolated into the terms document. Empty leaves that sentence without an address.
 - **`STATS_TRACK_EVENT_RETENTION_DAYS`** (Optional) - Retention window interpolated into the terms document. Empty uses 30 days.
-- **`POPULARITY_TRACKING_AGREEMENT_VERSION`** (Required) - Date-shaped id of the current popularity-tracking agreement (for example `2026-09-11`). Accounts that already accepted are asked again when this changes. Tracking is allowed only when the stored accept matches this value. The same value is shown as the agreement date.
+- **`POPULARITY_TRACKING_AGREEMENT_VERSION`** (Required) - Date-shaped id of the current popularity-tracking agreement (for example `2026-10-15`). Accounts that already accepted are asked again when this changes. Tracking is allowed only when the stored accept matches this value. The same value is shown as the agreement date.
 - **`POPULARITY_TRACKING_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` agreement files. Empty uses the Markdown bundled at `apps/api/legal/popularity-tracking`.
 
 For local development, set these in [`legal.env`](/dev/env-overrides/local/legal.env.example). Run `make local_env_setup` to apply.
@@ -216,11 +216,11 @@ out of checkout options and its webhook answers 404. Routes and webhook contract
 - **`BILLING_ALLOW_TEST_ADAPTER`** (Optional) - `true` registers the test processor even when `NODE_ENV` is `production`; non-production always registers it
 - **`BILLING_PAYPAL_ENABLED`** (Optional, default off) - `true` turns PayPal on; empty or unset keeps it off. When it is `true`, the PayPal credential keys below are required
 - **`PAYPAL_CLIENT_ID`**, **`PAYPAL_CLIENT_SECRET`**, **`PAYPAL_WEBHOOK_ID`** - PayPal credentials and the webhook id PayPal signs deliveries for
-- **`PAYPAL_ENVIRONMENT`** (Optional) - `sandbox` or `live`; empty uses live in production, sandbox otherwise
+- **`PAYPAL_ENVIRONMENT`** (Optional) - `sandbox` or `live`; empty stays sandbox. `live` is opt-in and is independent of `NODE_ENV`
 - **`BILLING_APPLE_IAP_ENABLED`** (Optional, default off) - `true` turns Apple In-App Purchase on; empty or unset keeps it off. When it is `true`, the Apple credential keys below are required
 - **`APPLE_IAP_ISSUER_ID`**, **`APPLE_IAP_KEY_ID`**, **`APPLE_IAP_PRIVATE_KEY_PATH`**, **`APPLE_IAP_BUNDLE_ID`** - App Store Server API credentials
 - **`APPLE_IAP_APP_APPLE_ID`** (Optional) - Numeric App Store app id
-- **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
+- **`APPLE_IAP_ENVIRONMENT`** (Optional) - `sandbox` or `production`; empty stays sandbox. `production` is opt-in and is independent of `NODE_ENV`. `xcode` (local only, refused when `NODE_ENV` is `production`) reads Xcode StoreKit Testing purchases from the signed transaction the app sends and needs only `APPLE_IAP_BUNDLE_ID`
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty or unset keeps it off. When it is `true`, the Google Play credential keys below are required
 - **`GOOGLE_PLAY_PACKAGE_NAME`**, **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`**, **`GOOGLE_PLAY_RTDN_PUSH_AUDIENCE`**, **`GOOGLE_PLAY_RTDN_PUSH_SERVICE_ACCOUNT_EMAIL`** - Google Play Developer API credentials and the Pub/Sub push identity RTDN webhooks are checked against
 - **`BILLING_STRIKE_ENABLED`** (Optional, default off) - `true` turns Strike on; empty or unset keeps it off. When it is `true`, the Strike credential keys below are required

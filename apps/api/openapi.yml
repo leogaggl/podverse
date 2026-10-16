@@ -288,7 +288,7 @@ components:
           type: string
           maxLength: 64
           description: Terms of service version accepted at signup
-          example: "2026-01-01"
+          example: "2026-10-15"
     AccountCreateResponse:
       type: object
       properties:
@@ -305,7 +305,7 @@ components:
         terms_version:
           type: string
           maxLength: 64
-          example: "2026-01-01"
+          example: "2026-10-15"
         accepted_at:
           type: string
           format: date-time
@@ -499,7 +499,7 @@ components:
           nullable: true
           maxLength: 64
           description: Agreement version recorded with the last Yes or No decision.
-          example: "2026-09-11"
+          example: "2026-10-15"
         listen_stats_decided_at:
           type: string
           format: date-time
@@ -751,7 +751,7 @@ components:
             listen_stats_agreement_version:
               type: string
               nullable: true
-              example: "2026-09-11"
+              example: "2026-10-15"
             listen_stats_decided_at:
               type: string
               format: date-time
@@ -777,7 +777,7 @@ components:
         version:
           type: string
           description: Date-shaped id stored on accept and shown as the valid-since date.
-          example: "2026-05-28"
+          example: "2026-10-15"
         markdown:
           type: string
     ApiGetLegalPopularityTrackingResponse200:
@@ -789,7 +789,7 @@ components:
         version:
           type: string
           description: Date-shaped id. Accounts that already accepted are asked again when this changes. Shown as the agreement date.
-          example: "2026-09-11"
+          example: "2026-10-15"
         markdown:
           type: string
     ApiGetManagedCopyResponse200:
@@ -850,7 +850,7 @@ components:
           type: string
           maxLength: 64
           description: Terms of service version being accepted
-          example: "2026-01-01"
+          example: "2026-10-15"
     ApiPostAccountAcceptTermsResponse201:
       type: object
       properties:

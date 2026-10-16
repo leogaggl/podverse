@@ -1096,9 +1096,10 @@ Versioning policy:
 
 OTA policy boundary:
 
-- Use **EAS Update** only for JavaScript/content-only changes.
-- Any native-impacting change (Expo config plugins, prebuild output, native modules, iOS/Android
-  project changes, ABI-affecting deps) requires a new store build and submit flow.
+- This app does not use over-the-air updates (EAS Update). JavaScript and native changes both
+  ship in the next store binary.
+- Turning OTA on is a major change and waits for an explicit operator request in that
+  conversation. See **mobile-store-builds-on-demand**.
 
 EAS profile source of truth:
 

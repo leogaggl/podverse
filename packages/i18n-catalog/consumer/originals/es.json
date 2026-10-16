@@ -877,7 +877,7 @@
     "accept": "Aceptar",
     "reject": "Rechazar",
     "agreement_date": "Válido desde {agreement_date}",
-    "full_agreement": "Términos completos",
+    "full_agreement": "Ver términos del servicio",
     "load_error": "No se pudieron cargar los términos de servicio. Inténtalo de nuevo.",
     "retry": "Reintentar"
   },

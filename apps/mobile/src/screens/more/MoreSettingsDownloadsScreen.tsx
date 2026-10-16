@@ -430,6 +430,7 @@ export function MoreSettingsDownloadsScreen() {
                 onPress={() => {
                   setConfirmVisible(true);
                 }}
+                size="form"
                 testID="more-settings-downloads-delete-all"
                 variant="danger"
               />

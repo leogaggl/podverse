@@ -15,7 +15,7 @@ import {
 
 const TEST_EMAIL = 'account-test@example.com';
 const TEST_USER_ID = 1;
-const VALID_TERMS_VERSION = '2026-01-01';
+const VALID_TERMS_VERSION = '2026-10-15';
 
 const validAccountCreateBody = {
   email: 'new@example.com',

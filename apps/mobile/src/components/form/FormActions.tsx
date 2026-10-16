@@ -53,6 +53,7 @@ function FormActionButton({ action }: { action: FormAction }) {
       label={action.label}
       loading={action.loading}
       onPress={action.onPress}
+      size="form"
       testID={action.testID}
       variant={action.variant}
     />
@@ -60,8 +61,9 @@ function FormActionButton({ action }: { action: FormAction }) {
 }
 
 /**
- * Form decisions. One action stretches across the row. Two or more share the width equally, with
- * the confirm action last, unless `stacked` is set.
+ * Form decisions. Buttons use `size="form"` so every form, dialog, and checkout that comes through
+ * here shares one height and label. One action stretches across the row. Two or more share the
+ * width equally, with the confirm action last, unless `stacked` is set.
  */
 export function FormActions({ actions, stacked = false, style, testID }: FormActionsProps) {
   const styles = useThemedStyles(createStyles);

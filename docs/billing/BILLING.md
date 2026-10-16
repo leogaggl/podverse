@@ -114,6 +114,13 @@ The API reads them in `apps/api/.env.example` order (see [apps/api/ENV.md](/apps
 | App Store   | `BILLING_APPLE_IAP_ENABLED`   | `APPLE_*`                                                                                      |
 | Google Play | `BILLING_GOOGLE_PLAY_ENABLED` | `GOOGLE_PLAY_*`                                                                                |
 
+Payment environment is separate from `NODE_ENV`. A staging server can run with
+`NODE_ENV=production` and still use sandbox payments. Empty `PAYPAL_ENVIRONMENT` stays
+sandbox; set `live` to use the PayPal live API. Empty `APPLE_IAP_ENVIRONMENT` stays
+sandbox; set `production` for the production App Store. `xcode` stays local-only and is
+refused when `NODE_ENV` is `production`. Strike requires `STRIKE_ENVIRONMENT` when it is
+enabled. Google Play has no sandbox switch; license testers are configured in Play Console.
+
 The API registers adapters in `registerBillingAdapters`. Workers (Billing-category commands)
 and the management API register the same processors through
 `registerConfiguredBillingAdapters`. A processor whose flag is off, or whose required

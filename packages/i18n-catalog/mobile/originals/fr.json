@@ -305,6 +305,10 @@
     "playback_credentials_withheld_insecure": "Ce média utilise une adresse non chiffrée, donc l'identifiant et le mot de passe du flux ne lui ont pas été envoyés.",
     "download_credentials_withheld": "Ce fichier a besoin de l'identifiant et du mot de passe du flux, et les téléchargements sur cet appareil ne les envoient pas. Vous pouvez encore le lire sans le télécharger."
   },
+  "authentication": {
+    "account_created_title": "Compte créé",
+    "account_created_body": "Vérifiez votre e-mail pour le lien de vérification."
+  },
   "membership": {
     "trial_limitations_missing_content": "Si vous avez un abonnement d'essai et qu'il manque un contenu que vous aimeriez, contactez {email} pour obtenir de l'aide."
   },

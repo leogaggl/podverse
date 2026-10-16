@@ -86,7 +86,7 @@ describe('Billing routes', () => {
       email,
       password: 'IntegrationTest1!',
       locale: 'en-US',
-      terms_version: '2026-01-01',
+      terms_version: '2026-10-15',
     });
     const account = await accountService.getByEmail(email);
     if (!account) {

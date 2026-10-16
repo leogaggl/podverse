@@ -7,7 +7,7 @@ alwaysApply: true
 
 **Always give runnable commands relative to the root of the Podverse monorepo.** Do not instruct users to `cd` into `apps/workers`, `apps/api`, or other workspaces first.
 
-**Copy button:** Always put runnable commands inside a **fenced code block** (e.g. ` ```bash ` … ` ``` `) so the IDE shows a copy button next to them. Never give only inline commands when the user might want to run them.
+**Copy button:** Always put runnable commands inside a **fenced code block** (e.g. ` ```bash ` … ` ``` `) so the IDE shows a copy button next to them. Never give only inline commands when the user might want to run them. The fence stays `bash`; the contents must parse in fish (**fish-operator-commands**).
 
 **Verification commands:** When your response includes steps the user should run (e.g. to verify a change, smoke-test, or apply something), always end the response with a fenced code block containing the exact, copy-pasteable command(s). Do not omit this block or describe commands only in prose.
 

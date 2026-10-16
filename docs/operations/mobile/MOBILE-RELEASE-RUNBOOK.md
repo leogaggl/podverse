@@ -61,14 +61,11 @@ Store the App Store Connect API key and Play service account on EAS (`eas creden
 Alpha / internal-tester API pointing: set `EXPO_PUBLIC_*` on the EAS **`preview`** environment
 (see readiness and [DOCS-MOBILE-VERSIONING-RELEASE.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md)).
 
-## OTA policy (EAS Update)
+## Updates
 
-- Use EAS Update only for JavaScript/content-only updates.
-- Native-impacting changes require a new store build/submit:
-  - `app.config.ts` plugin/config changes
-  - iOS/Android native project changes
-  - native module updates (including `podverse-media-engine`)
-  - ABI-impacting dependency changes
+This app does not use over-the-air updates (EAS Update). JavaScript changes ship in the next
+store binary, the same as native changes. Turning OTA on is a major change and waits for an
+explicit operator request in that conversation. See **mobile-store-builds-on-demand**.
 
 ## EAS profiles and versioning
 

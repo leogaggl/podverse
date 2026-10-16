@@ -877,7 +877,7 @@
     "accept": "Accepter",
     "reject": "Refuser",
     "agreement_date": "Valable depuis {agreement_date}",
-    "full_agreement": "Conditions complètes",
+    "full_agreement": "Voir les conditions d'utilisation",
     "load_error": "Impossible de charger les conditions d'utilisation. Veuillez réessayer.",
     "retry": "Réessayer"
   },

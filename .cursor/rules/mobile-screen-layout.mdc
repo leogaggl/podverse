@@ -288,6 +288,11 @@ first CTA look like another paragraph.
   share the row in equal slots: dismiss or secondary first, confirm or primary last (on the
   right). A destructive action is its own full-width `FormActions` under the row, separated by
   `formActionsGap` (`spacing.lg`). Helpers live in `screenLayout.ts`.
+- Form, dialog, and checkout decision buttons use **`Button` `size="form"`**
+  (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold). `FormActions` applies that size. 44pt is the
+  tap floor; an eyebrow field is about 66pt. 52pt sits between them so the label is easy to read
+  and the control is easy to hit. Header, row, and identity-block actions (Subscribe, Share, Play)
+  stay `sm` or the default `md`.
 - Do not hug a form button to its label, and do not put the confirm action on the left.
 - Do not add a second display heading when the stack title already names the screen.
 - Full-screen Modal variants also use **`ModalSafeArea`**.
@@ -303,7 +308,13 @@ the navigator. Dismiss with a down chevron (`HeaderBarChrome` `backIcon="chevron
 link-style `Pressable` under Submit (`auth-switch-signup` / `auth-switch-login`). Fields use
 **`TextField`** with an inset **`eyebrow`** and a **distinct** **`placeholder`** (example or
 hint — never the same string as the eyebrow; see **form-eyebrow-placeholder**). Confirm-password
-keeps a password-hint placeholder while its eyebrow stays `Confirm password`.
+keeps a password-hint placeholder while its eyebrow stays `Confirm password`. Submit uses
+**`FormActions`**.
+
+A successful sign-up replaces the form with its own screen: header title, one sentence to check
+email (`signup-success-message`), and a Login button (`signup-success-login`) so someone who
+verifies on the web can open login from here. On the form, the agreement date and the terms
+accordion are separate blocks, with `spacing.xl` between them.
 
 ## Full-screen Modal safe area
 

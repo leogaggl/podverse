@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/argoproj.io/application_v1alpha1.json
-# Version: 4
+# Version: 5
 # Application for Ops (maintenance jobs and optional keyvaldb-gui)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -31,3 +31,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # App linear-migration ConfigMaps exceed the 256KiB last-applied-configuration annotation.
+      - ServerSideApply=true

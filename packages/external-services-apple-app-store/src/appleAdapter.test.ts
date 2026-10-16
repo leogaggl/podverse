@@ -7,7 +7,7 @@ import {
 } from '@podverse/helpers';
 
 import { createAppleAdapter } from './appleAdapter.js';
-import { AppStoreServerClient } from './AppStoreServerClient.js';
+import { AppStoreServerClient, resolveAppleRuntimeEnvironment } from './AppStoreServerClient.js';
 import { appleSoldTransactionType, appleUnsoldTransactionType } from './verifyNotification.js';
 
 const SOLD_PRODUCT_ID = 'com.podverse.app.next.premium.monthly';
@@ -362,6 +362,20 @@ describe('createAppleAdapter with APPLE_IAP_ENVIRONMENT=xcode', () => {
         nodeEnv: 'production',
       })
     ).toThrow('APPLE_IAP_ENVIRONMENT=xcode is refused when NODE_ENV is production');
+  });
+});
+
+describe('resolveAppleRuntimeEnvironment', () => {
+  it('stays sandbox when unset, including when NODE_ENV is production', () => {
+    expect(resolveAppleRuntimeEnvironment(undefined, 'production')).toBe('sandbox');
+    expect(resolveAppleRuntimeEnvironment(undefined, 'development')).toBe('sandbox');
+    expect(resolveAppleRuntimeEnvironment('', 'production')).toBe('sandbox');
+  });
+
+  it('selects the production App Store only from the environment value', () => {
+    expect(resolveAppleRuntimeEnvironment('production', 'development')).toBe('production');
+    expect(resolveAppleRuntimeEnvironment('live', 'test')).toBe('production');
+    expect(resolveAppleRuntimeEnvironment('sandbox', 'production')).toBe('sandbox');
   });
 });
 

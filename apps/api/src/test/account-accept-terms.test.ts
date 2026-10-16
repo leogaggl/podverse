@@ -10,7 +10,7 @@ import {
 } from './helpers/index.js';
 
 const TEST_USER_ID = 1;
-const VALID_TERMS_VERSION = '2026-01-01';
+const VALID_TERMS_VERSION = '2026-10-15';
 
 const { upsertMock } = vi.hoisted(() => ({
   upsertMock: vi.fn(async () => ({

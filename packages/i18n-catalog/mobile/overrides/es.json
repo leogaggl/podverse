@@ -305,6 +305,10 @@
     "playback_credentials_withheld_insecure": "",
     "download_credentials_withheld": ""
   },
+  "authentication": {
+    "account_created_title": "",
+    "account_created_body": ""
+  },
   "membership": {
     "trial_limitations_missing_content": ""
   },

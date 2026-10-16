@@ -20,3 +20,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # App linear-migration ConfigMaps exceed the 256KiB last-applied-configuration annotation.
+      - ServerSideApply=true
