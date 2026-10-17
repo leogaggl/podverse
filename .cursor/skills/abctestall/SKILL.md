@@ -116,3 +116,6 @@ recover.
 The sweep is finished when every tier has either passed or has its remaining failures listed in
 the deferred file. Summarize passes, fixes (file, cause, rerun command, result), and deferred
 entries. Do not describe a tier as green when a post-fix rerun has not actually passed.
+
+A later **abctestdeferred** invocation works only that file. It resolves each remaining entry,
+removes the entry after a passing rerun, and deletes the file when none remain.
