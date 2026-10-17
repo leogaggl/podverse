@@ -82,7 +82,12 @@ export function MembershipExpirationToast() {
 
     if (isExpired && !expiredDismissedRef.current) {
       clearToast();
-      const expiredMessage = t('membership_expired_danger', { type: membershipType });
+      const expiredMessage = t(
+        membership.tier === 'premium'
+          ? 'membership_expired_danger'
+          : 'membership_expired_danger_trial',
+        { type: membershipType }
+      );
       const linkText = t('membership_link_text');
 
       showToastCustom(
@@ -107,10 +112,15 @@ export function MembershipExpirationToast() {
 
     if (isExpiringSoon && dismissalKey !== null && !expiringDismissed) {
       clearToast();
-      const warningMessage = t('membership_expiring_warning', {
-        type: membershipType,
-        date: expirationDateFormatted,
-      });
+      const warningMessage = t(
+        membership.tier === 'premium'
+          ? 'membership_expiring_warning'
+          : 'membership_expiring_warning_trial',
+        {
+          type: membershipType,
+          date: expirationDateFormatted,
+        }
+      );
       const linkText = t('membership_link_text');
 
       showToastCustom(

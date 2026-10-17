@@ -40,8 +40,8 @@ const {
   listenStatsUpdateMock: vi.fn(async () => ({
     allow_listen_stats: true,
     listen_stats_accepted: true,
-    listen_stats_agreement_version: '2026-09-11',
-    listen_stats_decided_at: new Date('2026-09-11T00:00:00.000Z'),
+    listen_stats_agreement_version: '2026-10-15',
+    listen_stats_decided_at: new Date('2026-10-15T00:00:00.000Z'),
   })),
 }));
 
@@ -325,8 +325,8 @@ describe('account settings routes', () => {
       listenStatsUpdateMock.mockResolvedValueOnce({
         allow_listen_stats: true,
         listen_stats_accepted: true,
-        listen_stats_agreement_version: '2026-09-11',
-        listen_stats_decided_at: new Date('2026-09-11T00:00:00.000Z'),
+        listen_stats_agreement_version: '2026-10-15',
+        listen_stats_decided_at: new Date('2026-10-15T00:00:00.000Z'),
       });
 
       const res = await request(app)
@@ -336,11 +336,11 @@ describe('account settings routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.listen_stats_accepted).toBe(true);
-      expect(res.body.data.listen_stats_agreement_version).toBe('2026-09-11');
+      expect(res.body.data.listen_stats_agreement_version).toBe('2026-10-15');
       expect(listenStatsUpdateMock).toHaveBeenCalledWith({
         account_id: TEST_USER_ID,
         accepted: true,
-        agreement_version: '2026-09-11',
+        agreement_version: '2026-10-15',
       });
     });
 
@@ -348,8 +348,8 @@ describe('account settings routes', () => {
       listenStatsUpdateMock.mockResolvedValueOnce({
         allow_listen_stats: false,
         listen_stats_accepted: false,
-        listen_stats_agreement_version: '2026-09-11',
-        listen_stats_decided_at: new Date('2026-09-11T00:00:00.000Z'),
+        listen_stats_agreement_version: '2026-10-15',
+        listen_stats_decided_at: new Date('2026-10-15T00:00:00.000Z'),
       });
 
       const res = await request(app)
@@ -362,7 +362,7 @@ describe('account settings routes', () => {
       expect(listenStatsUpdateMock).toHaveBeenCalledWith({
         account_id: TEST_USER_ID,
         accepted: false,
-        agreement_version: '2026-09-11',
+        agreement_version: '2026-10-15',
       });
     });
 

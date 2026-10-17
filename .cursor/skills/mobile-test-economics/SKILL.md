@@ -17,7 +17,7 @@ roughly an order of magnitude more expensive than the one above it, so a claim b
 | Repository test with a fake or in-memory database | seconds                 | Persistence shape, ordering, dedupe, outbox rules                              |
 | One Maestro flow, one platform                    | minutes                 | That the wiring exists: navigation, boot, gating, reachability                 |
 | Both platforms                                    | double                  | Anything platform-specific: native modules, accessibility trees, back behavior |
-| Full suite (43 flows × 2)                         | an evening              | Pre-release regression only                                                    |
+| Full suite (51 flows × 2)                         | an evening              | Pre-release regression only                                                    |
 
 ## The extraction move
 
@@ -43,9 +43,9 @@ Layout arithmetic, copy, and policy are not in that list. Put those on a cheaper
 
 ## Area smoke versus area full
 
-`apps/mobile/e2e/` holds **43** top-level flows (42 on the phone matrix; `tablet` is opt-in and
-excluded from `mobile:e2e:test:all`). Running them all to learn whether one change broke something
-is the most expensive possible way to find out.
+`apps/mobile/e2e/` holds **54** top-level flows (`mobile:e2e:test:all` runs 51; `tablet` is
+opt-in, and `perf-chip-switch` / `perf-scroll` stay out of that suite). Running them all to learn
+whether one change broke something is the most expensive possible way to find out.
 
 Group by area. Run the area you touched **in full**, one platform first, plus the **smoke** of any
 area your change can reach. Both platforms only when the change is platform-specific, or the first
@@ -54,7 +54,7 @@ run passed and you need the second as proof.
 | Area                | Smoke              | The rest of the area                                                                                                                                                                                                       |
 | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Boot and shell      | `hello-world`      | `api-health`, `deep-link`, `locale-switch-home-smoke`, `popularity-tracking` (`tablet` is opt-in only)                                                                                                                     |
-| Auth and membership | `auth-login`       | `auth-logout`, `membership-gate`                                                                                                                                                                                           |
+| Auth and membership | `auth-login`       | `auth-logout`, `membership-gate`, `terms-account-access`, `terms-popularity`                                                                                                                                               |
 | Discovery           | `home`             | `browse`, `search`, `search-unparsed`, `podcast-episode`, `artist`, `album`, `add-by-rss`, `subscriptions-anonymous`, `detail-sort-prefs`                                                                                  |
 | Library and queue   | `queue-screen`     | `queue-add`, `library-playlists`, `library-downloads`                                                                                                                                                                      |
 | Playback            | `play-mini-player` | `player-screen`, `track`, `playback-resume-on-relaunch`, `playback-multi-device-handoff`, `auto-queue-advance`, `video-transition`, `make-clip`, `alternate-enclosure`, `engine-audio-spike`, `tab-switch-playback`, `v4v` |

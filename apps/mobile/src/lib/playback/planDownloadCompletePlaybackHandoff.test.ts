@@ -7,6 +7,7 @@ import {
   DOWNLOAD_HANDOFF_POSITION_TOLERANCE_SECONDS,
   isDownloadHandoffProgressLanded,
   planDownloadCompletePlaybackHandoff,
+  resolveDownloadHandoffRecord,
 } from './planDownloadCompletePlaybackHandoff';
 
 const identity = (uri: string): string => uri;
@@ -68,6 +69,25 @@ const plan = (patch: Partial<Parameters<typeof planDownloadCompletePlaybackHando
     target: itemTarget,
     ...patch,
   });
+
+describe('resolveDownloadHandoffRecord', () => {
+  it('turns a stored file name into the absolute file URL the handoff planner accepts', () => {
+    const resolved = resolveDownloadHandoffRecord(
+      completeRecord({ filePath: 'item-1.mp3' }),
+      'file:///docs/'
+    );
+    expect(resolved.filePath).toBe('file:///docs/downloads/item-1.mp3');
+    expect(
+      planDownloadCompletePlaybackHandoff({
+        advancing: false,
+        lastSourceUrl: 'https://cdn.example.com/ep.mp3',
+        record: resolved,
+        rewriteEnclosureUrl: identity,
+        target: itemTarget,
+      })
+    ).toEqual({ localUrl: 'file:///docs/downloads/item-1.mp3' });
+  });
+});
 
 describe('planDownloadCompletePlaybackHandoff', () => {
   it('returns the local file when the streaming item and enclosure match', () => {

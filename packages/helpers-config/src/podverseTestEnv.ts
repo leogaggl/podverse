@@ -68,11 +68,11 @@ const apiTestEnvBase = (): Record<string, string> => ({
   EMAIL_CHANGE_VERIFICATION_TOKEN_EXPIRATION: exp,
   LEGAL_NAME: 'Test Legal',
   LEGAL_ADDRESS: 'Test Address',
-  TERMS_OF_SERVICE_VERSION: '2026-01-01',
+  TERMS_OF_SERVICE_VERSION: '2026-10-15',
   TERMS_OF_SERVICE_CONTENT_DIR: '',
   CONTACT_EMAIL: 'contact@example.test',
   STATS_TRACK_EVENT_RETENTION_DAYS: '30',
-  POPULARITY_TRACKING_AGREEMENT_VERSION: '2026-09-11',
+  POPULARITY_TRACKING_AGREEMENT_VERSION: '2026-10-15',
   POPULARITY_TRACKING_CONTENT_DIR: '',
   PODCAST_INDEX_AUTH_KEY: 'test',
   PODCAST_INDEX_BASE_URL: 'https://api.podcastindex.org/api/1.8.1',
@@ -112,6 +112,9 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     KEYVALDB_PASSWORD: 'test',
     ACCOUNT_SIGNUP_MODE: 'user_signup_email',
     AUTH_LOGIN_MAX_PER_MINUTE: '100',
+    // POST /account cases in account.test.ts share one IP limiter. The production default
+    // (3 per 10 minutes) 429s the later cases. The dedicated 429 case still walks until the cap.
+    ACCOUNT_CREATE_MAX_PER_10_MINUTES: '30',
     API_PUBLIC_BASE_URL: 'http://localhost:29999',
   },
   apiWebE2e: {

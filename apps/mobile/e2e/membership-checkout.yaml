@@ -48,4 +48,8 @@ name: Membership Checkout
     visible:
       id: more-membership-expires
     timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    text: "Premium"
+- assertNotVisible:
+    text: "Trial Limitations Only"
 - takeScreenshot: membership-checkout-active

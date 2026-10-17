@@ -115,20 +115,25 @@ const makeChapter = (): DTOItemChapter => {
 
 describe('buildPublicShareUrl', () => {
   it('joins base/resource/id_text', () => {
-    expect(buildPublicShareUrl('https://podverse.fm', 'episode', 'ep123')).toBe(
-      'https://podverse.fm/episode/ep123'
+    expect(buildPublicShareUrl('https://example.com', 'episode', 'ep123')).toBe(
+      'https://example.com/episode/ep123'
     );
   });
 
   it('strips trailing slash from web base url', () => {
-    expect(buildPublicShareUrl('https://podverse.fm/', 'podcast', 'pod123')).toBe(
-      'https://podverse.fm/podcast/pod123'
+    expect(buildPublicShareUrl('https://example.com/', 'podcast', 'pod123')).toBe(
+      'https://example.com/podcast/pod123'
     );
+  });
+
+  it('returns null when this build has no web host', () => {
+    expect(buildPublicShareUrl(null, 'episode', 'ep123')).toBeNull();
+    expect(buildPublicShareUrl('   ', 'episode', 'ep123')).toBeNull();
   });
 });
 
 describe('buildNowPlayingShareUrl', () => {
-  const webBaseUrl = 'https://podverse.fm/';
+  const webBaseUrl = 'https://example.com/';
   const channel = makeChannel('pod123');
   const item = makeItem('ep123');
 
@@ -139,7 +144,7 @@ describe('buildNowPlayingShareUrl', () => {
       item,
       kind: 'clip',
     };
-    expect(buildNowPlayingShareUrl(webBaseUrl, target)).toBe('https://podverse.fm/clip/clip123');
+    expect(buildNowPlayingShareUrl(webBaseUrl, target)).toBe('https://example.com/clip/clip123');
   });
 
   it('maps item/soundbite/chapter targets to /episode/:id_text', () => {
@@ -173,19 +178,19 @@ describe('buildNowPlayingShareUrl', () => {
     };
 
     expect(buildNowPlayingShareUrl(webBaseUrl, soundbiteTarget)).toBe(
-      'https://podverse.fm/episode/ep123'
+      'https://example.com/episode/ep123'
     );
     expect(buildNowPlayingShareUrl(webBaseUrl, chapterTarget)).toBe(
-      'https://podverse.fm/episode/ep123'
+      'https://example.com/episode/ep123'
     );
     expect(buildNowPlayingShareUrl(webBaseUrl, itemPodcastTarget)).toBe(
-      'https://podverse.fm/episode/ep123'
+      'https://example.com/episode/ep123'
     );
     expect(buildNowPlayingShareUrl(webBaseUrl, itemVideoTarget)).toBe(
-      'https://podverse.fm/episode/ep123'
+      'https://example.com/episode/ep123'
     );
     expect(buildNowPlayingShareUrl(webBaseUrl, itemMusicTarget)).toBe(
-      'https://podverse.fm/episode/ep123'
+      'https://example.com/episode/ep123'
     );
   });
 
@@ -195,7 +200,7 @@ describe('buildNowPlayingShareUrl', () => {
       item: null,
       kind: 'livestream',
     };
-    expect(buildNowPlayingShareUrl(webBaseUrl, target)).toBe('https://podverse.fm/podcast/pod999');
+    expect(buildNowPlayingShareUrl(webBaseUrl, target)).toBe('https://example.com/podcast/pod999');
   });
 
   it('returns null for add-by-rss targets', () => {

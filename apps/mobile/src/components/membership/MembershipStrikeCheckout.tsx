@@ -10,8 +10,10 @@ import { formatHHMMSS } from '@podverse/helpers/time';
 
 import { useAuth } from '../../auth/AuthProvider';
 import { createBillingApi } from '../../billing/billingApi';
+import { formActionsTopGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
+import { FormActions } from '../form/FormActions';
 import { Button } from '../primitives';
 import { LoadingSection } from '../state/LoadingSection';
 
@@ -119,7 +121,7 @@ export function MembershipStrikeCheckout({
     () =>
       StyleSheet.create({
         actions: {
-          gap: tokens.spacing.sm,
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         amount: {
           ...typography.title,
@@ -134,12 +136,16 @@ export function MembershipStrikeCheckout({
         qr: {
           alignItems: 'center',
         },
+        renew: {
+          marginTop: tokens.spacing.base,
+        },
         stack: {
           gap: tokens.spacing.base,
         },
         status: {
           ...typography.body,
           color: themeStyles.textPrimary.color,
+          marginTop: tokens.spacing.base,
           minHeight: 24,
           textAlign: 'center',
         },
@@ -350,73 +356,78 @@ export function MembershipStrikeCheckout({
   return (
     <View
       accessibilityState={{ busy: phase === 'creating' }}
-      style={styles.stack}
       testID="membership-checkout-strike-invoice"
     >
       {phase === 'creating' ? <LoadingSection testID="membership-checkout-strike-loading" /> : null}
       {checkout !== null && phase !== 'creating' && phase !== 'failed' ? (
         <>
-          <Text accessibilityRole="header" style={styles.title}>
-            {t('checkout.lightning_invoice')}
-          </Text>
-          <Text style={styles.amount}>
-            {formatCheckoutAmount(checkout.amount, checkout.currency_code, i18n.language)}
-          </Text>
-          {showInvoice && QrView !== null ? (
-            <View
-              accessibilityLabel={t('checkout.lightning_invoice_qr')}
-              accessibilityRole="image"
-              accessible
-              style={styles.qr}
-            >
-              {/* Black on white so a camera can read the invoice in either theme. */}
-              <QrView
-                backgroundColor="#ffffff"
-                color="#000000"
-                quietZone={12}
-                size={QR_SIZE}
-                value={checkout.bolt11}
-              />
-            </View>
-          ) : null}
-          {showInvoice ? (
-            <Text style={styles.countdown}>
-              {t('checkout.invoice_expires_in', { time: formatHHMMSS(secondsLeft) })}
+          <View style={styles.stack}>
+            <Text accessibilityRole="header" style={styles.title}>
+              {t('checkout.lightning_invoice')}
             </Text>
-          ) : null}
+            <Text style={styles.amount}>
+              {formatCheckoutAmount(checkout.amount, checkout.currency_code, i18n.language)}
+            </Text>
+            {showInvoice && QrView !== null ? (
+              <View
+                accessibilityLabel={t('checkout.lightning_invoice_qr')}
+                accessibilityRole="image"
+                accessible
+                style={styles.qr}
+              >
+                {/* Black on white so a camera can read the invoice in either theme. */}
+                <QrView
+                  backgroundColor="#ffffff"
+                  color="#000000"
+                  quietZone={12}
+                  size={QR_SIZE}
+                  value={checkout.bolt11}
+                />
+              </View>
+            ) : null}
+            {showInvoice ? (
+              <Text style={styles.countdown}>
+                {t('checkout.invoice_expires_in', { time: formatHHMMSS(secondsLeft) })}
+              </Text>
+            ) : null}
+          </View>
           {showInvoice ? (
-            <View style={styles.actions}>
-              <Button
-                fullWidth
-                label={t('checkout.copy_invoice')}
-                loading={copying}
-                onPress={copyInvoice}
-                testID="membership-checkout-strike-copy"
-                variant="primary"
-              />
-              <Button
-                fullWidth
-                label={t('checkout.open_wallet')}
-                loading={openingWallet}
-                onPress={openWallet}
-                testID="membership-checkout-strike-wallet"
-                variant="outline"
-              />
-            </View>
+            <FormActions
+              actions={[
+                {
+                  label: t('checkout.copy_invoice'),
+                  loading: copying,
+                  onPress: copyInvoice,
+                  testID: 'membership-checkout-strike-copy',
+                  variant: 'primary',
+                },
+                {
+                  label: t('checkout.open_wallet'),
+                  loading: openingWallet,
+                  onPress: openWallet,
+                  testID: 'membership-checkout-strike-wallet',
+                  variant: 'outline',
+                },
+              ]}
+              style={styles.actions}
+            />
           ) : null}
           <Text accessibilityLiveRegion="polite" style={styles.status}>
             {statusText}
           </Text>
           {phase === 'expired' ? (
-            <Button
-              fullWidth
-              label={t('checkout.get_a_new_invoice')}
-              onPress={() => {
-                setAttempt((current) => current + 1);
-              }}
-              testID="membership-checkout-strike-renew"
-              variant="primary"
-            />
+            <View style={styles.renew}>
+              <Button
+                fullWidth
+                label={t('checkout.get_a_new_invoice')}
+                onPress={() => {
+                  setAttempt((current) => current + 1);
+                }}
+                size="form"
+                testID="membership-checkout-strike-renew"
+                variant="primary"
+              />
+            </View>
           ) : null}
         </>
       ) : null}

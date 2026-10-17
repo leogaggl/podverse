@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 
+import { ACCOUNT_RESPONSE_CODES } from '@podverse/helpers';
 import {
   getEmailErrorKey,
   getPassword2ErrorKey,
@@ -17,6 +18,7 @@ import { useConfig } from '../../contexts/Config';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { handleRateLimitAlert } from '../../utils/rateLimit/rateLimitAlert';
 import { Link } from '../Link/Link';
+import { VerificationEmailNotSentModal } from './VerificationEmailNotSentModal';
 
 import styles from '../../styles/components/Auth/AuthSignUpForm.module.scss';
 
@@ -48,6 +50,7 @@ export const AuthSignUpForm = () => {
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [termsVersionError, setTermsVersionError] = useState<string | undefined>();
   const [isAccountCreated, setIsAccountCreated] = useState(false);
+  const [verificationEmailNotSent, setVerificationEmailNotSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const tAuthentication = useTranslations('authentication');
   const tMisc = useTranslations('misc');
@@ -64,13 +67,17 @@ export const AuthSignUpForm = () => {
     setIsLoading(true);
     setTermsVersionError(undefined);
     try {
-      await getApiRequestService().reqAccountCreate({
+      const created = await getApiRequestService().reqAccountCreate({
         email,
         password: password1,
         locale,
         terms_version: config.public.legal.terms.version,
       });
-      setIsAccountCreated(true);
+      if (created.code === ACCOUNT_RESPONSE_CODES.VERIFICATION_EMAIL_NOT_SENT) {
+        setVerificationEmailNotSent(true);
+      } else {
+        setIsAccountCreated(true);
+      }
     } catch (err) {
       const rateLimitErrorHandled = await handleRateLimitAlert(err, locale, tMisc);
       if (rateLimitErrorHandled) {
@@ -241,6 +248,12 @@ export const AuthSignUpForm = () => {
       {isAccountCreated && (
         <FormInfoMessageText message={tAuthentication('account_created_message')} />
       )}
+      <VerificationEmailNotSentModal
+        isOpen={verificationEmailNotSent}
+        onClose={() => {
+          setVerificationEmailNotSent(false);
+        }}
+      />
     </div>
   );
 };

@@ -126,9 +126,9 @@ preview path via the fixtures sentinel query `unparsedfixture`.
   `/add-by-rss`, etc.).
 - Deep-link prefixes are **env-driven**, not hardcoded: the custom scheme(s) come from
   `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES` (default `podverse-next podverse`) and the universal /
-  app link host from `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (default `https://podverse.fm`). Native
+  app link host from `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (unset means no https host). Native
   registration (`app.config.ts` `scheme` array + associated-domains/intent-filter host) and the JS
-  `MOBILE_LINK_PREFIXES` both derive from the same pure `src/config/deepLinkSchemes.ts`, so a fork
+  `MOBILE_LINK_PREFIXES` both derive from the same pure `src/config/deepLinkSchemes.js`, so a fork
   can rebuild with its own scheme/domain and nothing drifts. `podverse` is kept as a legacy alias so
   an eventual in-place v4 → v5 upgrade still resolves old `podverse://` links — see the
   `mobile-deep-links-and-prod-cutover` rule for the production cutover plan.
@@ -239,6 +239,8 @@ Mobile now participates in the same local env pipeline as other apps:
   vars and mobile `EXPO_PUBLIC_MOBILE_API_BASE_URL_{IOS,ANDROID}` (must include `/api/v2`).
 - `NEXT_PUBLIC_CONTACT_EMAIL` from `socials.env` is copied to mobile
   `EXPO_PUBLIC_CONTACT_EMAIL` for the error-log email action.
+- `ACCOUNT_SIGNUP_MODE` from `app.env` is written as `EXPO_PUBLIC_ACCOUNT_SIGNUP_MODE`.
+  An unset build uses `user_signup_email`, which shows email flows such as change email.
 - `BRAND_DOMAIN` from `brand.env` is written as `EXPO_PUBLIC_MOBILE_WEB_BASE_URL`
   (`https://<BRAND_DOMAIN>`) for share links and universal-link host registration.
 - At runtime, the app reads those vars only via `getMobileConfig()` in
@@ -297,11 +299,15 @@ make mobile_eas_ios_build
 make mobile_eas_ios_submit
 make mobile_eas_ios_list
 make mobile_eas_ios_version
+
+# One EAS environment variable (beta profile → preview). Creates it, or updates it if the name exists.
+make mobile_eas_env_set NAME=EXPO_PUBLIC_MOBILE_WEB_BASE_URL VALUE=https://example.com
 ```
 
 `build` and `submit` show the EAS environment / `EXPO_PUBLIC_*` summary and ask first. Store
-profiles refuse a dirty tree. EAS must be logged in to the `podverse` account
-(`npx eas-cli@latest login` from `apps/mobile`). Play upload steps:
+profiles refuse a dirty tree. EAS must be logged in to the `podverse` account; a
+`make mobile_eas_*` command runs `eas-cli` and prompts for login when the session is missing.
+Play upload steps:
 [BILLING-GOOGLE-PLAY-SANDBOX.md](../../docs/billing/BILLING-GOOGLE-PLAY-SANDBOX.md#app-on-a-testing-track).
 
 ## Native toolchain prerequisites (outside Nix)
@@ -1096,9 +1102,10 @@ Versioning policy:
 
 OTA policy boundary:
 
-- Use **EAS Update** only for JavaScript/content-only changes.
-- Any native-impacting change (Expo config plugins, prebuild output, native modules, iOS/Android
-  project changes, ABI-affecting deps) requires a new store build and submit flow.
+- This app does not use over-the-air updates (EAS Update). JavaScript and native changes both
+  ship in the next store binary.
+- Turning OTA on is a major change and waits for an explicit operator request in that
+  conversation. See **mobile-store-builds-on-demand**.
 
 EAS profile source of truth:
 

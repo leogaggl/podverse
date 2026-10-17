@@ -1,31 +1,16 @@
 import { config } from '@api/config/index.js';
 import { emailChangeVerificationPagePath } from '@api/constants/webAuthPagePaths.js';
-import { loggerService } from '@api/factories/loggerService.js';
 import { emailTemplate } from '@api/lib/mailer/emailTemplate.js';
-import { createTransporter } from '@api/lib/mailer/transporter.js';
+import type { MailerSendResult } from '@api/lib/mailer/mailerSendResult.js';
+import { logMailerSendFailure, openMailer } from '@api/lib/mailer/mailerSendResult.js';
 
 export const sendEmailChangeVerificationEmail = async (
   pending_email_address: string,
   token: string
-): Promise<void> => {
-  if (config.mailer.disabled) {
-    loggerService.info('Mailer has been disabled, email change verification email will be skipped');
-    return;
-  }
-
-  if (!config.mailer.host) {
-    loggerService.logError(
-      'Mailer host is not configured, email change verification email will be skipped'
-    );
-    return;
-  }
-
-  let transporter;
-  try {
-    transporter = createTransporter();
-  } catch (err) {
-    console.error('[sendEmailChangeVerificationEmail] failed to create transporter', err);
-    throw err;
+): Promise<MailerSendResult> => {
+  const opened = await openMailer('email_change');
+  if (opened.status === 'skipped' || opened.status === 'failed') {
+    return opened.status;
   }
 
   const emailFields = {
@@ -38,7 +23,7 @@ export const sendEmailChangeVerificationEmail = async (
   };
 
   try {
-    await transporter.sendMail({
+    await opened.transporter.sendMail({
       from: `${config.brandName} <${config.mailer.from}>`,
       to: pending_email_address,
       subject: `Verify your change of email with ${config.brandName}`,
@@ -46,7 +31,9 @@ export const sendEmailChangeVerificationEmail = async (
       text: `Verify your email change request by visiting the following: ${emailFields.buttonLink}`,
     });
   } catch (err) {
-    console.error('[sendEmailChangeVerificationEmail] mail send failed', err);
-    throw err;
+    logMailerSendFailure('Email change verification email send failed', err);
+    return 'failed';
   }
+
+  return 'sent';
 };

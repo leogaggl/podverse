@@ -20,14 +20,20 @@ const trimTrailingSlashes = (value: string): string => {
 };
 
 export const buildPublicShareUrl = (
-  webBaseUrl: string,
+  webBaseUrl: string | null,
   resource: ShareResource,
   idText: string
-): string => {
+): string | null => {
+  if (webBaseUrl === null || webBaseUrl.trim() === '') {
+    return null;
+  }
   return `${trimTrailingSlashes(webBaseUrl)}${buildAppRoutePath(SHARE_RESOURCE_ROUTES[resource], idText)}`;
 };
 
-export function buildNowPlayingShareUrl(webBaseUrl: string, target: PlaybackTarget): string | null {
+export function buildNowPlayingShareUrl(
+  webBaseUrl: string | null,
+  target: PlaybackTarget
+): string | null {
   switch (target.kind) {
     case 'clip':
       return buildPublicShareUrl(webBaseUrl, 'clip', target.clip.id_text);

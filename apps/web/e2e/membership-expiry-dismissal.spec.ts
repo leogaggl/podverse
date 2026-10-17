@@ -64,7 +64,9 @@ test.describe('Membership expiry dismissal', () => {
     await login(page);
 
     await page.goto('/');
-    const warning = page.getByText(/expires on .+ Renew now to continue enjoying Premium features/);
+    const warning = page.getByText(
+      /Your Trial expires on .+ Buy a membership now to continue using Premium features/
+    );
     await expect(warning).toBeVisible();
     await page.getByRole('button', { name: 'Dismiss' }).click();
     await expect(warning).toHaveCount(0);
@@ -91,7 +93,7 @@ test.describe('Membership expiry dismissal', () => {
 
     await page.goto('/');
     const expiredToast = page.getByText(
-      /has expired\. Renew now to continue enjoying Premium features/
+      /Your Trial has expired\. Buy a membership to continue using Premium features/
     );
     const banner = page.getByTestId('membership-expired-banner');
     await expect(expiredToast).toBeVisible();

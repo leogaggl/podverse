@@ -15,7 +15,7 @@ import {
 
 const TEST_EMAIL = 'account-test@example.com';
 const TEST_USER_ID = 1;
-const VALID_TERMS_VERSION = '2026-01-01';
+const VALID_TERMS_VERSION = '2026-10-15';
 
 const validAccountCreateBody = {
   email: 'new@example.com',
@@ -43,6 +43,7 @@ const {
   credentialsUpdateMock,
   exportUserDataMock,
   sendVerificationEmailMock,
+  probeVerificationMailerMock,
   sendResetPasswordEmailMock,
   sendEmailChangeVerificationEmailMock,
   setPasswordGetByTokenMock,
@@ -77,9 +78,10 @@ const {
   emailChangeDeleteByAccountIdMock: vi.fn(async () => {}),
   credentialsUpdateMock: vi.fn(async () => {}),
   exportUserDataMock: vi.fn(async () => ({ account: { id: TEST_USER_ID } })),
-  sendVerificationEmailMock: vi.fn(async () => {}),
+  sendVerificationEmailMock: vi.fn(async () => 'sent' as const),
+  probeVerificationMailerMock: vi.fn(async () => 'skipped' as const),
   sendResetPasswordEmailMock: vi.fn(async () => {}),
-  sendEmailChangeVerificationEmailMock: vi.fn(async () => {}),
+  sendEmailChangeVerificationEmailMock: vi.fn(async () => 'sent' as const),
   setPasswordGetByTokenMock: vi.fn(async () => null),
   setPasswordDeleteByAccountIdMock: vi.fn(async () => {}),
 }));
@@ -146,6 +148,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
 
 vi.mock('../lib/mailer/sendVerificationEmail.js', () => ({
   sendVerificationEmail: sendVerificationEmailMock,
+  probeVerificationMailer: probeVerificationMailerMock,
 }));
 
 vi.mock('../lib/mailer/sendResetPasswordEmail.js', () => ({
@@ -178,6 +181,19 @@ describe('account CRUD and email routes', () => {
   describe('POST /account (create)', () => {
     beforeEach(() => {
       createMock.mockClear();
+      sendVerificationEmailMock.mockReset();
+      sendVerificationEmailMock.mockResolvedValue('sent');
+      probeVerificationMailerMock.mockReset();
+      probeVerificationMailerMock.mockResolvedValue('skipped');
+      verificationUpdateMock.mockClear();
+      credentialsUpdateMock.mockClear();
+      getByEmailMock.mockReset();
+      getByEmailMock.mockResolvedValue({
+        id: TEST_USER_ID,
+        id_text: TEST_USER_ACCOUNT_ID_TEXT,
+        verified: true,
+        account_credentials: { email: TEST_EMAIL, password: 'hashed-password' },
+      });
     });
 
     it('returns 200 with valid data', async () => {
@@ -194,6 +210,7 @@ describe('account CRUD and email routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Account created');
+      expect(res.body.code).toBeUndefined();
       expect(createMock).toHaveBeenCalledTimes(1);
       expect(createMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -215,6 +232,90 @@ describe('account CRUD and email routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Account created');
+      expect(res.body.code).toBeUndefined();
+      expect(sendVerificationEmailMock).not.toHaveBeenCalled();
+      expect(verificationUpdateMock).not.toHaveBeenCalled();
+      expect(credentialsUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('returns the failure code when the verification email is not sent', async () => {
+      createMock.mockResolvedValueOnce({});
+      getByEmailMock.mockResolvedValueOnce({
+        id: 2,
+        id_text: 'new-user',
+        verified: false,
+        account_credentials: { email: 'new@example.com' },
+      });
+      sendVerificationEmailMock.mockResolvedValueOnce('failed');
+
+      const res = await request(app).post(`${accountBase}/`).send(validAccountCreateBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        message: 'Account created',
+        code: 'verification_email_not_sent',
+      });
+    });
+
+    it('omits the failure code when the mailer is skipped', async () => {
+      createMock.mockResolvedValueOnce({});
+      getByEmailMock.mockResolvedValueOnce({
+        id: 2,
+        id_text: 'new-user',
+        verified: false,
+        account_credentials: { email: 'new@example.com' },
+      });
+      sendVerificationEmailMock.mockResolvedValueOnce('skipped');
+
+      const res = await request(app).post(`${accountBase}/`).send(validAccountCreateBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message: 'Account created' });
+    });
+
+    it('sends another verification email for an unverified duplicate signup', async () => {
+      const { ERROR_MESSAGES } = await import('@podverse/helpers');
+      createMock.mockRejectedValueOnce(new Error(ERROR_MESSAGES.ACCOUNT.ALREADY_EXISTS));
+      getByEmailMock.mockResolvedValue({
+        id: 2,
+        id_text: 'existing-user',
+        verified: false,
+        account_credentials: { email: 'duplicate@example.com' },
+      });
+
+      const res = await request(app)
+        .post(`${accountBase}/`)
+        .send({
+          ...validAccountCreateBody,
+          email: 'duplicate@example.com',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message: 'Account created' });
+      expect(sendVerificationEmailMock).toHaveBeenCalledTimes(1);
+      expect(credentialsUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('returns the failure code for a verified duplicate when the mailer is down', async () => {
+      const { ERROR_MESSAGES } = await import('@podverse/helpers');
+      createMock.mockRejectedValueOnce(new Error(ERROR_MESSAGES.ACCOUNT.ALREADY_EXISTS));
+      probeVerificationMailerMock.mockResolvedValueOnce('failed');
+
+      const res = await request(app)
+        .post(`${accountBase}/`)
+        .send({
+          ...validAccountCreateBody,
+          email: 'verified-duplicate@example.com',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        message: 'Account created',
+        code: 'verification_email_not_sent',
+      });
+      expect(sendVerificationEmailMock).not.toHaveBeenCalled();
+      expect(verificationUpdateMock).not.toHaveBeenCalled();
+      expect(credentialsUpdateMock).not.toHaveBeenCalled();
     });
 
     it('returns 400 with password too short', async () => {
@@ -332,6 +433,26 @@ describe('account CRUD and email routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Verification email sent');
+      expect(res.body.code).toBeUndefined();
+    });
+
+    it('returns 503 when the verification email is not sent', async () => {
+      getByEmailMock.mockResolvedValueOnce({
+        id: TEST_USER_ID,
+        id_text: 'test-user',
+        account_credentials: { email: TEST_EMAIL },
+      });
+      sendVerificationEmailMock.mockResolvedValueOnce('failed');
+
+      const res = await request(app)
+        .post(`${accountBase}/send-verification-email`)
+        .send({ email: TEST_EMAIL });
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual({
+        message: 'Verification email not sent',
+        code: 'verification_email_not_sent',
+      });
     });
   });
 

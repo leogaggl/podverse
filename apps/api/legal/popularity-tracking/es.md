@@ -1,27 +1,38 @@
-El seguimiento de popularidad ayuda a los oyentes a encontrar programas que la gente está disfrutando, y ayuda a los creadores a ver cuándo su trabajo llega a las personas.
+El seguimiento de popularidad es opcional. Ayuda a los oyentes a encontrar programas que la gente está disfrutando, y ayuda a los creadores a ver cuándo su trabajo llega a las personas.
 
-Si dices que sí, {brand_name} te incluye en las clasificaciones de oyentes únicos. Los datos se anonimizan, permanecen en nuestros servidores y nunca se venden.
+Si lo activas, {brand_name} te cuenta como un oyente. Tu nombre no forma parte de ese recuento. Puedes desactivarlo en cualquier momento en Configuraciones.
 
-# Qué es el seguimiento de popularidad
+# Cómo se cuenta una escucha
 
-Las clasificaciones de oyentes únicos ayudan a las personas a descubrir programas populares y ayudan a los creadores a entender cuándo su trabajo está llegando a una audiencia.
+Reproducir algo del catálogo registra esa escucha: el episodio o la pista, el clip cuando reprodujiste un clip, y el programa al que pertenece. Reproducir lo mismo otra vez, mientras el registro sigue guardado, no te cuenta una segunda vez.
 
-# Qué registra {brand_name} si dices que sí
+En el sitio web se registran dos cosas más: abrir el perfil de otra persona y abrir una lista de reproducción. Abrir tu propio perfil no se registra.
 
-Si dices que sí, {brand_name} registra un evento de escucha seudónimo cuando reproduces episodios del catálogo. El evento usa un identificador interno de cuenta. No se muestra como tu perfil público ni como tu nombre de usuario.
+Escuchar sin haber iniciado sesión no se cuenta. Si el seguimiento de popularidad está desactivado, las escuchas nuevas no se registran.
 
-# Cómo se usan los datos
+# Qué guardamos
 
-Esos eventos alimentan las clasificaciones de oyentes únicos y las listas de tendencias para que los oyentes encuentren programas que la gente está disfrutando, y para que los creadores vean cuándo su trabajo llega a las personas.
+Cada registro tiene un id aleatorio de tu cuenta, qué reprodujiste o abriste, y cuándo. No incluye tu nombre, tu correo electrónico ni tu nombre de usuario. Ese id no se muestra en tu perfil público.
 
-# Lo que no hacemos
+Aun así podemos conectar el id con tu cuenta. Así es como desactivar esto, y eliminar tu cuenta, se aplica a ti. Esto no es anónimo. No damos el id a nadie más.
 
-- Los eventos se almacenan en nuestros servidores.
-- Nunca vendemos estos datos.
-- No los usamos para mostrarte anuncios.
+# Qué muestran las listas
 
-# Cambiar tu elección
+Las listas públicas muestran recuentos. No muestran quién escuchó.
 
-Puedes cambiar esto en cualquier momento en ajustes. Decir que no detiene el seguimiento nuevo. Los eventos existentes se conservan solo durante un tiempo limitado y luego se eliminan.
+# Qué no hacemos
 
-Una actualización posterior de este acuerdo solo vuelve a preguntar si ya dijiste que sí. Si dijiste que no, no te lo volveremos a preguntar cuando el acuerdo cambie.
+- No vendemos esta información.
+- No la usamos para hacerte publicidad.
+
+# Cuánto tiempo lo conservamos
+
+Los registros individuales se eliminan después de {retention_days} días. Los recuentos ya añadidos a las listas públicas pueden permanecer después de que se elimine un registro. Esos recuentos son números, no una lista de oyentes.
+
+Eliminar tu cuenta elimina el id aleatorio y los registros vinculados a él.
+
+# Si cambias de opinión
+
+Actívalo o desactívalo en Configuraciones. Desactivarlo detiene los registros nuevos. Los registros ya guardados se eliminan cuando llegan a {retention_days} días.
+
+Si lo desactivas, no volveremos a preguntar cuando cambie esta explicación. Si lo activas, y más adelante cambiamos qué registramos o cuánto tiempo lo conservamos, volveremos a preguntar. Hasta que aceptes esa actualización, el seguimiento permanece desactivado.

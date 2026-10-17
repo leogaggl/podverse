@@ -83,9 +83,9 @@ describe('GET /legal/popularity-tracking', () => {
     const res = await request(app).get(`${legalBase}/popularity-tracking`).set(authHeaders());
 
     expect(res.status).toBe(200);
-    expect(res.body.version).toBe('2026-09-11');
-    expect(res.body.markdown).toContain('unique-listener rankings');
-    expect(res.body.markdown).toContain('pseudonymous listen event');
+    expect(res.body.version).toBe('2026-10-15');
+    expect(res.body.markdown).toContain('Popularity Tracking is optional');
+    expect(res.body.markdown).toContain('not anonymous');
   });
 
   it('returns Spanish markdown when the account locale is es', async () => {
@@ -94,8 +94,8 @@ describe('GET /legal/popularity-tracking', () => {
     const res = await request(app).get(`${legalBase}/popularity-tracking`).set(authHeaders());
 
     expect(res.status).toBe(200);
-    expect(res.body.markdown).toContain('clasificaciones de oyentes únicos');
-    expect(res.body.markdown).toContain('evento de escucha seudónimo');
+    expect(res.body.markdown).toContain('El seguimiento de popularidad es opcional');
+    expect(res.body.markdown).toContain('no es anónimo');
   });
 
   it('returns 401 without auth', async () => {

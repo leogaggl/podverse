@@ -2,10 +2,11 @@ import { expect, test } from '@playwright/test';
 
 import { capturePageLoad } from './helpers/stepScreenshots';
 
-// A logged-in but EXPIRED member attempting a member-only action (here: creating a playlist) must
-// see the shared membership modal (Cancel + auth-based Renew) instead of a generic error. The 403 is
+// A logged-in Trial member attempting a member-only action (here: creating a playlist) must see
+// the shared membership modal (Cancel + Buy Membership) instead of a generic error. The 403 is
 // mocked with the real membership-expired payload (i18nKey + renewPath) that
-// `parseMembershipGateError` interprets, so no expired seed is needed.
+// `parseMembershipGateError` interprets. The seeded account is Trial, so the button is Buy
+// Membership even though the payload says the membership expired.
 test.describe('Membership gate on member-only actions', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/playlist', async (route) => {
@@ -17,7 +18,7 @@ test.describe('Membership gate on member-only actions', () => {
         status: 403,
         contentType: 'application/json',
         body: JSON.stringify({
-          message: 'Your membership has expired. Renew to use this feature.',
+          message: 'Your membership has expired.',
           code: 'membership_expired',
           i18nKey: 'membership.membership_expired',
           renewPath: '/membership/renew',
@@ -26,7 +27,7 @@ test.describe('Membership gate on member-only actions', () => {
     });
   });
 
-  test('a logged-in expired member creating a playlist sees the membership modal, and Renew navigates to the renew page', async ({
+  test('a logged-in Trial member creating a playlist sees the membership modal, and Buy Membership navigates to the renew page', async ({
     page,
   }, testInfo) => {
     const loginResponse = await page.request.post('http://localhost:4030/api/v2/auth/login', {
@@ -50,33 +51,32 @@ test.describe('Membership gate on member-only actions', () => {
 
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
-      // The membership modal is distinguished from the plain login modal by its Renew action.
-      const renewButton = dialog.getByRole('button', { name: 'Renew Membership' });
-      await expect(renewButton).toBeVisible();
+      const buyButton = dialog.getByRole('button', { name: 'Buy Membership' });
+      await expect(buyButton).toBeVisible();
       await expect(dialog.getByText(/membership has expired/i)).toBeVisible();
 
       await capturePageLoad(
         page,
         testInfo,
-        'The membership modal explains the expired membership with a Renew action.',
+        'The membership modal explains the expired membership with Buy Membership.',
         dialog
       );
     });
 
-    await test.step('Renew membership navigates to the membership renew page', async () => {
-      await page.getByRole('dialog').getByRole('button', { name: 'Renew Membership' }).click();
+    await test.step('Buy Membership navigates to the membership renew page', async () => {
+      await page.getByRole('dialog').getByRole('button', { name: 'Buy Membership' }).click();
       await expect(page).toHaveURL(/\/membership\/renew/);
 
       await capturePageLoad(
         page,
         testInfo,
-        'Renew membership navigates to the membership renew page.',
+        'Buy Membership navigates to the membership renew page.',
         page.getByRole('heading', { level: 1 })
       );
     });
   });
 
-  test('a logged-in expired member adding an episode to the queue sees the membership modal, and Renew navigates to the renew page', async ({
+  test('a logged-in Trial member adding an episode to the queue sees the membership modal, and Buy Membership navigates to the renew page', async ({
     page,
   }, testInfo) => {
     // "Add to Queue Next" is member-gated (POST /queue/:q/item/:i/next, skipMembershipStatus: false).
@@ -91,7 +91,7 @@ test.describe('Membership gate on member-only actions', () => {
         status: 403,
         contentType: 'application/json',
         body: JSON.stringify({
-          message: 'Your membership has expired. Renew to use this feature.',
+          message: 'Your membership has expired.',
           code: 'membership_expired',
           i18nKey: 'membership.membership_expired',
           renewPath: '/membership/renew',
@@ -129,26 +129,26 @@ test.describe('Membership gate on member-only actions', () => {
     await test.step('The queue-add 403 opens the membership modal (not the generic add-error toast)', async () => {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
-      const renewButton = dialog.getByRole('button', { name: 'Renew Membership' });
-      await expect(renewButton).toBeVisible();
+      const buyButton = dialog.getByRole('button', { name: 'Buy Membership' });
+      await expect(buyButton).toBeVisible();
       await expect(dialog.getByText(/membership has expired/i)).toBeVisible();
 
       await capturePageLoad(
         page,
         testInfo,
-        'Adding to the queue while expired shows the membership modal with a Renew action.',
+        'The queue membership modal offers Buy Membership.',
         dialog
       );
     });
 
-    await test.step('Renew membership navigates to the membership renew page', async () => {
-      await page.getByRole('dialog').getByRole('button', { name: 'Renew Membership' }).click();
+    await test.step('Buy Membership navigates to the membership renew page', async () => {
+      await page.getByRole('dialog').getByRole('button', { name: 'Buy Membership' }).click();
       await expect(page).toHaveURL(/\/membership\/renew/);
 
       await capturePageLoad(
         page,
         testInfo,
-        'Renew membership navigates to the membership renew page.',
+        'Buy Membership navigates to the membership renew page.',
         page.getByRole('heading', { level: 1 })
       );
     });

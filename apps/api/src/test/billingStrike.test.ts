@@ -16,6 +16,9 @@ import { authHeaders, getBaseApiUrl, startTestApp, stopTestApp } from './helpers
 
 const strikeFake = vi.hoisted(() => ({
   nextId: 0,
+  // Checkout rows survive the next Vitest process. A counter that restarts at 1 would reuse
+  // processor external ids and hit the unique key.
+  runToken: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
   completedAt: new Date(0).toISOString(),
   completedIds: new Set<string>(),
   invoices: new Map<string, { bolt11: string; expiresAt: string }>(),
@@ -33,7 +36,7 @@ vi.mock('@podverse/external-services-strike', async (importOriginal) => {
       receiveRequestId: string;
     }> {
       strikeFake.nextId += 1;
-      const receiveRequestId = `rr-vitest-${strikeFake.nextId}`;
+      const receiveRequestId = `rr-vitest-${strikeFake.runToken}-${strikeFake.nextId}`;
       const expiresAt = new Date(Date.now() + 900_000).toISOString();
       const bolt11 = `lnbc1vitest${receiveRequestId}`;
       strikeFake.invoices.set(receiveRequestId, { bolt11, expiresAt });
@@ -167,7 +170,7 @@ describe('Strike billing routes', () => {
       email,
       password: 'IntegrationTest1!',
       locale: 'en-US',
-      terms_version: '2026-01-01',
+      terms_version: '2026-10-15',
     });
     const account = await accountService.getByEmail(email);
     if (!account) {
@@ -458,6 +461,7 @@ describe('Strike billing routes', () => {
         nodeEnv: config.nodeEnv,
         allowTestAdapter: config.billing.allowTestAdapter,
         sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+        grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
         processors: readBillingProcessorEnv(process.env),
       });
     };
@@ -466,6 +470,7 @@ describe('Strike billing routes', () => {
       nodeEnv: config.nodeEnv,
       allowTestAdapter: config.billing.allowTestAdapter,
       sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+      grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
       processors: readBillingProcessorEnv(process.env),
     });
     await clearChannelCache();

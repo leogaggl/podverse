@@ -2,7 +2,7 @@
 #     Same overall shape as the shared Makefile.local.e2e pattern; Podverse-specific ports and paths.
 #     Depends on Makefile.local.test.mk (test_deps, test containers). ---
 
-.PHONY: e2e_deps e2e_seed e2e_seed_web e2e_seed_management_web e2e_build_packages
+.PHONY: e2e_deps e2e_mailpit_up e2e_seed e2e_seed_web e2e_seed_management_web e2e_build_packages
 .PHONY: e2e_test e2e_test_playwright e2e_test_api e2e_test_web e2e_test_management_web
 .PHONY: e2e_test_management_web_storage_enabled
 .PHONY: e2e_test_report e2e_test_web_report_spec e2e_test_web_paypal_sandbox e2e_test_web_custom_themes_report e2e_test_management_web_report_spec e2e_test_report_scoped
@@ -26,8 +26,36 @@ e2e_build_packages:
 	@echo "Building packages before E2E report run..."
 	@npm run build:packages
 
-# Ensure test DBs exist
-e2e_deps: test_deps
+E2E_MAILPIT_CONTAINER := podverse_e2e_mailpit
+E2E_MAILPIT_SMTP_PORT := 1025
+E2E_MAILPIT_HTTP_PORT := 8025
+E2E_MAILPIT_IMAGE := axllent/mailpit:v1.31.6
+
+# Local SMTP catcher for signup mail. API Vitest stays mocked and does not use this.
+e2e_mailpit_up:
+	@if docker ps -q -f name=^/$(E2E_MAILPIT_CONTAINER)$$ | grep -q .; then \
+		echo "E2E Mailpit already running ($(E2E_MAILPIT_CONTAINER))."; \
+	elif docker ps -aq -f name=^/$(E2E_MAILPIT_CONTAINER)$$ | grep -q .; then \
+		echo "Starting existing E2E Mailpit container..."; \
+		docker start $(E2E_MAILPIT_CONTAINER); \
+	else \
+		echo "Starting E2E Mailpit (SMTP $(E2E_MAILPIT_SMTP_PORT), HTTP $(E2E_MAILPIT_HTTP_PORT))..."; \
+		docker run -d --name $(E2E_MAILPIT_CONTAINER) \
+			-p 127.0.0.1:$(E2E_MAILPIT_SMTP_PORT):1025 \
+			-p 127.0.0.1:$(E2E_MAILPIT_HTTP_PORT):8025 \
+			-e MP_SMTP_AUTH_ACCEPT_ANY=1 \
+			-e MP_SMTP_AUTH_ALLOW_INSECURE=1 \
+			$(E2E_MAILPIT_IMAGE); \
+	fi
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		if curl -sf http://127.0.0.1:$(E2E_MAILPIT_HTTP_PORT)/api/v1/info >/dev/null; then break; fi; \
+		sleep 1; \
+		if [ $$i -eq 20 ]; then echo "Mailpit did not become ready (run: docker logs $(E2E_MAILPIT_CONTAINER))."; exit 1; fi; \
+	done
+	@echo "E2E Mailpit ready."
+
+# Ensure test DBs exist. Mailpit is only for browser signup flows.
+e2e_deps: test_deps e2e_mailpit_up
 	@echo "E2E dependencies ready."
 
 # Seed web test database with deterministic E2E data

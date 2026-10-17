@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getMembershipExpiryDismissalKey, getMembershipExpiryNotice } from '@podverse/helpers';
+import {
+  getMembershipExpiryDismissalKey,
+  getMembershipExpiryNotice,
+  membershipPurchaseAction,
+  membershipPurchaseMessageKey,
+} from '@podverse/helpers';
 
 import { useMembership } from '../../membership/useMembership';
 import { getPref, setPref } from '../../prefs/prefsStore';
@@ -134,7 +139,9 @@ export function MembershipExpiredBanner({ onRenew }: MembershipExpiredBannerProp
     <View style={styles.container} testID="membership-expired-banner">
       <Text style={styles.message}>{message}</Text>
       <Button
-        label={t('membership.gate.banner_action')}
+        label={t(
+          `membership.${membershipPurchaseMessageKey(membershipPurchaseAction(membership))}`
+        )}
         onPress={onRenew}
         size="sm"
         testID="membership-expired-banner-renew"

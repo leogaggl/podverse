@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS } from '@podverse/helpers';
 import { getDefaultLocale } from '@podverse/orm';
 
 const BUNDLED_FROM_MODULE = path.resolve(
@@ -21,8 +22,19 @@ export function resolvePopularityTrackingContentDir(): string {
   return path.join(process.cwd(), 'apps', 'api', 'legal', 'popularity-tracking');
 }
 
+function retentionDaysLabel(): string {
+  const raw = config.terms.retentionDays.trim();
+  const parsed = Number.parseInt(raw, 10);
+  if (raw !== '' && Number.isFinite(parsed) && parsed > 0) {
+    return String(parsed);
+  }
+  return String(DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS);
+}
+
 export function interpolatePopularityTrackingMarkdown(markdown: string): string {
-  return markdown.replaceAll('{brand_name}', config.brandName);
+  return markdown
+    .replaceAll('{brand_name}', config.brandName)
+    .replaceAll('{retention_days}', retentionDaysLabel());
 }
 
 function resolveDefaultLocale(): string {

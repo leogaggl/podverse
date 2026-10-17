@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getCopyMarkdownIntro, parseCopyMarkdown } from './copyMarkdown.js';
+import { getCopyMarkdownDetails, getCopyMarkdownIntro, parseCopyMarkdown } from './copyMarkdown.js';
 
 describe('parseCopyMarkdown', () => {
   it('parses heading, paragraphs, list, and a link', () => {
@@ -174,5 +174,18 @@ describe('getCopyMarkdownIntro', () => {
 
   it('returns the full document when there is no heading', () => {
     expect(getCopyMarkdownIntro('Only this.')).toBe('Only this.');
+  });
+});
+
+describe('getCopyMarkdownDetails', () => {
+  it('returns the document from the first heading when leading prose is separate', () => {
+    expect(
+      getCopyMarkdownDetails(['Intro paragraph.', '', '# Details', '', 'More detail.'].join('\n'))
+    ).toBe(['# Details', '', 'More detail.'].join('\n'));
+  });
+
+  it('is empty when the intro already is the whole document', () => {
+    expect(getCopyMarkdownDetails('Only this.')).toBe('');
+    expect(getCopyMarkdownDetails('# Starts with a heading\n\nBody.')).toBe('');
   });
 });

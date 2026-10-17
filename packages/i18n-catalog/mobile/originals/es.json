@@ -305,8 +305,14 @@
     "playback_credentials_withheld_insecure": "Este contenido usa una dirección sin cifrar, así que no se enviaron el usuario y la contraseña del feed.",
     "download_credentials_withheld": "Este archivo necesita el usuario y la contraseña del feed, y las descargas en este dispositivo no los envían. Aún puedes reproducirlo sin descargarlo."
   },
+  "authentication": {
+    "account_created_title": "Cuenta creada",
+    "account_created_body": "Revisa tu correo para el enlace de verificación."
+  },
   "membership": {
-    "trial_limitations_missing_content": "Si tienes una membresía de prueba y falta contenido que te gustaría, escribe a {email} para pedir ayuda."
+    "status_free_trial": "Prueba gratuita",
+    "trial_limitations_missing_content": "Si tienes una membresía de prueba y falta contenido que te gustaría, escribe a {email} para pedir ayuda.",
+    "trial_limitations_only": "Solo limitaciones de la prueba"
   },
   "more_advanced": {
     "title": "Avanzado"

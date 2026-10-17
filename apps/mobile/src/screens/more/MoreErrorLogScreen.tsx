@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, Share, StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
-import { Badge, Button, LIST_REMOVE_CLIPPED_SUBVIEWS, ListRow } from '../../components/primitives';
+import { FormActions } from '../../components/form';
+import { Badge, LIST_REMOVE_CLIPPED_SUBVIEWS, ListRow } from '../../components/primitives';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { getMobileConfig } from '../../config';
@@ -14,6 +15,11 @@ import type { SyncEventLogEntry } from '../../data/repositories';
 import { formatSyncEventLogExport, syncEventLogRepository } from '../../data/repositories';
 import type { MoreStackParamList } from '../../navigation';
 import { MORE_STACK_ROUTES } from '../../navigation';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
+import { formActionsTopGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { readErrorLogDeviceContext } from './errorLogDeviceContext.read';
 import {
@@ -37,6 +43,7 @@ export function MoreErrorLogScreen() {
   const supportEmail = getMobileConfig().contactEmail;
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const timestampFormatter = useErrorLogTimestampFormatter();
   const [entries, setEntries] = useState<SyncEventLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -77,9 +84,8 @@ export function MoreErrorLogScreen() {
     () =>
       StyleSheet.create({
         actions: {
-          flexDirection: 'row',
-          gap: tokens.spacing.md,
           marginBottom: tokens.spacing.md,
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         chevron: {
           color: themeStyles.textSecondary.color,
@@ -92,7 +98,6 @@ export function MoreErrorLogScreen() {
         intro: {
           color: themeStyles.textSecondary.color,
           fontSize: 13,
-          marginBottom: tokens.spacing.md,
         },
         rowDivider: {
           borderTopColor: themeStyles.border.borderColor,
@@ -147,25 +152,26 @@ export function MoreErrorLogScreen() {
   const renderHeader = () => (
     <View>
       <Text style={styles.intro}>{t('error_log.intro', { email: supportEmail })}</Text>
-      <View style={styles.actions}>
-        <Button
-          disabled={entries.length === 0}
-          label={t('error_log.export')}
-          onPress={handleExport}
-          size="sm"
-          testID="error-log-export"
-        />
-        <Button
-          disabled={entries.length === 0}
-          label={t('error_log.clear')}
-          onPress={() => {
-            setIsClearConfirmVisible(true);
-          }}
-          size="sm"
-          testID="error-log-clear"
-          variant="secondary"
-        />
-      </View>
+      <FormActions
+        actions={[
+          {
+            disabled: entries.length === 0,
+            label: t('error_log.export'),
+            onPress: handleExport,
+            testID: 'error-log-export',
+          },
+          {
+            disabled: entries.length === 0,
+            label: t('error_log.clear'),
+            onPress: () => {
+              setIsClearConfirmVisible(true);
+            },
+            testID: 'error-log-clear',
+            variant: 'secondary',
+          },
+        ]}
+        style={styles.actions}
+      />
     </View>
   );
 
@@ -182,7 +188,9 @@ export function MoreErrorLogScreen() {
             <ListEmpty messageKey="error_log.empty" testID="error-log-empty" />
           )
         }
+        ListFooterComponent={<BottomChromeScrollSpacer />}
         ListHeaderComponent={renderHeader}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
         renderItem={renderRow}
       />

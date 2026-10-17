@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { DTOTermsAgreement } from '@podverse/helpers';
-import { getCopyMarkdownIntro } from '@podverse/helpers';
+import { getCopyMarkdownDetails, getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
@@ -83,6 +83,8 @@ export function TermsAgreementGate() {
     router.push(ROUTES.ACCOUNT_ACCESS);
   };
 
+  const details = agreement === null ? '' : getCopyMarkdownDetails(agreement.markdown);
+
   return (
     <AgreementScreen
       acceptDisabled={agreement === null || !checked}
@@ -94,7 +96,7 @@ export function TermsAgreementGate() {
         agreement === null ? null : t('agreement_date', { agreement_date: agreement.version })
       }
       errorMessage={hasError ? t('load_error') : null}
-      fullMarkdown={agreement?.markdown ?? null}
+      fullMarkdown={details === '' ? null : details}
       introMarkdown={agreement === null ? null : getCopyMarkdownIntro(agreement.markdown)}
       isLoading={isLoading}
       onAccept={() => {

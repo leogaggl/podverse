@@ -5,7 +5,11 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import type { DTOBillingStatus } from '@podverse/helpers';
-import { formatDateAbbrev } from '@podverse/helpers';
+import {
+  formatDateAbbrev,
+  membershipPurchaseAction,
+  membershipPurchaseMessageKey,
+} from '@podverse/helpers';
 import { ActionLink, Alert } from '@podverse/ui';
 
 import { ROUTES } from '../../../../constants/routes';
@@ -84,9 +88,11 @@ export function SettingsMembership({ showCheckoutActions = true }: SettingsMembe
             {showCheckoutActions ? (
               <div className={styles.actions}>
                 <ActionLink href={ROUTES.CHECKOUT} LinkComponent={Link}>
-                  {status.is_entitled
-                    ? tMembership('extend_my_membership')
-                    : tMembership('renew_membership')}
+                  {tMembership(
+                    membershipPurchaseMessageKey(
+                      membershipPurchaseAction({ isLoggedIn: true, tier: status.tier })
+                    )
+                  )}
                 </ActionLink>
                 <ActionLink href={ROUTES.MEMBERSHIP} LinkComponent={Link}>
                   {t('compare_plans')}

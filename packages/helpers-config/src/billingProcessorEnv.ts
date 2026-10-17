@@ -10,7 +10,7 @@ export interface BillingPayPalProcessorEnv {
   clientId: string;
   clientSecret: string;
   webhookId: string;
-  /** Unset lets the PayPal package pick from `NODE_ENV`. */
+  /** Unset stays sandbox. `live` selects the PayPal live API. */
   environment: BillingPayPalEnvironment | undefined;
 }
 
@@ -21,7 +21,7 @@ export interface BillingAppleProcessorEnv {
   privateKeyPath: string;
   bundleId: string;
   appAppleId: number | undefined;
-  /** Unset lets the Apple package pick from `NODE_ENV`. */
+  /** Unset stays sandbox. `production`, `prod`, and `live` select the production App Store. */
   environment: string | undefined;
 }
 
@@ -298,7 +298,7 @@ export function validatePayPalProcessorEnv(env: EnvSource): ValidationResult[] {
       'PAYPAL_ENVIRONMENT',
       group.category,
       ['sandbox', 'live'],
-      'Use Default (live in production, sandbox otherwise)'
+      'Use Default (sandbox)'
     ),
     validateProcessorKey(env, 'PAYPAL_WEBHOOK_ID', group, enabled),
   ];
@@ -329,7 +329,7 @@ function validateAppleEnvironment(env: EnvSource, category: string): ValidationR
     'APPLE_IAP_ENVIRONMENT',
     category,
     ['sandbox', 'production', 'prod', 'live', 'xcode'],
-    'Use Default (production in production, sandbox otherwise)'
+    'Use Default (sandbox)'
   );
   if (isAppleXcodeEnvironment(env) && readTrimmed(env, 'NODE_ENV') === 'production') {
     return {

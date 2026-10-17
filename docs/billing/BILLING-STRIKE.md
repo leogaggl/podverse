@@ -190,8 +190,9 @@ When sandbox passes:
    `https://<that-origin>/api/v2/billing/webhooks/strike`.
 5. Enable channels in the order in section 7.
 
-Sandbox purchases in production grant membership only for accounts listed in
-`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS` (account id or `id_text`, comma-separated). Other
+Sandbox purchases in production grant membership when `BILLING_SANDBOX_GRANT_ALL` is `true`,
+or for accounts listed in `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS` (account id or `id_text`,
+comma-separated). Other
 accounts are logged after the signature check, and the webhook still returns 200.
 
 ## 9. Refunds

@@ -28,6 +28,18 @@ build or store submit for `apps/mobile`.
 - Do not point a store build at the old production listing. Identity stays
   `com.podverse.app.next` until the operator explicitly replaces that app. See
   **mobile-next-store-identity**.
+- Do not ship over-the-air updates. This app does not use EAS Update. JavaScript changes go out
+  in the next store binary, the same as native changes.
+
+## Over-the-air updates
+
+Do not install `expo-updates`, add an `updates` config, run `eas update`, or publish to an EAS
+Update channel.
+
+Older notes that say EAS Update is for JavaScript-only fixes are not a request to turn that on.
+
+If the operator asks for over-the-air updates, stop and confirm in that conversation that they
+want it. It is a major change. Do not start it from an implication, a plan, or an older doc.
 
 ## References
 

@@ -6,6 +6,7 @@ import { optionalEnvString, parseSidebarGroupOrder } from '@podverse/helpers-con
 import { buildObservabilityConfigFromEnv } from '@podverse/observability/config';
 
 import { ASSETS } from '../constants/assets';
+import { parseDelimitedList } from '../lib/mobileAppLinks';
 import { getRuntimeConfig } from './runtime-config-store';
 
 const parsePositiveIntWithDefault = (raw: string | undefined, defaultValue: number): number => {
@@ -133,6 +134,13 @@ const buildConfig = () => {
       server_env: env.NEXT_PUBLIC_SERVER_ENV!,
       imageProxy: {
         enabled: env.NEXT_PUBLIC_IMAGE_PROXY_ENABLED === 'true',
+      },
+      mobileAppLinks: {
+        iosAppIds: parseDelimitedList(optionalEnvString(env.NEXT_PUBLIC_MOBILE_IOS_APP_IDS)),
+        androidPackageName: optionalEnvString(env.NEXT_PUBLIC_MOBILE_ANDROID_PACKAGE_NAME),
+        androidSha256CertFingerprints: parseDelimitedList(
+          optionalEnvString(env.NEXT_PUBLIC_MOBILE_ANDROID_SHA256_CERT_FINGERPRINTS)
+        ),
       },
       nextImageOptimization: {
         enabled: env.NEXT_PUBLIC_NEXT_IMAGE_OPTIMIZATION_ENABLED === 'true',

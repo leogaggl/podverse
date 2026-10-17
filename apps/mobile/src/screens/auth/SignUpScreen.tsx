@@ -11,16 +11,19 @@ import {
 } from '@podverse/helpers-validation/client';
 
 import { createMobileApiRequestService } from '../../auth';
+import { signupCompletionKind } from '../../auth/signupVerificationEmailNotice';
+import { VerificationEmailNotSentMessage } from '../../auth/VerificationEmailNotSentMessage';
 import { CopyMarkdown } from '../../components/content/CopyMarkdown';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
-import { TextField } from '../../components/form';
-import { Accordion, Button } from '../../components/primitives';
+import { FormActions, TextField } from '../../components/form';
+import { Accordion, CheckboxRow } from '../../components/primitives';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { RetryableError } from '../../components/state/RetryableError';
 import { getMobileConfig } from '../../config';
 import { writeSignupMergeEmail } from '../../data/repositories/subscriptionsSignupMarker';
 import { formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 type SignUpScreenProps = {
@@ -41,7 +44,8 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isE2e } = getMobileConfig();
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [verificationEmailNotSent, setVerificationEmailNotSent] = useState(false);
   const { styles: themeStyles, tokens } = useTheme();
 
   const resolveValidationError = (validationError: string): string => {
@@ -54,23 +58,8 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   };
 
   const styles = StyleSheet.create({
-    agreeLabel: {
-      color: themeStyles.textPrimary.color,
-      flex: 1,
-    },
     agreeRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: tokens.spacing.sm,
-      marginTop: tokens.spacing.lg,
-    },
-    checkbox: {
-      color: themeStyles.textPrimary.color,
-      fontSize: 18,
-    },
-    date: {
-      color: themeStyles.textSecondary.color,
-      marginTop: tokens.spacing.md,
+      marginTop: formActionsTopGap(tokens.spacing),
     },
     error: {
       color: themeStyles.textSecondary.color,
@@ -98,9 +87,12 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
     submit: {
       marginTop: formActionsTopGap(tokens.spacing),
     },
-    success: {
+    successBody: {
+      ...typography.prose,
       color: themeStyles.textPrimary.color,
-      marginTop: tokens.spacing.md,
+    },
+    termsAccordion: {
+      marginTop: formActionsTopGap(tokens.spacing),
     },
   });
 
@@ -175,9 +167,8 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
 
     setIsLoading(true);
     setError(null);
-    setSuccessMessage(null);
     try {
-      await apiRequestService.reqAccountCreate({
+      const created = await apiRequestService.reqAccountCreate({
         email,
         locale: DEFAULT_LOCALE,
         password,
@@ -186,13 +177,59 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
       // Sign-up does not sign the user in, so subscriptions made while signed out are pushed up by
       // the login that follows. Recording the email here authorizes that one merge.
       await writeSignupMergeEmail(email);
-      setSuccessMessage(t('authentication.account_created_message'));
+      setVerificationEmailNotSent(
+        signupCompletionKind(created.code) === 'verification_email_not_sent'
+      );
+      setAccountCreated(true);
     } catch {
       setError(t('authentication.could_not_sign_in'));
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (accountCreated) {
+    const title = verificationEmailNotSent
+      ? t('authentication.verification_email_not_sent_title')
+      : t('authentication.account_created_title');
+    return (
+      <View style={styles.root} testID="signup-screen">
+        <HeaderBarChrome
+          backAccessibilityLabel={t('misc.dismiss')}
+          backIcon="chevron-down"
+          backTestID="auth-dismiss"
+          onBack={onDismiss}
+          title={title}
+        />
+        <MobileScreenContainer testID="signup-success">
+          {verificationEmailNotSent ? (
+            <VerificationEmailNotSentMessage
+              contactTestID="signup-verification-email-not-sent-contact"
+              testID="signup-verification-email-not-sent"
+            />
+          ) : (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={styles.successBody}
+              testID="signup-success-message"
+            >
+              {t('authentication.account_created_body')}
+            </Text>
+          )}
+          <FormActions
+            actions={[
+              {
+                label: t('authentication.login'),
+                onPress: onSwitchToLogin,
+                testID: 'signup-success-login',
+              },
+            ]}
+            style={styles.submit}
+          />
+        </MobileScreenContainer>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root} testID="signup-screen">
@@ -240,18 +277,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
             value={passwordConfirm}
           />
         </View>
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: agreed }}
-          onPress={() => {
-            setAgreed((current) => !current);
-          }}
-          style={styles.agreeRow}
-          testID="signup-agree-terms"
-        >
-          <Text style={styles.checkbox}>{agreed ? '☑' : '☐'}</Text>
-          <Text style={styles.agreeLabel}>{t('terms_acceptance.checkbox_label')}</Text>
-        </Pressable>
         {termsError ? (
           <RetryableError
             errorKey="terms_acceptance.load_error"
@@ -260,35 +285,44 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
           />
         ) : null}
         {agreement !== null ? (
-          <>
-            <Text style={styles.date}>
-              {t('terms_acceptance.agreement_date', { agreement_date: agreement.version })}
-            </Text>
-            <Accordion testID="signup-terms-full" title={t('terms_acceptance.full_agreement')}>
+          <View style={styles.termsAccordion}>
+            <Accordion
+              subtitle={t('terms_acceptance.agreement_date', {
+                agreement_date: agreement.version,
+              })}
+              testID="signup-terms-full"
+              title={t('terms_acceptance.full_agreement')}
+            >
               <CopyMarkdown markdown={agreement.markdown} />
             </Accordion>
-          </>
+          </View>
         ) : null}
-        <View style={styles.submit}>
-          <Button
-            disabled={isLoading || !agreed || agreement === null}
-            fullWidth
-            label={t('authentication.create_account')}
-            loading={isLoading}
-            onPress={() => {
-              void handleSubmit();
-            }}
-            testID="signup-submit"
-          />
-        </View>
+        <CheckboxRow
+          checked={agreed}
+          label={t('terms_acceptance.checkbox_label')}
+          onPress={() => {
+            setAgreed((current) => !current);
+          }}
+          style={styles.agreeRow}
+          testID="signup-agree-terms"
+        />
+        <FormActions
+          actions={[
+            {
+              disabled: isLoading || !agreed || agreement === null,
+              label: t('authentication.create_account'),
+              loading: isLoading,
+              onPress: () => {
+                void handleSubmit();
+              },
+              testID: 'signup-submit',
+            },
+          ]}
+          style={styles.submit}
+        />
         {error !== null ? (
           <Text style={styles.error} testID="signup-error">
             {error}
-          </Text>
-        ) : null}
-        {successMessage !== null ? (
-          <Text style={styles.success} testID="signup-success">
-            {successMessage}
           </Text>
         ) : null}
         <View style={styles.promptBlock}>

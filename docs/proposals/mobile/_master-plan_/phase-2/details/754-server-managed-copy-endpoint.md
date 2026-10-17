@@ -13,16 +13,19 @@ FAQ and the Make Clip how-to.
 
 Most copy belongs in `packages/i18n-catalog` — it ships with the app, it is translated with
 everything else, and it costs nothing to read. Some copy cannot live there. An FAQ answer, a how-to,
-the terms of service, and the popularity-tracking agreement all describe **how the service behaves**,
+the terms of service, and the Popularity Tracking explanation all describe **how the service
+behaves**,
 which is a server-side fact that can change while an installed app stays on the version the user
 downloaded months ago. Copy in the catalog is frozen at build time, and mobile release cycles run
 through two app stores; a policy correction cannot wait for that.
 
 So the test is: **would this text need to change when the server changes, without an app release?**
-If yes, it is served. If no, it is a catalog key. The popularity-tracking agreement already works
-this way; this generalizes the mechanism instead of building a second one. The policy becomes
-abcmemory in [755](755-mobile-faq-and-clip-how-to.md) so the next author does not have to rediscover
-it.
+If yes, it is served. If no, it is a catalog key. The Popularity Tracking explanation already works
+this way; this generalizes the mechanism instead of building a second one. That explanation informs
+the listener. It is not the legal notice. The notice is the terms of service. See
+[popularity-tracking-how-it-works](/.llm/plans/active/popularity-tracking-how-it-works/00-SUMMARY.md).
+The policy becomes abcmemory in [755](755-mobile-faq-and-clip-how-to.md) so the next author does
+not have to rediscover it.
 
 ### The endpoint
 

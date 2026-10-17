@@ -1,27 +1,38 @@
-Popularity Tracking helps listeners find shows people are enjoying, and helps creators see when their work is reaching people.
+Popularity Tracking is optional. It helps listeners find shows people are enjoying, and it helps creators see when their work is reaching people.
 
-If you say yes, {brand_name} includes you in unique-listener rankings. The data is anonymized, stays on our servers, and is never sold.
+If you turn it on, {brand_name} counts you as one listener. Your name is not part of that count. You can turn it off any time in Settings.
 
-# What Popularity Tracking is
+# How a Listen Is Counted
 
-Unique-listener rankings help people discover popular shows and help creators understand when their work is reaching an audience.
+Playing something in the catalog records that listen: the episode or track, the clip when you played a clip, and the show it belongs to. Playing that same thing again, while the record is still stored, does not count you a second time.
 
-# What {brand_name} records if you say yes
+On the website, two more things are recorded: opening someone else's profile, and opening a playlist. Opening your own profile is not recorded.
 
-If you say yes, {brand_name} records a pseudonymous listen event when you play catalog episodes. The event uses an internal account identifier. It is not shown as your public profile or username.
+Listening while signed out is not counted. If Popularity Tracking is off, new listens are not recorded.
 
-# How the data is used
+# What We Store
 
-Those events power unique-listener rankings and trending lists so listeners can find shows people are enjoying, and so creators can see when their work is reaching people.
+Each record has a random id for your account, which thing you played or opened, and when. It does not include your name, your email, or your username. That id is not shown on your public profile.
 
-# What we do not do
+We can still connect the id back to your account. That is how turning this off, and deleting your account, applies to you. This is not anonymous. We do not give the id to anyone else.
 
-- Events are stored on our servers.
-- We never sell this data.
-- We do not use it to show you advertisements.
+# What the Lists Show
 
-# Changing your choice
+The public lists show counts. They do not show who listened.
 
-You can change this anytime in settings. Saying no stops new tracking. Existing events are kept only for a limited time, then deleted.
+# What We Do Not Do
 
-A later update to this agreement only asks again if you already said yes. If you said no, we will not prompt you again when the agreement changes.
+- We do not sell this information.
+- We do not use it to advertise to you.
+
+# How Long We Keep It
+
+Individual records are deleted after {retention_days} days. Counts already added to the public lists can stay after a record is deleted. Those counts are numbers, not a list of listeners.
+
+Deleting your account deletes the random id and the records tied to it.
+
+# Changing Your Mind
+
+Turn this on or off in Settings. Turning it off stops new records. Records already stored are deleted when they reach {retention_days} days.
+
+If you turn it off, we will not ask again when this explanation changes. If you turn it on, and we later change what we record or how long we keep it, we will ask again. Until you say yes to that update, tracking stays off.

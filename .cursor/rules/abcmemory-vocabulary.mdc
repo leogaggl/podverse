@@ -28,6 +28,11 @@ When the user says **abcremember**, **create or update** the best-fit abcmemory 
 
 For placement and workflow details, see `.cursor/skills/abcmemory/SKILL.md`.
 
+## next
+
+When the operator types **next**, treat it as **what next**: what they should do next in the
+current task. Answer with that step.
+
 ## legacy app
 
 **legacy app** (also **podverse-rn**, **v4 mobile**) means the React Native app in the sibling

@@ -8,16 +8,25 @@ import { useTheme } from '../../theme/useTheme';
 
 export type AccordionProps = {
   title: string;
+  /** Quiet line under the title, inside the header. Caption type. */
+  subtitle?: string;
   children: ReactNode;
   testID: string;
   defaultOpen?: boolean;
 };
 
 /**
- * Collapsible section. One bordered card: slim title row when closed, children below the
- * title (still inside the card) when open. Title is a single line so collapsed height stays stable.
+ * Collapsible section. One bordered card: title row when closed, children below the title
+ * (still inside the card) when open. The title stays one line. An optional subtitle sits under
+ * it in caption type.
  */
-export function Accordion({ title, children, testID, defaultOpen = false }: AccordionProps) {
+export function Accordion({
+  title,
+  subtitle,
+  children,
+  testID,
+  defaultOpen = false,
+}: AccordionProps) {
   const { styles: themeStyles, tokens } = useTheme();
   const [open, setOpen] = useState(defaultOpen);
 
@@ -43,19 +52,28 @@ export function Accordion({ title, children, testID, defaultOpen = false }: Acco
           borderWidth: 1,
           overflow: 'hidden',
         },
+        subtitle: {
+          ...typography.caption,
+          color: themeStyles.textSecondary.color,
+        },
         title: {
           ...typography.heading,
           color: themeStyles.textPrimary.color,
+        },
+        titleBlock: {
           flex: 1,
+          gap: tokens.spacing.xs,
         },
       }),
     [themeStyles, tokens]
   );
 
+  const headerLabel = subtitle !== undefined && subtitle !== '' ? `${title}. ${subtitle}` : title;
+
   return (
     <View style={styles.shell} testID={testID}>
       <Pressable
-        accessibilityLabel={title}
+        accessibilityLabel={headerLabel}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => {
@@ -64,9 +82,14 @@ export function Accordion({ title, children, testID, defaultOpen = false }: Acco
         style={styles.header}
         testID={`${testID}-toggle`}
       >
-        <Text numberOfLines={1} style={styles.title}>
-          {title}
-        </Text>
+        <View style={styles.titleBlock}>
+          <Text numberOfLines={1} style={styles.title}>
+            {title}
+          </Text>
+          {subtitle !== undefined && subtitle !== '' ? (
+            <Text style={styles.subtitle}>{subtitle}</Text>
+          ) : null}
+        </View>
         <Ionicons
           accessibilityElementsHidden
           color={themeStyles.textPrimary.color}

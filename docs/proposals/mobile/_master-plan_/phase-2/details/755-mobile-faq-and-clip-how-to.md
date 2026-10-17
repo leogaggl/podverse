@@ -60,7 +60,9 @@ A new rule records when copy is served and when it is a catalog key, so the next
 to infer it from the existence of two endpoints:
 
 - Served as API markdown when the text describes how the service behaves and can change without an
-  app release — FAQ, how-tos, terms of service, consent agreements.
+  app release — FAQ, how-tos, terms of service, and the Popularity Tracking explanation. The
+  Popularity Tracking document informs the listener. The legal notice for that feature is the
+  terms of service.
 - A catalog key for everything else, which is nearly all UI copy: labels, buttons, empty states,
   errors.
 - Served copy always has a visible loading state, and never a bundled fallback copy of itself.

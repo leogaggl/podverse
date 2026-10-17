@@ -184,6 +184,7 @@ describe('Billing membership ledger routes (app database)', () => {
       allowTestAdapter: config.billing.allowTestAdapter,
       processors: config.billing.processors,
       sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+      grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
     });
   });
 

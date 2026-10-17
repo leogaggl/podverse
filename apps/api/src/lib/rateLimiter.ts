@@ -54,6 +54,11 @@ export interface AuthRateLimitMiddleware {
 export function rateLimitAuthEndpoint(options: {
   windowMs: number;
   max: number;
+  /**
+   * The wrapper authenticates only to key the limiter by account. Endpoints that stay available
+   * while terms acceptance is outstanding pass true; their handler still decides the terms gate.
+   */
+  skipTermsAcceptance?: boolean;
 }): AuthRateLimitMiddleware {
   const buildUserKey = (userId: number | string) => `user:${userId}`;
   const keyGenerator = (req: Request) => {
@@ -64,7 +69,7 @@ export function rateLimitAuthEndpoint(options: {
     }
     return buildUserKey(userId);
   };
-  const limiter = createLimiter({ ...options, keyGenerator });
+  const limiter = createLimiter({ windowMs: options.windowMs, max: options.max, keyGenerator });
   const middleware = (req: Request, res: Response, next: NextFunction): void => {
     ensureAuthenticated(
       req,
@@ -76,7 +81,10 @@ export function rateLimitAuthEndpoint(options: {
           res.status(401).json({ error: 'Authentication required' });
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        skipTermsAcceptance: options.skipTermsAcceptance === true,
+      }
     );
   };
   return Object.assign(middleware, {

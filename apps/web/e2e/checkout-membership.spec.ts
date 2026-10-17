@@ -132,7 +132,11 @@ test.describe('Checkout membership', () => {
     expect(annualProductId).not.toBeNull();
 
     await page.goto('/checkout');
-    await page.getByRole('radio', { name: /Annually/ }).check();
+    // The radio is clipped to 1px inside the plan card. The card is the control a person clicks.
+    await page
+      .locator('label')
+      .filter({ has: page.getByRole('radio', { name: /Annually/ }) })
+      .click();
 
     const simulateResponse = page.waitForResponse(
       (response) =>

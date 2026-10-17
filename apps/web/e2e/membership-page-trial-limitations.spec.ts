@@ -67,20 +67,20 @@ test.describe('Web membership page trial limitations and renew route', () => {
     );
   });
 
-  test('the membership renew page shows renew copy and a link to the main membership page', async ({
+  test('the renew page shows Buy Membership and a link to the membership page', async ({
     page,
   }, testInfo) => {
     await page.goto('/membership/renew');
     await expect(page).toHaveURL(/\/membership\/renew\/?$/);
 
-    await expect(page.getByRole('heading', { name: 'Renew Membership', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Buy Membership', level: 1 })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Go to Membership Page' })).toBeVisible();
 
     await capturePageLoad(
       page,
       testInfo,
-      'The membership renew page shows renew copy and a link back to membership.',
-      page.getByRole('heading', { name: 'Renew Membership', level: 1 })
+      'The membership renew page shows Buy Membership and a link back to membership.',
+      page.getByRole('heading', { name: 'Buy Membership', level: 1 })
     );
   });
 });

@@ -31,7 +31,7 @@ Save these in home overrides under
 Set these static values in `billing-apple.env`:
 
 - `APPLE_IAP_BUNDLE_ID="com.podverse.app.next"`
-- `APPLE_IAP_ENVIRONMENT="sandbox"` (local default unless testing production fallback)
+- `APPLE_IAP_ENVIRONMENT="sandbox"` (empty stays sandbox; set `production` for the production App Store)
 
 ### Product IDs
 
@@ -63,8 +63,8 @@ does not offer that cadence.
 ## Production sandbox allowlist behavior
 
 When a sandbox Apple transaction reaches a production Podverse deployment,
-membership access is granted only for accounts listed in
-`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`. Other accounts are logged and ignored
+membership access is granted when `BILLING_SANDBOX_GRANT_ALL` is `true`, or for
+accounts listed in `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`. Other accounts are logged and ignored
 after signature verification, and the webhook still returns HTTP 200. The
 allowlist is not used for local development: outside production every sandbox
 purchase counts. Leave `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS` empty locally.

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ERROR_MESSAGES } from '@podverse/helpers';
 import type { ORMContext } from '@podverse/orm';
 
 import {
@@ -445,6 +446,41 @@ describe('auth routes', () => {
       expect(typeof res.body.refresh_token).toBe('string');
       expect(res.body.access_token_expires_in).toBeGreaterThan(0);
       expect(res.body.refresh_token_expires_in).toBeGreaterThan(0);
+    });
+
+    it('returns 403 when the password matches an unverified account', async () => {
+      getByEmailMock.mockResolvedValueOnce({
+        id: TEST_USER_ID,
+        id_text: TEST_ACCOUNT_ID_TEXT,
+        verified: false,
+        account_credentials: { email: TEST_EMAIL, password: 'hashed-password' },
+      });
+      verifyPasswordMock.mockResolvedValueOnce(true);
+
+      const res = await request(app)
+        .post(`${authBase}/mobile/token`)
+        .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe(ERROR_MESSAGES.ACCOUNT.NOT_VERIFIED);
+      expect(verifyPasswordMock).toHaveBeenCalled();
+    });
+
+    it('returns 401 when the password does not match an unverified account', async () => {
+      getByEmailMock.mockResolvedValueOnce({
+        id: TEST_USER_ID,
+        id_text: TEST_ACCOUNT_ID_TEXT,
+        verified: false,
+        account_credentials: { email: TEST_EMAIL, password: 'hashed-password' },
+      });
+      verifyPasswordMock.mockResolvedValueOnce(false);
+
+      const res = await request(app)
+        .post(`${authBase}/mobile/token`)
+        .send({ email: TEST_EMAIL, password: 'wrong-password' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('Unauthorized');
     });
 
     it('refreshes from a still-valid refresh JWT', async () => {

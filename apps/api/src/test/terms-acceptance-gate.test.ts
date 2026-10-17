@@ -14,7 +14,7 @@ import {
 } from './helpers/index.js';
 
 const TEST_USER_ID = 1;
-const CURRENT_TERMS_VERSION = '2026-01-01';
+const CURRENT_TERMS_VERSION = '2026-10-15';
 
 type TermsAcceptanceRow = { terms_version: string; accepted_at: Date } | null;
 
@@ -123,6 +123,11 @@ describe('terms acceptance gate', () => {
     expect(res.body.version).toBe(CURRENT_TERMS_VERSION);
     expect(res.body.markdown).toContain('PodverseTest will never sell');
     expect(res.body.markdown).toContain('Test Legal');
+    expect(res.body.markdown).toContain('Popularity Tracking');
+    expect(res.body.markdown).toContain('optional');
+    expect(res.body.markdown).toContain('Test Address');
+    expect(res.body.markdown).not.toContain('{legal_address}');
+    expect(res.body.markdown).not.toContain('Listen Statistics');
   });
 
   it('returns Spanish terms when Accept-Language is es', async () => {

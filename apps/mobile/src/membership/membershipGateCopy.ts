@@ -1,4 +1,5 @@
-import type { AccessDenialReason } from '@podverse/helpers';
+import type { AccessDenialReason, MembershipTier } from '@podverse/helpers';
+import { membershipPurchaseAction, membershipPurchaseMessageKey } from '@podverse/helpers';
 
 export type MembershipGateConfirmDestination = 'login' | 'membership';
 
@@ -7,10 +8,19 @@ export type MembershipGateMessageKeys = {
   titleKey: string;
 };
 
+type PurchaseLabelMembership = {
+  isLoggedIn: boolean;
+  tier: MembershipTier | null;
+};
+
 /**
  * Reason → modal/notice i18n keys. Every denial has its own pair. There is no default branch.
+ * The expired body follows tier: Premium extends, every other tier buys.
  */
-export function membershipGateMessageKeys(reason: AccessDenialReason): MembershipGateMessageKeys {
+export function membershipGateMessageKeys(
+  reason: AccessDenialReason,
+  tier: MembershipTier | null
+): MembershipGateMessageKeys {
   switch (reason) {
     case 'limit_reached':
       return {
@@ -19,7 +29,10 @@ export function membershipGateMessageKeys(reason: AccessDenialReason): Membershi
       };
     case 'membership_expired':
       return {
-        bodyKey: 'membership.gate.body_expired',
+        bodyKey:
+          tier === 'premium'
+            ? 'membership.gate.body_expired_premium'
+            : 'membership.gate.body_expired_trial',
         titleKey: 'membership.gate.title_expired',
       };
     case 'needs_account':
@@ -35,13 +48,17 @@ export function membershipGateMessageKeys(reason: AccessDenialReason): Membershi
   }
 }
 
+function purchaseLabelKey(membership: PurchaseLabelMembership): string {
+  return `membership.${membershipPurchaseMessageKey(membershipPurchaseAction(membership))}`;
+}
+
 /**
- * Confirm control on the shared gate modal. `needs_account` is Login; every other reason uses the
- * auth-based Membership CTA (renew when logged in, sign up when not).
+ * Confirm control on the shared gate modal. `needs_account` is Login and does not use the
+ * purchase helper. Every other reason is Sign Up, Buy Membership, or Extend Membership from tier.
  */
 export function membershipGateConfirmLabelKey(
   reason: AccessDenialReason,
-  isLoggedIn: boolean
+  membership: PurchaseLabelMembership
 ): string {
   switch (reason) {
     case 'needs_account':
@@ -49,7 +66,7 @@ export function membershipGateConfirmLabelKey(
     case 'limit_reached':
     case 'membership_expired':
     case 'needs_membership':
-      return isLoggedIn ? 'membership.gate.renew' : 'membership.gate.sign_up';
+      return purchaseLabelKey(membership);
   }
 }
 
@@ -78,17 +95,11 @@ export function membershipGateConfirmDestination(
 }
 
 /**
- * Primary action on the inline notice. Same destinations as the modal; labels match the notice
- * surface (`get_premium` for membership/limit, renew for expired).
+ * Primary action on the inline notice. Same destinations and labels as the modal.
  */
-export function membershipGateNoticeActionKey(reason: AccessDenialReason): string {
-  switch (reason) {
-    case 'needs_account':
-      return 'authentication.login';
-    case 'membership_expired':
-      return 'membership.gate.renew';
-    case 'limit_reached':
-    case 'needs_membership':
-      return 'membership.get_premium';
-  }
+export function membershipGateNoticeActionKey(
+  reason: AccessDenialReason,
+  membership: PurchaseLabelMembership
+): string {
+  return membershipGateConfirmLabelKey(reason, membership);
 }

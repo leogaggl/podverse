@@ -40,7 +40,7 @@ export function createDefaultAccountGet(
         account_membership: { id: AccountMembershipEnum.Premium },
       },
       account_terms_acceptance: {
-        terms_version: '2026-01-01',
+        terms_version: '2026-10-15',
         accepted_at: new Date('2026-01-01T00:00:00.000Z'),
       },
     };

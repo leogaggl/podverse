@@ -46,17 +46,48 @@ function isCopyMarkdownHeadingLevel(value: number): value is CopyMarkdownHeading
   return value === 1 || value === 2 || value === 3;
 }
 
-export function getCopyMarkdownIntro(markdown: string): string {
-  const normalized = markdown.replace(/\r\n/g, '\n');
+function normalizedCopyMarkdown(markdown: string): string {
+  return markdown.replace(/\r\n/g, '\n');
+}
+
+function firstHeadingIndex(normalized: string): number | null {
   const headingMatch = /(?:^|\n)# /.exec(normalized);
   if (headingMatch === null || headingMatch.index === undefined) {
+    return null;
+  }
+  return headingMatch.index;
+}
+
+/** Prose before the first heading. The whole document when it has no leading prose. */
+export function getCopyMarkdownIntro(markdown: string): string {
+  const normalized = normalizedCopyMarkdown(markdown);
+  const headingIndex = firstHeadingIndex(normalized);
+  if (headingIndex === null) {
     return normalized.trim();
   }
-  const prefix = normalized.slice(0, headingMatch.index).trim();
+  const prefix = normalized.slice(0, headingIndex).trim();
   if (prefix === '') {
     return normalized.trim();
   }
   return prefix;
+}
+
+/**
+ * The document from the first heading onward, when leading prose is shown separately.
+ * Empty when there is no heading, or when the document starts at a heading (the intro
+ * already is the whole document).
+ */
+export function getCopyMarkdownDetails(markdown: string): string {
+  const normalized = normalizedCopyMarkdown(markdown);
+  const headingIndex = firstHeadingIndex(normalized);
+  if (headingIndex === null) {
+    return '';
+  }
+  const prefix = normalized.slice(0, headingIndex).trim();
+  if (prefix === '') {
+    return '';
+  }
+  return normalized.slice(headingIndex).trim();
 }
 
 export function parseCopyMarkdown(

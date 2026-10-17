@@ -13,10 +13,14 @@ export {
   hasValidMembership,
   isMembershipExpiredAt,
   MEMBERSHIP_EXPIRY_WARNING_DAYS,
+  membershipPurchaseAction,
+  membershipPurchaseMessageKey,
 } from './lib/accountMembership.js';
 export type {
   MembershipExpiryNotice,
   MembershipExpiryStatus,
+  MembershipPurchaseAction,
+  MembershipPurchaseMessageKey,
   MembershipState,
   MembershipTier,
 } from './lib/accountMembership.js';

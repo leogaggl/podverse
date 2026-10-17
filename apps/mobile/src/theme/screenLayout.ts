@@ -9,10 +9,22 @@ import type { ThemeTokens } from '@podverse/design-tokens';
 export const LIST_ROW_ARTWORK_SIZE = 60;
 
 /**
+ * Square edge of a stacked preview cover. The view size and `CoverImage` `decodeEdge` both read
+ * this.
+ */
+export const PREVIEW_IDENTITY_ARTWORK_EDGE = 160;
+
+/**
  * Hit target for icon-only row controls (Play circle, More, Download / trash). Matches legacy
  * TimeRemainingWidget / MoreButton (44) so bordered and bare faces share one finger target.
  */
 export const LIST_ROW_ACTION_SIZE = 44;
+
+/**
+ * Form, dialog, and checkout decision buttons. 52pt is above the 44pt tap floor and below an
+ * eyebrow field (~66pt), with room for a 17pt label.
+ */
+export const FORM_BUTTON_MIN_HEIGHT = 52;
 
 /**
  * Glyph size for bare icon controls (More, Download, trash). Slightly under the hit target so the
@@ -71,6 +83,24 @@ export function listRowVerticalPadding(
  */
 export function listRowArtworkGap(spacing: ThemeTokens['spacing']): number {
   return spacing.base;
+}
+
+/** Cover to title on a stacked preview. The cover is a block, so the seam is the page gutter. */
+export function previewIdentityArtworkGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.lg;
+}
+
+/** Title to the author byline on a stacked preview. */
+export function previewIdentityBylineGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.base;
+}
+
+/**
+ * Seam above the description paragraph on a stacked preview. It sits under the author, or under
+ * the title when the author is absent.
+ */
+export function previewIdentityDescriptionGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.xl;
 }
 
 /**
@@ -133,16 +163,28 @@ export function screenBodyInsets(
 }
 
 /**
- * Space from the last body line (prose, field, date) to the first full-width CTA on a static
- * form-style screen. Wider than in-body gaps so the actions read as a separate decision block.
+ * Extra margin above a disclosure that follows prose. The last paragraph already carries
+ * `spacing.lg` below it, so this second `spacing.lg` opens the seam to `spacing['4xl']` — the
+ * same width as `formActionsTopGap` under the disclosure. Do not add `formActionsTopGap` here;
+ * that stacks on the paragraph margin and leaves the card too far from the reading.
  */
-export function formActionsTopGap(spacing: ThemeTokens['spacing']): number {
-  return spacing.xl;
+export function proseDisclosureGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.md;
 }
 
 /**
- * Space between stacked full-width CTAs on a static form-style screen. Tighter than the
- * content→actions seam; wider than in-body prose gaps.
+ * Seam above an agreement checkbox and the action column, and between those two. Wider than
+ * in-body gaps so the decision reads apart from the reading. A disclosure that follows prose
+ * uses `proseDisclosureGap` instead, which reaches this same width once the paragraph margin
+ * is counted.
+ */
+export function formActionsTopGap(spacing: ThemeTokens['spacing']): number {
+  return spacing['4xl'];
+}
+
+/**
+ * Space between stacked full-width CTAs on a static form-style screen, including the gap
+ * inside `FormActions`. Tighter than the content→actions seam; wider than in-body prose gaps.
  */
 export function formActionsGap(spacing: ThemeTokens['spacing']): number {
   return spacing.lg;

@@ -330,7 +330,13 @@
     "download_file_missing": "The downloaded file is missing from this device.",
     "download_unknown": "The download failed. Try again."
   },
+  "authentication": {
+    "account_created_title": "Account Created",
+    "account_created_body": "Check your email for a verification link."
+  },
   "membership": {
-    "trial_limitations_missing_content": "If you have a Trial membership and content you would like is missing, contact {email} for help."
+    "status_free_trial": "Free Trial",
+    "trial_limitations_missing_content": "If you have a Trial membership and content you would like is missing, contact {email} for help.",
+    "trial_limitations_only": "Trial Limitations Only"
   }
 }

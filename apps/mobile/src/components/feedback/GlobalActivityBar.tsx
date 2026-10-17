@@ -8,7 +8,8 @@ import {
 } from '../../downloads/inProgressDownloadCount';
 import { useDownloadsList } from '../../downloads/useDownloads';
 import { useSync } from '../../sync';
-import { bottomChromeStripHeight, bottomChromeStripTextStyle } from '../../theme/bottomChromeStrip';
+import { globalActivityBarLayout } from '../../theme/bottomChromeOverlay';
+import { bottomChromeStripTextStyle } from '../../theme/bottomChromeStrip';
 import { useTheme } from '../../theme/useTheme';
 
 export type GlobalActivityBarProps = {
@@ -46,6 +47,14 @@ export function GlobalActivityBar({ bottomInset = 0 }: GlobalActivityBarProps) {
       })
     : null;
 
+  const layout = globalActivityBarLayout({
+    borderTopWidth: StyleSheet.hairlineWidth,
+    bottomInset,
+    downloadsVisible,
+    spacing: tokens.spacing,
+    syncVisible,
+  });
+
   const announcedLabelRef = useRef<string | null>(null);
   useEffect(() => {
     const combined = [syncLabel, downloadLabel].filter((part) => part !== null).join('. ');
@@ -66,8 +75,8 @@ export function GlobalActivityBar({ bottomInset = 0 }: GlobalActivityBarProps) {
         container: {
           backgroundColor: tokens.background.secondary,
           borderTopColor: themeStyles.border.borderColor,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          paddingBottom: bottomInset,
+          borderTopWidth: layout.borderTopWidth,
+          paddingBottom: layout.paddingBottom,
           paddingHorizontal: tokens.spacing.lg,
         },
         count: {
@@ -83,14 +92,14 @@ export function GlobalActivityBar({ bottomInset = 0 }: GlobalActivityBarProps) {
           alignItems: 'center',
           flexDirection: 'row',
           gap: tokens.spacing.md,
-          height: bottomChromeStripHeight(tokens.spacing),
+          height: layout.rowHeight,
           justifyContent: 'space-between',
         },
         sectionFollow: {
-          marginTop: tokens.spacing.sm,
+          marginTop: layout.downloadsFollowMarginTop,
         },
         syncSection: {
-          paddingTop: tokens.spacing.sm,
+          paddingTop: layout.syncPaddingTop,
         },
         trailing: {
           alignItems: 'center',
@@ -99,7 +108,15 @@ export function GlobalActivityBar({ bottomInset = 0 }: GlobalActivityBarProps) {
           gap: tokens.spacing.md,
         },
       }),
-    [bottomInset, themeStyles, tokens]
+    [
+      layout.borderTopWidth,
+      layout.downloadsFollowMarginTop,
+      layout.paddingBottom,
+      layout.rowHeight,
+      layout.syncPaddingTop,
+      themeStyles,
+      tokens,
+    ]
   );
 
   if (!syncVisible && !downloadsVisible) {

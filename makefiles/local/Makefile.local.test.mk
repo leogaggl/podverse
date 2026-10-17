@@ -203,12 +203,14 @@ test_clean:
 	@docker rm -f $(TEST_PG_CONTAINER) 2>/dev/null || true
 	@docker rm -f $(TEST_VALKEY_CONTAINER) 2>/dev/null || true
 	@docker rm -f $(TEST_MQ_CONTAINER) 2>/dev/null || true
-	@echo "Test containers removed (Postgres, Valkey, MQ)."
+	@docker rm -f podverse_e2e_mailpit 2>/dev/null || true
+	@echo "Test containers removed (Postgres, Valkey, MQ, Mailpit)."
 
 # Print instructions for meeting test requirements.
 help_test:
 	@echo "Test requirements: Postgres on port $(TEST_DB_PORT) and Valkey on port $(TEST_VALKEY_PORT)."
 	@echo "Optional broker-backed test dependency: ActiveMQ Artemis on port $(TEST_MQ_PORT)."
+	@echo "E2E signup mail uses Mailpit (SMTP 1025, HTTP 8025) via make e2e_deps, not test_deps."
 	@echo "Databases: $(TEST_DB_NAME), $(TEST_MANAGEMENT_DB_NAME)."
 	@echo "Users: $(TEST_APP_READ_USER), $(TEST_APP_READ_WRITE_USER), $(TEST_MGMT_READ_USER), $(TEST_MGMT_READ_WRITE_USER)."
 	@echo ""

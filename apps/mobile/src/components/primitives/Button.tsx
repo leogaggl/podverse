@@ -3,14 +3,18 @@ import { memo, useMemo } from 'react';
 import type { GestureResponderEvent } from 'react-native';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LIST_ROW_ACTION_SIZE, PLAYER_TRANSPORT_CIRCLE_SIZE } from '../../theme/screenLayout';
+import {
+  FORM_BUTTON_MIN_HEIGHT,
+  LIST_ROW_ACTION_SIZE,
+  PLAYER_TRANSPORT_CIRCLE_SIZE,
+} from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 
 export type ButtonVariant = 'outline' | 'primary' | 'secondary' | 'danger' | 'play' | 'ghost';
-export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'form';
 
 export type ButtonProps = {
   /** Optional leading icon rendered with the button label. */
@@ -41,10 +45,16 @@ const ACTIVITY_INDICATOR_SMALL_SIZE = 20;
 const metricNumber = (value: number | undefined, fallback: number): number =>
   typeof value === 'number' ? value : fallback;
 
-/** Label type for each size. `sm` is a step under `typography.label`; `lg` / `xl` use subheading. */
+/**
+ * Label type for each size. `sm` is a step under `typography.label`. `form` is the decision-button
+ * label (larger than inline chrome). `lg` / `xl` use subheading.
+ */
 const labelMetrics = (size: ButtonSize): { fontSize: number; lineHeight: number } => {
   if (size === 'sm') {
     return { fontSize: 12, lineHeight: 16 };
+  }
+  if (size === 'form') {
+    return { fontSize: 17, lineHeight: 22 };
   }
   if (size === 'lg' || size === 'xl') {
     return {
@@ -101,8 +111,11 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
  *   light/dark-friendly glyph color. Matches the legacy TimeRemainingWidget play chrome.
  * - `ghost` — bare icon (More): no border or fill; accent glyph. Matches legacy MoreButton.
  *
- * Sizes `sm`–`lg` cover rows, forms, and detail chrome. `xl` is for the player's play circle
- * (`PLAYER_TRANSPORT_CIRCLE_SIZE`) — the one control sized to be hit without looking.
+ * `sm` is compact inline chrome (Subscribe, banners). `md` is the default labeled control on a
+ * display page. `form` is the decision button on a form, dialog, or checkout (`FORM_BUTTON_MIN_HEIGHT`,
+ * 17pt semibold) — taller than inline chrome, shorter than an eyebrow field. `lg` is a fill-state
+ * call to action. `xl` is the player's play circle (`PLAYER_TRANSPORT_CIRCLE_SIZE`). Header and row
+ * actions stay `sm` or `md`.
  *
  * `loading` does not change the button's size. The label and icon stay in the layout (hidden) and
  * the spinner is centered over that face, scaled into the content slot. See **button-stable-bounds**.
@@ -148,16 +161,19 @@ export const Button = memo(function Button({
                 };
   const isDisabled = disabled || loading;
   const isOutline = variant === 'outline' || variant === 'play';
+  const isForm = size === 'form';
   const isLarge = size === 'lg' || size === 'xl';
   const metrics = labelMetrics(size);
   const iconOnlySize =
     size === 'sm'
       ? LIST_ROW_ACTION_SIZE
-      : size === 'md'
-        ? 40
-        : size === 'lg'
-          ? 48
-          : PLAYER_TRANSPORT_CIRCLE_SIZE;
+      : size === 'form'
+        ? FORM_BUTTON_MIN_HEIGHT
+        : size === 'md'
+          ? 40
+          : size === 'lg'
+            ? 48
+            : PLAYER_TRANSPORT_CIRCLE_SIZE;
   const contentSlot = iconOnly ? iconOnlySize : metrics.lineHeight;
   const spinnerScale = Math.min(1, contentSlot / ACTIVITY_INDICATOR_SMALL_SIZE);
 
@@ -169,13 +185,13 @@ export const Button = memo(function Button({
           backgroundColor: palette.backgroundColor,
           borderColor: isOutline ? tokens.button.outlineColor : undefined,
           borderWidth: isOutline ? 1 : 0,
-          minHeight: iconOnly ? iconOnlySize : undefined,
+          minHeight: iconOnly ? iconOnlySize : isForm ? FORM_BUTTON_MIN_HEIGHT : undefined,
           minWidth: iconOnly ? iconOnlySize : undefined,
           paddingHorizontal: iconOnly
             ? 0
             : size === 'sm'
               ? tokens.spacing.md
-              : isLarge
+              : isLarge || isForm
                 ? tokens.spacing['2xl']
                 : tokens.spacing.xl,
           paddingVertical: iconOnly
@@ -187,7 +203,7 @@ export const Button = memo(function Button({
                 : tokens.spacing.md,
         },
         label: {
-          ...(isLarge ? typography.subheading : typography.label),
+          ...(isForm || isLarge ? typography.subheading : typography.label),
           color: palette.color,
           fontSize: metrics.fontSize,
           lineHeight: metrics.lineHeight,
@@ -200,6 +216,7 @@ export const Button = memo(function Button({
       fullWidth,
       iconOnly,
       iconOnlySize,
+      isForm,
       isLarge,
       isOutline,
       metrics.fontSize,

@@ -127,6 +127,7 @@ import {
   DOWNLOAD_HANDOFF_PROGRESS_SUPPRESS_MS,
   isDownloadHandoffProgressLanded,
   planDownloadCompletePlaybackHandoff,
+  resolveDownloadHandoffRecord,
 } from '../lib/playback/planDownloadCompletePlaybackHandoff';
 import {
   buildItemLabeledEnclosures,
@@ -1451,15 +1452,20 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       });
       const resolved = await resolvePlaybackUrl(target.item, nextParams, itemLabeledEnclosures);
       const record = downloadStore.get(target.item.id_text);
+      const documentDirectory = FileSystem.documentDirectory;
+      const handoffRecord =
+        record === null || documentDirectory === null
+          ? record
+          : resolveDownloadHandoffRecord(record, documentDirectory);
       const localMatchesSelection =
         remoteUrl !== null &&
         resolved !== null &&
         resolved.startsWith('file://') &&
-        record !== null &&
+        handoffRecord !== null &&
         planDownloadCompletePlaybackHandoff({
           advancing: false,
           lastSourceUrl: remoteUrl,
-          record,
+          record: handoffRecord,
           rewriteEnclosureUrl: resolveE2eMediaUrl,
           target,
         }) !== null;
@@ -1574,11 +1580,15 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     if (record === null) {
       return;
     }
+    const documentDirectory = FileSystem.documentDirectory;
+    if (documentDirectory === null) {
+      return;
+    }
     const sourceUrlAtDecision = lastSourceUrlRef.current;
     const handoff = planDownloadCompletePlaybackHandoff({
       advancing: advancingRef.current,
       lastSourceUrl: sourceUrlAtDecision,
-      record,
+      record: resolveDownloadHandoffRecord(record, documentDirectory),
       rewriteEnclosureUrl: resolveE2eMediaUrl,
       target,
     });

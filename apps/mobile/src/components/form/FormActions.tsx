@@ -1,6 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
+import { formActionsGap } from '../../theme/screenLayout';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { ButtonVariant } from '../primitives/Button';
@@ -17,13 +18,8 @@ export type FormAction = {
 };
 
 export type FormActionsProps = {
-  /**
-   * Dismiss or secondary actions first, confirm or primary last. The last action renders on the
-   * right when more than one action shares the row. `stacked` puts each action on its own row,
-   * with the first action on top.
-   */
+  /** Full-width actions in a column. Array order is top to bottom, with the first action on top. */
   actions: readonly FormAction[];
-  stacked?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -32,15 +28,7 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
   StyleSheet.create({
     column: {
       flexDirection: 'column',
-      gap: tokens.spacing.md,
-    },
-    row: {
-      flexDirection: 'row',
-      gap: tokens.spacing.md,
-    },
-    slot: {
-      flex: 1,
-      minWidth: 0,
+      gap: formActionsGap(tokens.spacing),
     },
   });
 
@@ -53,6 +41,7 @@ function FormActionButton({ action }: { action: FormAction }) {
       label={action.label}
       loading={action.loading}
       onPress={action.onPress}
+      size="form"
       testID={action.testID}
       variant={action.variant}
     />
@@ -60,10 +49,11 @@ function FormActionButton({ action }: { action: FormAction }) {
 }
 
 /**
- * Form decisions. One action stretches across the row. Two or more share the width equally, with
- * the confirm action last, unless `stacked` is set.
+ * Form decisions. Buttons use `size="form"` so every form, dialog, and checkout that comes through
+ * here shares one height and label. Two or more actions are a full-width column in array order,
+ * first on top. One action is one full-width button.
  */
-export function FormActions({ actions, stacked = false, style, testID }: FormActionsProps) {
+export function FormActions({ actions, style, testID }: FormActionsProps) {
   const styles = useThemedStyles(createStyles);
   const onlyAction = actions.length === 1 ? actions[0] : undefined;
 
@@ -79,22 +69,10 @@ export function FormActions({ actions, stacked = false, style, testID }: FormAct
     return null;
   }
 
-  if (stacked) {
-    return (
-      <View style={[styles.column, style]} testID={testID}>
-        {actions.map((action) => (
-          <FormActionButton action={action} key={action.testID} />
-        ))}
-      </View>
-    );
-  }
-
   return (
-    <View style={[styles.row, style]} testID={testID}>
+    <View style={[styles.column, style]} testID={testID}>
       {actions.map((action) => (
-        <View key={action.testID} style={styles.slot}>
-          <FormActionButton action={action} />
-        </View>
+        <FormActionButton action={action} key={action.testID} />
       ))}
     </View>
   );

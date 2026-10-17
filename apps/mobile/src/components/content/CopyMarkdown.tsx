@@ -5,6 +5,7 @@ import { Linking, Text, View } from 'react-native';
 import type { CopyMarkdownComponentKey, CopyMarkdownInlineSpan } from '@podverse/helpers';
 import { getSafeLinkHref, parseCopyMarkdown } from '@podverse/helpers';
 
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { MembershipFeatureTable } from '../membership/MembershipFeatureTable';
 import { TrialLimitationsAccordion } from '../membership/TrialLimitationsAccordion';
@@ -99,15 +100,14 @@ export function CopyMarkdown({
     <View>
       {blocks.map((block, blockIndex) => {
         if (block.type === 'heading') {
-          const isSubheading = block.level > 1;
+          const headingType = block.level > 1 ? typography.heading : typography.title;
           return (
             <Text
               accessibilityRole="header"
               key={`heading-${blockIndex}`}
               style={{
+                ...headingType,
                 color: textColor,
-                fontSize: isSubheading ? 17 : 20,
-                fontWeight: '600',
                 marginBottom: tokens.spacing.md,
                 marginTop: blockIndex === 0 ? 0 : tokens.spacing.xl,
               }}
@@ -122,7 +122,11 @@ export function CopyMarkdown({
               {block.items.map((item, itemIndex) => (
                 <Text
                   key={`item-${blockIndex}-${itemIndex}`}
-                  style={{ color: textColor, marginBottom: tokens.spacing.xs }}
+                  style={{
+                    ...typography.prose,
+                    color: textColor,
+                    marginBottom: tokens.spacing.xs,
+                  }}
                 >
                   {'• '}
                   <InlineSpans color={textColor} onOpenLink={openLink} spans={item} />
@@ -147,7 +151,11 @@ export function CopyMarkdown({
         return (
           <Text
             key={`paragraph-${blockIndex}`}
-            style={{ color: textColor, marginBottom: tokens.spacing.lg }}
+            style={{
+              ...typography.prose,
+              color: textColor,
+              marginBottom: tokens.spacing.lg,
+            }}
           >
             <InlineSpans color={textColor} onOpenLink={openLink} spans={block.spans} />
           </Text>

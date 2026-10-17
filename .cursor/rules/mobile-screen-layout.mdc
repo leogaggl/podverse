@@ -140,6 +140,30 @@ Under a channel header, **`listHeaderStackGap(tokens.spacing)`** (`spacing.lg`) 
 **above** the chip row (header → chips). Do not mix `md` on one seam and `lg` on another for that
 header stack.
 
+## Stacked preview identity
+
+A screen that stacks a large cover, a title, a byline, and a full description uses the helpers in
+`apps/mobile/src/theme/screenLayout.ts`. Put each seam on that line as `marginTop`, so a missing
+author or description adds no empty band. The scroll column around the identity block, the
+explainer, and the action keeps `gap: spacing.lg`. Page padding stays **`screenBodyInsets`** plus
+`paddingBottom: spacing.lg`.
+
+| Name                            | Returns        | Seam                                                                    |
+| ------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| `PREVIEW_IDENTITY_ARTWORK_EDGE` | `160`          | Cover edge. The style and `decodeEdge` share it.                       |
+| `previewIdentityArtworkGap`     | `spacing.lg`   | Cover to title                                                          |
+| `previewIdentityBylineGap`      | `spacing.base` | Title to author                                                         |
+| `previewIdentityDescriptionGap` | `spacing.xl`   | Author to description, or title to description when there is no author |
+
+Type on that stack: title **`typography.display`**, author **`typography.prose`** in secondary
+color, description **`typography.prose`** in primary color. The directory explainer is
+**`HelperNote`** with `scale="reading"` (`typography.body`, `HELPER_NOTE_READING_ICON_SIZE`).
+Adding, error, and notice lines on that screen use **`typography.body`**.
+
+List rows stay on a column `gap` of `spacing.sm`. **`ChannelHeader`** stays the side-by-side
+header. The next screen with this stack uses these helpers. Screens that already exist keep
+their current spacing and type.
+
 ## Chip row → next block
 
 Space **below** a **`SectionChipRow`** (Home / Browse media types, podcast sections) is
@@ -261,7 +285,9 @@ The exception is a **fill empty**: the whole body is missing because the feature
 account (Library history, playlists). That still uses **`CallToActionSection`** below.
 
 Helper copy that is not the content itself (directory explainer, why-add notes) uses
-**`HelperNote`** — tertiary fill and a leading info icon — so it does not read as a description.
+**`HelperNote`** — tertiary fill and a leading info icon, centered on the sentence. The default
+scale is `compact` (caption type, `HELPER_NOTE_ICON_SIZE`). A stacked preview passes
+`scale="reading"`.
 
 ## Login-gated fill states
 
@@ -283,17 +309,47 @@ first CTA look like another paragraph.
 - **Body** (copy, dates, fields) keeps a tight internal gap (`spacing.md` or `spacing.base`).
 - Choice chips on a form use **`FormField`**. The label names the field and must not repeat an
   option. It sits `spacing.md` above `OptionChipGroup` or a locked value.
-- **Actions** use **`FormActions`**, in their own block. Do not share the body's `gap` with them.
-  `formActionsTopGap` (`spacing.xl`) sits above that block. One action is full width. Two or more
-  share the row in equal slots: dismiss or secondary first, confirm or primary last (on the
-  right). A destructive action is its own full-width `FormActions` under the row, separated by
-  `formActionsGap` (`spacing.lg`). Helpers live in `screenLayout.ts`.
-- Do not hug a form button to its label, and do not put the confirm action on the left.
+- **Actions** use **`FormActions`**, a column in its own block. Every action is full width.
+  Array order is top to bottom. On a page, sheet, or consent prompt the way out sits above the
+  action that continues: Reject above Accept, Cancel above Save. The continuing button is the
+  last one, where the thumb rests after reading. `ConfirmDialog` is the exception: confirm then
+  cancel, so a slip toward the bottom does not commit. A destructive action stays its own
+  `FormActions` under the column, with `formActionsGap` above it. Do not share the body's `gap`
+  with the action block.
+- Text a person reads on a page, sheet, or form is **`typography.prose`** (17 / 24). That
+  includes legal and about copy. `CopyMarkdown` uses the same role for paragraphs and lists.
+  Do not hardcode `fontSize`. A `Text` with no size is the platform 14 and is not a shipped
+  reading size. The agreement date is not its own prose line: it is a caption under the
+  accordion title.
+- A checkbox label beside that copy is **`typography.body`** (15 / 21), one step under the
+  paragraph. The control is not a second block of reading text.
+- **`caption`** and **`label`** are for text that should stay quiet (row subtitles, metadata,
+  compact helper notes, the agreement date under an accordion title). Do not use them, or
+  **`body`**, for a page the person is reading. **`body`** stays for secondary UI lines.
+- **`proseDisclosureGap`** (`spacing.lg`) is the extra margin above a disclosure that follows
+  prose. The last paragraph already has `spacing.lg` below it, so the seam opens to
+  `spacing['4xl']`. Do not put `formActionsTopGap` on that card; it stacks on the paragraph
+  margin.
+- **`formActionsTopGap`** (`spacing['4xl']`) is the seam above an agreement checkbox and the
+  action column, and between those two. Those seams are equal, and they match the prose-to-
+  disclosure seam once the paragraph margin is counted. Do not reuse the body's `spacing.md` /
+  `spacing.base` gap for the decision seams.
+- **`formActionsGap`** (`spacing.lg`) is the gap between the buttons inside the action column.
+  Helpers live in `screenLayout.ts`.
+- Form, dialog, and checkout decision buttons use **`Button` `size="form"`**
+  (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold). `FormActions` applies that size. 44pt is the
+  tap floor; an eyebrow field is about 66pt. 52pt sits between them so the label is easy to read
+  and the control is easy to hit. Header, row, and identity-block actions (Subscribe, Share, Play)
+  stay `sm` or the default `md`.
+- Do not hug a form button to its label.
 - Do not add a second display heading when the stack title already names the screen.
 - Full-screen Modal variants also use **`ModalSafeArea`**.
 
 Login and Sign up already use this seam above Submit. Popularity tracking uses the same helpers
-for Yes / No / Learn more.
+for Yes / No / Learn more. Under `AgreementChoices`, `proseDisclosureGap` sits above the
+disclosure and `formActionsTopGap` starts under it: accordion to the "I have read" checkbox,
+then checkbox to the action block. A prompt with no checkbox uses that same seam from the
+accordion to the action column.
 
 ## Login / Sign up overlay
 
@@ -303,7 +359,14 @@ the navigator. Dismiss with a down chevron (`HeaderBarChrome` `backIcon="chevron
 link-style `Pressable` under Submit (`auth-switch-signup` / `auth-switch-login`). Fields use
 **`TextField`** with an inset **`eyebrow`** and a **distinct** **`placeholder`** (example or
 hint — never the same string as the eyebrow; see **form-eyebrow-placeholder**). Confirm-password
-keeps a password-hint placeholder while its eyebrow stays `Confirm password`.
+keeps a password-hint placeholder while its eyebrow stays `Confirm password`. Submit uses
+**`FormActions`**.
+
+A successful sign-up replaces the form with its own screen: header title, one sentence to check
+email (`signup-success-message`), and a Login button (`signup-success-login`) so someone who
+verifies on the web can open login from here. On the form, the agreement date is a caption under
+the terms accordion title. The "I have read" checkbox sits under that accordion, above Create
+Account, with `formActionsTopGap` on each of those seams.
 
 ## Full-screen Modal safe area
 

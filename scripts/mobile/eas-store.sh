@@ -13,8 +13,14 @@
 #   make mobile_eas_ios_version                    # remote iOS build number EAS builds from
 #   make mobile_eas_ios_credentials                # interactive iOS credentials menu
 #   make mobile_eas_android_credentials            # interactive Android credentials menu
-#   bash scripts/mobile/eas-store.sh <build|download|submit|list|version|credentials> \
+#   make mobile_eas_login                          # Expo account login
+#   make mobile_eas_env_set NAME=EXPO_PUBLIC_FOO VALUE=bar
+#                                              # create or update one variable on the profile's
+#                                              # EAS environment (beta → preview)
+#   bash scripts/mobile/eas-store.sh <build|download|submit|list|version|credentials|login> \
 #     --platform <ios|android> [--profile beta] [--build-id <id>] [--rollout]
+#   bash scripts/mobile/eas-store.sh env-set --name <NAME> --value <VALUE> \
+#     [--profile beta] [--environment preview] [--visibility plaintext]
 #
 # Profiles come from apps/mobile/eas.json. `beta` and `production` produce store binaries;
 # `internal` produces a dev-client build. Build numbers are stored remotely and auto-increment.
@@ -53,6 +59,10 @@ PLATFORM=''
 PROFILE='beta'
 BUILD_ID=''
 ROLLOUT=0
+ENV_NAME=''
+ENV_VALUE=''
+ENV_VISIBILITY='plaintext'
+EAS_ENVIRONMENT=''
 
 usage() {
   awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
@@ -81,11 +91,31 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --rollout) ROLLOUT=1 ;;
+    --name)
+      [[ $# -ge 2 && -n "$2" ]] || die '--name needs a value'
+      ENV_NAME="$2"
+      shift
+      ;;
+    --value)
+      [[ $# -ge 2 && -n "$2" ]] || die '--value needs a value'
+      ENV_VALUE="$2"
+      shift
+      ;;
+    --visibility)
+      [[ $# -ge 2 && -n "$2" ]] || die '--visibility needs a value (plaintext, sensitive, or secret)'
+      ENV_VISIBILITY="$2"
+      shift
+      ;;
+    --environment)
+      [[ $# -ge 2 && -n "$2" ]] || die '--environment needs a value (development, preview, or production)'
+      EAS_ENVIRONMENT="$2"
+      shift
+      ;;
     -h | --help)
       usage
       exit 0
       ;;
-    *) die "unknown flag: $1 (supported: --platform, --profile, --build-id, --rollout)" ;;
+    *) die "unknown flag: $1 (supported: --platform, --profile, --build-id, --rollout, --name, --value, --visibility, --environment)" ;;
   esac
   shift
 done
@@ -95,9 +125,11 @@ if [[ -z "$COMMAND" || "$COMMAND" == '-h' || "$COMMAND" == '--help' ]]; then
   exit 0
 fi
 
-[[ -n "$PLATFORM" ]] || die '--platform is required (ios or android)'
-[[ "$PLATFORM" == 'ios' || "$PLATFORM" == 'android' ]] ||
-  die "--platform must be ios or android (got '$PLATFORM')"
+if [[ "$COMMAND" != 'env-set' && "$COMMAND" != 'login' ]]; then
+  [[ -n "$PLATFORM" ]] || die '--platform is required (ios or android)'
+  [[ "$PLATFORM" == 'ios' || "$PLATFORM" == 'android' ]] ||
+    die "--platform must be ios or android (got '$PLATFORM')"
+fi
 
 # eas-cli has no --cwd; it reads eas.json and app.config.ts from the current directory.
 # EXPO_NO_DOTENV=1 keeps a local apps/mobile/.env from overriding the EAS environment values.
@@ -197,7 +229,7 @@ print_build_config() {
     echo "EXPO_PUBLIC_MOBILE_PUSH_PROVIDER: $push"
     echo "EXPO_PUBLIC_CONTACT_EMAIL:        $contact"
   else
-    echo "Could not list EAS env '$eas_env' (login with: npx eas-cli@latest login)."
+    echo "Could not list EAS env '$eas_env' (login with: make mobile_eas_login)."
     echo "Confirm EXPO_PUBLIC_* for that environment on expo.dev before shipping."
   fi
 }
@@ -416,6 +448,44 @@ credentials() {
   eas credentials --platform "$PLATFORM"
 }
 
+login() {
+  require_terminal 'login'
+  eas login
+}
+
+env_set() {
+  local eas_env
+  [[ -n "$ENV_NAME" ]] || die '--name is required (make mobile_eas_env_set NAME=...)'
+  [[ -n "$ENV_VALUE" ]] || die '--value is required (make mobile_eas_env_set VALUE=...)'
+  case "$ENV_VISIBILITY" in
+    plaintext | sensitive | secret) ;;
+    *) die "--visibility must be plaintext, sensitive, or secret (got '$ENV_VISIBILITY')" ;;
+  esac
+  if [[ -n "$EAS_ENVIRONMENT" ]]; then
+    eas_env="$EAS_ENVIRONMENT"
+  else
+    eas_env="$(read_profile_environment)"
+  fi
+  [[ -n "$eas_env" ]] || die "build profile '$PROFILE' has no environment in eas.json"
+  case "$eas_env" in
+    development | preview | production) ;;
+    *) die "EAS environment must be development, preview, or production (got '$eas_env')" ;;
+  esac
+
+  echo "EAS environment: $eas_env (build profile '$PROFILE')"
+  echo "Name:            $ENV_NAME"
+  if [[ "$ENV_VISIBILITY" == 'plaintext' ]]; then
+    echo "Value:           $ENV_VALUE"
+  else
+    echo "Value:           (hidden; visibility $ENV_VISIBILITY)"
+  fi
+
+  eas env:set --name "$ENV_NAME" --value "$ENV_VALUE" \
+    --environment "$eas_env" --visibility "$ENV_VISIBILITY" --type string \
+    --non-interactive
+  echo "Set $ENV_NAME on the $eas_env environment."
+}
+
 submit() {
   require_terminal 'submit'
   if is_store_profile; then
@@ -436,9 +506,11 @@ case "$COMMAND" in
   list) eas build:list --platform "$PLATFORM" --limit 10 ;;
   version) print_version ;;
   credentials) credentials ;;
+  login) login ;;
+  env-set) env_set ;;
   '' | -h | --help) usage ;;
   *)
     usage >&2
-    die "unknown command: $COMMAND (supported: build, download, submit, list, version, credentials)"
+    die "unknown command: $COMMAND (supported: build, download, submit, list, version, credentials, login, env-set)"
     ;;
 esac

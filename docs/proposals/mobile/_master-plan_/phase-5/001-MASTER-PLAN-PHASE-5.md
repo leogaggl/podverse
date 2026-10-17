@@ -43,8 +43,8 @@ Where the code lives:
 
 - **FOSS flavor has no IAP.** `EXPO_PUBLIC_MOBILE_BILLING=unavailable` (or the UnifiedPush build)
   selects the unavailable client; those builds link to web checkout.
-- **Sandbox purchases** grant membership in production only for accounts listed in
-  `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`.
+- **Sandbox purchases** grant membership in production when `BILLING_SANDBOX_GRANT_ALL` is `true`,
+  or for accounts listed in `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`.
 - **Each processor is off until its `BILLING_*_ENABLED` flag is `"true"`**, and the checkout
   channel is the separate sales switch.
 - Interacts with [Phase 3 V4V](/docs/proposals/mobile/_master-plan_/phase-3/001-MASTER-PLAN-PHASE-3.md) —

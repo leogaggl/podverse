@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { getCopyMarkdownIntro } from '@podverse/helpers';
+import { getCopyMarkdownDetails, getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { CopyMarkdown } from '../components/content/CopyMarkdown';
+import { FormActions } from '../components/form/FormActions';
 import { Accordion } from '../components/primitives/Accordion';
-import { Button } from '../components/primitives/Button';
+import { CheckboxRow } from '../components/primitives/CheckboxMark';
 import { LoadingSection } from '../components/state/LoadingSection';
 import { RetryableError } from '../components/state/RetryableError';
-import { formActionsGap, formActionsTopGap } from '../theme/screenLayout';
+import { formActionsTopGap, proseDisclosureGap } from '../theme/screenLayout';
+import { typography } from '../theme/typography';
 import { useTheme } from '../theme/useTheme';
 
 type AgreementChoicesProps = {
@@ -56,42 +58,30 @@ export function AgreementChoices({
 }: AgreementChoicesProps) {
   const { styles: themeStyles, tokens } = useTheme();
   const intro = fullMarkdown === null ? null : getCopyMarkdownIntro(fullMarkdown);
+  const details = fullMarkdown === null ? '' : getCopyMarkdownDetails(fullMarkdown);
   const canAccept =
     intro !== null && !isLoading && errorKey === null && version !== null && version !== '';
   const acceptDisabled = !canAccept || (requireCheckbox && !checkboxChecked);
+  const showAccordion = canAccept && details !== '';
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        accordion: {
+          marginTop: proseDisclosureGap(tokens.spacing),
+        },
         actions: {
-          alignSelf: 'stretch',
-          gap: formActionsGap(tokens.spacing),
           marginTop: formActionsTopGap(tokens.spacing),
-          width: '100%',
         },
         body: {
           gap: tokens.spacing.md,
         },
-        checkboxRow: {
-          alignItems: 'flex-start',
-          flexDirection: 'row',
-          gap: tokens.spacing.md,
-        },
-        checkboxLabel: {
-          color: themeStyles.textPrimary.color,
-          flex: 1,
+        checkbox: {
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         date: {
+          ...typography.prose,
           color: themeStyles.textSecondary.color,
-        },
-        mark: {
-          borderColor: themeStyles.textPrimary.color,
-          borderWidth: 1,
-          height: 22,
-          width: 22,
-        },
-        markChecked: {
-          backgroundColor: themeStyles.textPrimary.color,
         },
       }),
     [themeStyles, tokens]
@@ -105,44 +95,48 @@ export function AgreementChoices({
           <RetryableError errorKey={errorKey} onRetry={onRetry} testID="agreement-error" />
         ) : null}
         {canAccept && intro !== null ? <CopyMarkdown markdown={intro} /> : null}
-        {dateLabel !== null ? <Text style={styles.date}>{dateLabel}</Text> : null}
-        {requireCheckbox && checkboxLabel !== undefined && onCheckboxChange !== undefined ? (
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: checkboxChecked }}
-            onPress={() => {
-              onCheckboxChange(!checkboxChecked);
-            }}
-            style={styles.checkboxRow}
-            testID={checkboxTestID}
+        {dateLabel !== null && !showAccordion ? <Text style={styles.date}>{dateLabel}</Text> : null}
+      </View>
+      {showAccordion ? (
+        <View style={styles.accordion}>
+          <Accordion
+            subtitle={dateLabel ?? undefined}
+            testID={accordionTestID}
+            title={accordionTitle}
           >
-            <View style={[styles.mark, checkboxChecked ? styles.markChecked : null]} />
-            <Text style={styles.checkboxLabel}>{checkboxLabel}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      <View style={styles.actions}>
-        <Button
-          disabled={isLoading}
-          fullWidth
-          label={rejectLabel}
-          onPress={onReject}
-          testID={rejectTestID}
-          variant="secondary"
-        />
-        <Button
-          disabled={acceptDisabled}
-          fullWidth
-          label={acceptLabel}
-          onPress={onAccept}
-          testID={acceptTestID}
-        />
-      </View>
-      {canAccept && fullMarkdown !== null ? (
-        <Accordion testID={accordionTestID} title={accordionTitle}>
-          <CopyMarkdown markdown={fullMarkdown} />
-        </Accordion>
+            <CopyMarkdown markdown={details} />
+          </Accordion>
+        </View>
       ) : null}
+      {requireCheckbox && checkboxLabel !== undefined && onCheckboxChange !== undefined ? (
+        <CheckboxRow
+          checked={checkboxChecked}
+          label={checkboxLabel}
+          onPress={() => {
+            onCheckboxChange(!checkboxChecked);
+          }}
+          style={styles.checkbox}
+          testID={checkboxTestID}
+        />
+      ) : null}
+      <FormActions
+        actions={[
+          {
+            disabled: isLoading,
+            label: rejectLabel,
+            onPress: onReject,
+            testID: rejectTestID,
+            variant: 'secondary',
+          },
+          {
+            disabled: acceptDisabled,
+            label: acceptLabel,
+            onPress: onAccept,
+            testID: acceptTestID,
+          },
+        ]}
+        style={styles.actions}
+      />
     </View>
   );
 }

@@ -228,6 +228,7 @@ const run = async () => {
           nodeEnv: process.env.NODE_ENV ?? 'development',
           allowTestAdapter: process.env.BILLING_ALLOW_TEST_ADAPTER === 'true',
           sandboxAllowedAccountIds: process.env.BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS,
+          grantAllSandboxPurchases: process.env.BILLING_SANDBOX_GRANT_ALL === 'true',
           processors: readBillingProcessorEnv(process.env),
         });
       }

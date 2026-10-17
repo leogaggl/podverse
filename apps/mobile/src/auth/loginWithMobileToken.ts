@@ -1,4 +1,8 @@
-import { getErrorResponseStatus } from '@podverse/helpers/error';
+import {
+  ERROR_MESSAGES,
+  getErrorResponseBodyMessage,
+  getErrorResponseStatus,
+} from '@podverse/helpers/error';
 
 import { createMobileApiRequestService } from './mobileApi';
 
@@ -14,7 +18,10 @@ type LoginWithMobileTokenResult =
       ok: true;
       refreshToken: string;
     }
-  | { error: 'invalid_credentials' | 'mobile_api_not_configured'; ok: false };
+  | {
+      error: 'account_not_verified' | 'invalid_credentials' | 'mobile_api_not_configured';
+      ok: false;
+    };
 
 export const loginWithMobileToken = async ({
   email,
@@ -41,8 +48,16 @@ export const loginWithMobileToken = async ({
       refreshToken: mobileToken.refresh_token,
     };
   } catch (error) {
-    if (getErrorResponseStatus(error) === 401) {
+    const status = getErrorResponseStatus(error);
+    if (status === 401) {
       return { error: 'invalid_credentials', ok: false };
+    }
+
+    if (
+      status === 403 &&
+      getErrorResponseBodyMessage(error) === ERROR_MESSAGES.ACCOUNT.NOT_VERIFIED
+    ) {
+      return { error: 'account_not_verified', ok: false };
     }
 
     throw error;

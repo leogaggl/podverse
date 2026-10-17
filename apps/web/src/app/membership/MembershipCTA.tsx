@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
+import { membershipPurchaseAction, membershipPurchaseMessageKey } from '@podverse/helpers';
 import { Button } from '@podverse/ui';
 
 import { ROUTES } from '../../constants/routes';
@@ -27,6 +28,14 @@ export function MembershipCTA({
   const t = useTranslations('membership');
   const tAuth = useTranslations('authentication');
   const router = useRouter();
+  const loggedInPurchaseLabel = t(
+    membershipPurchaseMessageKey(
+      membershipPurchaseAction({
+        isLoggedIn: true,
+        tier: isPaidPremium ? 'premium' : isFreeTrial ? 'trial' : null,
+      })
+    )
+  );
 
   return (
     <section className={styles.ctaSection}>
@@ -40,21 +49,21 @@ export function MembershipCTA({
       {ssrLoggedInAccount && isMembershipExpired && (
         <div className={styles.cta}>
           <Button variant="primary" onClick={() => router.push(ROUTES.CHECKOUT)}>
-            {t('extend_my_membership')}
+            {loggedInPurchaseLabel}
           </Button>
         </div>
       )}
       {ssrLoggedInAccount && !isMembershipExpired && isFreeTrial && (
         <div className={styles.cta}>
           <Button variant="primary" onClick={() => router.push(ROUTES.CHECKOUT)}>
-            {t('buy_premium_membership')}
+            {loggedInPurchaseLabel}
           </Button>
         </div>
       )}
       {ssrLoggedInAccount && !isMembershipExpired && isPaidPremium && membershipExpiresAt && (
         <div className={styles.cta}>
           <Button variant="primary" onClick={() => router.push(ROUTES.CHECKOUT)}>
-            {t('extend_my_membership')}
+            {loggedInPurchaseLabel}
           </Button>
         </div>
       )}

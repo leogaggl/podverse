@@ -118,8 +118,11 @@ Validated for every command (Base). All are optional. Local values come from
 - **`BILLING_WEBHOOK_PUBLIC_BASE_URL`** (Optional) - Public HTTPS base the processors deliver
   webhooks to, with no trailing slash.
 - **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text`
-  values whose sandbox purchases count when `NODE_ENV` is `production`. Outside production every
-  sandbox purchase counts.
+  values whose sandbox purchases count when `NODE_ENV` is `production` and
+  `BILLING_SANDBOX_GRANT_ALL` is not `true`. Outside production every sandbox purchase counts.
+- **`BILLING_SANDBOX_GRANT_ALL`** (Optional) - `true` grants Premium from every sandbox purchase
+  while `NODE_ENV` is `production`. Empty leaves production on the allowlist. Live purchases
+  always grant.
 
 ### Billing processors (Billing category)
 
@@ -137,7 +140,7 @@ With the flag on, every key that processor needs is required. Keys and meanings 
   empty keeps it off
 - **`APPLE_IAP_ISSUER_ID`**, **`APPLE_IAP_KEY_ID`**, **`APPLE_IAP_PRIVATE_KEY_PATH`**,
   **`APPLE_IAP_BUNDLE_ID`**, **`APPLE_IAP_APP_APPLE_ID`**, **`APPLE_IAP_ENVIRONMENT`**
-- **`APPLE_IAP_ENVIRONMENT`** - `sandbox` or `production`; empty follows `NODE_ENV`. `xcode`
+- **`APPLE_IAP_ENVIRONMENT`** - `sandbox` or `production`; empty stays sandbox. `production` is opt-in and is independent of `NODE_ENV`. `xcode`
   (local only, refused when `NODE_ENV` is `production`) needs only `APPLE_IAP_BUNDLE_ID`. Those
   purchases exist only on the device that bought them.
 - **`BILLING_GOOGLE_PLAY_ENABLED`** (Optional, default off) - `true` turns Google Play on; empty

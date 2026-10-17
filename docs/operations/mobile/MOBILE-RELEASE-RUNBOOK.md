@@ -58,17 +58,21 @@ Before the first iOS submit, replace `REPLACE_WITH_ASC_APP_ID` and `REPLACE_WITH
 [`apps/mobile/eas.json`](/apps/mobile/eas.json) `submit.beta.ios` (and `submit.production.ios`).
 Store the App Store Connect API key and Play service account on EAS (`eas credentials`).
 
-Alpha / internal-tester API pointing: set `EXPO_PUBLIC_*` on the EAS **`preview`** environment
-(see readiness and [DOCS-MOBILE-VERSIONING-RELEASE.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md)).
+Alpha / internal-tester pointing: the `beta` profile reads the EAS **`preview`** environment.
+Set one variable from the repo root (`PROFILE=production` selects that profile's environment):
 
-## OTA policy (EAS Update)
+```bash
+make mobile_eas_env_set NAME=EXPO_PUBLIC_MOBILE_WEB_BASE_URL VALUE=https://example.com
+```
 
-- Use EAS Update only for JavaScript/content-only updates.
-- Native-impacting changes require a new store build/submit:
-  - `app.config.ts` plugin/config changes
-  - iOS/Android native project changes
-  - native module updates (including `podverse-media-engine`)
-  - ABI-impacting dependency changes
+Which `EXPO_PUBLIC_*` values belong on that environment:
+[DOCS-MOBILE-VERSIONING-RELEASE.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md).
+
+## Updates
+
+This app does not use over-the-air updates (EAS Update). JavaScript changes ship in the next
+store binary, the same as native changes. Turning OTA on is a major change and waits for an
+explicit operator request in that conversation. See **mobile-store-builds-on-demand**.
 
 ## EAS profiles and versioning
 
@@ -76,8 +80,8 @@ Alpha / internal-tester API pointing: set `EXPO_PUBLIC_*` on the EAS **`preview`
 - Required profiles: `internal`, `beta`, `production`. Each extends `base`, which pins the build
   server's Node to the repo's major version, and sets `environment` so EAS injects the matching
   env-var set at build time.
-- Run `eas` from `apps/mobile` (or via `scripts/mobile/eas-store.sh`); the CLI has no flag for
-  another project directory.
+- Run EAS through the `make mobile_eas_*` targets. `scripts/mobile/eas-store.sh` enters
+  `apps/mobile` because `eas-cli` has no flag for another project directory.
 - The build server receives only committed-or-unignored files, so shared package `dist/` and
   compiled i18n catalogs do not exist there. `apps/mobile/package.json` hooks rebuild them:
   `eas-build-pre-install` runs `scripts/mobile/eas-build-pre-install.sh` (root `npm ci` plus the
@@ -96,7 +100,7 @@ Alpha / internal-tester API pointing: set `EXPO_PUBLIC_*` on the EAS **`preview`
 ## Secrets and signing checklist
 
 - Local / optional CI runtime auth:
-  - Expo login (`npx eas-cli@latest login` from `apps/mobile`), or `EXPO_TOKEN` for a robot account
+  - Expo login (`make mobile_eas_login`), or `EXPO_TOKEN` for a robot account
 - Signing strategy:
   - Prefer EAS-managed credentials for iOS certs/profiles and Android keystores.
   - Keep `.next` credentials isolated from current production-app credentials.

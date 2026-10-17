@@ -11,13 +11,16 @@ type SetTokens = (params: { accessToken: string; refreshToken: string }) => Prom
 
 export type CompleteMobilePasswordLoginError =
   | 'account_load_failed'
+  | 'account_not_verified'
   | 'could_not_sign_in'
   | 'invalid_credentials'
   | 'mobile_api_not_configured'
   | 'session_expired';
 
 export type CompleteMobilePasswordLoginResult =
-  { ok: true } | { error: CompleteMobilePasswordLoginError; ok: false };
+  | { ok: true }
+  | { error: 'rate_limited'; ok: false; rateLimitError: unknown }
+  | { error: CompleteMobilePasswordLoginError; ok: false };
 
 export type CompleteMobilePasswordLoginParams = {
   clearSession: (reason: SessionEndReason) => Promise<void>;
@@ -32,7 +35,8 @@ export type CompleteMobilePasswordLoginParams = {
  * Password login plus the account hydrate the sign-in spinner waits on.
  *
  * Callers map `error` to catalog copy. A thrown network error becomes `could_not_sign_in`
- * so the screen never stays put with no message.
+ * so the screen never stays put with no message. A 429 is `rate_limited` and keeps the
+ * response so the caller can show the rate-limit message.
  */
 export const completeMobilePasswordLogin = async ({
   clearSession,
@@ -80,7 +84,11 @@ export const completeMobilePasswordLogin = async ({
       setAuthError('auth_bootstrap_failed');
       return { error: 'account_load_failed', ok: false };
     }
-  } catch {
+  } catch (error) {
+    if (getErrorResponseStatus(error) === 429) {
+      return { error: 'rate_limited', ok: false, rateLimitError: error };
+    }
+
     return { error: 'could_not_sign_in', ok: false };
   }
 };
@@ -88,6 +96,7 @@ export const completeMobilePasswordLogin = async ({
 export const completeMobilePasswordLoginMessageKey = (
   error: CompleteMobilePasswordLoginError
 ):
+  | 'authentication.account_not_verified'
   | 'authentication.could_not_sign_in'
   | 'authentication.invalid_email_or_password'
   | 'authentication.mobile_api_not_configured'
@@ -96,6 +105,8 @@ export const completeMobilePasswordLoginMessageKey = (
   switch (error) {
     case 'account_load_failed':
       return 'authentication.signed_in_account_load_failed';
+    case 'account_not_verified':
+      return 'authentication.account_not_verified';
     case 'could_not_sign_in':
       return 'authentication.could_not_sign_in';
     case 'invalid_credentials':

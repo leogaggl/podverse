@@ -17,6 +17,10 @@ import {
   clipToHomeRow,
   MIXED_SOURCE_CLIP_ROW_OPTIONS,
 } from '../../lib/rows/homeRowMappers';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
 import { useTheme } from '../../theme/useTheme';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
@@ -143,6 +147,7 @@ export function ProfileContentSections({
 }: ProfileContentSectionsProps) {
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
 
   const styles = useMemo(
     () =>
@@ -260,8 +265,10 @@ export function ProfileContentSections({
   return (
     <SectionList
       {...applyFillListRenderWindow({})}
+      ListFooterComponent={<BottomChromeScrollSpacer />}
       ListHeaderComponent={listHeader}
       contentContainerStyle={styles.listContent}
+      scrollIndicatorInsets={scrollIndicatorInsets}
       keyExtractor={profileSectionItemKeyExtractor}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}

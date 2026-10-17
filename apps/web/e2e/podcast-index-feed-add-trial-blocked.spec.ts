@@ -22,7 +22,7 @@ test.describe('Podcast Index add feed when directory add is blocked for Trial', 
     });
   });
 
-  test('the modal explains Trial directory limits, shows a mailto link, and Get Premium navigates to membership', async ({
+  test('the modal explains Trial directory limits, shows a mailto link, and Buy Membership navigates to membership', async ({
     page,
   }, testInfo) => {
     test.setTimeout(30_000);
@@ -64,17 +64,17 @@ test.describe('Podcast Index add feed when directory add is blocked for Trial', 
       );
     });
 
-    await test.step('Get Premium navigates to the membership page', async () => {
+    await test.step('Buy Membership navigates to the membership page', async () => {
       await page
         .getByRole('dialog', { name: 'Premium Required' })
-        .getByRole('button', { name: 'Get Premium' })
+        .getByRole('button', { name: 'Buy Membership' })
         .click();
       await expect(page).toHaveURL(/\/membership/);
 
       await capturePageLoad(
         page,
         testInfo,
-        'Get Premium navigates to the membership page.',
+        'Buy Membership navigates to the membership page.',
         page.getByRole('heading', { level: 1 })
       );
     });

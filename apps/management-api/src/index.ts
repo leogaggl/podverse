@@ -123,6 +123,7 @@ const run = async () => {
       allowTestAdapter: config.billing.allowTestAdapter,
       processors: config.billing.processors,
       sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+      grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
     });
 
     const { startApp } = await import('./app.js');

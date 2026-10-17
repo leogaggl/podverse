@@ -86,6 +86,8 @@ type Config = {
     allowTestAdapter: boolean;
     /** Raw `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`. */
     sandboxAllowedAccountIds: string | undefined;
+    /** `BILLING_SANDBOX_GRANT_ALL`. Every sandbox purchase grants while `NODE_ENV` is production. */
+    grantAllSandboxPurchases: boolean;
     processors: BillingProcessorEnv;
   };
 };
@@ -176,6 +178,7 @@ export const config: Config = {
   billing: {
     allowTestAdapter: process.env.BILLING_ALLOW_TEST_ADAPTER === 'true',
     sandboxAllowedAccountIds: process.env.BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS,
+    grantAllSandboxPurchases: process.env.BILLING_SANDBOX_GRANT_ALL === 'true',
     processors: readBillingProcessorEnv(process.env),
   },
 };

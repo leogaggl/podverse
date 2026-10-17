@@ -4,7 +4,13 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import React, { useState } from 'react';
 
-import { ERROR_MESSAGES, getAccountSignupModeCapabilities } from '@podverse/helpers';
+import {
+  ACCOUNT_RESPONSE_CODES,
+  ERROR_MESSAGES,
+  getAccountSignupModeCapabilities,
+  getErrorResponseBodyCode,
+  getErrorResponseStatus,
+} from '@podverse/helpers';
 import {
   Button,
   FormErrorMessageText,
@@ -19,6 +25,7 @@ import { getConfig } from '../../config';
 import { useModals } from '../../contexts/Modals';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { handleRateLimitAlert } from '../../utils/rateLimit/rateLimitAlert';
+import { VerificationEmailNotSentModal } from '../Auth/VerificationEmailNotSentModal';
 
 import styles from '../../styles/components/Modal/ModalAuthLogin.module.scss';
 
@@ -30,6 +37,7 @@ export const ModalAuthLogin: React.FC = () => {
   const [accountNotVerified, setAccountNotVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationEmailSent, setVerificationEmailSent] = useState(false);
+  const [verificationEmailNotSent, setVerificationEmailNotSent] = useState(false);
   const tAuthentication = useTranslations('authentication');
   const tMisc = useTranslations('misc');
   const router = useRouter();
@@ -67,14 +75,23 @@ export const ModalAuthLogin: React.FC = () => {
   };
 
   const handleResendVerificationEmail = async () => {
+    setVerificationEmailNotSent(false);
     try {
       await getApiRequestService().reqAccountSendVerificationEmail({ email });
       setVerificationEmailSent(true);
     } catch (err) {
       const rateLimitErrorHandled = await handleRateLimitAlert(err, locale, tMisc);
-      if (!rateLimitErrorHandled) {
-        console.error('Resend verification email failed:', err);
+      if (rateLimitErrorHandled) {
+        return;
       }
+      if (
+        getErrorResponseStatus(err) === 503 &&
+        getErrorResponseBodyCode(err) === ACCOUNT_RESPONSE_CODES.VERIFICATION_EMAIL_NOT_SENT
+      ) {
+        setVerificationEmailNotSent(true);
+        return;
+      }
+      console.error('Resend verification email failed:', err);
     }
   };
 
@@ -84,77 +101,85 @@ export const ModalAuthLogin: React.FC = () => {
   };
 
   return (
-    <Modal
-      header={tAuthentication('login')}
-      isOpen={modalAuthLogin.isOpen}
-      onClose={() => setModalAuthLogin({ isOpen: false })}
-      closeButtonAriaLabel={tMisc('close_modal')}
-      ariaLabel={tAuthentication('login')}
-    >
-      <StackForm onSubmit={handleSubmit}>
-        <TextInput
-          type="text"
-          name="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoFocus
-          placeholder={tAuthentication('email_example')}
-          eyebrow={inputLabel}
-        />
-        <TextInput
-          type="password"
-          name="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={tAuthentication('password_hint')}
-          eyebrow={tAuthentication('password')}
-        />
-        {accountNotVerified && (
-          <div className={styles.verificationSection}>
-            {!verificationEmailSent ? (
-              <>
-                <FormInfoMessageText message={tAuthentication('account_not_verified')} />
-                <Button type="button" variant="link" onClick={handleResendVerificationEmail}>
-                  {tAuthentication('resend_verification_email')}
-                </Button>
-              </>
-            ) : (
-              <FormInfoMessageText message={tAuthentication('verification_email_sent')} />
-            )}
-          </div>
-        )}
-        {!accountNotVerified && showErrorMessage && (
-          <FormErrorMessageText message={tAuthentication('invalid_email_or_password')} />
-        )}
-        <ModalActions>
-          <Button
-            type="button"
-            onClick={() => setModalAuthLogin({ isOpen: false })}
-            variant="secondary"
-          >
-            {tMisc('cancel')}
-          </Button>
-          <Button type="submit" variant="primary" disabled={isSubmitting}>
-            {tMisc('submit')}
-          </Button>
-        </ModalActions>
-        <div className={styles.links}>
-          {capabilities.canUseEmailVerificationFlows && (
+    <>
+      <Modal
+        header={tAuthentication('login')}
+        isOpen={modalAuthLogin.isOpen}
+        onClose={() => setModalAuthLogin({ isOpen: false })}
+        closeButtonAriaLabel={tMisc('close_modal')}
+        ariaLabel={tAuthentication('login')}
+      >
+        <StackForm onSubmit={handleSubmit}>
+          <TextInput
+            type="text"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoFocus
+            placeholder={tAuthentication('email_example')}
+            eyebrow={inputLabel}
+          />
+          <TextInput
+            type="password"
+            name="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={tAuthentication('password_hint')}
+            eyebrow={tAuthentication('password')}
+          />
+          {accountNotVerified && (
+            <div className={styles.verificationSection}>
+              {!verificationEmailSent ? (
+                <>
+                  <FormInfoMessageText message={tAuthentication('account_not_verified')} />
+                  <Button type="button" variant="link" onClick={handleResendVerificationEmail}>
+                    {tAuthentication('resend_verification_email')}
+                  </Button>
+                </>
+              ) : (
+                <FormInfoMessageText message={tAuthentication('verification_email_sent')} />
+              )}
+            </div>
+          )}
+          {!accountNotVerified && showErrorMessage && (
+            <FormErrorMessageText message={tAuthentication('invalid_email_or_password')} />
+          )}
+          <ModalActions>
             <Button
               type="button"
-              variant="link"
-              onClick={() => handleNavAndClose('/forgot-password')}
+              onClick={() => setModalAuthLogin({ isOpen: false })}
+              variant="secondary"
             >
-              {tAuthentication('forgot_password')}
+              {tMisc('cancel')}
             </Button>
-          )}
-          {capabilities.canPublicSignup && (
-            <Button type="button" variant="link" onClick={() => handleNavAndClose('/sign-up')}>
-              {tAuthentication('sign_up')}
+            <Button type="submit" variant="primary" disabled={isSubmitting}>
+              {tMisc('submit')}
             </Button>
-          )}
-        </div>
-      </StackForm>
-    </Modal>
+          </ModalActions>
+          <div className={styles.links}>
+            {capabilities.canUseEmailVerificationFlows && (
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => handleNavAndClose('/forgot-password')}
+              >
+                {tAuthentication('forgot_password')}
+              </Button>
+            )}
+            {capabilities.canPublicSignup && (
+              <Button type="button" variant="link" onClick={() => handleNavAndClose('/sign-up')}>
+                {tAuthentication('sign_up')}
+              </Button>
+            )}
+          </div>
+        </StackForm>
+      </Modal>
+      <VerificationEmailNotSentModal
+        isOpen={verificationEmailNotSent}
+        onClose={() => {
+          setVerificationEmailNotSent(false);
+        }}
+      />
+    </>
   );
 };

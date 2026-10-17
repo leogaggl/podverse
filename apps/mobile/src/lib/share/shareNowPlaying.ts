@@ -10,7 +10,7 @@ import {
   buildPublicShareUrl as buildPublicShareUrlFromWebBaseUrl,
 } from './shareUrl';
 
-export const buildPublicShareUrl = (resource: ShareResource, idText: string): string => {
+export const buildPublicShareUrl = (resource: ShareResource, idText: string): string | null => {
   return buildPublicShareUrlFromWebBaseUrl(getMobileConfig().webBaseUrl, resource, idText);
 };
 

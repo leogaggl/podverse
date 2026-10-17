@@ -35,7 +35,8 @@ name: Custom API
 - tapOn:
     id: custom-api-url-input
 - inputText: "not-a-url"
-- hideKeyboard
+# Return submits the field and dismisses the keyboard. hideKeyboard leaves this screen.
+- pressKey: Enter
 - scrollUntilVisible:
     element:
       id: custom-api-save
@@ -46,12 +47,6 @@ name: Custom API
     id: custom-api-save
 - assertVisible:
     id: custom-api-error
-- scrollUntilVisible:
-    element:
-      id: custom-api-reset
-    direction: DOWN
-    timeout: ${TIMEOUT_FAST}
-    centerElement: true
 - tapOn:
     id: custom-api-reset
 - assertVisible:

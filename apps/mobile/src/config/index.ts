@@ -1,3 +1,6 @@
+import type { AccountSignupMode } from '@podverse/helpers';
+
+import { getMobileAccountSignupModeFromEnv } from './accountSignupModeEnv';
 import { readCustomApiBaseUrlOverride } from './customApiEndpoint';
 import {
   getMobileBillingModeFromEnv,
@@ -21,6 +24,8 @@ export type { MobileBillingMode } from './billingEnv';
 export { validateMobileApiEnv, assertMobileApiEnvOrWarn } from './validateMobileEnv';
 
 export type MobileConfig = {
+  /** Signup mode. Email-flow controls follow this. */
+  accountSignupMode: AccountSignupMode;
   /** Parsed API connection, or null when unset (UI-only) or invalid. */
   api: MobileApiConnection | null;
   /** `store` opens a store sheet. `unavailable` is the FOSS build. */
@@ -35,7 +40,8 @@ export type MobileConfig = {
   unifiedPushEndpoint: string | null;
   /** Value-for-value boost entry enabled; hidden by default. */
   isV4vEnabled: boolean;
-  webBaseUrl: string;
+  /** Public web origin, or null when this build has no web host. */
+  webBaseUrl: string | null;
 };
 
 /** The build's API address, ignoring any custom override. */
@@ -57,8 +63,10 @@ export const getMobileConfig = (): MobileConfig => {
   const isV4vEnabled = isMobileV4vEnabledFromEnv();
   const webBaseUrl = getMobilePublicWebBaseUrlFromEnv();
   const contactEmail = getMobileContactEmailFromEnv();
+  const accountSignupMode = getMobileAccountSignupModeFromEnv();
 
   const shared = {
+    accountSignupMode,
     billingMode,
     contactEmail,
     deepLinkSchemes,

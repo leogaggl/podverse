@@ -8,6 +8,8 @@ import {
   deriveMembershipState,
   getMembershipExpiryDismissalKey,
   getMembershipExpiryNotice,
+  membershipPurchaseAction,
+  membershipPurchaseMessageKey,
 } from '@podverse/helpers';
 import { Banner } from '@podverse/ui';
 
@@ -36,7 +38,9 @@ export const MembershipExpiredBanner = () => {
         message={t('membership_expired')}
         action={
           <span className={styles.actions}>
-            <Link href={ROUTES.MEMBERSHIP_RENEW}>{t('renew_membership')}</Link>
+            <Link href={ROUTES.MEMBERSHIP_RENEW}>
+              {t(membershipPurchaseMessageKey(membershipPurchaseAction(membership)))}
+            </Link>
             <button type="button" className={styles.dismiss} onClick={() => setDismissed(true)}>
               {t('gate.banner_dismiss')}
             </button>

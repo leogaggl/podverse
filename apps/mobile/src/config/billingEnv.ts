@@ -1,7 +1,7 @@
 /**
  * Store-billing mode as a process.env read with no React Native imports, so Expo config and Node
  * unit tests can load it. Literal `EXPO_PUBLIC_*` reads for the app also live in `env.ts`,
- * `e2eEnv.ts`, and `perfEnv.ts`.
+ * `accountSignupModeEnv.ts`, `e2eEnv.ts`, and `perfEnv.ts`.
  */
 
 export type MobileBillingMode = 'store' | 'unavailable';

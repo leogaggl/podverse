@@ -88,6 +88,7 @@ import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScre
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
+import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
 import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { AddByRssAddScreen } from '../screens/rss/AddByRssAddScreen';
@@ -97,6 +98,7 @@ import { PodcastIndexFeedPreviewScreen } from '../screens/search/PodcastIndexFee
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { TrackDetailScreen } from '../screens/track/TrackDetailScreen';
 import { V4vInfoScreen } from '../screens/v4v/V4vInfoScreen';
+import { BottomChromeOverlayHeightProvider } from '../theme/bottomChromeOverlayInset';
 import { useNavigationTheme } from '../theme/useNavigationTheme';
 import { useTheme } from '../theme/useTheme';
 import { useThemedNativeStackScreenOptions } from '../theme/useThemedNativeStackScreenOptions';
@@ -110,6 +112,7 @@ import { ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
 import { tabBarIcon } from './tabBarIcon';
 import { useTabLayout } from './TabLayoutProvider';
 import type { TrackDetailRouteParams } from './trackDetailParams';
+import { useBottomChromeOverlayInsetSource } from './useBottomChromeOverlayInsetSource';
 
 type MobileTabNavigatorProps = {
   onConsumePendingDeepLink: () => void;
@@ -208,6 +211,7 @@ export const MORE_STACK_ROUTES = {
   MoreOverflowSearch: 'MoreOverflowSearch',
   MorePublicProfile: 'MorePublicProfile',
   MoreProfile: 'MoreProfile',
+  MoreProfileEdit: 'MoreProfileEdit',
   PlaylistDetail: 'PlaylistDetail',
   MoreRoot: 'MoreRoot',
   MoreSettings: 'MoreSettings',
@@ -396,7 +400,7 @@ const mobileNavigationScreens = {
  * `podverse://`, …) plus the public web base URL for universal / app links. Env-driven via
  * `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES` / `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` so forks can rebuild
  * without any hardcoded Podverse scheme or domain. Kept in sync with native registration in
- * `app.config.ts` (both parse the same env via `config/deepLinkSchemes.ts`).
+ * `app.config.ts` (both parse the same env via `config/deepLinkSchemes.js`).
  */
 const mobileLinkConfig = getMobileConfig();
 export const MOBILE_LINK_PREFIXES = buildMobileLinkPrefixes(
@@ -518,6 +522,7 @@ export type MoreStackParamList = {
   MoreOverflowSearch: NavigatorScreenParams<SearchStackParamList> | undefined;
   MorePublicProfile: { accountIdText: string };
   MoreProfile: undefined;
+  MoreProfileEdit: undefined;
   PlaylistDetail: { playlistId: string };
   MoreRoot: undefined;
   MoreSettings: undefined;
@@ -1102,6 +1107,11 @@ function MoreStackNavigator({
         options={{ title: t('features.profile') }}
       />
       <MoreStack.Screen
+        component={MyProfileEditScreen}
+        name={MORE_STACK_ROUTES.MoreProfileEdit}
+        options={{ title: t('settings.profile.profile') }}
+      />
+      <MoreStack.Screen
         component={PlaylistDetailScreen}
         name={MORE_STACK_ROUTES.PlaylistDetail}
         options={{ title: t('features.playlist.playlist') }}
@@ -1291,7 +1301,11 @@ function MoreRootScreen({
           onPress: () => {
             navigation.navigate(MORE_STACK_ROUTES.MoreMembership);
           },
-          subtitle: t('membership.gate.settings_row_subtitle'),
+          subtitle: t(
+            membership.tier === 'premium'
+              ? 'membership.gate.settings_row_subtitle_premium'
+              : 'membership.gate.settings_row_subtitle'
+          ),
           testID: 'more-nav-membership-renew',
           title: t('membership.gate.settings_row_title'),
         },
@@ -1440,6 +1454,7 @@ function TabScaffold({
 }: TabScaffoldProps) {
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
+  const overlayHeight = useBottomChromeOverlayInsetSource();
   const { visibleTabIds } = useTabLayout();
   const visibleTabSet = useMemo(() => new Set(visibleTabIds), [visibleTabIds]);
   const notificationsUnreadCount = useNotificationsUnreadCount({ enabled: true });
@@ -1513,14 +1528,18 @@ function TabScaffold({
         isTabletLayout ? (
           <OrderedTabBar {...props} />
         ) : (
-          <View>
+          <View
+            collapsable={false}
+            style={overlayHeight > 0 ? { marginTop: -overlayHeight } : undefined}
+          >
             <PlaybackE2eStatus />
             <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
               clip/chapter → mini player. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
-              bars a listener is aiming at.
+              bars a listener is aiming at. The negative top margin equals that stack's height, so
+              the scene above the tab bar does not resize when a bar appears.
             */}
             <GlobalActivityBar />
             <OfflineModeBanner />
@@ -1603,22 +1622,24 @@ function TabScaffold({
     </Tab.Navigator>
   );
 
-  if (!isTabletLayout) {
-    return navigator;
-  }
-
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // E2E playback markers → sync → Offline Mode → current clip/chapter → mini player.
-  return (
+  // E2E playback markers → sync → Offline Mode → current clip/chapter → mini player. The negative
+  // top margin is the variable strips only, so the safe-area padding stays reserved and the scene
+  // does not resize when a bar appears.
+  const scaffold = !isTabletLayout ? (
+    navigator
+  ) : (
     <View style={tabScaffoldStyles.tabletRoot}>
       {navigator}
       <View
+        collapsable={false}
         style={[
           tabScaffoldStyles.tabletBottomChrome,
           {
             backgroundColor: themeStyles.screen.backgroundColor,
+            marginTop: overlayHeight > 0 ? -overlayHeight : 0,
             paddingBottom: insets.bottom,
           },
         ]}
@@ -1631,6 +1652,12 @@ function TabScaffold({
         <MiniPlayer onExpand={onOpenFullPlayer} />
       </View>
     </View>
+  );
+
+  return (
+    <BottomChromeOverlayHeightProvider value={overlayHeight}>
+      {scaffold}
+    </BottomChromeOverlayHeightProvider>
   );
 }
 

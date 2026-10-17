@@ -55,7 +55,7 @@ test.describe('Popularity tracking consent', () => {
     const screen = page.getByRole('main', { name: POPULARITY_SCREEN_NAME });
     await expect(screen).toBeVisible();
     await expect(screen.getByLabel('Loading…')).toBeVisible();
-    await expect(screen.getByText('includes you in unique-listener rankings')).toBeVisible();
+    await expect(screen.getByText('Popularity Tracking is optional')).toBeVisible();
     await expect(screen.getByLabel('Loading…')).toBeHidden();
     await expect(page.getByRole('main', { name: TERMS_SCREEN_NAME })).toHaveCount(0);
   });
@@ -73,14 +73,14 @@ test.describe('Popularity tracking consent', () => {
     await actionAndCapture(
       page,
       testInfo,
-      'The full agreement opens in the accordion under the choice buttons.',
+      'How It Works opens in the accordion under the choice buttons.',
       async () => {
-        await expect(screen.getByText('includes you in unique-listener rankings')).toBeVisible();
-        await screen.getByText('Full Agreement').click();
+        await expect(screen.getByText('Popularity Tracking is optional')).toBeVisible();
+        await screen.getByText('How It Works').click();
         await expect(page).toHaveURL('/');
-        await expect(screen.getByRole('heading', { name: 'What we do not do' })).toBeVisible();
+        await expect(screen.getByRole('heading', { name: 'What We Store' })).toBeVisible();
       },
-      screen.getByRole('heading', { name: 'What we do not do' })
+      screen.getByRole('heading', { name: 'What We Store' })
     );
 
     await actionAndCapture(

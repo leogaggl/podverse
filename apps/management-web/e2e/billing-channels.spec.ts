@@ -109,7 +109,7 @@ test.describe('Management-web billing checkout channels', () => {
     const storeLinkMessage = 'A store link needs at least one storefront country.';
 
     await page.route('**/billing/checkout-channels', async (route) => {
-      if (route.request().method() !== 'GET') {
+      if (route.request().resourceType() === 'document' || route.request().method() !== 'GET') {
         await route.continue();
         return;
       }

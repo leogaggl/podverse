@@ -31,6 +31,10 @@ import {
   readAddByRssDetailPrefs,
   writeAddByRssDetailSort,
 } from '../../prefs/detailListPrefs';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
 import { useTheme } from '../../theme/useTheme';
 import type { AddByRssHomeDetailData } from './addByRssHomeDetailData';
 import { buildAddByRssHomeDetailData, sortAddByRssHomeEpisodes } from './addByRssHomeDetailData';
@@ -103,6 +107,7 @@ function AddByRssEpisodeRow({
 export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDetailScreenProps) {
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const [detail, setDetail] = useState<AddByRssHomeDetailData | null>(null);
   const [sort, setSort] = useState<AddByRssEpisodeSort>(DEFAULT_ADD_BY_RSS_EPISODE_SORT);
@@ -447,8 +452,14 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
   return (
     <FlatList
       ListEmptyComponent={listEmpty}
-      ListFooterComponent={listFooter}
+      ListFooterComponent={
+        <>
+          {listFooter}
+          <BottomChromeScrollSpacer />
+        </>
+      }
       ListHeaderComponent={listHeaderComponent}
+      scrollIndicatorInsets={scrollIndicatorInsets}
       contentContainerStyle={styles.content}
       data={errorKey === null && !isLoading ? sortedEpisodes : []}
       keyExtractor={addByRssEpisodeKeyExtractor}

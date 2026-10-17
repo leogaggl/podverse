@@ -2,6 +2,7 @@ import { config } from '@api/config/index.js';
 import { handleReturnDataOrNotFound } from '@api/controllers/helpers/data.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
+import { loggerService } from '@api/factories/loggerService.js';
 import { accountToJson } from '@api/lib/accountApiSerialization.js';
 import {
   ensureAuthenticated,
@@ -14,9 +15,13 @@ import {
   sendInvalidTermsVersionResponse,
   TERMS_VERSION_MAX_LENGTH,
 } from '@api/lib/legal/termsVersion.js';
+import type { MailerSendResult } from '@api/lib/mailer/mailerSendResult.js';
 import { sendEmailChangeVerificationEmail } from '@api/lib/mailer/sendChangeEmailVerificationEmail.js';
 import { sendResetPasswordEmail } from '@api/lib/mailer/sendResetPasswordEmail.js';
-import { sendVerificationEmail } from '@api/lib/mailer/sendVerificationEmail.js';
+import {
+  probeVerificationMailer,
+  sendVerificationEmail,
+} from '@api/lib/mailer/sendVerificationEmail.js';
 import { getParamRequired } from '@api/lib/params.js';
 import { resolveSharableStatusId } from '@api/lib/resolveSharableStatusId.js';
 import { getStatsOrder } from '@api/lib/stats.js';
@@ -35,6 +40,7 @@ import Joi from 'joi';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
+  ACCOUNT_RESPONSE_CODES,
   ERROR_MESSAGES,
   getAccountSignupModeCapabilities,
   getSharableStatusIdsForProfileType,
@@ -107,6 +113,16 @@ const followingAccountListRelations: FindOptionsRelations<AccountFollowingAccoun
 
 const accountCredentialsRelations: FindOptionsRelations<Account> = {
   account_credentials: true,
+};
+
+const accountCreatedJson = (result: MailerSendResult): { message: string; code?: string } => {
+  if (result === 'failed') {
+    return {
+      message: 'Account created',
+      code: ACCOUNT_RESPONSE_CODES.VERIFICATION_EMAIL_NOT_SENT,
+    };
+  }
+  return { message: 'Account created' };
 };
 
 export class AccountController {
@@ -537,14 +553,14 @@ export class AccountController {
     });
 
     validateBodyObject(bodySchema, req, res, async () => {
-      try {
-        const { email, password, locale, terms_version } = req.body as {
-          email: string;
-          password: string;
-          locale: string;
-          terms_version: string;
-        };
+      const { email, password, locale, terms_version } = req.body as {
+        email: string;
+        password: string;
+        locale: string;
+        terms_version: string;
+      };
 
+      try {
         if (!isConfiguredTermsVersion(terms_version)) {
           sendInvalidTermsVersionResponse(res);
           return;
@@ -556,15 +572,12 @@ export class AccountController {
           locale,
           terms_version,
         });
-        await AccountController.sendVerificationEmailHelper(email);
-        res.json({
-          message: 'Account created',
-        });
+        const result = await AccountController.sendVerificationEmailHelper(email);
+        res.json(accountCreatedJson(result));
       } catch (error) {
         if (error instanceof Error && error.message === ERROR_MESSAGES.ACCOUNT.ALREADY_EXISTS) {
-          res.json({
-            message: 'Account created',
-          });
+          const result = await AccountController.duplicateSignupMailerResult(email);
+          res.json(accountCreatedJson(result));
         } else {
           handleGenericErrorResponse(res, error);
         }
@@ -648,7 +661,14 @@ export class AccountController {
     validateBodyObject(Joi.object(emailBodySchema), req, res, async () => {
       try {
         const { email } = req.body;
-        await AccountController.sendVerificationEmailHelper(email);
+        const result = await AccountController.sendVerificationEmailHelper(email);
+        if (result === 'failed') {
+          res.status(503).json({
+            message: 'Verification email not sent',
+            code: ACCOUNT_RESPONSE_CODES.VERIFICATION_EMAIL_NOT_SENT,
+          });
+          return;
+        }
         res.json({
           message: 'Verification email sent',
         });
@@ -658,7 +678,7 @@ export class AccountController {
     });
   }
 
-  private static async sendVerificationEmailHelper(email: string): Promise<void> {
+  private static async sendVerificationEmailHelper(email: string): Promise<MailerSendResult> {
     const account = await AccountController.accountService.getByEmail(email);
 
     if (!account) {
@@ -676,7 +696,26 @@ export class AccountController {
       verification_token_expires_at: verificationTokenExpiresAt,
     });
 
-    await sendVerificationEmail(email, account.id_text, verificationToken);
+    return sendVerificationEmail(email, account.id_text, verificationToken);
+  }
+
+  /**
+   * A second signup for an existing email matches a first signup.
+   * Unverified accounts get another verification email. Verified accounts are
+   * left unchanged, and the response still follows the mailer result so a
+   * failed mailer does not reveal that the address is registered.
+   */
+  private static async duplicateSignupMailerResult(email: string): Promise<MailerSendResult> {
+    try {
+      const account = await AccountController.accountService.getByEmail(email);
+      if (account !== null && account.verified === false) {
+        return await AccountController.sendVerificationEmailHelper(email);
+      }
+    } catch (error) {
+      loggerService.logError('Duplicate signup could not load the account', error);
+    }
+
+    return probeVerificationMailer();
   }
 
   static async verifyEmail(req: Request, res: Response): Promise<void> {
@@ -754,7 +793,10 @@ export class AccountController {
       pending_email_address,
     });
 
-    await sendEmailChangeVerificationEmail(pending_email_address, verificationToken);
+    const result = await sendEmailChangeVerificationEmail(pending_email_address, verificationToken);
+    if (result === 'failed') {
+      throw new Error('Internal Server Error');
+    }
   }
 
   static async verifyEmailChange(req: Request, res: Response): Promise<void> {

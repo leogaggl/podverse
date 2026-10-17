@@ -39,8 +39,8 @@ const KEYVALDB_PASSWORD = process.env.KEYVALDB_PASSWORD ?? 'test';
 const TEST_PASSWORD = 'Test!1Aa';
 
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
-const E2E_CONFIGURED_TERMS_VERSION = '2026-01-01';
-const E2E_POPULARITY_TRACKING_VERSION = '2026-09-11';
+const E2E_CONFIGURED_TERMS_VERSION = '2026-10-15';
+const E2E_POPULARITY_TRACKING_VERSION = '2026-10-15';
 const E2E_POPULARITY_UNDECIDED_EMAIL = 'e2e-popularity-undecided@example.com';
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_CONSENT_ORDER_EMAIL = 'e2e-consent-order@example.com';

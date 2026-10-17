@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { E2E_CONFIGURED_TERMS_VERSION, E2E_SIGNUP_TEST_PASSWORD } from './helpers/legalConsent';
+import { waitForMailpitMessageTo } from './helpers/mailpit';
 import { actionAndCapture, capturePageLoad } from './helpers/stepScreenshots';
 
 const uniqueSignupEmail = (): string =>
@@ -72,10 +73,60 @@ test.describe('Sign-up legal consent', () => {
             'Account created successfully. Please check your email for a verification link.'
           )
         ).toBeVisible();
+        await waitForMailpitMessageTo(signupEmail);
       },
       page.getByText(
         'Account created successfully. Please check your email for a verification link.'
       )
+    );
+  });
+
+  test('When the verification email is not sent, sign-up explains that and links the contact address.', async ({
+    page,
+  }, testInfo) => {
+    const signupEmail = uniqueSignupEmail();
+
+    await page.route('**/api/v2/account**', async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname.replace(/\/$/, '');
+      if (request.method() !== 'POST' || !pathname.endsWith('/account')) {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          message: 'Account created',
+          code: 'verification_email_not_sent',
+        }),
+      });
+    });
+
+    await page.goto('/sign-up');
+    await page.locator('input[name="email"]').fill(signupEmail);
+    await page.locator('input[name="password1"]').fill(E2E_SIGNUP_TEST_PASSWORD);
+    await page.locator('input[name="password2"]').fill(E2E_SIGNUP_TEST_PASSWORD);
+    await page.getByRole('checkbox', { name: /I have read and agree to the terms/i }).check();
+
+    const dialog = page.getByRole('dialog', { name: 'Verification Email Not Sent' });
+
+    await actionAndCapture(
+      page,
+      testInfo,
+      'A failed verification email shows a notice with the contact address instead of the success message.',
+      async () => {
+        await page.getByRole('button', { name: 'Submit' }).click();
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByText(/our email service isn't working right now/)).toBeVisible();
+        await expect(dialog.getByRole('link', { name: 'contact-e2e@example.com' })).toBeVisible();
+        await expect(
+          page.getByText(
+            'Account created successfully. Please check your email for a verification link.'
+          )
+        ).toHaveCount(0);
+      },
+      dialog
     );
   });
 });

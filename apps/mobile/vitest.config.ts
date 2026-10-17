@@ -20,7 +20,7 @@ import { defineConfig } from 'vitest/config';
  * half stays in `channelLiveStatusRepository.ts`), the Home row metadata join that indexes the four
  * local stores against the subscription list (`src/screens/home/homeRowMetadata.ts` — pure; the
  * repository reads stay in `homeFeedData.ts`), the env-driven deep-link scheme / prefix helpers
- * (`src/config/deepLinkSchemes.ts`), the custom API address and health verdict
+ * (`src/config/deepLinkSchemes.js`), the custom API address and health verdict
  * (`src/config/customApiUrl.ts`), deep-link path mapping (`src/navigation/deepLinking.ts`), pure notification
  * payload target extraction (`src/push/notificationTarget.ts`), share URL mapping (`src/lib/share/shareUrl.ts`),
  * prefs storage guards/hydration (`src/prefs/prefsStore.ts`), Home's remembered filter, sort, and
@@ -28,7 +28,8 @@ import { defineConfig } from 'vitest/config';
  * covering per-media-type scoping, the list-not-grid default, one control's write leaving the
  * others alone, the carry-over of the pre-existing chip value, and the change notification Home
  * listens to), the row and artwork-tile column counts
- * (`src/theme/resolveColumns.ts`), the Podcast Index search preview poll helper
+ * (`src/theme/resolveColumns.ts`), the bottom-chrome overlap height and centered-fill shift
+ * (`src/theme/bottomChromeOverlay.ts`), the Podcast Index search preview poll helper
  * (`src/screens/search/podcastIndexFeedPreview.ts`), the client-version/platform header builder
  * (`src/auth/mobileClientHeaders.ts` — pure; the RN-coupled resolution stays in `mobileApi.ts`), the
  * billing client selection, account-token binding, and finish-after-confirm rule (`src/billing` —
@@ -169,6 +170,7 @@ export default defineConfig({
       'src/screens/more/errorLogMailto.test.ts',
       'src/sync/syncErrorClassification.test.ts',
       'src/sync/syncQueue.test.ts',
+      'src/theme/bottomChromeOverlay.test.ts',
       'src/theme/resolveColumns.test.ts',
       'src/theme/useThemedStyles.test.ts',
     ],

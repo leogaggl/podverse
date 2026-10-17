@@ -86,7 +86,7 @@ describe('Billing routes', () => {
       email,
       password: 'IntegrationTest1!',
       locale: 'en-US',
-      terms_version: '2026-01-01',
+      terms_version: '2026-10-15',
     });
     const account = await accountService.getByEmail(email);
     if (!account) {
@@ -275,6 +275,7 @@ describe('Billing routes', () => {
           nodeEnv: config.nodeEnv,
           allowTestAdapter: config.billing.allowTestAdapter,
           sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+          grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
           processors: readBillingProcessorEnv(process.env),
         });
       };
@@ -283,6 +284,7 @@ describe('Billing routes', () => {
         nodeEnv: config.nodeEnv,
         allowTestAdapter: config.billing.allowTestAdapter,
         sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+        grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
         processors: readBillingProcessorEnv(process.env),
       });
       await clearChannelCache();
@@ -436,6 +438,7 @@ describe('Billing routes', () => {
         nodeEnv: 'production',
         allowTestAdapter: false,
         sandboxAllowedAccountIds: undefined,
+        grantAllSandboxPurchases: false,
         processors: { paypal: null, apple: null, googlePlay: null, strike: null },
       });
       try {
@@ -447,6 +450,7 @@ describe('Billing routes', () => {
           nodeEnv: config.nodeEnv,
           allowTestAdapter: config.billing.allowTestAdapter,
           sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+          grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
           processors: config.billing.processors,
         });
       }

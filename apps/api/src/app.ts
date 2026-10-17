@@ -85,6 +85,7 @@ export const startApp = async () => {
       nodeEnv: config.nodeEnv,
       allowTestAdapter: config.billing.allowTestAdapter,
       sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+      grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
       processors: config.billing.processors,
     });
 

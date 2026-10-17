@@ -21,10 +21,10 @@ import { getMembership403ModalProps } from '../utils/membership/modalForMembersh
  * - `accessTier` / `evaluateFeature` answer "can this user do this" *before* a request, using the
  *   same tier table mobile uses, so a call site does not have to re-derive gating from auth state
  *   plus membership fields. A caller may still keep its own `loggedInAccount` login guard.
- * - `tryHandleMembershipGateError` handles the denial *after* a request: a logged-in but expired or
- *   insufficient user gets the consistent membership modal (message + auth-based Renew →
- *   `renewPath`) through the `modalLoginRequired` slot instead of a raw error. Returns `true` when
- *   it opened the modal, so callers skip their generic error path.
+ * - `tryHandleMembershipGateError` handles the denial *after* a request: a logged-in user gets the
+ *   consistent membership modal (message, plus Buy Membership or Extend Membership from tier,
+ *   linking through `renewPath`) through the `modalLoginRequired` slot instead of a raw error.
+ *   Returns `true` when it opened the modal, so callers skip their generic error path.
  *
  * Pass a `featureContext` only where bespoke copy exists (`directory_add_by_rss`, `manual_refresh`);
  * otherwise the default `generic` uses the shared expired / premium-required copy.
@@ -55,6 +55,7 @@ export function useMembershipGate(): {
         error,
         contactEmail: getContactEmail(),
         featureContext: options?.featureContext ?? 'generic',
+        membership,
         tMembership,
       });
       if (membershipModal === null) {
@@ -63,7 +64,7 @@ export function useMembershipGate(): {
       setModalLoginRequired(membershipModal);
       return true;
     },
-    [setModalLoginRequired, tMembership]
+    [membership, setModalLoginRequired, tMembership]
   );
 
   return { accessTier, evaluateFeature, tryHandleMembershipGateError };

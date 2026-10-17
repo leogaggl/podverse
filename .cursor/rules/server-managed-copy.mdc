@@ -14,13 +14,19 @@ releases.
 - FAQ (`faq`)
 - Make Clip how-to (`clip-how-to`)
 
-## Versioned acceptance documents
+## Legal documents
 
-Terms of Service and popularity tracking are not managed-copy slugs. Each one is versioned, carries
-an agreement date, and is accepted or declined by the account:
+Terms of Service stay a versioned acceptance document on `GET /legal/terms` (public). The response
+is a short intro plus the full markdown for the configured terms version, and it shows an
+agreement date. The account accepts or declines that version.
 
-- `GET /legal/terms` (public) — short intro plus full markdown for the configured terms version
-- `GET /legal/popularity-tracking` (authenticated) — same shape for the popularity-tracking version
+Popularity Tracking stays on `GET /legal/popularity-tracking` (authenticated), not a managed-copy
+slug, because the explanation can change without an app release. That document explains the
+feature. It is not the legal notice and it does not show an agreement date. The legal notice is
+the terms.
+
+The server version still gates tracking. Bump it only when what is recorded, how long it is kept,
+or who can see it changes. A wording change that leaves those the same does not bump the version.
 
 Do not add a `terms` or `popularity-tracking` managed-copy slug, and do not fold either document
 into `GET /managed-copy/:slug`.
@@ -30,7 +36,7 @@ into `GET /managed-copy/:slug`.
 - Do not add bundled fallback prose for served documents in app code or locale JSON.
 - Always render loading and retry states while fetching served documents.
 - Add new managed-copy docs by adding locale markdown files plus allowlisted slug support, not by
-  creating a new endpoint for each document. Versioned acceptance documents are the exception
-  above: they stay on `/legal/*`.
+  creating a new endpoint for each document. Terms of Service and Popularity Tracking stay on
+  `/legal/*`.
 
 Reference: [754-server-managed-copy-endpoint](/docs/proposals/mobile/_master-plan_/phase-2/details/754-server-managed-copy-endpoint.md)

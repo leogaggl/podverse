@@ -331,7 +331,6 @@ export function createPayPalAdapter(config: PayPalAdapterConfig): PaymentProcess
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       fetchImpl: config.fetchImpl,
-      nodeEnv: config.nodeEnv,
       ordersController: config.ordersController,
       paypalEnvironment: config.paypalEnvironment,
       paymentsController: config.paymentsController,
@@ -385,8 +384,7 @@ export function createPayPalAdapter(config: PayPalAdapterConfig): PaymentProcess
 }
 
 export function resolvePayPalEnvironment(
-  paypalEnvironment: PayPalEnvironment | undefined,
-  nodeEnv: string | undefined
+  paypalEnvironment: PayPalEnvironment | undefined
 ): PayPalEnvironment {
-  return PayPalService.resolveEnvironment(paypalEnvironment, nodeEnv);
+  return PayPalService.resolveEnvironment(paypalEnvironment);
 }

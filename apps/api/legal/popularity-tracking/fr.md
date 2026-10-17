@@ -1,27 +1,38 @@
-Le suivi de popularité aide les auditeurs à trouver des émissions que les gens apprécient, et aide les créateurs à voir quand leur travail touche un public.
+Le suivi de popularité est optionnel. Il aide les auditeurs à trouver des émissions que les gens apprécient, et il aide les créateurs à voir quand leur travail atteint des personnes.
 
-Si vous dites oui, {brand_name} vous inclut dans les classements d'auditeurs uniques. Les données sont anonymisées, restent sur nos serveurs et ne sont jamais vendues.
+Si vous l'activez, {brand_name} vous compte comme un auditeur. Votre nom ne fait pas partie de ce décompte. Vous pouvez le désactiver à tout moment dans Paramètres.
 
-# Qu'est-ce que le suivi de popularité
+# Comment une écoute est comptée
 
-Les classements d'auditeurs uniques aident les gens à découvrir des émissions populaires et aident les créateurs à comprendre quand leur travail atteint un public.
+Écouter quelque chose du catalogue enregistre cette écoute : l'épisode ou la piste, le clip lorsque vous avez écouté un clip, et l'émission à laquelle cela appartient. Écouter la même chose à nouveau, tant que l'enregistrement est encore conservé, ne vous compte pas une deuxième fois.
 
-# Ce que {brand_name} enregistre si vous dites oui
+Sur le site web, deux choses de plus sont enregistrées : ouvrir le profil de quelqu'un d'autre, et ouvrir une playlist. Ouvrir votre propre profil n'est pas enregistré.
 
-Si vous dites oui, {brand_name} enregistre un événement d'écoute pseudonyme lorsque vous lisez des épisodes du catalogue. L'événement utilise un identifiant de compte interne. Il n'est pas affiché comme votre profil public ni comme votre nom d'utilisateur.
+L'écoute sans être connecté n'est pas comptée. Si le suivi de popularité est désactivé, les nouvelles écoutes ne sont pas enregistrées.
 
-# Comment les données sont utilisées
+# Ce que nous enregistrons
 
-Ces événements alimentent les classements d'auditeurs uniques et les listes tendances afin que les auditeurs trouvent des émissions que les gens apprécient, et que les créateurs voient quand leur travail touche un public.
+Chaque enregistrement a un id aléatoire pour votre compte, ce que vous avez écouté ou ouvert, et quand. Il n'inclut pas votre nom, votre e-mail ni votre nom d'utilisateur. Cet id n'est pas affiché sur votre profil public.
+
+Nous pouvons tout de même relier l'id à votre compte. C'est ainsi que désactiver ceci, et supprimer votre compte, s'applique à vous. Ceci n'est pas anonyme. Nous ne donnons l'id à personne d'autre.
+
+# Ce que les listes affichent
+
+Les listes publiques affichent des décomptes. Elles ne montrent pas qui a écouté.
 
 # Ce que nous ne faisons pas
 
-- Les événements sont stockés sur nos serveurs.
-- Nous ne vendons jamais ces données.
-- Nous ne les utilisons pas pour vous montrer des publicités.
+- Nous ne vendons pas ces informations.
+- Nous ne les utilisons pas pour vous adresser de la publicité.
 
-# Modifier votre choix
+# Combien de temps nous le conservons
 
-Vous pouvez modifier cela à tout moment dans les paramètres. Dire non arrête le nouveau suivi. Les événements existants ne sont conservés que pendant une durée limitée, puis supprimés.
+Les enregistrements individuels sont supprimés après {retention_days} jours. Les décomptes déjà ajoutés aux listes publiques peuvent rester après la suppression d'un enregistrement. Ces décomptes sont des nombres, pas une liste d'auditeurs.
 
-Une mise à jour ultérieure de cet accord ne vous redemande que si vous avez déjà dit oui. Si vous avez dit non, nous ne vous le redemanderons pas lorsque l'accord change.
+Supprimer votre compte supprime l'id aléatoire et les enregistrements qui y sont liés.
+
+# Si vous changez d'avis
+
+Activez ou désactivez ceci dans Paramètres. Le désactiver arrête les nouveaux enregistrements. Les enregistrements déjà conservés sont supprimés lorsqu'ils atteignent {retention_days} jours.
+
+Si vous le désactivez, nous ne demanderons plus lorsque cette explication change. Si vous l'activez, et que nous changeons plus tard ce que nous enregistrons ou combien de temps nous le conservons, nous demanderons à nouveau. Tant que vous n'avez pas dit oui à cette mise à jour, le suivi reste désactivé.

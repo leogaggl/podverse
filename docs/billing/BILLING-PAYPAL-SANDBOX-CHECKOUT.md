@@ -15,7 +15,8 @@ Use the **Dev** env files (`apps/api/.env` and the matching workers and manageme
 files). Those stay on `NODE_ENV=development`, so a sandbox purchase grants every account
 and `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS` stays empty. The Docker copies under
 `infra/config/local/` set `NODE_ENV=production`. Sandbox purchases against that API grant
-membership only for accounts listed in `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`.
+membership when `BILLING_SANDBOX_GRANT_ALL` is `true`, or for accounts listed in
+`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`.
 
 **Billing Tunnel** can stay up while you buy. The PayPal button captures the order and
 grants membership on that response. The tunnel is how a later webhook reaches the API.

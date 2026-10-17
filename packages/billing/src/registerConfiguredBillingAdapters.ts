@@ -48,7 +48,6 @@ export function registerConfiguredBillingAdapters(
         clientId: paypal.clientId,
         clientSecret: paypal.clientSecret,
         paypalEnvironment: paypal.environment,
-        nodeEnv: config.nodeEnv,
         webhookId: paypal.webhookId,
       })
     );

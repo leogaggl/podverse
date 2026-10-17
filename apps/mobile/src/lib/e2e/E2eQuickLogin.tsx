@@ -11,6 +11,7 @@ import {
 import { HEADER_BAR_HEIGHT } from '../../components/screen/HeaderBar';
 import { getMobileConfig } from '../../config';
 import { useTheme } from '../../theme/useTheme';
+import { handleRateLimitMessage } from '../rateLimit/handleRateLimitMessage';
 import { isE2eQuickLoginEnabled } from './e2eQuickLoginGate';
 import {
   E2E_PERF_EMAIL,
@@ -28,10 +29,11 @@ import {
  * even when that view is still in the accessibility tree, and Maestro still reports the tap as
  * passed. The boxes paint nothing, so screenshots stay clean.
  *
- * The row sits in the header, inset past the back chevron. A column under the header covers
- * the leading play control on list rows, and sharing the chevron's slot makes a back tap
- * sign in again. The session marker stays out of this row: a trailing 44pt box covers Create
- * Clip once the full player shows its trailing actions.
+ * The targets wrap two-wide, inset past the back control, and stop before the trailing
+ * actions. Create Clip is the first of those, so a single row of four targets lands on it
+ * and Maestro still reports the tap. The wrap stays off the leading and trailing edges
+ * under the header, where list-row play and More sit. The session marker is a separate
+ * non-interactive box at the bottom-left.
  */
 const E2E_QUICK_LOGIN_HIT_SIZE = 44;
 
@@ -59,9 +61,11 @@ export function E2eQuickLogin() {
     },
     host: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       left: HEADER_BAR_HEIGHT + 12,
       position: 'absolute',
       top: insets.top,
+      width: E2E_QUICK_LOGIN_HIT_SIZE * 2,
       zIndex: 2000,
     },
     marker: {
@@ -100,6 +104,10 @@ export function E2eQuickLogin() {
         setTokens,
       });
       if (!result.ok) {
+        if (result.error === 'rate_limited') {
+          setError(handleRateLimitMessage(result.rateLimitError, t) ?? t('errors.generic'));
+          return;
+        }
         setError(t(completeMobilePasswordLoginMessageKey(result.error)));
       }
     })()

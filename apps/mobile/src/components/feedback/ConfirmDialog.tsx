@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
+import { formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import type { FormAction } from '../form/FormActions';
 import { FormActions } from '../form/FormActions';
@@ -22,7 +24,6 @@ export type ConfirmDialogProps = {
   testID: string;
   cancelTestID: string;
   confirmTestID?: string;
-  stacked?: boolean;
 };
 
 export function ConfirmDialog({
@@ -36,13 +37,15 @@ export function ConfirmDialog({
   testID,
   cancelTestID,
   confirmTestID,
-  stacked = false,
 }: ConfirmDialogProps) {
   const { styles: themeStyles, tokens } = useTheme();
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        actions: {
+          marginTop: formActionsTopGap(tokens.spacing),
+        },
         // Neutral dimming scrim (not a theme color); mirrors the standard platform dialog backdrop.
         backdrop: {
           alignItems: 'center',
@@ -52,8 +55,8 @@ export function ConfirmDialog({
           padding: tokens.spacing.xl,
         },
         body: {
+          ...typography.prose,
           color: themeStyles.textSecondary.color,
-          fontSize: 15,
         },
         contents: {
           flex: 1,
@@ -63,15 +66,15 @@ export function ConfirmDialog({
           borderColor: themeStyles.border.borderColor,
           borderRadius: tokens.radii.md,
           borderWidth: 1,
-          gap: tokens.spacing.md,
           maxWidth: 420,
           padding: tokens.spacing.xl,
           width: '100%',
         },
         title: {
+          ...typography.heading,
           color: themeStyles.textPrimary.color,
-          fontSize: 18,
           fontWeight: '700',
+          marginBottom: tokens.spacing.md,
         },
       }),
     [themeStyles, tokens]
@@ -88,11 +91,7 @@ export function ConfirmDialog({
       ? { label: confirmLabel, onPress: onConfirm, testID: confirmTestID }
       : undefined;
   const actions: readonly FormAction[] =
-    confirmAction === undefined
-      ? [cancelAction]
-      : stacked
-        ? [confirmAction, cancelAction]
-        : [cancelAction, confirmAction];
+    confirmAction === undefined ? [cancelAction] : [confirmAction, cancelAction];
 
   return (
     <AppOverlay animation="fade" onRequestClose={onCancel} visible={visible}>
@@ -110,7 +109,7 @@ export function ConfirmDialog({
           >
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.body}>{body}</Text>
-            <FormActions actions={actions} stacked={stacked} />
+            <FormActions actions={actions} style={styles.actions} />
           </Pressable>
         </Pressable>
       </OverlayScrim>

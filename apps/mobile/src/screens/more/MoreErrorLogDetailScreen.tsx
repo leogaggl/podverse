@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 
-import { Badge, Button, LIST_REMOVE_CLIPPED_SUBVIEWS } from '../../components/primitives';
+import { FormActions } from '../../components/form';
+import { Badge, LIST_REMOVE_CLIPPED_SUBVIEWS } from '../../components/primitives';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { getMobileConfig } from '../../config';
@@ -17,6 +18,11 @@ import {
   syncEventLogRepository,
 } from '../../data/repositories';
 import type { MoreStackParamList } from '../../navigation';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
+import { formActionsTopGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { readErrorLogDeviceContext } from './errorLogDeviceContext.read';
 import { buildErrorReportMailto } from './errorLogMailto';
@@ -64,6 +70,7 @@ export function MoreErrorLogDetailScreen() {
   const route = useRoute<RouteProp<MoreStackParamList, 'MoreErrorLogDetail'>>();
   const { entryId } = route.params;
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const timestampFormatter = useErrorLogTimestampFormatter();
   const contactEmail = getMobileConfig().contactEmail;
   const deviceFields = readErrorLogDeviceContext(i18n.language);
@@ -209,16 +216,15 @@ export function MoreErrorLogDetailScreen() {
           padding: tokens.spacing.lg,
           paddingBottom: tokens.spacing['2xl'],
         },
-        copyRow: {
-          alignItems: 'center',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: tokens.spacing.md,
-          marginTop: tokens.spacing.md,
+        copyActions: {
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         copyStatus: {
           color: themeStyles.textSecondary.color,
           fontSize: 13,
+        },
+        copyStatusVisible: {
+          marginTop: tokens.spacing.sm,
         },
         deviceDivider: {
           borderTopColor: themeStyles.border.borderColor,
@@ -251,8 +257,10 @@ export function MoreErrorLogDetailScreen() {
           fontSize: 13,
         },
         header: {
-          gap: tokens.spacing.sm,
           marginBottom: tokens.spacing.lg,
+        },
+        headerBody: {
+          gap: tokens.spacing.sm,
         },
         headline: {
           alignItems: 'center',
@@ -307,44 +315,53 @@ export function MoreErrorLogDetailScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={styles.headline}>
-        <Badge
-          label={outcomeLabel}
-          testID="error-log-detail-outcome"
-          tone={ERROR_LOG_OUTCOME_BADGE_TONES[entry.outcome]}
-        />
-        <Text accessibilityRole="header" style={styles.category}>
-          {errorLogCategoryLabel(t, entry.jobKind)}
+      <View style={styles.headerBody}>
+        <View style={styles.headline}>
+          <Badge
+            label={outcomeLabel}
+            testID="error-log-detail-outcome"
+            tone={ERROR_LOG_OUTCOME_BADGE_TONES[entry.outcome]}
+          />
+          <Text accessibilityRole="header" style={styles.category}>
+            {errorLogCategoryLabel(t, entry.jobKind)}
+          </Text>
+        </View>
+        <Text style={styles.timestamp}>
+          {timestampFormatter.format(new Date(entry.occurredAt))}
         </Text>
+        {isCreatorHostedEntry(entry) ? (
+          <Text style={styles.hostedNote} testID="error-log-detail-hosted-note">
+            {t('error_log.detail.hosted_media_note')}
+          </Text>
+        ) : null}
       </View>
-      <Text style={styles.timestamp}>{timestampFormatter.format(new Date(entry.occurredAt))}</Text>
-      {isCreatorHostedEntry(entry) ? (
-        <Text style={styles.hostedNote} testID="error-log-detail-hosted-note">
-          {t('error_log.detail.hosted_media_note')}
-        </Text>
-      ) : null}
-      <View style={styles.copyRow}>
-        <Button
-          label={t('error_log.detail.copy')}
-          onPress={handleCopy}
-          size="sm"
-          testID="error-log-detail-copy"
-        />
-        <Button
-          label={t('error_log.detail.email')}
-          onPress={handleEmail}
-          size="sm"
-          testID="error-log-detail-email"
-          variant="secondary"
-        />
-        <Text
-          accessibilityLiveRegion="polite"
-          style={styles.copyStatus}
-          testID="error-log-detail-copy-status"
-        >
-          {actionStatusText}
-        </Text>
-      </View>
+      <FormActions
+        actions={[
+          {
+            label: t('error_log.detail.copy'),
+            onPress: handleCopy,
+            testID: 'error-log-detail-copy',
+          },
+          {
+            label: t('error_log.detail.email'),
+            onPress: handleEmail,
+            testID: 'error-log-detail-email',
+            variant: 'secondary',
+          },
+        ]}
+        style={styles.copyActions}
+      />
+      <Text
+        accessibilityLiveRegion="polite"
+        style={
+          actionStatusText === ''
+            ? styles.copyStatus
+            : [styles.copyStatus, styles.copyStatusVisible]
+        }
+        testID="error-log-detail-copy-status"
+      >
+        {actionStatusText}
+      </Text>
     </View>
   );
 
@@ -381,8 +398,14 @@ export function MoreErrorLogDetailScreen() {
         contentContainerStyle={styles.content}
         data={fields}
         keyExtractor={(item) => item.key}
-        ListFooterComponent={renderDeviceSection}
+        ListFooterComponent={
+          <>
+            {renderDeviceSection()}
+            <BottomChromeScrollSpacer />
+          </>
+        }
         ListHeaderComponent={renderHeader}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
         renderItem={({ item }) => (
           <View

@@ -7,7 +7,7 @@ Apple App Store Server integration for Podverse billing.
 - `createAppleAdapter(config)` returns a `PaymentProcessorAdapter` for processor id `apple`
 - `AppStoreServerClient` wraps App Store Server API + signed payload verification
 - `resolveAppleRuntimeEnvironment(APPLE_IAP_ENVIRONMENT, NODE_ENV)` resolves sandbox, production,
-  or xcode, and throws for xcode when `NODE_ENV` is `production`
+  or xcode. Empty is sandbox. It throws for xcode when `NODE_ENV` is `production`
 
 ## Xcode StoreKit Testing mode
 
@@ -32,7 +32,7 @@ These values are read by the app/worker wiring that creates the adapter:
 - `APPLE_IAP_PRIVATE_KEY_PATH`
 - `APPLE_IAP_BUNDLE_ID`
 - `APPLE_IAP_APP_APPLE_ID`
-- `APPLE_IAP_ENVIRONMENT` (optional override; `sandbox`, `production`, or local-only `xcode`)
+- `APPLE_IAP_ENVIRONMENT` (`sandbox`, `production`, or local-only `xcode`). Empty is sandbox
 
 Apple root certificates are bundled as static trust anchors in this package so
 `SignedDataVerifier` can validate App Store Server Notification signatures.

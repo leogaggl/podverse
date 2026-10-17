@@ -23,22 +23,23 @@ type GatePresentation = {
 
 /**
  * App-wide membership gate. Member-only actions stay visible; on a `membership.*` 403 the app shows
- * a consistent modal (Cancel + auth-based Renew / Sign up) instead of a raw error, and that action
- * routes to the Membership screen (the host provides that navigation so this module never imports
- * the navigator — avoids an import cycle).
+ * a consistent modal instead of a raw error, and that action routes to the Membership screen. The
+ * host provides that navigation so this module never imports the navigator.
  *
  * Reasons are the shared `AccessDenialReason` from `@podverse/helpers`, so this modal and the
  * client-side `useAccessTier` checks describe a denial the same way.
  *
  * - `openGate(reason)` — show the modal when the user attempts a gated action. `needs_account`
- *   confirms to Login; membership reasons confirm to the Membership screen.
+ *   confirms to Login. Every other reason confirms to the Membership screen. The confirm label is
+ *   Sign Up when signed out, Buy Membership when the signed-in tier is not Premium, and Extend
+ *   Membership when the tier is Premium.
  * - `handleGateError(error)` — if `error` is a membership 403, open the gate and return `true`;
  *   otherwise return `false` so callers fall through to their normal error handling. A server 403
  *   never yields `needs_account`.
  * - `runGated(action)` — await an API action; a membership 403 opens the gate (returns `undefined`),
  *   any other error rethrows.
  * - `goToMembership()` — navigate to the Membership screen, so gated affordances anywhere in the app
- *   get the renewal route without each screen wiring navigation.
+ *   get that route without each screen wiring navigation.
  */
 export type MembershipGateContextValue = {
   openGate: (reason: AccessDenialReason) => void;
@@ -59,7 +60,7 @@ export function MembershipGateProvider({
 }: MembershipGateProviderProps) {
   const { t } = useTranslation();
   const { onRequestLogin } = useAuthPrompt();
-  const { isLoggedIn } = useMembership();
+  const membership = useMembership();
   const [gate, setGate] = useState<GatePresentation>({
     reason: 'needs_account',
     visible: false,
@@ -114,8 +115,8 @@ export function MembershipGateProvider({
     [handleGateError, onNavigateToMembership, openGate, runGated]
   );
 
-  const messageKeys = membershipGateMessageKeys(gate.reason);
-  const confirmLabel = t(membershipGateConfirmLabelKey(gate.reason, isLoggedIn));
+  const messageKeys = membershipGateMessageKeys(gate.reason, membership.tier);
+  const confirmLabel = t(membershipGateConfirmLabelKey(gate.reason, membership));
 
   return (
     <MembershipGateContext.Provider value={value}>

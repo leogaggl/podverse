@@ -30,11 +30,11 @@ import { MobileTabNavigator, navigateToMembershipScreen } from './src/navigation
 import { isAuthGatedDeepLink } from './src/navigation/deepLinking';
 import { TabLayoutProvider, useTabLayout } from './src/navigation/TabLayoutProvider';
 import { PlaybackProvider } from './src/playback';
-import { PopularityTrackingProvider } from './src/popularityTracking/PopularityTrackingProvider';
 import {
   getInitialNotificationDeepLinkUrl,
   subscribeToNotificationOpen,
 } from './src/push/notificationRouting';
+import { ForgotPasswordScreen } from './src/screens/auth/ForgotPasswordScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { SignUpScreen } from './src/screens/auth/SignUpScreen';
 import { SyncProvider } from './src/sync';
@@ -257,8 +257,11 @@ type AppBodyProps = {
 function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps) {
   const { statusBarStyle } = useTheme();
   const { logout, status } = useAuth();
-  // Login/signup are optional overlays for anonymous users; authenticated users always see tabs.
-  const [authMode, setAuthMode] = useState<'anonymous' | 'login' | 'signup'>('anonymous');
+  // Login, sign-up, and forgot password are optional overlays for anonymous users.
+  // Authenticated users always see tabs.
+  const [authMode, setAuthMode] = useState<'anonymous' | 'forgot-password' | 'login' | 'signup'>(
+    'anonymous'
+  );
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -281,7 +284,9 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
   const dismissAuthSheet = () => {
     setAuthMode('anonymous');
   };
-  const showAuthSheet = status === 'anonymous' && (authMode === 'login' || authMode === 'signup');
+  const showAuthSheet =
+    status === 'anonymous' &&
+    (authMode === 'login' || authMode === 'signup' || authMode === 'forgot-password');
 
   return (
     <>
@@ -296,28 +301,26 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
         >
           <MembershipGateProvider onNavigateToMembership={navigateToMembershipScreen}>
             <TermsAcceptanceProvider>
-              <PopularityTrackingProvider>
-                <ForcedLogoutNotice />
-                <OverlayA11yShield>
-                  <MembershipExpiredBanner onRenew={navigateToMembershipScreen} />
-                  <MobileTabNavigator
-                    onConsumePendingDeepLink={onConsumePendingDeepLink}
-                    pendingDeepLinkUrl={pendingDeepLinkUrl}
-                    onRequestLogin={() => {
-                      setAuthMode('login');
-                    }}
-                    onRequestLogout={async () => {
-                      await logout();
-                      setAuthMode('anonymous');
-                    }}
-                    onRequestSignUp={() => {
-                      setAuthMode('signup');
-                    }}
-                  />
-                </OverlayA11yShield>
-                {/* After the navigator so overlays cover root-stack cards. */}
-                <OverlayOutlet />
-              </PopularityTrackingProvider>
+              <ForcedLogoutNotice />
+              <OverlayA11yShield>
+                <MembershipExpiredBanner onRenew={navigateToMembershipScreen} />
+                <MobileTabNavigator
+                  onConsumePendingDeepLink={onConsumePendingDeepLink}
+                  pendingDeepLinkUrl={pendingDeepLinkUrl}
+                  onRequestLogin={() => {
+                    setAuthMode('login');
+                  }}
+                  onRequestLogout={async () => {
+                    await logout();
+                    setAuthMode('anonymous');
+                  }}
+                  onRequestSignUp={() => {
+                    setAuthMode('signup');
+                  }}
+                />
+              </OverlayA11yShield>
+              {/* After the navigator so overlays cover root-stack cards. */}
+              <OverlayOutlet />
             </TermsAcceptanceProvider>
           </MembershipGateProvider>
         </AuthPromptProvider>
@@ -341,9 +344,18 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
                   setAuthMode('login');
                 }}
               />
+            ) : authMode === 'forgot-password' ? (
+              <ForgotPasswordScreen
+                onBackToLogin={() => {
+                  setAuthMode('login');
+                }}
+              />
             ) : (
               <LoginScreen
                 onDismiss={dismissAuthSheet}
+                onForgotPassword={() => {
+                  setAuthMode('forgot-password');
+                }}
                 onSwitchToSignUp={() => {
                   setAuthMode('signup');
                 }}
