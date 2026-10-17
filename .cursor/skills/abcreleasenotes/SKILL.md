@@ -15,12 +15,12 @@ How entries get into the scratchpad: **release-notes-scratchpad** rule.
 
 The formal version is the root `package.json` version with any `-suffix` removed (`5.5.3`).
 
-| File | Audience | Limits | Required by |
-| --- | --- | --- | --- |
-| `release-notes/scratchpad.md` | Agents | — | Must exist and be blank for the staging sync and store builds |
-| `release-notes/X.Y.Z.md` | GitHub release (developers, self-hosters, operators) | At most six bullets | Staging sync, preflight, main sync |
-| `release-notes/mobile/X.Y.Z.md` | App Store and Play (regular users) | At most four bullets, 500 characters | Store build and submit |
-| `release-notes/web/X.Y.Z.md` | Web users | At most six bullets | Nothing yet; the web app does not display it |
+| File                            | Audience                                             | Limits                               | Required by                                                   |
+| ------------------------------- | ---------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------- |
+| `release-notes/scratchpad.md`   | Agents                                               | —                                    | Must exist and be blank for the staging sync and store builds |
+| `release-notes/X.Y.Z.md`        | GitHub release (developers, self-hosters, operators) | At most six bullets                  | Staging sync, preflight, main sync                            |
+| `release-notes/mobile/X.Y.Z.md` | App Store and Play (regular users)                   | At most four bullets, 500 characters | Store build and submit                                        |
+| `release-notes/web/X.Y.Z.md`    | Web users                                            | At most six bullets                  | Nothing yet; the web app does not display it                  |
 
 Optional store overrides `release-notes/mobile/X.Y.Z.ios.md` and `.android.md` follow
 **release-notes-suggest**.
