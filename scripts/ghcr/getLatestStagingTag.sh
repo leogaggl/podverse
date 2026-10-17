@@ -33,17 +33,32 @@ if [[ -z "$RAW_TOKEN" ]]; then
   exit 1
 fi
 
-# Fetch tags list from GHCR
-TAGS_JSON=$(curl -fsSL -H "Authorization: Bearer $TOKEN_B64" "https://ghcr.io/v2/${IMAGE_PATH}/tags/list" || true)
+# GHCR returns at most 100 tags per page and the newest tags sit on the last page. Follow the
+# Link rel="next" header until it runs out, or the newest staging tag is invisible.
+fetch_all_tags() {
+  local url="https://ghcr.io/v2/${IMAGE_PATH}/tags/list?n=1000"
+  local headers body status next
 
-if [[ -z "$TAGS_JSON" ]]; then
-  echo "No tags JSON returned from GHCR" >&2
-  exit 1
-fi
+  while [[ -n "$url" ]]; do
+    headers=$(mktemp)
+    body=$(mktemp)
+    status=$(curl -s -D "$headers" -o "$body" -w '%{http_code}' \
+      -H "Authorization: Bearer $TOKEN_B64" "$url" || true)
+    if [[ "$status" != "200" ]]; then
+      rm -f "$headers" "$body"
+      echo "GHCR tags/list for ${IMAGE_PATH} returned HTTP ${status:-none}" >&2
+      return 1
+    fi
+    jq -r '.tags[]? // empty' "$body"
+    next=$(awk 'BEGIN{IGNORECASE=1} tolower($1)=="link:" && /rel="next"/{
+      if (match($0, /<[^>]+>/)) print substr($0, RSTART+1, RLENGTH-2)
+    }' "$headers")
+    rm -f "$headers" "$body"
+    url="$next"
+  done
+}
 
-# Extract staging-line tags matching semantic pattern and determine latest (lexicographic version sort)
-LATEST=$(echo "$TAGS_JSON" \
-  | jq -r '.tags[]?' 2> /dev/null \
+LATEST=$(fetch_all_tags \
   | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-staging\.[0-9]+$' \
   | sort -V \
   | tail -n1 || true)

@@ -67,10 +67,33 @@ jobs:
           APPS="web-base management-web-base api workers management-api web-deploy management-web-deploy web-runtime-config management-web-runtime-config extension-prometheus"
           MINS=""
 
+          # GHCR returns at most 100 tags per page and the newest tags sit on the last page.
+          fetch_all_tags() {
+            local image_path="$1"
+            local url="https://ghcr.io/v2/${image_path}/tags/list?n=1000"
+            local headers body status next
+
+            while [ -n "$url" ]; do
+              headers=$(mktemp)
+              body=$(mktemp)
+              status=$(curl -s -D "$headers" -o "$body" -w '%{http_code}' \
+                -H "Authorization: Bearer ${GHCR_TOKEN}" "$url")
+              if [ "$status" != "200" ]; then
+                rm -f "$headers" "$body"
+                echo "Tag listing failed for ${image_path} (HTTP ${status})."
+                return 1
+              fi
+              jq -r '.tags[]? // empty' "$body"
+              next=$(awk 'BEGIN{IGNORECASE=1} tolower($1)=="link:" && /rel="next"/{
+                if (match($0, /<[^>]+>/)) print substr($0, RSTART+1, RLENGTH-2)
+              }' "$headers")
+              rm -f "$headers" "$body"
+              url="$next"
+            done
+          }
+
           max_staging_n() {
             local app="$1"
-            local tags_json
-            tags_json=$(curl -fsS -H "Authorization: Bearer ${GHCR_TOKEN}" "https://ghcr.io/v2/${REPO}/${app}/tags/list")
             local best=-1
             local t n
             while IFS= read -r t; do
@@ -81,7 +104,7 @@ jobs:
                   fi
                   ;;
               esac
-            done < <(echo "$tags_json" | jq -r '.tags[]? // empty' | tr -d '\r')
+            done < <(fetch_all_tags "${REPO}/${app}" | tr -d '\r')
             echo "$best"
           }
 
@@ -124,24 +147,40 @@ jobs:
             echo "GHCR_REGISTRY_TOKEN not set; falling back to GITHUB_TOKEN for verification."
           fi
 
+          # GHCR returns at most 100 tags per page and the newest tags sit on the last page.
+          fetch_all_tags() {
+            local image_path="$1"
+            local url="https://ghcr.io/v2/${image_path}/tags/list?n=1000"
+            local headers body status next
+
+            while [ -n "$url" ]; do
+              headers=$(mktemp)
+              body=$(mktemp)
+              status=$(curl -s -D "$headers" -o "$body" -w '%{http_code}' \
+                -H "Authorization: Bearer $GHCR_TOKEN" "$url")
+              if [ "$status" != "200" ]; then
+                rm -f "$headers" "$body"
+                echo "Tag verification failed for ${image_path} (HTTP ${status})."
+                return 1
+              fi
+              jq -r '.tags[]? // empty' "$body"
+              next=$(awk 'BEGIN{IGNORECASE=1} tolower($1)=="link:" && /rel="next"/{
+                if (match($0, /<[^>]+>/)) print substr($0, RSTART+1, RLENGTH-2)
+              }' "$headers")
+              rm -f "$headers" "$body"
+              url="$next"
+            done
+          }
+
           APPS="web-base management-web-base api workers management-api web-deploy management-web-deploy web-runtime-config management-web-runtime-config extension-prometheus"
           for APP in $APPS; do
             IMAGE_PATH="${{ github.repository }}/${APP}"
             echo "Checking tags for ${IMAGE_PATH}"
 
-            TAGS_RESPONSE=$(curl -s -w "\n%{http_code}" \
-              -H "Authorization: Bearer $GHCR_TOKEN" \
-              "https://ghcr.io/v2/${IMAGE_PATH}/tags/list")
-            TAGS_JSON=$(echo "$TAGS_RESPONSE" | sed '$d')
-            TAGS_STATUS=$(echo "$TAGS_RESPONSE" | tail -n1)
-
-            if [ "$TAGS_STATUS" != "200" ]; then
-              echo "Tag verification failed for ${IMAGE_PATH} (HTTP ${TAGS_STATUS})."
-              exit 1
-            fi
+            TAGS=$(fetch_all_tags "$IMAGE_PATH") || exit 1
 
             for TAG in "$BASE" latest; do
-              if ! echo "$TAGS_JSON" | jq -e --arg T "$TAG" '.tags | index($T)' >/dev/null; then
+              if ! printf '%s\n' "$TAGS" | grep -Fxq -- "$TAG"; then
                 echo "Missing tag ${TAG} for ${IMAGE_PATH}."
                 exit 1
               fi

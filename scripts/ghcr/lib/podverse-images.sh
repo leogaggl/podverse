@@ -27,23 +27,46 @@ podverse_ghcr_bearer_token() {
   return 1
 }
 
-# Return HTTP status from GHCR tags/list (200, 403, 404, ...).
-podverse_ghcr_tags_http_status() {
+# GHCR returns at most 100 tags per page and the newest tags sit on the last page. Every reader
+# follows the Link rel="next" header until it runs out.
+podverse_ghcr_tags_list_url() {
+  local repo="$1"
+  local app="$2"
+  printf 'https://ghcr.io/v2/%s/%s/tags/list?n=1000' "$repo" "$app"
+}
+
+# Echo every tag name for one image, one per line. Exit 1 when a page is not 200.
+podverse_ghcr_tags() {
   local repo="$1"
   local app="$2"
   local token="$3"
-  curl -s -o /dev/null -w '%{http_code}' \
-    -H "Authorization: Bearer ${token}" \
-    "https://ghcr.io/v2/${repo}/${app}/tags/list"
+  local url headers body status next
+  url=$(podverse_ghcr_tags_list_url "$repo" "$app")
+
+  while [[ -n "$url" ]]; do
+    headers=$(mktemp)
+    body=$(mktemp)
+    status=$(curl -s -D "$headers" -o "$body" -w '%{http_code}' \
+      -H "Authorization: Bearer ${token}" "$url")
+    if [[ "$status" != "200" ]]; then
+      rm -f "$headers" "$body"
+      echo "ERROR: GHCR tags/list for ${repo}/${app} returned HTTP ${status}" >&2
+      return 1
+    fi
+    jq -r '.tags[]? // empty' "$body"
+    next=$(awk 'BEGIN{IGNORECASE=1} tolower($1)=="link:" && /rel="next"/{
+      if (match($0, /<[^>]+>/)) print substr($0, RSTART+1, RLENGTH-2)
+    }' "$headers")
+    rm -f "$headers" "$body"
+    url="$next"
+  done
 }
 
 # Return 0 when GHCR tag listing works for at least one app image.
 podverse_ghcr_tags_accessible() {
   local repo="$1"
   local token="$2"
-  local status
-  status=$(podverse_ghcr_tags_http_status "$repo" "api" "$token")
-  [[ "$status" == "200" ]]
+  podverse_ghcr_tags "$repo" "api" "$token" > /dev/null
 }
 
 # Echo immutable staging git tag (e.g. 5.5.0-staging.0) for commit on GitHub repo.
@@ -73,16 +96,9 @@ podverse_min_staging_n() {
   local token="$3"
   local prefix="${base}-staging."
   local mins=()
-  local app tags_json best t n m status
+  local app best t n m
 
   for app in "${PODVERSE_GHCR_APPS[@]}"; do
-    status=$(podverse_ghcr_tags_http_status "$repo" "$app" "$token")
-    if [[ "$status" != "200" ]]; then
-      echo "ERROR: GHCR tags/list for ${repo}/${app} returned HTTP ${status}" >&2
-      return 1
-    fi
-    tags_json=$(curl -fsS -H "Authorization: Bearer ${token}" \
-      "https://ghcr.io/v2/${repo}/${app}/tags/list")
     best=-1
     while IFS= read -r t; do
       case "$t" in
@@ -93,7 +109,7 @@ podverse_min_staging_n() {
           fi
           ;;
       esac
-    done < <(echo "$tags_json" | jq -r '.tags[]? // empty' | tr -d '\r')
+    done < <(podverse_ghcr_tags "$repo" "$app" "$token" | tr -d '\r')
     if [[ "$best" -lt 0 ]]; then
       echo "ERROR: No ${base}-staging.N tag for ${repo}/${app}" >&2
       return 1
@@ -111,13 +127,6 @@ podverse_ghcr_has_tag() {
   local app="$2"
   local tag="$3"
   local token="$4"
-  local tags_json status
 
-  status=$(podverse_ghcr_tags_http_status "$repo" "$app" "$token")
-  if [[ "$status" != "200" ]]; then
-    return 1
-  fi
-  tags_json=$(curl -fsS -H "Authorization: Bearer ${token}" \
-    "https://ghcr.io/v2/${repo}/${app}/tags/list")
-  echo "$tags_json" | jq -e --arg T "$tag" '.tags | index($T)' > /dev/null
+  podverse_ghcr_tags "$repo" "$app" "$token" | grep -Fxq -- "$tag"
 }
