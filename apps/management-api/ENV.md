@@ -102,7 +102,8 @@ processor flags and credentials as the API and workers. A processor runs only wh
 that processor needs is required. A processor that is not enabled is reported as skipped on
 resync rather than failing it.
 
-- **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text` values whose sandbox purchases count in production
+- **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text` values whose sandbox purchases count in production when `BILLING_SANDBOX_GRANT_ALL` is not `true`
+- **`BILLING_SANDBOX_GRANT_ALL`** (Optional) - `true` grants Premium from every sandbox purchase while `NODE_ENV` is `production`. Empty leaves production on the allowlist. Live purchases always grant
 - **`BILLING_ALLOW_TEST_ADAPTER`** (Optional) - `true` registers the test processor even when `NODE_ENV` is `production`; non-production always registers it
 - **`BILLING_PAYPAL_ENABLED`** (Optional, default off) - `true` turns PayPal on; empty or unset keeps it off
 - **`PAYPAL_CLIENT_ID`**, **`PAYPAL_CLIENT_SECRET`**, **`PAYPAL_WEBHOOK_ID`** - PayPal credentials

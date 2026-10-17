@@ -184,6 +184,7 @@ function validateBase(): ValidationResult[] {
   );
   results.push(validateOptional('BILLING_WEBHOOK_PUBLIC_BASE_URL', 'Billing', 'Skipped'));
   results.push(validateBillingSandboxAllowlistEnv(process.env));
+  results.push(validateBoolean('BILLING_SANDBOX_GRANT_ALL', 'Billing'));
   return results;
 }
 

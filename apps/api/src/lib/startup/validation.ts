@@ -442,6 +442,7 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   // every key it needs is required)
   results.push(validateOptional('BILLING_WEBHOOK_PUBLIC_BASE_URL', 'Billing', 'Skipped'));
   results.push(validateBillingSandboxAllowlistEnv(process.env));
+  results.push(validateBoolean('BILLING_SANDBOX_GRANT_ALL', 'Billing'));
   results.push(validateBoolean('BILLING_ALLOW_TEST_ADAPTER', 'Billing'));
   results.push(...validatePayPalProcessorEnv(process.env));
   results.push(...validateAppleProcessorEnv(process.env));

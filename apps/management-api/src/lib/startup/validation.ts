@@ -166,6 +166,7 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   // Billing (optional; each processor runs only when its *_ENABLED flag is "true", and then
   // every key it needs is required). Account resync re-reads transactions through these.
   results.push(validateBillingSandboxAllowlistEnv(process.env));
+  results.push(validateBoolean('BILLING_SANDBOX_GRANT_ALL', 'Billing'));
   results.push(validateBoolean('BILLING_ALLOW_TEST_ADAPTER', 'Billing'));
   results.push(...validatePayPalProcessorEnv(process.env));
   results.push(...validateAppleProcessorEnv(process.env));

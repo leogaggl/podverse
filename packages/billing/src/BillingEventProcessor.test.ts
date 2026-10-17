@@ -219,13 +219,18 @@ const PRODUCTS: ProductMapping[] = [
   },
 ];
 
-function createHarness(options?: { isProduction?: boolean; allowedAccountIds?: string[] }) {
+function createHarness(options?: {
+  isProduction?: boolean;
+  allowedAccountIds?: string[];
+  grantAllSandboxPurchases?: boolean;
+}) {
   const store = new InMemoryLedgerStore([ALICE, BOB], PRODUCTS);
   const processor = new BillingEventProcessor({
     store,
     sandboxPolicy: {
       isProduction: options?.isProduction ?? false,
       allowedAccountIds: new Set(options?.allowedAccountIds ?? []),
+      grantAllSandboxPurchases: options?.grantAllSandboxPurchases ?? false,
     },
     now: () => new Date('2026-01-15T00:00:00.000Z'),
   });
@@ -421,5 +426,14 @@ describe('BillingEventProcessor', () => {
     expect(blocked.store.grantsFor(ALICE.id)).toHaveLength(0);
     expect(allowedOutcome.status).toBe('processed');
     expect(allowed.store.grantsFor(ALICE.id)).toHaveLength(1);
+  });
+
+  it('applies every production sandbox purchase when grant-all is on', async () => {
+    const harness = createHarness({ isProduction: true, grantAllSandboxPurchases: true });
+
+    const outcome = await harness.processor.ingestEvent(oneTimePayment({ isSandbox: true }));
+
+    expect(outcome.status).toBe('processed');
+    expect(harness.store.grantsFor(ALICE.id)).toHaveLength(1);
   });
 });

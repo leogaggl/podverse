@@ -353,6 +353,7 @@ describe('/billing/processors', () => {
       allowTestAdapter: config.billing.allowTestAdapter,
       processors: config.billing.processors,
       sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+      grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
     });
   });
 

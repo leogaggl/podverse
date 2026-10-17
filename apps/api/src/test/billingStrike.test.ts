@@ -461,6 +461,7 @@ describe('Strike billing routes', () => {
         nodeEnv: config.nodeEnv,
         allowTestAdapter: config.billing.allowTestAdapter,
         sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+        grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
         processors: readBillingProcessorEnv(process.env),
       });
     };
@@ -469,6 +470,7 @@ describe('Strike billing routes', () => {
       nodeEnv: config.nodeEnv,
       allowTestAdapter: config.billing.allowTestAdapter,
       sandboxAllowedAccountIds: config.billing.sandboxAllowedAccountIds,
+      grantAllSandboxPurchases: config.billing.grantAllSandboxPurchases,
       processors: readBillingProcessorEnv(process.env),
     });
     await clearChannelCache();

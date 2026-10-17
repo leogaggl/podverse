@@ -14,6 +14,8 @@ import { registerBillingAdapters } from './registerBillingAdapters.js';
 export interface BillingContextConfig extends BillingAdaptersConfig {
   /** Raw `BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`. */
   sandboxAllowedAccountIds: string | undefined;
+  /** `BILLING_SANDBOX_GRANT_ALL`. Every sandbox purchase grants while `NODE_ENV` is production. */
+  grantAllSandboxPurchases: boolean;
 }
 
 export interface BillingContext {
@@ -39,6 +41,7 @@ export function initBillingContext(config: BillingContextConfig): BillingContext
     sandboxPolicy: {
       isProduction: config.nodeEnv === 'production',
       allowedAccountIds: parseSandboxAllowedAccountIds(config.sandboxAllowedAccountIds),
+      grantAllSandboxPurchases: config.grantAllSandboxPurchases,
     },
   });
   billingContext = { registry, processor, paypalService, strikeAdapter, strikeClient, testAdapter };

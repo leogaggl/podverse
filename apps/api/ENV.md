@@ -212,7 +212,8 @@ out of checkout options and its webhook answers 404. Routes and webhook contract
 `billing-google-play.env`; run `make local_env_setup` to apply them to the API and workers.
 
 - **`BILLING_WEBHOOK_PUBLIC_BASE_URL`** (Optional) - Public HTTPS base the processors deliver webhooks to
-- **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text` values whose sandbox purchases count in production
+- **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text` values whose sandbox purchases count in production when `BILLING_SANDBOX_GRANT_ALL` is not `true`
+- **`BILLING_SANDBOX_GRANT_ALL`** (Optional) - `true` grants Premium from every sandbox purchase while `NODE_ENV` is `production`. Empty leaves production on the allowlist. Live purchases always grant
 - **`BILLING_ALLOW_TEST_ADAPTER`** (Optional) - `true` registers the test processor even when `NODE_ENV` is `production`; non-production always registers it
 - **`BILLING_PAYPAL_ENABLED`** (Optional, default off) - `true` turns PayPal on; empty or unset keeps it off. When it is `true`, the PayPal credential keys below are required
 - **`PAYPAL_CLIENT_ID`**, **`PAYPAL_CLIENT_SECRET`**, **`PAYPAL_WEBHOOK_ID`** - PayPal credentials and the webhook id PayPal signs deliveries for

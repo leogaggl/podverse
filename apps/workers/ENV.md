@@ -118,8 +118,11 @@ Validated for every command (Base). All are optional. Local values come from
 - **`BILLING_WEBHOOK_PUBLIC_BASE_URL`** (Optional) - Public HTTPS base the processors deliver
   webhooks to, with no trailing slash.
 - **`BILLING_SANDBOX_ALLOWED_ACCOUNT_IDS`** (Optional) - Comma-separated account ids or `id_text`
-  values whose sandbox purchases count when `NODE_ENV` is `production`. Outside production every
-  sandbox purchase counts.
+  values whose sandbox purchases count when `NODE_ENV` is `production` and
+  `BILLING_SANDBOX_GRANT_ALL` is not `true`. Outside production every sandbox purchase counts.
+- **`BILLING_SANDBOX_GRANT_ALL`** (Optional) - `true` grants Premium from every sandbox purchase
+  while `NODE_ENV` is `production`. Empty leaves production on the allowlist. Live purchases
+  always grant.
 
 ### Billing processors (Billing category)
 
