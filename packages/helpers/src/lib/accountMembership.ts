@@ -186,9 +186,7 @@ export type MembershipPurchaseAction = 'sign_up' | 'buy' | 'extend';
 
 /** Catalog key under the `membership` namespace. */
 export type MembershipPurchaseMessageKey =
-  | 'buy_membership'
-  | 'extend_my_membership'
-  | 'gate.sign_up';
+  'buy_membership' | 'extend_my_membership' | 'gate.sign_up';
 
 /**
  * Which purchase label an account gets. Premium, including an expired Premium membership, is

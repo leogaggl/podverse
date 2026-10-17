@@ -12,12 +12,21 @@ export const signupCompletionKind = (code: string | undefined): SignupCompletion
   return 'created';
 };
 
-export const signupSuccessCopy = (
+export function signupSuccessCopy(
+  kind: 'verification_email_not_sent',
+  contactEmail: string
+): { kind: 'verification_email_not_sent'; showContactLink: boolean };
+export function signupSuccessCopy(kind: 'created', contactEmail: string): { kind: 'created' };
+export function signupSuccessCopy(
   kind: SignupCompletionKind,
   contactEmail: string
-): SignupSuccessCopy => {
+): SignupSuccessCopy;
+export function signupSuccessCopy(
+  kind: SignupCompletionKind,
+  contactEmail: string
+): SignupSuccessCopy {
   if (kind === 'verification_email_not_sent') {
     return { kind, showContactLink: contactEmail !== '' };
   }
   return { kind: 'created' };
-};
+}

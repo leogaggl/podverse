@@ -38,9 +38,9 @@ describe('parseMobileDeepLinkSchemes', () => {
 
 describe('buildMobileLinkPrefixes', () => {
   it('appends :// to each scheme and normalizes the web base URL', () => {
-    expect(buildMobileLinkPrefixes(DEFAULT_MOBILE_DEEP_LINK_SCHEMES, 'https://example.com')).toEqual(
-      ['podverse-next://', 'podverse://', 'https://example.com']
-    );
+    expect(
+      buildMobileLinkPrefixes(DEFAULT_MOBILE_DEEP_LINK_SCHEMES, 'https://example.com')
+    ).toEqual(['podverse-next://', 'podverse://', 'https://example.com']);
   });
 
   it('omits an https prefix when the build has no web host', () => {

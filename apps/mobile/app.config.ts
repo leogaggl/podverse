@@ -46,6 +46,17 @@ const universalLinkHost =
 
 const universalLinkPathPrefixes = [...MOBILE_UNIVERSAL_LINK_PATH_PREFIXES];
 
+const associatedDomainsPlugin = (host: string): [string, { host: string }] => [
+  './plugins/withPodverseAssociatedDomains',
+  { host },
+];
+
+const associatedDomainsPlugins: NonNullable<ExpoConfig['plugins']> =
+  universalLinkHost === null ? [] : [associatedDomainsPlugin(universalLinkHost)];
+
+const storeBillingPlugins: NonNullable<ExpoConfig['plugins']> =
+  getMobileBillingModeFromEnv() === 'store' ? ['expo-iap'] : [];
+
 const config: ExpoConfig = {
   name: 'Podverse Next',
   slug: 'podverse-next',
@@ -164,13 +175,11 @@ const config: ExpoConfig = {
     ],
     './plugins/withPodverseIosPodBuildSettings',
     './plugins/withPodverseCarPlay',
-    ...(universalLinkHost === null
-      ? []
-      : [['./plugins/withPodverseAssociatedDomains', { host: universalLinkHost }]]),
+    ...associatedDomainsPlugins,
     // Adds the Play Billing permission and billing-ktx. Omitted when this build's billing mode is
     // unavailable. A FOSS prebuild must also exclude `expo-iap` from autolinking so the native
     // module is not compiled into the binary.
-    ...(getMobileBillingModeFromEnv() === 'store' ? ['expo-iap'] : []),
+    ...storeBillingPlugins,
   ],
 };
 

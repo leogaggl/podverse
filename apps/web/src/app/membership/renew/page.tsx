@@ -63,9 +63,7 @@ export default async function MembershipRenewPage() {
       ) : (
         <>
           <p>
-            {t(
-              tier === 'premium' ? 'membership_expired_text_line2' : 'trial_expired_text_line2'
-            )}
+            {t(tier === 'premium' ? 'membership_expired_text_line2' : 'trial_expired_text_line2')}
           </p>
           <p>
             <Link href={ROUTES.MEMBERSHIP}>{t('membership_link_text')}</Link>

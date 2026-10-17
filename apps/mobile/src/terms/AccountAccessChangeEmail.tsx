@@ -63,12 +63,11 @@ export function AccountAccessChangeEmail() {
           marginBottom: tokens.spacing.sm,
         },
       }),
-    [themeStyles, tokens],
+    [themeStyles, tokens]
   );
 
   const emailInvalid = getEmailErrorKey(email.trim()) !== undefined;
-  const validationMessage =
-    emailTouched && emailInvalid ? t('authentication.invalid_email') : null;
+  const validationMessage = emailTouched && emailInvalid ? t('authentication.invalid_email') : null;
   const visibleError = serverError ?? validationMessage;
 
   const closeForm = () => {
@@ -96,7 +95,7 @@ export function AccountAccessChangeEmail() {
     try {
       await requestWithMobileAuthRefresh(
         { accessToken, clearSession, refreshToken, setTokens },
-        (api) => api.reqAccountSendChangeEmailAddressEmail({ new_email: email.trim() }),
+        (api) => api.reqAccountSendChangeEmailAddressEmail({ new_email: email.trim() })
       );
       setSent(true);
     } catch (error) {

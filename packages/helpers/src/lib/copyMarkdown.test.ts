@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  getCopyMarkdownDetails,
-  getCopyMarkdownIntro,
-  parseCopyMarkdown,
-} from './copyMarkdown.js';
+import { getCopyMarkdownDetails, getCopyMarkdownIntro, parseCopyMarkdown } from './copyMarkdown.js';
 
 describe('parseCopyMarkdown', () => {
   it('parses heading, paragraphs, list, and a link', () => {

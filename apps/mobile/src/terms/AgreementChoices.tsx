@@ -95,9 +95,7 @@ export function AgreementChoices({
           <RetryableError errorKey={errorKey} onRetry={onRetry} testID="agreement-error" />
         ) : null}
         {canAccept && intro !== null ? <CopyMarkdown markdown={intro} /> : null}
-        {dateLabel !== null && !showAccordion ? (
-          <Text style={styles.date}>{dateLabel}</Text>
-        ) : null}
+        {dateLabel !== null && !showAccordion ? <Text style={styles.date}>{dateLabel}</Text> : null}
       </View>
       {showAccordion ? (
         <View style={styles.accordion}>

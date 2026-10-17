@@ -82,7 +82,7 @@ export function MyProfileEditScreen({ navigation }: MyProfileEditScreenProps) {
           color: themeStyles.textSecondary.color,
         },
       }),
-    [themeStyles, tokens],
+    [themeStyles, tokens]
   );
 
   const sharableOptions = useMemo(
@@ -103,7 +103,7 @@ export function MyProfileEditScreen({ navigation }: MyProfileEditScreenProps) {
         value: SharableStatusEnum.Private,
       },
     ],
-    [t],
+    [t]
   );
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export function MyProfileEditScreen({ navigation }: MyProfileEditScreenProps) {
     try {
       await requestWithMobileAuthRefresh(
         { accessToken, clearSession, refreshToken, setTokens },
-        (api) => api.reqAccountUpdate(payload),
+        (api) => api.reqAccountUpdate(payload)
       );
       const merged = applyAccountProfileUpdate(account, payload);
       setAccount(merged);
@@ -155,10 +155,7 @@ export function MyProfileEditScreen({ navigation }: MyProfileEditScreenProps) {
   if (offlineModeEnabled) {
     return (
       <MobileScreenContainer testID="my-profile-edit-screen">
-        <ListEmpty
-          messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
-          testID="my-profile-edit-offline"
-        />
+        <ListEmpty messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY} testID="my-profile-edit-offline" />
       </MobileScreenContainer>
     );
   }

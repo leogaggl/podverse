@@ -140,7 +140,7 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
       ? formatDateAbbrev(status.membership_expires_at, i18n.language)
       : null;
   const canChangeEmail = getAccountSignupModeCapabilities(
-    getMobileConfig().accountSignupMode,
+    getMobileConfig().accountSignupMode
   ).canUseEmailVerificationFlows;
 
   const handleDownload = async () => {

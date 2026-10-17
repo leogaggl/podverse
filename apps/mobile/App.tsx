@@ -30,7 +30,6 @@ import { MobileTabNavigator, navigateToMembershipScreen } from './src/navigation
 import { isAuthGatedDeepLink } from './src/navigation/deepLinking';
 import { TabLayoutProvider, useTabLayout } from './src/navigation/TabLayoutProvider';
 import { PlaybackProvider } from './src/playback';
-import { PopularityTrackingProvider } from './src/popularityTracking/PopularityTrackingProvider';
 import {
   getInitialNotificationDeepLinkUrl,
   subscribeToNotificationOpen,
@@ -260,9 +259,9 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
   const { logout, status } = useAuth();
   // Login, sign-up, and forgot password are optional overlays for anonymous users.
   // Authenticated users always see tabs.
-  const [authMode, setAuthMode] = useState<
-    'anonymous' | 'forgot-password' | 'login' | 'signup'
-  >('anonymous');
+  const [authMode, setAuthMode] = useState<'anonymous' | 'forgot-password' | 'login' | 'signup'>(
+    'anonymous'
+  );
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -302,28 +301,26 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
         >
           <MembershipGateProvider onNavigateToMembership={navigateToMembershipScreen}>
             <TermsAcceptanceProvider>
-              <PopularityTrackingProvider>
-                <ForcedLogoutNotice />
-                <OverlayA11yShield>
-                  <MembershipExpiredBanner onRenew={navigateToMembershipScreen} />
-                  <MobileTabNavigator
-                    onConsumePendingDeepLink={onConsumePendingDeepLink}
-                    pendingDeepLinkUrl={pendingDeepLinkUrl}
-                    onRequestLogin={() => {
-                      setAuthMode('login');
-                    }}
-                    onRequestLogout={async () => {
-                      await logout();
-                      setAuthMode('anonymous');
-                    }}
-                    onRequestSignUp={() => {
-                      setAuthMode('signup');
-                    }}
-                  />
-                </OverlayA11yShield>
-                {/* After the navigator so overlays cover root-stack cards. */}
-                <OverlayOutlet />
-              </PopularityTrackingProvider>
+              <ForcedLogoutNotice />
+              <OverlayA11yShield>
+                <MembershipExpiredBanner onRenew={navigateToMembershipScreen} />
+                <MobileTabNavigator
+                  onConsumePendingDeepLink={onConsumePendingDeepLink}
+                  pendingDeepLinkUrl={pendingDeepLinkUrl}
+                  onRequestLogin={() => {
+                    setAuthMode('login');
+                  }}
+                  onRequestLogout={async () => {
+                    await logout();
+                    setAuthMode('anonymous');
+                  }}
+                  onRequestSignUp={() => {
+                    setAuthMode('signup');
+                  }}
+                />
+              </OverlayA11yShield>
+              {/* After the navigator so overlays cover root-stack cards. */}
+              <OverlayOutlet />
             </TermsAcceptanceProvider>
           </MembershipGateProvider>
         </AuthPromptProvider>

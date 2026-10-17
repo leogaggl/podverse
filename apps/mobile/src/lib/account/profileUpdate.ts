@@ -48,7 +48,7 @@ export function toSharableStatus(value: number | undefined): SharableStatusEnum 
  */
 export function applyAccountProfileUpdate(
   account: DTOAccount,
-  payload: AccountProfileUpdatePayload,
+  payload: AccountProfileUpdatePayload
 ): DTOAccount {
   return {
     ...account,

@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { getThemeTokens } from '@podverse/design-tokens';
 
-import { bottomChromeStripHeight } from './bottomChromeStrip';
 import {
   bottomChromeStripOverlayHeight,
   centeredFillClearanceShift,
   globalActivityBarLayout,
   miniPlayerOverlayHeight,
 } from './bottomChromeOverlay';
+import { bottomChromeStripHeight } from './bottomChromeStrip';
 import { MINI_PLAYER_ARTWORK_SIZE, MINI_PLAYER_PROGRESS_EDGE_HEIGHT } from './screenLayout';
 
 const spacing = getThemeTokens('dark').spacing;

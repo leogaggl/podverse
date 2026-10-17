@@ -110,9 +110,9 @@ import { OrderedTabBar } from './OrderedTabBar';
 import type { PodcastDetailRouteParams } from './podcastDetailParams';
 import { ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
 import { tabBarIcon } from './tabBarIcon';
-import { useBottomChromeOverlayInsetSource } from './useBottomChromeOverlayInsetSource';
 import { useTabLayout } from './TabLayoutProvider';
 import type { TrackDetailRouteParams } from './trackDetailParams';
+import { useBottomChromeOverlayInsetSource } from './useBottomChromeOverlayInsetSource';
 
 type MobileTabNavigatorProps = {
   onConsumePendingDeepLink: () => void;

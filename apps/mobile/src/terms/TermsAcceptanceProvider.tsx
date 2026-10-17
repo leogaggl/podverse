@@ -1,29 +1,40 @@
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Platform, ScrollView, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Modal, ScrollView, StyleSheet, Text } from 'react-native';
 
-import type { DTOTermsAgreement } from '@podverse/helpers';
+import type { DTOPopularityTrackingAgreement, DTOTermsAgreement } from '@podverse/helpers';
 import { isCurrentTermsAccepted } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../auth/authRequestWithRefresh';
 import { createMobileApiRequestService } from '../auth/mobileApi';
+import { syncAllowListenStatsToAccountSettings } from '../auth/syncAccountPrefs';
 import { ModalSafeArea } from '../components/screen/ModalSafeArea';
+import { LoadingSection } from '../components/state/LoadingSection';
+import { PopularityTrackingAgreementBody } from '../popularityTracking/PopularityTrackingAgreementBody';
+import { setPopularityTrackingCurrentVersion } from '../popularityTracking/popularityTrackingGate';
 import { screenBodyInsets } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
 import { AccountAccessPanel } from './AccountAccessPanel';
+import type { AccountConsentPhase } from './accountConsentPhase';
+import { resolveAccountConsentPhase } from './accountConsentPhase';
 import { AgreementChoices } from './AgreementChoices';
 import { setTermsBlocksAccountSync } from './termsSyncGate';
 
-type TermsGateValue = {
-  awaitingDismiss: boolean;
-};
+type ShownConsentPhase = Exclude<AccountConsentPhase, 'none'>;
 
-const TermsGateContext = createContext<TermsGateValue>({ awaitingDismiss: false });
-
-export function useTermsGate(): TermsGateValue {
-  return useContext(TermsGateContext);
+function consentTestId(phase: ShownConsentPhase): string {
+  switch (phase) {
+    case 'account-access':
+      return 'account-access-screen';
+    case 'popularity':
+      return 'popularity-tracking-prompt';
+    case 'resolving':
+      return 'account-consent-resolving';
+    case 'terms':
+      return 'terms-acceptance-screen';
+  }
 }
 
 export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
@@ -33,29 +44,56 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
     useAuth();
   const [agreement, setAgreement] = useState<DTOTermsAgreement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [seen, setSeen] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
   const [showAccountAccess, setShowAccountAccess] = useState(false);
+  const [presentedConsent, setPresentedConsent] = useState(false);
+  const [popularityAgreement, setPopularityAgreement] =
+    useState<DTOPopularityTrackingAgreement | null>(null);
+  const [popularityLoading, setPopularityLoading] = useState(false);
+  const [popularityErrorKey, setPopularityErrorKey] = useState<string | null>(null);
+  const [popularityReloadKey, setPopularityReloadKey] = useState(0);
+  const decidingRef = useRef(false);
+  const previousPhaseRef = useRef<AccountConsentPhase>('none');
+  const retainedPhaseRef = useRef<ShownConsentPhase>('terms');
 
   const termsCurrent =
     agreement !== null &&
     account !== null &&
     isCurrentTermsAccepted(account.account_terms_acceptance, agreement.version);
-  const loadFailed = errorKey !== null && !isLoading;
+  const loadFailed = errorKey !== null && !isLoading && !accepting;
   // Stay hidden until the served document says this account is behind. A loading flash would
-  // present and dismiss the full-screen modal for accounts that are already current.
+  // present the full-screen modal for accounts that are already current.
   const termsOutstanding =
     status === 'authenticated' &&
     account !== null &&
     ((agreement !== null && !termsCurrent) || loadFailed);
-  const visible = termsOutstanding && !showAccountAccess;
-  const accessVisible = termsOutstanding && showAccountAccess;
+  const termsStatusKnown = agreement !== null || loadFailed;
   const blockSync =
     status === 'authenticated' &&
     (account === null || agreement === null || !termsCurrent || loadFailed);
+  const popularityVersion = popularityAgreement?.version ?? '';
+  const popularityLoadFailed = popularityErrorKey !== null && !popularityLoading;
+  const phase = resolveAccountConsentPhase({
+    accountPresent: account !== null,
+    authenticated: status === 'authenticated',
+    decision: account?.account_settings ?? null,
+    popularityLoadFailed,
+    popularityVersion,
+    presentedConsent,
+    showAccountAccess,
+    termsOutstanding,
+    termsStatusKnown,
+  });
+  if (phase !== 'none') {
+    retainedPhaseRef.current = phase;
+  }
+  // Keep the last screen painted while the modal fades out.
+  const contentPhase: ShownConsentPhase = phase === 'none' ? retainedPhaseRef.current : phase;
+  const popularityBodyLoading =
+    popularityLoading || (popularityAgreement === null && popularityErrorKey === null);
 
   useEffect(() => {
     setTermsBlocksAccountSync(blockSync);
@@ -65,23 +103,42 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   }, [blockSync]);
 
   useEffect(() => {
-    if (visible) {
-      setSeen(true);
+    if (phase === 'terms' || phase === 'account-access') {
+      setPresentedConsent(true);
     }
-  }, [visible]);
+  }, [phase]);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios' && seen && !visible && !accessVisible) {
-      setDismissed(true);
+    const previous = previousPhaseRef.current;
+    previousPhaseRef.current = phase;
+    // The first present moves assistive-tech focus into the modal. Later swaps stay in
+    // that same modal, so the new screen title has to be announced on its own.
+    if (phase === 'none' || previous === 'none' || previous === phase) {
+      return;
     }
-  }, [accessVisible, seen, visible]);
+    const message =
+      phase === 'account-access'
+        ? t('account_access.title')
+        : phase === 'popularity'
+          ? t('popularity_tracking.title')
+          : phase === 'resolving'
+            ? t('misc.loading')
+            : t('terms_acceptance.header');
+    AccessibilityInfo.announceForAccessibility(message);
+  }, [phase, t]);
 
   useEffect(() => {
     if (status !== 'authenticated') {
       setAgreement(null);
       setIsLoading(false);
+      setAccepting(false);
       setErrorKey(null);
       setShowAccountAccess(false);
+      setPresentedConsent(false);
+      setPopularityAgreement(null);
+      setPopularityTrackingCurrentVersion('');
+      setPopularityLoading(false);
+      setPopularityErrorKey(null);
       return;
     }
 
@@ -121,94 +178,100 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   }, [i18n.language, reloadKey, status]);
 
   useEffect(() => {
+    if (status !== 'authenticated') {
+      return;
+    }
+    if (blockSync) {
+      setPopularityLoading(false);
+      return;
+    }
+
+    setPopularityLoading(true);
+    setPopularityErrorKey(null);
+    let cancelled = false;
+    void requestWithMobileAuthRefresh(
+      { accessToken, clearSession, refreshToken, setTokens },
+      (api) => api.reqLegalPopularityTracking()
+    )
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setPopularityAgreement(data);
+        setPopularityTrackingCurrentVersion(data.version);
+        setPopularityErrorKey(null);
+      })
+      .catch((error: unknown) => {
+        console.warn('[TermsAcceptanceProvider] popularity load failed', error);
+        if (!cancelled) {
+          setPopularityErrorKey('errors.generic');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPopularityLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, blockSync, clearSession, popularityReloadKey, refreshToken, setTokens, status]);
+
+  useEffect(() => {
     if (termsCurrent) {
       setShowAccountAccess(false);
     }
   }, [termsCurrent]);
 
   const handleAccept = async () => {
-    if (agreement === null || !checked) {
+    if (agreement === null || !checked || accepting) {
       return;
     }
-    const updated = await requestWithMobileAuthRefresh(
-      { accessToken, clearSession, refreshToken, setTokens },
-      async (api) => {
-        await api.reqAccountAcceptTerms({ terms_version: agreement.version });
-        return api.reqAuthMe();
-      }
-    );
-    setAccount(updated);
+    setAccepting(true);
+    setErrorKey(null);
+    try {
+      const updated = await requestWithMobileAuthRefresh(
+        { accessToken, clearSession, refreshToken, setTokens },
+        async (api) => {
+          await api.reqAccountAcceptTerms({ terms_version: agreement.version });
+          return api.reqAuthMe();
+        }
+      );
+      setAccount(updated);
+    } catch (error: unknown) {
+      console.warn('[TermsAcceptanceProvider] accept failed', error);
+      setErrorKey('terms_acceptance.load_error');
+    } finally {
+      setAccepting(false);
+    }
   };
 
-  const awaitingDismiss = (seen || visible || accessVisible) && !dismissed;
+  const handlePopularityDecision = async (accepted: boolean) => {
+    if (decidingRef.current) {
+      return;
+    }
+    decidingRef.current = true;
+    try {
+      await syncAllowListenStatsToAccountSettings({
+        accepted,
+        auth: { accessToken, clearSession, refreshToken, setTokens },
+        setAccount,
+      });
+    } finally {
+      decidingRef.current = false;
+    }
+  };
 
   return (
-    <TermsGateContext.Provider value={{ awaitingDismiss }}>
+    <>
       {children}
-      <Modal
-        animationType="fade"
-        onDismiss={() => {
-          setDismissed(true);
-        }}
-        presentationStyle="fullScreen"
-        visible={visible}
-      >
-        <ModalSafeArea testID="terms-acceptance-screen">
-          <ScrollView
-            contentContainerStyle={[
-              styles.body,
-              screenBodyInsets(tokens.spacing),
-              { paddingBottom: tokens.spacing['2xl'] },
-            ]}
-          >
-            <Text style={[styles.title, { color: themeStyles.textPrimary.color }]}>
-              {t('terms_acceptance.header')}
-            </Text>
-            <AgreementChoices
-              acceptLabel={t('terms_acceptance.accept')}
-              acceptTestID="terms-acceptance-accept"
-              accordionTestID="terms-acceptance-full-agreement"
-              accordionTitle={t('terms_acceptance.full_agreement')}
-              checkboxChecked={checked}
-              checkboxLabel={t('terms_acceptance.checkbox_label')}
-              checkboxTestID="terms-acceptance-checkbox"
-              dateLabel={
-                agreement === null
-                  ? null
-                  : t('terms_acceptance.agreement_date', {
-                      agreement_date: agreement.version,
-                    })
-              }
-              errorKey={errorKey}
-              fullMarkdown={agreement?.markdown ?? null}
-              isLoading={isLoading}
-              onAccept={() => {
-                void handleAccept();
-              }}
-              onCheckboxChange={setChecked}
-              onReject={() => {
-                setShowAccountAccess(true);
-              }}
-              onRetry={() => {
-                setReloadKey((current) => current + 1);
-              }}
-              rejectLabel={t('terms_acceptance.reject')}
-              rejectTestID="terms-acceptance-reject"
-              version={agreement?.version ?? null}
-              requireCheckbox
-            />
-          </ScrollView>
-        </ModalSafeArea>
-      </Modal>
-      <Modal
-        animationType="fade"
-        onDismiss={() => {
-          setDismissed(true);
-        }}
-        presentationStyle="fullScreen"
-        visible={accessVisible}
-      >
-        <ModalSafeArea testID="account-access-screen">
+      {/*
+        One full-screen modal for terms, account access, and popularity. A second modal
+        cannot present in the same turn this one dismisses (mobile-modal-presentation-lifecycle).
+      */}
+      <Modal animationType="fade" presentationStyle="fullScreen" visible={phase !== 'none'}>
+        <ModalSafeArea testID={consentTestId(contentPhase)}>
           <ScrollView
             contentContainerStyle={[
               styles.body,
@@ -216,16 +279,87 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
               { paddingBottom: tokens.spacing['2xl'] },
             ]}
             keyboardShouldPersistTaps="handled"
+            key={contentPhase}
           >
-            <AccountAccessPanel
-              onReviewTerms={() => {
-                setShowAccountAccess(false);
-              }}
-            />
+            {contentPhase === 'terms' ? (
+              <>
+                <Text
+                  accessibilityRole="header"
+                  style={[styles.title, { color: themeStyles.textPrimary.color }]}
+                >
+                  {t('terms_acceptance.header')}
+                </Text>
+                <AgreementChoices
+                  acceptLabel={t('terms_acceptance.accept')}
+                  acceptTestID="terms-acceptance-accept"
+                  accordionTestID="terms-acceptance-full-agreement"
+                  accordionTitle={t('terms_acceptance.full_agreement')}
+                  checkboxChecked={checked}
+                  checkboxLabel={t('terms_acceptance.checkbox_label')}
+                  checkboxTestID="terms-acceptance-checkbox"
+                  dateLabel={
+                    agreement === null
+                      ? null
+                      : t('terms_acceptance.agreement_date', {
+                          agreement_date: agreement.version,
+                        })
+                  }
+                  errorKey={errorKey}
+                  fullMarkdown={agreement?.markdown ?? null}
+                  isLoading={isLoading || accepting}
+                  onAccept={() => {
+                    void handleAccept();
+                  }}
+                  onCheckboxChange={setChecked}
+                  onReject={() => {
+                    setShowAccountAccess(true);
+                  }}
+                  onRetry={() => {
+                    setReloadKey((current) => current + 1);
+                  }}
+                  rejectLabel={t('terms_acceptance.reject')}
+                  rejectTestID="terms-acceptance-reject"
+                  requireCheckbox
+                  version={agreement?.version ?? null}
+                />
+              </>
+            ) : null}
+            {contentPhase === 'account-access' ? (
+              <AccountAccessPanel
+                onReviewTerms={() => {
+                  setShowAccountAccess(false);
+                }}
+              />
+            ) : null}
+            {contentPhase === 'popularity' ? (
+              <>
+                <Text
+                  accessibilityRole="header"
+                  style={[styles.title, { color: themeStyles.textPrimary.color }]}
+                >
+                  {t('popularity_tracking.title')}
+                </Text>
+                <PopularityTrackingAgreementBody
+                  accordionTestID="popularity-tracking-full-agreement"
+                  agreement={popularityAgreement}
+                  errorKey={popularityErrorKey}
+                  isLoading={popularityBodyLoading}
+                  noTestID="popularity-tracking-no"
+                  onDecision={(accepted) => {
+                    void handlePopularityDecision(accepted);
+                  }}
+                  onRetry={() => {
+                    setPopularityReloadKey((current) => current + 1);
+                  }}
+                  yesTestID="popularity-tracking-yes"
+                />
+              </>
+            ) : null}
+            {contentPhase === 'resolving' ? <LoadingSection /> : null}
           </ScrollView>
         </ModalSafeArea>
       </Modal>
-    </TermsGateContext.Provider>
+    </>
   );
 }
 

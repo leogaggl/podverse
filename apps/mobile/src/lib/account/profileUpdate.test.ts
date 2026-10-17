@@ -51,7 +51,7 @@ describe('buildAccountProfileUpdatePayload', () => {
         displayName: '  ',
         locale: 'fr',
         sharableStatus: SharableStatusEnum.Public,
-      }),
+      })
     ).toEqual({
       bio: null,
       display_name: null,
@@ -67,7 +67,7 @@ describe('buildAccountProfileUpdatePayload', () => {
         displayName: '  Ada  ',
         locale: 'en-US',
         sharableStatus: SharableStatusEnum.Unlisted,
-      }),
+      })
     ).toEqual({
       bio: 'About me',
       display_name: 'Ada',
