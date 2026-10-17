@@ -281,8 +281,12 @@ name: Home Media Types
 - assertVisible:
     id: search-medium-music
 - takeScreenshot: home-artists-empty-to-search-music
-# Search focuses its field on arrival, and the keyboard covers the tab bar.
-- hideKeyboard
+# Search focuses its field on arrival. Tapping the screen title dismisses the keyboard
+# so the tab bar can be tapped.
+- tapOn:
+    text: Search
+    above:
+      id: search-input
 - tapOn:
     id: tab-home
 - assertVisible:

@@ -112,6 +112,9 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     KEYVALDB_PASSWORD: 'test',
     ACCOUNT_SIGNUP_MODE: 'user_signup_email',
     AUTH_LOGIN_MAX_PER_MINUTE: '100',
+    // POST /account cases in account.test.ts share one IP limiter. The production default
+    // (3 per 10 minutes) 429s the later cases. The dedicated 429 case still walks until the cap.
+    ACCOUNT_CREATE_MAX_PER_10_MINUTES: '30',
     API_PUBLIC_BASE_URL: 'http://localhost:29999',
   },
   apiWebE2e: {

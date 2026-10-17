@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOTermsAgreement } from '@podverse/helpers';
 import { DEFAULT_LOCALE } from '@podverse/helpers/locales';
@@ -11,7 +11,8 @@ import {
 } from '@podverse/helpers-validation/client';
 
 import { createMobileApiRequestService } from '../../auth';
-import { signupCompletionKind, signupSuccessCopy } from '../../auth/signupVerificationEmailNotice';
+import { signupCompletionKind } from '../../auth/signupVerificationEmailNotice';
+import { VerificationEmailNotSentMessage } from '../../auth/VerificationEmailNotSentMessage';
 import { CopyMarkdown } from '../../components/content/CopyMarkdown';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { FormActions, TextField } from '../../components/form';
@@ -74,10 +75,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
     date: {
       color: themeStyles.textSecondary.color,
       marginTop: tokens.spacing.md,
-    },
-    emailLink: {
-      color: tokens.text.link,
-      textDecorationLine: 'underline',
     },
     error: {
       color: themeStyles.textSecondary.color,
@@ -207,26 +204,9 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   };
 
   if (accountCreated) {
-    const contactEmail = getMobileConfig().contactEmail;
-    const copy = signupSuccessCopy(
-      verificationEmailNotSent ? 'verification_email_not_sent' : 'created',
-      contactEmail
-    );
-    const title =
-      copy.kind === 'verification_email_not_sent'
-        ? t('authentication.verification_email_not_sent_title')
-        : t('authentication.account_created_title');
-    let body = t('authentication.account_created_body');
-    if (copy.kind === 'verification_email_not_sent') {
-      body = copy.showContactLink
-        ? t('authentication.verification_email_not_sent_body', { email: contactEmail })
-        : t('authentication.verification_email_not_sent_body_no_contact');
-    }
-    const emailIndex =
-      copy.kind === 'verification_email_not_sent' && copy.showContactLink
-        ? body.indexOf(contactEmail)
-        : -1;
-
+    const title = verificationEmailNotSent
+      ? t('authentication.verification_email_not_sent_title')
+      : t('authentication.account_created_title');
     return (
       <View style={styles.root} testID="signup-screen">
         <HeaderBarChrome
@@ -237,34 +217,20 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
           title={title}
         />
         <MobileScreenContainer testID="signup-success">
-          <Text
-            accessibilityLiveRegion="polite"
-            style={styles.successBody}
-            testID={
-              copy.kind === 'verification_email_not_sent'
-                ? 'signup-verification-email-not-sent'
-                : 'signup-success-message'
-            }
-          >
-            {emailIndex < 0 ? (
-              body
-            ) : (
-              <>
-                {body.slice(0, emailIndex)}
-                <Text
-                  accessibilityRole="link"
-                  onPress={() => {
-                    void Linking.openURL(`mailto:${contactEmail}`);
-                  }}
-                  style={styles.emailLink}
-                  testID="signup-verification-email-not-sent-contact"
-                >
-                  {contactEmail}
-                </Text>
-                {body.slice(emailIndex + contactEmail.length)}
-              </>
-            )}
-          </Text>
+          {verificationEmailNotSent ? (
+            <VerificationEmailNotSentMessage
+              contactTestID="signup-verification-email-not-sent-contact"
+              testID="signup-verification-email-not-sent"
+            />
+          ) : (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={styles.successBody}
+              testID="signup-success-message"
+            >
+              {t('authentication.account_created_body')}
+            </Text>
+          )}
           <FormActions
             actions={[
               {

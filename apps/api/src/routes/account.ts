@@ -99,12 +99,18 @@ router.post(
 router.delete('/delete', asyncHandler(AccountController.delete));
 router.get(
   '/download-data',
-  rateLimitAuthEndpoint(config.rateLimits.accountDownloadData),
+  rateLimitAuthEndpoint({
+    ...config.rateLimits.accountDownloadData,
+    skipTermsAcceptance: true,
+  }),
   asyncHandler(AccountController.downloadData)
 );
 router.get(
   '/opml/export',
-  rateLimitAuthEndpoint(config.rateLimits.accountOpmlExport),
+  rateLimitAuthEndpoint({
+    ...config.rateLimits.accountOpmlExport,
+    skipTermsAcceptance: true,
+  }),
   asyncHandler(AccountOpmlExportController.exportOpml)
 );
 router.post('/opml/import', asyncHandler(AccountOpmlImportController.enqueueImport));

@@ -4,7 +4,7 @@ Saved for later. No code has been changed for this work.
 
 This is the rest of the account surface a signed-in person can use on the website and cannot use
 in the app. Login, resend verification, and forgot password are a separate plan:
-`.llm/plans/active/mobile-login-verification-and-password-reset.md`.
+`.llm/plans/completed/mobile-login-verification-and-password-reset.md`.
 
 ## Already on mobile — do not rebuild
 

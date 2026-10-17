@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { DTOPopularityTrackingAgreement } from '@podverse/helpers';
-import { getCopyMarkdownIntro } from '@podverse/helpers';
+import { getCopyMarkdownDetails, getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { useAccount } from '../../contexts/Account';
 import { getApiRequestService } from '../../factories/apiRequestService';
@@ -79,6 +79,8 @@ export function PopularityAgreementGate({ onDecided }: PopularityAgreementGatePr
     }
   };
 
+  const details = agreement === null ? '' : getCopyMarkdownDetails(agreement.markdown);
+
   return (
     <AgreementScreen
       acceptDisabled={agreement === null}
@@ -86,7 +88,7 @@ export function PopularityAgreementGate({ onDecided }: PopularityAgreementGatePr
       accordionTitle={t('how_it_works')}
       dateLabel={null}
       errorMessage={hasError ? t('load_error') : null}
-      fullMarkdown={agreement?.markdown ?? null}
+      fullMarkdown={details === '' ? null : details}
       introMarkdown={agreement === null ? null : getCopyMarkdownIntro(agreement.markdown)}
       isLoading={isLoading}
       onAccept={() => {

@@ -7948,6 +7948,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Password matched an account that is not verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+              example:
+                message: "Account not verified."
         "404":
           description: Not found
           content:

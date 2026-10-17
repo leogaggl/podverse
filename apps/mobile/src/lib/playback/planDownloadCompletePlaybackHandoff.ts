@@ -1,5 +1,6 @@
 import type { PlaybackTarget } from '@podverse/playback-core';
 
+import { resolveStoredDownloadFilePath } from '../../downloads/downloadStorage';
 import type { DownloadRecord } from '../../downloads/downloadTypes';
 
 /**
@@ -57,9 +58,27 @@ const isLocalFileUrl = (url: string): boolean => {
 };
 
 /**
+ * The download store keeps a file name. Playback needs the absolute file URL for that name
+ * in the current document directory.
+ */
+export function resolveDownloadHandoffRecord<T extends DownloadCompleteHandoffRecord>(
+  record: T,
+  documentDirectory: string
+): T {
+  if (record.filePath === null) {
+    return record;
+  }
+  return {
+    ...record,
+    filePath: resolveStoredDownloadFilePath(record.filePath, documentDirectory),
+  };
+}
+
+/**
  * When a download of the file currently streaming finishes, return the local URL to load.
  * Any other completion (different item, different enclosure, already local, not item-backed)
- * is ignored so playback is not yanked onto another encode.
+ * is ignored so playback is not yanked onto another encode. `filePath` must already be an
+ * absolute `file://` URL (`resolveDownloadHandoffRecord`).
  */
 export function planDownloadCompletePlaybackHandoff(
   params: PlanDownloadCompletePlaybackHandoffParams

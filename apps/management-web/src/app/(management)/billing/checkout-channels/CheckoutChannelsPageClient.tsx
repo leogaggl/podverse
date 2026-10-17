@@ -69,7 +69,8 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
   const [drafts, setDrafts] = useState<Record<number, ChannelDraft>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const t = useTranslations('billing');
   const tc = useTranslations('common');
@@ -99,7 +100,7 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
         await load();
       } catch {
         if (!cancelled) {
-          setError(t('channels.failedToLoad'));
+          setLoadError(t('channels.failedToLoad'));
         }
       } finally {
         if (!cancelled) {
@@ -129,7 +130,7 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
       return;
     }
     setSavingId(channel.id);
-    setError(null);
+    setSaveError(null);
     setNotice(null);
     try {
       const result = await updateBillingCheckoutChannel(channel.id, {
@@ -144,7 +145,7 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
       setNotice(t('channels.updated'));
     } catch (requestError: unknown) {
       const parsed = readBillingMembershipRequestError(requestError);
-      setError(parsed === null ? t('channels.failedToUpdate') : parsed.message);
+      setSaveError(parsed === null ? t('channels.failedToUpdate') : parsed.message);
     } finally {
       setSavingId(null);
     }
@@ -166,9 +167,9 @@ export function CheckoutChannelsPageClient({ initialUser }: CheckoutChannelsPage
       title={t('channels.title')}
     >
       <ManagementLoadingSpinnerOverlay isLoading={loading} />
-      <Alert>{error}</Alert>
+      <Alert>{loadError ?? saveError}</Alert>
       {notice !== null ? <Alert variant="success">{notice}</Alert> : null}
-      {!loading && error === null ? (
+      {!loading && loadError === null ? (
         <>
           {processors !== null ? <BillingProcessorStatus rows={processors} /> : null}
           <p>{t('channels.cacheNote')}</p>

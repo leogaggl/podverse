@@ -553,14 +553,14 @@ export class AccountController {
     });
 
     validateBodyObject(bodySchema, req, res, async () => {
-      try {
-        const { email, password, locale, terms_version } = req.body as {
-          email: string;
-          password: string;
-          locale: string;
-          terms_version: string;
-        };
+      const { email, password, locale, terms_version } = req.body as {
+        email: string;
+        password: string;
+        locale: string;
+        terms_version: string;
+      };
 
+      try {
         if (!isConfiguredTermsVersion(terms_version)) {
           sendInvalidTermsVersionResponse(res);
           return;

@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-
 import { config } from '@api/config/index.js';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { interpolateTermsMarkdown, loadTermsMarkdown } from './termsContent.js';
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getCopyMarkdownIntro } from '@podverse/helpers';
+import { getCopyMarkdownDetails, getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { CopyMarkdown } from '../components/content/CopyMarkdown';
 import { FormActions } from '../components/form/FormActions';
@@ -56,6 +56,7 @@ export function AgreementChoices({
 }: AgreementChoicesProps) {
   const { styles: themeStyles, tokens } = useTheme();
   const intro = fullMarkdown === null ? null : getCopyMarkdownIntro(fullMarkdown);
+  const details = fullMarkdown === null ? '' : getCopyMarkdownDetails(fullMarkdown);
   const canAccept =
     intro !== null && !isLoading && errorKey === null && version !== null && version !== '';
   const acceptDisabled = !canAccept || (requireCheckbox && !checkboxChecked);
@@ -139,10 +140,10 @@ export function AgreementChoices({
         ]}
         style={styles.actions}
       />
-      {canAccept && fullMarkdown !== null ? (
+      {canAccept && details !== '' ? (
         <View style={styles.accordion}>
           <Accordion testID={accordionTestID} title={accordionTitle}>
-            <CopyMarkdown markdown={fullMarkdown} />
+            <CopyMarkdown markdown={details} />
           </Accordion>
         </View>
       ) : null}

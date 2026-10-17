@@ -349,11 +349,11 @@ name: Browse Tab And Tab Bar Pref
     file: shared/stack-back.yaml
 - runFlow:
     file: shared/stack-back.yaml
-# addVisibleTab appends Notifications and drops the last other slot (Browse).
+# addVisibleTab appends Notifications and drops the last content tab, My Library.
 - assertVisible:
     id: tab-notifications
 - assertVisible:
-    id: tab-my-library
-- assertNotVisible:
     id: tab-browse
+- assertNotVisible:
+    id: tab-my-library
 - takeScreenshot: browse-tab-bar-notifications-visible

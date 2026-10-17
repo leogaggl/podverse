@@ -108,12 +108,21 @@ const issueMobileTokenPair = (params: {
   };
 };
 
+type AccountCredentialAuthResult =
+  | { id: number; id_text: string; kind: 'authenticated' }
+  | { kind: 'not_verified' }
+  | { kind: 'unauthorized' };
+
+/**
+ * Password is checked before `verified`. A rejection that names an unverified account before
+ * the password matches would tell the caller the address exists.
+ */
 const authenticateAccountCredentials = async (
   identifier: string,
   password: string
-): Promise<{ id: number; id_text: string } | null> => {
+): Promise<AccountCredentialAuthResult> => {
   if (!password) {
-    return null;
+    return { kind: 'unauthorized' };
   }
 
   const account = identifier.includes('@')
@@ -124,22 +133,28 @@ const authenticateAccountCredentials = async (
         relations: { account_credentials: true },
       });
 
-  if (!account || !account.account_credentials?.password || !account.verified) {
-    return null;
+  const passwordHash = account?.account_credentials?.password;
+  if (!account || passwordHash === undefined || passwordHash === '') {
+    return { kind: 'unauthorized' };
+  }
+
+  const isMatch = await verifyPassword(password, passwordHash);
+  if (!isMatch) {
+    return { kind: 'unauthorized' };
+  }
+
+  if (!account.verified) {
+    return { kind: 'not_verified' };
   }
 
   if (!account.id_text) {
-    return null;
-  }
-
-  const isMatch = await verifyPassword(password, account.account_credentials.password);
-  if (!isMatch) {
-    return null;
+    return { kind: 'unauthorized' };
   }
 
   return {
     id: account.id,
     id_text: account.id_text,
+    kind: 'authenticated',
   };
 };
 
@@ -546,13 +561,17 @@ export const issueMobileToken = async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  const account = await authenticateAccountCredentials(identifier, password);
-  if (!account) {
+  const authResult = await authenticateAccountCredentials(identifier, password);
+  if (authResult.kind === 'not_verified') {
+    res.status(403).json({ message: ERROR_MESSAGES.ACCOUNT.NOT_VERIFIED });
+    return;
+  }
+  if (authResult.kind !== 'authenticated') {
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
 
-  res.json(issueMobileTokenPair({ accountId: account.id, accountIdText: account.id_text }));
+  res.json(issueMobileTokenPair({ accountId: authResult.id, accountIdText: authResult.id_text }));
 };
 
 export const refreshMobileToken = async (req: Request, res: Response): Promise<void> => {

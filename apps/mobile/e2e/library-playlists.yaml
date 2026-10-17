@@ -46,15 +46,12 @@ name: Library Playlists Authoring
 - tapOn:
     id: playlist-form-title
 - inputText: "E2E Playlist"
-# Android often leaves the soft keyboard over Submit after inputText (mirrors login flow).
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - hideKeyboard
 - tapOn:
     id: playlist-form-sharable-unlisted
 - takeScreenshot: library-playlists-create-form
+# The title field keeps the keyboard over Submit. Tapping the screen title dismisses it.
+- tapOn:
+    text: Create Playlist
 - tapOn:
     id: playlist-form-submit
 # create replaces the form with the new playlist's detail (navigation.replace).
@@ -93,12 +90,10 @@ name: Library Playlists Authoring
 - tapOn:
     id: playlist-form-title
 - inputText: " Edited"
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - hideKeyboard
 - takeScreenshot: library-playlists-edit-form
+# The title field keeps the keyboard over Submit. Tapping the screen title dismisses it.
+- tapOn:
+    text: Edit Playlist
 - tapOn:
     id: playlist-form-submit
 - extendedWaitUntil:
