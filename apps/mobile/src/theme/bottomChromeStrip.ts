@@ -12,7 +12,8 @@ export const BOTTOM_CHROME_STRIP_ICON_SIZE = 14;
 
 export const BOTTOM_CHROME_STRIP_FONT_SIZE = typography.body.fontSize;
 
-export const BOTTOM_CHROME_STRIP_FONT_WEIGHT = typography.body.fontWeight;
+export const BOTTOM_CHROME_STRIP_FONT_WEIGHT: NonNullable<TextStyle['fontWeight']> =
+  typography.body.fontWeight;
 
 /** Caption line box so the band stays slim while the glyph size matches body. */
 export const BOTTOM_CHROME_STRIP_LINE_HEIGHT = typography.caption.lineHeight;

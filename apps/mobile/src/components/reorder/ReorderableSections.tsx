@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AccessibilityActionEvent } from 'react-native';
+import type { AccessibilityActionEvent, ViewInstance } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
@@ -245,8 +245,8 @@ export function ReorderableSections<T>({
   const { tokens } = useTheme();
   const translationY = useSharedValue(0);
   const activeKey = useSharedValue('');
-  const itemRefs = useRef<Record<string, View | null>>({});
-  const sectionRefs = useRef<Record<string, View | null>>({});
+  const itemRefs = useRef<Record<string, ViewInstance | null>>({});
+  const sectionRefs = useRef<Record<string, ViewInstance | null>>({});
   const layoutsRef = useRef<Record<string, SlotLayout>>({});
   const sectionBoundsRef = useRef<SectionBounds[]>([]);
   const startRef = useRef<StartDrag | null>(null);

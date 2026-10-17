@@ -1,12 +1,17 @@
+import type { ImageStyle, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native';
 
 import { useTheme } from './useTheme';
 
 export type ThemedStylesTheme = ReturnType<typeof useTheme>;
 
-type NamedStyles<T> = StyleSheet.NamedStyles<T>;
+type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle };
 
 type ThemedStylesFactory<T extends NamedStyles<T>> = (theme: ThemedStylesTheme) => T;
+
+// `StyleSheet.create` is generic over an unexported style map. A named-style variable is that
+// map; this binding keeps the factory's return type through registration.
+const createNamedStyles = StyleSheet.create as <T extends NamedStyles<T>>(styles: T) => T;
 
 const themedStylesCache = new WeakMap<object, WeakMap<object, object>>();
 
@@ -40,7 +45,7 @@ export function resolveThemedStyles<T extends NamedStyles<T>>(
     return cached;
   }
 
-  const created = StyleSheet.create(factory(theme));
+  const created = createNamedStyles(factory(theme));
   byTheme.set(theme, created);
   return created;
 }

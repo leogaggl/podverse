@@ -118,14 +118,12 @@ source.
 - **CarPlay scene wired (12.7 / 12.16 iOS):**
   - `app.config.ts` → `ios.entitlements` (`com.apple.developer.carplay-audio`,
     `com.apple.security.application-groups`)
-  - `plugins/withPodverseCarPlay.js` patches AppDelegate
-    `configurationForConnectingSceneSession` → `PodverseCarPlaySceneDelegate` (do **not** put a
-    CarPlay-only `UIApplicationSceneManifest` in Info.plist — that blacks out the phone UI on
-    Expo SDK 57 / RN New Arch by suppressing the phone `UIWindowScene` / `RCTKeyWindow`)
+  - `plugins/withPodverseCarPlay.js` adds a CarPlay scene beside the phone scene. Expo's prebuild
+    generates the phone `SceneDelegate` and `UIApplicationSceneManifest` and creates the
+    `UIWindow` there. A CarPlay-only manifest still leaves the phone without a window.
   - `PodverseCarPlaySceneDelegate.swift` connects, builds Library/Downloads, plays via shared engine
-- **Known follow-up:** Apple’s CarPlay guide also shows an Info.plist scene manifest; adding that
-  without a phone `UIWindowSceneDelegate` regresses the phone to a black screen. AppDelegate
-  configuration is the current working path; revisit Info.plist once a phone SceneDelegate exists.
+- Expo generates the phone scene. The plugin adds CarPlay beside it and leaves Expo's phone
+  scene delegate in place.
 
 ## Recommended sequence (operator + agent)
 

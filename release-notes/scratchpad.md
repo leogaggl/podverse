@@ -14,3 +14,13 @@
   strip's warning tint is translucent, so list rows scrolling behind it used to show through and
   collide with its text. Tablet already had this base.
 - Who notices: anyone who sees the offline or server-unreachable strip while scrolling a list
+
+## Mobile Expo SDK 58
+
+- Surfaces: mobile
+- Change: Expo SDK 58 / React Native 0.88. iOS compiles Expo modules from source
+  (`ios.usePrecompiledModules: false`) so Xcode 27.1's Swift 6.4 can build them. Phone scene
+  comes from the SDK 58 template; CarPlay is an additional scene.
+- Who notices: local iOS builds on Xcode 27. Foreground notifications use the SDK 58 default
+  (shown unless a handler hides them); this app still has no handler.
+- Operator steps: new dev client (`npm run mobile:ios` / `mobile:android`). No EAS build in this change.

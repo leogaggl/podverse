@@ -38,8 +38,8 @@ Generated trees (`ios/Pods/`, Android `build/`, `.expo/`) are gitignored and lis
 ## Membership billing
 
 Store purchases use `expo-iap` **5.x** (`apps/mobile/src/billing`). It is an Expo module with
-StoreKit 2 and OpenIAP Google bindings that satisfy current Play Billing requirements on Expo SDK 57
-/ RN 0.86. `react-native-iap` is not used in this app.
+StoreKit 2 and OpenIAP Google bindings that satisfy current Play Billing requirements on Expo SDK 58
+/ RN 0.88. `react-native-iap` is not used in this app.
 
 `npm run mobile:install` from the repo root installs the pin. The native module needs a dev-client
 rebuild after that:
@@ -433,7 +433,7 @@ Re-run `mobile:ios` / `mobile:android` when native deps, plugins, or prebuild ou
 Pressing **`i`** or **`a`** in the Metro terminal only works **after** the dev client is installed.
 Until then you get `No development build (com.podverse.app.next) for this project is installed`.
 
-### iOS simulator or device selection (Expo SDK 57)
+### iOS simulator or device selection (Expo SDK 58)
 
 Use **`--device` with a fixed name**, not `--simulator` (removed in current Expo CLI). Manual vs
 E2E use **different device slots** (same app id `com.podverse.app.next`):
@@ -498,8 +498,8 @@ pieces below; see **mobile-expo-monorepo** skill for failure modes.
 | Piece            | Location                                       | Role                                                  |
 | ---------------- | ---------------------------------------------- | ----------------------------------------------------- |
 | Mobile lockfile  | `apps/mobile/package-lock.json`                | Committed; `npm run mobile:install`                   |
-| Peer-deps policy | `apps/mobile/.npmrc` (`legacy-peer-deps=true`) | Stop `expo@*` peers pulling expo@57                   |
-| Pins             | `apps/mobile/package.json` `overrides` + deps  | Expo SDK 57 / RN 0.86.3 + current native peers        |
+| Peer-deps policy | `apps/mobile/.npmrc` (`legacy-peer-deps=true`) | Stop `expo@*` peers pulling expo@58                   |
+| Pins             | `apps/mobile/package.json` `overrides` + deps  | Expo SDK 58 / RN 0.88.0 + current native peers        |
 | Shared packages  | `file:../../packages/helpers` (etc.)           | Symlinks into `apps/mobile/node_modules/@podverse/*`  |
 | Metro            | `apps/mobile/metro.config.js`                  | Watch `packages/`; resolve from mobile `node_modules` |
 
@@ -524,18 +524,18 @@ global Expo and miss `apps/mobile/node_modules/expo`):
 ```bash
 # From monorepo root — prefer this over `cd apps/mobile && npx expo install …`
 npm --prefix apps/mobile exec -- expo install --fix
-# or pin specific peers to the SDK 57 set:
+# or pin specific peers to the SDK 58 set:
 npm --prefix apps/mobile exec -- expo install react-native-screens react-native-gesture-handler react-native-safe-area-context expo-secure-store
 ```
 
-Keep `overrides` aligned with Expo SDK 57.
+Keep `overrides` aligned with Expo SDK 58.
 
 ## Troubleshooting
 
 ### `Cannot read properties of undefined (reading 'extract')` during prebuild
 
 Treat this as a broken dependency tree, not a default pin policy. Keep no explicit `tar` override
-in `apps/mobile/package.json` unless this exact failure is reproducible on current Expo SDK 57.
+in `apps/mobile/package.json` unless this exact failure is reproducible on current Expo SDK 58.
 Recover with:
 
 ```bash
@@ -600,7 +600,7 @@ Restart `npm run mobile:dev` and reload the sim (`r`).
 
 ### `Cannot find module 'expo/config-plugins'` / wrong Expo major
 
-Reinstall under `apps/mobile` and confirm overrides pin SDK 57. Do **not** add Expo to the root
+Reinstall under `apps/mobile` and confirm overrides pin SDK 58. Do **not** add Expo to the root
 lockfile.
 
 ```bash
@@ -695,7 +695,7 @@ Workaround until an Expo/RN upgrade ships fmt ≥ 12.1.0 (see
 
 Xcode 27+ hosts the simulator UI in **Device Hub**
 (`/Applications/Xcode.app/Contents/Applications/DeviceHub.app`, bundle id `com.apple.dt.Devices`).
-Expo SDK 57's CLI supports Device Hub, but stale global installs and missing Xcode platform setup
+Expo SDK 58's CLI supports Device Hub, but stale global installs and missing Xcode platform setup
 can still trigger simulator lookup failures. After a fresh App Store Xcode install, finish first
 launch (`sudo xcodebuild -runFirstLaunch`) and download the iOS platform in
 **Xcode → Settings → Platforms** if `simctl` cannot list devices.
@@ -854,7 +854,7 @@ destination, and Run (⌘R).
 
 ### `Unknown arguments: --simulator` (`expo run:ios`)
 
-Expo SDK 57 uses **`--device`** for simulators and physical devices, not `--simulator`:
+Expo SDK 58 uses **`--device`** for simulators and physical devices, not `--simulator`:
 
 ```bash
 npm run mobile:ios -- --device "iPhone 17 Pro"

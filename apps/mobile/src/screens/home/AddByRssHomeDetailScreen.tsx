@@ -384,7 +384,7 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
           messageKey="features.add_by_rss.status_processing"
           testID="add-by-rss-home-empty"
         />
-      ) : null,
+      ) : undefined,
     [errorKey, isLoading]
   );
 

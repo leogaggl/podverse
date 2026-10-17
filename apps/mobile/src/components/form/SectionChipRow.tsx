@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollViewInstance,
+} from 'react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { notePerfTouch, stampPerfFrame } from '../../lib/perf/perfFrames';
@@ -149,7 +154,7 @@ export function SectionChipRow<T extends string>({
 }: SectionChipRowProps<T>) {
   const { tokens } = useTheme();
   const edgeInset = tokens.spacing.base;
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const chipFramesRef = useRef(new Map<T, { x: number; width: number }>());
   const scrollXRef = useRef(0);
   const viewportWidthRef = useRef(0);

@@ -1,75 +1,50 @@
 /**
- * Expo config plugin: wire CarPlay through Swift AppDelegate without requiring a
- * `UIApplicationSceneManifest` override in app config.
+ * Expo config plugin: add a CarPlay scene beside the phone scene Expo generates.
  *
- * CarPlay sessions use `PodverseCarPlaySceneDelegate`; phone sessions keep a dedicated
- * scene delegate that re-attaches the existing React Native window to the foreground scene.
+ * Expo's prebuild owns the phone scene: `SceneDelegate` (an `ExpoAppSceneDelegate`) creates the
+ * `UIWindow` and starts React Native, and the template's `UIApplicationSceneManifest` declares it
+ * for `UIWindowSceneSessionRoleApplication`. This plugin leaves that entry and that delegate alone.
+ *
+ * It adds:
+ * - a `CPTemplateApplicationSceneSessionRoleApplication` manifest entry for
+ *   `PodverseCarPlaySceneDelegate` (podverse-media-engine), and
+ * - `application(_:configurationForConnecting:options:)` on AppDelegate, which routes the CarPlay
+ *   role to that delegate and returns every other role's configuration unchanged from Info.plist.
  */
-const { createRunOncePlugin, withAppDelegate } = require('expo/config-plugins');
+const { createRunOncePlugin, withAppDelegate, withInfoPlist } = require('expo/config-plugins');
+
+const CARPLAY_CONFIGURATION_NAME = 'PodverseCarPlay';
+const CARPLAY_DELEGATE_CLASS = 'PodverseCarPlaySceneDelegate';
+const CARPLAY_SESSION_ROLE = 'CPTemplateApplicationSceneSessionRoleApplication';
+const PHONE_SESSION_ROLE = 'UIWindowSceneSessionRoleApplication';
 
 const METHOD_MARKER_BEGIN = '// @generated begin podverse-carplay-scene';
 const METHOD_MARKER_END = '// @generated end podverse-carplay-scene';
-const PHONE_MARKER_BEGIN = '// @generated begin podverse-phone-scene';
-const PHONE_MARKER_END = '// @generated end podverse-phone-scene';
 
-const PHONE_SCENE_CLASS = `
-${PHONE_MARKER_BEGIN}
-private final class PodversePhoneSceneDelegate: UIResponder, UIWindowSceneDelegate {
-  func scene(
-    _ scene: UIScene,
-    willConnectTo session: UISceneSession,
-    options connectionOptions: UIScene.ConnectionOptions
-  ) {
-    guard let windowScene = scene as? UIWindowScene,
-          let appDelegate = UIApplication.shared.delegate as? AppDelegate,
-          let window = appDelegate.window else {
-      return
-    }
-
-    window.windowScene = windowScene
-    window.makeKeyAndVisible()
-  }
-
-  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-      return
-    }
-    for context in URLContexts {
-      _ = appDelegate.application(
-        UIApplication.shared,
-        open: context.url,
-        options: [:]
-      )
-    }
-  }
-}
-${PHONE_MARKER_END}
-`;
+// Matches any scene block this plugin has generated, so a regenerated AppDelegate never carries
+// two copies.
+const GENERATED_BLOCK =
+  /\n?\/\/ @generated begin podverse-(?:carplay|phone)-scene[\s\S]*?\/\/ @generated end podverse-(?:carplay|phone)-scene\n?/g;
 
 const CARPLAY_METHOD = `
 ${METHOD_MARKER_BEGIN}
-  // CarPlay scene routing stays in AppDelegate so the phone scene remains a normal UIWindowScene.
+  // The phone role keeps the configuration UIKit loaded from Info.plist (Expo's SceneDelegate,
+  // which creates the window). Only the CarPlay role is routed here.
   func application(
     _ application: UIApplication,
     configurationForConnecting connectingSceneSession: UISceneSession,
     options: UIScene.ConnectionOptions
   ) -> UISceneConfiguration {
-    if connectingSceneSession.role == .carTemplateApplication {
-      let configuration = UISceneConfiguration(
-        name: "PodverseCarPlay",
-        sessionRole: connectingSceneSession.role
-      )
-      configuration.sceneClass = CPTemplateApplicationScene.self
-      configuration.delegateClass = NSClassFromString("PodverseCarPlaySceneDelegate")
-      return configuration
+    guard connectingSceneSession.role == .carTemplateApplication else {
+      return connectingSceneSession.configuration
     }
-
-    let phoneConfiguration = UISceneConfiguration(
-      name: "Default Configuration",
+    let configuration = UISceneConfiguration(
+      name: "${CARPLAY_CONFIGURATION_NAME}",
       sessionRole: connectingSceneSession.role
     )
-    phoneConfiguration.delegateClass = PodversePhoneSceneDelegate.self
-    return phoneConfiguration
+    configuration.sceneClass = CPTemplateApplicationScene.self
+    configuration.delegateClass = NSClassFromString("${CARPLAY_DELEGATE_CLASS}")
+    return configuration
   }
 ${METHOD_MARKER_END}
 `;
@@ -79,7 +54,7 @@ const ensureSwiftImport = (contents, importName) => {
   if (contents.includes(importLine)) {
     return contents;
   }
-  const match = contents.match(/^import .*$/m);
+  const match = contents.match(/^(?:internal |public |@_implementationOnly )?import .*$/m);
   if (match === null || match.index === undefined) {
     return `${importLine}\n${contents}`;
   }
@@ -87,7 +62,7 @@ const ensureSwiftImport = (contents, importName) => {
   return `${contents.slice(0, insertAt)}\n${importLine}${contents.slice(insertAt)}`;
 };
 
-const findClassRange = (contents, classDeclarationPrefix) => {
+const findClassCloseBrace = (contents, classDeclarationPrefix) => {
   const classIndex = contents.indexOf(classDeclarationPrefix);
   if (classIndex === -1) {
     throw new Error(`withPodverseCarPlay: could not find ${classDeclarationPrefix}`);
@@ -105,14 +80,14 @@ const findClassRange = (contents, classDeclarationPrefix) => {
     } else if (char === '}') {
       depth -= 1;
       if (depth === 0) {
-        return { classIndex, closeBraceIndex: index };
+        return index;
       }
     }
   }
   throw new Error('withPodverseCarPlay: could not find AppDelegate class closing brace');
 };
 
-const withPodverseCarPlay = (config) =>
+const withCarPlayAppDelegate = (config) =>
   withAppDelegate(config, (modConfig) => {
     if (modConfig.modResults.language !== 'swift') {
       throw new Error(
@@ -120,24 +95,47 @@ const withPodverseCarPlay = (config) =>
       );
     }
 
-    let contents = modConfig.modResults.contents;
+    let contents = modConfig.modResults.contents.replace(GENERATED_BLOCK, '\n');
+
+    if (contents.includes('configurationForConnecting')) {
+      throw new Error(
+        'withPodverseCarPlay: the generated AppDelegate already implements ' +
+          'configurationForConnecting. Extend that method with the CarPlay branch instead of ' +
+          'adding a second one.'
+      );
+    }
+
     contents = ensureSwiftImport(contents, 'CarPlay');
-
-    if (!contents.includes(PHONE_MARKER_BEGIN)) {
-      const mainIndex = contents.indexOf('@main');
-      if (mainIndex === -1) {
-        throw new Error('withPodverseCarPlay: could not find @main AppDelegate marker');
-      }
-      contents = `${contents.slice(0, mainIndex)}${PHONE_SCENE_CLASS}\n${contents.slice(mainIndex)}`;
-    }
-
-    if (!contents.includes(METHOD_MARKER_BEGIN)) {
-      const { closeBraceIndex } = findClassRange(contents, 'class AppDelegate');
-      contents = `${contents.slice(0, closeBraceIndex)}\n${CARPLAY_METHOD}${contents.slice(closeBraceIndex)}`;
-    }
+    const closeBraceIndex = findClassCloseBrace(contents, 'class AppDelegate');
+    contents = `${contents.slice(0, closeBraceIndex)}${CARPLAY_METHOD}${contents.slice(closeBraceIndex)}`;
 
     modConfig.modResults.contents = contents;
     return modConfig;
   });
 
-module.exports = createRunOncePlugin(withPodverseCarPlay, 'podverse-carplay-scene', '2.0.0');
+const withCarPlaySceneManifest = (config) =>
+  withInfoPlist(config, (modConfig) => {
+    const manifest = modConfig.modResults.UIApplicationSceneManifest;
+    const sceneConfigurations = manifest?.UISceneConfigurations;
+    const phoneScenes = sceneConfigurations?.[PHONE_SESSION_ROLE];
+    if (!Array.isArray(phoneScenes) || phoneScenes.length === 0) {
+      throw new Error(
+        'withPodverseCarPlay: Info.plist has no phone scene in UIApplicationSceneManifest. ' +
+          'Expo prebuild is expected to generate it; a CarPlay-only manifest leaves the phone ' +
+          'with no window.'
+      );
+    }
+
+    sceneConfigurations[CARPLAY_SESSION_ROLE] = [
+      {
+        UISceneClassName: 'CPTemplateApplicationScene',
+        UISceneConfigurationName: CARPLAY_CONFIGURATION_NAME,
+        UISceneDelegateClassName: CARPLAY_DELEGATE_CLASS,
+      },
+    ];
+    return modConfig;
+  });
+
+const withPodverseCarPlay = (config) => withCarPlaySceneManifest(withCarPlayAppDelegate(config));
+
+module.exports = createRunOncePlugin(withPodverseCarPlay, 'podverse-carplay-scene', '3.0.0');

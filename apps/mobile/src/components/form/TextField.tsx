@@ -1,7 +1,7 @@
 import { NavigationContext } from '@react-navigation/native';
 import type { MutableRefObject, ReactNode, RefCallback } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { StyleProp, TextInputProps, ViewStyle } from 'react-native';
+import type { StyleProp, TextInputInstance, TextInputProps, ViewStyle } from 'react-native';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useTheme } from '../../theme/useTheme';
@@ -9,9 +9,12 @@ import { useTheme } from '../../theme/useTheme';
 /**
  * Ref shapes a caller can hand a painted field. Narrower than React's `Ref`, which admits
  * `RefObject` — that one declares `current` read-only, so this component could not fill it in.
- * Declare a holder as `useRef<TextInput | null>(null)`.
+ * Declare a holder as `useRef<TextInputInstance | null>(null)`.
  */
-export type TextFieldRef = RefCallback<TextInput> | MutableRefObject<TextInput | null> | null;
+export type TextFieldRef =
+  | RefCallback<TextInputInstance>
+  | MutableRefObject<TextInputInstance | null>
+  | null;
 
 const COMPACT_INPUT_MIN_HEIGHT = 28;
 const MULTILINE_INPUT_MIN_HEIGHT = 80;
@@ -45,7 +48,7 @@ export type TextFieldProps = {
   value: string;
 };
 
-function bindInputRef(ref: TextFieldRef | undefined, node: TextInput | null): void {
+function bindInputRef(ref: TextFieldRef | undefined, node: TextInputInstance | null): void {
   if (typeof ref === 'function') {
     ref(node);
     return;
@@ -90,7 +93,7 @@ export function TextField({
 }: TextFieldProps) {
   const { styles: themeStyles, tokens } = useTheme();
   const navigation = useContext(NavigationContext);
-  const localRef = useRef<TextInput | null>(null);
+  const localRef = useRef<TextInputInstance | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const hasEyebrow = eyebrow !== undefined && eyebrow !== '';
 
@@ -143,7 +146,7 @@ export function TextField({
   );
 
   const setInputRef = useCallback(
-    (node: TextInput | null) => {
+    (node: TextInputInstance | null) => {
       localRef.current = node;
       bindInputRef(inputRef, node);
     },

@@ -97,7 +97,7 @@ export default function App() {
     let isMounted = true;
 
     void Linking.getInitialURL().then((initialUrl) => {
-      if (!isMounted || initialUrl === null) {
+      if (!isMounted || initialUrl === null || initialUrl === undefined) {
         return;
       }
       // Multiple inbound links while booting resolve with last-wins semantics.
