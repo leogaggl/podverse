@@ -1530,7 +1530,10 @@ function TabScaffold({
         ) : (
           <View
             collapsable={false}
-            style={overlayHeight > 0 ? { marginTop: -overlayHeight } : undefined}
+            style={[
+              { backgroundColor: themeStyles.screen.backgroundColor },
+              overlayHeight > 0 ? { marginTop: -overlayHeight } : null,
+            ]}
           >
             <PlaybackE2eStatus />
             <PerfE2eReport />
@@ -1539,7 +1542,9 @@ function TabScaffold({
               clip/chapter → mini player. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
-              the scene above the tab bar does not resize when a bar appears.
+              the scene above the tab bar does not resize when a bar appears. The stack overlaps
+              the scene, so this wrapper paints an opaque base: a strip tinted with a translucent
+              token (the warning fill) must never let list rows show through it.
             */}
             <GlobalActivityBar />
             <OfflineModeBanner />

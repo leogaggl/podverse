@@ -264,11 +264,13 @@ export function PodcastSettingsScreen({ route }: PodcastSettingsScreenProps) {
           ))}
           <View style={styles.sectionStack}>
             <Button
+              fullWidth
               label={t('settings.feed.check_feed_for_updates')}
               loading={isCheckingFeed}
               onPress={() => {
                 void handleCheckFeedForUpdates();
               }}
+              size="form"
               testID="podcast-settings-check-feed"
               variant="secondary"
             />

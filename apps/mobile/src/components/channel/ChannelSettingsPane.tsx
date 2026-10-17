@@ -157,11 +157,13 @@ export function ChannelSettingsPane({
                 <SettingsRowDescription key={line}>{line}</SettingsRowDescription>
               ))}
               <Button
+                fullWidth
                 label={t('settings.feed.check_feed_for_updates')}
                 loading={isCheckingFeed}
                 onPress={() => {
                   void handleCheckFeedForUpdates();
                 }}
+                size="form"
                 testID={`${testIDPrefix}-settings-check-feed`}
                 variant="secondary"
               />

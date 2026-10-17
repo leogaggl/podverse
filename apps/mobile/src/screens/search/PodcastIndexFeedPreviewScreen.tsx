@@ -421,6 +421,7 @@ export function PodcastIndexFeedPreviewScreen({
           onPress={() => {
             void handleAddPress();
           }}
+          size="form"
           testID="pi-feed-add-button"
         />
 

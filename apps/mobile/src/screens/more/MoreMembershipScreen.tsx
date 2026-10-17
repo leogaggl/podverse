@@ -216,6 +216,7 @@ export function MoreMembershipScreen() {
             onPress={() => {
               navigation.navigate(MORE_STACK_ROUTES.MoreMembershipExtend);
             }}
+            size="form"
             testID="more-membership-cta"
             variant="primary"
           />
@@ -250,6 +251,7 @@ export function MoreMembershipScreen() {
               onPress={() => {
                 void openCheckout({ mode: 'sign_up' });
               }}
+              size="form"
               testID="more-membership-cta"
               variant="primary"
             />

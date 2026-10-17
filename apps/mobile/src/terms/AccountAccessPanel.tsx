@@ -282,11 +282,13 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
         <Text style={styles.description}>{t('account_access.download_description')}</Text>
         <Button
           disabled={isDownloading}
+          fullWidth
           label={t('account_access.download_button')}
           loading={isDownloading}
           onPress={() => {
             void handleDownload();
           }}
+          size="form"
           testID="account-access-download"
         />
       </Card>
@@ -296,11 +298,13 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
         <Text style={styles.description}>{t('account_access.opml_description')}</Text>
         <Button
           disabled={isExporting}
+          fullWidth
           label={t('account_access.opml_button')}
           loading={isExporting}
           onPress={() => {
             void handleExportOpml();
           }}
+          size="form"
           testID="account-access-opml"
         />
       </Card>
@@ -310,8 +314,10 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
         <Text style={styles.description}>{t('account_access.delete_description')}</Text>
         <Button
           disabled={isDeleting || account === null}
+          fullWidth
           label={t('account_access.delete_button')}
           onPress={() => setDeleteConfirmVisible(true)}
+          size="form"
           testID="account-access-delete"
           variant="danger"
         />
