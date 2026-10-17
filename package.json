@@ -58,7 +58,7 @@
     }
   },
   "dependencies": {
-    "postcss": "8.5.29",
+    "postcss": "8.5.30",
     "sharp": "0.35.5",
     "uuid": "14.0.3"
   },
