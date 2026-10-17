@@ -33,6 +33,13 @@ For placement and workflow details, see `.cursor/skills/abcmemory/SKILL.md`.
 When the operator types **next**, treat it as **what next**: what they should do next in the
 current task. Answer with that step.
 
+## abcreleasenotes
+
+When the operator says **abcreleasenotes**, convert the entries in
+`release-notes/scratchpad.md` into the GitHub, store, and web release notes for the current
+version, then empty the scratchpad. Follow `.cursor/skills/abcreleasenotes/SKILL.md`. Agents
+append those entries during normal work (**release-notes-scratchpad**).
+
 ## legacy app
 
 **legacy app** (also **podverse-rn**, **v4 mobile**) means the React Native app in the sibling

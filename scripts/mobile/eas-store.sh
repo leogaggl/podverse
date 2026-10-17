@@ -31,7 +31,8 @@
 #
 # Store profiles (beta, production) require committed user-facing notes in
 # release-notes/mobile/ before build and submit. EAS uploads the binary only;
-# the script prints the text to paste into Play or the App Store.
+# the script prints the text to paste into Play or the App Store. A store build
+# also refuses while release-notes/scratchpad.md has entries (run abcreleasenotes).
 # Nothing reaches testers without a typed confirmation. Android `submit` uses the eas.json submit
 # profile named after --profile (`beta`), which leaves a Play draft. `--rollout` switches to
 # `<profile>-rollout`, which publishes to the track and must be confirmed by typing the build's
@@ -356,6 +357,7 @@ build() {
   print_build_config
   echo
   if is_store_profile; then
+    bash "$REPO_ROOT/scripts/publish/require-empty-release-scratchpad.sh" HEAD
     bash "$REPO_ROOT/scripts/publish/require-mobile-release-notes.sh" "$PLATFORM" HEAD
     echo
   fi

@@ -14,8 +14,13 @@ operator in the order they run (**operator-only-git-operations**). The notes tra
 
 ## Where the notes come from
 
-Two files, one formal version (`X.Y.Z` from root `package.json`, suffix removed).
-Neither is a per-staging file. Update each in place until that version ships.
+Agents log each shipped change to `release-notes/scratchpad.md` during normal work
+(**release-notes-scratchpad**). **abcreleasenotes** turns those entries into the files below
+and empties the scratchpad. The staging sync and store builds refuse while the scratchpad has
+entries, so when it is not blank, the first ship step is abcreleasenotes and its commit.
+
+Three files, one formal version (`X.Y.Z` from root `package.json`, suffix removed).
+None is a per-staging file. Update each in place until that version ships.
 The next version starts new files. Do not copy the previous version forward, and
 do not concatenate earlier prerelease bodies.
 
@@ -37,12 +42,18 @@ script prints the text to paste into Play Release notes, TestFlight What to
 Test, and App Store What's New. Do not paste the GitHub file into a store, or
 the store file into the GitHub release, unless they are intentionally the same.
 
+**Web** — `release-notes/web/X.Y.Z.md`. Changes a web user would notice, at most
+six bullets, same tone as the store file. The web app does not display it yet, and
+no script requires it. Write it whenever a version has web-facing changes.
+
 When you give ship steps, quote the file for that destination. If it is missing,
-tell the operator to write it and commit it on `develop` before the command.
+run abcreleasenotes, or tell the operator to write it and commit it on `develop`
+before the command.
 
 1. The destination file above, when it exists. Quote it.
-2. Otherwise derive a draft for the operator to save in that file, from the changes
-   since the last **formal** tag:
+2. Otherwise run **abcreleasenotes**. With a blank scratchpad it drafts from the
+   commits since the last staging tag of the version. For a library with no
+   scratchpad, derive a draft from the changes since the last **formal** tag:
 
 ```bash
 LAST_TAG="$(git tag --list --sort=-v:refname | rg '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
@@ -58,8 +69,8 @@ dependency bumps without a visible effect, and anything a user would not notice.
 
 ## Tone
 
-- **Store file:** plain words, benefit first, no internals, no ticket numbers. Lead with the
-  change a user would care about.
+- **Store and web files:** plain words, benefit first, no internals, no ticket numbers. Lead
+  with the change a user would care about.
 - **GitHub file:** the same user-facing changes, plus short operator notes when a server release
   includes them (env vars, migrations). Still at most six bullets.
 - **Partytime and other libraries:** technical. Breaking changes first, then added, changed, and
@@ -67,6 +78,6 @@ dependency bumps without a visible effect, and anything a user would not notice.
 
 ## Format
 
-Store files are plain text, one bullet per line, with no language tags. GitHub files are short
-Markdown. Put a draft the operator has not saved yet in a fenced `text` block, and say it is a
+Store and web files are plain text, one bullet per line, with no language tags. GitHub files
+are short Markdown. Put a draft the operator has not saved yet in a fenced `text` block, and say it is a
 suggestion to edit before they commit it.

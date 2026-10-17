@@ -54,6 +54,10 @@ across builds of the same version. EAS uploads the binary only; the script print
 the notes to paste into Play Release notes or TestFlight What to Test. GitHub
 release notes stay in `release-notes/X.Y.Z.md` and are not the store text.
 
+A store `build` also refuses while `release-notes/scratchpad.md` has entries. Ask an
+agent to run abcreleasenotes, which moves those entries into the notes and empties
+the scratchpad, then commit that change before building.
+
 Before the first iOS submit, replace `REPLACE_WITH_ASC_APP_ID` and `REPLACE_WITH_APPLE_TEAM_ID` in
 [`apps/mobile/eas.json`](/apps/mobile/eas.json) `submit.beta.ios` (and `submit.production.ios`).
 Store the App Store Connect API key and Play service account on EAS (`eas credentials`).

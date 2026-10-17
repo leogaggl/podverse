@@ -47,6 +47,21 @@ builds and submits refuse without the resolved file. EAS cannot upload that
 text; the script prints it to paste. See
 [release-notes/mobile/README.md](/release-notes/mobile/README.md).
 
+Web notes live in `release-notes/web/X.Y.Z.md`. Nothing displays or requires
+them yet. See [release-notes/web/README.md](/release-notes/web/README.md).
+
+### Release scratchpad
+
+Agents append an entry to `release-notes/scratchpad.md` with each change that
+ships. Before a staging sync, an agent runs **abcreleasenotes**: it moves those
+entries into the GitHub, store, and web notes (or drops them) and empties the
+scratchpad in the same commit.
+
+`sync-develop-to-staging.sh` and store builds run
+[`require-empty-release-scratchpad.sh`](require-empty-release-scratchpad.sh).
+They refuse when the scratchpad is missing, or still has entries, on the
+revision being released.
+
 ## Typical flow
 
 Run from repo root on **`develop`**:
@@ -58,9 +73,9 @@ Run from repo root on **`develop`**:
 ./scripts/publish/sync-staging-to-main.sh
 ```
 
-Commit `release-notes/X.Y.Z.md` before the first staging sync of that version,
-and update it in place before later staging syncs and before the main
-promotion.
+Before each staging sync, run abcreleasenotes and commit its result on
+`develop`. That keeps `release-notes/X.Y.Z.md` current and the scratchpad
+empty. Finish the notes before the main promotion.
 
 Requires `gh auth login` — sync scripts use `gh` internally to wait for publish workflows before
 exiting.

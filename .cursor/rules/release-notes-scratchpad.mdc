@@ -1,0 +1,50 @@
+---
+description: Log every shipped change to release-notes/scratchpad.md so abcreleasenotes can write the release notes later
+alwaysApply: true
+---
+
+# Log changes to the release scratchpad
+
+When you finish a change to something that ships, append an entry to
+`release-notes/scratchpad.md` in the same working tree as the change, so the entry is committed
+with it. Do this before your final response, without being asked.
+
+The scratchpad is raw material. **abcreleasenotes** later decides which entries reach the GitHub,
+store, or web notes, rewrites them for each audience, and empties the file. Be more descriptive
+here than any release note would be, and do not decide the audience yourself.
+
+## What gets an entry
+
+Anything that changes behavior of a shipped surface: features, fixes, user-visible copy, API
+request or response changes, server behavior, env vars, migrations, GitOps keys, and mobile build
+config.
+
+No entry for: plan files, abcmemory, tests alone, comments, and refactors with no behavior
+change. When unsure, add the entry; abcreleasenotes can drop it.
+
+## Entry format
+
+Append at the end of the file. One entry per change, separated by a blank line:
+
+```markdown
+## Alpha grants every sandbox purchase
+
+- Surfaces: api, workers, management-api, k8s base env
+- Change: `BILLING_SANDBOX_GRANT_ALL=true` makes every sandbox purchase grant Premium while
+  `NODE_ENV` is production. Unset keeps the allowlist. Live purchases always grant.
+- Who notices: operators of test deployments; alpha testers can now buy with sandbox accounts
+- Operator steps: set the flag on the API, workers, and management API of a test deployment only
+```
+
+Name the surfaces (api, web, mobile, workers, management-api, management-web, k8s, ops), what
+changed, who would notice, and any step someone running the software must take. Leave out
+secrets, account ids, and anything else **public-repo-no-secrets** forbids.
+
+## Keeping it clean
+
+- Never edit or remove another change's entry, except during abcreleasenotes.
+- A merge conflict in the scratchpad keeps both sides.
+- The staging sync and mobile store builds refuse while the scratchpad has entries. Run
+  **abcreleasenotes** to clear it; do not empty it any other way.
+
+Process: [abcreleasenotes skill](/.cursor/skills/abcreleasenotes/SKILL.md).
