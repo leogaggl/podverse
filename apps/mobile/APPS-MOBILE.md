@@ -126,9 +126,9 @@ preview path via the fixtures sentinel query `unparsedfixture`.
   `/add-by-rss`, etc.).
 - Deep-link prefixes are **env-driven**, not hardcoded: the custom scheme(s) come from
   `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES` (default `podverse-next podverse`) and the universal /
-  app link host from `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (default `https://podverse.fm`). Native
+  app link host from `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (unset means no https host). Native
   registration (`app.config.ts` `scheme` array + associated-domains/intent-filter host) and the JS
-  `MOBILE_LINK_PREFIXES` both derive from the same pure `src/config/deepLinkSchemes.ts`, so a fork
+  `MOBILE_LINK_PREFIXES` both derive from the same pure `src/config/deepLinkSchemes.js`, so a fork
   can rebuild with its own scheme/domain and nothing drifts. `podverse` is kept as a legacy alias so
   an eventual in-place v4 → v5 upgrade still resolves old `podverse://` links — see the
   `mobile-deep-links-and-prod-cutover` rule for the production cutover plan.
@@ -299,11 +299,15 @@ make mobile_eas_ios_build
 make mobile_eas_ios_submit
 make mobile_eas_ios_list
 make mobile_eas_ios_version
+
+# One EAS environment variable (beta profile → preview). Creates it, or updates it if the name exists.
+make mobile_eas_env_set NAME=EXPO_PUBLIC_MOBILE_WEB_BASE_URL VALUE=https://example.com
 ```
 
 `build` and `submit` show the EAS environment / `EXPO_PUBLIC_*` summary and ask first. Store
-profiles refuse a dirty tree. EAS must be logged in to the `podverse` account
-(`npx eas-cli@latest login` from `apps/mobile`). Play upload steps:
+profiles refuse a dirty tree. EAS must be logged in to the `podverse` account; a
+`make mobile_eas_*` command runs `eas-cli` and prompts for login when the session is missing.
+Play upload steps:
 [BILLING-GOOGLE-PLAY-SANDBOX.md](../../docs/billing/BILLING-GOOGLE-PLAY-SANDBOX.md#app-on-a-testing-track).
 
 ## Native toolchain prerequisites (outside Nix)

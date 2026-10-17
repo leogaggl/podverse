@@ -1,6 +1,6 @@
 ---
 description: Mobile deep-link scheme/host config policy and the v4 -> v5 production cutover (graceful in-place upgrade) plan.
-globs: apps/mobile/app.config.ts,apps/mobile/src/config/deepLinkSchemes.ts,apps/mobile/src/navigation/deepLinking.ts,apps/mobile/src/navigation/index.tsx,apps/mobile/plugins/withPodverseAssociatedDomains.js,apps/mobile/APPS-MOBILE.md
+globs: apps/mobile/app.config.ts,apps/mobile/src/config/deepLinkSchemes.js,apps/mobile/src/config/deepLinkSchemes.d.ts,apps/mobile/src/navigation/deepLinking.ts,apps/mobile/src/navigation/index.tsx,apps/mobile/plugins/withPodverseAssociatedDomains.js,apps/mobile/APPS-MOBILE.md
 alwaysApply: false
 ---
 
@@ -10,9 +10,14 @@ alwaysApply: false
 
 - Custom URL schemes come from `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES` (comma/space-delimited, no
   `://`); universal / app link host comes from `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (full URL).
-- Single source of truth is the **pure** module `apps/mobile/src/config/deepLinkSchemes.ts`
+- When that URL is unset (and `WEB_BASE_URL` is unset), the build registers no https host: no
+  associated domain, no Android https intent filter, and no https linking prefix. Do not substitute
+  a product domain. Share and checkout URLs are absent until a host is set.
+- Single source of truth is the **pure** module `apps/mobile/src/config/deepLinkSchemes.js`
   (`parseMobileDeepLinkSchemes`, `buildMobileLinkPrefixes`, `DEFAULT_MOBILE_DEEP_LINK_SCHEMES`). It has
-  **no** React Native / Expo imports so both the Node Vitest env and the Expo config loader can use it.
+  **no** React Native / Expo imports. It is JavaScript, not TypeScript: the Expo config loader
+  compiles `app.config.ts` and Node then requires that output, so a sibling `.ts` import does not
+  resolve. Do not move this module back to `.ts`.
 - Both sides must derive from it and never hardcode a scheme/domain:
   - Native registration: `app.config.ts` `scheme` array + associated-domains / Android intent-filter host.
   - JS linking: `MOBILE_LINK_PREFIXES` in `src/navigation/index.tsx` (via `getMobileConfig()`).

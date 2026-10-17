@@ -163,6 +163,10 @@ export function MakeClipScreen({ navigation, route }: MakeClipScreenProps) {
         }
 
         const clipUrl = buildPublicShareUrl('clip', result.clip.id_text);
+        if (clipUrl === null) {
+          navigation.goBack();
+          return;
+        }
         setCreatedClipUrl(clipUrl);
         return;
       }

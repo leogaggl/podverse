@@ -398,7 +398,7 @@ const mobileNavigationScreens = {
  * `podverse://`, …) plus the public web base URL for universal / app links. Env-driven via
  * `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES` / `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` so forks can rebuild
  * without any hardcoded Podverse scheme or domain. Kept in sync with native registration in
- * `app.config.ts` (both parse the same env via `config/deepLinkSchemes.ts`).
+ * `app.config.ts` (both parse the same env via `config/deepLinkSchemes.js`).
  */
 const mobileLinkConfig = getMobileConfig();
 export const MOBILE_LINK_PREFIXES = buildMobileLinkPrefixes(

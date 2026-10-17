@@ -15,10 +15,24 @@ import {
   matchesAppRouteSegments,
   MOBILE_HOME_TAB_PATH,
   MOBILE_HOME_TAB_SEGMENT,
+  UNIVERSAL_LINK_PATH_PREFIXES,
 } from './appRoutes.js';
 import { MediumEnum } from './medium.js';
 
 describe('appRoutes', () => {
+  it('claims album, artist, and track https prefixes with the other universal-link paths', () => {
+    expect(UNIVERSAL_LINK_PATH_PREFIXES).toEqual([
+      `${APP_ROUTES.PODCAST}/`,
+      `${APP_ROUTES.EPISODE}/`,
+      `${APP_ROUTES.ALBUM}/`,
+      `${APP_ROUTES.ARTIST}/`,
+      `${APP_ROUTES.TRACK}/`,
+      `${APP_ROUTES.PLAYLIST}/`,
+      `${APP_ROUTES.CLIP}/`,
+      `${APP_ROUTES.PROFILE}/`,
+    ]);
+  });
+
   it('builds detail paths from APP_ROUTES prefixes', () => {
     expect(buildEpisodePath('ep-1')).toBe(`${APP_ROUTES.EPISODE}/ep-1`);
     expect(buildPodcastLivestreamPath('ch-1')).toBe(`${APP_ROUTES.PODCAST_LIVESTREAM}/ch-1`);

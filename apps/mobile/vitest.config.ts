@@ -20,7 +20,7 @@ import { defineConfig } from 'vitest/config';
  * half stays in `channelLiveStatusRepository.ts`), the Home row metadata join that indexes the four
  * local stores against the subscription list (`src/screens/home/homeRowMetadata.ts` — pure; the
  * repository reads stay in `homeFeedData.ts`), the env-driven deep-link scheme / prefix helpers
- * (`src/config/deepLinkSchemes.ts`), the custom API address and health verdict
+ * (`src/config/deepLinkSchemes.js`), the custom API address and health verdict
  * (`src/config/customApiUrl.ts`), deep-link path mapping (`src/navigation/deepLinking.ts`), pure notification
  * payload target extraction (`src/push/notificationTarget.ts`), share URL mapping (`src/lib/share/shareUrl.ts`),
  * prefs storage guards/hydration (`src/prefs/prefsStore.ts`), Home's remembered filter, sort, and

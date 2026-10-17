@@ -40,7 +40,8 @@ export type MobileConfig = {
   unifiedPushEndpoint: string | null;
   /** Value-for-value boost entry enabled; hidden by default. */
   isV4vEnabled: boolean;
-  webBaseUrl: string;
+  /** Public web origin, or null when this build has no web host. */
+  webBaseUrl: string | null;
 };
 
 /** The build's API address, ignoring any custom override. */

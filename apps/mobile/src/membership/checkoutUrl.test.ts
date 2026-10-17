@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildCheckoutUrl, buildWebPathUrl } from './checkoutUrl';
 
-const mocks = vi.hoisted(() => ({ webBaseUrl: 'https://example.test' }));
+const mocks = vi.hoisted(() => ({ webBaseUrl: 'https://example.test' as string | null }));
 
 vi.mock('../config', () => ({
   getMobileConfig: () => ({ webBaseUrl: mocks.webBaseUrl }),
@@ -29,5 +29,11 @@ describe('buildCheckoutUrl', () => {
   it('builds an absolute URL for a web path', () => {
     expect(buildWebPathUrl('/terms')).toBe('https://example.test/terms');
     expect(buildWebPathUrl('terms')).toBe('https://example.test/terms');
+  });
+
+  it('returns null when this build has no web host', () => {
+    mocks.webBaseUrl = null;
+    expect(buildCheckoutUrl('sign_up')).toBeNull();
+    expect(buildWebPathUrl('/terms')).toBeNull();
   });
 });

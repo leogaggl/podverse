@@ -85,13 +85,11 @@ export const getMobileUnifiedPushAuthKeyFromEnv = (): string | null => {
 /**
  * Custom URL schemes this build registers / accepts as deep-link prefixes. Defaults to the Podverse
  * beta + legacy pair; forks override via `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES`. Keep in sync with
- * the native `scheme` array in `app.config.ts` (both parse the same env via `deepLinkSchemes.ts`).
+ * the native `scheme` array in `app.config.ts` (both parse the same env via `deepLinkSchemes.js`).
  */
 export const getMobileDeepLinkSchemesFromEnv = (): string[] => {
   return parseMobileDeepLinkSchemes(process.env.EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES);
 };
-
-const FALLBACK_PUBLIC_WEB_BASE_URL = 'https://podverse.fm';
 
 /** Same address the web contact page uses when a fork has not set its own. */
 const FALLBACK_CONTACT_EMAIL = 'contact@podverse.fm';
@@ -105,7 +103,7 @@ const CONTACT_EMAIL_PATTERN = /^[^\s@/?#&]+@[^\s@/?#&]+$/;
 /**
  * Contact address for in-app support (the error log and Trial limitations).
  * Forks set `EXPO_PUBLIC_CONTACT_EMAIL`.
- * Unset or invalid uses the Podverse contact address, same idea as the public web base URL.
+ * Unset or invalid uses the Podverse contact address.
  */
 export const getMobileContactEmailFromEnv = (): string => {
   const configured = trimToNull(process.env.EXPO_PUBLIC_CONTACT_EMAIL);
@@ -119,7 +117,11 @@ const normalizeBaseUrl = (value: string): string => {
   return value.endsWith('/') ? value.slice(0, -1) : value;
 };
 
-export const getMobilePublicWebBaseUrlFromEnv = (): string => {
+/**
+ * Public web origin for share links and https universal / app links.
+ * Null when neither `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` nor `WEB_BASE_URL` is set.
+ */
+export const getMobilePublicWebBaseUrlFromEnv = (): string | null => {
   const direct = trimToNull(process.env.EXPO_PUBLIC_MOBILE_WEB_BASE_URL);
   if (direct !== null) {
     return normalizeBaseUrl(direct);
@@ -130,5 +132,5 @@ export const getMobilePublicWebBaseUrlFromEnv = (): string => {
     return normalizeBaseUrl(legacy);
   }
 
-  return FALLBACK_PUBLIC_WEB_BASE_URL;
+  return null;
 };

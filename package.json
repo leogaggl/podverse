@@ -139,6 +139,8 @@
     "mobile:eas:ios:list": "bash scripts/mobile/eas-store.sh list --platform ios",
     "mobile:eas:ios:version": "bash scripts/mobile/eas-store.sh version --platform ios",
     "mobile:eas:ios:credentials": "bash scripts/mobile/eas-store.sh credentials --platform ios",
+    "mobile:eas:env:set": "bash scripts/mobile/eas-store.sh env-set",
+    "mobile:eas:login": "bash scripts/mobile/eas-store.sh login",
     "mobile:e2e:ios": "bash scripts/mobile/e2e-device.sh ios",
     "mobile:e2e:android": "bash scripts/mobile/e2e-device.sh android",
     "mobile:e2e:ios:tablet": "bash scripts/mobile/e2e-device.sh ios-tablet",

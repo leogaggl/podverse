@@ -114,6 +114,21 @@ export const FLAT_CONTENT_APP_ROUTES = [
   APP_ROUTES.TRACK,
 ] as const;
 
+/**
+ * Path prefixes claimed for iOS universal links and Android app links. The website association
+ * files use this same list, so a path the app opens is a path the site can hand to the app.
+ */
+export const UNIVERSAL_LINK_PATH_PREFIXES = [
+  `${APP_ROUTES.PODCAST}/`,
+  `${APP_ROUTES.EPISODE}/`,
+  `${APP_ROUTES.ALBUM}/`,
+  `${APP_ROUTES.ARTIST}/`,
+  `${APP_ROUTES.TRACK}/`,
+  `${APP_ROUTES.PLAYLIST}/`,
+  `${APP_ROUTES.CLIP}/`,
+  `${APP_ROUTES.PROFILE}/`,
+] as const;
+
 export const getAppRouteSegments = (route: AppRoutePath): string[] => {
   return splitRoutePath(route);
 };

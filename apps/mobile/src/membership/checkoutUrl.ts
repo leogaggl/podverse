@@ -13,14 +13,29 @@ const CHECKOUT_WEB_PATHS: Record<CheckoutMode, string> = {
   sign_up: '/sign-up',
 };
 
-const webOrigin = (): string => getMobileConfig().webBaseUrl.replace(/\/+$/, '');
+const webOrigin = (): string | null => {
+  const webBaseUrl = getMobileConfig().webBaseUrl;
+  if (webBaseUrl === null || webBaseUrl.trim() === '') {
+    return null;
+  }
+  return webBaseUrl.replace(/\/+$/, '');
+};
 
-/** Build the absolute web URL for a checkout mode from the configured public web base URL. */
-export const buildCheckoutUrl = (mode: CheckoutMode): string =>
-  `${webOrigin()}${CHECKOUT_WEB_PATHS[mode]}`;
+/** Absolute web URL for a checkout mode, or null when this build has no web host. */
+export const buildCheckoutUrl = (mode: CheckoutMode): string | null => {
+  const origin = webOrigin();
+  if (origin === null) {
+    return null;
+  }
+  return `${origin}${CHECKOUT_WEB_PATHS[mode]}`;
+};
 
-/** Absolute URL for a path on the public web origin, such as the terms page. */
-export const buildWebPathUrl = (path: string): string => {
+/** Absolute URL for a path on the public web origin, or null when this build has no web host. */
+export const buildWebPathUrl = (path: string): string | null => {
+  const origin = webOrigin();
+  if (origin === null) {
+    return null;
+  }
   const suffix = path.startsWith('/') ? path : `/${path}`;
-  return `${webOrigin()}${suffix}`;
+  return `${origin}${suffix}`;
 };

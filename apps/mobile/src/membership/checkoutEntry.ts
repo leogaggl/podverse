@@ -24,10 +24,18 @@ const openUrl = async (url: string): Promise<void> => {
 
 /** Open the web sign-up (logged-out) or checkout (logged-in) page in an in-app browser. */
 export const openCheckout = async ({ mode }: { mode: CheckoutMode }): Promise<void> => {
-  await openUrl(buildCheckoutUrl(mode));
+  const url = buildCheckoutUrl(mode);
+  if (url === null) {
+    return;
+  }
+  await openUrl(url);
 };
 
 /** Open a path on the public web origin, such as the terms page. */
 export const openWebPath = async (path: string): Promise<void> => {
-  await openUrl(buildWebPathUrl(path));
+  const url = buildWebPathUrl(path);
+  if (url === null) {
+    return;
+  }
+  await openUrl(url);
 };

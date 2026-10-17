@@ -46,7 +46,7 @@ const normalizePath = (path: string): string => {
 const tryParseUrlPath = (value: string): string => {
   try {
     const parsed = new URL(value);
-    // Web / universal links (https://podverse.fm/podcast/<id>): the origin is a real network
+    // Web / universal links (https://example.com/podcast/<id>): the origin is a real network
     // host, so keep only the pathname (+ query/hash) and drop the domain.
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
       return `${parsed.pathname}${parsed.search}${parsed.hash}`;

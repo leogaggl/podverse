@@ -1,21 +1,10 @@
 import type { ExpoConfig } from 'expo/config';
 
-import { APP_ROUTES } from '@podverse/helpers';
-
 import packageJson from './package.json';
-const DEFAULT_MOBILE_DEEP_LINK_SCHEMES = ['podverse-next', 'podverse'];
-
-const stripSchemeSuffix = (value: string): string => {
-  return value.replace(/:\/\/$/, '').replace(/:$/, '');
-};
-
-const parseMobileDeepLinkSchemes = (raw: string | undefined): string[] => {
-  const parsed = (raw ?? '')
-    .split(/[\s,]+/)
-    .map((entry) => stripSchemeSuffix(entry.trim()))
-    .filter((entry) => entry.length > 0);
-  return parsed.length > 0 ? parsed : [...DEFAULT_MOBILE_DEEP_LINK_SCHEMES];
-};
+import {
+  MOBILE_UNIVERSAL_LINK_PATH_PREFIXES,
+  parseMobileDeepLinkSchemes,
+} from './src/config/deepLinkSchemes';
 
 const getMobileBillingModeFromEnv = (): 'store' | 'unavailable' => {
   const billing = process.env.EXPO_PUBLIC_MOBILE_BILLING?.trim();
@@ -26,22 +15,12 @@ const getMobileBillingModeFromEnv = (): 'store' | 'unavailable' => {
   return 'store';
 };
 
-const MOBILE_UNIVERSAL_LINK_PATH_PREFIXES = [
-  `${APP_ROUTES.PODCAST}/`,
-  `${APP_ROUTES.EPISODE}/`,
-  `${APP_ROUTES.PLAYLIST}/`,
-  `${APP_ROUTES.CLIP}/`,
-  `${APP_ROUTES.PROFILE}/`,
-] as const;
-
-const DEFAULT_UNIVERSAL_LINK_HOST = 'podverse.fm';
-
 const trimToNull = (value: string | undefined): string | null => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 };
 
-/** Resolve a hostname from a value that may be a full URL (`https://podverse.fm`) or a bare host. */
+/** Resolve a hostname from a value that may be a full URL (`https://example.com`) or a bare host. */
 const resolveHost = (value: string | null): string | null => {
   if (value === null) {
     return null;
@@ -54,7 +33,7 @@ const resolveHost = (value: string | null): string | null => {
 };
 
 // Custom URL schemes registered natively (CFBundleURLTypes / Android intent filters). Env-driven and
-// shared with the RN linking prefixes via `src/config/deepLinkSchemes.ts` so native registration and
+// shared with the RN linking prefixes via `src/config/deepLinkSchemes.js` so native registration and
 // the JS `prefixes` list never drift. Beta ships `podverse-next` + legacy `podverse`; a fork sets
 // EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES to its own scheme(s).
 const deepLinkSchemes = parseMobileDeepLinkSchemes(
@@ -63,8 +42,7 @@ const deepLinkSchemes = parseMobileDeepLinkSchemes(
 
 const universalLinkHost =
   resolveHost(trimToNull(process.env.EXPO_PUBLIC_MOBILE_WEB_BASE_URL)) ??
-  resolveHost(trimToNull(process.env.WEB_BASE_URL)) ??
-  DEFAULT_UNIVERSAL_LINK_HOST;
+  resolveHost(trimToNull(process.env.WEB_BASE_URL));
 
 const universalLinkPathPrefixes = [...MOBILE_UNIVERSAL_LINK_PATH_PREFIXES];
 
@@ -117,18 +95,22 @@ const config: ExpoConfig = {
       'android.permission.POST_NOTIFICATIONS',
       'android.permission.WAKE_LOCK',
     ],
-    intentFilters: [
-      {
-        action: 'VIEW',
-        autoVerify: true,
-        category: ['BROWSABLE', 'DEFAULT'],
-        data: universalLinkPathPrefixes.map((pathPrefix) => ({
-          host: universalLinkHost,
-          pathPrefix,
-          scheme: 'https',
-        })),
-      },
-    ],
+    ...(universalLinkHost === null
+      ? {}
+      : {
+          intentFilters: [
+            {
+              action: 'VIEW',
+              autoVerify: true,
+              category: ['BROWSABLE', 'DEFAULT'],
+              data: universalLinkPathPrefixes.map((pathPrefix) => ({
+                host: universalLinkHost,
+                pathPrefix,
+                scheme: 'https',
+              })),
+            },
+          ],
+        }),
   },
   plugins: [
     // The dev launcher only lists servers it discovers over Bonjour, so a cold launch from the
@@ -182,7 +164,9 @@ const config: ExpoConfig = {
     ],
     './plugins/withPodverseIosPodBuildSettings',
     './plugins/withPodverseCarPlay',
-    ['./plugins/withPodverseAssociatedDomains', { host: universalLinkHost }],
+    ...(universalLinkHost === null
+      ? []
+      : [['./plugins/withPodverseAssociatedDomains', { host: universalLinkHost }]]),
     // Adds the Play Billing permission and billing-ktx. Omitted when this build's billing mode is
     // unavailable. A FOSS prebuild must also exclude `expo-iap` from autolinking so the native
     // module is not compiled into the binary.
