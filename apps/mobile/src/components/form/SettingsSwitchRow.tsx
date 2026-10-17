@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useContext } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LIST_ROW_OPTICAL_BOTTOM_EXTRA, listRowVerticalPadding } from '../../theme/screenLayout';
+import { listRowVerticalPadding } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
@@ -27,6 +27,9 @@ export type SettingsSwitchRowProps = {
   /** Optional content under the title (feed status lines, notices). */
   children?: ReactNode;
 };
+
+/** Shift a single-line title so its ink lines up with the switch. */
+const SETTINGS_SWITCH_TITLE_NUDGE = 2;
 
 const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
   StyleSheet.create({
@@ -71,7 +74,7 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     },
     titleNudge: {
       includeFontPadding: false,
-      transform: [{ translateY: LIST_ROW_OPTICAL_BOTTOM_EXTRA }],
+      transform: [{ translateY: SETTINGS_SWITCH_TITLE_NUDGE }],
     },
   });
 

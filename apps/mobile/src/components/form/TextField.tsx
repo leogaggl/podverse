@@ -12,9 +12,7 @@ import { useTheme } from '../../theme/useTheme';
  * Declare a holder as `useRef<TextInputInstance | null>(null)`.
  */
 export type TextFieldRef =
-  | RefCallback<TextInputInstance>
-  | MutableRefObject<TextInputInstance | null>
-  | null;
+  RefCallback<TextInputInstance> | MutableRefObject<TextInputInstance | null> | null;
 
 const COMPACT_INPUT_MIN_HEIGHT = 28;
 const MULTILINE_INPUT_MIN_HEIGHT = 80;

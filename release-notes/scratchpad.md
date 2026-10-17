@@ -24,3 +24,11 @@
 - Who notices: local iOS builds on Xcode 27. Foreground notifications use the SDK 58 default
   (shown unless a handler hides them); this app still has no handler.
 - Operator steps: new dev client (`npm run mobile:ios` / `mobile:android`). No EAS build in this change.
+
+## List rows use the same space above and below the artwork
+
+- Surfaces: mobile
+- Change: text-bearing list rows (`HomeFeedRow`, `ListRow`, browse category rows, downloads, and
+  settings text rows) use the same vertical padding on the top and bottom. Cover art on Browse,
+  Home, and the other lists that share those rows has equal space above and below.
+- Who notices: anyone looking at a list row with a cover image

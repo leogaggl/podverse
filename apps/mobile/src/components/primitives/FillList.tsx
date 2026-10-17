@@ -12,11 +12,7 @@ import { applyFillListRenderWindow, LIST_REMOVE_CLIPPED_SUBVIEWS } from './listV
 
 /** Props `FillList` owns: scroll lock derives from the fill state, clipping is fixed app-wide. */
 type LockedProps =
-  | 'alwaysBounceVertical'
-  | 'bounces'
-  | 'overScrollMode'
-  | 'removeClippedSubviews'
-  | 'scrollEnabled';
+  'alwaysBounceVertical' | 'bounces' | 'overScrollMode' | 'removeClippedSubviews' | 'scrollEnabled';
 
 /** Virtualized list slots reject `null`. Callers still pass it for "no slot". */
 type ListSlotKey = 'ListEmptyComponent' | 'ListFooterComponent' | 'ListHeaderComponent';

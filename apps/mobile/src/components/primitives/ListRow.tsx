@@ -23,8 +23,8 @@ export type ListRowProps = {
   onPress?: () => void;
   accessibilityLabel?: string;
   /**
-   * Top padding for the row. Bottom is this value plus {@link listRowVerticalPadding}'s optical
-   * extra so title ink does not read top-heavy. Defaults to `tokens.spacing.base`.
+   * Vertical padding for the row. Top and bottom use this same value. Defaults to
+   * `tokens.spacing.base`.
    */
   paddingVertical?: number;
   testID?: string;
