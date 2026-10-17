@@ -24,6 +24,10 @@ import {
 } from '../../navigation';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
+import {
   PREVIEW_IDENTITY_ARTWORK_EDGE,
   previewIdentityArtworkGap,
   previewIdentityBylineGap,
@@ -91,6 +95,7 @@ export function PodcastIndexFeedPreviewScreen({
   const { accessToken, clearSession, refreshToken, setTokens } = useAuth();
   const { onRequestLogin } = useAuthPrompt();
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const { handleGateError, openGate } = useMembershipGate();
   const { evaluateFeature } = useAccessTier();
@@ -368,10 +373,14 @@ export function PodcastIndexFeedPreviewScreen({
   if (feed === null) {
     return (
       <View style={styles.container} testID="pi-feed-preview-screen">
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          scrollIndicatorInsets={scrollIndicatorInsets}
+        >
           <Text style={styles.message}>
             {t(hydrateErrorKey ?? 'features.search.not_available_yet')}
           </Text>
+          <BottomChromeScrollSpacer />
         </ScrollView>
       </View>
     );
@@ -379,7 +388,11 @@ export function PodcastIndexFeedPreviewScreen({
 
   return (
     <View style={styles.container} testID="pi-feed-preview-screen">
-      <ScrollView contentContainerStyle={styles.content} testID="search-result-detail-screen">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        scrollIndicatorInsets={scrollIndicatorInsets}
+        testID="search-result-detail-screen"
+      >
         <View>
           <CoverImage
             accessibilityLabel={feed.title}
@@ -428,6 +441,7 @@ export function PodcastIndexFeedPreviewScreen({
             {t(addNoticeKey)}
           </Text>
         ) : null}
+        <BottomChromeScrollSpacer />
       </ScrollView>
     </View>
   );

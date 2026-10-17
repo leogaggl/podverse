@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +20,7 @@ import {
 import { useResponsive } from '../../theme/useResponsive';
 import { useTheme } from '../../theme/useTheme';
 import { nowPlayingSegmentLeadingIcon } from './nowPlayingSegmentIcon';
+import { setNowPlayingSegmentStripVisible } from './nowPlayingSegmentStripPresence';
 
 /**
  * Slim strip naming the clip, official clip, or chapter playing inside the current episode.
@@ -70,6 +71,17 @@ export function NowPlayingSegmentBar() {
     previewPositionSeconds,
     target: activeTarget,
   });
+
+  const segmentVisible = segment !== null;
+  useLayoutEffect(() => {
+    setNowPlayingSegmentStripVisible(segmentVisible);
+  }, [segmentVisible]);
+
+  useLayoutEffect(() => {
+    return () => {
+      setNowPlayingSegmentStripVisible(false);
+    };
+  }, []);
 
   if (segment === null) {
     return null;

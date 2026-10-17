@@ -98,6 +98,7 @@ import { PodcastIndexFeedPreviewScreen } from '../screens/search/PodcastIndexFee
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { TrackDetailScreen } from '../screens/track/TrackDetailScreen';
 import { V4vInfoScreen } from '../screens/v4v/V4vInfoScreen';
+import { BottomChromeOverlayHeightProvider } from '../theme/bottomChromeOverlayInset';
 import { useNavigationTheme } from '../theme/useNavigationTheme';
 import { useTheme } from '../theme/useTheme';
 import { useThemedNativeStackScreenOptions } from '../theme/useThemedNativeStackScreenOptions';
@@ -109,6 +110,7 @@ import { OrderedTabBar } from './OrderedTabBar';
 import type { PodcastDetailRouteParams } from './podcastDetailParams';
 import { ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
 import { tabBarIcon } from './tabBarIcon';
+import { useBottomChromeOverlayInsetSource } from './useBottomChromeOverlayInsetSource';
 import { useTabLayout } from './TabLayoutProvider';
 import type { TrackDetailRouteParams } from './trackDetailParams';
 
@@ -1452,6 +1454,7 @@ function TabScaffold({
 }: TabScaffoldProps) {
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
+  const overlayHeight = useBottomChromeOverlayInsetSource();
   const { visibleTabIds } = useTabLayout();
   const visibleTabSet = useMemo(() => new Set(visibleTabIds), [visibleTabIds]);
   const notificationsUnreadCount = useNotificationsUnreadCount({ enabled: true });
@@ -1525,14 +1528,18 @@ function TabScaffold({
         isTabletLayout ? (
           <OrderedTabBar {...props} />
         ) : (
-          <View>
+          <View
+            collapsable={false}
+            style={overlayHeight > 0 ? { marginTop: -overlayHeight } : undefined}
+          >
             <PlaybackE2eStatus />
             <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
               clip/chapter → mini player. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
-              bars a listener is aiming at.
+              bars a listener is aiming at. The negative top margin equals that stack's height, so
+              the scene above the tab bar does not resize when a bar appears.
             */}
             <GlobalActivityBar />
             <OfflineModeBanner />
@@ -1615,22 +1622,24 @@ function TabScaffold({
     </Tab.Navigator>
   );
 
-  if (!isTabletLayout) {
-    return navigator;
-  }
-
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // E2E playback markers → sync → Offline Mode → current clip/chapter → mini player.
-  return (
+  // E2E playback markers → sync → Offline Mode → current clip/chapter → mini player. The negative
+  // top margin is the variable strips only, so the safe-area padding stays reserved and the scene
+  // does not resize when a bar appears.
+  const scaffold = !isTabletLayout ? (
+    navigator
+  ) : (
     <View style={tabScaffoldStyles.tabletRoot}>
       {navigator}
       <View
+        collapsable={false}
         style={[
           tabScaffoldStyles.tabletBottomChrome,
           {
             backgroundColor: themeStyles.screen.backgroundColor,
+            marginTop: overlayHeight > 0 ? -overlayHeight : 0,
             paddingBottom: insets.bottom,
           },
         ]}
@@ -1643,6 +1652,12 @@ function TabScaffold({
         <MiniPlayer onExpand={onOpenFullPlayer} />
       </View>
     </View>
+  );
+
+  return (
+    <BottomChromeOverlayHeightProvider value={overlayHeight}>
+      {scaffold}
+    </BottomChromeOverlayHeightProvider>
   );
 }
 

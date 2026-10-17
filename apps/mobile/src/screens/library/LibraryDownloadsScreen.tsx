@@ -21,6 +21,10 @@ import { useActionError } from '../../feedback/ActionErrorProvider';
 import type { LibraryStackParamList } from '../../navigation';
 import { LIBRARY_STACK_ROUTES } from '../../navigation';
 import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
+import {
   LIST_ROW_ARTWORK_SIZE,
   listRowArtworkGap,
   listRowVerticalPadding,
@@ -159,6 +163,7 @@ export function LibraryDownloadsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<LibraryStackParamList>>();
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   // Status changes rebuild the sections. Each in-progress row subscribes to its own bytes for the
   // bar, so a progress tick does not re-render the rest of the list.
   const { downloads, isLoading, errorKey, reload, pauseAllActive } = useDownloadsList();
@@ -395,7 +400,9 @@ export function LibraryDownloadsScreen() {
         contentContainerStyle={styles.content}
         keyExtractor={downloadKeyExtractor}
         ListEmptyComponent={listEmpty}
+        ListFooterComponent={<BottomChromeScrollSpacer />}
         ListHeaderComponent={listHeader}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         renderItem={renderRow}
         renderSectionHeader={renderSectionHeader}
         sections={sections}

@@ -18,6 +18,10 @@ import {
   syncEventLogRepository,
 } from '../../data/repositories';
 import type { MoreStackParamList } from '../../navigation';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
 import { formActionsTopGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { readErrorLogDeviceContext } from './errorLogDeviceContext.read';
@@ -66,6 +70,7 @@ export function MoreErrorLogDetailScreen() {
   const route = useRoute<RouteProp<MoreStackParamList, 'MoreErrorLogDetail'>>();
   const { entryId } = route.params;
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const timestampFormatter = useErrorLogTimestampFormatter();
   const contactEmail = getMobileConfig().contactEmail;
   const deviceFields = readErrorLogDeviceContext(i18n.language);
@@ -393,8 +398,14 @@ export function MoreErrorLogDetailScreen() {
         contentContainerStyle={styles.content}
         data={fields}
         keyExtractor={(item) => item.key}
-        ListFooterComponent={renderDeviceSection}
+        ListFooterComponent={
+          <>
+            {renderDeviceSection()}
+            <BottomChromeScrollSpacer />
+          </>
+        }
         ListHeaderComponent={renderHeader}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
         renderItem={({ item }) => (
           <View

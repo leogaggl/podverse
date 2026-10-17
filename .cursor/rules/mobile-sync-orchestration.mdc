@@ -67,7 +67,11 @@ experiences as an unexplained slowdown. The indicator is the job label, the step
 spinner; it does not draw a determinate fill.
 
 - The bar sits directly above the mini player, and directly above the tab bar when the mini player
-  is hidden.
+  is hidden. That stack (the indicator, the offline strip, the current clip/chapter strip, and the
+  mini player) overlaps the scene. It does not change the scene's height. Scrollable content keeps
+  a bottom spacer equal to that overlap so the last row can scroll clear. A centered fill stays
+  centered in the scene and moves only when the block would sit under the overlay. Do not put
+  these bars back in the column under the scene.
 - A new kind of sync work ships with its queue registration and its label in the same change. Adding
   a background fetch that bypasses the queue leaves a gap in the indicator.
 - User-invoked work that has its own local spinner (pull-to-refresh, OPML import) also reports to the

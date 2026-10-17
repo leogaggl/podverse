@@ -15,6 +15,10 @@ import type { SyncEventLogEntry } from '../../data/repositories';
 import { formatSyncEventLogExport, syncEventLogRepository } from '../../data/repositories';
 import type { MoreStackParamList } from '../../navigation';
 import { MORE_STACK_ROUTES } from '../../navigation';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
 import { formActionsTopGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { readErrorLogDeviceContext } from './errorLogDeviceContext.read';
@@ -39,6 +43,7 @@ export function MoreErrorLogScreen() {
   const supportEmail = getMobileConfig().contactEmail;
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const timestampFormatter = useErrorLogTimestampFormatter();
   const [entries, setEntries] = useState<SyncEventLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -183,7 +188,9 @@ export function MoreErrorLogScreen() {
             <ListEmpty messageKey="error_log.empty" testID="error-log-empty" />
           )
         }
+        ListFooterComponent={<BottomChromeScrollSpacer />}
         ListHeaderComponent={renderHeader}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
         renderItem={renderRow}
       />

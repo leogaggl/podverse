@@ -2,6 +2,10 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
 import { screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 
@@ -20,6 +24,7 @@ export function MobileScreenContainer({
   testID,
 }: MobileScreenContainerProps) {
   const { styles: themeStyles, tokens } = useTheme();
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
 
   const styles = useMemo(
     () =>
@@ -50,10 +55,12 @@ export function MobileScreenContainer({
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         style={{ flex: 1 }}
       >
         {heading !== undefined ? <Text style={styles.heading}>{heading}</Text> : null}
         {children}
+        <BottomChromeScrollSpacer />
       </ScrollView>
     </View>
   );

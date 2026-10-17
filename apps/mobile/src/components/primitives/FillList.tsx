@@ -1,9 +1,13 @@
-import type { ForwardedRef, ReactElement, Ref } from 'react';
-import { forwardRef, useCallback, useRef } from 'react';
+import type { ForwardedRef, ReactElement, ReactNode, Ref } from 'react';
+import { createElement, forwardRef, Fragment, isValidElement, useCallback, useRef } from 'react';
 import type { FlatListProps, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { FlatList, StyleSheet } from 'react-native';
 
 import { beginPerfScrollSample, endPerfScrollSample } from '../../lib/perf/perfFrames';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeOverlayHeight,
+} from '../../theme/bottomChromeOverlayInset';
 import { applyFillListRenderWindow, LIST_REMOVE_CLIPPED_SUBVIEWS } from './listVirtualization';
 
 /** Props `FillList` owns: scroll lock derives from the fill state, clipping is fixed app-wide. */
@@ -34,9 +38,17 @@ const fillContent = StyleSheet.create({
   },
 });
 
+function renderFillListFooter(footer: FillListProps<unknown>['ListFooterComponent']): ReactNode {
+  if (footer === null || footer === undefined || isValidElement(footer)) {
+    return footer ?? null;
+  }
+  return createElement(footer);
+}
+
 function FillListInner<ItemT>(
   {
     ListEmptyComponent,
+    ListFooterComponent,
     contentContainerStyle,
     data,
     onMomentumScrollBegin,
@@ -44,11 +56,15 @@ function FillListInner<ItemT>(
     onScrollBeginDrag,
     onScrollEndDrag,
     refreshControl,
+    scrollIndicatorInsets,
     ...rest
   }: FillListProps<ItemT>,
   ref: ForwardedRef<FlatList<ItemT>>
 ): ReactElement {
+  const overlayHeight = useBottomChromeOverlayHeight();
   const lockScroll = isFillListScrollLocked(data, ListEmptyComponent);
+  // A locked fill centers in the scene. Padding that box would move the center when a bar appears.
+  const scrollInset = lockScroll ? 0 : overlayHeight;
   const endDragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearEndDragTimer = useCallback(() => {
@@ -99,10 +115,29 @@ function FillListInner<ItemT>(
     [clearEndDragTimer, onMomentumScrollEnd]
   );
 
+  const indicatorInsets =
+    scrollInset > 0
+      ? {
+          ...scrollIndicatorInsets,
+          bottom: (scrollIndicatorInsets?.bottom ?? 0) + scrollInset,
+        }
+      : scrollIndicatorInsets;
+
+  const listFooter =
+    scrollInset > 0 ? (
+      <Fragment>
+        {renderFillListFooter(ListFooterComponent)}
+        <BottomChromeScrollSpacer />
+      </Fragment>
+    ) : (
+      ListFooterComponent
+    );
+
   return (
     <FlatList
       {...applyFillListRenderWindow(rest)}
       ListEmptyComponent={ListEmptyComponent}
+      ListFooterComponent={listFooter}
       alwaysBounceVertical={!lockScroll}
       bounces={!lockScroll}
       contentContainerStyle={[fillContent.grow, contentContainerStyle]}
@@ -116,6 +151,7 @@ function FillListInner<ItemT>(
       refreshControl={lockScroll ? undefined : refreshControl}
       removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
       scrollEnabled={!lockScroll}
+      scrollIndicatorInsets={indicatorInsets}
     />
   );
 }

@@ -28,7 +28,8 @@ import { defineConfig } from 'vitest/config';
  * covering per-media-type scoping, the list-not-grid default, one control's write leaving the
  * others alone, the carry-over of the pre-existing chip value, and the change notification Home
  * listens to), the row and artwork-tile column counts
- * (`src/theme/resolveColumns.ts`), the Podcast Index search preview poll helper
+ * (`src/theme/resolveColumns.ts`), the bottom-chrome overlap height and centered-fill shift
+ * (`src/theme/bottomChromeOverlay.ts`), the Podcast Index search preview poll helper
  * (`src/screens/search/podcastIndexFeedPreview.ts`), the client-version/platform header builder
  * (`src/auth/mobileClientHeaders.ts` — pure; the RN-coupled resolution stays in `mobileApi.ts`), the
  * billing client selection, account-token binding, and finish-after-confirm rule (`src/billing` —
@@ -169,6 +170,7 @@ export default defineConfig({
       'src/screens/more/errorLogMailto.test.ts',
       'src/sync/syncErrorClassification.test.ts',
       'src/sync/syncQueue.test.ts',
+      'src/theme/bottomChromeOverlay.test.ts',
       'src/theme/resolveColumns.test.ts',
       'src/theme/useThemedStyles.test.ts',
     ],

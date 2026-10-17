@@ -12,6 +12,10 @@ import { resolveSupportedLocale } from '../../i18n/locale';
 import { NOTIFICATION_TYPE_ROWS } from '../../lib/notifications/notificationTypeRows';
 import { handleRateLimitMessage } from '../../lib/rateLimit/handleRateLimitMessage';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
+import {
+  BottomChromeScrollSpacer,
+  useBottomChromeScrollIndicatorInsets,
+} from '../../theme/bottomChromeOverlayInset';
 import { screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
@@ -67,6 +71,7 @@ export function ChannelSettingsPane({
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const { handleGateError, openGate } = useMembershipGate();
   const styles = useThemedStyles(createStyles);
+  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
   const [feedNotice, setFeedNotice] = useState<string | null>(null);
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
   const [autoDownloadNoticeVisible, setAutoDownloadNoticeVisible] = useState(false);
@@ -141,6 +146,7 @@ export function ChannelSettingsPane({
     <>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         style={styles.scroll}
         testID={`${testIDPrefix}-settings`}
       >
@@ -228,6 +234,7 @@ export function ChannelSettingsPane({
             title={t('features.download.auto_download')}
           />
         </SettingsGroup>
+        <BottomChromeScrollSpacer />
       </ScrollView>
 
       <ConfirmDialog
