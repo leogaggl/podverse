@@ -163,11 +163,23 @@ export function screenBodyInsets(
 }
 
 /**
- * Space from the last body line (prose, field, date) to the first full-width CTA on a static
- * form-style screen. Wider than in-body gaps so the actions read as a separate decision block.
+ * Extra margin above a disclosure that follows prose. The last paragraph already carries
+ * `spacing.lg` below it, so this second `spacing.lg` opens the seam to `spacing['4xl']` — the
+ * same width as `formActionsTopGap` under the disclosure. Do not add `formActionsTopGap` here;
+ * that stacks on the paragraph margin and leaves the card too far from the reading.
+ */
+export function proseDisclosureGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.md;
+}
+
+/**
+ * Seam above an agreement checkbox and the action column, and between those two. Wider than
+ * in-body gaps so the decision reads apart from the reading. A disclosure that follows prose
+ * uses `proseDisclosureGap` instead, which reaches this same width once the paragraph margin
+ * is counted.
  */
 export function formActionsTopGap(spacing: ThemeTokens['spacing']): number {
-  return spacing.xl;
+  return spacing['4xl'];
 }
 
 /**

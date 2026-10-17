@@ -16,7 +16,7 @@ import { VerificationEmailNotSentMessage } from '../../auth/VerificationEmailNot
 import { CopyMarkdown } from '../../components/content/CopyMarkdown';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
 import { FormActions, TextField } from '../../components/form';
-import { Accordion } from '../../components/primitives';
+import { Accordion, CheckboxRow } from '../../components/primitives';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { RetryableError } from '../../components/state/RetryableError';
@@ -58,23 +58,8 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   };
 
   const styles = StyleSheet.create({
-    agreeLabel: {
-      color: themeStyles.textPrimary.color,
-      flex: 1,
-    },
     agreeRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: tokens.spacing.sm,
-      marginTop: tokens.spacing.lg,
-    },
-    checkbox: {
-      color: themeStyles.textPrimary.color,
-      fontSize: 18,
-    },
-    date: {
-      color: themeStyles.textSecondary.color,
-      marginTop: tokens.spacing.md,
+      marginTop: formActionsTopGap(tokens.spacing),
     },
     error: {
       color: themeStyles.textSecondary.color,
@@ -107,7 +92,7 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
       color: themeStyles.textPrimary.color,
     },
     termsAccordion: {
-      marginTop: tokens.spacing.xl,
+      marginTop: formActionsTopGap(tokens.spacing),
     },
   });
 
@@ -292,18 +277,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
             value={passwordConfirm}
           />
         </View>
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: agreed }}
-          onPress={() => {
-            setAgreed((current) => !current);
-          }}
-          style={styles.agreeRow}
-          testID="signup-agree-terms"
-        >
-          <Text style={styles.checkbox}>{agreed ? '☑' : '☐'}</Text>
-          <Text style={styles.agreeLabel}>{t('terms_acceptance.checkbox_label')}</Text>
-        </Pressable>
         {termsError ? (
           <RetryableError
             errorKey="terms_acceptance.load_error"
@@ -312,17 +285,27 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
           />
         ) : null}
         {agreement !== null ? (
-          <>
-            <Text style={styles.date}>
-              {t('terms_acceptance.agreement_date', { agreement_date: agreement.version })}
-            </Text>
-            <View style={styles.termsAccordion}>
-              <Accordion testID="signup-terms-full" title={t('terms_acceptance.full_agreement')}>
-                <CopyMarkdown markdown={agreement.markdown} />
-              </Accordion>
-            </View>
-          </>
+          <View style={styles.termsAccordion}>
+            <Accordion
+              subtitle={t('terms_acceptance.agreement_date', {
+                agreement_date: agreement.version,
+              })}
+              testID="signup-terms-full"
+              title={t('terms_acceptance.full_agreement')}
+            >
+              <CopyMarkdown markdown={agreement.markdown} />
+            </Accordion>
+          </View>
         ) : null}
+        <CheckboxRow
+          checked={agreed}
+          label={t('terms_acceptance.checkbox_label')}
+          onPress={() => {
+            setAgreed((current) => !current);
+          }}
+          style={styles.agreeRow}
+          testID="signup-agree-terms"
+        />
         <FormActions
           actions={[
             {

@@ -8,6 +8,8 @@ export { Button } from './Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Card } from './Card';
 export type { CardProps } from './Card';
+export { CheckboxMark, CheckboxRow } from './CheckboxMark';
+export type { CheckboxRowProps } from './CheckboxMark';
 export { CoverImage, prefetchCoverImage } from './CoverImage';
 export type { CoverImageProps } from './CoverImage';
 export { ImageViewerModal } from './ImageViewerModal';

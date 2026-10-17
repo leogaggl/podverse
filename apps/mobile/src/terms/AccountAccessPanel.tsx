@@ -235,17 +235,17 @@ export function AccountAccessPanel({ onReviewTerms }: AccountAccessPanelProps) {
       <FormActions
         actions={[
           {
-            label: t('account_access.review_terms'),
-            onPress: onReviewTerms,
-            testID: 'account-access-review-terms',
-          },
-          {
             label: t('account_access.sign_out'),
             onPress: () => {
               void logout();
             },
             testID: 'account-access-sign-out',
             variant: 'secondary',
+          },
+          {
+            label: t('account_access.review_terms'),
+            onPress: onReviewTerms,
+            testID: 'account-access-review-terms',
           },
         ]}
         style={styles.primaryActions}

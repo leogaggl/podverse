@@ -51,12 +51,17 @@ via **mobile-theme-parity**.
 **Static form-style screens:** Body copy/fields stay in one tight stack. Choice chips use
 `FormField` (the label names the field and does not repeat an option). `FormActions` is a column:
 every action is full width, and array order is top to bottom. Page and sheet forms pass dismiss
-or secondary first and confirm last, so confirm sits at the bottom. `ConfirmDialog` passes
-confirm then cancel, so confirm sits on top. A paragraph in a dialog, sheet, or form starts at
-`typography.prose`. `formActionsTopGap` is the seam above the action block. `formActionsGap` is
-the gap between those buttons and above a destructive action under the column. `FormActions`
-uses `Button` `size="form"` (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) so form, dialog, and
-checkout decisions share one height. Header and row actions stay `sm` or `md`. Do not share one
+or secondary first and confirm last, so the way out sits above the action that continues
+(Reject above Accept, Cancel above Save). `ConfirmDialog` passes confirm then cancel, so a
+slip toward the bottom does not commit. Text a person reads on a page, sheet, or form is
+`typography.prose`. A `Text` with no size is the platform 14 and is not a reading size. A checkbox
+label beside that copy is `body`, one step smaller. `caption`
+and `label` stay quiet; do not use them or `body` for that page. `proseDisclosureGap` is the extra margin above a disclosure that follows prose. With the
+paragraph's own bottom margin, that seam matches `formActionsTopGap`, the space above an
+agreement checkbox and the action column.
+`formActionsGap` is the gap between those buttons and above a destructive action under the column.
+`FormActions` uses `Button` `size="form"` (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) so form,
+dialog, and checkout decisions share one height. Header and row actions stay `sm` or `md`. Do not share one
 `gap` across prose and CTAs, and do not repeat the stack title as an in-body heading. See
 **mobile-screen-layout**.
 

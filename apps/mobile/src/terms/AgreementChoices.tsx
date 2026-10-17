@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { getCopyMarkdownDetails, getCopyMarkdownIntro } from '@podverse/helpers';
 
 import { CopyMarkdown } from '../components/content/CopyMarkdown';
 import { FormActions } from '../components/form/FormActions';
 import { Accordion } from '../components/primitives/Accordion';
+import { CheckboxRow } from '../components/primitives/CheckboxMark';
 import { LoadingSection } from '../components/state/LoadingSection';
 import { RetryableError } from '../components/state/RetryableError';
-import { formActionsTopGap } from '../theme/screenLayout';
+import { formActionsTopGap, proseDisclosureGap } from '../theme/screenLayout';
+import { typography } from '../theme/typography';
 import { useTheme } from '../theme/useTheme';
 
 type AgreementChoicesProps = {
@@ -60,12 +62,13 @@ export function AgreementChoices({
   const canAccept =
     intro !== null && !isLoading && errorKey === null && version !== null && version !== '';
   const acceptDisabled = !canAccept || (requireCheckbox && !checkboxChecked);
+  const showAccordion = canAccept && details !== '';
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
         accordion: {
-          marginTop: formActionsTopGap(tokens.spacing),
+          marginTop: proseDisclosureGap(tokens.spacing),
         },
         actions: {
           marginTop: formActionsTopGap(tokens.spacing),
@@ -73,26 +76,12 @@ export function AgreementChoices({
         body: {
           gap: tokens.spacing.md,
         },
-        checkboxRow: {
-          alignItems: 'flex-start',
-          flexDirection: 'row',
-          gap: tokens.spacing.md,
-        },
-        checkboxLabel: {
-          color: themeStyles.textPrimary.color,
-          flex: 1,
+        checkbox: {
+          marginTop: formActionsTopGap(tokens.spacing),
         },
         date: {
+          ...typography.prose,
           color: themeStyles.textSecondary.color,
-        },
-        mark: {
-          borderColor: themeStyles.textPrimary.color,
-          borderWidth: 1,
-          height: 22,
-          width: 22,
-        },
-        markChecked: {
-          backgroundColor: themeStyles.textPrimary.color,
         },
       }),
     [themeStyles, tokens]
@@ -106,22 +95,32 @@ export function AgreementChoices({
           <RetryableError errorKey={errorKey} onRetry={onRetry} testID="agreement-error" />
         ) : null}
         {canAccept && intro !== null ? <CopyMarkdown markdown={intro} /> : null}
-        {dateLabel !== null ? <Text style={styles.date}>{dateLabel}</Text> : null}
-        {requireCheckbox && checkboxLabel !== undefined && onCheckboxChange !== undefined ? (
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: checkboxChecked }}
-            onPress={() => {
-              onCheckboxChange(!checkboxChecked);
-            }}
-            style={styles.checkboxRow}
-            testID={checkboxTestID}
-          >
-            <View style={[styles.mark, checkboxChecked ? styles.markChecked : null]} />
-            <Text style={styles.checkboxLabel}>{checkboxLabel}</Text>
-          </Pressable>
+        {dateLabel !== null && !showAccordion ? (
+          <Text style={styles.date}>{dateLabel}</Text>
         ) : null}
       </View>
+      {showAccordion ? (
+        <View style={styles.accordion}>
+          <Accordion
+            subtitle={dateLabel ?? undefined}
+            testID={accordionTestID}
+            title={accordionTitle}
+          >
+            <CopyMarkdown markdown={details} />
+          </Accordion>
+        </View>
+      ) : null}
+      {requireCheckbox && checkboxLabel !== undefined && onCheckboxChange !== undefined ? (
+        <CheckboxRow
+          checked={checkboxChecked}
+          label={checkboxLabel}
+          onPress={() => {
+            onCheckboxChange(!checkboxChecked);
+          }}
+          style={styles.checkbox}
+          testID={checkboxTestID}
+        />
+      ) : null}
       <FormActions
         actions={[
           {
@@ -140,13 +139,6 @@ export function AgreementChoices({
         ]}
         style={styles.actions}
       />
-      {canAccept && details !== '' ? (
-        <View style={styles.accordion}>
-          <Accordion testID={accordionTestID} title={accordionTitle}>
-            <CopyMarkdown markdown={details} />
-          </Accordion>
-        </View>
-      ) : null}
     </View>
   );
 }
