@@ -336,11 +336,14 @@ first CTA look like another paragraph.
   `spacing.base` gap for the decision seams.
 - **`formActionsGap`** (`spacing.lg`) is the gap between the buttons inside the action column.
   Helpers live in `screenLayout.ts`.
-- Form, dialog, and checkout decision buttons use **`Button` `size="form"`**
-  (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold). `FormActions` applies that size. 44pt is the
-  tap floor; an eyebrow field is about 66pt. 52pt sits between them so the label is easy to read
-  and the control is easy to hit. Header, row, and identity-block actions (Subscribe, Share, Play)
-  stay `sm` or the default `md`.
+- Form, dialog, checkout, and other page or section call-to-action buttons use **`Button`
+  `size="form"`** (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) and are full width.
+  `FormActions` applies that size. A raw `Button` that is the decision on that block does too:
+  membership purchase, add, import and export, account actions, and check-feed. 44pt is the tap
+  floor; an eyebrow field is about 66pt. 52pt sits between them so the label is easy to read and
+  the control is easy to hit. Header, row, banner, and identity-block actions (Subscribe, Share,
+  Play) stay `sm` or the default `md`. Fill empties (`CallToActionSection`, `ListEmpty`,
+  `ListError`) stay `lg`.
 - Do not hug a form button to its label.
 - Do not add a second display heading when the stack title already names the screen.
 - Full-screen Modal variants also use **`ModalSafeArea`**.

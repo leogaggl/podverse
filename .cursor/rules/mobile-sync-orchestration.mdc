@@ -72,6 +72,10 @@ spinner; it does not draw a determinate fill.
   a bottom spacer equal to that overlap so the last row can scroll clear. A centered fill stays
   centered in the scene and moves only when the block would sit under the overlay. Do not put
   these bars back in the column under the scene.
+- Because the stack overlaps the scene, nothing in it may be see-through. The stack wrapper paints
+  the opaque screen background on phone and tablet, so a strip tinted with a translucent token
+  (`background.warning`, `background.error`) reads as a solid band. Do not remove that base, and
+  do not render a strip outside the wrapper.
 - A new kind of sync work ships with its queue registration and its label in the same change. Adding
   a background fetch that bypasses the queue leaves a gap in the indicator.
 - User-invoked work that has its own local spinner (pull-to-refresh, OPML import) also reports to the

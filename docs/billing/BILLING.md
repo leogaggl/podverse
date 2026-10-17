@@ -195,8 +195,10 @@ startup in both places that build the registry:
 Add the processor's env group in `packages/helpers-config/src/billingProcessorEnv.ts`. A
 processor is registered only when its `BILLING_*_ENABLED` flag is `"true"` and its required
 credential keys are set. Map store product ids with `billingSeedProcessorProductsFromEnv` or
-in management web, and add a checkout channel for each platform that should offer it. A product
-that is not in `billing_processor_product` produces no events.
+in management web, and add a checkout channel for each platform that should offer it. The seed
+command refuses to run when `NODE_ENV` is `production`, so those deployments map products in
+management web under **Billing → Processor Products**. A product that is not in
+`billing_processor_product` produces no events, and checkout shows its plan as unavailable.
 
 Two switches, kept separate:
 
