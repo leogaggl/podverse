@@ -25,8 +25,8 @@ The `.p8` is mounted from `podverse-billing-apple-iap-opaque`.
 
 - Product ids are the ones in `apps/mobile/storekit/PodverseMembership.storekit` and
   `docs/billing/BILLING-APPLE-SANDBOX.md`:
-  - `com.podverse.app.next.premium.onetime.monthly`
-  - `com.podverse.app.next.premium.onetime.annual`
+  - `com.podverse.app.next.premium.nonrenewing.monthly`
+  - `com.podverse.app.next.premium.nonrenewing.annual`
   Both are **Non-Renewing Subscription** products on the **Podverse Next** app record. Never the
   old Podverse app (`id1390888454`).
 - Map those ids on alpha in **management web → Billing → Processor Products**. Do not use

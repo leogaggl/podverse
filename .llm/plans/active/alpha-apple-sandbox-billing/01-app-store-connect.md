@@ -14,24 +14,28 @@ If it is pending, finish tax and banking first. Nothing below works until it is 
 
 ## 2. Create the two products
 
-**Apps → Podverse Next → Monetization → In-App Purchases** (not the old Podverse app).
+**Apps → Podverse Next → Monetization → Subscriptions** (not the old Podverse app). Scroll to
+**Non-Renewing Subscriptions** and click **Manage**. Do not click **Create** under Subscription
+Groups; that starts an auto-renewable group.
 
-Create two **Non-Renewing Subscription** products:
+If both ids below are already listed, check their status and skip creating them. If Apple says
+an id is already in use, it belongs to another app on the team; stop and report which one.
+The `…premium.onetime.*` ids are drafts on the old Podverse app and cannot be used here.
+
+Otherwise click **+** and create two products:
 
 | Reference Name | Product ID | Price |
 | --- | --- | --- |
-| Premium Monthly | `com.podverse.app.next.premium.onetime.monthly` | USD 2.99 or 3.00 tier |
-| Premium Annual | `com.podverse.app.next.premium.onetime.annual` | USD 29.99 or 30.00 tier |
+| Premium Monthly | `com.podverse.app.next.premium.nonrenewing.monthly` | USD 2.99 or 3.00 tier |
+| Premium Annual | `com.podverse.app.next.premium.nonrenewing.annual` | USD 29.99 or 30.00 tier |
 
 Web prices are USD 3 and 30 (`MEMBERSHIP_PREMIUM_COST_*` in
 `k.podcastdj.com/apps/podverse-alpha/common/source/product-membership-settings.env`). Pick the
 nearest Apple price point. The server grants by cadence, not by price.
 
-For each product add one **App Store Localization** (English (U.S.)) with a display name and a
-short description. The product status should reach **Ready to Submit**. A product in **Missing
-Metadata** does not load in sandbox.
-
-A review screenshot is only needed for App Review. Skip it for this test.
+On each product page fill **Availability** (all countries), **Price Schedule**, **Display Name
+and Description** (English (U.S.)), and a **Review Information** screenshot, then click **Save**.
+Do not click **Add for Review**. An incomplete product may not load in sandbox.
 
 Product ids cannot be changed or reused after creation. Copy them exactly.
 
@@ -57,5 +61,5 @@ when the purchase sheet asks).
 ## Done when
 
 - Paid Apps Agreement is active.
-- Both products exist on Podverse Next with the exact ids and status Ready to Submit.
+- Both products exist on Podverse Next with the exact ids and every section above filled.
 - The sandbox notification URL is saved with Version 2.
