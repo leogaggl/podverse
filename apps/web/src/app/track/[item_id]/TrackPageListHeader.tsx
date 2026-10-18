@@ -11,11 +11,13 @@ import { CommonDetailListHeader } from '../../../components/Common/List/CommonDe
 import { useTrackPageContext } from './TrackPageContext';
 
 type TrackPageListHeaderProps = {
+  ssrHasPeople: boolean;
   ssrHasTranscripts: boolean;
   ssrCanShowBoosts: boolean;
 };
 
 export const TrackPageListHeader: React.FC<TrackPageListHeaderProps> = ({
+  ssrHasPeople,
   ssrHasTranscripts,
   ssrCanShowBoosts,
 }) => {
@@ -59,6 +61,15 @@ export const TrackPageListHeader: React.FC<TrackPageListHeaderProps> = ({
       label: tValue('boost'),
       onClick: () => handleTypeChange('boosts'),
       zIndex: 2,
+    });
+  }
+
+  if (ssrHasPeople) {
+    tabData.push({
+      key: 'people',
+      label: tInfo('people.people'),
+      onClick: () => handleTypeChange('people'),
+      zIndex: 0,
     });
   }
 

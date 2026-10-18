@@ -1,12 +1,7 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
 
 import { useOfflineMode } from '../../prefs/offlineMode';
-import { typography } from '../../theme/typography';
-import { useTheme } from '../../theme/useTheme';
-import { ListRow } from '../primitives/ListRow';
-import { ToggleSwitch } from '../primitives/ToggleSwitch';
+import { SettingsRowDescription, SettingsSwitchRow } from '../form';
 
 /**
  * Offline Mode switch for More → Features. Sits at the top of the Features card; when on, the
@@ -17,52 +12,25 @@ import { ToggleSwitch } from '../primitives/ToggleSwitch';
  */
 export function OfflineModeFeaturesHeader() {
   const { t } = useTranslation();
-  const { styles: themeStyles, tokens } = useTheme();
   const { enabled, setEnabled } = useOfflineMode();
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        description: {
-          ...typography.caption,
-          color: themeStyles.textSecondary.color,
-          paddingBottom: tokens.spacing.lg,
-          paddingHorizontal: tokens.spacing.lg,
-        },
-        row: {
-          paddingHorizontal: tokens.spacing.lg,
-        },
-      }),
-    [themeStyles, tokens]
-  );
+  const title = t('settings.offline_mode.title');
 
   return (
-    <View>
-      <View style={styles.row}>
-        <ListRow
-          accessibilityLabel={t('settings.offline_mode.title')}
-          paddingVertical={tokens.spacing.lg}
-          testID="more-offline-mode-row"
-          title={t('settings.offline_mode.title')}
-          trailing={
-            <ToggleSwitch
-              accessibilityLabel={t('settings.offline_mode.title')}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: enabled }}
-              onValueChange={(next) => {
-                void setEnabled(next);
-              }}
-              testID="more-offline-mode-switch"
-              value={enabled}
-            />
-          }
-        />
-      </View>
+    <SettingsSwitchRow
+      accessibilityLabel={title}
+      onValueChange={(next) => {
+        void setEnabled(next);
+      }}
+      switchTestID="more-offline-mode-switch"
+      testID="more-offline-mode-row"
+      title={title}
+      value={enabled}
+    >
       {enabled ? (
-        <Text style={styles.description} testID="more-offline-mode-description">
+        <SettingsRowDescription testID="more-offline-mode-description">
           {t('settings.offline_mode.description')}
-        </Text>
-      ) : null}
-    </View>
+        </SettingsRowDescription>
+      ) : undefined}
+    </SettingsSwitchRow>
   );
 }

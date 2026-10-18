@@ -49,6 +49,7 @@ export function EpisodePageClient(props: EpisodePageClientProps) {
             <CoreEpisodeHeader channel={ssrChannel} item={ssrItem} />
             <EpisodePageListHeader
               ssrHasChapters={ssrHasChapters}
+              ssrHasPeople={(ssrItem.item_persons?.length ?? 0) > 0}
               ssrHasTranscripts={ssrHasTranscripts}
               ssrHasSoundbites={ssrHasSoundbites}
               ssrCanShowBoosts={ssrCanShowBoosts}

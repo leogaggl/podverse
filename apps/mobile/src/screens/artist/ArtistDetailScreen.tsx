@@ -25,7 +25,12 @@ import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { useBoostSheet } from '../../components/boost/useBoostSheet';
 import { ChannelDetailShell, ChannelHeader, ChannelSettingsPane } from '../../components/channel';
-import { ChannelAboutSection, FundingLinksSection } from '../../components/content';
+import {
+  ChannelAboutSection,
+  FundingLinksSection,
+  PeoplePane,
+  toAboutPersonFromChannel,
+} from '../../components/content';
 import type { SectionChipItem } from '../../components/form';
 import { CoverImage, FillList, ListRow } from '../../components/primitives';
 import { Button } from '../../components/primitives/Button';
@@ -58,18 +63,28 @@ import { DEFAULT_ARTIST_TAB } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { LIST_ROW_ARTWORK_SIZE } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
+import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { mapItemToHomeFeedRow } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
-import { channelHasFunding, channelHasPodroll } from '../podcast/podcastSections';
+import { channelHasFunding, channelHasPeople, channelHasPodroll } from '../podcast/podcastSections';
 
 /** Artwork sizing only, so it does not depend on the theme. */
 const albumCoverStyles = StyleSheet.create({
   image: {
     height: LIST_ROW_ARTWORK_SIZE,
     width: LIST_ROW_ARTWORK_SIZE,
+  },
+});
+
+/** Content rows draw a top hairline, including the first row. */
+const createContentListRowStyles = ({ styles: themeStyles }: ThemedStylesTheme) => ({
+  row: {
+    borderTopColor: themeStyles.border.borderColor,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });
 
@@ -116,6 +131,7 @@ const SECTION_LABEL_KEYS: Record<ArtistTab, string> = {
   about: 'info.about',
   albums: 'media.music.albums',
   funding: 'info.funding',
+  people: 'info.people.people',
   podroll: 'info.podroll',
   settings: 'settings.settings',
   tracks: 'media.music.tracks',
@@ -193,6 +209,7 @@ function ArtistAddedAlbumRow({
   onPress: (row: DTOChannel) => void;
   row: DTOChannel;
 }) {
+  const styles = useThemedStyles(createContentListRowStyles);
   const handlePress = useCallback(() => {
     onPress(row);
   }, [onPress, row]);
@@ -200,20 +217,22 @@ function ArtistAddedAlbumRow({
   const imageUrl = primaryChannelListArtworkUrl(row.channel_images);
 
   return (
-    <ListRow
-      leading={
-        <CoverImage
-          decodeEdge={LIST_ROW_ARTWORK_SIZE}
-          opensViewer={false}
-          style={albumCoverStyles.image}
-          uri={imageUrl}
-        />
-      }
-      onPress={handlePress}
-      subtitle={row.channel_about?.author ?? undefined}
-      testID={`artist-album-row-${index}`}
-      title={row.title ?? row.id_text}
-    />
+    <View style={styles.row}>
+      <ListRow
+        leading={
+          <CoverImage
+            decodeEdge={LIST_ROW_ARTWORK_SIZE}
+            opensViewer={false}
+            style={albumCoverStyles.image}
+            uri={imageUrl}
+          />
+        }
+        onPress={handlePress}
+        subtitle={row.channel_about?.author ?? undefined}
+        testID={`artist-album-row-${index}`}
+        title={row.title ?? row.id_text}
+      />
+    </View>
   );
 }
 
@@ -226,26 +245,29 @@ function ArtistUnaddedAlbumRow({
   onPress: (row: ArtistAlbumUnadded) => void;
   row: ArtistAlbumUnadded;
 }) {
+  const styles = useThemedStyles(createContentListRowStyles);
   const target = unparsedPodcastIndexFeedTarget(row);
   const handlePress = useCallback(() => {
     onPress(row);
   }, [onPress, row]);
 
   return (
-    <ListRow
-      leading={
-        <CoverImage
-          decodeEdge={LIST_ROW_ARTWORK_SIZE}
-          opensViewer={false}
-          style={albumCoverStyles.image}
-          uri={podcastIndexFeedListImageUrl(row)}
-        />
-      }
-      onPress={target !== null ? handlePress : undefined}
-      subtitle={row.author ?? undefined}
-      testID={`artist-album-unadded-row-${index}`}
-      title={row.title}
-    />
+    <View style={styles.row}>
+      <ListRow
+        leading={
+          <CoverImage
+            decodeEdge={LIST_ROW_ARTWORK_SIZE}
+            opensViewer={false}
+            style={albumCoverStyles.image}
+            uri={podcastIndexFeedListImageUrl(row)}
+          />
+        }
+        onPress={target !== null ? handlePress : undefined}
+        subtitle={row.author ?? undefined}
+        testID={`artist-album-unadded-row-${index}`}
+        title={row.title}
+      />
+    </View>
   );
 }
 
@@ -258,17 +280,20 @@ function ArtistPodrollRow({
   item: PodrollEntry;
   onPress: (item: PodrollEntry) => void;
 }) {
+  const styles = useThemedStyles(createContentListRowStyles);
   const handlePress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
 
   return (
-    <ListRow
-      onPress={handlePress}
-      subtitle={item.subtitle ?? undefined}
-      testID={`artist-podroll-row-${index}`}
-      title={item.title}
-    />
+    <View style={styles.row}>
+      <ListRow
+        onPress={handlePress}
+        subtitle={item.subtitle ?? undefined}
+        testID={`artist-podroll-row-${index}`}
+        title={item.title}
+      />
+    </View>
   );
 }
 
@@ -327,6 +352,9 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   );
   const [previewHasFunding, setPreviewHasFunding] = useState<boolean>(
     cachedChrome?.hasFunding === true
+  );
+  const [previewHasPeople, setPreviewHasPeople] = useState<boolean>(
+    cachedChrome?.hasPeople === true
   );
   const [artistTitle, setArtistTitle] = useState<string | null>(
     previewTitle !== undefined && previewTitle.length > 0 ? previewTitle : null
@@ -414,6 +442,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     setIsChannelLoading(true);
     setPreviewHasPodroll(nextChrome?.hasPodroll === true);
     setPreviewHasFunding(nextChrome?.hasFunding === true);
+    setPreviewHasPeople(nextChrome?.hasPeople === true);
     setTracksAdded([]);
     setTracksUnadded([]);
     setAlbumsAdded([]);
@@ -492,9 +521,15 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         setAlbumsUnadded(response.channelsUnadded);
         const hasPodroll = channelHasPodroll(response.channel);
         const hasFunding = channelHasFunding(response.channel);
+        const hasPeople = channelHasPeople(response.channel);
         setPreviewHasPodroll(hasPodroll);
         setPreviewHasFunding(hasFunding);
-        void sectionChromeFlagsRepository.mergeChannel(artistId, { hasFunding, hasPodroll });
+        setPreviewHasPeople(hasPeople);
+        void sectionChromeFlagsRepository.mergeChannel(artistId, {
+          hasFunding,
+          hasPeople,
+          hasPodroll,
+        });
       } catch {
         setRowsErrorKey('errors.generic');
       } finally {
@@ -542,36 +577,27 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   }, [isSectionHydrated, loadPodroll, offlineModeEnabled, section]);
 
   const availableSections = useMemo<ArtistTab[]>(() => {
-    // Albums and About are always offered (same idea as podcast Episodes / About): an empty
-    // albums list is a real answer. Hiding Albums until the publisher-feed request returns makes
-    // the screen fall back to About and stay there after albums arrive.
-    const hasTracks = tracksAdded.length > 0 || tracksUnadded.length > 0;
+    // Albums, Tracks, and About are always offered. An empty albums or tracks list is a real
+    // answer, so Tracks stays in the row while the publisher-feed request is still out.
     const hasPodroll = channel !== null ? channelHasPodroll(channel) : previewHasPodroll;
     const hasFunding = channel !== null ? channelHasFunding(channel) : previewHasFunding;
+    const hasPeople = channel !== null ? channelHasPeople(channel) : previewHasPeople;
 
-    const tabs: ArtistTab[] = ['albums'];
-    if (hasTracks) {
-      tabs.push('tracks');
-    }
-    tabs.push('about');
+    const tabs: ArtistTab[] = ['albums', 'tracks', 'about'];
     if (hasPodroll) {
       tabs.push('podroll');
     }
     if (hasFunding) {
       tabs.push('funding');
     }
+    if (hasPeople) {
+      tabs.push('people');
+    }
     if (isSignedIn) {
       tabs.push('settings');
     }
     return tabs;
-  }, [
-    channel,
-    isSignedIn,
-    previewHasFunding,
-    previewHasPodroll,
-    tracksAdded.length,
-    tracksUnadded.length,
-  ]);
+  }, [channel, isSignedIn, previewHasFunding, previewHasPeople, previewHasPodroll]);
 
   useEffect(() => {
     if (availableSections.length === 0) {
@@ -1136,6 +1162,14 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     />
   );
 
+  const peopleBody = (
+    <PeoplePane
+      isLoading={isChannelLoading && channel === null}
+      people={(channel?.channel_persons ?? []).map(toAboutPersonFromChannel)}
+      testIDPrefix="artist-detail"
+    />
+  );
+
   const podrollBody = offlineModeEnabled ? (
     <ListEmpty
       messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
@@ -1173,7 +1207,9 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
             ? podrollBody
             : section === 'funding'
               ? fundingBody
-              : settingsBody;
+              : section === 'people'
+                ? peopleBody
+                : settingsBody;
 
   return (
     <>

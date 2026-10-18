@@ -9,6 +9,8 @@ import { Button } from '../primitives/Button';
 
 type PlayerJumpButtonProps = {
   direction: 'back' | 'forward';
+  /** Rotate glyph size; the seconds label tracks it so it stays inside the arrow. */
+  glyphSize?: number;
   onPress: () => void;
   seconds: number;
   showSeconds?: boolean;
@@ -16,10 +18,13 @@ type PlayerJumpButtonProps = {
   testID: string;
 };
 
-const JUMP_GLYPH_SIZE = 30;
+const DEFAULT_JUMP_GLYPH_SIZE = 30;
+/** Seconds label offset from the top of the glyph, as a share of the glyph size. */
+const GLYPH_LABEL_TOP_RATIO = 1 / 3;
 
 export function PlayerJumpButton({
   direction,
+  glyphSize = DEFAULT_JUMP_GLYPH_SIZE,
   onPress,
   seconds,
   showSeconds = true,
@@ -36,15 +41,15 @@ export function PlayerJumpButton({
           fontSize: 10,
           fontWeight: '800',
           position: 'absolute',
-          top: 10,
+          top: Math.round(glyphSize * GLYPH_LABEL_TOP_RATIO),
         },
         glyphWrap: {
           alignItems: 'center',
           justifyContent: 'center',
-          width: JUMP_GLYPH_SIZE,
+          width: glyphSize,
         },
       }),
-    [tokens.button.secondaryColor]
+    [glyphSize, tokens.button.secondaryColor]
   );
 
   const directionLabelKey =
@@ -59,7 +64,7 @@ export function PlayerJumpButton({
           <FontAwesome6
             color={tokens.button.secondaryColor}
             name={iconName}
-            size={JUMP_GLYPH_SIZE}
+            size={glyphSize}
             solid
           />
           {showSeconds ? <Text style={styles.glyphLabel}>{Math.abs(seconds)}</Text> : null}

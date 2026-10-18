@@ -41,7 +41,8 @@ import {
   ChapterListRow,
   DescriptionText,
   FundingLinksSection,
-  ItemSummaryPeople,
+  PeoplePane,
+  toAboutPersonFromItem,
 } from '../../components/content';
 import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
 import { MenuSelectChip, SectionChipRow } from '../../components/form';
@@ -71,6 +72,7 @@ import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { getMobileConfig } from '../../config';
 import { useAutoQueue } from '../../contexts/AutoQueueProvider';
+import { addByRssRepository } from '../../data/repositories/addByRssRepository';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
 import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscriptionsMerge';
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
@@ -86,6 +88,7 @@ import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
 } from '../../lib/offlineModeViews';
+import { isMusicPlaybackTarget } from '../../lib/playback/engineAudioProfile';
 import { clipToHomeRow } from '../../lib/rows/homeRowMappers';
 import { buildNowPlayingShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
@@ -104,12 +107,20 @@ import {
   EPISODE_TAB_LABEL_KEYS,
   itemHasChapters,
   itemSectionFlagsFromDto,
+  resolveEpisodeTabForItem,
 } from '../episode/episodeTabs';
 import { useEpisodeSectionPanes } from '../episode/useEpisodeSectionPanes';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { useAddToPlaylist } from '../library/useAddToPlaylist';
+import type { FullPlayerOpenRequest } from './fullPlayerContentLink';
+import {
+  fullPlayerOpenScreenLabelKey,
+  resolveFullPlayerChannelLink,
+  resolveFullPlayerTitleLink,
+  resolveLocalAddByRssFeedIdText,
+} from './fullPlayerContentLink';
 import {
   FULL_PLAYER_CHIP_HEADER_HEIGHT,
   FULL_PLAYER_CONTROL_STACK_GAP,
@@ -125,6 +136,7 @@ import { FullPlayerSpeedControl } from './FullPlayerSpeedControl';
 
 type FullPlayerScreenProps = {
   onClose: () => void;
+  onOpenContent: (request: FullPlayerOpenRequest) => void;
   onOpenMakeClip: (params: { mode: 'create' } | { mode: 'edit'; clipId: string }) => void;
   /** Navigate to the Library queue screen. */
   onOpenQueue: () => void;
@@ -237,6 +249,7 @@ const hasSectionsForTarget = (target: PlaybackTarget | null): boolean => {
 
 export function FullPlayerScreen({
   onClose,
+  onOpenContent,
   onOpenMakeClip,
   onOpenQueue,
   onOpenV4v,
@@ -307,6 +320,7 @@ export function FullPlayerScreen({
   const [actionNoticeKey, setActionNoticeKey] = useState<string | null>(null);
   const [isSavingSubscription, setIsSavingSubscription] = useState(false);
   const [isMarkingPlayed, setIsMarkingPlayed] = useState(false);
+  const [addByRssFeedIdText, setAddByRssFeedIdText] = useState<string | null>(null);
 
   const isV4vEnabled = getMobileConfig().isV4vEnabled;
   const authContext = useMemo(
@@ -347,6 +361,71 @@ export function FullPlayerScreen({
   }).canShowBoostAction;
   const activePaneNoticeKey = actionNoticeKey ?? playbackNoticeKey;
   const summaryHtml = currentItem?.item_description?.value ?? null;
+  const visibleTitle = nowPlaying?.title ?? null;
+  const visibleChannelTitle = nowPlaying?.channelTitle ?? null;
+  const titleLink = useMemo(
+    () => resolveFullPlayerTitleLink(activeTarget, visibleTitle),
+    [activeTarget, visibleTitle]
+  );
+  const channelLink = useMemo(
+    () => resolveFullPlayerChannelLink(activeTarget, visibleChannelTitle, addByRssFeedIdText),
+    [activeTarget, addByRssFeedIdText, visibleChannelTitle]
+  );
+
+  const addByRssChannelIdText =
+    activeTarget?.kind === 'add-by-rss' &&
+    typeof activeTarget.resourceData.channel_id_text === 'string'
+      ? activeTarget.resourceData.channel_id_text
+      : null;
+  const addByRssFeedUrl =
+    activeTarget?.kind === 'add-by-rss' && typeof activeTarget.resourceData.feed_url === 'string'
+      ? activeTarget.resourceData.feed_url
+      : null;
+
+  useEffect(() => {
+    if (addByRssChannelIdText === null && addByRssFeedUrl === null) {
+      setAddByRssFeedIdText(null);
+      return;
+    }
+    const resourceData = {
+      ...(addByRssChannelIdText !== null ? { channel_id_text: addByRssChannelIdText } : {}),
+      ...(addByRssFeedUrl !== null ? { feed_url: addByRssFeedUrl } : {}),
+    };
+    let isCurrent = true;
+    setAddByRssFeedIdText(null);
+    void resolveLocalAddByRssFeedIdText(resourceData, {
+      getFeedByIdText: (idText) => addByRssRepository.getFeedByIdText(idText),
+      getFeedByUrl: (feedUrl) => addByRssRepository.getFeedByUrl(feedUrl),
+    })
+      .then((idText) => {
+        if (isCurrent) {
+          setAddByRssFeedIdText(idText);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setAddByRssFeedIdText(null);
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [addByRssChannelIdText, addByRssFeedUrl]);
+
+  const openLinkedContent = useCallback(
+    (request: FullPlayerOpenRequest) => {
+      onOpenContent(request);
+    },
+    [onOpenContent]
+  );
+  const contentLinkLabel = useCallback(
+    (request: FullPlayerOpenRequest) =>
+      t('media_player.open_named_screen', {
+        name: request.name,
+        screen: t(fullPlayerOpenScreenLabelKey(request.kind)),
+      }),
+    [t]
+  );
 
   const {
     activeTab,
@@ -384,21 +463,42 @@ export function FullPlayerScreen({
     [autoQueueActiveRow, autoQueueResources]
   );
   const canSkipToNext = hasNextQueueItem(manualUpcomingCount, autoUpcomingCount);
-  const isMusicNowPlaying = activeTarget?.kind === 'item-music';
+  const isMusicNowPlaying = isMusicPlaybackTarget(activeTarget);
   const episodeHasChaptersForTrackButtons = hasEpisodeChaptersForTrackButtons(
     activeTarget,
     chapters
   );
   const canToggleSubscription = channel !== null;
+  const hasSegmentBand =
+    activeTarget?.kind === 'clip' ||
+    activeTarget?.kind === 'soundbite' ||
+    activeTarget?.kind === 'chapter' ||
+    (currentItem !== null && itemHasChapters(currentItem)) ||
+    chapters.length > 0;
+
+  // Music cannot be clipped, so the player drops the Clips chip. Episode detail keeps it.
+  const playerTabs = useMemo(
+    () => (isMusicNowPlaying ? supportedTabs.filter((tab) => tab !== 'clips') : supportedTabs),
+    [isMusicNowPlaying, supportedTabs]
+  );
+  useEffect(() => {
+    if (playerTabs.length === 0) {
+      return;
+    }
+    const nextTab = resolveEpisodeTabForItem({ selectedTab: activeTab, supportedTabs: playerTabs });
+    if (nextTab !== activeTab) {
+      selectTab(nextTab);
+    }
+  }, [activeTab, playerTabs, selectTab]);
 
   const sectionChips = useMemo<SectionChipItem<EpisodeTab>[]>(
     () =>
-      supportedTabs.map((tab) => ({
+      playerTabs.map((tab) => ({
         key: tab,
         label: t(EPISODE_TAB_LABEL_KEYS[tab]),
         testID: `full-player-section-${tab}`,
       })),
-    [supportedTabs, t]
+    [playerTabs, t]
   );
   const clipSortOptions = useMemo<MenuSelectChipOption<EpisodeClipSort>[]>(() => {
     return EPISODE_CLIP_SORT_OPTIONS.map((option) => ({
@@ -428,7 +528,7 @@ export function FullPlayerScreen({
     return [];
   }, [activeTab, chapterRows, clipRows, isTabLoading, soundbiteRows]);
   const paneRows =
-    !hasSections || !isPrefsHydrated || supportedTabs.length === 0 ? EMPTY_PANE_ROWS : listRows;
+    !hasSections || !isPrefsHydrated || playerTabs.length === 0 ? EMPTY_PANE_ROWS : listRows;
 
   const sheetBottomInset = tokens.spacing.md;
   const sheetBottomGap = hasSections ? insets.bottom + sheetBottomInset : 0;
@@ -436,6 +536,7 @@ export function FullPlayerScreen({
     () =>
       resolveFullPlayerLayout({
         chipStripHeight,
+        hasSegmentBand,
         hasSections,
         isTablet,
         maxContentWidth: Math.max(
@@ -451,6 +552,7 @@ export function FullPlayerScreen({
     [
       chipStripHeight,
       contentMaxWidth,
+      hasSegmentBand,
       hasSections,
       insets.bottom,
       isTablet,
@@ -555,15 +657,26 @@ export function FullPlayerScreen({
           marginTop: tokens.spacing.sm,
         },
         subtitle: {
-          color: tokens.text.accent,
-          fontSize: 15,
+          fontSize: 17,
           fontWeight: '600',
+          lineHeight: 22,
           textAlign: 'center',
+        },
+        subtitleLink: {
+          color: tokens.text.link,
+        },
+        subtitlePlain: {
+          color: themeStyles.textSecondary.color,
+        },
+        titleLink: {
+          minWidth: 0,
+          width: '100%',
         },
         title: {
           color: themeStyles.textPrimary.color,
-          fontSize: 22,
+          fontSize: 28,
           fontWeight: '600',
+          lineHeight: 34,
           minWidth: 0,
         },
         titleBlock: {
@@ -941,15 +1054,24 @@ export function FullPlayerScreen({
               textStyle={styles.paneText}
               toggleTestID="full-player-summary-toggle"
             />
-            <ItemSummaryPeople
-              itemPersons={currentItem?.item_persons ?? []}
-              testIDPrefix="full-player"
-            />
             {activePaneNoticeKey !== null ? (
               <Text style={styles.actionNotice} testID="full-player-action-notice">
                 {t(activePaneNoticeKey)}
               </Text>
             ) : null}
+          </View>
+        </View>
+      );
+    } else if (body === null && activeTab === 'people') {
+      body = (
+        <View style={styles.pane} testID="full-player-people-pane">
+          <View style={styles.column}>
+            <PeoplePane
+              isLoading={currentItem === null}
+              layout="inline"
+              people={(currentItem?.item_persons ?? []).map(toAboutPersonFromItem)}
+              testIDPrefix="full-player"
+            />
           </View>
         </View>
       );
@@ -1089,14 +1211,46 @@ export function FullPlayerScreen({
     >
       <View style={[styles.column, styles.playerRegionContent, styles.playerRegionFull]}>
         <View style={styles.playerRegionUpperBands}>
-          <View pointerEvents="none" style={styles.titleBlock}>
-            <MarqueeText align="center" style={styles.title} testID="full-player-title">
-              {nowPlaying?.title ?? t('media_player.fullscreen_media_player')}
-            </MarqueeText>
-            {nowPlaying?.channelTitle !== null && nowPlaying?.channelTitle !== undefined ? (
-              <Text numberOfLines={1} style={styles.subtitle}>
-                {nowPlaying.channelTitle}
-              </Text>
+          <View pointerEvents="box-none" style={styles.titleBlock}>
+            {titleLink !== null && visibleTitle !== null ? (
+              <Pressable
+                accessibilityLabel={contentLinkLabel(titleLink)}
+                accessibilityRole="link"
+                onPress={() => {
+                  openLinkedContent(titleLink);
+                }}
+                style={({ pressed }) => [styles.titleLink, pressed ? { opacity: 0.6 } : null]}
+                testID="full-player-title-link"
+              >
+                <MarqueeText align="center" style={styles.title} testID="full-player-title">
+                  {visibleTitle}
+                </MarqueeText>
+              </Pressable>
+            ) : (
+              <MarqueeText align="center" style={styles.title} testID="full-player-title">
+                {visibleTitle ?? t('media_player.fullscreen_media_player')}
+              </MarqueeText>
+            )}
+            {visibleChannelTitle !== null && visibleChannelTitle.length > 0 ? (
+              channelLink !== null ? (
+                <Pressable
+                  accessibilityLabel={contentLinkLabel(channelLink)}
+                  accessibilityRole="link"
+                  onPress={() => {
+                    openLinkedContent(channelLink);
+                  }}
+                  style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}
+                  testID="full-player-channel-link"
+                >
+                  <Text numberOfLines={1} style={[styles.subtitle, styles.subtitleLink]}>
+                    {visibleChannelTitle}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text numberOfLines={1} style={[styles.subtitle, styles.subtitlePlain]}>
+                  {visibleChannelTitle}
+                </Text>
+              )
             ) : null}
           </View>
 
@@ -1108,9 +1262,11 @@ export function FullPlayerScreen({
             />
           </View>
 
-          <View pointerEvents="box-none">
-            <FullPlayerSegmentBand chapters={chapters} />
-          </View>
+          {hasSegmentBand ? (
+            <View pointerEvents="box-none">
+              <FullPlayerSegmentBand chapters={chapters} />
+            </View>
+          ) : null}
 
           <View pointerEvents="auto">
             <FullPlayerScrubber chapters={chapters} />
@@ -1122,8 +1278,6 @@ export function FullPlayerScreen({
             hasEpisodeChaptersForTrackButtons={episodeHasChaptersForTrackButtons}
             hasNextQueueItem={canSkipToNext}
             isMusicNowPlaying={isMusicNowPlaying}
-            isRepeatEnabled={autoQueueConfig.repeat}
-            isShuffleEnabled={autoQueueConfig.random}
             onJumpBack={() => {
               jumpBy(-MEDIA_JUMP_BACK_SECONDS);
             }}
@@ -1145,12 +1299,13 @@ export function FullPlayerScreen({
             onSkipToPreviousTrack={() => {
               void skipToPreviousTrack();
             }}
-            onToggleRepeat={handleToggleRepeat}
-            onToggleShuffle={handleToggleShuffle}
             state={transportState}
           />
 
           <FullPlayerUtilityRow
+            isMusicNowPlaying={isMusicNowPlaying}
+            isRepeatEnabled={autoQueueConfig.repeat}
+            isShuffleEnabled={autoQueueConfig.random}
             onOpenMore={() => {
               handleOpenSheet('more');
             }}
@@ -1160,6 +1315,8 @@ export function FullPlayerScreen({
             onOpenSpeed={() => {
               handleOpenSheet('speed');
             }}
+            onToggleRepeat={handleToggleRepeat}
+            onToggleShuffle={handleToggleShuffle}
             playbackRate={playbackRate}
           />
         </View>
@@ -1196,6 +1353,7 @@ export function FullPlayerScreen({
         onOpenV4v={onOpenV4v}
         onShare={handleShare}
         showBoost={canShowBoost}
+        showCreateClip={!isMusicNowPlaying}
         showV4v={showV4v}
       />
 

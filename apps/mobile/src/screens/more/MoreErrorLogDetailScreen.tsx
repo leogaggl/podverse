@@ -23,6 +23,7 @@ import {
   useBottomChromeScrollIndicatorInsets,
 } from '../../theme/bottomChromeOverlayInset';
 import { formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { readErrorLogDeviceContext } from './errorLogDeviceContext.read';
 import { buildErrorReportMailto } from './errorLogMailto';
@@ -220,8 +221,8 @@ export function MoreErrorLogDetailScreen() {
           marginTop: formActionsTopGap(tokens.spacing),
         },
         copyStatus: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
         },
         copyStatusVisible: {
           marginTop: tokens.spacing.sm,
@@ -232,8 +233,8 @@ export function MoreErrorLogDetailScreen() {
           marginTop: tokens.spacing.xl,
         },
         deviceHeading: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
           fontWeight: '600',
           marginTop: tokens.spacing.md,
         },
@@ -247,17 +248,17 @@ export function MoreErrorLogDetailScreen() {
           borderTopWidth: 0,
         },
         fieldLabel: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 12,
           fontWeight: '600',
         },
         fieldValue: {
+          ...typography.body,
           color: themeStyles.textPrimary.color,
           fontFamily: Platform.select({ android: 'monospace', default: 'Menlo' }),
-          fontSize: 13,
         },
         header: {
-          marginBottom: tokens.spacing.lg,
+          marginBottom: formActionsTopGap(tokens.spacing),
         },
         headerBody: {
           gap: tokens.spacing.sm,
@@ -268,16 +269,19 @@ export function MoreErrorLogDetailScreen() {
           gap: tokens.spacing.sm,
         },
         hostedNote: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
+        },
+        outcomeBadge: {
+          alignSelf: 'center',
         },
         screen: {
           backgroundColor: themeStyles.screen.backgroundColor,
           flex: 1,
         },
         timestamp: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
         },
       }),
     [themeStyles, tokens]
@@ -319,6 +323,7 @@ export function MoreErrorLogDetailScreen() {
         <View style={styles.headline}>
           <Badge
             label={outcomeLabel}
+            style={styles.outcomeBadge}
             testID="error-log-detail-outcome"
             tone={ERROR_LOG_OUTCOME_BADGE_TONES[entry.outcome]}
           />

@@ -18,22 +18,10 @@ const VIDEO_MEDIUMS: ReadonlySet<number> = new Set([
   MediumEnum.PublisherFilm,
 ]);
 
-/**
- * How the OS should treat this target's audio when a call, navigation prompt, or another app
- * needs the speaker. Clips, chapters, and soundbites follow their channel's medium. Anything
- * without a channel (add-by-RSS) is treated as spoken, since that is what most feeds carry.
- */
-export function resolveEngineAudioProfile(target: PlaybackTarget | null): MediaEngineAudioProfile {
-  if (target === null || target.kind === 'add-by-rss') {
+const profileFromMedium = (mediumId: unknown): MediaEngineAudioProfile => {
+  if (typeof mediumId !== 'number') {
     return 'spoken';
   }
-  if (target.kind === 'item-music') {
-    return 'music';
-  }
-  if (target.kind === 'item-video') {
-    return 'video';
-  }
-  const mediumId = target.channel.medium_id;
   if (MUSIC_MEDIUMS.has(mediumId)) {
     return 'music';
   }
@@ -41,4 +29,40 @@ export function resolveEngineAudioProfile(target: PlaybackTarget | null): MediaE
     return 'video';
   }
   return 'spoken';
+};
+
+/**
+ * How the OS should treat this target's audio when a call, navigation prompt, or another app
+ * needs the speaker. Clips, chapters, and soundbites follow their channel's medium. Add by RSS
+ * follows the feed medium stored on its resource data; one with no medium is treated as spoken,
+ * since that is what most feeds carry.
+ */
+export function resolveEngineAudioProfile(target: PlaybackTarget | null): MediaEngineAudioProfile {
+  if (target === null) {
+    return 'spoken';
+  }
+  if (target.kind === 'add-by-rss') {
+    return profileFromMedium(target.resourceData.medium_id);
+  }
+  if (target.kind === 'item-music') {
+    return 'music';
+  }
+  if (target.kind === 'item-video') {
+    return 'video';
+  }
+  return profileFromMedium(target.channel.medium_id);
+}
+
+/**
+ * A music item, from the directory or from Add by RSS. Music plays at 1x, has no speed control,
+ * offers shuffle and repeat beside sleep and More, and cannot be clipped.
+ */
+export function isMusicPlaybackTarget(target: PlaybackTarget | null): boolean {
+  if (target === null) {
+    return false;
+  }
+  if (target.kind === 'item-music') {
+    return true;
+  }
+  return target.kind === 'add-by-rss' && resolveEngineAudioProfile(target) === 'music';
 }

@@ -4,12 +4,14 @@ export type ChannelSectionChromeFlags = {
   hasBoosts: boolean;
   hasFunding: boolean;
   hasOfficialClips: boolean;
+  hasPeople: boolean;
   hasPodroll: boolean;
 };
 
 export type ItemSectionChromeFlags = {
   hasChapters: boolean;
   hasFunding: boolean;
+  hasPeople: boolean;
   hasSoundbites: boolean;
   hasTranscript: boolean;
 };
@@ -18,12 +20,14 @@ export const EMPTY_CHANNEL_SECTION_CHROME_FLAGS: ChannelSectionChromeFlags = {
   hasBoosts: false,
   hasFunding: false,
   hasOfficialClips: false,
+  hasPeople: false,
   hasPodroll: false,
 };
 
 export const EMPTY_ITEM_SECTION_CHROME_FLAGS: ItemSectionChromeFlags = {
   hasChapters: false,
   hasFunding: false,
+  hasPeople: false,
   hasSoundbites: false,
   hasTranscript: false,
 };
@@ -48,6 +52,7 @@ export const parseChannelSectionChromeFlags = (value: unknown): ChannelSectionCh
     hasBoosts: readBooleanFlag(value, 'hasBoosts'),
     hasFunding: readBooleanFlag(value, 'hasFunding'),
     hasOfficialClips: readBooleanFlag(value, 'hasOfficialClips'),
+    hasPeople: readBooleanFlag(value, 'hasPeople'),
     hasPodroll: readBooleanFlag(value, 'hasPodroll'),
   };
 };
@@ -59,6 +64,7 @@ export const parseItemSectionChromeFlags = (value: unknown): ItemSectionChromeFl
   return {
     hasChapters: readBooleanFlag(value, 'hasChapters'),
     hasFunding: readBooleanFlag(value, 'hasFunding'),
+    hasPeople: readBooleanFlag(value, 'hasPeople'),
     hasSoundbites: readBooleanFlag(value, 'hasSoundbites'),
     hasTranscript: readBooleanFlag(value, 'hasTranscript'),
   };

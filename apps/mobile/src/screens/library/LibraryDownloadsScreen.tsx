@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ImageStyle, TextStyle, ViewStyle } from 'react-native';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
@@ -56,16 +56,45 @@ const statusLabelKey = (record: DownloadRecord): string | null => {
   }
 };
 
+const isInProgressDownload = (record: DownloadRecord): boolean =>
+  record.status === 'queued' || record.status === 'downloading' || record.status === 'paused';
+
 const progressRatio = (record: DownloadRecord): number | null => {
-  if (
-    (record.status !== 'downloading' && record.status !== 'queued' && record.status !== 'paused') ||
-    record.byteSize === null ||
-    record.byteSize <= 0
-  ) {
+  if (!isInProgressDownload(record) || record.byteSize === null || record.byteSize <= 0) {
     return null;
   }
   return Math.min(1, record.bytesDownloaded / record.byteSize);
 };
+
+type LibraryDownloadProgressTrackProps = {
+  itemIdText: string;
+  record: DownloadRecord;
+  style: ViewStyle;
+};
+
+/**
+ * Byte progress for one download row. The subscription lives here so a progress tick repaints the
+ * track and does not re-render the swipeable.
+ */
+function LibraryDownloadProgressTrack({
+  itemIdText,
+  record,
+  style,
+}: LibraryDownloadProgressTrackProps) {
+  const live = useItemDownload(itemIdText, true);
+  const ratio = progressRatio(live ?? record);
+  if (ratio === null) {
+    return null;
+  }
+  return (
+    <ProgressTrack
+      fillTestID={`download-row-progress-${itemIdText}`}
+      height={3}
+      ratio={ratio}
+      style={style}
+    />
+  );
+}
 
 const downloadKeyExtractor = (item: DownloadRecord): string => item.itemIdText;
 
@@ -88,7 +117,7 @@ type LibraryDownloadRowProps = {
   styles: LibraryDownloadRowStyles;
 };
 
-function LibraryDownloadRow({
+const LibraryDownloadRow = memo(function LibraryDownloadRow({
   onPress,
   onRemove,
   record,
@@ -96,16 +125,14 @@ function LibraryDownloadRow({
   styles,
 }: LibraryDownloadRowProps) {
   const { t } = useTranslation();
-  const live = useItemDownload(record.itemIdText, true);
-  const current = live ?? record;
-  const ratio = progressRatio(current);
-  const statusKey = statusLabelKey(current);
+  const statusKey = statusLabelKey(record);
   const statusText = statusKey !== null ? t(statusKey) : null;
   const accessibilityStatus = statusText ?? t('features.download.section_completed');
-  const channelTitle = usableDownloadChannelText(current.channelTitle);
+  const channelTitle = usableDownloadChannelText(record.channelTitle);
+  const title = record.title ?? record.itemIdText;
   const handlePress = useCallback(() => {
-    onPress(current);
-  }, [current, onPress]);
+    onPress(record);
+  }, [onPress, record]);
   const handleRemove = useCallback(() => {
     onRemove(record.itemIdText);
   }, [onRemove, record.itemIdText]);
@@ -117,7 +144,7 @@ function LibraryDownloadRow({
       testID={`download-row-${record.itemIdText}`}
     >
       <Pressable
-        accessibilityLabel={[channelTitle, current.title ?? current.itemIdText, accessibilityStatus]
+        accessibilityLabel={[channelTitle, title, accessibilityStatus]
           .filter((part) => part !== null && part !== undefined && part.length > 0)
           .join(', ')}
         accessibilityRole="button"
@@ -125,7 +152,7 @@ function LibraryDownloadRow({
         style={styles.row}
       >
         <View style={styles.identityRow}>
-          <CoverImage opensViewer={false} style={styles.image} uri={current.artworkUrl} />
+          <CoverImage opensViewer={false} style={styles.image} uri={record.artworkUrl} />
           <View style={styles.identityText}>
             {channelTitle !== null ? (
               <Text
@@ -137,18 +164,17 @@ function LibraryDownloadRow({
               </Text>
             ) : null}
             <Text numberOfLines={2} style={styles.rowTitle}>
-              {current.title ?? current.itemIdText}
+              {title}
             </Text>
             {statusText !== null ? (
               <Text style={styles.rowStatus} testID={`download-row-status-${record.itemIdText}`}>
                 {statusText}
               </Text>
             ) : null}
-            {ratio !== null ? (
-              <ProgressTrack
-                fillTestID={`download-row-progress-${record.itemIdText}`}
-                height={3}
-                ratio={ratio}
+            {isInProgressDownload(record) ? (
+              <LibraryDownloadProgressTrack
+                itemIdText={record.itemIdText}
+                record={record}
                 style={styles.progress}
               />
             ) : null}
@@ -157,15 +183,14 @@ function LibraryDownloadRow({
       </Pressable>
     </SwipeActionRow>
   );
-}
+});
 
 export function LibraryDownloadsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<LibraryStackParamList>>();
   const { styles: themeStyles, tokens } = useTheme();
   const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
-  // Status changes rebuild the sections. Each in-progress row subscribes to its own bytes for the
-  // bar, so a progress tick does not re-render the rest of the list.
+  // Status changes rebuild the sections. Byte progress stays inside each in-progress row's track.
   const { downloads, isLoading, errorKey, reload, pauseAllActive } = useDownloadsList();
   const { openDownloadError } = useActionError();
 
@@ -207,6 +232,8 @@ export function LibraryDownloadsScreen() {
         row: {
           borderTopColor: themeStyles.border.borderColor,
           borderTopWidth: StyleSheet.hairlineWidth,
+          // The progress track is clipped to this sliding row, so it cannot paint into Remove.
+          overflow: 'hidden',
           ...listRowVerticalPadding(tokens.spacing.base),
         },
         rowStatus: {
@@ -231,9 +258,7 @@ export function LibraryDownloadsScreen() {
   );
 
   const sections = useMemo((): DownloadSection[] => {
-    const inProgress = downloads.filter(
-      (row) => row.status === 'queued' || row.status === 'downloading' || row.status === 'paused'
-    );
+    const inProgress = downloads.filter(isInProgressDownload);
     const failed = downloads.filter((row) => row.status === 'failed');
     const completed = downloads.filter((row) => row.status === 'complete');
 
@@ -262,13 +287,7 @@ export function LibraryDownloadsScreen() {
     return next;
   }, [downloads, t]);
 
-  const hasControllableJobs = useMemo(
-    () =>
-      downloads.some(
-        (row) => row.status === 'queued' || row.status === 'downloading' || row.status === 'paused'
-      ),
-    [downloads]
-  );
+  const hasControllableJobs = useMemo(() => downloads.some(isInProgressDownload), [downloads]);
 
   const handleRowPress = useCallback(
     (record: DownloadRecord) => {

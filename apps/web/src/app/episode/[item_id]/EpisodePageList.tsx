@@ -8,6 +8,7 @@ import type { DTOChannel, DTOItem } from '@podverse/helpers';
 
 import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMessagesSection';
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
+import { ContentPeopleRows } from '../../../components/Content/About/ContentPeopleRows';
 import { CoreEpisodeSummary } from '../../../components/Core/Podcast/Episodes/CoreEpisodeSummary';
 import { ListClips } from '../../../components/List/Clips/ListClips';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
@@ -61,12 +62,8 @@ export const EpisodePageList: React.FC<EpisodePageListProps> = ({
 
   return (
     <DetailListWrapper>
-      {type === 'summary' && (
-        <CoreEpisodeSummary
-          description={ssrItem.item_description?.value}
-          item_persons={ssrItem.item_persons}
-        />
-      )}
+      {type === 'summary' && <CoreEpisodeSummary description={ssrItem.item_description?.value} />}
+      {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}
       {type === 'chapters' && (
         <ListItemChapters
           page={page}

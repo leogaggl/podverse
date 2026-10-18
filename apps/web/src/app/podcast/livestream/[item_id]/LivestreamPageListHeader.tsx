@@ -12,10 +12,12 @@ import { useLivestreamPageContext } from './LivestreamPageContext';
 
 type LivestreamPageListHeaderProps = {
   ssrCanShowBoosts: boolean;
+  ssrHasPeople: boolean;
 };
 
 export const LivestreamPageListHeader: React.FC<LivestreamPageListHeaderProps> = ({
   ssrCanShowBoosts,
+  ssrHasPeople,
 }) => {
   const { filterParams, setFilterParams } = useLivestreamPageContext();
   const { type } = filterParams;
@@ -47,6 +49,15 @@ export const LivestreamPageListHeader: React.FC<LivestreamPageListHeaderProps> =
       label: tValue('boost'),
       onClick: () => handleTypeChange('boosts'),
       zIndex: 4,
+    });
+  }
+
+  if (ssrHasPeople) {
+    tabData.push({
+      key: 'people',
+      label: tInfo('people.people'),
+      onClick: () => handleTypeChange('people'),
+      zIndex: 0,
     });
   }
 

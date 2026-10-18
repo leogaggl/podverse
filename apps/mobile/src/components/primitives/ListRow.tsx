@@ -50,12 +50,14 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       fontWeight: '500',
     },
     subtitle: {
-      ...typography.caption,
+      ...typography.body,
       color: themeStyles.textSecondary.color,
     },
     title: {
       ...typography.subheading,
       color: themeStyles.textPrimary.color,
+      fontSize: 19,
+      lineHeight: 26,
     },
     trailingCluster: {
       alignItems: 'center',

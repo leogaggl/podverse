@@ -29,21 +29,21 @@ Consistency and DRYness across tabs/screens matter as much as on web. Rebuilding
 
 ## Where things live
 
-| Kind                                        | Path                                                                                                                                                                                                                 |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Low-level controls                          | `components/primitives/` (`Button`, `Card`, `CountBadge`, `UnseenIndicator`, `CoverImage`, `ImageViewerModal`, `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`, `ToggleSwitch`, `VerticalCenter`) |
-| Reorder / drag                              | `components/reorder/` (`ReorderableSections`, `ReorderableList`)                                                                                                                                                     |
-| Screen scaffold                             | `components/screen/` (`HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `OfflineModeBanner`, `MobileScreenContainer`, `ModalSafeArea`, `ThemedStackHeader`)                                                         |
-| Section / list grouping                     | `components/section/` (`SectionHeading`, `SectionCard`)                                                                                                                                                              |
-| Loading / empty / error / auth-gated chrome | `components/state/` (`ListLoading`, `ListEmpty`, `ListError`, `CallToActionSection`, `LoadingSection`, `AuthAwareLoadState`, `RetryableError`)                                                                       |
-| Playback row actions / mini player          | `components/player/`                                                                                                                                                                                                 |
-| Membership / gate feedback                  | `components/feedback/` (`ConfirmDialog` via `openGate`, `HelperNote`, `GatedFeatureNotice` only when there is no action to attach)                                                                                   |
-| Form / settings selects                     | `components/form/` (`TextField`, `FormField`, `FormActions`, `SearchField`, `ListFilterField`, `OptionChipGroup`, `SettingsSwitchRow`, `SettingsDependentGroup`, `SettingsOptionNavRow`, `OptionListScreen`)         |
-| Domain controls (download, filters)         | `components/download/`, `components/subscriptions/`                                                                                                                                                                  |
-| Chapter list rows                           | `components/content/ChapterListRow` — full player and episode detail; images only when the section has any (**mobile-chapter-artwork**)                                                                              |
-| Playlist / user catalog rows                | `components/content/PlaylistListRow`, `ProfileListRow` — text-only (no artwork); copy helpers in `lib/rows/catalogRowCopy`                                                                                           |
-| Shared stateful logic                       | `hooks/`                                                                                                                                                                                                             |
-| Pure helpers                                | `lib/`                                                                                                                                                                                                               |
+| Kind                                        | Path                                                                                                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Low-level controls                          | `components/primitives/` (`Button`, `Card`, `CountBadge`, `UnseenIndicator`, `CoverImage`, `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`, `ToggleSwitch`, `VerticalCenter`)             |
+| Reorder / drag                              | `components/reorder/` (`ReorderableSections`, `ReorderableList`)                                                                                                                                             |
+| Screen scaffold                             | `components/screen/` (`HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `OfflineModeBanner`, `MobileScreenContainer`, `ModalSafeArea`, `ThemedStackHeader`)                                                 |
+| Section / list grouping                     | `components/section/` (`SectionHeading`, `SectionCard`)                                                                                                                                                      |
+| Loading / empty / error / auth-gated chrome | `components/state/` (`ListLoading`, `ListEmpty`, `ListError`, `CallToActionSection`, `LoadingSection`, `AuthAwareLoadState`, `RetryableError`)                                                               |
+| Playback row actions / mini player          | `components/player/`                                                                                                                                                                                         |
+| Membership / gate feedback                  | `components/feedback/` (`ConfirmDialog` via `openGate`, `HelperNote`, `GatedFeatureNotice` only when there is no action to attach)                                                                           |
+| Form / settings selects                     | `components/form/` (`TextField`, `FormField`, `FormActions`, `SearchField`, `ListFilterField`, `OptionChipGroup`, `SettingsSwitchRow`, `SettingsDependentGroup`, `SettingsOptionNavRow`, `OptionListScreen`) |
+| Domain controls (download, filters)         | `components/download/`, `components/subscriptions/`                                                                                                                                                          |
+| Chapter list rows                           | `components/content/ChapterListRow` — full player and episode detail; images only when the section has any (**mobile-chapter-artwork**)                                                                      |
+| Playlist / user catalog rows                | `components/content/PlaylistListRow`, `ProfileListRow` — text-only (no artwork); copy helpers in `lib/rows/catalogRowCopy`                                                                                   |
+| Shared stateful logic                       | `hooks/`                                                                                                                                                                                                     |
+| Pure helpers                                | `lib/`                                                                                                                                                                                                       |
 
 Do **not** import `@podverse/ui` (web components / SCSS). Tokens come from `@podverse/design-tokens`
 via **mobile-theme-parity**.
@@ -89,18 +89,23 @@ stack label / description / current value (not trailing). See **mobile-settings-
 **Dependent settings:** A parent switch that owns child switches uses `SettingsDependentGroup`.
 A thin rail lines up with the parent title; children indent past it (no fill). Prefer
 `ToggleSwitch` over a raw React Native `Switch` so iOS 26 layout matches the drawn control.
-`SettingsSwitchRow` centers the title ink on the switch.
+`SettingsSwitchRow` is the label beside a switch, at the menu title size (19), and centers the
+title ink on the switch. Card gaps, the hairline between groups, and option-list rows live in
+**mobile-screen-layout**.
 
 **Bottom chrome strips:** Offline Mode, chapter/clip, and activity-label rows above the mini
 player share `bottomChromeStrip*` helpers in `theme/bottomChromeStrip.ts` (same height, size, and
 weight). Colors stay per strip.
 
-**Cover images:** `CoverImage` (`expo-image`, memory+disk cache) opens **`ImageViewerModal`** on a
-stationary tap (full width, contained, portrait). A tap that drags stays a scroll — do not open
-the viewer from movement inside the artwork. The viewer more control uses **`HeaderBarAction`** +
-**`MoreMenu`**; Download goes through `shareRemoteFile` (OS share sheet), not the episode download
-manager. Pass `opensViewer={false}` when the parent row, cell, or mini-player is the pressable
-control. First-paint preview and cache habit: **mobile-image-loading**. Layout: **mobile-screen-layout**.
+**Cover images:** `CoverImage` (`expo-image`, memory+disk cache) opens the **`ImageViewer`** root
+screen on a stationary tap (full width, contained, portrait, `ROOT_SLIDE_UP_SCREEN_OPTIONS`). A
+tap that drags stays a scroll — do not open the viewer from movement inside the artwork. The
+viewer more control uses **`HeaderBarAction`** + **`MoreMenu`**. Download goes through
+`shareRemoteFile` (OS share sheet), not the episode download manager, and is omitted when the
+artwork needs request headers. Pass `addByRssFeedUrl` for an Add by RSS feed. The route never
+carries an `Authorization` value. Pass `opensViewer={false}` when the parent row, cell, or
+mini-player is the pressable control. First-paint preview and cache habit:
+**mobile-image-loading**. Layout: **mobile-screen-layout**.
 
 **More / overflow:** a More control opens **`MoreMenu`** — a bottom sheet that appears instantly
 (no slide, no fade). The action group uses `background.tertiary` with centered bold command rows; Cancel is
@@ -132,11 +137,13 @@ subscriptions) and has no item count either. Search stays Podcast Index full-tex
 Browse rows there.
 
 **List rows:** `HomeFeedRow` for media/results (a top hairline on every row, including the first;
-no bottom hairline; vertical padding is `spacing.base`; artwork is 60×60). Title / subtitle /
-metadata use a column `gap` (`spacing.sm`), not per-line margins, and the text stack is vertically
-centered. Track rows (`mediaType="tracks"`) omit the list play/pause band and put More in
-`identityRow`, vertically centered with the artwork and text; the row press still starts playback.
-`ListRow` is the title/subtitle primitive with the same gap and padding. A numeric `badgeCount`
+no bottom hairline; vertical padding is `spacing.lg` on that row, `spacing.base` on Downloads
+and category rows; artwork is 78×78). Identity lines use a column `gap` (`spacing.base`), not
+per-line margins, and the text stack is vertically centered. Track rows (`mediaType="tracks"`)
+omit the list play/pause band and put More in `identityRow`, vertically centered with the
+artwork and text; the row press still starts playback. `ListRow` is the title/subtitle primitive.
+Its title-to-subtitle gap stays `spacing.sm`, and its default vertical padding is `spacing.base`.
+A numeric `badgeCount`
 renders `CountBadge` left of `trailing` (chevron) and hides at 0; do not invent a second count
 chip. See **mobile-screen-layout**.
 
@@ -144,7 +151,7 @@ chip. See **mobile-screen-layout**.
 count chip for unseen presence.
 
 - **List (`HomeFeedRow`):** live `Badge` is centered on the artwork; downloaded count is the
-  overline (top text line); unseen is `UnseenIndicator` (accent circle, no number) in a slim
+  line under the title; unseen is `UnseenIndicator` (accent circle, no number) in a slim
   full-height rail at the far right of the row, with the dot vertically centered on the whole
   row.
 - **Grid (`HomeFeedGridCell`):** live top-right, unseen indicator bottom-right, downloaded
@@ -168,7 +175,8 @@ on `AccessDenialReason`, no fallback `t(...)`. See **mobile-screen-layout** and
 **Screen layout:** tab roots and stack screens share `HeaderBar` (44pt row, no divider under the
 title) and the same page-body gutter — `screenBodyInsets` from `theme/screenLayout.ts`
 (`spacing.lg` below the bar and on both sides). Header icons and header action labels use
-`tokens.text.primary` via `HeaderBarAction` (same as the title — not accent/link blue). Do not
+`tokens.text.primary` via `HeaderBarAction` (same as the title — not accent/link blue). Those
+icons use the 26pt default. Do not
 add a second inner `Card` inset on top of that gutter. Do not wrap a scrolling result list in a
 perimeter `Card`. Screen lists that show a `VerticalCenter` fill empty use **`FillList`** (scroll
 locked when `data` is empty and `ListEmptyComponent` is set). Login and Sign up overlay the tabs
@@ -191,11 +199,13 @@ link switch under Submit. See **mobile-screen-layout**.
       above the card. Chevron only on rows that push a screen — not on Log out.
 - [ ] List/media rows use `ListRow` / `HomeFeedRow` / `MediaRowActions` (or a shared row wrapper)
       when the layout matches existing screens. Do **not** add a media-type pill on those rows.
-      Top hairline on every content row, including the first. No bottom hairline. Vertical
-      padding: `spacing.base`. No standalone divider under chips or a filter.
+      Top hairline on every content row, including the first. No bottom hairline. `HomeFeedRow`
+      vertical padding is `spacing.lg` (Downloads and category rows use `spacing.base`). No
+      standalone divider under chips or a filter.
 - [ ] Cover / artwork images use `CoverImage` (square corners). Do not round podcast or episode art.
-      Standalone art opens the full-screen viewer by default. Pass `opensViewer={false}` when the
-      image sits inside a pressable row, cell, or header (the parent is the control).
+      Standalone art opens the `ImageViewer` root screen by default. Pass
+      `opensViewer={false}` when the image sits inside a pressable row, cell, or header
+      (the parent is the control).
 - [ ] More / overflow opens `MoreMenu` (instant bottom sheet, tertiary action group,
       opaque quaternary Cancel block), not a slide, fade, centered card, or pills.
 - [ ] Screen outer chrome uses `HeaderBar` / `MobileScreenContainer` / `SectionCard` when applicable.

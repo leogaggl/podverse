@@ -15,8 +15,9 @@ import { describeUnseenBadge } from '@podverse/helpers';
 
 export type HomeRowMetadata = {
   /**
-   * Finished downloads for this subscription. Zero means the overline is omitted, so the count
-   * only appears when there is something to open with no connection.
+   * Finished downloads for this subscription, including zero. Once metadata is set, the show row
+   * draws that number. Add by RSS feeds are the shows with no count line: their episodes have no
+   * download path, so a count there would always be zero and means nothing.
    */
   downloadedCount: number;
   isLive: boolean;
@@ -42,8 +43,8 @@ export type HomeRowMetadataSources = {
   /** Subscription keys currently broadcasting, already filtered for staleness by the store. */
   broadcastingKeys: ReadonlySet<string>;
   /**
-   * Finished downloads per channel `id_text`. Add-by-RSS feeds are absent because their episodes
-   * have no download path yet, which reads as a count of zero and therefore no line.
+   * Finished downloads per channel `id_text`. Add by RSS feeds are absent because their episodes
+   * have no download path. Those feeds are the shows with no count line.
    */
   downloadedCountByChannel: ReadonlyMap<string, number>;
   unseen: readonly HomeRowUnseenInput[];

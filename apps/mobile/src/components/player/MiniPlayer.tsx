@@ -58,8 +58,9 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
           height: MINI_PLAYER_ARTWORK_SIZE,
         },
         subtitle: {
-          ...typography.label,
-          color: tokens.text.accent,
+          ...typography.body,
+          color: tokens.text.link,
+          fontWeight: '600',
         },
         textColumn: {
           flex: 1,
@@ -70,6 +71,8 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
         title: {
           ...typography.body,
           color: themeStyles.textPrimary.color,
+          fontSize: 19,
+          lineHeight: 26,
         },
         transport: {
           paddingRight: tokens.spacing.base,

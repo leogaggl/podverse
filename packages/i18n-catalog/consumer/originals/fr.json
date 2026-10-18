@@ -405,6 +405,7 @@
     "now_playing_chapter": "Lecture du chapitre",
     "now_playing_official_clip": "Lecture de l’extrait officiel",
     "open_chapter_link": "Ouvrir le lien du chapitre",
+    "open_named_screen": "Ouvrir {screen} : {name}",
     "no_media": "Aucun média lisible trouvé",
     "livestream_unavailable": "La lecture du flux en direct n'est pas encore disponible",
     "show_fullscreen_media_player": "Afficher le lecteur multimédia en plein écran",
@@ -647,6 +648,7 @@
   },
   "popularity_tracking": {
     "title": "Suivi de popularité",
+    "summary": "Aidez à mettre en avant les émissions que les gens écoutent le plus. Vos écoutes peuvent compter dans ces classements sans que votre nom y soit associé.",
     "yes": "Oui, me suivre",
     "no": "Non merci",
     "learn_more": "En savoir plus",

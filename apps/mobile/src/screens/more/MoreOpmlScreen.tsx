@@ -17,7 +17,7 @@ import { useOpmlImport } from '../../hooks/useOpmlImport';
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { useOfflineMode } from '../../prefs/offlineMode';
-import { formActionsTopGap } from '../../theme/screenLayout';
+import { formActionsTopGap, settingsCardGap, settingsCardInnerGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
@@ -72,49 +72,45 @@ export function MoreOpmlScreen() {
           ...StyleSheet.absoluteFill,
           backgroundColor: 'rgba(0, 0, 0, 0.45)',
         },
-        cardSpacing: {
-          marginTop: tokens.spacing.md,
+        cardBody: {
+          gap: settingsCardInnerGap(tokens.spacing),
+        },
+        cardStack: {
+          gap: settingsCardGap(tokens.spacing),
         },
         description: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 14,
-          marginBottom: tokens.spacing.md,
         },
         feedTitle: {
+          ...typography.body,
           color: themeStyles.textPrimary.color,
           flex: 1,
-          fontSize: 14,
           fontWeight: '600',
         },
         feedUrl: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 12,
-          marginTop: 2,
         },
         outcome: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 12,
           fontWeight: '600',
-          marginBottom: 2,
         },
         resultError: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 12,
-          marginTop: 2,
         },
         resultRow: {
           borderTopColor: themeStyles.border.borderColor,
           borderTopWidth: StyleSheet.hairlineWidth,
+          gap: tokens.spacing.xs,
           paddingVertical: tokens.spacing.sm,
-        },
-        resultsList: {
-          marginTop: tokens.spacing.sm,
         },
         sectionTitle: {
           color: themeStyles.textPrimary.color,
           fontSize: 18,
           fontWeight: '700',
-          marginBottom: tokens.spacing.xs,
         },
         sheet: {
           backgroundColor: themeStyles.screen.backgroundColor,
@@ -138,14 +134,12 @@ export function MoreOpmlScreen() {
           fontWeight: '700',
         },
         statusText: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginTop: tokens.spacing.sm,
         },
         summary: {
+          ...typography.body,
           color: themeStyles.textPrimary.color,
-          fontSize: 14,
-          marginTop: tokens.spacing.sm,
         },
       }),
     [themeStyles, tokens]
@@ -211,34 +205,34 @@ export function MoreOpmlScreen() {
 
   return (
     <MobileScreenContainer testID="more-opml-screen">
-      <Card>
-        <Text style={styles.sectionTitle}>{t('settings.opml.export_title')}</Text>
-        <Text style={styles.description}>{t('settings.opml.export_description')}</Text>
-        <Button
-          disabled={status !== 'authenticated' || isExporting}
-          fullWidth
-          label={t('settings.opml.export_button')}
-          loading={isExporting}
-          onPress={() => {
-            void handleExport();
-          }}
-          size="form"
-          testID="opml-export-button"
-        />
-        {noticeKey !== null ? (
-          <Text style={styles.statusText} testID="opml-export-notice">
-            {t(noticeKey)}
-          </Text>
-        ) : null}
-        {errorKey !== null ? (
-          <Text style={styles.statusText} testID="opml-export-error">
-            {t(errorKey)}
-          </Text>
-        ) : null}
-      </Card>
+      <View style={styles.cardStack}>
+        <Card style={styles.cardBody}>
+          <Text style={styles.sectionTitle}>{t('settings.opml.export_title')}</Text>
+          <Text style={styles.description}>{t('settings.opml.export_description')}</Text>
+          <Button
+            disabled={status !== 'authenticated' || isExporting}
+            fullWidth
+            label={t('settings.opml.export_button')}
+            loading={isExporting}
+            onPress={() => {
+              void handleExport();
+            }}
+            size="form"
+            testID="opml-export-button"
+          />
+          {noticeKey !== null ? (
+            <Text style={styles.statusText} testID="opml-export-notice">
+              {t(noticeKey)}
+            </Text>
+          ) : null}
+          {errorKey !== null ? (
+            <Text style={styles.statusText} testID="opml-export-error">
+              {t(errorKey)}
+            </Text>
+          ) : null}
+        </Card>
 
-      <View style={styles.cardSpacing}>
-        <Card>
+        <Card style={styles.cardBody}>
           <Text style={styles.sectionTitle}>{t('settings.opml.import_title')}</Text>
           {offlineModeEnabled ? (
             <ListEmpty
@@ -283,7 +277,7 @@ export function MoreOpmlScreen() {
                 </Text>
               ) : null}
               {showResults && importReport !== null ? (
-                <View style={styles.resultsList} testID="opml-import-results">
+                <View testID="opml-import-results">
                   <Text style={styles.summary}>
                     {t('settings.opml.import_result_summary', {
                       total: importReport.totals.total,

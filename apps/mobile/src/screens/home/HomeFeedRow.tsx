@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { memo, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatDateAbbrev } from '@podverse/helpers';
@@ -96,7 +96,7 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       width: LIST_ROW_ARTWORK_SIZE,
     },
     channelTitle: {
-      ...typography.caption,
+      ...typography.body,
       color: themeStyles.textPrimary.color,
     },
     date: {
@@ -123,7 +123,7 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     },
     identityText: {
       flex: 1,
-      gap: tokens.spacing.xs,
+      gap: tokens.spacing.base,
       justifyContent: 'center',
       minWidth: 0,
     },
@@ -150,21 +150,81 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       flex: 1,
       gap: tokens.spacing.md,
       minWidth: 0,
-      ...listRowVerticalPadding(tokens.spacing.base),
+      ...listRowVerticalPadding(tokens.spacing.lg),
     },
     unseenRail: {
       alignItems: 'center',
       justifyContent: 'center',
       width: UNSEEN_INDICATOR_SIZE,
     },
+    showDate: {
+      color: tokens.text.link,
+      fontSize: 14,
+      fontWeight: '700',
+      lineHeight: 20,
+    },
+    showFooter: {
+      color: themeStyles.textSecondary.color,
+      fontSize: 14,
+      fontWeight: '400',
+      lineHeight: 20,
+    },
+    showFooterReserve: {
+      height: 20,
+    },
     title: {
       ...typography.subheading,
       color: themeStyles.textPrimary.color,
+      fontSize: 19,
+      lineHeight: 26,
     },
     trailing: {
       alignSelf: 'center',
     },
   });
+
+type ChannelListMediaType = 'albums' | 'artists' | 'podcasts';
+
+const isChannelListMediaType = (mediaType: DirectoryMediaType): mediaType is ChannelListMediaType =>
+  mediaType === 'podcasts' || mediaType === 'albums' || mediaType === 'artists';
+
+type ChannelListFooter =
+  | { kind: 'author'; label: string }
+  | { kind: 'count'; label: string }
+  | { kind: 'none' }
+  | { kind: 'reserve' };
+
+/**
+ * Bottom line of a podcast, album, or artist row.
+ *
+ * A directory show draws its finished-download count once metadata exists, including zero, and
+ * reserves that line until the count query returns so the title does not jump. Add by RSS shows
+ * have no count line and do not reserve one. Podcasts and albums with no download metadata put
+ * the author here when it is non-empty. Artists with no download metadata have no third line.
+ */
+const channelListFooter = (
+  mediaType: ChannelListMediaType,
+  row: HomeFeedRowData,
+  formatCount: (count: number) => string
+): ChannelListFooter => {
+  if (row.source === 'addByRss') {
+    return { kind: 'none' };
+  }
+  if (row.metadata !== undefined) {
+    return { kind: 'count', label: formatCount(row.metadata.downloadedCount) };
+  }
+  if (row.source === 'directory') {
+    return { kind: 'reserve' };
+  }
+  if (mediaType === 'artists') {
+    return { kind: 'none' };
+  }
+  const author = row.subtitle === null ? '' : row.subtitle.trim();
+  if (author.length === 0) {
+    return { kind: 'none' };
+  }
+  return { kind: 'author', label: author };
+};
 
 /**
  * Spoken names for the live chip and unseen indicator, already localized.
@@ -312,16 +372,21 @@ export const HomeFeedRow = memo(function HomeFeedRow({
     row.description !== undefined && row.description !== null && row.description.length > 0
       ? row.description
       : null;
+  const isChannelList = isChannelListMediaType(mediaType);
   const contextLineVisible = showContextLine ?? showChannelContext;
   const channelLabel =
-    contextLineVisible && row.subtitle !== null && row.subtitle.length > 0 ? row.subtitle : null;
-  const downloadedLabel =
-    row.metadata !== undefined && row.metadata.downloadedCount > 0
-      ? t('subscriptions.row.downloaded_count', { count: row.metadata.downloadedCount })
+    !isChannelList && contextLineVisible && row.subtitle !== null && row.subtitle.length > 0
+      ? row.subtitle
       : null;
-  // First of the three identity lines (context / title / date). Item rows use the show name;
-  // channel rows use the download count when there is one.
-  const overlineLabel = channelLabel ?? downloadedLabel;
+  const channelFooter = isChannelList
+    ? channelListFooter(mediaType, row, (count) =>
+        t('subscriptions.row.downloaded_count', { count })
+      )
+    : null;
+  const footerLabel =
+    channelFooter?.kind === 'count' || channelFooter?.kind === 'author'
+      ? channelFooter.label
+      : null;
   const showArtwork = showChannelContext;
 
   const moreActions = useMemo(() => {
@@ -412,14 +477,28 @@ export const HomeFeedRow = memo(function HomeFeedRow({
     t,
   ]);
 
+  const dateLine = (dateStyle: TextStyle) =>
+    updatedLabel !== null || (!showArtwork && liveLabel !== null) ? (
+      <View style={styles.dateRow}>
+        {!showArtwork && liveLabel !== null ? (
+          <Badge label={liveLabel} testID={`home-feed-row-live-${row.id}`} tone="danger" />
+        ) : null}
+        {updatedLabel !== null ? (
+          <Text numberOfLines={1} style={dateStyle} testID={`home-feed-row-updated-${row.id}`}>
+            {updatedLabel}
+          </Text>
+        ) : null}
+      </View>
+    ) : null;
+
   return (
     <Pressable
       // Composed rather than left to the default child walk, so the badges are heard as part of a
       // sentence about this show instead of as loose fragments after its title.
       accessibilityLabel={[
-        overlineLabel,
-        row.title,
-        updatedLabel,
+        ...(isChannelList
+          ? [updatedLabel, row.title, footerLabel]
+          : [channelLabel, row.title, updatedLabel]),
         description,
         durationLabel,
         liveLabel,
@@ -457,37 +536,44 @@ export const HomeFeedRow = memo(function HomeFeedRow({
             </View>
           ) : null}
           <View style={styles.identityText}>
-            {overlineLabel !== null ? (
+            {isChannelList ? dateLine(styles.showDate) : null}
+            {channelLabel !== null ? (
               <Text
                 numberOfLines={1}
                 style={styles.channelTitle}
-                testID={
-                  channelLabel !== null
-                    ? `home-feed-row-subtitle-${row.id}`
-                    : `home-feed-row-downloaded-${row.id}`
-                }
+                testID={`home-feed-row-subtitle-${row.id}`}
               >
-                {overlineLabel}
+                {channelLabel}
               </Text>
             ) : null}
             <Text numberOfLines={2} style={styles.title} testID={`home-feed-row-title-${row.id}`}>
               {row.title}
             </Text>
-            {updatedLabel !== null || (!showArtwork && liveLabel !== null) ? (
-              <View style={styles.dateRow}>
-                {!showArtwork && liveLabel !== null ? (
-                  <Badge label={liveLabel} testID={`home-feed-row-live-${row.id}`} tone="danger" />
-                ) : null}
-                {updatedLabel !== null ? (
-                  <Text
-                    numberOfLines={1}
-                    style={styles.date}
-                    testID={`home-feed-row-updated-${row.id}`}
-                  >
-                    {updatedLabel}
-                  </Text>
-                ) : null}
-              </View>
+            {isChannelList ? null : dateLine(styles.date)}
+            {channelFooter !== null && channelFooter.kind === 'count' ? (
+              <Text
+                numberOfLines={1}
+                style={styles.showFooter}
+                testID={`home-feed-row-downloaded-${row.id}`}
+              >
+                {channelFooter.label}
+              </Text>
+            ) : null}
+            {channelFooter !== null && channelFooter.kind === 'author' ? (
+              <Text
+                numberOfLines={1}
+                style={styles.showFooter}
+                testID={`home-feed-row-subtitle-${row.id}`}
+              >
+                {channelFooter.label}
+              </Text>
+            ) : null}
+            {channelFooter !== null && channelFooter.kind === 'reserve' ? (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.showFooterReserve}
+              />
             ) : null}
           </View>
           {download !== undefined ? (

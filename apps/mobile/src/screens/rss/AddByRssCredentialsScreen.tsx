@@ -25,6 +25,7 @@ import type { LibraryStackParamList } from '../../navigation';
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
 import { ADD_BY_RSS_ADD_LOG_KIND } from '../../sync/syncJobKinds';
 import { formActionsGap, formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 type AddByRssCredentialsScreenProps = NativeStackScreenProps<
@@ -75,8 +76,8 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
           fontWeight: '600',
         },
         feedUrl: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
           marginTop: tokens.spacing.xs,
         },
         fields: {

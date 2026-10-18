@@ -6,7 +6,7 @@ import type { ThemeTokens } from '@podverse/design-tokens';
  * Square edge length for media list-row artwork (`HomeFeedRow`, podroll, and peers). Keep this the
  * single source so a density change does not leave one list at a different size.
  */
-export const LIST_ROW_ARTWORK_SIZE = 60;
+export const LIST_ROW_ARTWORK_SIZE = 78;
 
 /**
  * Square edge of a stacked preview cover. The view size and `CoverImage` `decodeEdge` both read
@@ -48,7 +48,7 @@ export const PLAYER_TRANSPORT_CIRCLE_SIZE = 64;
  * Mini-player artwork edge, which is also the height of the bar's content row: the image is flush
  * left and spans the full row, so the bar's height and its artwork are one number.
  */
-export const MINI_PLAYER_ARTWORK_SIZE = 56;
+export const MINI_PLAYER_ARTWORK_SIZE = 60;
 
 /**
  * The mini player's playhead doubles as its top border, so it is the only thing between the bar and
@@ -181,5 +181,18 @@ export function formActionsTopGap(spacing: ThemeTokens['spacing']): number {
  * inside `FormActions`. Tighter than the content→actions seam; wider than in-body prose gaps.
  */
 export function formActionsGap(spacing: ThemeTokens['spacing']): number {
+  return spacing.lg;
+}
+
+/** Space between settings cards. */
+export function settingsCardGap(spacing: ThemeTokens['spacing']): number {
+  return spacing['2xl'];
+}
+
+/**
+ * Column gap inside a settings card, from the heading to the description to the button.
+ * Apply it as `gap` so a missing description leaves no margin behind.
+ */
+export function settingsCardInnerGap(spacing: ThemeTokens['spacing']): number {
   return spacing.lg;
 }

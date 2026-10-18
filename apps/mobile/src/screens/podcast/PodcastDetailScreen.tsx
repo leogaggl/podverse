@@ -62,6 +62,7 @@ import { isOfflineModeEnabled, useOfflineMode } from '../../prefs/offlineMode';
 import { useTheme } from '../../theme/useTheme';
 import {
   channelHasFunding,
+  channelHasPeople,
   channelHasPodroll,
   isFilterableSection,
   isSortableSection,
@@ -77,6 +78,7 @@ import {
   PodcastEpisodesSection,
   PodcastFundingSection,
   PodcastOfficialClipsSection,
+  PodcastPeopleSection,
   PodcastPodrollSection,
   PodcastSettingsSection,
 } from './sections';
@@ -109,6 +111,7 @@ const SECTION_COMPONENTS: Record<PodcastTab, ComponentType<PodcastSectionPanePro
   downloaded: PodcastDownloadedSection,
   episodes: PodcastEpisodesSection,
   funding: PodcastFundingSection,
+  people: PodcastPeopleSection,
   podroll: PodcastPodrollSection,
   settings: PodcastSettingsSection,
   soundbites: PodcastOfficialClipsSection,
@@ -151,6 +154,9 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
   );
   const [previewHasFunding, setPreviewHasFunding] = useState<boolean>(
     cachedChrome?.hasFunding === true
+  );
+  const [previewHasPeople, setPreviewHasPeople] = useState<boolean>(
+    cachedChrome?.hasPeople === true
   );
   const [hasCheckedSoundbites, setHasCheckedSoundbites] = useState<boolean>(cachedChrome !== null);
   const chromeConfirmedRef = useRef(false);
@@ -203,6 +209,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
     setHasSoundbites(nextChrome?.hasOfficialClips === true);
     setPreviewHasPodroll(nextChrome?.hasPodroll === true);
     setPreviewHasFunding(nextChrome?.hasFunding === true);
+    setPreviewHasPeople(nextChrome?.hasPeople === true);
     setHasCheckedSoundbites(nextChrome !== null);
     setIsSubscribed(resolveInitialSubscribed(podcastId, previewIsSubscribed));
   }, [podcastId, previewIsSubscribed]);
@@ -255,11 +262,14 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
         setChannel(response);
         const hasPodroll = channelHasPodroll(response);
         const hasFunding = channelHasFunding(response);
+        const hasPeople = channelHasPeople(response);
         setPreviewHasPodroll(hasPodroll);
         setPreviewHasFunding(hasFunding);
+        setPreviewHasPeople(hasPeople);
         void sectionChromeFlagsRepository.mergeChannel(podcastId, {
           hasFunding,
           hasOfficialClips: soundbites,
+          hasPeople,
           hasPodroll,
         });
         // This screen is where the show's name is known for a channel the user does not follow, so it
@@ -298,6 +308,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       setHasSoundbites(flags.hasOfficialClips);
       setPreviewHasPodroll(flags.hasPodroll);
       setPreviewHasFunding(flags.hasFunding);
+      setPreviewHasPeople(flags.hasPeople);
       setHasCheckedSoundbites(true);
     });
 
@@ -547,9 +558,10 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
         hasSoundbites,
         isSignedIn,
         previewHasFunding,
+        previewHasPeople,
         previewHasPodroll,
       }),
-    [channel, hasSoundbites, isSignedIn, previewHasFunding, previewHasPodroll]
+    [channel, hasSoundbites, isSignedIn, previewHasFunding, previewHasPeople, previewHasPodroll]
   );
 
   /**

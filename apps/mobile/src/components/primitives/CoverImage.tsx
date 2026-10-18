@@ -1,6 +1,6 @@
 import type { ImageRef, ImageSource } from 'expo-image';
 import { Image } from 'expo-image';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GestureResponderEvent, ImageStyle, StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -10,17 +10,14 @@ import { isMobilePerfNoImagesFromEnv } from '../../config/perfNoImagesEnv';
 import { resolveE2eMediaUrl } from '../../lib/e2e/resolveE2eMediaUrl';
 import { perfCount, perfMark } from '../../lib/perf/perfSpans';
 import { isShareSheetPassthroughWindow } from '../../lib/share/shareSheetPassthrough';
+import { navigateToImageViewerScreen } from '../../navigation';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { CoverImageTapPoint } from './coverImageTap';
 import { isDeliberateCoverImageTap } from './coverImageTap';
-import { ImageViewerModal } from './ImageViewerModal';
 import { useCoverThumbnail } from './useCoverThumbnail';
 
 const skipRemoteImages = isMobilePerfNoImagesFromEnv();
-
-/** Overlay fade, plus a beat so dismiss finishes before this node leaves the tree. */
-const IMAGE_VIEWER_UNMOUNT_DELAY_MS = 350;
 
 /**
  * Missing-artwork bitmap, the same file web serves as `/images/placeholder-image.png`.
@@ -71,6 +68,11 @@ export type CoverImageProps = {
    * from `useAddByRssArtworkHeaders`. A failure without headers does not stick once they arrive.
    */
   headers?: Record<string, string>;
+  /**
+   * Feed URL for that same artwork. The image viewer resolves its own headers from this URL.
+   * Set it wherever `headers` is set. Never put the header value on the route.
+   */
+  addByRssFeedUrl?: string | null;
   style?: StyleProp<CoverImageStyle>;
   testID?: string;
 };
@@ -103,14 +105,14 @@ const noteImageLoad = (width: number, height: number): void => {
  * Square cover / artwork. Podcast, episode, and album art stay square — do not pass a
  * `borderRadius` unless a specific surface (for example a circular avatar) needs one.
  * Standalone art opens the image viewer on a stationary tap; pass `opensViewer={false}` when the
- * parent is the control. The viewer stays out of the tree until that tap, and unmounts after its
- * fade, so a system share sheet cannot present it as a side effect.
+ * parent is the control. A dismiss tap from the system share sheet does not open the viewer.
  *
  * Uses expo-image with memory+disk cache so a list decode can be reused on a compact header
  * without a second network round-trip. A missing or failed URI shows the bundled placeholder.
  */
 export const CoverImage = memo(function CoverImage({
   accessibilityLabel,
+  addByRssFeedUrl,
   decodeEdge,
   headers,
   opensViewer = true,
@@ -121,27 +123,9 @@ export const CoverImage = memo(function CoverImage({
 }: CoverImageProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const [isViewerOpen, setIsViewerOpen] = useState(false);
-  const [isViewerMounted, setIsViewerMounted] = useState(false);
   const [failedUri, setFailedUri] = useState<string | null>(null);
   const tapStartRef = useRef<CoverImageTapPoint | null>(null);
   const tapMovedRef = useRef(false);
-
-  useEffect(() => {
-    if (isViewerOpen) {
-      setIsViewerMounted(true);
-      return;
-    }
-    if (!isViewerMounted) {
-      return;
-    }
-    const handle = setTimeout(() => {
-      setIsViewerMounted(false);
-    }, IMAGE_VIEWER_UNMOUNT_DELAY_MS);
-    return () => {
-      clearTimeout(handle);
-    };
-  }, [isViewerMounted, isViewerOpen]);
 
   const pointFromEvent = (event: GestureResponderEvent): CoverImageTapPoint => {
     return { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
@@ -160,40 +144,40 @@ export const CoverImage = memo(function CoverImage({
       ? resolveE2eMediaUrl(viewerUri)
       : displayUri;
 
-  const viewer =
-    isViewerMounted && resolvedViewerUri !== null ? (
-      <ImageViewerModal
-        accessibilityLabel={resolvedLabel}
-        onClose={() => {
-          setIsViewerOpen(false);
-        }}
-        uri={resolvedViewerUri}
-        visible={isViewerOpen}
-      />
-    ) : null;
+  const openViewer = () => {
+    if (resolvedViewerUri === null) {
+      return;
+    }
+    const feedUrl =
+      addByRssFeedUrl !== null && addByRssFeedUrl !== undefined && addByRssFeedUrl.length > 0
+        ? addByRssFeedUrl
+        : undefined;
+    navigateToImageViewerScreen(
+      feedUrl === undefined
+        ? { accessibilityLabel: resolvedLabel, uri: resolvedViewerUri }
+        : { accessibilityLabel: resolvedLabel, addByRssFeedUrl: feedUrl, uri: resolvedViewerUri }
+    );
+  };
 
   if (displayUri === null || failedUri === failureKey || thumbnail.status === 'failed') {
     return (
-      <>
-        <View
-          accessibilityElementsHidden={!opensViewer}
-          accessibilityLabel={opensViewer ? resolvedLabel : undefined}
-          accessibilityRole={opensViewer ? 'image' : undefined}
-          importantForAccessibility={opensViewer ? 'yes' : 'no'}
-          style={[styles.placeholderFrame, style]}
-          testID={testID}
-        >
-          <Image
-            accessibilityElementsHidden
-            accessibilityIgnoresInvertColors
-            contentFit="contain"
-            importantForAccessibility="no"
-            source={placeholderSource}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
-        {viewer}
-      </>
+      <View
+        accessibilityElementsHidden={!opensViewer}
+        accessibilityLabel={opensViewer ? resolvedLabel : undefined}
+        accessibilityRole={opensViewer ? 'image' : undefined}
+        importantForAccessibility={opensViewer ? 'yes' : 'no'}
+        style={[styles.placeholderFrame, style]}
+        testID={testID}
+      >
+        <Image
+          accessibilityElementsHidden
+          accessibilityIgnoresInvertColors
+          contentFit="contain"
+          importantForAccessibility="no"
+          source={placeholderSource}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
     );
   }
 
@@ -237,38 +221,35 @@ export const CoverImage = memo(function CoverImage({
   }
 
   return (
-    <>
-      <Pressable
-        accessibilityHint={t('media.view_full_image')}
-        accessibilityLabel={resolvedLabel}
-        accessibilityRole="button"
-        onPress={(event) => {
-          if (isShareSheetPassthroughWindow()) {
-            return;
-          }
-          const stayedPut =
-            !tapMovedRef.current &&
-            isDeliberateCoverImageTap(tapStartRef.current, pointFromEvent(event));
-          if (!stayedPut) {
-            return;
-          }
-          setIsViewerOpen(true);
-        }}
-        onPressIn={(event) => {
-          tapStartRef.current = pointFromEvent(event);
-          tapMovedRef.current = false;
-        }}
-        onTouchMove={(event) => {
-          if (!isDeliberateCoverImageTap(tapStartRef.current, pointFromEvent(event))) {
-            tapMovedRef.current = true;
-          }
-        }}
-        style={[styles.viewerHit, style]}
-        testID={testID}
-      >
-        {image(StyleSheet.absoluteFill)}
-      </Pressable>
-      {viewer}
-    </>
+    <Pressable
+      accessibilityHint={t('media.view_full_image')}
+      accessibilityLabel={resolvedLabel}
+      accessibilityRole="button"
+      onPress={(event) => {
+        if (isShareSheetPassthroughWindow()) {
+          return;
+        }
+        const stayedPut =
+          !tapMovedRef.current &&
+          isDeliberateCoverImageTap(tapStartRef.current, pointFromEvent(event));
+        if (!stayedPut) {
+          return;
+        }
+        openViewer();
+      }}
+      onPressIn={(event) => {
+        tapStartRef.current = pointFromEvent(event);
+        tapMovedRef.current = false;
+      }}
+      onTouchMove={(event) => {
+        if (!isDeliberateCoverImageTap(tapStartRef.current, pointFromEvent(event))) {
+          tapMovedRef.current = true;
+        }
+      }}
+      style={[styles.viewerHit, style]}
+      testID={testID}
+    >
+      {image(StyleSheet.absoluteFill)}
+    </Pressable>
   );
 });

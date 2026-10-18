@@ -20,6 +20,8 @@ import { handleRateLimitMessage } from '../../lib/rateLimit/handleRateLimitMessa
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { readAutoDownloadCellularDefaultEnabled } from '../../prefs/downloadPrefs';
+import { settingsCardGap, settingsCardInnerGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 type PodcastSettingsScreenProps = {
@@ -223,18 +225,34 @@ export function PodcastSettingsScreen({ route }: PodcastSettingsScreenProps) {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        cardSpacing: {
-          marginBottom: tokens.spacing.xl,
+        cardStack: {
+          gap: settingsCardGap(tokens.spacing),
+        },
+        feedInner: {
+          gap: settingsCardInnerGap(tokens.spacing),
+          padding: tokens.spacing.lg,
+        },
+        feedStatus: {
+          gap: tokens.spacing.xs,
         },
         notice: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
           marginTop: tokens.spacing.sm,
         },
         sectionDescription: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
           marginTop: tokens.spacing.xs,
+        },
+        feedHeading: {
+          color: themeStyles.textPrimary.color,
+          fontSize: 16,
+          fontWeight: '700',
+        },
+        feedStatusLine: {
+          ...typography.body,
+          color: themeStyles.textSecondary.color,
         },
         sectionHeading: {
           color: themeStyles.textPrimary.color,
@@ -254,15 +272,19 @@ export function PodcastSettingsScreen({ route }: PodcastSettingsScreenProps) {
 
   return (
     <MobileScreenContainer testID="podcast-settings-screen">
-      <Card padded={false} style={styles.cardSpacing} testID="podcast-settings-feed-card">
-        <View style={styles.sectionInner}>
-          <Text style={styles.sectionHeading}>{t('info.rss_feed')}</Text>
-          {feedStatusLines.map((line) => (
-            <Text key={line} style={styles.sectionDescription}>
-              {line}
-            </Text>
-          ))}
-          <View style={styles.sectionStack}>
+      <View style={styles.cardStack}>
+        <Card padded={false} testID="podcast-settings-feed-card">
+          <View style={styles.feedInner}>
+            <Text style={styles.feedHeading}>{t('info.rss_feed')}</Text>
+            {feedStatusLines.length > 0 ? (
+              <View style={styles.feedStatus}>
+                {feedStatusLines.map((line) => (
+                  <Text key={line} style={styles.feedStatusLine}>
+                    {line}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             <Button
               fullWidth
               label={t('settings.feed.check_feed_for_updates')}
@@ -274,115 +296,117 @@ export function PodcastSettingsScreen({ route }: PodcastSettingsScreenProps) {
               testID="podcast-settings-check-feed"
               variant="secondary"
             />
-          </View>
-          {feedNotice !== null ? (
-            <Text style={styles.notice} testID="podcast-settings-feed-notice">
-              {feedNotice}
-            </Text>
-          ) : null}
-        </View>
-      </Card>
-
-      <Card padded={false} style={styles.cardSpacing} testID="podcast-settings-notifications-card">
-        <View style={styles.sectionInner}>
-          <Text style={styles.sectionHeading}>{t('settings.notifications.notifications')}</Text>
-          <ListRow
-            testID="podcast-settings-notifications-row"
-            title={t('features.notifications.enable_notifications_for_this_podcast')}
-            trailing={
-              <Switch
-                accessibilityLabel={t(
-                  'features.notifications.enable_notifications_for_this_podcast'
-                )}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: notifications.isEnabled }}
-                disabled={notifications.isSaving}
-                onValueChange={(nextValue) => {
-                  void notifications.setEnabled(nextValue);
-                }}
-                testID="podcast-settings-notifications-toggle"
-                value={notifications.isEnabled}
-              />
-            }
-          />
-          {notifications.isEnabled ? (
-            <View style={styles.sectionStack} testID="podcast-settings-notification-types">
-              <Text style={styles.sectionHeading}>
-                {t('settings.notifications.type_defaults_section')}
+            {feedNotice !== null ? (
+              <Text style={styles.feedStatusLine} testID="podcast-settings-feed-notice">
+                {feedNotice}
               </Text>
-              {NOTIFICATION_TYPE_ROWS.map((row) => (
+            ) : null}
+          </View>
+        </Card>
+
+        <Card padded={false} testID="podcast-settings-notifications-card">
+          <View style={styles.sectionInner}>
+            <Text style={styles.sectionHeading}>{t('settings.notifications.notifications')}</Text>
+            <ListRow
+              testID="podcast-settings-notifications-row"
+              title={t('features.notifications.enable_notifications_for_this_podcast')}
+              trailing={
+                <Switch
+                  accessibilityLabel={t(
+                    'features.notifications.enable_notifications_for_this_podcast'
+                  )}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: notifications.isEnabled }}
+                  disabled={notifications.isSaving}
+                  onValueChange={(nextValue) => {
+                    void notifications.setEnabled(nextValue);
+                  }}
+                  testID="podcast-settings-notifications-toggle"
+                  value={notifications.isEnabled}
+                />
+              }
+            />
+            {notifications.isEnabled ? (
+              <View style={styles.sectionStack} testID="podcast-settings-notification-types">
+                <Text style={styles.sectionHeading}>
+                  {t('settings.notifications.type_defaults_section')}
+                </Text>
+                {NOTIFICATION_TYPE_ROWS.map((row) => (
+                  <ListRow
+                    key={row.type}
+                    testID={`podcast-settings-notification-type-${row.type}`}
+                    title={t(row.labelKey)}
+                    trailing={
+                      <Switch
+                        accessibilityLabel={t(row.labelKey)}
+                        disabled={notifications.isSaving}
+                        onValueChange={(nextValue) => {
+                          void notifications.setTypeEnabled(row.type, nextValue);
+                        }}
+                        value={notifications.isTypeEnabled(row.type)}
+                      />
+                    }
+                  />
+                ))}
+              </View>
+            ) : null}
+            {notifications.errorKey !== null ? (
+              <Text style={styles.notice} testID="podcast-settings-notifications-error">
+                {t(notifications.errorKey)}
+              </Text>
+            ) : null}
+          </View>
+        </Card>
+
+        <Card padded={false} testID="podcast-settings-auto-download-card">
+          <View style={styles.sectionInner}>
+            <ListRow
+              testID="podcast-settings-auto-download"
+              title={t('features.download.auto_download')}
+              trailing={
+                <Switch
+                  accessibilityLabel={t('features.download.auto_download')}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: autoDownloadEnabled, busy: autoDownloadSaving }}
+                  disabled={autoDownloadSaving}
+                  onValueChange={(nextValue) => {
+                    void handleAutoDownloadToggle(nextValue);
+                  }}
+                  testID="podcast-settings-auto-download-toggle"
+                  value={autoDownloadEnabled}
+                />
+              }
+            />
+            <Text style={styles.sectionDescription}>
+              {t('features.download.auto_download_help')}
+            </Text>
+            {autoDownloadEnabled ? (
+              <View style={styles.sectionStack}>
                 <ListRow
-                  key={row.type}
-                  testID={`podcast-settings-notification-type-${row.type}`}
-                  title={t(row.labelKey)}
+                  testID="podcast-settings-auto-download-cellular"
+                  title={t('features.download.auto_download_cellular')}
                   trailing={
                     <Switch
-                      accessibilityLabel={t(row.labelKey)}
-                      disabled={notifications.isSaving}
+                      accessibilityLabel={t('features.download.auto_download_cellular')}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: allowCellular, busy: autoDownloadSaving }}
+                      disabled={autoDownloadSaving}
                       onValueChange={(nextValue) => {
-                        void notifications.setTypeEnabled(row.type, nextValue);
+                        void handleCellularToggle(nextValue);
                       }}
-                      value={notifications.isTypeEnabled(row.type)}
+                      testID="podcast-settings-auto-download-cellular-toggle"
+                      value={allowCellular}
                     />
                   }
                 />
-              ))}
-            </View>
-          ) : null}
-          {notifications.errorKey !== null ? (
-            <Text style={styles.notice} testID="podcast-settings-notifications-error">
-              {t(notifications.errorKey)}
-            </Text>
-          ) : null}
-        </View>
-      </Card>
-
-      <Card padded={false} testID="podcast-settings-auto-download-card">
-        <View style={styles.sectionInner}>
-          <ListRow
-            testID="podcast-settings-auto-download"
-            title={t('features.download.auto_download')}
-            trailing={
-              <Switch
-                accessibilityLabel={t('features.download.auto_download')}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: autoDownloadEnabled, busy: autoDownloadSaving }}
-                disabled={autoDownloadSaving}
-                onValueChange={(nextValue) => {
-                  void handleAutoDownloadToggle(nextValue);
-                }}
-                testID="podcast-settings-auto-download-toggle"
-                value={autoDownloadEnabled}
-              />
-            }
-          />
-          <Text style={styles.sectionDescription}>{t('features.download.auto_download_help')}</Text>
-          {autoDownloadEnabled ? (
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="podcast-settings-auto-download-cellular"
-                title={t('features.download.auto_download_cellular')}
-                trailing={
-                  <Switch
-                    accessibilityLabel={t('features.download.auto_download_cellular')}
-                    accessibilityRole="switch"
-                    accessibilityState={{ checked: allowCellular, busy: autoDownloadSaving }}
-                    disabled={autoDownloadSaving}
-                    onValueChange={(nextValue) => {
-                      void handleCellularToggle(nextValue);
-                    }}
-                    testID="podcast-settings-auto-download-cellular-toggle"
-                    value={allowCellular}
-                  />
-                }
-              />
-              <Text style={styles.sectionDescription}>
-                {t('features.download.auto_download_cellular_help')}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </Card>
+                <Text style={styles.sectionDescription}>
+                  {t('features.download.auto_download_cellular_help')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </Card>
+      </View>
     </MobileScreenContainer>
   );
 }

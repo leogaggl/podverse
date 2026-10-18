@@ -16,11 +16,12 @@ describe('resolveEpisodeTabs', () => {
         previewFlags: {
           hasChapters: true,
           hasFunding: false,
+          hasPeople: true,
           hasSoundbites: true,
           hasTranscript: true,
         },
       })
-    ).toEqual(['summary', 'clips', 'chapters', 'soundbites', 'transcript']);
+    ).toEqual(['summary', 'clips', 'chapters', 'soundbites', 'transcript', 'people']);
   });
 
   it('keeps Funding last when the item has funding rows', () => {
@@ -44,11 +45,24 @@ describe('resolveEpisodeTabs', () => {
         previewFlags: {
           hasChapters: true,
           hasFunding: false,
+          hasPeople: false,
           hasSoundbites: true,
           hasTranscript: false,
         },
       })
     ).toEqual(['summary', 'clips', 'transcript']);
+  });
+
+  it('keeps People after Funding when the item has both', () => {
+    expect(
+      resolveEpisodeTabs({
+        episode: {
+          item_fundings: [{ id: 1 }],
+          item_persons: [{ id: 2 }],
+        },
+        previewFlags: null,
+      })
+    ).toEqual(['summary', 'clips', 'funding', 'people']);
   });
 });
 

@@ -33,6 +33,7 @@ export function TrackPageClient(props: TrackPageClientProps) {
           <MainColumnStack>
             <CoreTrackHeader channel={ssrChannel} item={ssrItem} />
             <TrackPageListHeader
+              ssrHasPeople={(ssrItem.item_persons?.length ?? 0) > 0}
               ssrHasTranscripts={ssrHasTranscripts}
               ssrCanShowBoosts={ssrCanShowBoosts}
             />

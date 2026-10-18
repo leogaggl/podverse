@@ -3,7 +3,16 @@ import { useTranslation } from 'react-i18next';
 import type { LayoutChangeEvent } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolateColor,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { DTOClip, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers/dto';
 import { clampRatio } from '@podverse/helpers/math';
@@ -13,6 +22,7 @@ import {
   getChapterBoundaryRatios,
 } from '@podverse/playback-core/chapterProgressMarkers';
 
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import {
   getPlaybackProgressRatio,
   subscribePlaybackProgress,
@@ -34,7 +44,24 @@ const LONG_PRESS_MS = 500;
 const CHAPTER_TOOLTIP_AUTO_DISMISS_MS = 5000;
 const TRACK_HEIGHT = 6;
 const TRACK_HIT_HEIGHT = 44;
-const MARKER_WIDTH = 2;
+const THUMB_SIZE = 12;
+const CHAPTER_DOT_SIZE = 4;
+const SEGMENT_BAND_HEIGHT = 32;
+const SEGMENT_PULSE_HALF_MS = 2000;
+/**
+ * Horizontal travel before a drag takes over the scrubber. Shorter swipes and any vertical
+ * movement past {@link PAN_FAIL_OFFSET_Y} belong to the player scroll view.
+ */
+const PAN_ACTIVE_OFFSET_X = 24;
+const PAN_FAIL_OFFSET_Y = 16;
+
+/**
+ * The thumb, chapter dots, and segment pulse use one palette on every theme so the playhead and
+ * chapter boundaries read the same on light and dark. The played fill keeps the theme accent.
+ */
+const THUMB_COLOR = '#ffffff';
+const CHAPTER_DOT_COLOR = '#ffc107';
+const SEGMENT_PULSE_COLORS = ['rgba(116, 168, 220, 0.6)', 'rgba(255, 193, 7, 0.6)'];
 
 type HighlightBounds = {
   endRatio: number | null;
@@ -99,11 +126,13 @@ const resolveHighlightBounds = ({
 };
 
 /**
- * Full-player scrubber: drag/tap seek on the line (no thumb), chapter markers, active-segment
- * highlight, and a long-press chapter tooltip. The visible track is thin; the hit target is 44pt.
- * While dragging, the left clock and chapter chrome follow the pending seek so they match the
- * fill. The engine playhead stays put until the finger lifts. Clocks and fill subscribe to the
- * progress store so the parent screen does not re-render on every tick.
+ * Full-player scrubber: a thin track with a thumb on the playhead, a dot at each chapter boundary,
+ * a pulsing band behind the current chapter or clip, and a long-press chapter tooltip. The hit
+ * target is 44pt. A tap seeks where it lands. A drag takes over only after clear horizontal travel,
+ * so a vertical swipe that starts on the bar still scrolls the player. While dragging, the left
+ * clock and chapter chrome follow the pending seek so they match the fill. The engine playhead
+ * stays put until the finger lifts. Clocks and fill subscribe to the progress store so the parent
+ * screen does not re-render on every tick.
  *
  * Gesture objects are memoized and the worklet-to-JS preview hop only fires when the whole-second
  * label would change — rebuilding a Gesture mid-drag re-attaches the recognizer and floods JS.
@@ -115,6 +144,7 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
   const durationSeconds = usePlaybackDuration();
   const clockSeconds = usePlaybackPositionClock();
   const activeChapter = useActiveNowPlayingChapter(chapters);
+  const reduceMotion = useReduceMotion();
 
   const [trackWidth, setTrackWidth] = useState(0);
   const [tooltipTitle, setTooltipTitle] = useState<string | null>(null);
@@ -129,6 +159,7 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
   const durationShared = useSharedValue(durationSeconds);
   const lastPreviewSecondShared = useSharedValue(-1);
   const liveRatioShared = useSharedValue(getPlaybackProgressRatio());
+  const segmentPulse = useSharedValue(0);
 
   useEffect(() => {
     trackWidthShared.value = trackWidth;
@@ -162,10 +193,29 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
   const markers = useMemo(
     () =>
       durationSeconds > 0 && chapters.length > 0
-        ? getChapterBoundaryRatios(chapters, durationSeconds)
+        ? getChapterBoundaryRatios(chapters, durationSeconds).filter(
+            (ratio) => ratio > 0 && ratio < 1
+          )
         : [],
     [chapters, durationSeconds]
   );
+  const hasSegmentBand = highlight.startRatio !== null && highlight.endRatio !== null;
+
+  useEffect(() => {
+    cancelAnimation(segmentPulse);
+    segmentPulse.value = 0;
+    if (!hasSegmentBand || reduceMotion) {
+      return;
+    }
+    segmentPulse.value = withRepeat(
+      withTiming(1, { duration: SEGMENT_PULSE_HALF_MS, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    return () => {
+      cancelAnimation(segmentPulse);
+    };
+  }, [hasSegmentBand, reduceMotion, segmentPulse]);
 
   const clearChapterTooltipTimer = useCallback(() => {
     if (chapterTooltipTimerRef.current !== null) {
@@ -265,7 +315,15 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
     () =>
       Gesture.Pan()
         .enabled(gesturesEnabled)
-        .onBegin((event) => {
+        .activeOffsetX([-PAN_ACTIVE_OFFSET_X, PAN_ACTIVE_OFFSET_X])
+        .failOffsetY([-PAN_FAIL_OFFSET_Y, PAN_FAIL_OFFSET_Y])
+        .onBegin(() => {
+          'worklet';
+          // Every touch on the track begins here, tap and long press included, so a chapter name left
+          // over from an earlier press clears the moment the listener touches the scrubber again.
+          runOnJS(hideChapterTooltip)();
+        })
+        .onStart((event) => {
           'worklet';
           const width = trackWidthShared.value;
           const duration = durationShared.value;
@@ -278,12 +336,12 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
           const nextSecond = Math.floor(next * duration);
           lastPreviewSecondShared.value = nextSecond;
           runOnJS(updateScrubPreviewSeconds)(nextSecond);
-          // Every touch on the track begins here, tap and long press included, so a chapter name left
-          // over from an earlier press clears the moment the listener touches the scrubber again.
-          runOnJS(hideChapterTooltip)();
         })
         .onUpdate((event) => {
           'worklet';
+          if (!isScrubbing.value) {
+            return;
+          }
           const width = trackWidthShared.value;
           const duration = durationShared.value;
           if (width <= 0 || duration <= 0) {
@@ -300,6 +358,9 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
         })
         .onEnd(() => {
           'worklet';
+          if (!isScrubbing.value) {
+            return;
+          }
           const next = scrubRatio.value;
           isScrubbing.value = false;
           liveRatioShared.value = next;
@@ -371,6 +432,19 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
     };
   });
 
+  const thumbStyle = useAnimatedStyle(() => {
+    const ratio = isScrubbing.value ? scrubRatio.value : liveRatioShared.value;
+    return {
+      transform: [{ translateX: trackWidthShared.value * ratio - THUMB_SIZE / 2 }],
+    };
+  });
+
+  const segmentBandStyle = useAnimatedStyle(() => {
+    return {
+      backgroundColor: interpolateColor(segmentPulse.value, [0, 1], SEGMENT_PULSE_COLORS),
+    };
+  });
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -379,20 +453,29 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
           justifyContent: 'center',
           position: 'relative',
         },
-        highlight: {
-          backgroundColor: tokens.text.accent,
-          bottom: 0,
-          opacity: 0.28,
+        chapterDot: {
+          backgroundColor: CHAPTER_DOT_COLOR,
+          borderRadius: CHAPTER_DOT_SIZE / 2,
+          height: CHAPTER_DOT_SIZE,
+          marginLeft: -CHAPTER_DOT_SIZE / 2,
           position: 'absolute',
-          top: 0,
+          top: (TRACK_HIT_HEIGHT - CHAPTER_DOT_SIZE) / 2,
+          width: CHAPTER_DOT_SIZE,
         },
-        marker: {
-          backgroundColor: themeStyles.textPrimary.color,
-          bottom: 0,
-          opacity: 0.55,
+        segmentBand: {
+          borderRadius: tokens.radii.sm,
+          height: SEGMENT_BAND_HEIGHT,
           position: 'absolute',
-          top: 0,
-          width: MARKER_WIDTH,
+          top: (TRACK_HIT_HEIGHT - SEGMENT_BAND_HEIGHT) / 2,
+        },
+        thumb: {
+          backgroundColor: THUMB_COLOR,
+          borderRadius: THUMB_SIZE / 2,
+          height: THUMB_SIZE,
+          left: 0,
+          position: 'absolute',
+          top: (TRACK_HIT_HEIGHT - THUMB_SIZE) / 2,
+          width: THUMB_SIZE,
         },
         timeRow: {
           flexDirection: 'row',
@@ -400,8 +483,9 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
           marginTop: tokens.spacing.sm,
         },
         timeText: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 12,
+          color: tokens.text.link,
+          fontSize: 14,
+          lineHeight: 18,
         },
         tooltip: {
           backgroundColor: tokens.background.tertiary,
@@ -430,8 +514,8 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
           height: '100%',
         },
         trackHit: {
+          height: TRACK_HIT_HEIGHT,
           justifyContent: 'center',
-          minHeight: TRACK_HIT_HEIGHT,
           width: '100%',
         },
       }),
@@ -487,33 +571,39 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
           style={styles.trackHit}
           testID="full-player-scrubber"
         >
+          {highlight.startRatio !== null && highlight.endRatio !== null ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.segmentBand,
+                segmentBandStyle,
+                {
+                  left: `${highlight.startRatio * 100}%`,
+                  width: `${Math.max(0, highlight.endRatio - highlight.startRatio) * 100}%`,
+                },
+              ]}
+              testID="full-player-scrubber-highlight"
+            />
+          ) : null}
           <View style={styles.track}>
             <Animated.View
               style={[styles.trackFill, fillStyle]}
               testID="full-player-scrubber-fill"
             />
-            {highlight.startRatio !== null && highlight.endRatio !== null ? (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.highlight,
-                  {
-                    left: `${highlight.startRatio * 100}%`,
-                    width: `${Math.max(0, highlight.endRatio - highlight.startRatio) * 100}%`,
-                  },
-                ]}
-                testID="full-player-scrubber-highlight"
-              />
-            ) : null}
-            {markers.map((ratio) => (
-              <View
-                key={ratio}
-                pointerEvents="none"
-                style={[styles.marker, { left: `${ratio * 100}%` }]}
-                testID="full-player-chapter-marker"
-              />
-            ))}
           </View>
+          {markers.map((ratio) => (
+            <View
+              key={ratio}
+              pointerEvents="none"
+              style={[styles.chapterDot, { left: `${ratio * 100}%` }]}
+              testID="full-player-chapter-marker"
+            />
+          ))}
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.thumb, thumbStyle]}
+            testID="full-player-scrubber-thumb"
+          />
         </View>
       </GestureDetector>
       <View style={styles.timeRow}>

@@ -3,10 +3,6 @@
 import dynamic from 'next/dynamic';
 import React from 'react';
 
-import type { DTOItemPerson } from '@podverse/helpers';
-
-import { ContentPeopleRows } from '../../../Content/About/ContentPeopleRows';
-
 const DescriptionRenderer = dynamic(
   () =>
     import('@podverse/ui').then((mod) => ({
@@ -17,28 +13,20 @@ const DescriptionRenderer = dynamic(
 
 type CoreEpisodeSummaryProps = {
   description?: string;
-  item_persons?: DTOItemPerson[];
 };
 
 /**
- * Item Summary: description prose plus people credited on the item when present.
- * Does not fall back to channel people.
+ * Item Summary: description prose. People are a separate chip.
  */
-export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({
-  description,
-  item_persons,
-}) => {
+export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({ description }) => {
   const hasDescription = description !== undefined && description.length > 0;
-  const hasPeople = (item_persons?.length ?? 0) > 0;
-
-  if (!hasDescription && !hasPeople) {
+  if (!hasDescription) {
     return null;
   }
 
   return (
     <div>
-      {hasDescription ? <DescriptionRenderer description={description || ''} /> : null}
-      {hasPeople ? <ContentPeopleRows item_persons={item_persons} /> : null}
+      <DescriptionRenderer description={description || ''} />
     </div>
   );
 };

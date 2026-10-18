@@ -5,6 +5,7 @@ import { PODCAST_TABS } from '../../prefs/detailListPrefs';
 
 export type PodcastSectionChannel = {
   channel_fundings?: readonly unknown[] | null;
+  channel_persons?: readonly unknown[] | null;
   channel_podroll?: {
     channel_podroll_remote_items?: readonly unknown[] | null;
   } | null;
@@ -16,6 +17,7 @@ export const PODCAST_SECTION_LABEL_KEYS: Record<PodcastTab, string> = {
   downloaded: 'features.download.downloaded',
   episodes: 'media.podcast.episodes',
   funding: 'info.funding',
+  people: 'info.people.people',
   podroll: 'info.podroll',
   settings: 'settings.settings',
   soundbites: 'info.soundbite.official_clips',
@@ -49,29 +51,37 @@ export const channelHasFunding = (channel: PodcastSectionChannel | null): boolea
   return (channel?.channel_fundings?.length ?? 0) > 0;
 };
 
+export const channelHasPeople = (channel: PodcastSectionChannel | null): boolean => {
+  return (channel?.channel_persons?.length ?? 0) > 0;
+};
+
 /**
  * Which sections this podcast can offer.
  *
  * Episodes, Downloaded, About, and Clips are always answerable. Official clips and Podroll sit
  * after those and appear from cached evidence, then from the channel DTO / stored episodes once
- * those have been read. Funding appears when this channel has funding rows. Settings is last
- * among section chips (signed-in only); the optional sort / category trailing chip may follow it.
+ * those have been read. Funding appears when this channel has funding rows. People follows
+ * Funding when this channel has people. Settings is last among section chips (signed-in only);
+ * the optional sort / category trailing chip may follow it.
  */
 export const resolvePodcastSections = ({
   channel,
   hasSoundbites,
   isSignedIn = false,
   previewHasFunding,
+  previewHasPeople,
   previewHasPodroll,
 }: {
   channel: PodcastSectionChannel | null;
   hasSoundbites: boolean;
   isSignedIn?: boolean;
   previewHasFunding?: boolean;
+  previewHasPeople?: boolean;
   previewHasPodroll?: boolean;
 }): PodcastTab[] => {
   const hasPodroll = channel !== null ? channelHasPodroll(channel) : previewHasPodroll === true;
   const hasFunding = channel !== null ? channelHasFunding(channel) : previewHasFunding === true;
+  const hasPeople = channel !== null ? channelHasPeople(channel) : previewHasPeople === true;
 
   return PODCAST_TABS.filter((section) => {
     if (ALWAYS_ON_PODCAST_SECTIONS.has(section)) {
@@ -83,11 +93,14 @@ export const resolvePodcastSections = ({
     if (section === 'podroll') {
       return hasPodroll;
     }
-    if (section === 'settings') {
-      return isSignedIn;
-    }
     if (section === 'funding') {
       return hasFunding;
+    }
+    if (section === 'people') {
+      return hasPeople;
+    }
+    if (section === 'settings') {
+      return isSignedIn;
     }
     return false;
   });

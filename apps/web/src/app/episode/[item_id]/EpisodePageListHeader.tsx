@@ -21,6 +21,7 @@ import { getEpisodePageDropdownConfig } from './EpisodePageDropdownConfig';
 
 type EpisodePageListHeaderProps = {
   ssrHasChapters: boolean;
+  ssrHasPeople: boolean;
   ssrHasSoundbites: boolean;
   ssrHasTranscripts: boolean;
   ssrCanShowBoosts?: boolean;
@@ -28,6 +29,7 @@ type EpisodePageListHeaderProps = {
 
 export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
   ssrHasChapters,
+  ssrHasPeople,
   ssrHasSoundbites,
   ssrHasTranscripts,
   ssrCanShowBoosts,
@@ -125,6 +127,15 @@ export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
       key: 'transcript',
       label: tInfo('transcript.transcript'),
       onClick: () => handleTypeChange('transcript'),
+      zIndex: 0,
+    });
+  }
+
+  if (ssrHasPeople) {
+    tabData.push({
+      key: 'people',
+      label: tInfo('people.people'),
+      onClick: () => handleTypeChange('people'),
       zIndex: 0,
     });
   }

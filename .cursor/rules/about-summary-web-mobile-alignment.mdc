@@ -12,18 +12,21 @@ Vocabulary for description / About / Summary lives in **abcmemory-vocabulary**.
 
 | Surface | Always includes | Never |
 | ------- | --------------- | ----- |
-| Channel About (podcast, album, artist) | `channel_description` + `channel_persons` | Falling back to item people |
-| Item Summary (episode, track, livestream, full player) | `item_description` + `item_persons` | Falling back to `channel_persons` |
+| Channel About (podcast, album, artist) | `channel_description` | People, and falling back to item people |
+| Item Summary (episode, track, livestream, full player) | `item_description` | People, and falling back to `channel_persons` |
 
-People render whenever the matching person array is non-empty, even if description prose is
-empty. Do not hide people behind an empty-description gate.
+People are their own chip (`info.people.people`), and on desktop channel pages their own
+side-column block. Show that chip whenever the matching person array is non-empty, even if
+description prose is empty. Channel screens use `channel_persons`. Item screens use
+`item_persons`. Do not hide people behind an empty-description gate, and do not render people
+inside About or Summary.
 
 ## Length (mobile)
 
 Feed authors can paste unbounded HTML into channel description and item summary. On mobile,
 **About** and **Summary** prose (podcast / album / artist About; episode / track / livestream /
 full-player Summary) must **truncate by default** with **Show more** / **Show less**
-(`info.show_more` / `info.show_less`), matching the existing **360**-character collapse used on
+(`info.show_more` / `info.show_less`), matching the existing **720**-character collapse used on
 episode and track detail. A scrolling pane or height-locked sheet does **not** replace this —
 do not render the full string until the user expands it. Reset expanded state when the entity
 changes.
@@ -35,14 +38,18 @@ icons**. Mobile tucks RSS and website into **About** so the identity block does 
 icon row. Funding is **not** an About body link on mobile: it is its own chip after the other
 content chips, and only when that surface has funding rows (channel screens use
 `channel_fundings`; item screens use `item_fundings` with no channel fallback). On channel
-detail (podcast, album, artist), Settings — when present — is the last section chip, so Funding
-sits just before it; only the optional sort / category trailing chip may follow Settings.
+detail (podcast, album, artist), Settings — when present — is the last section chip. People,
+when that channel has people, sits immediately before Settings, and Funding sits immediately
+before People. With no people, Funding sits immediately before Settings. Only the optional
+sort / category trailing chip may follow Settings. Episode, track, and full-player screens have
+no Settings chip, so People follows Funding there.
 
 | Field | Web | Mobile |
 | ----- | --- | ------ |
-| Description + people | About / Summary body | About / Summary body |
+| Description | About / Summary body | About / Summary body |
+| People | People tab. On podcast, album, and artist it is hidden on desktop the same way About is, and the side column shows people as their own block. Episode, track, and livestream keep the tab on every viewport. | People chip after Funding and before Settings on channels; after Funding on items |
 | RSS, website | Header icons | About body links |
-| Funding | Header icon | Funding chip (before Settings when that chip is present) |
+| Funding | Header icon | Funding chip (before People, or before Settings when there are no people) |
 | Share, subscribe, notifications, boost | Header / actions | Header / actions — not About body |
 
 Do **not** “fix” mobile by copying web header icons for RSS or website, and do **not** drop

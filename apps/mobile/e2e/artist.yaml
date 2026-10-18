@@ -16,7 +16,7 @@ name: Artist flow
     visible:
       id: artist-detail-sections
     timeout: ${TIMEOUT_SLOW}
-# Albums and tracks chips are added after the publisher-feed request returns.
+# Albums, Tracks, and About are always in the chip row.
 - extendedWaitUntil:
     visible:
       id: artist-detail-section-albums

@@ -15,6 +15,7 @@ import { buildArtistPath, buildTrackPath } from '@podverse/helpers';
 import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMessagesSection';
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
 import { ContentAbout } from '../../../components/Content/About/ContentAbout';
+import { ContentPeopleRows } from '../../../components/Content/About/ContentPeopleRows';
 import { ContentPodroll } from '../../../components/Content/Podroll/ContentPodroll';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { ListChannelSettings } from '../../../components/List/ListChannelSettings';
@@ -78,12 +79,8 @@ export const ArtistPageList: React.FC<ArtistPageListProps> = ({
           refreshTrigger={refreshTrigger}
         />
       )}
-      {type === 'about' && (
-        <ContentAbout
-          description={ssrChannel.channel_description?.value}
-          channel_persons={ssrChannel.channel_persons}
-        />
-      )}
+      {type === 'about' && <ContentAbout description={ssrChannel.channel_description?.value} />}
+      {type === 'people' && <ContentPeopleRows channel_persons={ssrChannel.channel_persons} />}
       {type === 'podroll' && <ContentPodroll remoteItemsResponse={podroll} />}
       {type === 'settings' && <ListChannelSettings channel={ssrChannel} />}
     </DetailListWrapper>

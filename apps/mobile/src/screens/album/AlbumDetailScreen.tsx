@@ -15,7 +15,12 @@ import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { useBoostSheet } from '../../components/boost/useBoostSheet';
 import { ChannelDetailShell, ChannelHeader, ChannelSettingsPane } from '../../components/channel';
-import { ChannelAboutSection, FundingLinksSection } from '../../components/content';
+import {
+  ChannelAboutSection,
+  FundingLinksSection,
+  PeoplePane,
+  toAboutPersonFromChannel,
+} from '../../components/content';
 import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
 import { MenuSelectChip } from '../../components/form';
 import { FillList, ListRow } from '../../components/primitives';
@@ -58,13 +63,15 @@ import {
 } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { useTheme } from '../../theme/useTheme';
+import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { mapItemToHomeFeedRow } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import type { HomeRowMetadata } from '../home/homeRowMetadata';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
-import { channelHasFunding, channelHasPodroll } from '../podcast/podcastSections';
+import { channelHasFunding, channelHasPeople, channelHasPodroll } from '../podcast/podcastSections';
 
 type AlbumDetailScreenProps = NativeStackScreenProps<ChannelBrowseStackParamList, 'AlbumDetail'>;
 
@@ -87,6 +94,14 @@ const FIRST_PAGE = 1;
 
 const albumTrackKeyExtractor = (row: HomeFeedRowData): string => row.id;
 const albumPodrollKeyExtractor = (row: PodrollEntry): string => row.id;
+
+/** Content rows draw a top hairline, including the first row. */
+const createContentListRowStyles = ({ styles: themeStyles }: ThemedStylesTheme) => ({
+  row: {
+    borderTopColor: themeStyles.border.borderColor,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+});
 
 function AlbumTrackRow({
   index,
@@ -131,23 +146,27 @@ function AlbumPodrollRow({
   item: PodrollEntry;
   onPress: (item: PodrollEntry) => void;
 }) {
+  const styles = useThemedStyles(createContentListRowStyles);
   const handlePress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
 
   return (
-    <ListRow
-      onPress={handlePress}
-      subtitle={item.subtitle ?? undefined}
-      testID={`album-detail-podroll-row-${index}`}
-      title={item.title}
-    />
+    <View style={styles.row}>
+      <ListRow
+        onPress={handlePress}
+        subtitle={item.subtitle ?? undefined}
+        testID={`album-detail-podroll-row-${index}`}
+        title={item.title}
+      />
+    </View>
   );
 }
 
 const SECTION_LABEL_KEYS: Record<AlbumTab, string> = {
   about: 'info.about',
   funding: 'info.funding',
+  people: 'info.people.people',
   podroll: 'info.podroll',
   settings: 'settings.settings',
   tracks: 'media.music.tracks',
@@ -254,6 +273,9 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const [previewHasFunding, setPreviewHasFunding] = useState<boolean>(
     cachedChrome?.hasFunding === true
   );
+  const [previewHasPeople, setPreviewHasPeople] = useState<boolean>(
+    cachedChrome?.hasPeople === true
+  );
   const [previewHeaderTitle, setPreviewHeaderTitle] = useState<string | null>(
     previewTitle !== undefined && previewTitle.length > 0 ? previewTitle : null
   );
@@ -342,6 +364,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     setIsChannelLoading(true);
     setPreviewHasPodroll(nextChrome?.hasPodroll === true);
     setPreviewHasFunding(nextChrome?.hasFunding === true);
+    setPreviewHasPeople(nextChrome?.hasPeople === true);
     setIsSubscribed(resolveInitialSubscribed(albumId, previewIsSubscribed));
   }, [albumId, previewIsSubscribed]);
 
@@ -412,9 +435,15 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         setChannel(response);
         const hasPodroll = channelHasPodroll(response);
         const hasFunding = channelHasFunding(response);
+        const hasPeople = channelHasPeople(response);
         setPreviewHasPodroll(hasPodroll);
         setPreviewHasFunding(hasFunding);
-        void sectionChromeFlagsRepository.mergeChannel(albumId, { hasFunding, hasPodroll });
+        setPreviewHasPeople(hasPeople);
+        void sectionChromeFlagsRepository.mergeChannel(albumId, {
+          hasFunding,
+          hasPeople,
+          hasPodroll,
+        });
       } catch {
         // Channel and list panes surface their own states.
       }
@@ -516,6 +545,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const availableSections = useMemo<AlbumTab[]>(() => {
     const hasPodroll = channel !== null ? channelHasPodroll(channel) : previewHasPodroll;
     const hasFunding = channel !== null ? channelHasFunding(channel) : previewHasFunding;
+    const hasPeople = channel !== null ? channelHasPeople(channel) : previewHasPeople;
     return ALBUM_TABS.filter((tab) => {
       if (tab === 'settings') {
         return isSignedIn;
@@ -526,9 +556,12 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       if (tab === 'funding') {
         return hasFunding;
       }
+      if (tab === 'people') {
+        return hasPeople;
+      }
       return true;
     });
-  }, [channel, isSignedIn, previewHasFunding, previewHasPodroll]);
+  }, [channel, isSignedIn, previewHasFunding, previewHasPeople, previewHasPodroll]);
 
   useEffect(() => {
     if (availableSections.includes(section)) {
@@ -961,6 +994,14 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     />
   );
 
+  const peopleBody = (
+    <PeoplePane
+      isLoading={isChannelLoading && channel === null}
+      people={(channel?.channel_persons ?? []).map(toAboutPersonFromChannel)}
+      testIDPrefix="album-detail"
+    />
+  );
+
   const podrollBody = offlineModeEnabled ? (
     <ListEmpty messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY} testID="album-detail-podroll-offline" />
   ) : (
@@ -993,7 +1034,9 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
           ? podrollBody
           : section === 'funding'
             ? fundingBody
-            : settingsBody;
+            : section === 'people'
+              ? peopleBody
+              : settingsBody;
 
   const chipTrailing =
     section === 'tracks' ? (

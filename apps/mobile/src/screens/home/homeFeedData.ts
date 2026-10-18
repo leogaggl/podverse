@@ -39,8 +39,8 @@ export type HomeFeedRowData = {
   subtitle: string | null;
   title: string;
   /**
-   * When this show last published. ISO string or epoch (seconds or ms). The row renders the
-   * localized date under the title; omit or null when nothing usable is known.
+   * When this show or item last published. ISO string or epoch (seconds or ms). The row renders
+   * the localized date; omit or null when nothing usable is known.
    */
   updatedAt?: string | number | null;
   /** Set for Podcasts subscription rows so taps can route by origin. */

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { settingsCardGap } from '../../theme/screenLayout';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { Card } from '../primitives/Card';
@@ -21,7 +22,7 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
       gap: tokens.spacing.lg,
     },
     sectionSpaced: {
-      marginTop: tokens.spacing.xl,
+      marginTop: settingsCardGap(tokens.spacing),
     },
   });
 

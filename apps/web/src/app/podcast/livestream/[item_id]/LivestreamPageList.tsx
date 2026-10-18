@@ -13,6 +13,7 @@ import {
 
 import { BoostMessagesSection } from '../../../../components/Boost/messages/BoostMessagesSection';
 import { useBoostMessagesView } from '../../../../components/Boost/messages/useBoostMessagesView';
+import { ContentPeopleRows } from '../../../../components/Content/About/ContentPeopleRows';
 import { CoreEpisodeSummary } from '../../../../components/Core/Podcast/Episodes/CoreEpisodeSummary';
 import { DetailListWrapper } from '../../../../components/List/DetailListWrapper';
 import { WebLoadingSpinnerOverlay } from '../../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
@@ -50,12 +51,8 @@ export const LivestreamPageList: React.FC<LivestreamPageListProps> = ({
 
   return (
     <DetailListWrapper>
-      {type === 'summary' && (
-        <CoreEpisodeSummary
-          description={ssrItem.item_description?.value}
-          item_persons={ssrItem.item_persons}
-        />
-      )}
+      {type === 'summary' && <CoreEpisodeSummary description={ssrItem.item_description?.value} />}
+      {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}
       {type === 'boosts' && boostsPageFetcher !== null && (
         <BoostMessagesSection
           heading={tV4VBoostMessages('title')}

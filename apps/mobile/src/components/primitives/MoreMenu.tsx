@@ -169,66 +169,68 @@ export function MoreMenu({
           style={[styles.sheet, sheetInset]}
           testID={testID}
         >
-          <View style={styles.actionGroup}>
-            {rows.map((row, index) => {
-              const showDivider = index > 0;
-              if (row.kind === 'title') {
-                return (
-                  <Text
-                    key={row.key}
-                    style={[styles.sectionTitle, showDivider ? styles.itemDivider : null]}
-                  >
-                    {row.title}
-                  </Text>
-                );
-              }
-
-              const { item } = row;
-              const isDisabled = item.disabled === true;
-              const isSelected = item.selected === true;
-              return (
-                <Pressable
-                  accessibilityRole="menuitem"
-                  accessibilityState={{
-                    disabled: isDisabled,
-                    selected: item.selected,
-                  }}
-                  disabled={isDisabled}
-                  key={item.key}
-                  onPress={() => {
-                    onCancel();
-                    item.onPress();
-                  }}
-                  style={({ pressed }) => [
-                    styles.itemRow,
-                    showDivider ? styles.itemDivider : null,
-                    isDisabled ? styles.itemDisabled : null,
-                    !isDisabled && pressed ? styles.itemPressed : null,
-                  ]}
-                  testID={item.testID ?? `${testID}-${item.key}`}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.itemLabel,
-                      item.tone === 'danger' ? styles.itemLabelDanger : null,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                  {isSelected ? (
+          {rows.length > 0 ? (
+            <View style={styles.actionGroup}>
+              {rows.map((row, index) => {
+                const showDivider = index > 0;
+                if (row.kind === 'title') {
+                  return (
                     <Text
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                      style={styles.selectedMark}
+                      key={row.key}
+                      style={[styles.sectionTitle, showDivider ? styles.itemDivider : null]}
                     >
-                      {SELECTED_MARK}
+                      {row.title}
                     </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
+                  );
+                }
+
+                const { item } = row;
+                const isDisabled = item.disabled === true;
+                const isSelected = item.selected === true;
+                return (
+                  <Pressable
+                    accessibilityRole="menuitem"
+                    accessibilityState={{
+                      disabled: isDisabled,
+                      selected: item.selected,
+                    }}
+                    disabled={isDisabled}
+                    key={item.key}
+                    onPress={() => {
+                      onCancel();
+                      item.onPress();
+                    }}
+                    style={({ pressed }) => [
+                      styles.itemRow,
+                      showDivider ? styles.itemDivider : null,
+                      isDisabled ? styles.itemDisabled : null,
+                      !isDisabled && pressed ? styles.itemPressed : null,
+                    ]}
+                    testID={item.testID ?? `${testID}-${item.key}`}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.itemLabel,
+                        item.tone === 'danger' ? styles.itemLabelDanger : null,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isSelected ? (
+                      <Text
+                        accessibilityElementsHidden
+                        importantForAccessibility="no"
+                        style={styles.selectedMark}
+                      >
+                        {SELECTED_MARK}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             onPress={onCancel}

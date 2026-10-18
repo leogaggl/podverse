@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOPopularityTrackingAgreement } from '@podverse/helpers';
 import { isPopularityTrackingAllowed } from '@podverse/helpers';
@@ -8,10 +8,15 @@ import { isPopularityTrackingAllowed } from '@podverse/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
 import { syncAllowListenStatsToAccountSettings } from '../../auth/syncAccountPrefs';
-import { ToggleSwitch } from '../../components/primitives/ToggleSwitch';
+import { CopyMarkdown } from '../../components/content/CopyMarkdown';
+import { SettingsSwitchRow } from '../../components/form';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
+import { LoadingSection } from '../../components/state/LoadingSection';
+import { RetryableError } from '../../components/state/RetryableError';
 import { PopularityTrackingAgreementBody } from '../../popularityTracking/PopularityTrackingAgreementBody';
 import { getPopularityTrackingCurrentVersion } from '../../popularityTracking/popularityTrackingGate';
+import { settingsCardInnerGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 export function MoreSettingsPopularityTrackingScreen() {
@@ -22,6 +27,7 @@ export function MoreSettingsPopularityTrackingScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const currentVersion = agreement?.version ?? getPopularityTrackingCurrentVersion();
   const allowed = isPopularityTrackingAllowed(account?.account_settings, currentVersion);
 
@@ -71,51 +77,91 @@ export function MoreSettingsPopularityTrackingScreen() {
     [accessToken, clearSession, refreshToken, setAccount, setTokens]
   );
 
-  const styles = StyleSheet.create({
-    label: {
-      color: themeStyles.textPrimary.color,
-      flex: 1,
-    },
-    row: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: tokens.spacing.md,
-      marginBottom: tokens.spacing.lg,
-    },
-  });
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        disclosure: {
+          marginTop: settingsCardInnerGap(tokens.spacing),
+        },
+        moreInfo: {
+          justifyContent: 'center',
+          minHeight: 44,
+        },
+        moreInfoLabel: {
+          ...typography.body,
+          color: tokens.text.link,
+        },
+        summary: {
+          ...typography.body,
+          color: themeStyles.textPrimary.color,
+        },
+      }),
+    [themeStyles, tokens]
+  );
+
+  const infoLabel = infoOpen ? t('misc.hide_info') : t('misc.more_info');
 
   return (
     <MobileScreenContainer testID="more-settings-popularity-tracking-screen">
-      <View style={styles.row}>
-        <Text style={styles.label}>{t('popularity_tracking.title')}</Text>
-        <ToggleSwitch
-          accessibilityLabel={t('popularity_tracking.title')}
-          onValueChange={(next) => {
-            if (!next) {
-              setReviewing(false);
-              void handleDecision(false);
-              return;
-            }
-            setReviewing(true);
-          }}
-          testID="more-settings-popularity-tracking-switch"
-          value={allowed || reviewing}
-        />
-      </View>
-      {reviewing ? (
-        <PopularityTrackingAgreementBody
-          accordionTestID="popularity-tracking-settings-full-agreement"
-          agreement={agreement}
-          errorKey={errorKey}
-          isLoading={isLoading}
-          noTestID="popularity-tracking-settings-no"
-          onDecision={(accepted) => {
+      <Text style={styles.summary}>{t('popularity_tracking.summary')}</Text>
+      <SettingsSwitchRow
+        inset={false}
+        onValueChange={(next) => {
+          if (!next) {
             setReviewing(false);
-            void handleDecision(accepted);
-          }}
-          onRetry={loadAgreement}
-          yesTestID="popularity-tracking-settings-yes"
-        />
+            void handleDecision(false);
+            return;
+          }
+          setReviewing(true);
+        }}
+        switchTestID="more-settings-popularity-tracking-switch"
+        testID="more-settings-popularity-tracking-row"
+        title={t('popularity_tracking.title')}
+        value={allowed || reviewing}
+      />
+      <Pressable
+        accessibilityLabel={infoLabel}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: infoOpen }}
+        onPress={() => {
+          setInfoOpen((open) => !open);
+        }}
+        style={styles.moreInfo}
+        testID="more-settings-popularity-tracking-more-info"
+      >
+        <Text style={styles.moreInfoLabel}>{infoLabel}</Text>
+      </Pressable>
+      {reviewing ? (
+        <View style={styles.disclosure}>
+          <PopularityTrackingAgreementBody
+            accordionTestID="popularity-tracking-settings-full-agreement"
+            agreement={agreement}
+            errorKey={errorKey}
+            isLoading={isLoading}
+            noTestID="popularity-tracking-settings-no"
+            onDecision={(accepted) => {
+              setReviewing(false);
+              void handleDecision(accepted);
+            }}
+            onRetry={loadAgreement}
+            yesTestID="popularity-tracking-settings-yes"
+          />
+        </View>
+      ) : null}
+      {!reviewing && infoOpen ? (
+        <View style={styles.disclosure}>
+          {isLoading ? <LoadingSection testID="popularity-tracking-settings-info-loading" /> : null}
+          {!isLoading && errorKey !== null ? (
+            <RetryableError
+              errorKey={errorKey}
+              onRetry={loadAgreement}
+              testID="popularity-tracking-settings-info-error"
+            />
+          ) : null}
+          {!isLoading && errorKey === null && agreement !== null ? (
+            <CopyMarkdown markdown={agreement.markdown} />
+          ) : null}
+        </View>
       ) : null}
     </MobileScreenContainer>
   );

@@ -21,12 +21,14 @@ import { usePodcastPageContext } from './PodcastPageContext';
 import { getPodcastPageDropdownConfig } from './PodcastPageDropdownConfig';
 
 type PodcastPageListHeaderProps = {
+  ssrHasPeople: boolean;
   ssrHasPodroll?: boolean;
   ssrHasItemSoundbites?: boolean;
   ssrCanShowBoosts?: boolean;
 };
 
 export const PodcastPageListHeader: React.FC<PodcastPageListHeaderProps> = ({
+  ssrHasPeople,
   ssrHasPodroll,
   ssrHasItemSoundbites,
   ssrCanShowBoosts,
@@ -130,6 +132,16 @@ export const PodcastPageListHeader: React.FC<PodcastPageListHeaderProps> = ({
       key: 'podroll',
       label: tInfo('podroll'),
       onClick: () => handleTypeChange('podroll'),
+      hideDesktop: true,
+      zIndex: 1,
+    });
+  }
+
+  if (ssrHasPeople) {
+    tabData.push({
+      key: 'people',
+      label: tInfo('people.people'),
+      onClick: () => handleTypeChange('people'),
       hideDesktop: true,
       zIndex: 1,
     });

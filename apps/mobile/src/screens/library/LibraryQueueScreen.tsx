@@ -38,7 +38,7 @@ import { queueResourceToHomeRow } from '../../lib/rows/homeRowMappers';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { LibraryStackParamList } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
-import { screenBodyInsets } from '../../theme/screenLayout';
+import { listChipRowBottomGap, screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 
@@ -177,6 +177,7 @@ export function LibraryQueueScreen(_props: LibraryQueueScreenProps) {
       },
       headerSection: {
         gap: tokens.spacing.base,
+        paddingBottom: listChipRowBottomGap(tokens.spacing),
         paddingTop: bodyInsets.paddingTop,
       },
       listContent: {

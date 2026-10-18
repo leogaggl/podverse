@@ -63,12 +63,12 @@ export function AddByRssAddScreen({ navigation }: AddByRssAddScreenProps) {
           gap: tokens.spacing.md,
         },
         credentialIntro: {
-          ...typography.caption,
+          ...typography.body,
           color: themeStyles.textSecondary.color,
         },
         notice: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
         },
         submit: {
           marginTop: formActionsTopGap(tokens.spacing),

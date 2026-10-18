@@ -1,8 +1,8 @@
 import type { DTOChannelPerson, DTOItemPerson } from '@podverse/helpers';
 
 /**
- * The fields About and Summary need to paint a credited person. Channel and item person DTOs
- * both carry them; callers pass whichever array they own.
+ * The fields a People row needs to paint a credited person. Channel and item person DTOs both
+ * carry them; callers pass whichever array they own.
  */
 export type AboutPerson = {
   href: string | null;

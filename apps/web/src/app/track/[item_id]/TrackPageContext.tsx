@@ -49,7 +49,7 @@ export const TrackPageContextProvider = ({
   const item_id = params.item_id as string;
 
   useSkipInitialEffect(() => {
-    if (filterParams.type === 'summary') {
+    if (filterParams.type === 'summary' || filterParams.type === 'people') {
       return;
     }
 

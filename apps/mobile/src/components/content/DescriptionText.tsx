@@ -7,8 +7,8 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import type { DescriptionNode } from '@podverse/helpers';
 import { readDescriptionDocument } from '@podverse/helpers';
 
-/** Same collapse length episode and track Summary use. */
-export const DESCRIPTION_PROSE_COLLAPSE_LENGTH = 360;
+/** Same collapse length channel About and item Summary use. */
+export const DESCRIPTION_PROSE_COLLAPSE_LENGTH = 720;
 
 export type DescriptionTextProps = {
   html: string | null | undefined;

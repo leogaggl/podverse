@@ -1,9 +1,9 @@
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
 /**
- * Duration for every root slide-up / slide-down (full player, V4V, and the mini↔full video
- * surface reparent). One number so those motions cannot drift apart. Faster than the native-stack
- * default (~350ms) so the cover feels immediate without snapping.
+ * Duration for every root slide-up / slide-down (full player, image viewer, V4V, and the
+ * mini↔full video surface reparent). One number so those motions cannot drift apart. Faster than
+ * the native-stack default (~350ms) so the cover feels immediate without snapping.
  */
 export const ROOT_SLIDE_UP_ANIMATION_MS = 250;
 

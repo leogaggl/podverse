@@ -6,7 +6,7 @@ import type { DTOChannel, DTOItem } from '@podverse/helpers';
 import { primaryListArtworkUrl } from '@podverse/helpers';
 
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
-import { formActionsTopGap } from '../../theme/screenLayout';
+import { formActionsTopGap, LIST_ROW_ARTWORK_SIZE } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { ConfirmDialog } from '../feedback/ConfirmDialog';
 import { FormActions } from '../form/FormActions';
@@ -69,6 +69,10 @@ export function BoostSheet({ onClose, target }: BoostSheetProps) {
           alignItems: 'center',
           flexDirection: 'row',
           gap: tokens.spacing.sm,
+        },
+        artwork: {
+          height: LIST_ROW_ARTWORK_SIZE,
+          width: LIST_ROW_ARTWORK_SIZE,
         },
         backdrop: {
           flex: 1,
@@ -190,8 +194,9 @@ export function BoostSheet({ onClose, target }: BoostSheetProps) {
               <ScrollView keyboardShouldPersistTaps="handled" style={styles.scroll}>
                 <View style={styles.media}>
                   <CoverImage
+                    decodeEdge={LIST_ROW_ARTWORK_SIZE}
                     opensViewer={false}
-                    style={{ height: 56, width: 56 }}
+                    style={styles.artwork}
                     uri={artworkUri}
                   />
                   <View style={styles.mediaText}>

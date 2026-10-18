@@ -32,7 +32,10 @@ export function LivestreamPageClient(props: LivestreamPageClientProps) {
           <SideContent />
           <MainColumnStack>
             <LivestreamHeader channel={ssrChannel} item={ssrItem} medium={medium} />
-            <LivestreamPageListHeader ssrCanShowBoosts={ssrCanShowBoosts} />
+            <LivestreamPageListHeader
+              ssrCanShowBoosts={ssrCanShowBoosts}
+              ssrHasPeople={(ssrItem.item_persons?.length ?? 0) > 0}
+            />
             <LivestreamPageList
               ssrChannel={ssrChannel}
               ssrItem={ssrItem}

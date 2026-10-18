@@ -51,7 +51,11 @@ export function AlbumPageClient(props: AlbumPageClientProps) {
         <MainSidebarLayout>
           <AlbumPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
           <MainColumnStack>
-            <AlbumPageListHeader ssrHasPodroll={!!ssrPodroll} ssrCanShowBoosts={ssrCanShowBoosts} />
+            <AlbumPageListHeader
+              ssrHasPeople={(ssrChannel.channel_persons?.length ?? 0) > 0}
+              ssrHasPodroll={!!ssrPodroll}
+              ssrCanShowBoosts={ssrCanShowBoosts}
+            />
             <AlbumPageList
               ssrChannel={ssrChannel}
               podroll={ssrPodroll}

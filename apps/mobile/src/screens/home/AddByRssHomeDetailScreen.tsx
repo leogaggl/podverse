@@ -325,6 +325,7 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
               detail.feed.title ??
               t('features.add_by_rss.label')
             }
+            addByRssFeedUrl={detail.feed.feedUrl}
             headers={headerArtworkHeaders}
             style={styles.headerImage}
             uri={headerArtwork.listUrl}

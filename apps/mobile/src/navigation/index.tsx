@@ -57,6 +57,7 @@ import { EpisodeDetailScreen } from '../screens/episode/EpisodeDetailScreen';
 import { HelloWorldScreen } from '../screens/HelloWorldScreen';
 import { AddByRssHomeDetailScreen } from '../screens/home/AddByRssHomeDetailScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
+import { ImageViewerScreen } from '../screens/image/ImageViewerScreen';
 import { LibraryDownloadsScreen } from '../screens/library/LibraryDownloadsScreen';
 import { LibraryHistoryScreen } from '../screens/library/LibraryHistoryScreen';
 import { LibraryMyClipsScreen } from '../screens/library/LibraryMyClipsScreen';
@@ -87,6 +88,11 @@ import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScre
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
+import type { FullPlayerOpenRequest } from '../screens/player/fullPlayerContentLink';
+import {
+  contentTabForDestination,
+  focusedContentTabFromRootState,
+} from '../screens/player/fullPlayerContentLink';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
 import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
@@ -104,16 +110,20 @@ import { useNavigationTheme } from '../theme/useNavigationTheme';
 import { useTheme } from '../theme/useTheme';
 import { useThemedNativeStackScreenOptions } from '../theme/useThemedNativeStackScreenOptions';
 import type { AlbumDetailRouteParams } from './albumDetailParams';
+import { buildAlbumDetailParams } from './albumDetailParams';
 import type { ArtistDetailRouteParams } from './artistDetailParams';
+import { buildArtistDetailParams } from './artistDetailParams';
 import { mapScopedPathToFlatPath } from './deepLinking';
 import { focusedTabPop } from './focusedTabPop';
 import { resolveMobileDeepLinkAction, resolveMobileDeepLinkState } from './notificationStack';
 import { OrderedTabBar } from './OrderedTabBar';
 import type { PodcastDetailRouteParams } from './podcastDetailParams';
+import { buildPodcastDetailParams } from './podcastDetailParams';
 import { ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
 import { tabBarIcon } from './tabBarIcon';
 import { useTabLayout } from './TabLayoutProvider';
 import type { TrackDetailRouteParams } from './trackDetailParams';
+import { buildTrackDetailParams } from './trackDetailParams';
 import { useBottomChromeOverlayInsetSource } from './useBottomChromeOverlayInsetSource';
 
 type MobileTabNavigatorProps = {
@@ -237,6 +247,7 @@ export const MORE_STACK_ROUTES = {
 
 export const ROOT_STACK_ROUTES = {
   FullPlayer: 'FullPlayer',
+  ImageViewer: 'ImageViewer',
   MakeClip: 'MakeClip',
   MainTabs: 'MainTabs',
   V4vInfo: 'V4vInfo',
@@ -424,14 +435,14 @@ export const mobileNavigationLinking: LinkingOptions<RootStackParamList> = {
   prefixes: MOBILE_LINK_PREFIXES,
 };
 
-export type { AlbumDetailRouteParams } from './albumDetailParams';
-export { buildAlbumDetailParams } from './albumDetailParams';
-export type { ArtistDetailRouteParams } from './artistDetailParams';
-export { buildArtistDetailParams } from './artistDetailParams';
-export type { PodcastDetailRouteParams } from './podcastDetailParams';
-export { buildPodcastDetailParams } from './podcastDetailParams';
-export type { TrackDetailRouteParams } from './trackDetailParams';
-export { buildTrackDetailParams } from './trackDetailParams';
+export type { AlbumDetailRouteParams };
+export { buildAlbumDetailParams };
+export type { ArtistDetailRouteParams };
+export { buildArtistDetailParams };
+export type { PodcastDetailRouteParams };
+export { buildPodcastDetailParams };
+export type { TrackDetailRouteParams };
+export { buildTrackDetailParams };
 
 /** Params for the Podcast Index feed preview shared across tab stacks. */
 export type SearchResultDetailParams = {
@@ -546,8 +557,16 @@ export type MoreStackParamList = {
   MoreErrorLogDetail: { entryId: number };
 };
 
+/** Slide-up image viewer. `addByRssFeedUrl` is a feed URL, never a request header. */
+export type ImageViewerRouteParams = {
+  accessibilityLabel: string;
+  addByRssFeedUrl?: string;
+  uri: string;
+};
+
 export type RootStackParamList = {
   FullPlayer: undefined;
+  ImageViewer: ImageViewerRouteParams;
   MakeClip: { mode: 'create' } | { mode: 'edit'; clipId: string };
   // Nested params so the global membership gate/banner (mounted above the navigator) can deep-navigate
   // to More ▸ Membership via `navigateToMembershipScreen()`.
@@ -557,12 +576,226 @@ export type RootStackParamList = {
 
 /** Bottom-tab route names, used for type-safe cross-tab navigation (e.g. Home → My Library). */
 export type MobileTabParamList = {
-  Home: undefined;
+  Home: NavigatorScreenParams<HomeStackParamList> | undefined;
   Search: NavigatorScreenParams<SearchStackParamList> | undefined;
   Browse: NavigatorScreenParams<BrowseStackParamList> | undefined;
   Notifications: undefined;
   'My Library': NavigatorScreenParams<LibraryStackParamList> | undefined;
   More: NavigatorScreenParams<MoreStackParamList> | undefined;
+};
+
+const openFullPlayerContent = (
+  navigation: NavigationProp<RootStackParamList>,
+  request: FullPlayerOpenRequest
+): void => {
+  const tab = contentTabForDestination(
+    focusedContentTabFromRootState(navigation.getState()),
+    request
+  );
+  const previewImageUrl = request.imageUrl;
+  const previewTitle = request.name;
+
+  if (tab === 'Home') {
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+      params: homeContentParams(request, previewImageUrl, previewTitle),
+      screen: 'Home',
+    });
+    return;
+  }
+  if (tab === 'Search') {
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+      params: searchContentParams(request, previewImageUrl, previewTitle),
+      screen: 'Search',
+    });
+    return;
+  }
+  if (tab === 'Browse') {
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+      params: browseContentParams(request, previewImageUrl, previewTitle),
+      screen: 'Browse',
+    });
+    return;
+  }
+  navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+    params: libraryContentParams(request, previewImageUrl, previewTitle),
+    screen: 'My Library',
+  });
+};
+
+const homeContentParams = (
+  request: FullPlayerOpenRequest,
+  previewImageUrl: string | null,
+  previewTitle: string
+): NavigatorScreenParams<HomeStackParamList> => {
+  switch (request.kind) {
+    case 'episode':
+      return { initial: false, params: { episodeId: request.idText }, screen: 'EpisodeDetail' };
+    case 'clip':
+      return { initial: false, params: { clipId: request.idText }, screen: 'ClipDetail' };
+    case 'track':
+      return {
+        initial: false,
+        params: buildTrackDetailParams({ previewImageUrl, previewTitle, trackId: request.idText }),
+        screen: 'TrackDetail',
+      };
+    case 'podcast':
+      return {
+        initial: false,
+        params: buildPodcastDetailParams({
+          podcastId: request.idText,
+          previewImageUrl,
+          previewTitle,
+        }),
+        screen: 'PodcastDetail',
+      };
+    case 'album':
+      return {
+        initial: false,
+        params: buildAlbumDetailParams({ albumId: request.idText, previewImageUrl, previewTitle }),
+        screen: 'AlbumDetail',
+      };
+    case 'artist':
+      return {
+        initial: false,
+        params: buildArtistDetailParams({
+          artistId: request.idText,
+          previewImageUrl,
+          previewTitle,
+        }),
+        screen: 'ArtistDetail',
+      };
+    case 'add-by-rss':
+      return {
+        initial: false,
+        params: { feedIdText: request.idText },
+        screen: 'AddByRssPodcastDetail',
+      };
+  }
+};
+
+const searchContentParams = (
+  request: FullPlayerOpenRequest,
+  previewImageUrl: string | null,
+  previewTitle: string
+): NavigatorScreenParams<SearchStackParamList> => {
+  if (request.kind === 'add-by-rss') {
+    return { screen: 'SearchRoot' };
+  }
+  return catalogContentParams(request, previewImageUrl, previewTitle);
+};
+
+const browseContentParams = (
+  request: FullPlayerOpenRequest,
+  previewImageUrl: string | null,
+  previewTitle: string
+): NavigatorScreenParams<BrowseStackParamList> => {
+  if (request.kind === 'add-by-rss') {
+    return { screen: 'BrowseRoot' };
+  }
+  return catalogContentParams(request, previewImageUrl, previewTitle);
+};
+
+const catalogContentParams = (
+  request: FullPlayerOpenRequest,
+  previewImageUrl: string | null,
+  previewTitle: string
+): NavigatorScreenParams<ChannelBrowseStackParamList> => {
+  switch (request.kind) {
+    case 'episode':
+      return { initial: false, params: { episodeId: request.idText }, screen: 'EpisodeDetail' };
+    case 'clip':
+      return { initial: false, params: { clipId: request.idText }, screen: 'ClipDetail' };
+    case 'track':
+      return {
+        initial: false,
+        params: buildTrackDetailParams({ previewImageUrl, previewTitle, trackId: request.idText }),
+        screen: 'TrackDetail',
+      };
+    case 'podcast':
+      return {
+        initial: false,
+        params: buildPodcastDetailParams({
+          podcastId: request.idText,
+          previewImageUrl,
+          previewTitle,
+        }),
+        screen: 'PodcastDetail',
+      };
+    case 'album':
+      return {
+        initial: false,
+        params: buildAlbumDetailParams({ albumId: request.idText, previewImageUrl, previewTitle }),
+        screen: 'AlbumDetail',
+      };
+    case 'artist':
+      return {
+        initial: false,
+        params: buildArtistDetailParams({
+          artistId: request.idText,
+          previewImageUrl,
+          previewTitle,
+        }),
+        screen: 'ArtistDetail',
+      };
+    case 'add-by-rss':
+      // Search and Browse have no Add by RSS screen.
+      throw new Error('Add by RSS content opens on Home or My Library.');
+  }
+};
+
+const libraryContentParams = (
+  request: FullPlayerOpenRequest,
+  previewImageUrl: string | null,
+  previewTitle: string
+): NavigatorScreenParams<LibraryStackParamList> => {
+  switch (request.kind) {
+    case 'episode':
+      return { initial: false, params: { episodeId: request.idText }, screen: 'EpisodeDetail' };
+    case 'clip':
+      return {
+        initial: false,
+        params: { clipId: request.idText },
+        screen: 'LibraryClipDetail',
+      };
+    case 'track':
+      return {
+        initial: false,
+        params: buildTrackDetailParams({ previewImageUrl, previewTitle, trackId: request.idText }),
+        screen: 'TrackDetail',
+      };
+    case 'podcast':
+      return {
+        initial: false,
+        params: buildPodcastDetailParams({
+          podcastId: request.idText,
+          previewImageUrl,
+          previewTitle,
+        }),
+        screen: 'PodcastDetail',
+      };
+    case 'album':
+      return {
+        initial: false,
+        params: buildAlbumDetailParams({ albumId: request.idText, previewImageUrl, previewTitle }),
+        screen: 'AlbumDetail',
+      };
+    case 'artist':
+      return {
+        initial: false,
+        params: buildArtistDetailParams({
+          artistId: request.idText,
+          previewImageUrl,
+          previewTitle,
+        }),
+        screen: 'ArtistDetail',
+      };
+    case 'add-by-rss':
+      return {
+        initial: false,
+        params: { feedIdText: request.idText },
+        screen: 'AddByRssPodcastDetail',
+      };
+  }
 };
 
 function isMobileTabNavigation(
@@ -666,6 +899,13 @@ export function navigateToMakeClipScreen(params: RootStackParamList['MakeClip'])
     return;
   }
   rootNavigationRef.navigate(ROOT_STACK_ROUTES.MakeClip, params);
+}
+
+export function navigateToImageViewerScreen(params: RootStackParamList['ImageViewer']): void {
+  if (!rootNavigationRef.isReady()) {
+    return;
+  }
+  rootNavigationRef.navigate(ROOT_STACK_ROUTES.ImageViewer, params);
 }
 
 function HomeStackNavigator() {
@@ -1748,6 +1988,9 @@ export function MobileTabNavigator({
         >
           {(props) => (
             <FullPlayerScreen
+              onOpenContent={(request) => {
+                openFullPlayerContent(props.navigation, request);
+              }}
               onClose={() => {
                 if (props.navigation.canGoBack()) {
                   props.navigation.goBack();
@@ -1778,6 +2021,11 @@ export function MobileTabNavigator({
         <RootStack.Screen
           component={V4vInfoScreen}
           name={ROOT_STACK_ROUTES.V4vInfo}
+          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+        />
+        <RootStack.Screen
+          component={ImageViewerScreen}
+          name={ROOT_STACK_ROUTES.ImageViewer}
           options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
         />
       </RootStack.Navigator>

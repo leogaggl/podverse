@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { PlaybackTransportState } from '../../playback/playbackTransport';
 import {
+  FULL_PLAYER_PLAY_CIRCLE_SIZE,
   FULL_PLAYER_TRANSPORT_ICON_SIZE,
   FULL_PLAYER_TRANSPORT_ROW_HEIGHT,
 } from '../../screens/player/fullPlayerLayout';
@@ -19,9 +20,8 @@ type FullPlayerTransportRowProps = {
   /** When true, previous/next accept a hold that skips the episode (web chapter long-press). */
   hasEpisodeChaptersForTrackButtons: boolean;
   hasNextQueueItem: boolean;
+  /** Music drops the jump controls; shuffle and repeat live in the utility row. */
   isMusicNowPlaying: boolean;
-  isRepeatEnabled: boolean;
-  isShuffleEnabled: boolean;
   onJumpBack: () => void;
   onJumpForward: () => void;
   onPause: (event: GestureResponderEvent) => void;
@@ -31,21 +31,17 @@ type FullPlayerTransportRowProps = {
   onSkipToNextTrack: () => void;
   onSkipToPrevious: () => void;
   onSkipToPreviousTrack: () => void;
-  onToggleRepeat: () => void;
-  onToggleShuffle: () => void;
   state: PlaybackTransportState;
 };
 
 /**
- * Five transport controls in equal-width slots, so the play circle sits on the screen's centerline
- * regardless of how wide the controls beside it are.
+ * Five equal-width slots, so the play circle sits on the screen's centerline regardless of how
+ * wide the controls beside it are. Music leaves the two inner slots empty: previous, play, next.
  */
 export function FullPlayerTransportRow({
   hasEpisodeChaptersForTrackButtons,
   hasNextQueueItem,
   isMusicNowPlaying,
-  isRepeatEnabled,
-  isShuffleEnabled,
   onJumpBack,
   onJumpForward,
   onPause,
@@ -55,8 +51,6 @@ export function FullPlayerTransportRow({
   onSkipToNextTrack,
   onSkipToPrevious,
   onSkipToPreviousTrack,
-  onToggleRepeat,
-  onToggleShuffle,
   state,
 }: FullPlayerTransportRowProps) {
   const { t } = useTranslation();
@@ -123,26 +117,10 @@ export function FullPlayerTransportRow({
         />
       </View>
       <View style={styles.slot}>
-        {isMusicNowPlaying ? (
-          <Button
-            accessibilityLabel={t('media_player.shuffle.toggle_shuffle')}
-            icon={
-              <Ionicons
-                color={iconColor}
-                name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
-                size={FULL_PLAYER_TRANSPORT_ICON_SIZE}
-              />
-            }
-            iconOnly
-            label={t('media_player.shuffle.toggle_shuffle')}
-            onPress={onToggleShuffle}
-            size="lg"
-            testID="full-player-shuffle"
-            variant={isShuffleEnabled ? 'secondary' : 'ghost'}
-          />
-        ) : (
+        {isMusicNowPlaying ? null : (
           <PlayerJumpButton
             direction="back"
+            glyphSize={FULL_PLAYER_TRANSPORT_ICON_SIZE}
             onPress={onJumpBack}
             seconds={FULL_PLAYER_JUMP_BACK_SECONDS}
             showSeconds={false}
@@ -152,6 +130,7 @@ export function FullPlayerTransportRow({
       </View>
       <View style={styles.slot}>
         <PlayerTransportButton
+          circleSize={FULL_PLAYER_PLAY_CIRCLE_SIZE}
           onPause={onPause}
           onPlay={onPlay}
           onErrorPress={onErrorPress}
@@ -161,26 +140,10 @@ export function FullPlayerTransportRow({
         />
       </View>
       <View style={styles.slot}>
-        {isMusicNowPlaying ? (
-          <Button
-            accessibilityLabel={t('media_player.repeat.toggle_repeat')}
-            icon={
-              <Ionicons
-                color={iconColor}
-                name={isRepeatEnabled ? 'repeat' : 'repeat-outline'}
-                size={FULL_PLAYER_TRANSPORT_ICON_SIZE}
-              />
-            }
-            iconOnly
-            label={t('media_player.repeat.toggle_repeat')}
-            onPress={onToggleRepeat}
-            size="lg"
-            testID="full-player-repeat"
-            variant={isRepeatEnabled ? 'secondary' : 'ghost'}
-          />
-        ) : (
+        {isMusicNowPlaying ? null : (
           <PlayerJumpButton
             direction="forward"
+            glyphSize={FULL_PLAYER_TRANSPORT_ICON_SIZE}
             onPress={onJumpForward}
             seconds={FULL_PLAYER_JUMP_FORWARD_SECONDS}
             showSeconds={false}

@@ -17,6 +17,8 @@ type FullPlayerActionRowProps = {
   onOpenV4v: () => void;
   onShare: () => void;
   showBoost: boolean;
+  /** Music cannot be clipped. */
+  showCreateClip: boolean;
   showV4v: boolean;
 };
 
@@ -31,6 +33,7 @@ export function FullPlayerActionRow({
   onOpenV4v,
   onShare,
   showBoost,
+  showCreateClip,
   showV4v,
 }: FullPlayerActionRowProps) {
   const { t } = useTranslation();
@@ -64,12 +67,14 @@ export function FullPlayerActionRow({
               testID="full-player-boost"
             />
           ) : null}
-          <HeaderBarAction
-            accessibilityLabel={t('features.clip.create_clip')}
-            icon="cut-outline"
-            onPress={onCreateClip}
-            testID="full-player-create-clip"
-          />
+          {showCreateClip ? (
+            <HeaderBarAction
+              accessibilityLabel={t('features.clip.create_clip')}
+              icon="cut-outline"
+              onPress={onCreateClip}
+              testID="full-player-create-clip"
+            />
+          ) : null}
           <HeaderBarAction
             accessibilityLabel={t('features.playlist.add_to_playlist')}
             disabled={disableAddToPlaylist}

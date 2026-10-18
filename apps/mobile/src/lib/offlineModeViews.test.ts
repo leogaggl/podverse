@@ -56,5 +56,6 @@ describe('offlineModeViews', () => {
     expect(isEpisodeTabNetworkBody('soundbites')).toBe(true);
     expect(isEpisodeTabNetworkBody('transcript')).toBe(true);
     expect(isEpisodeTabNetworkBody('funding')).toBe(false);
+    expect(isEpisodeTabNetworkBody('people')).toBe(false);
   });
 });

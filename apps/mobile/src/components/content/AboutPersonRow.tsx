@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking } from 'react-native';
 
+import { LIST_ROW_ARTWORK_SIZE } from '../../theme/screenLayout';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { CoverImage, ListRow } from '../primitives';
@@ -14,8 +15,8 @@ type AboutPersonRowProps = {
 
 const createStyles = (_theme: ThemedStylesTheme) => ({
   personImage: {
-    height: 48,
-    width: 48,
+    height: LIST_ROW_ARTWORK_SIZE,
+    width: LIST_ROW_ARTWORK_SIZE,
   },
 });
 

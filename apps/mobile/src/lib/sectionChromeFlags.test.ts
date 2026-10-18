@@ -34,8 +34,14 @@ describe('parseChannelSectionChromeFlags', () => {
       hasBoosts: false,
       hasFunding: false,
       hasOfficialClips: true,
+      hasPeople: false,
       hasPodroll: false,
     });
+  });
+
+  it('reads people only when the flag is explicit true', () => {
+    expect(parseChannelSectionChromeFlags({ hasPeople: true }).hasPeople).toBe(true);
+    expect(parseChannelSectionChromeFlags({ hasPeople: 'yes' }).hasPeople).toBe(false);
   });
 });
 
@@ -49,6 +55,7 @@ describe('parseItemSectionChromeFlags', () => {
     ).toEqual({
       hasChapters: true,
       hasFunding: false,
+      hasPeople: false,
       hasSoundbites: false,
       hasTranscript: true,
     });
@@ -59,7 +66,13 @@ describe('mergeChannelSectionChromeFlags', () => {
   it('keeps unspecified flags and applies the patch', () => {
     expect(
       mergeChannelSectionChromeFlags(
-        { hasBoosts: false, hasFunding: false, hasOfficialClips: true, hasPodroll: false },
+        {
+          hasBoosts: false,
+          hasFunding: false,
+          hasOfficialClips: true,
+          hasPeople: false,
+          hasPodroll: false,
+        },
         {
           hasPodroll: true,
         }
@@ -68,6 +81,7 @@ describe('mergeChannelSectionChromeFlags', () => {
       hasBoosts: false,
       hasFunding: false,
       hasOfficialClips: true,
+      hasPeople: false,
       hasPodroll: true,
     });
   });
@@ -87,6 +101,7 @@ describe('section chrome memory', () => {
       hasBoosts: false,
       hasFunding: false,
       hasOfficialClips: true,
+      hasPeople: false,
       hasPodroll: true,
     });
     expect(getCachedChannelSectionFlags('missing')).toBeNull();
