@@ -42,3 +42,15 @@
   settings text rows) use the same vertical padding on the top and bottom. Cover art on Browse,
   Home, and the other lists that share those rows has equal space above and below.
 - Who notices: anyone looking at a list row with a cover image
+
+## Mobile membership after a store purchase
+
+- Surfaces: mobile
+- Change: a store purchase that was recorded without extending membership says so and offers
+  View Membership, instead of the "extended by 1 month" card. A purchase that did extend
+  membership writes the purchase response's expiry onto the account immediately, and Membership
+  reloads that standing from the primary billing status when the screen is shown. Membership
+  opened from elsewhere keeps the More menu underneath it, so Back and a second press of the
+  More tab return to that menu. The success card also has View Membership.
+- Who notices: anyone who buys or restores a membership in the app, including an Apple sandbox
+  purchase on a deployment that records the charge without granting Premium

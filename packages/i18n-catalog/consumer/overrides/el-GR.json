@@ -1056,6 +1056,7 @@
     "paypal_unavailable": "",
     "complete_test_purchase": "",
     "purchase_failed": "",
+    "purchase_not_applied": "",
     "plan_unavailable": "",
     "success_waiting": "",
     "success_active": "",
@@ -1065,6 +1066,7 @@
     "success_extended_year_length": "",
     "success_active_expires": "",
     "success_opening_membership": "",
+    "view_membership": "",
     "success_timeout": ""
   },
   "layouts": {

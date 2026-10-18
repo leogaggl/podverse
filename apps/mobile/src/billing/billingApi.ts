@@ -8,6 +8,13 @@ import type { ApiRequestService } from '@podverse/helpers-requests';
 
 import type { AuthRequestDeps } from '../auth/authRequestWithRefresh';
 import { requestWithMobileAuthRefresh } from '../auth/authRequestWithRefresh';
+import type { StorePurchasePostResult } from './settleStorePurchase';
+
+/** Test-processor result. `status` is present when the API returned billing standing. */
+export type BillingSimulationPostResult = {
+  outcome: { status: string };
+  status?: DTOBillingStatus;
+};
 
 export type BillingApi = {
   getStatus: (platform?: BillingPlatform) => Promise<{ billing_customer_ref: string }>;
@@ -24,11 +31,11 @@ export type BillingApi = {
     transactionId: string;
     productId: string;
     signedTransaction: string | null;
-  }) => Promise<{ confirmed: boolean }>;
+  }) => Promise<StorePurchasePostResult>;
   postGooglePurchase: (params: {
     purchaseToken: string;
     productId: string;
-  }) => Promise<{ confirmed: boolean }>;
+  }) => Promise<StorePurchasePostResult>;
   restore: (params: {
     processor: 'apple' | 'google_play';
     purchases: Array<{
@@ -36,12 +43,12 @@ export type BillingApi = {
       externalProductId: string;
       signedTransaction?: string | null;
     }>;
-  }) => Promise<{ confirmed: boolean }>;
+  }) => Promise<StorePurchasePostResult>;
   simulatePayment: (params: {
     cadence: 'annual' | 'monthly';
     externalProductId: string | null;
     externalTransactionId: string;
-  }) => Promise<{ outcome: { status: string } }>;
+  }) => Promise<BillingSimulationPostResult>;
 };
 
 /** External product ids offered by one processor in a checkout-options payload. */

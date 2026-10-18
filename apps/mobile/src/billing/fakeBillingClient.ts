@@ -8,6 +8,11 @@ import type {
 import { BillingAccountTokenError, billingPurchaseOutcome } from './BillingClient';
 import { billingErrorCode } from './billingGuards';
 import { bindAccountToken } from './bindAccountToken';
+import {
+  isBillingOutcomeStatus,
+  membershipGrantedFromOutcomes,
+  preferPurchaseOutcome,
+} from './purchaseStanding';
 
 /** Storefront the fake client reports so checkout-options queries stay deterministic. */
 export const FAKE_BILLING_STOREFRONT = 'US';
@@ -54,11 +59,19 @@ export const createFakeBillingClient = (api: BillingApi): BillingClient => {
         externalProductId: purchase.product.productId,
         externalTransactionId: purchase.externalTransactionId,
       });
+      const outcomes = isBillingOutcomeStatus(result.outcome.status)
+        ? [{ error_code: null, status: result.outcome.status }]
+        : undefined;
       if (result.outcome.status === 'failed') {
         return billingPurchaseOutcome(
           'unconfirmed',
           purchase.product.productId,
-          purchase.externalTransactionId
+          purchase.externalTransactionId,
+          null,
+          {
+            billingStatus: result.status ?? null,
+            membershipGranted: membershipGrantedFromOutcomes(outcomes),
+          }
         );
       }
       const index = pending.indexOf(purchase);
@@ -68,7 +81,12 @@ export const createFakeBillingClient = (api: BillingApi): BillingClient => {
       return billingPurchaseOutcome(
         'confirmed',
         purchase.product.productId,
-        purchase.externalTransactionId
+        purchase.externalTransactionId,
+        null,
+        {
+          billingStatus: result.status ?? null,
+          membershipGranted: membershipGrantedFromOutcomes(outcomes),
+        }
       );
     } catch (error) {
       return billingPurchaseOutcome(
@@ -99,14 +117,11 @@ export const createFakeBillingClient = (api: BillingApi): BillingClient => {
     if (pending.length === 0) {
       return billingPurchaseOutcome('confirmed');
     }
-    let outcome = billingPurchaseOutcome('confirmed');
+    let outcome: BillingPurchaseOutcome | null = null;
     for (const entry of [...pending]) {
-      const next = await confirm(entry);
-      if (next.phase === 'failed' || next.phase === 'unconfirmed') {
-        outcome = next;
-      }
+      outcome = preferPurchaseOutcome(outcome, await confirm(entry));
     }
-    return outcome;
+    return outcome ?? billingPurchaseOutcome('confirmed');
   };
 
   return {

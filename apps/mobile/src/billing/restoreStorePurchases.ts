@@ -1,6 +1,10 @@
+import type { DTOBillingStatus } from '@podverse/helpers';
+
 import type { BillingPurchaseOutcome } from './BillingClient';
 import { billingPurchaseOutcome } from './BillingClient';
 import { billingErrorCode } from './billingGuards';
+import { membershipGrantedFromOutcomes } from './purchaseStanding';
+import type { StorePurchasePostResult } from './settleStorePurchase';
 
 /** `POST /billing/restore` accepts at most this many purchases per request. */
 export const BILLING_RESTORE_BATCH_SIZE = 50;
@@ -41,7 +45,7 @@ export const restoreStorePurchases = async (params: {
       externalProductId: string;
       signedTransaction?: string | null;
     }>
-  ) => Promise<{ confirmed: boolean }>;
+  ) => Promise<StorePurchasePostResult>;
 }): Promise<BillingPurchaseOutcome> => {
   if (params.records.length === 0) {
     return billingPurchaseOutcome(params.pendingCount > 0 ? 'waiting' : 'confirmed');
@@ -50,6 +54,8 @@ export const restoreStorePurchases = async (params: {
   const batchSize = params.batchSize ?? BILLING_RESTORE_BATCH_SIZE;
   let phase: BillingPurchaseOutcome['phase'] = 'confirmed';
   let errorCode: string | null = null;
+  let billingStatus: DTOBillingStatus | null = null;
+  let membershipGranted: boolean | null = null;
 
   for (let index = 0; index < params.records.length; index += batchSize) {
     const batch = params.records.slice(index, index + batchSize);
@@ -63,6 +69,15 @@ export const restoreStorePurchases = async (params: {
             : {}),
         }))
       );
+      if (result.status !== undefined) {
+        billingStatus = result.status;
+      }
+      const granted = membershipGrantedFromOutcomes(result.outcomes);
+      if (granted === false) {
+        membershipGranted = false;
+      } else if (granted === true && membershipGranted !== false) {
+        membershipGranted = true;
+      }
       if (result.confirmed !== true) {
         phase = worsePhase(phase, 'unconfirmed');
         continue;
@@ -80,5 +95,8 @@ export const restoreStorePurchases = async (params: {
     phase = worsePhase(phase, 'waiting');
   }
 
-  return billingPurchaseOutcome(phase, null, null, errorCode);
+  return billingPurchaseOutcome(phase, null, null, errorCode, {
+    billingStatus,
+    membershipGranted,
+  });
 };

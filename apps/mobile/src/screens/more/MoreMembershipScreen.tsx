@@ -19,6 +19,7 @@ import { MobileScreenContainer } from '../../components/screen/MobileScreenConta
 import { SectionHeading } from '../../components/section/SectionHeading';
 import { openCheckout } from '../../membership/checkoutEntry';
 import { useMembership } from '../../membership/useMembership';
+import { useMembershipStandingRefresh } from '../../membership/useMembershipStandingRefresh';
 import type { MoreStackParamList } from '../../navigation';
 import { MORE_STACK_ROUTES } from '../../navigation';
 import { typography } from '../../theme/typography';
@@ -42,6 +43,7 @@ export function MoreMembershipScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const { styles: themeStyles, tokens } = useTheme();
   const { expiresAt, isExpired, isLoggedIn, isMember, tier } = useMembership();
+  useMembershipStandingRefresh();
   const [pricing, setPricing] = useState<MembershipPricing | null>(null);
   const [trialSheetVisible, setTrialSheetVisible] = useState(false);
   const showsStatus =

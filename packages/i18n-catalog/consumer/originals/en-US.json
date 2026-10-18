@@ -1054,6 +1054,7 @@
     "complete_purchase": "Complete Purchase",
     "complete_test_purchase": "Complete Test Purchase",
     "purchase_failed": "The purchase could not be completed. Try again.",
+    "purchase_not_applied": "The store recorded this purchase, but this membership was not extended.",
     "plan_unavailable": "This plan is not available.",
     "purchase_unavailable": "Memberships can't be purchased here right now. Your current membership and its expiration date stay the same.",
     "disabled_message": "Checkout page is disabled.",
@@ -1065,6 +1066,7 @@
     "success_extended_year_length": "Your Premium purchase is complete. Membership was extended by 1 year.",
     "success_active_expires": "Your Premium purchase is complete. It now expires on {date}.",
     "success_opening_membership": "Opening the Membership page.",
+    "view_membership": "View Membership",
     "success_timeout": "The membership is not confirmed yet. Contact support if it does not appear soon."
   },
   "layouts": {
