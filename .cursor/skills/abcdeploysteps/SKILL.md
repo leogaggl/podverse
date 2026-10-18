@@ -144,6 +144,20 @@ Name the cwd in bold before each fence. Use **Root** and **Mobile** from
 `.vscode/terminals.json` for Podverse commands. GitOps commands are a terminal whose cwd is the
 `k.podcastdj.com` repo root. There is no GitOps tab.
 
+### Step numbers
+
+Label every operator step `<number><letter>`: `1a`, `1b`, `2a`, `3a`, `3b`, `3c`.
+
+The number is one terminal. Letters in that number run there, in order. Do not paste `1b` into a
+different terminal, and do not paste it until `1a` in that terminal has finished.
+
+A different number is a different terminal. It can run beside the others when the start condition
+on its first letter says so. Put that start condition on the first letter (`2a` starts when `1b`
+prints the Linux `node_modules` line).
+
+The recipes below use `1.` `2.` `3.` as content order. Those are not the labels in the file or the
+reply. Translate them into `1a`, `1b`, `2a`, and so on when writing the checklist.
+
 Commands run from the Podverse repo root or the GitOps repo root. Prefer `make mobile_eas_*`.
 Publish has no Make target; use `scripts/publish/`. Do not invent a wrapper.
 
@@ -164,7 +178,7 @@ Commits: <range>
 <which terminals run at the same time>
 
 ## Steps
-<numbered, cwd on each step>
+<1a, 1b, 2a, 3a, 3b. Same number is one terminal, in letter order. A different number is a separate terminal.>
 ```
 
 ### Lanes that may run at the same time

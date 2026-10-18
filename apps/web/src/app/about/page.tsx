@@ -10,6 +10,10 @@ export async function generateMetadata() {
   return getCuratedStaticPageMetadata('about');
 }
 
+/**
+ * The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.The About page.
+ */
+
 export default async function AboutPage() {
   const t = await getTranslations('about');
 

@@ -23,7 +23,9 @@ mkdir -p "$HOOKS_DIR"
 
 git -C "$REPO_ROOT" config commit.template .gitmessage
 
-# Pre-commit formatting was removed; drop any legacy hook so commits are not blocked.
+# No pre-commit hook. `npm run lint:changed` checks the working tree on demand.
+# Rewriting staged and unstaged files from a hook would stage edits that were
+# left out of the commit, or block the commit when a fix cannot be applied.
 rm -f "$HOOKS_DIR/pre-commit"
 
 cp "$SCRIPT_DIR/pre-push" "$HOOKS_DIR/pre-push"
