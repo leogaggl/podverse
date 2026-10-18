@@ -21,6 +21,9 @@ type MiniPlayerProps = {
   onExpand: () => void;
 };
 
+/** Channel title ink paints 1pt above its layout slot. Both titles keep their layout positions. */
+const MINI_PLAYER_CHANNEL_TITLE_NUDGE = -2;
+
 /**
  * Mini player fixed above the tab bar. Session chrome only — progress fill and chapter artwork live
  * in leaf components so the shell does not re-render on every playhead tick.
@@ -61,6 +64,7 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
           ...typography.body,
           color: tokens.text.link,
           fontWeight: '600',
+          transform: [{ translateY: MINI_PLAYER_CHANNEL_TITLE_NUDGE }],
         },
         textColumn: {
           flex: 1,
