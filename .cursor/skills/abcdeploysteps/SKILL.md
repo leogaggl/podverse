@@ -158,6 +158,18 @@ prints the Linux `node_modules` line).
 The recipes below use `1.` `2.` `3.` as content order. Those are not the labels in the file or the
 reply. Translate them into `1a`, `1b`, `2a`, and so on when writing the checklist.
 
+When a step has a command and a prompt/answer table, the command fence comes first and the table
+follows it.
+
+When a later step must wait for auto-sync, a workflow, or any other background finish, the step
+in front of it is a command that blocks until that condition is true and exits 0. The operator
+runs the next command only after that one returns. Do not write "after it is healthy" without
+that command. A timeout means stop.
+
+For this cluster, run that wait from the `k.podcastdj.com` repo root so `git rev-parse HEAD` is
+the pin commit. The first wait returns when each named Argo app is synced to that commit. The
+next wait returns when those apps are Healthy.
+
 Commands run from the Podverse repo root or the GitOps repo root. Prefer `make mobile_eas_*`.
 Publish has no Make target; use `scripts/publish/`. Do not invent a wrapper.
 
@@ -277,7 +289,17 @@ kubectl config current-context
 kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
 ```
 
-After `db` and `ops` are healthy:
+From the `k.podcastdj.com` repo root, after the pin is pushed. This returns when `db` and `ops`
+are synced to that commit. Then the next command returns when they are Healthy. Run the bootstrap
+job only after both return.
+
+```bash
+kubectl wait -n argocd application/podverse-alpha-db application/podverse-alpha-ops --for=jsonpath='{.status.sync.revision}'="$(git rev-parse HEAD)" --timeout=20m
+```
+
+```bash
+kubectl wait -n argocd application/podverse-alpha-db application/podverse-alpha-ops --for=jsonpath='{.status.health.status}'=Healthy --timeout=20m
+```
 
 ```bash
 kubectl -n podverse-alpha create job --from=cronjob/ops-db-verify-bootstrap-contract ops-db-verify-bootstrap-contract-manual
@@ -286,6 +308,16 @@ kubectl -n podverse-alpha logs -f job/ops-db-verify-bootstrap-contract-manual
 
 Expect `Bootstrap contract verification passed for app and management databases.` If it fails,
 the deploy is not done. Do not delete the PVC as the next step.
+
+Before smoke, the same pair of waits for the public apps. Run the curls only after both return.
+
+```bash
+kubectl wait -n argocd application/podverse-alpha-api application/podverse-alpha-management-api application/podverse-alpha-web application/podverse-alpha-management-web --for=jsonpath='{.status.sync.revision}'="$(git rev-parse HEAD)" --timeout=20m
+```
+
+```bash
+kubectl wait -n argocd application/podverse-alpha-api application/podverse-alpha-management-api application/podverse-alpha-web application/podverse-alpha-management-web --for=jsonpath='{.status.health.status}'=Healthy --timeout=20m
+```
 
 Smoke:
 
@@ -299,7 +331,8 @@ curl -fsS -o /dev/null -w '%{http_code}\n' https://management-api.alpha.podcastd
 ### Mobile steps (only if mobile changed)
 
 Profile stays `beta`. Copy the current prompt-answer table from
-**mobile-store-builds-on-demand** into the file next to these steps. One command per fence.
+**mobile-store-builds-on-demand** into the file after that step's command fence. The command
+comes first. One command per fence.
 Answers that stay the same: start the build with `y`; encryption `Y` when asked; decline
 `expo-updates`; do not log in to Apple when remote credentials are already in use; do not
 generate a new certificate, profile, or keystore.
