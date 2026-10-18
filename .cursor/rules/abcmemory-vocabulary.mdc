@@ -42,9 +42,11 @@ append those entries during normal work (**release-notes-scratchpad**).
 
 ## abcdeploysteps
 
-When the operator says **abcdeploysteps**, the next word is the environment: `alpha`, `beta`, or
-`production`. Do not guess it. Follow `.cursor/skills/abcdeploysteps/SKILL.md`. Only alpha is in
-use. Alpha means `alpha.podcastdj.com` and Podverse Next.
+When the operator says **abcdeploysteps**, the next two words are the repo and the environment:
+`abcdeploysteps podverse alpha`, `abcdeploysteps metaboost beta`. Do not guess either word. This
+repo's skill applies only when the repo word is `podverse`. Follow
+`.cursor/skills/abcdeploysteps/SKILL.md`. Only alpha is in use. Alpha means `alpha.podcastdj.com`
+and Podverse Next.
 
 ## legacy app
 

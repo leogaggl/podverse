@@ -1,6 +1,6 @@
 ---
 name: abcdeploysteps
-description: When the operator says abcdeploysteps plus an environment (alpha, beta, or production), check deploy blockers and, if alpha is clear and there is something to ship, write a local step-by-step deploy checklist. Use only for that keyword.
+description: When the operator says abcdeploysteps plus a repo and an environment (abcdeploysteps podverse alpha), check deploy blockers and, if alpha is clear and there is something to ship, write a local step-by-step deploy checklist. Use only for that keyword, and only when the repo word is podverse.
 ---
 
 # abcdeploysteps
@@ -8,18 +8,20 @@ description: When the operator says abcdeploysteps plus an environment (alpha, b
 The operator is asking for a deploy checklist, not for the agent to deploy. Investigate, warn,
 and write the steps. Do not run publish, push, EAS, Argo, or kubectl apply.
 
-## The environment word is required
+## The repo and the environment are required
 
-`abcdeploysteps` alone is incomplete. The next word is the environment:
+`abcdeploysteps` is three words. The second word is the repo. The third word is the environment.
 
-- `abcdeploysteps alpha`
-- `abcdeploysteps beta`
-- `abcdeploysteps production`
+- `abcdeploysteps podverse alpha`
+- `abcdeploysteps podverse beta`
+- `abcdeploysteps podverse production`
 
-If that word is missing, ask for it and stop. Do not assume alpha.
+This skill applies only when the repo word is `podverse`. `abcdeploysteps metaboost …` belongs to
+the Metaboost repo's skill. Do not write a Podverse checklist for it, and do not add Metaboost
+steps here.
 
-This skill deploys **Podverse**. A Metaboost deploy uses the Metaboost repo's own
-**abcdeploysteps** skill. Do not add Metaboost steps here unless the operator names Metaboost.
+If the repo word or the environment word is missing, ask for both and stop. Do not infer the repo
+from the open workspace. Do not assume alpha.
 
 ## What the names mean right now
 
@@ -64,7 +66,7 @@ its last deploy. Otherwise say why and stop. Do not write a partial file that sk
   or prompt. List the paths. Commit or stash is the operator's step. Stop so the checklist is not
   written against unknown files.
 - `release-notes/scratchpad.md` is missing or not empty. Tell the operator to run
-  **abcreleasenotes**, commit that on `develop`, then say `abcdeploysteps alpha` again.
+  **abcreleasenotes**, commit that on `develop`, then say `abcdeploysteps podverse alpha` again.
 - `release-notes/<X.Y.Z>.md` is missing or empty for the root `package.json` version. The staging
   sync refuses. Same for `release-notes/mobile/<X.Y.Z>.md` when mobile will build.
 - `staging` is not a fast-forward ancestor of `develop`. Do not suggest a force push.
@@ -148,7 +150,7 @@ Publish has no Make target; use `scripts/publish/`. Do not invent a wrapper.
 ### File shape
 
 ```text
-# abcdeploysteps alpha — podverse — <local time>
+# abcdeploysteps podverse alpha — <local time>
 
 Clear to deploy.
 Server: <pinned tag> -> next staging tag of <X.Y.Z>
