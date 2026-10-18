@@ -18,8 +18,9 @@ import {
   DescriptionList,
   FormContinuationSection,
   FormDropdown,
-  FormGroup,
   FormHintText,
+  FormPrimaryActions,
+  FormStack,
   FormTextArea,
   LeadParagraph,
   LookupFieldGrid,
@@ -28,7 +29,6 @@ import {
   lookupFieldGridFormBlockClass,
   ManagementPageShell,
   Modal,
-  ModalActions,
   MutedBreakableText,
   PageSection,
   ResourceTableWithFilter,
@@ -959,7 +959,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                   <FormContinuationSection>
                     <SectionHeading level={4}>{t('newValuesHeading')}</SectionHeading>
                     <div className={lookupFieldGridFormBlockClass}>
-                      <FormGroup>
+                      <FormStack>
                         <FormDropdown
                           id="feed-apply-lifecycle"
                           eyebrow={t('labelLifecycleRequired')}
@@ -969,9 +969,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                             setLifecycleStateKey(v);
                           }}
                         />
-                      </FormGroup>
 
-                      <FormGroup>
                         <CheckboxFieldList eyebrow={t('labelActiveConditions')}>
                           {options.condition_types.map((c) => (
                             <CheckboxField
@@ -987,10 +985,8 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                             />
                           ))}
                         </CheckboxFieldList>
-                      </FormGroup>
 
-                      {lifecycleStateKey === LIFECYCLE_TAKEDOWN_KEY && (
-                        <FormGroup>
+                        {lifecycleStateKey === LIFECYCLE_TAKEDOWN_KEY ? (
                           <FormDropdown
                             id="feed-apply-takedown-reason"
                             eyebrow={t('labelTakedownReasonOptional')}
@@ -1000,52 +996,74 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                               setTakedownReasonKey(v);
                             }}
                           />
-                        </FormGroup>
-                      )}
+                        ) : null}
 
-                      <FormTextArea
-                        eyebrow={t('labelTransitionNote')}
-                        maxLength={10000}
-                        name="transition-note"
-                        placeholder={t('transitionNotePlaceholder')}
-                        rows={3}
-                        value={transitionNote}
-                        onChange={(e) => setTransitionNote(e.target.value)}
-                      />
+                        <FormTextArea
+                          eyebrow={t('labelTransitionNote')}
+                          maxLength={10000}
+                          name="transition-note"
+                          placeholder={t('transitionNotePlaceholder')}
+                          rows={3}
+                          value={transitionNote}
+                          onChange={(e) => setTransitionNote(e.target.value)}
+                        />
 
-                      <FormTextArea
-                        eyebrow={t('labelConditionNote')}
-                        maxLength={10000}
-                        name="condition-note"
-                        placeholder={t('conditionNotePlaceholder')}
-                        rows={3}
-                        value={conditionNote}
-                        onChange={(e) => setConditionNote(e.target.value)}
-                      />
+                        <FormTextArea
+                          eyebrow={t('labelConditionNote')}
+                          maxLength={10000}
+                          name="condition-note"
+                          placeholder={t('conditionNotePlaceholder')}
+                          rows={3}
+                          value={conditionNote}
+                          onChange={(e) => setConditionNote(e.target.value)}
+                        />
 
-                      <TextInput
-                        eyebrow={t('labelSpamOverride')}
-                        info={t('spamOverrideHint')}
-                        min={1}
-                        name="spam-item-limit-override"
-                        placeholder={t('spamOverridePlaceholder')}
-                        step={1}
-                        type="number"
-                        value={spamItemLimitOverrideInput}
-                        onChange={(e) => setSpamItemLimitOverrideInput(e.target.value)}
-                      />
-                      <TextInput
-                        eyebrow={t('labelMaxResponseBytesOverride')}
-                        min={1}
-                        name="max-response-body-bytes-override"
-                        placeholder={t('maxResponseBytesOverridePlaceholder')}
-                        step={1}
-                        type="number"
-                        value={maxResponseBodyBytesOverrideInput}
-                        onChange={(e) => setMaxResponseBodyBytesOverrideInput(e.target.value)}
-                      />
-                      {applyError && <Alert variant="error">{applyError}</Alert>}
-                      {applyMessage && <Alert variant="default">{applyMessage}</Alert>}
+                        <TextInput
+                          eyebrow={t('labelSpamOverride')}
+                          info={t('spamOverrideHint')}
+                          min={1}
+                          name="spam-item-limit-override"
+                          placeholder={t('spamOverridePlaceholder')}
+                          step={1}
+                          type="number"
+                          value={spamItemLimitOverrideInput}
+                          onChange={(e) => setSpamItemLimitOverrideInput(e.target.value)}
+                        />
+                        <TextInput
+                          eyebrow={t('labelMaxResponseBytesOverride')}
+                          min={1}
+                          name="max-response-body-bytes-override"
+                          placeholder={t('maxResponseBytesOverridePlaceholder')}
+                          step={1}
+                          type="number"
+                          value={maxResponseBodyBytesOverrideInput}
+                          onChange={(e) => setMaxResponseBodyBytesOverrideInput(e.target.value)}
+                        />
+                        {applyError ? <Alert variant="error">{applyError}</Alert> : null}
+                        {applyMessage ? <Alert variant="default">{applyMessage}</Alert> : null}
+
+                        {!confirmOpen ? (
+                          <div>
+                            <FormPrimaryActions>
+                              <Button
+                                disabled={applyLoading}
+                                onClick={handleClickApply}
+                                type="button"
+                                variant="primary"
+                              >
+                                {applyLoading
+                                  ? t('confirmApplying')
+                                  : needsConfirm
+                                    ? t('continueToConfirm')
+                                    : t('applyButton')}
+                              </Button>
+                            </FormPrimaryActions>
+                            {needsConfirm ? (
+                              <FormHintText variant="block">{t('confirmHint')}</FormHintText>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </FormStack>
 
                       <Modal
                         ariaLabel={t('confirmDialogAria')}
@@ -1055,49 +1073,31 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                           setConfirmOpen(false);
                         }}
                       >
-                        <p>{t('confirmDialogBody')}</p>
-                        <ModalActions>
-                          <Button
-                            type="button"
-                            onClick={() => {
-                              setConfirmOpen(false);
-                            }}
-                            variant="secondary"
-                          >
-                            {tc('cancel')}
-                          </Button>
-                          <Button
-                            type="button"
-                            disabled={applyLoading}
-                            onClick={() => {
-                              void runApply();
-                            }}
-                            variant="primary"
-                          >
-                            {applyLoading ? t('confirmApplying') : tc('confirm')}
-                          </Button>
-                        </ModalActions>
+                        <Modal.Body>
+                          <p>{t('confirmDialogBody')}</p>
+                          <Modal.Actions>
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                setConfirmOpen(false);
+                              }}
+                              variant="secondary"
+                            >
+                              {tc('cancel')}
+                            </Button>
+                            <Button
+                              type="button"
+                              disabled={applyLoading}
+                              onClick={() => {
+                                void runApply();
+                              }}
+                              variant="primary"
+                            >
+                              {applyLoading ? t('confirmApplying') : tc('confirm')}
+                            </Button>
+                          </Modal.Actions>
+                        </Modal.Body>
                       </Modal>
-
-                      {!confirmOpen && (
-                        <>
-                          <Button
-                            disabled={applyLoading}
-                            onClick={handleClickApply}
-                            type="button"
-                            variant="primary"
-                          >
-                            {applyLoading
-                              ? t('confirmApplying')
-                              : needsConfirm
-                                ? t('continueToConfirm')
-                                : t('applyButton')}
-                          </Button>
-                          {needsConfirm && (
-                            <FormHintText variant="block">{t('confirmHint')}</FormHintText>
-                          )}
-                        </>
-                      )}
                     </div>
                   </FormContinuationSection>
                 )}

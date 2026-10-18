@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import React, { useState } from 'react';
 
-import { Button, Modal, ModalActions, TextInput } from '@podverse/ui';
+import { Button, Modal, TextInput } from '@podverse/ui';
 
 import { useAccount } from '../../../../contexts/Account';
 import { getApiRequestService } from '../../../../factories/apiRequestService';
@@ -109,7 +109,7 @@ export const ModalDeleteAccount: React.FC<ModalDeleteAccountProps> = ({
       header={tSettings('account.delete_account_modal.title')}
       ariaLabel={tSettings('account.delete_account_modal.title')}
     >
-      <div className={styles.content}>
+      <Modal.Body>
         <p className={styles.message}>{tSettings('account.delete_account_modal.message')}</p>
         <TextInput
           type="email"
@@ -123,7 +123,7 @@ export const ModalDeleteAccount: React.FC<ModalDeleteAccountProps> = ({
           aria-invalid={!!errorMessageToShow}
           autoFocus
         />
-        <ModalActions>
+        <Modal.Actions>
           <Button type="button" onClick={handleClose} variant="secondary" disabled={isSubmitting}>
             {tMisc('cancel')}
           </Button>
@@ -135,8 +135,8 @@ export const ModalDeleteAccount: React.FC<ModalDeleteAccountProps> = ({
           >
             {tSettings('account.delete_account')}
           </Button>
-        </ModalActions>
-      </div>
+        </Modal.Actions>
+      </Modal.Body>
     </Modal>
   );
 };

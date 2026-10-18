@@ -7,7 +7,7 @@ export type StackFormProps = FormHTMLAttributes<HTMLFormElement>;
 
 /**
  * Native `<form>` with the same vertical spacing as {@link FormStack}
- * (flex column, `--spacing-3xl` gap between direct children).
+ * (flex column, `--form-gap` between direct children).
  */
 export function StackForm({ children, className, ...rest }: StackFormProps) {
   return (

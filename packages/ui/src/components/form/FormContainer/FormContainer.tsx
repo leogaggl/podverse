@@ -8,7 +8,7 @@ export type FormContainerProps = FormHTMLAttributes<HTMLFormElement>;
 /**
  * `<form>` constrained to **`max-width: var(--form-max-width-md)`** — no flex column or vertical **`gap`** on
  * the root. Use {@link StackForm} (often inside {@link FormMaxWidth}) when fields should share the standard
- * **`--spacing-3xl`** stack rhythm.
+ * **`--form-gap`** stack rhythm.
  */
 export function FormContainer({ children, className, ...rest }: FormContainerProps) {
   return (

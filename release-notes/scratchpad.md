@@ -25,6 +25,16 @@
   (shown unless a handler hides them); this app still has no handler.
 - Operator steps: new dev client (`npm run mobile:ios` / `mobile:android`). No EAS build in this change.
 
+## Stacked form fields use one even gap
+
+- Surfaces: web, management-web
+- Change: Processor product, account billing, and feed flag forms space each field and the
+  action row with the shared form gap. Add-by-RSS username and password fields, and the change
+  email and delete account dialogs, use that same gap. Fields no longer sit in one tight block
+  with the button on the last field.
+- Who notices: operators on those management forms, and people adding a private feed or changing
+  or deleting an account on web
+
 ## List rows use the same space above and below the artwork
 
 - Surfaces: mobile

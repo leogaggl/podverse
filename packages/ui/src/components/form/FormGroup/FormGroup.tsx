@@ -13,7 +13,11 @@ export type FormGroupProps = {
   layout?: 'default' | 'inStack';
 };
 
-/** Vertical spacing wrapper for a label + control (or related controls) inside a form. */
+/**
+ * Wrapper for one control, or a control plus its hint.
+ * Does not space its children. Peer fields are direct children of {@link StackForm} / {@link FormStack},
+ * which separate them with `--form-gap`.
+ */
 export function FormGroup({ children, className = '', layout = 'default' }: FormGroupProps) {
   return (
     <div

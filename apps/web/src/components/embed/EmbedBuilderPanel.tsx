@@ -540,7 +540,10 @@ export function EmbedBuilderPanel({ initialParams }: EmbedBuilderPanelProps) {
               </div>
             ) : null}
 
-            <div data-testid="embed-builder-border-color-selector">
+            <div
+              className={styles.borderColorFields}
+              data-testid="embed-builder-border-color-selector"
+            >
               <RadioButton
                 className={styles.radioField}
                 eyebrow={tFeatures('embed_border_color_label')}
