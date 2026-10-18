@@ -57,21 +57,15 @@ export const MINI_PLAYER_ARTWORK_SIZE = 56;
 export const MINI_PLAYER_PROGRESS_EDGE_HEIGHT = 2;
 
 /**
- * Extra bottom padding on text-bearing list rows (dp). System fonts leave more empty air above ink
- * inside the line box than below, so equal `paddingVertical` reads top-heavy. Add this to the bottom
- * only — do not put it on every `Text`, grid tiles, or icon-only rows.
- */
-export const LIST_ROW_OPTICAL_BOTTOM_EXTRA = 2;
-
-/**
- * Vertical padding for a text-bearing list row: equal token top, bottom = top + optical extra.
+ * Vertical padding for a text-bearing list row. Top and bottom are the same value so artwork and
+ * text sit in an even band. See even-content-spacing.
  */
 export function listRowVerticalPadding(
-  paddingTop: number
+  padding: number
 ): Pick<ViewStyle, 'paddingTop' | 'paddingBottom'> {
   return {
-    paddingBottom: paddingTop + LIST_ROW_OPTICAL_BOTTOM_EXTRA,
-    paddingTop,
+    paddingBottom: padding,
+    paddingTop: padding,
   };
 }
 

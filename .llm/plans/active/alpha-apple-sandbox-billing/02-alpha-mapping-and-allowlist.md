@@ -34,8 +34,8 @@ Products**. Add two rows:
 
 | Processor | External Product ID | Base Plan ID | Cadence |
 | --- | --- | --- | --- |
-| `apple` | `com.podverse.app.next.premium.onetime.monthly` | empty | Monthly |
-| `apple` | `com.podverse.app.next.premium.onetime.annual` | empty | Annual |
+| `apple` | `com.podverse.app.next.premium.nonrenewing.monthly` | empty | Monthly |
+| `apple` | `com.podverse.app.next.premium.nonrenewing.annual` | empty | Annual |
 
 Both active. Checkout options are cached for up to 60 seconds.
 

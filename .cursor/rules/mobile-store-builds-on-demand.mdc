@@ -13,9 +13,36 @@ build or store submit for `apps/mobile`.
 - Ship store binaries with local Make targets that call [`scripts/mobile/eas-store.sh`](scripts/mobile/eas-store.sh):
   `make mobile_eas_ios_build` / `mobile_eas_android_build`, then the matching `_submit` targets.
 - Keep `EXPO_PUBLIC_*` and signing on EAS (profile → `environment` in [`apps/mobile/eas.json`](apps/mobile/eas.json)).
+- When giving the operator a build or submit, list every prompt that command will ask and the
+  exact answer, then give that one command. Give the next command only after those answers.
+  Read [`scripts/mobile/eas-store.sh`](scripts/mobile/eas-store.sh) for the current prompts.
+  One command per fenced block. A second command in the same paste is read as the answer to
+  `read`, and a blank line is "no", which cancels the build. If a paste already queued the next
+  command, answer the prompt on screen and do not give that command again. If that queued
+  command is a submit for a platform whose build failed, tell them to press Ctrl+C. Submit
+  takes the newest finished build for that platform, which may be an older binary.
+- A store `build` refuses any uncommitted path. Commit or stash first, including edits to this
+  rule made while a build was running. `submit` does not check the working tree.
 - If a GitHub Actions path is added later, use **`workflow_dispatch` only**, behind an approval
   Environment that holds `EXPO_TOKEN`. No `push:` / `pull_request:` triggers for `eas build` or
   `eas submit`.
+
+## Prompt answers
+
+The script asks first, then `eas` may ask more. Answers that stay the same:
+
+| Prompt | Answer |
+| --- | --- |
+| `Start an EAS … cloud build …? [y/N]` | `y` |
+| `iOS app only uses standard/exempt encryption? (Y/n)` | `Y`. HTTPS only. Skipped once `ITSAppUsesNonExemptEncryption: false` is in `app.config.ts` `infoPlist`. EAS cannot write that into the dynamic config; it prints the snippet instead. |
+| `Would you like to install the "expo-updates" package and configure EAS Update now?` | `n`. The `beta` and `production` profiles set a `channel`, so EAS asks this on every build. This app does not use EAS Update. |
+| `Do you want to log in to your Apple account?` | `n` when the line above says it is using remote iOS credentials. Those credentials are already on EAS. Logging in lets EAS generate new ones. |
+| Generate a new iOS certificate, profile, or Android keystore | No. Reuse the credentials already on EAS. A new keystore does not match Play's upload key, and a new iOS profile must still be `com.podverse.app.next`. |
+| `Upload versionCode N to Play as a draft? [y/N]` | `y` only when the `Build:` line above it is the build just made (same commit and versionCode). A queued submit after a failed build prints an older finished build. Press Return, which is no, and cancels. |
+| `Type the versionCode (N) to roll it out:` | The printed versionCode, exactly |
+| `Type the build number (N) to submit to TestFlight:` | The printed build number, exactly |
+
+`eas build --non-interactive` does not answer these. It exits when one is unset, so the script does not pass it. The script's own `[y/N]` stays.
 
 ## Don't
 

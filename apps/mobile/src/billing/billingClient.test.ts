@@ -189,7 +189,9 @@ describe('settleStorePurchase', () => {
     const finish = vi.fn(() => Promise.resolve());
     const post = vi.fn(() => Promise.resolve({ confirmed: true }));
     await expect(settleStorePurchase({ finish, pending: false, post })).resolves.toEqual({
+      billingStatus: null,
       errorCode: null,
+      membershipGranted: null,
       phase: 'confirmed',
     });
     expect(finish).toHaveBeenCalledTimes(1);
@@ -206,6 +208,36 @@ describe('settleStorePurchase', () => {
     await settleStorePurchase({ finish, pending: true, post: pendingPost });
     expect(pendingPost).not.toHaveBeenCalled();
     expect(finish).not.toHaveBeenCalled();
+  });
+
+  it('finishes a recorded sandbox purchase that did not extend membership', async () => {
+    const finish = vi.fn(() => Promise.resolve());
+    const status = {
+      billing_cadence: 'monthly' as const,
+      billing_customer_ref: 'ref',
+      in_grace_period: false,
+      is_entitled: true,
+      membership_expires_at: '2026-02-01T00:00:00.000Z',
+      tier: 'trial' as const,
+    };
+    await expect(
+      settleStorePurchase({
+        finish,
+        pending: false,
+        post: () =>
+          Promise.resolve({
+            confirmed: true,
+            outcomes: [{ error_code: null, status: 'ignored_sandbox' as const }],
+            status,
+          }),
+      })
+    ).resolves.toEqual({
+      billingStatus: status,
+      errorCode: null,
+      membershipGranted: false,
+      phase: 'confirmed',
+    });
+    expect(finish).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the transaction unfinished when finish throws', async () => {

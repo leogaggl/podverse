@@ -66,10 +66,9 @@ is a surface for grouped settings or section chrome, not for a scrolling result 
 
 Internal gaps stay on the screen. Prefer one column **`gap`** for a stack of related controls so
 spaces stay equal by construction (Search: field → chips → list rule all share `spacing.base`).
-**Spacing symmetry:** when two sides of a control should feel like the same relationship (above
-and below chips, around a divider, between paired labels), use the same token — do not mix
-`base` on one side and `md` on the other. Centered empty / loading (`VerticalCenter`,
-`CallToActionSection`, `LoadingSection`) fills leftover height; it does not replace the page gutter.
+Gaps that belong together follow **even-content-spacing**. Centered empty / loading
+(`VerticalCenter`, `CallToActionSection`, `LoadingSection`) fills leftover height; it does not
+replace the page gutter.
 
 ## Search field and chips
 
@@ -114,11 +113,9 @@ section-heading color. Rows that push a screen show a `›`. In-place actions (L
 
 Media and result rows use **`HomeFeedRow`** (or **`ListRow`** when the layout is title/subtitle
 only). Vertical padding uses **`listRowVerticalPadding(tokens.spacing.base)`** from
-`apps/mobile/src/theme/screenLayout.ts`: top is the token, bottom is top plus
-**`LIST_ROW_OPTICAL_BOTTOM_EXTRA`** (2). That extra offsets system-font line-box bias so title ink
-does not read top-heavy — apply on text-bearing row containers only, not every `Text`, grid tiles,
-or icon-only rows. Row artwork is **`LIST_ROW_ARTWORK_SIZE`** (60). Space between title, subtitle,
-and other in-row lines with a column **`gap`** (`spacing.sm`) — not `marginTop` /
+`apps/mobile/src/theme/screenLayout.ts`: the same token above and below the row content. Row
+artwork is **`LIST_ROW_ARTWORK_SIZE`** (60). Space between title, subtitle, and other in-row
+lines with a column **`gap`** (`spacing.sm`) — not `marginTop` /
 `marginBottom` on each line — so a missing subtitle or metadata line adds no leftover space. The
 text stack uses `justifyContent: 'center'` so it stays vertically centered on the artwork. The gap
 between artwork and text is **`listRowArtworkGap(tokens.spacing)`** (`spacing.base`) — same helper
@@ -336,11 +333,14 @@ first CTA look like another paragraph.
   `spacing.base` gap for the decision seams.
 - **`formActionsGap`** (`spacing.lg`) is the gap between the buttons inside the action column.
   Helpers live in `screenLayout.ts`.
-- Form, dialog, and checkout decision buttons use **`Button` `size="form"`**
-  (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold). `FormActions` applies that size. 44pt is the
-  tap floor; an eyebrow field is about 66pt. 52pt sits between them so the label is easy to read
-  and the control is easy to hit. Header, row, and identity-block actions (Subscribe, Share, Play)
-  stay `sm` or the default `md`.
+- Form, dialog, checkout, and other page or section call-to-action buttons use **`Button`
+  `size="form"`** (`FORM_BUTTON_MIN_HEIGHT`, 52pt, 17pt semibold) and are full width.
+  `FormActions` applies that size. A raw `Button` that is the decision on that block does too:
+  membership purchase, add, import and export, account actions, and check-feed. 44pt is the tap
+  floor; an eyebrow field is about 66pt. 52pt sits between them so the label is easy to read and
+  the control is easy to hit. Header, row, banner, and identity-block actions (Subscribe, Share,
+  Play) stay `sm` or the default `md`. Fill empties (`CallToActionSection`, `ListEmpty`,
+  `ListError`) stay `lg`.
 - Do not hug a form button to its label.
 - Do not add a second display heading when the stack title already names the screen.
 - Full-screen Modal variants also use **`ModalSafeArea`**.

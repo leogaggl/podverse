@@ -112,10 +112,13 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
  * - `ghost` — bare icon (More): no border or fill; accent glyph. Matches legacy MoreButton.
  *
  * `sm` is compact inline chrome (Subscribe, banners). `md` is the default labeled control on a
- * display page. `form` is the decision button on a form, dialog, or checkout (`FORM_BUTTON_MIN_HEIGHT`,
- * 17pt semibold) — taller than inline chrome, shorter than an eyebrow field. `lg` is a fill-state
- * call to action. `xl` is the player's play circle (`PLAYER_TRANSPORT_CIRCLE_SIZE`). Header and row
- * actions stay `sm` or `md`.
+ * display page. `form` is the decision button on a form, dialog, checkout, or other page and
+ * section call to action (`FORM_BUTTON_MIN_HEIGHT`, 17pt semibold) — taller than inline chrome,
+ * shorter than an eyebrow field. `FormActions` sets this size. A raw button that is the decision
+ * on that block (Buy Membership, Add Podcast, import and export, account actions) passes
+ * `size="form"` and `fullWidth` too. `lg` is a fill-state call to action. `xl` is the player's
+ * play circle (`PLAYER_TRANSPORT_CIRCLE_SIZE`). Header, row, banner, and identity-block actions
+ * stay `sm` or `md`.
  *
  * `loading` does not change the button's size. The label and icon stay in the layout (hidden) and
  * the spinner is centered over that face, scaled into the content slot. See **button-stable-bounds**.

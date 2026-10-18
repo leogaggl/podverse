@@ -12,7 +12,7 @@
           "locale": "en_US"
         }
       ],
-      "productID": "com.podverse.app.next.premium.onetime.monthly",
+      "productID": "com.podverse.app.next.premium.nonrenewing.monthly",
       "referenceName": "Premium One-Time Monthly",
       "type": "NonRenewingSubscription"
     },
@@ -27,7 +27,7 @@
           "locale": "en_US"
         }
       ],
-      "productID": "com.podverse.app.next.premium.onetime.annual",
+      "productID": "com.podverse.app.next.premium.nonrenewing.annual",
       "referenceName": "Premium One-Time Annual",
       "type": "NonRenewingSubscription"
     }

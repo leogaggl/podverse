@@ -1056,6 +1056,7 @@
     "paypal_unavailable": "PayPal est indisponible pour le moment.",
     "complete_test_purchase": "Terminer l'achat de test",
     "purchase_failed": "L'achat n'a pas pu aboutir. Réessayez.",
+    "purchase_not_applied": "La boutique a enregistré cet achat, mais cet abonnement n'a pas été prolongé.",
     "plan_unavailable": "Cette formule n'est pas disponible.",
     "success_waiting": "Confirmation de votre adhésion.",
     "success_active": "Votre adhésion est active.",
@@ -1065,6 +1066,7 @@
     "success_extended_year_length": "Votre achat Premium est terminé. L'adhésion a été prolongée d'un an.",
     "success_active_expires": "Votre achat Premium est terminé. Elle expire maintenant le {date}.",
     "success_opening_membership": "Ouverture de la page Abonnement.",
+    "view_membership": "Voir l'abonnement",
     "success_timeout": "L'adhésion n'est pas encore confirmée. Contactez le support si elle n'apparaît pas bientôt."
   },
   "layouts": {

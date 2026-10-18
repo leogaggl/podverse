@@ -221,7 +221,7 @@ export function ProfileContentSections({
 
   const listHeader = useMemo(() => {
     if (header === undefined || header === null) {
-      return null;
+      return undefined;
     }
     return <View style={styles.headerSlot}>{header}</View>;
   }, [header, styles.headerSlot]);

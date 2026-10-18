@@ -19,7 +19,7 @@ Save these in home overrides under
 
 ### App and key values
 
-1. Open App Store Connect, then **Apps** -> Podverse app -> **App Information**
+1. Open App Store Connect, then **Apps** -> **Podverse Next** -> **App Information**
 2. Copy **Apple ID** to `APPLE_IAP_APP_APPLE_ID`
 3. Open **Users and Access** -> **Integrations** -> **In-App Purchase**
 4. Copy **Issuer ID** to `APPLE_IAP_ISSUER_ID`
@@ -37,11 +37,23 @@ Set these static values in `billing-apple.env`:
 
 Recommended product IDs:
 
-- `com.podverse.app.next.premium.onetime.monthly`
-- `com.podverse.app.next.premium.onetime.annual`
+- `com.podverse.app.next.premium.nonrenewing.monthly`
+- `com.podverse.app.next.premium.nonrenewing.annual`
 
-Create them under **Monetization** -> **In-App Purchases** -> **Non-Renewing Subscription**.
-Renewing products already in App Store Connect are unused and need no setup.
+Create them on **Podverse Next**, not the old Podverse app:
+
+1. **Apps** -> **Podverse Next** -> sidebar **Monetization** -> **Subscriptions**
+2. Scroll to **Non-Renewing Subscriptions** and click **Manage**. Do not click **Create** under
+   Subscription Groups; that starts an auto-renewable group.
+3. Click **+**, enter a Reference Name and the Product ID, then click **Create**
+4. On the product page, fill **Availability** (all countries), **Price Schedule**,
+   **Display Name and Description** (English (U.S.)), and the **Review Information**
+   screenshot, then click **Save**. Do not click **Add for Review**.
+
+A product with any of those sections empty may not load in sandbox. Saved changes can take up
+to an hour to appear in sandbox. Product ids cannot be changed or reused after creation, even on
+another app in the team. Renewing products already in App Store Connect are unused and need no
+setup.
 
 Persist to `billing-products.env`:
 
@@ -49,12 +61,18 @@ Persist to `billing-products.env`:
 - `BILLING_PRODUCT_APPLE_ONE_TIME_ANNUAL_ID`
 
 Those two ids are the non-renewing products in
-`apps/mobile/storekit/PodverseMembership.storekit`. An empty key stays unmapped, and checkout
-does not offer that cadence.
+`apps/mobile/storekit/PodverseMembership.storekit`. That file is the simulator catalog only;
+App Store Connect never reads it. An empty key stays unmapped, and checkout does not offer that
+cadence.
+
+A deployment with `NODE_ENV` `production` (alpha included) cannot use the seed command, which
+refuses to run there. Map the ids in management web under **Billing** -> **Processor Products**:
+processor `apple`, the product id as **External ID**, **Base Plan** empty, and the matching
+**Cadence**. Until both rows exist, iOS checkout shows "This plan is not available."
 
 ## Register sandbox ASN URL
 
-1. App Store Connect -> Podverse app -> **App Information**
+1. App Store Connect -> **Podverse Next** -> **App Information**
 2. Open **App Store Server Notifications**
 3. Set **Sandbox Server URL** to `<base>/api/v2/billing/webhooks/apple`
 4. Ensure **Version 2** is selected

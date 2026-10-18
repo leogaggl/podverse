@@ -2,7 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 
 import type { QueryParamsPodcastIndexSearchMedium, SearchPodcastsFeed } from '@podverse/helpers';
@@ -92,7 +92,7 @@ export function SearchScreen({ navigation, route }: SearchScreenProps) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [resolvingFeedId, setResolvingFeedId] = useState<string | null>(null);
-  const inputRef = useRef<TextInput | null>(null);
+  const inputRef = useRef<TextInputInstance | null>(null);
   const searchRequestIdRef = useRef(0);
 
   const wantsAutoFocus = route.params?.autoFocus === true;

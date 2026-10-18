@@ -11,6 +11,7 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import {
+  CommonActions,
   createNavigationContainerRef,
   getPathFromState as getDefaultPathFromState,
   NavigationContainer,
@@ -105,6 +106,7 @@ import { useThemedNativeStackScreenOptions } from '../theme/useThemedNativeStack
 import type { AlbumDetailRouteParams } from './albumDetailParams';
 import type { ArtistDetailRouteParams } from './artistDetailParams';
 import { mapScopedPathToFlatPath } from './deepLinking';
+import { focusedTabPop } from './focusedTabPop';
 import { resolveMobileDeepLinkAction, resolveMobileDeepLinkState } from './notificationStack';
 import { OrderedTabBar } from './OrderedTabBar';
 import type { PodcastDetailRouteParams } from './podcastDetailParams';
@@ -646,7 +648,8 @@ function QuietTabBarButton(props: BottomTabBarButtonProps) {
 /**
  * Navigate to More ▸ Membership from anywhere — used by the app-wide membership gate modal (which
  * lives above the navigator and so cannot use `useNavigation`) and by the Home expiry banner, whose
- * target sits in a different tab's stack. No-op until the navigation container is ready.
+ * target sits in a different tab's stack. `initial: false` keeps More's menu under Membership when
+ * More mounts for this navigation. No-op until the navigation container is ready.
  */
 export function navigateToMembershipScreen(): void {
   if (!rootNavigationRef.isReady()) {
@@ -654,7 +657,7 @@ export function navigateToMembershipScreen(): void {
   }
   rootNavigationRef.navigate(ROOT_STACK_ROUTES.MainTabs, {
     screen: 'More',
-    params: { screen: MORE_STACK_ROUTES.MoreMembership },
+    params: { initial: false, screen: MORE_STACK_ROUTES.MoreMembership },
   });
 }
 
@@ -1514,12 +1517,34 @@ function TabScaffold({
             return;
           }
           const nested = focused.state;
-          if (nested?.key === undefined || nested.index === undefined || nested.index < 1) {
+          const nestedIndex = nested?.index;
+          const focusedRoute =
+            nested !== undefined && nestedIndex !== undefined && nested.routes !== undefined
+              ? nested.routes[nestedIndex]
+              : undefined;
+          const decision = focusedTabPop({
+            focusedRouteName: focusedRoute?.name,
+            moreRootName: MORE_STACK_ROUTES.MoreRoot,
+            nestedIndex,
+            nestedKey: nested?.key,
+            tabName: route.name,
+          });
+          if (decision.action === 'none' || nested?.key === undefined) {
             return;
           }
-          // Pressing the selected tab returns that tab's stack to its first screen.
+          // More returns to its menu. Other tabs return to the first screen in that stack.
+          if (decision.action === 'popToTop') {
+            navigation.dispatch({
+              ...StackActions.popToTop(),
+              target: nested.key,
+            });
+            return;
+          }
           navigation.dispatch({
-            ...StackActions.popToTop(),
+            ...CommonActions.reset({
+              index: 0,
+              routes: [{ name: decision.routeName }],
+            }),
             target: nested.key,
           });
         },
@@ -1530,7 +1555,10 @@ function TabScaffold({
         ) : (
           <View
             collapsable={false}
-            style={overlayHeight > 0 ? { marginTop: -overlayHeight } : undefined}
+            style={[
+              { backgroundColor: themeStyles.screen.backgroundColor },
+              overlayHeight > 0 ? { marginTop: -overlayHeight } : null,
+            ]}
           >
             <PlaybackE2eStatus />
             <PerfE2eReport />
@@ -1539,7 +1567,9 @@ function TabScaffold({
               clip/chapter → mini player. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
-              the scene above the tab bar does not resize when a bar appears.
+              the scene above the tab bar does not resize when a bar appears. The stack overlaps
+              the scene, so this wrapper paints an opaque base: a strip tinted with a translucent
+              token (the warning fill) must never let list rows show through it.
             */}
             <GlobalActivityBar />
             <OfflineModeBanner />

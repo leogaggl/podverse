@@ -91,11 +91,10 @@ const config: ExpoConfig = {
       NSAppTransportSecurity: {
         NSAllowsLocalNetworking: true,
       },
-      // Do NOT declare a CarPlay-only UIApplicationSceneManifest here. On Expo SDK 57 this still
-      // suppresses the phone UIWindowScene → RCTKeyWindow() nil →
-      // SafeAreaProvider `width` of undefined → black phone screen. CarPlay scene
-      // connection is wired in AppDelegate via `./plugins/withPodverseCarPlay`
-      // (`configurationForConnectingSceneSession` → PodverseCarPlaySceneDelegate).
+      // Do not declare UIApplicationSceneManifest here. Expo's prebuild generates the phone
+      // scene (SceneDelegate + manifest entry), and `./plugins/withPodverseCarPlay` adds the
+      // CarPlay scene beside it. A manifest without the phone entry leaves the phone with no
+      // window (black screen).
     },
   },
   android: {
@@ -163,9 +162,13 @@ const config: ExpoConfig = {
       'expo-build-properties',
       {
         ios: {
-          // App platform floor (Expo SDK 57 / RN 0.86). Podspecs below 16.4 are clamped
-          // by withPodverseIosPodBuildSettings so every pod target matches this floor.
+          // App platform floor. Podspecs below 16.4 are clamped by
+          // withPodverseIosPodBuildSettings so every pod target matches this floor.
           deploymentTarget: '16.4',
+          // Expo's prebuilt ExpoModulesCore.xcframework is built with Swift 6.3.1, and the
+          // Swift 6.4 compiler in Xcode 27 refuses to import it. Compile Expo modules from
+          // source until the shipped swiftinterface reports Swift 6.4 or newer.
+          usePrecompiledModules: false,
         },
         // ExoPlayer needs cleartext for E2E test-assets at http://10.0.2.2:2111 (and local API).
         android: {

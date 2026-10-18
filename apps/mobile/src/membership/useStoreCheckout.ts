@@ -1,9 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
-import type { DTOBillingStatus } from '@podverse/helpers';
+import type { DTOAccount, DTOBillingStatus } from '@podverse/helpers';
 import { deriveMembershipState } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
@@ -16,6 +16,7 @@ import type {
   BillingPurchaseOutcome,
 } from '../billing/BillingClient';
 import { createBillingClient } from '../billing/createBillingClient';
+import { accountWithBillingStatus } from '../billing/purchaseStanding';
 import { accountRepository } from '../data/repositories/accountRepository';
 import type { MoreStackParamList } from '../navigation';
 import { MORE_STACK_ROUTES } from '../navigation';
@@ -39,7 +40,7 @@ import {
   storeProcessorId,
 } from './storeCheckout';
 
-export type CheckoutNotice = 'failed' | 'success' | 'waiting';
+export type CheckoutNotice = 'failed' | 'not_applied' | 'success' | 'waiting';
 export type CheckoutNoticeSource = 'purchase' | 'restore';
 
 /** How long the purchase result stays on screen before Membership opens. */
@@ -98,6 +99,7 @@ export type UseStoreCheckoutResult = {
   loading: boolean;
   notice: CheckoutNotice | null;
   noticeSource: CheckoutNoticeSource | null;
+  openMembership: () => void;
   onPurchase: () => void;
   onRestore: () => void;
   onStrikeSettled: () => void;
@@ -120,7 +122,7 @@ export type UseStoreCheckoutResult = {
 
 export const useStoreCheckout = (): UseStoreCheckoutResult => {
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
-  const { accessToken, clearSession, refreshToken, setAccount, setTokens } = useAuth();
+  const { accessToken, account, clearSession, refreshToken, setAccount, setTokens } = useAuth();
   const platform = checkoutPlatform();
   screenAuthDeps.accessToken = accessToken;
   screenAuthDeps.clearSession = clearSession;
@@ -128,6 +130,8 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   screenAuthDeps.setTokens = setTokens;
   const setAccountRef = useRef(setAccount);
   setAccountRef.current = setAccount;
+  const accountRef = useRef(account);
+  accountRef.current = account;
   const client = billingClient();
   const storePurchases = client.backend !== 'unavailable';
   const processorId = storeProcessorId(client.backend);
@@ -294,19 +298,51 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     }
   }, [cadence, selectedCadence]);
 
-  const refreshAccount = async () => {
+  const refreshAccount = async (): Promise<DTOAccount | null> => {
     if (screenAuthDeps.accessToken === null) {
       return null;
     }
     try {
-      const account = await accountRepository.refreshSnapshot(screenAuthDeps);
-      setAccountRef.current(account);
-      return account;
+      const refreshed = await accountRepository.refreshSnapshot(screenAuthDeps);
+      setAccountRef.current(refreshed);
+      accountRef.current = refreshed;
+      return refreshed;
     } catch {
       // The purchase is already recorded. The next account refresh picks up the new expiry.
       return null;
     }
   };
+
+  const rememberBillingStatus = async (
+    status: DTOBillingStatus | null
+  ): Promise<DTOAccount | null> => {
+    const refreshed = await refreshAccount();
+    const base = refreshed ?? accountRef.current;
+    if (base === null || status === null) {
+      return base;
+    }
+    const next = accountWithBillingStatus(base, status);
+    setAccountRef.current(next);
+    accountRef.current = next;
+    try {
+      await accountRepository.saveSnapshot(next);
+    } catch {
+      // The in-memory account already has the primary standing.
+    }
+    return next;
+  };
+
+  const openMembership = useCallback(() => {
+    const state = navigation.getState();
+    const hasMembership = state.routes.some(
+      (route) => route.name === MORE_STACK_ROUTES.MoreMembership
+    );
+    if (hasMembership) {
+      navigation.popTo(MORE_STACK_ROUTES.MoreMembership);
+      return;
+    }
+    navigation.replace(MORE_STACK_ROUTES.MoreMembership);
+  }, [navigation]);
 
   const applyOutcome = async (
     outcome: BillingPurchaseOutcome,
@@ -322,16 +358,21 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
       return;
     }
     if (outcome.phase === 'confirmed') {
-      const account = await refreshAccount();
-      if (source === 'purchase') {
+      const standing = await rememberBillingStatus(outcome.billingStatus);
+      if (outcome.membershipGranted === false) {
+        setConfirmedPurchase(null);
+        setNotice('not_applied');
+        return;
+      }
+      if (source === 'purchase' && outcome.membershipGranted === true) {
         const purchasedCadence = purchasedCadenceRef.current;
         if (purchasedCadence === null) {
-          navigation.popTo(MORE_STACK_ROUTES.MoreMembership);
+          openMembership();
           return;
         }
         setConfirmedPurchase({
           cadence: purchasedCadence,
-          expiresAt: account === null ? null : deriveMembershipState(account).expiresAt,
+          expiresAt: standing === null ? null : deriveMembershipState(standing).expiresAt,
         });
         return;
       }
@@ -379,10 +420,16 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     }
     const purchasedCadence = selectedCadence;
     void (async () => {
-      const account = await refreshAccount();
+      let status: DTOBillingStatus | null;
+      try {
+        status = await createBillingApi(screenAuthDeps).getMembershipStatus(platform ?? undefined);
+      } catch {
+        status = null;
+      }
+      const standing = await rememberBillingStatus(status);
       setConfirmedPurchase({
         cadence: purchasedCadence,
-        expiresAt: account === null ? null : deriveMembershipState(account).expiresAt,
+        expiresAt: standing === null ? null : deriveMembershipState(standing).expiresAt,
       });
     })();
   };
@@ -407,12 +454,12 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
       return;
     }
     const timer = setTimeout(() => {
-      navigation.popTo(MORE_STACK_ROUTES.MoreMembership);
+      openMembership();
     }, SUCCESS_REDIRECT_DELAY_MS);
     return () => {
       clearTimeout(timer);
     };
-  }, [confirmedPurchase, navigation]);
+  }, [confirmedPurchase, openMembership]);
 
   return {
     cadence: selectedCadence,
@@ -427,6 +474,7 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     loading,
     notice,
     noticeSource,
+    openMembership,
     onPurchase,
     onRestore,
     onStrikeSettled,

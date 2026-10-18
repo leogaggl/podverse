@@ -24,6 +24,7 @@ import { createFinishOnce } from './inflight';
 import { listStorePrices } from './localizedPrices';
 import { normalizeStorefrontCode } from './normalizeStorefront';
 import { isPurchaseFromStore, normalizeStorePurchase } from './normalizeStorePurchase';
+import { preferPurchaseOutcome } from './purchaseStanding';
 import type { RestoreStoreRecord } from './restoreStorePurchases';
 import { restoreStorePurchases } from './restoreStorePurchases';
 import { settleStorePurchase } from './settleStorePurchase';
@@ -119,7 +120,11 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
       settled.phase,
       normalized.productId,
       externalId,
-      settled.errorCode
+      settled.errorCode,
+      {
+        billingStatus: settled.billingStatus,
+        membershipGranted: settled.membershipGranted,
+      }
     );
   };
 
@@ -143,14 +148,11 @@ export const createStorekitBillingClient = (api: BillingApi): BillingClient => {
       if (purchases.length === 0) {
         return billingPurchaseOutcome('waiting', product.productId);
       }
-      let outcome = billingPurchaseOutcome('confirmed', product.productId);
+      let outcome: BillingPurchaseOutcome | null = null;
       for (const storePurchase of purchases) {
-        const next = await settleIncoming(storePurchase);
-        if (next.phase !== 'confirmed') {
-          outcome = next;
-        }
+        outcome = preferPurchaseOutcome(outcome, await settleIncoming(storePurchase));
       }
-      return outcome;
+      return outcome ?? billingPurchaseOutcome('waiting', product.productId);
     } catch (error) {
       if (isCancelledStoreError(error)) {
         return billingPurchaseOutcome('cancelled', product.productId);

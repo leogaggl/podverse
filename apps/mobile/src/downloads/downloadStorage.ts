@@ -1,8 +1,9 @@
 /**
  * On-disk layout for downloaded episode files.
  *
- * Use **Expo FileSystem** (`expo-file-system`) for storage. It ships with Expo SDK 57, supports
- * resumable background downloads (`createDownloadResumable`) and progress callbacks, and writes to
+ * Use **Expo FileSystem** (`expo-file-system`) for storage. It ships with Expo SDK 58. Callers stay
+ * on `expo-file-system/legacy`. It supports resumable background downloads (`createDownloadResumable`)
+ * and progress callbacks, and writes to
  * app-private `documentDirectory` (persists across launches, excluded from user-facing storage).
  * The absolute base directory is resolved by the download runner as
  * `FileSystem.documentDirectory + DOWNLOADS_SUBDIRECTORY`; this module stays pure (no native import)

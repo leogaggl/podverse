@@ -2,7 +2,7 @@ import { useIsFocused } from '@react-navigation/native';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 import {
   BackHandler,
   FlatList,
@@ -149,7 +149,7 @@ const EMPTY_PANE_ROWS: FullPlayerPaneRow[] = [];
 // Outer ScrollView + height-locked inner FlatList is intentional; RN's nest warning is structural.
 ignoreFullPlayerBoundedNestedListWarning();
 
-const scrollOuterToTop = (scroll: ScrollView | null): void => {
+const scrollOuterToTop = (scroll: ScrollViewInstance | null): void => {
   scroll?.scrollTo({ animated: false, y: 0 });
 };
 
@@ -288,7 +288,7 @@ export function FullPlayerScreen({
   const isFocused = useIsFocused();
   const { chapters } = useNowPlayingChapters();
   const { playbackNoticeKey, runPlayAction, runQueueAction } = useHomeRowPlayback();
-  const outerScrollRef = useRef<ScrollView>(null);
+  const outerScrollRef = useRef<ScrollViewInstance>(null);
   const paneListRef = useRef<FlatList<FullPlayerPaneRow>>(null);
 
   const seededViewport = resolveFullPlayerViewport({

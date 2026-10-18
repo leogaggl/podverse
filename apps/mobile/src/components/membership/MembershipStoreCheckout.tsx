@@ -23,8 +23,10 @@ import { MembershipStrikeCheckout } from './MembershipStrikeCheckout';
  * the screen tells the member how to reach the team. The terms page is the legal document that
  * describes how the service handles data, so Privacy opens that page too.
  *
- * A confirmed store purchase stays on this screen long enough to read, then Membership opens.
- * The card stays hidden until checkout options and that pricing catalog have settled.
+ * A purchase that extended membership stays on this screen long enough to read, then Membership
+ * opens. A purchase the store recorded without extending membership stays here until the member
+ * opens Membership. The card stays hidden until checkout options and that pricing catalog have
+ * settled.
  */
 export function MembershipStoreCheckout() {
   const { i18n, t } = useTranslation();
@@ -78,9 +80,23 @@ export function MembershipStoreCheckout() {
       ? t('checkout.success_active')
       : checkout.notice === 'waiting'
         ? t('membership.checkout.purchase_waiting')
-        : checkout.notice === 'failed'
-          ? t('checkout.purchase_failed')
-          : null;
+        : checkout.notice === 'not_applied'
+          ? t('checkout.purchase_not_applied')
+          : checkout.notice === 'failed'
+            ? t('checkout.purchase_failed')
+            : null;
+
+  const viewMembership =
+    checkout.notice === 'not_applied' ? (
+      <Button
+        fullWidth
+        label={t('checkout.view_membership')}
+        onPress={checkout.openMembership}
+        size="form"
+        testID="membership-checkout-view-membership"
+        variant="primary"
+      />
+    ) : null;
 
   const updateDialog = (
     <ConfirmDialog
@@ -114,12 +130,15 @@ export function MembershipStoreCheckout() {
               ? 'membership-checkout-success'
               : checkout.notice === 'waiting'
                 ? 'membership-checkout-waiting'
-                : 'membership-checkout-error'
+                : checkout.notice === 'not_applied'
+                  ? 'membership-checkout-not-applied'
+                  : 'membership-checkout-error'
           }
         >
           {noticeText}
         </Text>
       ) : null}
+      {checkout.noticeSource !== 'restore' ? viewMembership : null}
       {updateDialog}
     </>
   );
@@ -200,6 +219,14 @@ export function MembershipStoreCheckout() {
           {confirmedMessage}
         </Text>
         <Text style={styles.disclosure}>{t('checkout.success_opening_membership')}</Text>
+        <Button
+          fullWidth
+          label={t('checkout.view_membership')}
+          onPress={checkout.openMembership}
+          size="form"
+          testID="membership-checkout-view-membership"
+          variant="primary"
+        />
         {updateDialog}
       </View>
     );
@@ -328,12 +355,15 @@ export function MembershipStoreCheckout() {
                     ? 'membership-checkout-success'
                     : checkout.notice === 'waiting'
                       ? 'membership-checkout-waiting'
-                      : 'membership-checkout-error'
+                      : checkout.notice === 'not_applied'
+                        ? 'membership-checkout-not-applied'
+                        : 'membership-checkout-error'
                 }
               >
                 {noticeText}
               </Text>
             ) : null}
+            {checkout.noticeSource === 'restore' ? viewMembership : null}
           </View>
         </Accordion>
       ) : null}

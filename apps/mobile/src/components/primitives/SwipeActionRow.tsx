@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
@@ -57,7 +58,7 @@ export function SwipeActionRow({
 }: SwipeActionRowProps) {
   const { tokens } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const swipeableRef = useRef<Swipeable | null>(null);
+  const swipeableRef = useRef<SwipeableMethods | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const close = useCallback(() => {
@@ -121,7 +122,7 @@ export function SwipeActionRow({
   ]);
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       overshootRight={false}
       ref={swipeableRef}
       renderRightActions={renderRightActions}
@@ -137,6 +138,6 @@ export function SwipeActionRow({
       >
         {children}
       </View>
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 }

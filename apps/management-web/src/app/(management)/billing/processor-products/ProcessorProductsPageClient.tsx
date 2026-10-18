@@ -11,10 +11,8 @@ import {
   Button,
   CheckboxField,
   FormDropdown,
-  FormGroup,
   FormMaxWidth,
   FormPrimaryActions,
-  FormStack,
   ManagementPageShell,
   StackForm,
   Table,
@@ -207,48 +205,44 @@ export function ProcessorProductsPageClient({ initialUser }: ProcessorProductsPa
           {canCreate ? (
             <FormMaxWidth>
               <StackForm onSubmit={(event) => void create(event)}>
-                <FormStack>
-                  <FormGroup>
-                    <FormDropdown
-                      id="processor-product-processor"
-                      eyebrow={t('products.processorLabel')}
-                      options={processorOptions}
-                      value={processor}
-                      onChange={setProcessor}
-                    />
-                    <TextInput
-                      id="processor-product-external-id"
-                      eyebrow={t('products.externalIdLabel')}
-                      placeholder={t('products.externalIdPlaceholder')}
-                      value={externalId}
-                      onChange={(event) => setExternalId(event.target.value)}
-                      required
-                    />
-                    <TextInput
-                      id="processor-product-base-plan"
-                      eyebrow={t('products.basePlanLabel')}
-                      placeholder={t('products.basePlanPlaceholder')}
-                      value={basePlan}
-                      onChange={(event) => setBasePlan(event.target.value)}
-                    />
-                    <FormDropdown
-                      id="processor-product-cadence"
-                      eyebrow={t('products.cadenceLabel')}
-                      options={cadenceOptions}
-                      value={cadence}
-                      onChange={(value) => {
-                        if (isCadence(value)) {
-                          setCadence(value);
-                        }
-                      }}
-                    />
-                    <FormPrimaryActions>
-                      <Button type="submit" disabled={saving || externalId.trim() === ''}>
-                        {t('products.create')}
-                      </Button>
-                    </FormPrimaryActions>
-                  </FormGroup>
-                </FormStack>
+                <FormDropdown
+                  id="processor-product-processor"
+                  eyebrow={t('products.processorLabel')}
+                  options={processorOptions}
+                  value={processor}
+                  onChange={setProcessor}
+                />
+                <TextInput
+                  id="processor-product-external-id"
+                  eyebrow={t('products.externalIdLabel')}
+                  placeholder={t('products.externalIdPlaceholder')}
+                  value={externalId}
+                  onChange={(event) => setExternalId(event.target.value)}
+                  required
+                />
+                <TextInput
+                  id="processor-product-base-plan"
+                  eyebrow={t('products.basePlanLabel')}
+                  placeholder={t('products.basePlanPlaceholder')}
+                  value={basePlan}
+                  onChange={(event) => setBasePlan(event.target.value)}
+                />
+                <FormDropdown
+                  id="processor-product-cadence"
+                  eyebrow={t('products.cadenceLabel')}
+                  options={cadenceOptions}
+                  value={cadence}
+                  onChange={(value) => {
+                    if (isCadence(value)) {
+                      setCadence(value);
+                    }
+                  }}
+                />
+                <FormPrimaryActions>
+                  <Button type="submit" disabled={saving || externalId.trim() === ''}>
+                    {t('products.create')}
+                  </Button>
+                </FormPrimaryActions>
               </StackForm>
             </FormMaxWidth>
           ) : null}

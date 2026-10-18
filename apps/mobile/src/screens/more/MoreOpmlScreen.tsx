@@ -216,11 +216,13 @@ export function MoreOpmlScreen() {
         <Text style={styles.description}>{t('settings.opml.export_description')}</Text>
         <Button
           disabled={status !== 'authenticated' || isExporting}
+          fullWidth
           label={t('settings.opml.export_button')}
           loading={isExporting}
           onPress={() => {
             void handleExport();
           }}
+          size="form"
           testID="opml-export-button"
         />
         {noticeKey !== null ? (
@@ -248,11 +250,13 @@ export function MoreOpmlScreen() {
               <Text style={styles.description}>{t('settings.opml.import_description')}</Text>
               <Button
                 disabled={status !== 'authenticated' || isImporting}
+                fullWidth
                 label={t('settings.opml.import_button')}
                 loading={isImporting}
                 onPress={() => {
                   void startImport();
                 }}
+                size="form"
                 testID="opml-import-button"
                 variant="secondary"
               />

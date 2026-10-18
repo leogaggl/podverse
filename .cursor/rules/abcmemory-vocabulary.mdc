@@ -40,6 +40,12 @@ When the operator says **abcreleasenotes**, convert the entries in
 version, then empty the scratchpad. Follow `.cursor/skills/abcreleasenotes/SKILL.md`. Agents
 append those entries during normal work (**release-notes-scratchpad**).
 
+## abcdeploysteps
+
+When the operator says **abcdeploysteps**, the next word is the environment: `alpha`, `beta`, or
+`production`. Do not guess it. Follow `.cursor/skills/abcdeploysteps/SKILL.md`. Only alpha is in
+use. Alpha means `alpha.podcastdj.com` and Podverse Next.
+
 ## legacy app
 
 **legacy app** (also **podverse-rn**, **v4 mobile**) means the React Native app in the sibling

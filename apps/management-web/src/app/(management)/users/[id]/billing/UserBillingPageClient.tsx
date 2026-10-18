@@ -12,10 +12,8 @@ import {
   Breadcrumbs,
   Button,
   FormDropdown,
-  FormGroup,
   FormMaxWidth,
   FormPrimaryActions,
-  FormStack,
   FormTextArea,
   ManagementPageShell,
   Modal,
@@ -388,80 +386,72 @@ export function UserBillingPageClient({ initialUser, accountId }: UserBillingPag
               <SectionHeading>{t('account.extend.title')}</SectionHeading>
               <FormMaxWidth>
                 <StackForm onSubmit={(event) => void submitExtend(event)}>
-                  <FormStack>
-                    <FormGroup>
-                      <FormDropdown
-                        id="account-billing-extend-mode"
-                        eyebrow={t('account.extend.mode')}
-                        options={modeOptions}
-                        value={extendMode}
-                        onChange={(value) => {
-                          if (isExtendMode(value)) {
-                            setExtendMode(value);
-                          }
-                        }}
-                      />
-                      {extendMode === 'plan' ? (
-                        <FormDropdown
-                          id="account-billing-grant-cadence"
-                          eyebrow={t('account.grantCadenceLabel')}
-                          options={cadenceOptions}
-                          value={cadence}
-                          onChange={(value) => {
-                            if (isCadence(value)) {
-                              setCadence(value);
-                            }
-                          }}
-                        />
-                      ) : null}
-                      {extendMode === 'days' ? (
-                        <TextInput
-                          id="account-billing-extend-days"
-                          eyebrow={t('account.extend.days')}
-                          max={BILLING_MEMBERSHIP_EXTEND_DAYS_MAX}
-                          min={BILLING_MEMBERSHIP_EXTEND_DAYS_MIN}
-                          step={1}
-                          type="number"
-                          value={daysInput}
-                          onChange={(event) => {
-                            setDaysInput(event.target.value);
-                          }}
-                        />
-                      ) : null}
-                      {extendMode === 'date' ? (
-                        <TextInput
-                          id="account-billing-extend-until"
-                          eyebrow={t('account.extend.untilDate')}
-                          nativePickerAffixAriaLabel={t('account.datePickerAffix')}
-                          type="datetime-local"
-                          value={untilLocal}
-                          onChange={(event) => {
-                            setUntilLocal(event.target.value);
-                          }}
-                        />
-                      ) : null}
-                      <FormTextArea
-                        id="account-billing-extend-note"
-                        eyebrow={t('account.extend.note')}
-                        info={t('account.extend.noteHelp')}
-                        maxLength={BILLING_MEMBERSHIP_NOTE_MAX_LENGTH}
-                        rows={3}
-                        value={note}
-                        onChange={(event) => {
-                          setNote(event.target.value);
-                        }}
-                      />
-                      <FormPrimaryActions>
-                        <Button
-                          disabled={working}
-                          isLoading={workingKind === 'extend'}
-                          type="submit"
-                        >
-                          {t('account.extend.submit')}
-                        </Button>
-                      </FormPrimaryActions>
-                    </FormGroup>
-                  </FormStack>
+                  <FormDropdown
+                    id="account-billing-extend-mode"
+                    eyebrow={t('account.extend.mode')}
+                    options={modeOptions}
+                    value={extendMode}
+                    onChange={(value) => {
+                      if (isExtendMode(value)) {
+                        setExtendMode(value);
+                      }
+                    }}
+                  />
+                  {extendMode === 'plan' ? (
+                    <FormDropdown
+                      id="account-billing-grant-cadence"
+                      eyebrow={t('account.grantCadenceLabel')}
+                      options={cadenceOptions}
+                      value={cadence}
+                      onChange={(value) => {
+                        if (isCadence(value)) {
+                          setCadence(value);
+                        }
+                      }}
+                    />
+                  ) : null}
+                  {extendMode === 'days' ? (
+                    <TextInput
+                      id="account-billing-extend-days"
+                      eyebrow={t('account.extend.days')}
+                      max={BILLING_MEMBERSHIP_EXTEND_DAYS_MAX}
+                      min={BILLING_MEMBERSHIP_EXTEND_DAYS_MIN}
+                      step={1}
+                      type="number"
+                      value={daysInput}
+                      onChange={(event) => {
+                        setDaysInput(event.target.value);
+                      }}
+                    />
+                  ) : null}
+                  {extendMode === 'date' ? (
+                    <TextInput
+                      id="account-billing-extend-until"
+                      eyebrow={t('account.extend.untilDate')}
+                      nativePickerAffixAriaLabel={t('account.datePickerAffix')}
+                      type="datetime-local"
+                      value={untilLocal}
+                      onChange={(event) => {
+                        setUntilLocal(event.target.value);
+                      }}
+                    />
+                  ) : null}
+                  <FormTextArea
+                    id="account-billing-extend-note"
+                    eyebrow={t('account.extend.note')}
+                    info={t('account.extend.noteHelp')}
+                    maxLength={BILLING_MEMBERSHIP_NOTE_MAX_LENGTH}
+                    rows={3}
+                    value={note}
+                    onChange={(event) => {
+                      setNote(event.target.value);
+                    }}
+                  />
+                  <FormPrimaryActions>
+                    <Button disabled={working} isLoading={workingKind === 'extend'} type="submit">
+                      {t('account.extend.submit')}
+                    </Button>
+                  </FormPrimaryActions>
                 </StackForm>
               </FormMaxWidth>
             </>
@@ -476,28 +466,24 @@ export function UserBillingPageClient({ initialUser, accountId }: UserBillingPag
                     openEndOnDate();
                   }}
                 >
-                  <FormStack>
-                    <FormGroup>
-                      <TextInput
-                        id="account-billing-end-date"
-                        eyebrow={t('account.end.date')}
-                        nativePickerAffixAriaLabel={t('account.datePickerAffix')}
-                        type="datetime-local"
-                        value={endLocal}
-                        onChange={(event) => {
-                          setEndLocal(event.target.value);
-                        }}
-                      />
-                      <FormPrimaryActions>
-                        <Button disabled={working} type="submit">
-                          {t('account.end.submitDate')}
-                        </Button>
-                        <Button disabled={working} type="button" onClick={openEndNow}>
-                          {t('account.end.submitNow')}
-                        </Button>
-                      </FormPrimaryActions>
-                    </FormGroup>
-                  </FormStack>
+                  <TextInput
+                    id="account-billing-end-date"
+                    eyebrow={t('account.end.date')}
+                    nativePickerAffixAriaLabel={t('account.datePickerAffix')}
+                    type="datetime-local"
+                    value={endLocal}
+                    onChange={(event) => {
+                      setEndLocal(event.target.value);
+                    }}
+                  />
+                  <FormPrimaryActions>
+                    <Button disabled={working} type="submit">
+                      {t('account.end.submitDate')}
+                    </Button>
+                    <Button disabled={working} type="button" onClick={openEndNow}>
+                      {t('account.end.submitNow')}
+                    </Button>
+                  </FormPrimaryActions>
                 </StackForm>
               </FormMaxWidth>
             </>

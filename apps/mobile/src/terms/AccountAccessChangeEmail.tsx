@@ -112,10 +112,12 @@ export function AccountAccessChangeEmail() {
         <Text style={styles.sectionTitle}>{t('settings.account.change_email')}</Text>
         <Text style={styles.description}>{t('settings.account.change_email_description')}</Text>
         <Button
+          fullWidth
           label={t('settings.account.change_email')}
           onPress={() => {
             setOpen(true);
           }}
+          size="form"
           testID="account-access-change-email"
         />
       </Card>

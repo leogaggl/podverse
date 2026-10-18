@@ -339,7 +339,7 @@ export function LibraryDownloadsScreen() {
 
   const listHeader = useMemo(() => {
     if (!hasControllableJobs) {
-      return null;
+      return undefined;
     }
     return (
       <View style={styles.masterRow}>

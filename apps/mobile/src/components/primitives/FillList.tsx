@@ -1,5 +1,5 @@
 import type { ForwardedRef, ReactElement, ReactNode, Ref } from 'react';
-import { createElement, forwardRef, Fragment, isValidElement, useCallback, useRef } from 'react';
+import { createElement, forwardRef, Fragment, useCallback, useRef } from 'react';
 import type { FlatListProps, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -14,7 +14,19 @@ import { applyFillListRenderWindow, LIST_REMOVE_CLIPPED_SUBVIEWS } from './listV
 type LockedProps =
   'alwaysBounceVertical' | 'bounces' | 'overScrollMode' | 'removeClippedSubviews' | 'scrollEnabled';
 
-export type FillListProps<ItemT> = Omit<FlatListProps<ItemT>, LockedProps>;
+/** Virtualized list slots reject `null`. Callers still pass it for "no slot". */
+type ListSlotKey = 'ListEmptyComponent' | 'ListFooterComponent' | 'ListHeaderComponent';
+
+type ListSlot<ItemT, Key extends ListSlotKey> = FlatListProps<ItemT>[Key] | null;
+
+export type FillListProps<ItemT> = Omit<
+  FlatListProps<ItemT>,
+  LockedProps | 'ListEmptyComponent' | 'ListFooterComponent' | 'ListHeaderComponent'
+> & {
+  ListEmptyComponent?: ListSlot<ItemT, 'ListEmptyComponent'>;
+  ListFooterComponent?: ListSlot<ItemT, 'ListFooterComponent'>;
+  ListHeaderComponent?: ListSlot<ItemT, 'ListHeaderComponent'>;
+};
 
 /**
  * True when the list is showing a fill empty (VerticalCenter, LoadingSection, CallToActionSection)
@@ -22,7 +34,7 @@ export type FillListProps<ItemT> = Omit<FlatListProps<ItemT>, LockedProps>;
  */
 export function isFillListScrollLocked(
   data: FlatListProps<unknown>['data'],
-  listEmpty: FlatListProps<unknown>['ListEmptyComponent']
+  listEmpty: FlatListProps<unknown>['ListEmptyComponent'] | null
 ): boolean {
   const itemCount = data === null || data === undefined ? 0 : data.length;
   if (itemCount > 0) {
@@ -39,16 +51,20 @@ const fillContent = StyleSheet.create({
 });
 
 function renderFillListFooter(footer: FillListProps<unknown>['ListFooterComponent']): ReactNode {
-  if (footer === null || footer === undefined || isValidElement(footer)) {
-    return footer ?? null;
+  if (footer === null || footer === undefined) {
+    return null;
   }
-  return createElement(footer);
+  if (typeof footer === 'function') {
+    return createElement(footer);
+  }
+  return footer;
 }
 
 function FillListInner<ItemT>(
   {
     ListEmptyComponent,
     ListFooterComponent,
+    ListHeaderComponent,
     contentContainerStyle,
     data,
     onMomentumScrollBegin,
@@ -136,8 +152,9 @@ function FillListInner<ItemT>(
   return (
     <FlatList
       {...applyFillListRenderWindow(rest)}
-      ListEmptyComponent={ListEmptyComponent}
-      ListFooterComponent={listFooter}
+      ListEmptyComponent={ListEmptyComponent === null ? undefined : ListEmptyComponent}
+      ListFooterComponent={listFooter === null ? undefined : listFooter}
+      ListHeaderComponent={ListHeaderComponent === null ? undefined : ListHeaderComponent}
       alwaysBounceVertical={!lockScroll}
       bounces={!lockScroll}
       contentContainerStyle={[fillContent.grow, contentContainerStyle]}

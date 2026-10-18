@@ -1056,6 +1056,7 @@
     "paypal_unavailable": "PayPal no está disponible ahora.",
     "complete_test_purchase": "Completar compra de prueba",
     "purchase_failed": "No se pudo completar la compra. Inténtalo de nuevo.",
+    "purchase_not_applied": "La tienda registró esta compra, pero esta membresía no se extendió.",
     "plan_unavailable": "Este plan no está disponible.",
     "success_waiting": "Confirmando tu membresía.",
     "success_active": "Tu membresía está activa.",
@@ -1065,6 +1066,7 @@
     "success_extended_year_length": "Tu compra Premium está completa. La membresía se extendió 1 año.",
     "success_active_expires": "Tu compra Premium está completa. Ahora vence el {date}.",
     "success_opening_membership": "Abriendo la página de Membresía.",
+    "view_membership": "Ver membresía",
     "success_timeout": "La membresía aún no está confirmada. Contacta con soporte si no aparece pronto."
   },
   "layouts": {

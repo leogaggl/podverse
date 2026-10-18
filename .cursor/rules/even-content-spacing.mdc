@@ -1,0 +1,35 @@
+---
+description: When content has spacing, matching gaps on that axis are equal. Leave a flush edge flush.
+alwaysApply: true
+---
+
+# Even content spacing
+
+When a layout puts space around content, the spaces that belong together are equal. This applies
+on web, management-web, and mobile.
+
+A row's padding above an image matches the padding below it. A column of siblings uses one gap.
+The inset on the left of a block matches the inset on the right when those edges are the same
+kind of margin.
+
+## Do
+
+- Use one token, or one shared helper, for both sides of a seam that should match: top and bottom
+  padding, left and right inset, or the gap between every sibling in a stack.
+- Prefer a column or row `gap` so a missing sibling does not leave a stray margin behind.
+- Keep a flush edge flush. A hairline, a full-bleed image, or a control that sits on the screen
+  edge stays there. Do not add padding so the other side has a partner.
+
+## Don't
+
+- Don't add a few points on one side of a padding, margin, or gap to correct font metrics, line
+  boxes, or icon weight. The measured gap stays even.
+- Don't mix two spacing tokens on opposite sides of the same seam (`base` above and `md` below).
+- Don't invent padding, margin, or gap where the layout has none.
+
+Aligning a label's ink with a neighboring control (a switch, a glyph) is alignment. It is not a
+reason to pad one side of the row more than the other.
+
+## Related
+
+- **mobile-screen-layout** — mobile page gutter, list-row padding, and chip seams

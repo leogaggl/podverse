@@ -12,6 +12,8 @@
  * that prebuild so Play Billing is not in the binary.
  */
 
+import type { DTOBillingStatus } from '@podverse/helpers';
+
 export type BillingBackend = 'storekit' | 'play' | 'fake' | 'unavailable';
 
 export type BillingStoreProduct = {
@@ -28,12 +30,24 @@ export type BillingLocalizedPrice = {
 
 export type BillingPurchasePhase = 'cancelled' | 'confirmed' | 'failed' | 'unconfirmed' | 'waiting';
 
+/** What the purchase post said about membership, when the API answered. */
+export type BillingServerPurchase = {
+  billingStatus: DTOBillingStatus | null;
+  /**
+   * True when this post applied a grant. False when the charge was recorded and did not
+   * extend membership. Null when the post did not say.
+   */
+  membershipGranted: boolean | null;
+};
+
 export type BillingPurchaseOutcome = {
   phase: BillingPurchasePhase;
   productId: string | null;
   externalId: string | null;
   /** Store or API code. `billing.client_update_required` asks the user to update the app. */
   errorCode: string | null;
+  billingStatus: DTOBillingStatus | null;
+  membershipGranted: boolean | null;
 };
 
 export interface BillingClient {
@@ -81,10 +95,13 @@ export const billingPurchaseOutcome = (
   phase: BillingPurchasePhase,
   productId: string | null = null,
   externalId: string | null = null,
-  errorCode: string | null = null
+  errorCode: string | null = null,
+  server: BillingServerPurchase | null = null
 ): BillingPurchaseOutcome => ({
+  billingStatus: server?.billingStatus ?? null,
   errorCode,
   externalId,
+  membershipGranted: server?.membershipGranted ?? null,
   phase,
   productId,
 });
