@@ -182,5 +182,23 @@ export const availableCadences = (
 export const isClientUpdateRequired = (errorCode: string | null): boolean =>
   errorCode === BILLING_CLIENT_UPDATE_REQUIRED;
 
+/**
+ * Cadence for the success screen after a grant. A purchase uses the plan just bought. A restore
+ * uses the cadence now on the account, which is the plan the store applied.
+ */
+export const cadenceAfterGrantedCheckout = (
+  source: 'purchase' | 'restore',
+  selectedCadence: StoreCheckoutCadence | null,
+  accountCadence: string | null
+): StoreCheckoutCadence | null => {
+  if (source === 'purchase') {
+    return selectedCadence;
+  }
+  if (accountCadence === 'monthly' || accountCadence === 'annual') {
+    return accountCadence;
+  }
+  return null;
+};
+
 export const storeListingUrl = (platform: 'android' | 'ios'): string =>
   platform === 'ios' ? APP_STORE_LISTING_URL : PLAY_LISTING_URL;

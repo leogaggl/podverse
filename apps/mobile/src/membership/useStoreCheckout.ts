@@ -28,6 +28,7 @@ import type {
 } from './storeCheckout';
 import {
   availableCadences,
+  cadenceAfterGrantedCheckout,
   checkoutOptionsRequest,
   checkoutPlanProcessorId,
   checkoutProduct,
@@ -43,7 +44,7 @@ import {
 export type CheckoutNotice = 'failed' | 'not_applied' | 'success' | 'waiting';
 export type CheckoutNoticeSource = 'purchase' | 'restore';
 
-/** How long the purchase result stays on screen before Membership opens. */
+/** How long a granted purchase or restore stays on screen before Membership opens. */
 const SUCCESS_REDIRECT_DELAY_MS = 4_000;
 
 export type ConfirmedPurchase = {
@@ -109,6 +110,7 @@ export type UseStoreCheckoutResult = {
   processors: readonly CheckoutProcessorOffer[];
   product: CheckoutProductOffer | null;
   ready: boolean;
+  returningToMembership: boolean;
   selectCadence: (cadence: StoreCheckoutCadence) => void;
   showPayPal: boolean;
   showStrikeInvoice: boolean;
@@ -153,6 +155,7 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   const [updateRequired, setUpdateRequired] = useState(false);
   const [updateDialogVisible, setUpdateDialogVisible] = useState(false);
   const [confirmedPurchase, setConfirmedPurchase] = useState<ConfirmedPurchase | null>(null);
+  const [returningToMembership, setReturningToMembership] = useState(false);
   const purchasedCadenceRef = useRef<StoreCheckoutCadence | null>(null);
 
   useEffect(() => {
@@ -361,21 +364,30 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
       const standing = await rememberBillingStatus(outcome.billingStatus);
       if (outcome.membershipGranted === false) {
         setConfirmedPurchase(null);
+        setReturningToMembership(false);
         setNotice('not_applied');
         return;
       }
-      if (source === 'purchase' && outcome.membershipGranted === true) {
-        const purchasedCadence = purchasedCadenceRef.current;
-        if (purchasedCadence === null) {
-          openMembership();
+      if (outcome.membershipGranted === true) {
+        const cadence = cadenceAfterGrantedCheckout(
+          source,
+          purchasedCadenceRef.current,
+          standing?.account_membership_status?.billing_cadence ?? null
+        );
+        if (cadence === null) {
+          setConfirmedPurchase(null);
+          setNotice('success');
+          setReturningToMembership(true);
           return;
         }
+        setReturningToMembership(false);
         setConfirmedPurchase({
-          cadence: purchasedCadence,
+          cadence,
           expiresAt: standing === null ? null : deriveMembershipState(standing).expiresAt,
         });
         return;
       }
+      setReturningToMembership(false);
       setNotice('success');
       return;
     }
@@ -392,6 +404,7 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     }
     purchasedCadenceRef.current = selectedCadence;
     setConfirmedPurchase(null);
+    setReturningToMembership(false);
     setSubmitting(true);
     setNotice(null);
     setNoticeSource('purchase');
@@ -435,6 +448,8 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   };
 
   const onRestore = () => {
+    setConfirmedPurchase(null);
+    setReturningToMembership(false);
     setSubmitting(true);
     setNotice(null);
     setNoticeSource('restore');
@@ -450,7 +465,7 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
   };
 
   useEffect(() => {
-    if (confirmedPurchase === null) {
+    if (confirmedPurchase === null && !returningToMembership) {
       return;
     }
     const timer = setTimeout(() => {
@@ -459,7 +474,7 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     return () => {
       clearTimeout(timer);
     };
-  }, [confirmedPurchase, openMembership]);
+  }, [confirmedPurchase, openMembership, returningToMembership]);
 
   return {
     cadence: selectedCadence,
@@ -484,6 +499,7 @@ export const useStoreCheckout = (): UseStoreCheckoutResult => {
     processors,
     product,
     ready,
+    returningToMembership,
     selectCadence: setCadence,
     showPayPal,
     showStrikeInvoice,
