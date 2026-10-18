@@ -4,6 +4,11 @@ export type FullPlayerLayoutInput = {
    * sizes, so the peek reserve tracks what is actually on screen instead of assuming the default.
    */
   chipStripHeight?: number;
+  /**
+   * The item has chapters, or the target is a clip, official clip, or chapter. Without one, the
+   * segment band and its seam are dropped and the artwork takes that height.
+   */
+  hasSegmentBand: boolean;
   hasSections: boolean;
   isTablet: boolean;
   maxContentWidth: number;
@@ -46,13 +51,14 @@ export type FullPlayerViewport = {
 
 /**
  * Row under the artwork that names the clip, official clip, or chapter and its start–end clock.
- * Always reserved, whether or not there is a name to show, so a chapter arriving cannot move the
- * artwork or the transport.
+ * Reserved for an item with chapters or a segment target, whether or not a name is showing yet, so
+ * the current chapter arriving or changing cannot move the artwork or the transport. Omitted,
+ * with its seam, for an item that has neither.
  */
-export const FULL_PLAYER_SEGMENT_BAND_HEIGHT = 56;
+export const FULL_PLAYER_SEGMENT_BAND_HEIGHT = 64;
 /** Episode title + channel title share one band with a tight internal gap. */
-export const FULL_PLAYER_TITLE_BLOCK_HEIGHT = 48;
-export const FULL_PLAYER_PROGRESS_BLOCK_HEIGHT = 52;
+export const FULL_PLAYER_TITLE_BLOCK_HEIGHT = 60;
+export const FULL_PLAYER_PROGRESS_BLOCK_HEIGHT = 56;
 export const FULL_PLAYER_TRANSPORT_ROW_HEIGHT = 72;
 export const FULL_PLAYER_UTILITY_ROW_HEIGHT = 48;
 
@@ -66,7 +72,10 @@ export const FULL_PLAYER_REGION_GAP = 16;
  * progress-to-controls spacing.
  */
 export const FULL_PLAYER_CONTROL_STACK_GAP = 8;
-/** Title → artwork → segment → progress: three default seams. */
+/**
+ * Title → artwork → segment → progress: three default seams. Two when the segment band is
+ * omitted.
+ */
 export const FULL_PLAYER_REGION_GAP_COUNT = 3;
 /** Progress → transport → utility: two control-stack seams. */
 export const FULL_PLAYER_CONTROL_STACK_GAP_COUNT = 2;
@@ -83,10 +92,16 @@ export const FULL_PLAYER_REGION_TOP_PADDING = 16;
 export const FULL_PLAYER_REGION_BOTTOM_PADDING = 24;
 
 /** Glyph size for the skip and jump controls, sized to read as a primary transport target. */
-export const FULL_PLAYER_TRANSPORT_ICON_SIZE = 30;
+export const FULL_PLAYER_TRANSPORT_ICON_SIZE = 34;
 
-/** Glyph size for the sleep-timer and More controls, which sit a step below transport. */
-export const FULL_PLAYER_UTILITY_ICON_SIZE = 26;
+/** Play/pause circle in the transport row. Fits inside the transport row height. */
+export const FULL_PLAYER_PLAY_CIRCLE_SIZE = 68;
+
+/** Glyph size for the sleep-timer, shuffle, repeat, and More controls, a step below transport. */
+export const FULL_PLAYER_UTILITY_ICON_SIZE = 30;
+
+/** Speed label while audio or video plays; sized to sit beside the utility glyphs. */
+export const FULL_PLAYER_SPEED_LABEL_SIZE = 20;
 
 /**
  * Caps on the square. Nothing floors it: the artwork is the band that gives way, so a short
@@ -150,6 +165,12 @@ const fixedChromeHeight =
   FULL_PLAYER_REGION_GAP * FULL_PLAYER_REGION_GAP_COUNT +
   FULL_PLAYER_CONTROL_STACK_GAP * FULL_PLAYER_CONTROL_STACK_GAP_COUNT;
 
+/** Height the artwork gets back when the segment band and its seam are omitted. */
+const segmentBandReserve = FULL_PLAYER_SEGMENT_BAND_HEIGHT + FULL_PLAYER_REGION_GAP;
+
+const resolveFixedChromeHeight = (hasSegmentBand: boolean): number =>
+  hasSegmentBand ? fixedChromeHeight : fixedChromeHeight - segmentBandReserve;
+
 export const resolveFullPlayerLayout = (input: FullPlayerLayoutInput): FullPlayerLayout => {
   const viewportHeight = asNonNegative(input.viewportHeight);
   const viewportWidth = asNonNegative(input.viewportWidth);
@@ -179,7 +200,10 @@ export const resolveFullPlayerLayout = (input: FullPlayerLayoutInput): FullPlaye
   // space, so a short screen shrinks the artwork instead of pushing the strip past the bottom edge.
   const playerRegionHeight = Math.max(0, viewportHeight - safeAreaTop - reservedBelowRegion);
 
-  const viewerHeight = Math.max(0, playerRegionHeight - fixedChromeHeight);
+  const viewerHeight = Math.max(
+    0,
+    playerRegionHeight - resolveFixedChromeHeight(input.hasSegmentBand)
+  );
 
   // Locked frame when scrolled to the sheet: chips + sheet + bottom gap fill the viewport.
   // Outer content is that frame plus the player region, so max scroll equals playerRegionHeight.

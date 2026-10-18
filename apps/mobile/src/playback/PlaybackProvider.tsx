@@ -108,6 +108,7 @@ import {
   playbackTargetToStatsTargets,
   resolveItemPlaybackStart,
 } from '../lib/playback/buildPlaybackTarget';
+import { isMusicPlaybackTarget } from '../lib/playback/engineAudioProfile';
 import {
   adoptedItemNeedsEnrichment,
   buildAdoptedPlaybackTarget,
@@ -138,6 +139,7 @@ import {
 } from '../lib/playback/resolveEnclosureUrl';
 import { resolvePlaybackUrl } from '../lib/playback/resolvePlaybackUrl';
 import { shouldPostSeekEventNow } from '../lib/playback/seekEventCoalescing';
+import { isSeekHoldSampleLanded, SEEK_HOLD_MAX_MS } from '../lib/playback/seekPositionHold';
 import { isEffectivelyOffline, subscribeConnectivity } from '../net/connectivity';
 import { shouldSkipListenStatsForAccount } from '../popularityTracking/popularityTrackingGate';
 import { isOfflineModeEnabled } from '../prefs/offlineMode';
@@ -595,7 +597,13 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   const pauseAtRef = useRef<number | null>(null);
   const authoringHoldRef = useRef<boolean>(false);
   const [isAuthoringHold, setIsAuthoringHold] = useState(false);
+  /** Rate sent to the engine for the current target. Music is always 1. */
   const playbackRateRef = useRef<number>(1);
+  /** Rate the listener chose for spoken word and video. Music leaves it untouched. */
+  const audioVideoRateRef = useRef<number>(1);
+  /** Position of a seek the engine has not reported yet; earlier samples are ignored. */
+  const pendingSeekSecondsRef = useRef<number | null>(null);
+  const pendingSeekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advancingRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false);
   const lastSourceUrlRef = useRef<string | null>(null);
@@ -749,6 +757,10 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         clearTimeout(pendingStartSettleTimerRef.current);
         pendingStartSettleTimerRef.current = null;
       }
+      if (pendingSeekTimeoutRef.current !== null) {
+        clearTimeout(pendingSeekTimeoutRef.current);
+        pendingSeekTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -757,6 +769,57 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     writeIsPlayingLocallyForSync(playing);
     setPlaybackProgressPlaying(playing);
     setIsPlaying(playing);
+  }, []);
+
+  const clearSeekHold = useCallback((): void => {
+    pendingSeekSecondsRef.current = null;
+    if (pendingSeekTimeoutRef.current !== null) {
+      clearTimeout(pendingSeekTimeoutRef.current);
+      pendingSeekTimeoutRef.current = null;
+    }
+  }, []);
+
+  const holdSeekPosition = useCallback((seconds: number): void => {
+    pendingSeekSecondsRef.current = seconds;
+    if (pendingSeekTimeoutRef.current !== null) {
+      clearTimeout(pendingSeekTimeoutRef.current);
+    }
+    pendingSeekTimeoutRef.current = setTimeout(() => {
+      pendingSeekTimeoutRef.current = null;
+      pendingSeekSecondsRef.current = null;
+    }, SEEK_HOLD_MAX_MS);
+  }, []);
+
+  /**
+   * True while a native position still describes the playhead from before a seek. A sample near
+   * the seek releases the hold and is applied.
+   */
+  const isPositionHeldBySeek = useCallback(
+    (positionSeconds: number): boolean => {
+      const seekSeconds = pendingSeekSecondsRef.current;
+      if (seekSeconds === null) {
+        return false;
+      }
+      if (isSeekHoldSampleLanded({ positionSeconds, seekSeconds })) {
+        clearSeekHold();
+        return false;
+      }
+      return true;
+    },
+    [clearSeekHold]
+  );
+
+  /**
+   * Point the session at the rate this target plays at: 1 for music, otherwise the listener's
+   * spoken-word and video rate. The stored rate survives a music item, so the next episode picks
+   * it back up. Callers send the returned rate to the engine.
+   */
+  const applyEffectiveRateForTarget = useCallback((target: PlaybackTarget | null): number => {
+    const rate = isMusicPlaybackTarget(target) ? 1 : audioVideoRateRef.current;
+    playbackRateRef.current = rate;
+    setPlaybackProgressRate(rate);
+    setPlaybackRate(rate);
+    return rate;
   }, []);
 
   const releasePendingStart = useCallback((): void => {
@@ -1103,6 +1166,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     pauseAtRef.current = null;
     activeTargetRef.current = null;
     clearDownloadSourceSwap();
+    clearSeekHold();
     lastSourceUrlRef.current = null;
     setPlaybackSourceMarker(null);
     sourcePlayableRef.current = false;
@@ -1118,6 +1182,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     void clearLastPlaybackSnapshot();
   }, [
     clearDownloadSourceSwap,
+    clearSeekHold,
     releasePendingStart,
     resetEnclosureSelectionSession,
     setPlaybackPlaying,
@@ -1142,10 +1207,12 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         resetEnclosureSelectionSession();
       }
       clearDownloadSourceSwap();
+      clearSeekHold();
       lastSourceUrlRef.current = params.url;
       setPlaybackSourceMarker(params.url);
       sourcePlayableRef.current = false;
       latestEngineStateRef.current = null;
+      const effectiveRate = applyEffectiveRateForTarget(target);
       // Arm before the native load so startup `ready` / `paused` / `stalled` cannot move the glyph
       // before this function sets pause.
       const expectsAutoPlay = params.autoPlayOverride !== false;
@@ -1164,7 +1231,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
             target,
           },
           params.url,
-          playbackRateRef.current,
+          effectiveRate,
           params.autoPlayOverride,
           params.playbackDecisionOverride
         );
@@ -1230,9 +1297,11 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     },
     [
       applyAutoQueueDirective,
+      applyEffectiveRateForTarget,
       applyLoad,
       armPendingStart,
       clearDownloadSourceSwap,
+      clearSeekHold,
       recordPlaybackError,
       releasePendingStart,
       resetEnclosureSelectionSession,
@@ -2403,11 +2472,13 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 
       applyAutoQueueDirective({ mode: 'clear' });
       clearDownloadSourceSwap();
+      clearSeekHold();
       releasePendingStart();
       pauseAtRef.current = null;
       lastSourceUrlRef.current = source.url;
       setPlaybackSourceMarker(source.url);
       sourcePlayableRef.current = true;
+      nativePlaybackBridge.setRate(applyEffectiveRateForTarget(target));
       activeTargetRef.current = target;
       positionRef.current = positionSeconds;
       durationRef.current = durationSeconds;
@@ -2431,7 +2502,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     },
     [
       applyAutoQueueDirective,
+      applyEffectiveRateForTarget,
       clearDownloadSourceSwap,
+      clearSeekHold,
       enrichAdoptedSource,
       releasePendingStart,
       resolvePlaybackSelectionForItem,
@@ -2684,7 +2757,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         if (downloadSourceSwapSuppressProgressRef.current) {
           return;
         }
-        if (Number.isFinite(position) && position >= 0) {
+        if (Number.isFinite(position) && position >= 0 && !isPositionHeldBySeek(position)) {
           positionRef.current = position;
           setPlaybackPositionSeconds(position);
         }
@@ -2696,7 +2769,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         // Best-effort heal after a missed native event window (e.g. Fast Refresh).
       }
     })();
-  }, []);
+  }, [isPositionHeldBySeek]);
 
   useNativePlaybackBridge({
     ended: () => {
@@ -2797,6 +2870,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           return;
         }
         clearDownloadSourceSwap();
+      }
+      if (isPositionHeldBySeek(event.positionSeconds)) {
+        return;
       }
       positionRef.current = event.positionSeconds;
       setPlaybackPositionSeconds(event.positionSeconds);
@@ -2993,6 +3069,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     (seconds: number) => {
       nativePlaybackBridge.seek(seconds);
       positionRef.current = seconds;
+      holdSeekPosition(seconds);
       setPlaybackPositionSeconds(seconds);
       const occurredAt = Date.now();
       const postNetworkNow = shouldPostSeekEventNow({
@@ -3040,7 +3117,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         });
       }, PLAYBACK_SEEK_NETWORK_COALESCE_MS);
     },
-    [writePlaybackEvent]
+    [holdSeekPosition, writePlaybackEvent]
   );
 
   /**
@@ -3059,10 +3136,11 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 
       nativePlaybackBridge.seek(seconds);
       positionRef.current = seconds;
+      holdSeekPosition(seconds);
       setPlaybackPositionSeconds(seconds);
       writeLastPlaybackSnapshotForTarget(target, seconds);
     },
-    [writeLastPlaybackSnapshotForTarget]
+    [holdSeekPosition, writeLastPlaybackSnapshotForTarget]
   );
 
   useEffect(() => {
@@ -3170,25 +3248,25 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     if (target === null || target.kind === 'livestream') {
       return;
     }
-    const [rawChapters, previousQueueResource] = await Promise.all([
-      resolveChaptersForTarget(target),
-      resolvePreviousQueueResource(target),
-    ]);
-    const chapters = chaptersForTrackButtons(target, rawChapters);
+    // Chapters come from the process-wide cache the player already filled, so a chapter seek does
+    // not wait on the queue history read. That read runs only when the action leaves this item;
+    // with no previous item, the same action becomes a seek to 0.
+    const chapters = chaptersForTrackButtons(target, await resolveChaptersForTarget(target));
     const action = resolvePreviousAction({
       chapters,
-      hasPreviousQueueItem: previousQueueResource !== null,
+      hasPreviousQueueItem: true,
       positionSeconds: positionRef.current,
     });
-    if (action.kind === 'previous-queue-item') {
-      if (previousQueueResource !== null) {
-        await playQueueResource(previousQueueResource, 'explicit_play');
-        return;
-      }
-      seekTo(0);
+    if (action.kind !== 'previous-queue-item') {
+      seekTo(action.seekSeconds);
       return;
     }
-    seekTo(action.seekSeconds);
+    const previousQueueResource = await resolvePreviousQueueResource(target);
+    if (previousQueueResource !== null) {
+      await playQueueResource(previousQueueResource, 'explicit_play');
+      return;
+    }
+    seekTo(0);
   }, [playQueueResource, resolveChaptersForTarget, resolvePreviousQueueResource, seekTo]);
 
   const skipToPreviousTrack = useCallback(async (): Promise<void> => {
@@ -3204,12 +3282,13 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     seekTo(0);
   }, [playQueueResource, resolvePreviousQueueResource, seekTo]);
 
-  const setRate = useCallback((rate: number) => {
-    playbackRateRef.current = rate;
-    setPlaybackProgressRate(rate);
-    setPlaybackRate(rate);
-    nativePlaybackBridge.setRate(rate);
-  }, []);
+  const setRate = useCallback(
+    (rate: number) => {
+      audioVideoRateRef.current = rate;
+      nativePlaybackBridge.setRate(applyEffectiveRateForTarget(activeTargetRef.current));
+    },
+    [applyEffectiveRateForTarget]
+  );
 
   const skipToNext = useCallback(async (): Promise<void> => {
     const target = activeTargetRef.current;

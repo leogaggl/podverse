@@ -405,6 +405,7 @@
     "now_playing_chapter": "Now Playing Chapter",
     "now_playing_official_clip": "Now Playing Official Clip",
     "open_chapter_link": "Open Chapter Link",
+    "open_named_screen": "Open {screen}: {name}",
     "no_media": "No Playable Media Found",
     "livestream_unavailable": "Livestream playback is not available yet",
     "show_fullscreen_media_player": "Show the Fullscreen Media Player",
@@ -647,6 +648,7 @@
   },
   "popularity_tracking": {
     "title": "Popularity Tracking",
+    "summary": "Help surface the shows people listen to most. Your listens can count toward those rankings without your name attached.",
     "yes": "Yes, Track Me",
     "no": "No Thanks",
     "learn_more": "Learn More",

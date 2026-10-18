@@ -41,6 +41,7 @@ export const PODCAST_TABS = [
   'soundbites',
   'podroll',
   'funding',
+  'people',
   'settings',
 ] as const;
 
@@ -82,7 +83,7 @@ export type AddByRssEpisodeSort = (typeof ADD_BY_RSS_EPISODE_SORT_OPTIONS)[numbe
 
 export const DEFAULT_ADD_BY_RSS_EPISODE_SORT: AddByRssEpisodeSort = 'recent';
 
-export const ALBUM_TABS = ['tracks', 'about', 'podroll', 'funding', 'settings'] as const;
+export const ALBUM_TABS = ['tracks', 'about', 'podroll', 'funding', 'people', 'settings'] as const;
 
 export type AlbumTab = (typeof ALBUM_TABS)[number];
 
@@ -103,7 +104,15 @@ export type AlbumDetailRange = QueryParamsStatsRange;
 
 export const DEFAULT_ALBUM_DETAIL_RANGE: AlbumDetailRange = 'week';
 
-export const ARTIST_TABS = ['albums', 'tracks', 'about', 'podroll', 'funding', 'settings'] as const;
+export const ARTIST_TABS = [
+  'albums',
+  'tracks',
+  'about',
+  'podroll',
+  'funding',
+  'people',
+  'settings',
+] as const;
 
 export type ArtistTab = (typeof ARTIST_TABS)[number];
 
@@ -131,13 +140,14 @@ export const EPISODE_TABS = [
   'soundbites',
   'transcript',
   'funding',
+  'people',
 ] as const;
 
 export type EpisodeTab = (typeof EPISODE_TABS)[number];
 
 export const DEFAULT_EPISODE_TAB: EpisodeTab = 'summary';
 
-export const TRACK_TABS = ['summary', 'transcript', 'funding'] as const;
+export const TRACK_TABS = ['summary', 'transcript', 'funding', 'people'] as const;
 
 export type TrackTab = (typeof TRACK_TABS)[number];
 

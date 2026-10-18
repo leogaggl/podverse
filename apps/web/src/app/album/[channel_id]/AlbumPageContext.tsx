@@ -112,7 +112,11 @@ export const AlbumPageContextProvider = ({
       return;
     }
 
-    if (filterParams.type === 'about' || filterParams.type === 'podroll') {
+    if (
+      filterParams.type === 'about' ||
+      filterParams.type === 'people' ||
+      filterParams.type === 'podroll'
+    ) {
       return;
     }
 

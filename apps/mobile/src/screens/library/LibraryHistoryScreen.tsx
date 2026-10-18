@@ -22,7 +22,7 @@ import { resolveListFill } from '../../lib/listFill';
 import type { QueueResourceHomeRow } from '../../lib/rows/homeRowMappers';
 import { queueResourceToHomeRow } from '../../lib/rows/homeRowMappers';
 import type { LibraryStackParamList } from '../../navigation';
-import { screenBodyInsets } from '../../theme/screenLayout';
+import { listChipRowBottomGap, screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
@@ -129,6 +129,7 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
       },
       headerSection: {
         gap: tokens.spacing.base,
+        paddingBottom: listChipRowBottomGap(tokens.spacing),
         paddingTop: bodyInsets.paddingTop,
       },
       listContent: {

@@ -12,8 +12,6 @@ export { CheckboxMark, CheckboxRow } from './CheckboxMark';
 export type { CheckboxRowProps } from './CheckboxMark';
 export { CoverImage, prefetchCoverImage } from './CoverImage';
 export type { CoverImageProps } from './CoverImage';
-export { ImageViewerModal } from './ImageViewerModal';
-export type { ImageViewerModalProps } from './ImageViewerModal';
 export { FillList, isFillListScrollLocked } from './FillList';
 export type { FillListProps } from './FillList';
 export { ListRow } from './ListRow';

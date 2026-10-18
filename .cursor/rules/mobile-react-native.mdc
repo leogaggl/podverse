@@ -105,13 +105,14 @@ alwaysApply: false
   3. Keep screen files as orchestration (data hooks + wiring). Put presentation in shared components.
 
   Inventory (extend here when adding new shared UI): `Button`, `Card`, `CoverImage`,
-  `ImageViewerModal`, `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`,
+  `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`,
   `VerticalCenter`, `HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `MobileScreenContainer`,
   `ThemedStackHeader`,
   `SectionCard`, `ListSection`, `ReorderableSections` / `ReorderableList` (`dragActivation` supports
   row-long-press and `showHandle` toggles handle-only vs body drag),
   `ListLoading` / `ListEmpty` / `ListError`, `CallToActionSection`, `LoadingSection`,
   `AuthAwareLoadState`, `RetryableError`, `MediaRowActions`, `MiniPlayer`, gate/banner feedback.
+  The full-size image viewer is the `ImageViewer` root screen, not a primitive modal.
   Do **not** use `@podverse/ui` (web/SCSS). Details: **mobile-reusable-components** skill.
 - **Async naming (`fetch` vs `load`/`reload`):** split verbs by responsibility so names never collide
   when a screen orchestrator wraps a resource hook:

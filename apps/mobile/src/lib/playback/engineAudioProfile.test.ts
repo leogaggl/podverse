@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import type { DTOChannel, DTOClip, DTOItem } from '@podverse/helpers/dto';
 import { MediumEnum } from '@podverse/helpers/medium';
+import type { PlaybackTarget } from '@podverse/playback-core';
 
 import { buildClipPlaybackTarget, buildItemPlaybackTarget } from './buildPlaybackTarget';
-import { resolveEngineAudioProfile } from './engineAudioProfile';
+import { isMusicPlaybackTarget, resolveEngineAudioProfile } from './engineAudioProfile';
 
 const channel = (mediumId: MediumEnum): DTOChannel => {
   const value: Partial<DTOChannel> = { id_text: 'ch1', medium_id: mediumId };
@@ -55,8 +56,42 @@ describe('resolveEngineAudioProfile', () => {
     ).toBe('spoken');
   });
 
-  it('treats add-by-RSS and an empty player as spoken', () => {
+  it('treats add-by-RSS with no medium and an empty player as spoken', () => {
     expect(resolveEngineAudioProfile({ kind: 'add-by-rss', resourceData: {} })).toBe('spoken');
     expect(resolveEngineAudioProfile(null)).toBe('spoken');
+  });
+
+  it('follows the feed medium for add-by-RSS', () => {
+    const music: PlaybackTarget = {
+      kind: 'add-by-rss',
+      resourceData: { medium_id: MediumEnum.Music },
+    };
+    const video: PlaybackTarget = {
+      kind: 'add-by-rss',
+      resourceData: { medium_id: MediumEnum.Video },
+    };
+    expect(resolveEngineAudioProfile(music)).toBe('music');
+    expect(resolveEngineAudioProfile(video)).toBe('video');
+    expect(isMusicPlaybackTarget(music)).toBe(true);
+    expect(isMusicPlaybackTarget(video)).toBe(false);
+  });
+});
+
+describe('isMusicPlaybackTarget', () => {
+  it('answers music for directory tracks and nothing else on a music channel', () => {
+    const musicChannel = channel(MediumEnum.Music);
+    expect(
+      isMusicPlaybackTarget(buildItemPlaybackTarget(item(), musicChannel, 'explicit_play'))
+    ).toBe(true);
+    expect(isMusicPlaybackTarget(buildClipPlaybackTarget(clip(), item(), musicChannel))).toBe(
+      false
+    );
+    expect(
+      isMusicPlaybackTarget(
+        buildItemPlaybackTarget(item(), channel(MediumEnum.Podcast), 'explicit_play')
+      )
+    ).toBe(false);
+    expect(isMusicPlaybackTarget({ kind: 'add-by-rss', resourceData: {} })).toBe(false);
+    expect(isMusicPlaybackTarget(null)).toBe(false);
   });
 });

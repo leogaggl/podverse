@@ -17,6 +17,16 @@ export type SettingsSwitchRowProps = {
   showDivider?: boolean;
   testID: string;
   /**
+   * Trailing switch id. Defaults to `${testID}-toggle`. Pass this when a flow already
+   * addresses the switch by its own id.
+   */
+  switchTestID?: string;
+  /**
+   * Horizontal inset. Turn off when the parent already applies the page gutter, so the title
+   * lines up with sibling text.
+   */
+  inset?: boolean;
+  /**
    * Trailing switch. Omit when the row is pressable-only (deferred features that explain
    * themselves on tap rather than flipping a dead switch).
    */
@@ -38,7 +48,7 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       marginTop: tokens.spacing.sm,
     },
     description: {
-      ...typography.caption,
+      ...typography.body,
       color: themeStyles.textSecondary.color,
     },
     divider: {
@@ -65,9 +75,11 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       ...listRowVerticalPadding(tokens.spacing.lg),
     },
     title: {
-      ...typography.body,
+      ...typography.subheading,
       color: themeStyles.textPrimary.color,
       flex: 1,
+      fontSize: 19,
+      lineHeight: 26,
     },
     titleColumn: {
       flex: 1,
@@ -88,9 +100,11 @@ export function SettingsSwitchRow({
   accessibilityLabel,
   children,
   disabled = false,
+  inset = true,
   onPress,
   onValueChange,
   showDivider = false,
+  switchTestID,
   testID,
   title,
   value,
@@ -104,7 +118,7 @@ export function SettingsSwitchRow({
   const alignTitleToSwitch = isSwitch && !hasTitleDetail;
   const rowStyle = [
     styles.row,
-    isNested ? styles.rowNested : styles.rowParent,
+    isNested ? styles.rowNested : inset ? styles.rowParent : null,
     isNested ? null : isSwitch ? styles.rowSwitch : styles.rowText,
     !isNested && showDivider ? styles.divider : null,
   ];
@@ -123,7 +137,7 @@ export function SettingsSwitchRow({
           accessibilityState={{ checked: value, disabled }}
           disabled={disabled}
           onValueChange={onValueChange}
-          testID={`${testID}-toggle`}
+          testID={switchTestID ?? `${testID}-toggle`}
           value={value}
         />
       ) : null}

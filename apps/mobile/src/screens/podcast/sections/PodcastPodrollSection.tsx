@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { RemoteItemsResponse } from '@podverse/helpers';
 import type { ApiRequestService } from '@podverse/helpers-requests';
@@ -12,16 +12,26 @@ import { channelToHomeRow, itemToHomeRow } from '../../../lib/rows/homeRowMapper
 import type { ChannelBrowseStackParamList } from '../../../navigation';
 import { buildPodcastDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../../navigation';
 import { LIST_ROW_ARTWORK_SIZE } from '../../../theme/screenLayout';
+import type { ThemedStylesTheme } from '../../../theme/useThemedStyles';
+import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { PodcastSectionList } from './PodcastSectionList';
 import type { PodcastSectionPaneProps } from './podcastSectionPane';
 import type { PodcastSectionPage } from './usePodcastSectionRows';
 import { usePodcastSectionRows } from './usePodcastSectionRows';
 
 /** Artwork sizing only, so it does not depend on the theme. Square, matching every other row. */
-const styles = StyleSheet.create({
+const coverStyles = StyleSheet.create({
   image: {
     height: LIST_ROW_ARTWORK_SIZE,
     width: LIST_ROW_ARTWORK_SIZE,
+  },
+});
+
+/** Content rows draw a top hairline, including the first row. */
+const createContentListRowStyles = ({ styles: themeStyles }: ThemedStylesTheme) => ({
+  row: {
+    borderTopColor: themeStyles.border.borderColor,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });
 
@@ -71,6 +81,33 @@ const toPodrollEntries = (response: RemoteItemsResponse): PodrollEntry[] => {
 
   return entries;
 };
+
+function PodcastPodrollRow({
+  entry,
+  index,
+  onPress,
+}: {
+  entry: PodrollEntry;
+  index: number;
+  onPress: (entry: PodrollEntry) => void;
+}) {
+  const styles = useThemedStyles(createContentListRowStyles);
+  const handlePress = useCallback(() => {
+    onPress(entry);
+  }, [entry, onPress]);
+
+  return (
+    <View style={styles.row}>
+      <ListRow
+        leading={<CoverImage opensViewer={false} style={coverStyles.image} uri={entry.imageUrl} />}
+        onPress={handlePress}
+        subtitle={entry.subtitle ?? undefined}
+        testID={`podcast-podroll-row-${index}`}
+        title={entry.title}
+      />
+    </View>
+  );
+}
 
 /**
  * The podcasts and episodes this podcast recommends.
@@ -135,15 +172,7 @@ export function PodcastPodrollSection({
       }}
       onRetry={retry}
       renderRow={({ index, row: entry }) => (
-        <ListRow
-          leading={<CoverImage opensViewer={false} style={styles.image} uri={entry.imageUrl} />}
-          onPress={() => {
-            openEntry(entry);
-          }}
-          subtitle={entry.subtitle ?? undefined}
-          testID={`podcast-podroll-row-${index}`}
-          title={entry.title}
-        />
+        <PodcastPodrollRow entry={entry} index={index} onPress={openEntry} />
       )}
       rows={rows}
       testID="podcast-detail-podroll-list"

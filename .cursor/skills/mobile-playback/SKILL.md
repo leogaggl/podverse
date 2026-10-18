@@ -272,9 +272,11 @@ duration lands before the periodic tick. Play paths seed duration from `item.ite
 
 ### Chapter-aware scrubber
 
-`FullPlayerScrubber` is the only full-player progress leaf: drag/tap seek on the **line** (no thumb;
-the hit target is 44pt around a 6pt track), chapter boundary ticks (`getChapterBoundaryRatios` from
-`@podverse/playback-core/chapterProgressMarkers`), active chapter/clip/soundbite highlight, long-press
+`FullPlayerScrubber` is the only full-player progress leaf: tap seek, and drag seek once the pan
+passes the horizontal activation offset (a vertical swipe on the bar scrolls the player). A white
+thumb marks the playhead; the hit target is 44pt around a 6pt track. Chapter boundaries are dots
+(`getChapterBoundaryRatios` from `@podverse/playback-core/chapterProgressMarkers`, none at 0 or 1),
+and a pulsing band behind the track covers the active chapter/clip/soundbite. Long-press
 chapter tooltip (~500ms / 2s dismiss), and hour-aware clocks (`formatHHMMSS` — same helper and
 style as the progress bar, `1:19:59` not `01:19:59`; **playback-timestamp-format**).
 While the finger is down, `playbackScrubPreviewStore` holds the pending second; the left clock and
@@ -297,11 +299,13 @@ touch target because it is the one a listener reaches for without looking.
   when it fits and scrolls from the leading edge only when it overflows.
 - **Band order follows web.** Title block, artwork, segment band, progress, transport, utility — the
   same order as web's player modal (`titleSection`, art, `subtitleSection`). The segment band names
-  the chapter, clip, or official clip **below** the artwork and always holds
-  `FULL_PLAYER_SEGMENT_BAND_HEIGHT`, the way web always renders `subtitleSection` with
-  `--media-modal-subtitle-reserve`. A chapter starting mid-episode must fade its name into space that
-  already exists; never mount or unmount the row.
-- **Equal-width slots.** The transport row's five controls and the utility row's three each sit in
+  the chapter, clip, or official clip **below** the artwork. For an item with chapters or a clip,
+  official clip, or chapter target it holds `FULL_PLAYER_SEGMENT_BAND_HEIGHT` for the whole item,
+  the way web renders `subtitleSection` with `--media-modal-subtitle-reserve`; a chapter starting
+  mid-episode fades its name into space that already exists. For an item with neither, the band
+  and one region seam are omitted and the artwork takes that height.
+- **Equal-width slots.** The transport row's five slots and the utility row's controls (three for
+  audio and video, four for music) each sit in
   `flex: 1` slots with `flexDirection: 'row'` + `justifyContent: 'center'`. Main-axis centering is
   required because `Button` sets `alignSelf: 'flex-start'`, which would otherwise pin every control
   to the leading edge of its slot. Do not use `justifyContent: 'space-between'` here — unequal
@@ -327,6 +331,17 @@ touch target because it is the one a listener reaches for without looking.
   item, and next skips the queue.
 - **Rate is plain text.** Playback speed is a `ghost` label with no fill or border, so it does not
   read as a second primary action beside the play circle.
+- **Music transport is previous, play, and next.** Shuffle and repeat sit in the utility row with
+  sleep and More. Music always plays at 1x. The last audio or video speed is kept and returns
+  when that kind of item plays again. The music player has no Clips chip and no create-clip
+  action. An Add by RSS item whose engine profile is music follows every one of these, including
+  the music queue (`isMusicPlaybackTarget`, `resolveEngineAudioProfile`).
+- **The item title and the channel name open their screens.** The title opens the episode, track,
+  or clip. The channel name opens the podcast, album, or artist. Add by RSS opens the local feed
+  screen from the channel name when this device has that feed. The Add by RSS title is not a link.
+- **Type on the player.** The item title is 28 and the chapter or clip name is 22. Position and
+  duration stay at 14. Clocks use `tokens.text.link`. A channel name that opens its screen uses
+  that color too.
 - **Chips share the screen background.** The chip strip is opaque in the screen's own background
   color, never a tinted band, and a selected chip is the label for the pane below it — panes do not
   repeat it as a heading.

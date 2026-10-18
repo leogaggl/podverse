@@ -6,7 +6,8 @@ import { addByRssRequestHeaderAuth } from '../playback/addByRssMediaAuth';
 type ResolvedHeaders = { headers: Record<string, string>; key: string };
 
 /**
- * `Authorization` for a protected add-by-RSS feed's artwork, for `CoverImage` `headers`.
+ * `Authorization` for a protected add-by-RSS feed's artwork. `CoverImage` and the image
+ * viewer pass the result as image request headers.
  *
  * Android only, and only when the artwork URL is on the feed's domain: expo-image fetches through
  * OkHttp there, which drops the header on a redirect to another host. iOS never reads the stored

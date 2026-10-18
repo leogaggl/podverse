@@ -11,6 +11,7 @@ import type { BillingProcessorEnv } from '@podverse/helpers-config';
 import { createTestAdapter, isTestAdapterAllowed } from './adapters/testAdapter.js';
 import type { BillingAdapterRegistry } from './BillingAdapterRegistry.js';
 import { findStrikeCheckoutSession } from './findStrikeCheckoutSession.js';
+import { isMappedBillingProduct } from './isMappedBillingProduct.js';
 
 export interface ConfiguredBillingAdapters {
   nodeEnv: string;
@@ -64,6 +65,7 @@ export function registerConfiguredBillingAdapters(
         appAppleId: apple.appAppleId,
         appleEnvironment: apple.environment,
         nodeEnv: config.nodeEnv,
+        isMappedProduct: isMappedBillingProduct,
       })
     );
   }
@@ -82,6 +84,7 @@ export function registerConfiguredBillingAdapters(
         rtdnPushAudience: googlePlay.rtdnPushAudience,
         rtdnPushServiceAccountEmail: googlePlay.rtdnPushServiceAccountEmail,
         client: googlePlayClient,
+        isMappedProduct: isMappedBillingProduct,
       })
     );
   }

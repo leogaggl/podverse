@@ -130,6 +130,7 @@ export const PodcastPageContextProvider = ({
 
     if (
       filterParams.type === 'about' ||
+      filterParams.type === 'people' ||
       filterParams.type === 'podroll' ||
       filterParams.type === 'boosts'
     ) {

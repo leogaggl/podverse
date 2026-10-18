@@ -102,20 +102,22 @@ name: Anonymous Subscriptions Persist
 - assertNotVisible:
     id: home-feed-summary
 
-# The row states when the channel last published, from the device. It arrives with the episode sync
-# rather than with the subscribe, so this waits rather than asserting immediately.
+# The row states when the channel last published and how many episodes are on the device.
+# Both arrive with the episode sync rather than with the subscribe, so this waits rather than
+# asserting immediately. A count of zero is still a line.
 #
-# The other three pieces of row metadata are deliberately absent here and that is the correct state,
-# not a gap: nothing is downloaded, the live badge needs an account, and a channel that has never
+# Live and unseen stay absent: the live badge needs an account, and a channel that has never
 # been opened has nothing unseen — following a show must not claim its whole back catalogue is new.
 - extendedWaitUntil:
     visible:
       id: "home-feed-row-updated-.*"
     timeout: ${TIMEOUT_SLOWER}
+- extendedWaitUntil:
+    visible:
+      id: "home-feed-row-downloaded-.*"
+    timeout: ${TIMEOUT_SLOWER}
 - assertNotVisible:
     id: "home-feed-row-unseen-.*"
-- assertNotVisible:
-    id: "home-feed-row-downloaded-.*"
 - takeScreenshot: home-row-updated
 
 # The grid draws the same subscription as an artwork tile. Asserted here rather than in home.yaml,

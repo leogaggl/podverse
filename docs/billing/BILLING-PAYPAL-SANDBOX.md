@@ -80,7 +80,7 @@ Renewing PayPal billing plans already in the sandbox are unused and need no setu
 
 Premium uses PayPal Orders v2 (`POST /api/v2/billing/paypal/orders`, then capture). Podverse names
 the month and year product ids in code (`podverse_premium_one_time_monthly` and
-`podverse_premium_one_time_annual`). There is no PayPal plan id to copy into `billing-products.env`.
+`podverse_premium_one_time_annual`). There is no PayPal plan id to copy into env.
 Prices match the local membership defaults (`MEMBERSHIP_PREMIUM_COST_MONTHLY` 3 and
 `MEMBERSHIP_PREMIUM_COST_ANNUALLY` 30). A second purchase stacks on time the account already holds.
 

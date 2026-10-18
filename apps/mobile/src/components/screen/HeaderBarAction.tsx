@@ -27,7 +27,7 @@ export function HeaderBarAction({
   disabled = false,
   icon,
   iconColor,
-  iconSize = 22,
+  iconSize = 26,
   label,
   onPress,
   testID,

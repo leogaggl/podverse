@@ -26,7 +26,7 @@ import {
 } from '../../navigation';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { readSearchListMedium, writeSearchListMedium } from '../../prefs/searchListPrefs';
-import { screenBodyInsets } from '../../theme/screenLayout';
+import { listChipRowBottomGap, screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
@@ -251,6 +251,7 @@ export function SearchScreen({ navigation, route }: SearchScreenProps) {
       headerSection: {
         ...bodyInsets,
         gap: tokens.spacing.base,
+        paddingBottom: listChipRowBottomGap(tokens.spacing),
       },
       notice: {
         color: themeStyles.textSecondary.color,

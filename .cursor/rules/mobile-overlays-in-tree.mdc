@@ -40,7 +40,8 @@ is why the overlay must not live in a second window at all.
 ## Do
 
 - Reach for `AppOverlay` for every overlay over content: confirm dialogs, action sheets, overflow
-  menus, image viewers, managed-copy readers, rate-limit notices.
+  menus, managed-copy readers, rate-limit notices. The full-size image is the `ImageViewer` root
+  screen, not an overlay.
 - Render `AppOverlay` unconditionally and let `visible` drive it, the same contract as
   [mobile-modal-presentation-lifecycle](/.cursor/rules/mobile-modal-presentation-lifecycle.mdc).
 - Animate with `Animated` inside the overlay's own children — the host does not animate for you.

@@ -2,6 +2,7 @@ import type { BillingAdapterRegistry, TestPaymentProcessorAdapter } from '@podve
 import {
   createTestAdapter,
   findStrikeCheckoutSession,
+  isMappedBillingProduct,
   isTestAdapterAllowed,
 } from '@podverse/billing';
 import { createAppleAdapter } from '@podverse/external-services-apple-app-store';
@@ -76,6 +77,7 @@ export function registerBillingAdapters(
         appAppleId: apple.appAppleId,
         appleEnvironment: apple.environment,
         nodeEnv: config.nodeEnv,
+        isMappedProduct: isMappedBillingProduct,
       })
     );
   }
@@ -88,6 +90,7 @@ export function registerBillingAdapters(
         serviceAccountJsonPath: googlePlay.serviceAccountJsonPath,
         rtdnPushAudience: googlePlay.rtdnPushAudience,
         rtdnPushServiceAccountEmail: googlePlay.rtdnPushServiceAccountEmail,
+        isMappedProduct: isMappedBillingProduct,
       })
     );
   }

@@ -3,6 +3,7 @@ import type {
   BillingPurchaseAcknowledgement,
   BillingWebhookParseResult,
   BillingWebhookRequest,
+  IsMappedBillingProduct,
   NormalizedBillingEvent,
   NormalizedTransactionSnapshot,
   PaymentProcessorAdapter,
@@ -10,7 +11,6 @@ import type {
 import {
   BillingProcessorRecordNotFoundError,
   BillingWebhookVerificationError,
-  resolveBillingProcessorProductsFromEnv,
 } from '@podverse/helpers';
 
 import type { GooglePlayClient } from './PlayDeveloperClient.js';
@@ -23,11 +23,6 @@ const SUBSCRIPTION_NOTIFICATION_REVOKED = 12;
 const ONE_TIME_PRODUCT_NOTIFICATION_PURCHASED = 1;
 const ONE_TIME_PRODUCT_NOTIFICATION_CANCELED = 2;
 
-interface SoldBillingProduct {
-  externalProductId: string;
-  externalBasePlanId: string | null;
-}
-
 interface GooglePlayAdapterConfig {
   packageName: string;
   serviceAccountJsonPath: string;
@@ -35,40 +30,21 @@ interface GooglePlayAdapterConfig {
   rtdnPushServiceAccountEmail: string;
   client?: GooglePlayClient;
   /**
-   * Product ids this deployment sells. When omitted, the ids come from the billing product env.
-   * An empty list means no Play product is mapped, so notifications produce no events.
+   * Whether `billing_processor_product` maps this store id and base plan. An inactive row still
+   * counts, so a refund for a retired product still applies. An unmapped id produces no events.
    */
-  soldProducts?: readonly SoldBillingProduct[];
+  isMappedProduct: IsMappedBillingProduct;
 }
 
-function loadSoldProducts(
-  override: readonly SoldBillingProduct[] | undefined
-): readonly SoldBillingProduct[] {
-  if (override !== undefined) {
-    return override;
-  }
-  return resolveBillingProcessorProductsFromEnv(process.env).products.filter(
-    (product) => product.processor === 'google_play'
-  );
-}
-
-function isSoldProduct(
-  products: readonly SoldBillingProduct[],
+async function isMappedStoreProduct(
+  isMappedProduct: IsMappedBillingProduct,
   externalProductId: string | null,
   externalBasePlanId: string | null
-): boolean {
+): Promise<boolean> {
   if (externalProductId === null || externalProductId === '') {
     return false;
   }
-  return products.some((product) => {
-    if (product.externalProductId !== externalProductId) {
-      return false;
-    }
-    if (product.externalBasePlanId === null) {
-      return externalBasePlanId === null;
-    }
-    return product.externalBasePlanId === externalBasePlanId;
-  });
+  return isMappedProduct('google_play', externalProductId, externalBasePlanId);
 }
 
 function logUnmappedBillingProduct(productId: string | null, notificationType: string): void {
@@ -298,16 +274,22 @@ function parseNotificationType(record: Record<string, unknown>): number | null {
   return readNumber(record, 'notificationType');
 }
 
-function isMappedPrepaid(
+async function isMappedPrepaid(
   context: SubscriptionContext,
-  soldProducts: readonly SoldBillingProduct[],
+  isMappedProduct: IsMappedBillingProduct,
   notificationType: string
-): boolean {
+): Promise<boolean> {
   if (!context.isPrepaid) {
     logUnmappedBillingProduct(context.externalProductId, notificationType);
     return false;
   }
-  if (!isSoldProduct(soldProducts, context.externalProductId, context.externalBasePlanId)) {
+  if (
+    !(await isMappedStoreProduct(
+      isMappedProduct,
+      context.externalProductId,
+      context.externalBasePlanId
+    ))
+  ) {
     logUnmappedBillingProduct(context.externalProductId, notificationType);
     return false;
   }
@@ -319,7 +301,7 @@ async function mapSubscriptionNotificationEvents(
   occurredAt: string,
   subscriptionNotification: Record<string, unknown>,
   client: GooglePlayClient,
-  soldProducts: readonly SoldBillingProduct[]
+  isMappedProduct: IsMappedBillingProduct
 ): Promise<NormalizedBillingEvent[]> {
   const purchaseToken = readString(subscriptionNotification, 'purchaseToken');
   if (purchaseToken === null) {
@@ -341,7 +323,7 @@ async function mapSubscriptionNotificationEvents(
 
   const context = readSubscriptionContext(purchase, fallbackProductId);
   const notificationLabel = String(notificationType);
-  if (!isMappedPrepaid(context, soldProducts, notificationLabel)) {
+  if (!(await isMappedPrepaid(context, isMappedProduct, notificationLabel))) {
     return [];
   }
   const externalTransactionId = context.externalTransactionId;
@@ -396,7 +378,7 @@ async function mapOneTimeProductNotificationEvents(
   occurredAt: string,
   oneTimeNotification: Record<string, unknown>,
   client: GooglePlayClient,
-  soldProducts: readonly SoldBillingProduct[]
+  isMappedProduct: IsMappedBillingProduct
 ): Promise<NormalizedBillingEvent[]> {
   const sku = readString(oneTimeNotification, 'sku');
   const purchaseToken = readString(oneTimeNotification, 'purchaseToken');
@@ -407,7 +389,7 @@ async function mapOneTimeProductNotificationEvents(
   const notificationType = parseNotificationType(oneTimeNotification);
   const notificationLabel =
     notificationType === null ? 'one_time' : `one_time:${String(notificationType)}`;
-  if (!isSoldProduct(soldProducts, sku, null)) {
+  if (!(await isMappedStoreProduct(isMappedProduct, sku, null))) {
     logUnmappedBillingProduct(sku, notificationLabel);
     return [];
   }
@@ -594,7 +576,7 @@ export function createGooglePlayAdapter(config: GooglePlayAdapterConfig): Paymen
       packageName: config.packageName,
       serviceAccountJsonPath: config.serviceAccountJsonPath,
     });
-  const soldProducts = loadSoldProducts(config.soldProducts);
+  const isMappedProduct = config.isMappedProduct;
   const nowIso = (): string => new Date().toISOString();
 
   return {
@@ -644,7 +626,7 @@ export function createGooglePlayAdapter(config: GooglePlayAdapterConfig): Paymen
             occurredAt,
             subscriptionNotification,
             client,
-            soldProducts
+            isMappedProduct
           ))
         );
       }
@@ -655,7 +637,7 @@ export function createGooglePlayAdapter(config: GooglePlayAdapterConfig): Paymen
             occurredAt,
             oneTimeProductNotification,
             client,
-            soldProducts
+            isMappedProduct
           ))
         );
       }
@@ -686,7 +668,7 @@ export function createGooglePlayAdapter(config: GooglePlayAdapterConfig): Paymen
       const subscriptionPurchase = await client.getSubscriptionPurchase(ref.externalId);
       if (subscriptionPurchase !== null) {
         const context = readSubscriptionContext(subscriptionPurchase, ref.externalProductId);
-        if (!isMappedPrepaid(context, soldProducts, 'fetchTransaction')) {
+        if (!(await isMappedPrepaid(context, isMappedProduct, 'fetchTransaction'))) {
           throw new BillingProcessorRecordNotFoundError('google_play', ref.externalId);
         }
         const snapshot = mapSubscriptionTransactionSnapshot(
@@ -705,7 +687,7 @@ export function createGooglePlayAdapter(config: GooglePlayAdapterConfig): Paymen
       if (ref.externalProductId === null) {
         throw new BillingProcessorRecordNotFoundError('google_play', ref.externalId);
       }
-      if (!isSoldProduct(soldProducts, ref.externalProductId, null)) {
+      if (!(await isMappedStoreProduct(isMappedProduct, ref.externalProductId, null))) {
         logUnmappedBillingProduct(ref.externalProductId, 'fetchTransaction');
         throw new BillingProcessorRecordNotFoundError('google_play', ref.externalId);
       }

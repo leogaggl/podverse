@@ -41,7 +41,9 @@ per-screen inset under the title bar.
   `ChannelHeader` `actions` is subscribe plus optional outbound links (RSS, website). **Header
   icons and header action labels use `tokens.text.primary`** (same as the title) — never
   `tokens.text.accent` / link blue. That color lives in **`HeaderBarAction`**; do not
-  reintroduce accent tint on back, overflow, or trailing header controls. A header More opens
+  reintroduce accent tint on back, overflow, or trailing header controls. Header action icons
+  use that component's **26pt** default. The back glyph stays 28. Do not pass a smaller icon
+  size to match an older header. A header More opens
   **`MoreMenu`** — a bottom sheet that appears instantly: tertiary action group with centered
   bold rows, then a separate opaque quaternary Cancel block (same bold weight). Do not slide or
   fade, do not use a translucent Cancel fill, do not use a centered card, and do not style Cancel
@@ -91,10 +93,13 @@ touch: the visible shape is what the finger can press.
 Two or three filters under a field use **`OptionChipGroup`**. Selected chip = `buttonPrimary` fill.
 Settings density (2–3 chips vs option-list screen) is **mobile-settings-option-density**.
 
-Standalone cover art uses **`CoverImage`** (`expo-image`, memory+disk cache), which opens
-**`ImageViewerModal`** on tap. Pass **`viewerUri`** from **`primaryLightboxArtworkUrl`** (or the
-channel variant) so the modal loads the largest original, not the list thumb. Do not add a nested
-image tap when the parent row, cell, or header is already the pressable control
+Standalone cover art uses **`CoverImage`** (`expo-image`, memory+disk cache). A stationary tap
+opens the **`ImageViewer`** root screen (`ROOT_SLIDE_UP_SCREEN_OPTIONS`): it slides up and
+dismisses from the top edge. Pass **`viewerUri`** from **`primaryLightboxArtworkUrl`** (or the
+channel variant) so the screen loads the largest original, not the list thumb. Pass
+**`addByRssFeedUrl`** when the artwork belongs to an Add by RSS feed. The route never carries
+an `Authorization` value; the screen resolves those headers from the feed URL. Do not add a
+nested image tap when the parent row, cell, or header is already the pressable control
 (`opensViewer={false}`). Resolve display `uri` with **`primaryListArtworkUrl`** — see
 **header-hero-image-sources**. When navigating from a painted row into a detail header, pass
 preview params so the same list URL paints on the first frame — see **mobile-image-loading**. The
@@ -103,28 +108,60 @@ app stays portrait; the viewer does not unlock landscape.
 ## Hub menus
 
 More, Library, and Browse use **`MenuListScreen`**. A **`SectionHeading`** sits **above** its
-`Card` (`typography.heading`, `tokens.text.accent` — same as About People / channel Settings
-groups) with `spacing.lg` before the card and `spacing.xl` between groups. In-content section
-labels use accent so they read as structure against primary body copy; do not invent a second
-section-heading color. Rows that push a screen show a `›`. In-place actions (Log out) set
+`Card` (`typography.heading`, `tokens.text.accent` — same as channel Settings groups) with
+`spacing.lg` before the card and `spacing.xl` between groups. In-content section labels use
+accent so they read as structure against primary body copy; do not invent a second
+section-heading color. A menu row passes **`spacing.lg`** vertical padding, and its subtitle
+uses **`typography.body`**. Rows that push a screen show a `›`. In-place actions (Log out) set
 `showsChevron: false`. Skip empty sections. More Account includes Login / Sign up or Log out.
+
+## Settings cards
+
+A label beside a switch is **`SettingsSwitchRow`**. The title is the menu title size (19), the
+same size as a **`ListRow`** title, and a single-line title shifts so its ink lines up with the
+switch. Do not put a raw `Text`, or a `ListRow` with a trailing switch, in that role.
+
+Groups inside a settings card separate with a hairline (`StyleSheet.hairlineWidth` and the
+border token). They are not wrapped in a bordered box. Space above that line equals space below
+it (`spacing.lg`). The hairline has no extra horizontal inset: it runs the width of the card.
+There is no line above the first group.
+
+**`settingsCardGap`** (`spacing['2xl']`) is the space between settings cards.
+**`settingsCardInnerGap`** (`spacing.lg`) is the column gap from a heading to its description to
+its button. Apply it as `gap` so a missing description leaves no margin behind.
+
+An option-list row matches a menu row: the same title size, **`spacing.lg`** vertical padding,
+and a 26pt check (`LIST_ROW_ACTION_ICON_SIZE`).
 
 ## List rows
 
 Media and result rows use **`HomeFeedRow`** (or **`ListRow`** when the layout is title/subtitle
-only). Vertical padding uses **`listRowVerticalPadding(tokens.spacing.base)`** from
-`apps/mobile/src/theme/screenLayout.ts`: the same token above and below the row content. Row
-artwork is **`LIST_ROW_ARTWORK_SIZE`** (60). Space between title, subtitle, and other in-row
-lines with a column **`gap`** (`spacing.sm`) — not `marginTop` /
-`marginBottom` on each line — so a missing subtitle or metadata line adds no leftover space. The
-text stack uses `justifyContent: 'center'` so it stays vertically centered on the artwork. The gap
-between artwork and text is **`listRowArtworkGap(tokens.spacing)`** (`spacing.base`) — same helper
-for `HomeFeedRow`, `ListRow`, and `MiniPlayer` — not a per-screen `spacing.md` or a leading
-`marginLeft`. Channel headers use a wider art→title gap (`spacing.lg`) because the mark is 78px.
+only). **`HomeFeedRow`** pads with **`listRowVerticalPadding(tokens.spacing.lg)`** from
+`apps/mobile/src/theme/screenLayout.ts`: the same token above and below the row content, which
+is the padding around that row's hairline. The Downloads list and a category row use
+**`spacing.base`** for the same padding. **`ListRow`** defaults to **`spacing.base`**; a menu
+row passes **`spacing.lg`**. Row artwork is **`LIST_ROW_ARTWORK_SIZE`** (78). Mini-player art is
+**`MINI_PLAYER_ARTWORK_SIZE`** (60).
+
+Stack the identity lines on a media row (date, title, count or author) with a column **`gap`**
+of **`spacing.base`**. **`ListRow`** keeps **`spacing.sm`** between its title and subtitle. Do
+not use `marginTop` / `marginBottom` on each line, so a missing line adds no leftover space.
+The text stack uses `justifyContent: 'center'` so it stays vertically centered on the artwork.
+The gap between artwork and text is **`listRowArtworkGap(tokens.spacing)`** (`spacing.base`) on
+`HomeFeedRow` and `ListRow`, not a per-screen `spacing.md` or a leading `marginLeft`. The
+channel header mark is also 78. Its art→title gap stays **`spacing.lg`**, the header's own
+seam.
+
+A Home show row is the date, then the title, then "{count} downloaded", including zero. A Browse
+podcast or album row is the date, then the title, then the author. That date is only the date,
+in **`tokens.text.link`**. Episode, clip, and track rows stay show name, title, then date. An
+Add by RSS show row has the date and the title and no download count, and it does not reserve
+that line.
 
 Home subscription markers stay on those shared row/cell components: list live is centered on
-the artwork, downloaded count is the overline, and unseen is a numberless `UnseenIndicator` in
-a slim full-height rail at the far right of the row (dot centered on the whole row height).
+the artwork, the downloaded count is the line under the title, and unseen is a numberless
+`UnseenIndicator` in a slim full-height rail at the far right of the row (dot centered on the
+whole row height).
 Grid is live top-right, unseen bottom-right, downloaded bottom-left. See
 **mobile-reusable-components**.
 
@@ -157,18 +194,20 @@ color, description **`typography.prose`** in primary color. The directory explai
 **`HelperNote`** with `scale="reading"` (`typography.body`, `HELPER_NOTE_READING_ICON_SIZE`).
 Adding, error, and notice lines on that screen use **`typography.body`**.
 
-List rows stay on a column `gap` of `spacing.sm`. **`ChannelHeader`** stays the side-by-side
-header. The next screen with this stack uses these helpers. Screens that already exist keep
-their current spacing and type.
+Media-row identity lines stay on a column `gap` of `spacing.base`. **`ListRow`** title and
+subtitle stay on `spacing.sm`. **`ChannelHeader`** stays the side-by-side header. The next
+screen with this stack uses these helpers. Screens that already exist keep their current
+spacing and type.
 
 ## Chip row → next block
 
-Space **below** a **`SectionChipRow`** (Home / Browse media types, podcast sections) is
-**`listChipRowBottomGap(tokens.spacing)`** (`spacing.base`, the same value as
-`listFilterContentGap`). It is applied as the row's own `paddingBottom` inside `SectionChipRow` —
-do **not** add a second `paddingBottom` / `marginTop` on the screen wrapper (Home/Browse
+Space **below** chips that sit above a list is **`listChipRowBottomGap(tokens.spacing)`**
+(`spacing.base`, the same value as `listFilterContentGap`). **`SectionChipRow`** applies it as
+the row's own `paddingBottom`. An **`OptionChipGroup`** placed above a list (Queue, History,
+Search) gets that same `paddingBottom` on the header that holds the chips. Do **not** add a
+second `paddingBottom` / `marginTop` on a screen that already uses `SectionChipRow` (Home/Browse
 `selectorSection`, podcast filter `marginTop`, About surface `marginTop`) or the seam doubles or
-disappears when the next sibling changes.
+disappears when the next sibling changes. Form chips inside a card stay on form spacing.
 
 Whatever follows the chips (filter field, episode list, about prose, podroll) inherits that same
 gap. A filter between the chips and the hairline then has equal space above the field and below
@@ -194,11 +233,12 @@ Do not use a raw `marginBottom: spacing.md` on the filter (too tight on grid onc
 added elsewhere, too loose on list when stacked with row padding). Home switches the second
 argument with `isGridView` so both view modes share one seam.
 
-Content rows (`HomeFeedRow` and the same catalog: playlist, profile, chapter, category, download)
-draw one top hairline (`StyleSheet.hairlineWidth` + `themeStyles.border.borderColor`), including
-the first row. There is no bottom hairline, so the last row does not leave a line on the list
-edge. An empty list has no row and no line. Grid tiles have no row hairline, so nothing draws a
-line above a grid.
+Content rows (`HomeFeedRow` and the same catalog: playlist, profile, chapter, category,
+download, artist albums, and podroll on artist, album, and podcast) draw one top hairline
+(`StyleSheet.hairlineWidth` + `themeStyles.border.borderColor`), including the first row. There
+is no bottom hairline, so the last row does not leave a line on the list edge. An empty list has
+no row and no line. Grid tiles have no row hairline, so nothing draws a line above a grid.
+Settings cards do not use this top hairline.
 
 Do not place a standalone divider under chips, under a filter, or between chips and the list.
 Search, Queue, and History do not render a `listRule`. The first row's top border is the only
@@ -320,9 +360,10 @@ first CTA look like another paragraph.
   accordion title.
 - A checkbox label beside that copy is **`typography.body`** (15 / 21), one step under the
   paragraph. The control is not a second block of reading text.
-- **`caption`** and **`label`** are for text that should stay quiet (row subtitles, metadata,
-  compact helper notes, the agreement date under an accordion title). Do not use them, or
-  **`body`**, for a page the person is reading. **`body`** stays for secondary UI lines.
+- Help, a warning, and a feed status line such as "Last Parsed" use **`typography.body`**
+  (15 / 21). A menu-row subtitle uses body too. **`caption`** stays for a count, or for the
+  agreement date under an accordion title. The Terms of Service "Valid since" line is
+  **`typography.heading`** in **`tokens.text.link`**.
 - **`proseDisclosureGap`** (`spacing.lg`) is the extra margin above a disclosure that follows
   prose. The last paragraph already has `spacing.lg` below it, so the seam opens to
   `spacing['4xl']`. Do not put `formActionsTopGap` on that card; it stacks on the paragraph
@@ -390,7 +431,8 @@ the same reason. Do not rely on the root provider alone for full-screen Modals.
 ## Related
 
 - Page gutter: `apps/mobile/src/theme/screenLayout.ts`
-- Chip→next seam: `listChipRowBottomGap` (on `SectionChipRow`)
+- Chip→next seam: `listChipRowBottomGap` (on `SectionChipRow`, and on an `OptionChipGroup`
+  header above a list)
 - Filter→content seam: `ListFilterHeader` (`hasItemsBelow`) + `listFilterContentGap` /
   `listFilterFieldBottomMargin` in `screenLayout.ts`
 - Top chrome: `apps/mobile/src/components/screen/HeaderBar.tsx`

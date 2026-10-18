@@ -4,6 +4,24 @@ import type { DataSource } from 'typeorm';
 
 import type { BillingPlatform } from '@podverse/helpers';
 
+function readUpdatedId(value: unknown): number | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const first: unknown = value[0];
+  if (typeof first !== 'object' || first === null) {
+    return null;
+  }
+  const id = Reflect.get(first, 'id');
+  if (typeof id === 'number' && Number.isInteger(id)) {
+    return id;
+  }
+  if (typeof id === 'string' && /^\d+$/.test(id)) {
+    return Number(id);
+  }
+  return null;
+}
+
 type BillingCheckoutChannelServiceParams = {
   dataSourceRead?: DataSource;
   dataSourceReadWrite?: DataSource;
@@ -83,6 +101,41 @@ export class BillingCheckoutChannelService {
     }
 
     return queryBuilder.orderBy('channel.id', 'ASC').getMany();
+  }
+
+  /**
+   * Turns the channel on when it is off. An enabled channel, its storefronts, and its minimum
+   * client version stay as they are. Null when no channel has this processor and platform.
+   */
+  async enableIfDisabled(
+    processorId: string,
+    platform: BillingPlatform
+  ): Promise<{ changed: boolean; channel: BillingCheckoutChannel } | null> {
+    const updated: unknown = await this.dataSourceReadWrite.query(
+      `
+      UPDATE billing_checkout_channel
+      SET enabled = TRUE, updated_at = NOW()
+      WHERE processor_id = $1 AND platform = $2 AND enabled = FALSE
+      RETURNING id
+      `,
+      [processorId, platform]
+    );
+    const updatedId = readUpdatedId(updated);
+    const repository = this.dataSourceReadWrite.getRepository(BillingCheckoutChannel);
+    if (updatedId !== null) {
+      const channel = await repository.findOne({ where: { id: updatedId } });
+      if (channel === null) {
+        throw new Error('Checkout channel update did not return a row');
+      }
+      return { changed: true, channel };
+    }
+    const channel = await repository.findOne({
+      where: { processor_id: processorId, platform },
+    });
+    if (channel === null) {
+      return null;
+    }
+    return { changed: false, channel };
   }
 
   /** The channel row whether or not it is enabled; purchase routes read its client version floor. */

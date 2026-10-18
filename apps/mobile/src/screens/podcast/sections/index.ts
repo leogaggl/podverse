@@ -4,6 +4,7 @@ export { PodcastDownloadedSection } from './PodcastDownloadedSection';
 export { PodcastEpisodesSection } from './PodcastEpisodesSection';
 export { PodcastFundingSection } from './PodcastFundingSection';
 export { PodcastOfficialClipsSection } from './PodcastOfficialClipsSection';
+export { PodcastPeopleSection } from './PodcastPeopleSection';
 export { PodcastPodrollSection } from './PodcastPodrollSection';
 export { PodcastSectionList } from './PodcastSectionList';
 export type { PodcastSectionListProps } from './PodcastSectionList';

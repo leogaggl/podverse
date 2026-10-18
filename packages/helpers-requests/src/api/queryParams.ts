@@ -192,6 +192,7 @@ export const QUERY_PARAMS_CHANNEL_TYPE_VALUES = [
   'boosts',
   'about',
   'podroll',
+  'people',
   'settings',
 ] as const;
 export const QUERY_PARAMS_CHANNEL_SORT_VALUES = SORT_RECENT_OLDEST_TOP;
@@ -212,6 +213,7 @@ export const QUERY_PARAMS_CHANNEL_MUSIC_ARTIST_TYPE_VALUES = [
   'boosts',
   'about',
   'podroll',
+  'people',
   'settings',
 ] as const;
 
@@ -227,6 +229,7 @@ export const QUERY_PARAMS_CHANNEL_MUSIC_ALBUM_TYPE_VALUES = [
   'boosts',
   'about',
   'podroll',
+  'people',
   'settings',
 ] as const;
 export const QUERY_PARAMS_CHANNEL_MUSIC_ALBUM_SORT_VALUES = ['forward', 'backward', 'top'] as const;
@@ -288,6 +291,7 @@ export const QUERY_PARAMS_ITEM_TYPE_VALUES = [
   'clips',
   'boosts',
   'transcript',
+  'people',
 ] as const;
 export const QUERY_PARAMS_ITEM_SORT_VALUES = SORT_RECENT_OLDEST_TOP;
 
@@ -301,7 +305,12 @@ export interface QueryParamsItem {
   range: QueryParamsStatsRange | null;
 }
 
-export const QUERY_PARAMS_ITEM_MUSIC_TYPE_VALUES = ['summary', 'boosts', 'transcript'] as const;
+export const QUERY_PARAMS_ITEM_MUSIC_TYPE_VALUES = [
+  'summary',
+  'boosts',
+  'transcript',
+  'people',
+] as const;
 
 export type QueryParamsItemMusicType = (typeof QUERY_PARAMS_ITEM_MUSIC_TYPE_VALUES)[number];
 
@@ -349,7 +358,7 @@ export interface QueryParamsItemSoundbitesByItem {
 
 // Live Item
 
-export const QUERY_PARAMS_LIVE_ITEM_TYPE_VALUES = ['summary', 'boosts'] as const;
+export const QUERY_PARAMS_LIVE_ITEM_TYPE_VALUES = ['summary', 'boosts', 'people'] as const;
 
 export type QueryParamsLiveItemType = (typeof QUERY_PARAMS_LIVE_ITEM_TYPE_VALUES)[number];
 

@@ -20,6 +20,7 @@ import {
   useBottomChromeScrollIndicatorInsets,
 } from '../../theme/bottomChromeOverlayInset';
 import { formActionsTopGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { readErrorLogDeviceContext } from './errorLogDeviceContext.read';
 import {
@@ -33,10 +34,6 @@ import {
 /**
  * Abridged error log: one tappable row per entry (outcome, category, time, code, and what it was
  * about). The detail screen holds everything else, plus copy and email.
- *
- * Plain and dense on purpose: the reason to open this screen is that something is not working and
- * somebody needs to be told what, so it optimizes for getting the contents out rather than for
- * looking like the rest of the app.
  */
 export function MoreErrorLogScreen() {
   const { i18n, t } = useTranslation();
@@ -84,7 +81,7 @@ export function MoreErrorLogScreen() {
     () =>
       StyleSheet.create({
         actions: {
-          marginBottom: tokens.spacing.md,
+          marginBottom: formActionsTopGap(tokens.spacing),
           marginTop: formActionsTopGap(tokens.spacing),
         },
         chevron: {
@@ -96,8 +93,11 @@ export function MoreErrorLogScreen() {
           paddingBottom: tokens.spacing['2xl'],
         },
         intro: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
+        },
+        outcomeBadge: {
+          alignSelf: 'center',
         },
         rowDivider: {
           borderTopColor: themeStyles.border.borderColor,
@@ -130,6 +130,7 @@ export function MoreErrorLogScreen() {
           leading={
             <Badge
               label={outcomeLabel}
+              style={styles.outcomeBadge}
               testID={`error-log-row-outcome-${item.id}`}
               tone={ERROR_LOG_OUTCOME_BADGE_TONES[item.outcome]}
             />

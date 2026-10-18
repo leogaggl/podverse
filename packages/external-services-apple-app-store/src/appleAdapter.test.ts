@@ -12,8 +12,14 @@ import { appleSoldTransactionType, appleUnsoldTransactionType } from './verifyNo
 
 const SOLD_PRODUCT_ID = 'com.podverse.app.next.premium.monthly';
 
-function soldProducts() {
-  return [{ externalProductId: SOLD_PRODUCT_ID, externalBasePlanId: null }];
+function isMappedProduct(
+  processorId: string,
+  externalProductId: string,
+  externalBasePlanId: string | null
+): Promise<boolean> {
+  return Promise.resolve(
+    processorId === 'apple' && externalProductId === SOLD_PRODUCT_ID && externalBasePlanId === null
+  );
 }
 
 function createSandboxAdapter(params: {
@@ -43,7 +49,7 @@ function createSandboxAdapter(params: {
     privateKeyPath: '/tmp/example.p8',
     bundleId: 'com.podverse.app.next',
     client,
-    soldProducts: soldProducts(),
+    isMappedProduct,
   });
 }
 
@@ -266,7 +272,7 @@ describe('createAppleAdapter', () => {
       privateKeyPath: '/tmp/example.p8',
       bundleId: 'com.podverse.app.next',
       client,
-      soldProducts: soldProducts(),
+      isMappedProduct,
     });
 
     await expect(
@@ -296,7 +302,7 @@ describe('createAppleAdapter with APPLE_IAP_ENVIRONMENT=xcode', () => {
       bundleId: BUNDLE_ID,
       appleEnvironment: 'xcode',
       nodeEnv: 'development',
-      soldProducts: soldProducts(),
+      isMappedProduct,
     });
 
   const now = Date.now();
@@ -360,6 +366,7 @@ describe('createAppleAdapter with APPLE_IAP_ENVIRONMENT=xcode', () => {
         bundleId: BUNDLE_ID,
         appleEnvironment: 'xcode',
         nodeEnv: 'production',
+        isMappedProduct,
       })
     ).toThrow('APPLE_IAP_ENVIRONMENT=xcode is refused when NODE_ENV is production');
   });

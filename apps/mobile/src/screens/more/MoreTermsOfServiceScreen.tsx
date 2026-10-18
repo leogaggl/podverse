@@ -9,11 +9,12 @@ import { CopyMarkdown } from '../../components/content/CopyMarkdown';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { RetryableError } from '../../components/state/RetryableError';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 export function MoreTermsOfServiceScreen() {
   const { i18n, t } = useTranslation();
-  const { styles: themeStyles, tokens } = useTheme();
+  const { tokens } = useTheme();
   const [agreement, setAgreement] = useState<DTOTermsAgreement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -60,7 +61,8 @@ export function MoreTermsOfServiceScreen() {
 
   const styles = StyleSheet.create({
     date: {
-      color: themeStyles.textSecondary.color,
+      ...typography.heading,
+      color: tokens.text.link,
       marginBottom: tokens.spacing.lg,
     },
   });

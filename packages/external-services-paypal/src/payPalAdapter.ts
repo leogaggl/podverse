@@ -9,7 +9,7 @@ import type {
 import {
   BillingProcessorRecordNotFoundError,
   BillingWebhookVerificationError,
-  resolveBillingProcessorProductsFromEnv,
+  PAYPAL_ONE_TIME_PRODUCT_IDS,
 } from '@podverse/helpers';
 
 import { resolvePayPalProductId } from './payPalInvoiceId.js';
@@ -25,21 +25,23 @@ interface PayPalAdapterConfig extends PayPalServiceParams {
   webhookId: string;
   service?: PayPalService;
   /**
-   * Product ids this deployment sells. When omitted, the ids come from the billing product env.
-   * PayPal's one-time product ids are always included there.
+   * Product ids this deployment sells. When omitted, the fixed PayPal one-time product ids are
+   * used. PayPal has no store catalog, so Podverse names those ids.
    */
   soldProducts?: readonly SoldBillingProduct[];
+}
+
+function defaultSoldProducts(): readonly SoldBillingProduct[] {
+  return [
+    { externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.monthly, externalBasePlanId: null },
+    { externalProductId: PAYPAL_ONE_TIME_PRODUCT_IDS.annual, externalBasePlanId: null },
+  ];
 }
 
 function loadSoldProducts(
   override: readonly SoldBillingProduct[] | undefined
 ): readonly SoldBillingProduct[] {
-  if (override !== undefined) {
-    return override;
-  }
-  return resolveBillingProcessorProductsFromEnv(process.env).products.filter(
-    (product) => product.processor === 'paypal'
-  );
+  return override ?? defaultSoldProducts();
 }
 
 function paypalProductIds(products: readonly SoldBillingProduct[]): string[] {

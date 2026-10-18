@@ -9,10 +9,8 @@ import { screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { FillList } from '../primitives';
-import { SectionHeading } from '../section/SectionHeading';
 import { ListEmpty } from '../state/ListEmpty';
 import { LoadingSection } from '../state/LoadingSection';
-import { AboutPersonRow } from './AboutPersonRow';
 import { buildChannelAboutCells } from './channelAboutCells';
 import { DescriptionText } from './DescriptionText';
 
@@ -29,11 +27,8 @@ export type ChannelAboutSectionProps = {
 };
 
 /**
- * Channel About: description prose, RSS and website links (tucked here on mobile rather than as
- * header icons), and the people credited on the channel.
- *
- * People render whenever `channel_persons` is non-empty, even if description prose is missing.
- * Funding is a separate chip, not a link in this section.
+ * Channel About: description prose, plus RSS and website links tucked here on mobile rather than
+ * as header icons. People and funding are their own chips.
  */
 export function ChannelAboutSection({
   channel,
@@ -50,9 +45,6 @@ export function ChannelAboutSection({
         content: {
           paddingBottom: tokens.spacing['2xl'],
           paddingHorizontal: screenBodyInsets(tokens.spacing).paddingHorizontal,
-        },
-        heading: {
-          marginTop: tokens.spacing.lg,
         },
         linkLabel: {
           ...typography.body,
@@ -145,50 +137,37 @@ export function ChannelAboutSection({
       data={isChannelLoading ? [] : cells}
       keyExtractor={(cell) => cell.key}
       renderItem={({ item: cell }) => {
-        if (cell.kind === 'description') {
-          const hasProse = cell.text !== null && cell.text.length > 0;
-          const hasLinks = cell.feedUrl !== null || cell.websiteUrl !== null;
-
-          return (
-            <View style={styles.surface}>
-              {hasProse ? (
-                <DescriptionText
-                  html={cell.text}
-                  linkStyle={styles.proseLink}
-                  resetKey={channel?.id ?? null}
-                  showMoreStyle={styles.showMore}
-                  testID={`${testIDPrefix}-description`}
-                  textStyle={styles.prose}
-                  toggleTestID={`${testIDPrefix}-description-toggle`}
-                />
-              ) : null}
-              {hasLinks ? (
-                <View style={[styles.links, hasProse ? styles.linksAfterProse : null]}>
-                  {cell.feedUrl !== null
-                    ? renderOutboundLink(t('info.rss'), cell.feedUrl, `${testIDPrefix}-rss`)
-                    : null}
-                  {cell.websiteUrl !== null
-                    ? renderOutboundLink(
-                        t('info.website'),
-                        cell.websiteUrl,
-                        `${testIDPrefix}-website`
-                      )
-                    : null}
-                </View>
-              ) : null}
-            </View>
-          );
-        }
-
-        if (cell.kind === 'people-heading') {
-          return <SectionHeading style={styles.heading}>{t('info.people.people')}</SectionHeading>;
-        }
+        const hasProse = cell.text !== null && cell.text.length > 0;
+        const hasLinks = cell.feedUrl !== null || cell.websiteUrl !== null;
 
         return (
-          <AboutPersonRow
-            person={cell.person}
-            testID={`${testIDPrefix}-person-${cell.person.id}`}
-          />
+          <View style={styles.surface}>
+            {hasProse ? (
+              <DescriptionText
+                html={cell.text}
+                linkStyle={styles.proseLink}
+                resetKey={channel?.id ?? null}
+                showMoreStyle={styles.showMore}
+                testID={`${testIDPrefix}-description`}
+                textStyle={styles.prose}
+                toggleTestID={`${testIDPrefix}-description-toggle`}
+              />
+            ) : null}
+            {hasLinks ? (
+              <View style={[styles.links, hasProse ? styles.linksAfterProse : null]}>
+                {cell.feedUrl !== null
+                  ? renderOutboundLink(t('info.rss'), cell.feedUrl, `${testIDPrefix}-rss`)
+                  : null}
+                {cell.websiteUrl !== null
+                  ? renderOutboundLink(
+                      t('info.website'),
+                      cell.websiteUrl,
+                      `${testIDPrefix}-website`
+                    )
+                  : null}
+              </View>
+            ) : null}
+          </View>
         );
       }}
       style={styles.list}

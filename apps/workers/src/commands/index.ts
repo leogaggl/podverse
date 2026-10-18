@@ -25,10 +25,11 @@ import { devStatsSeedSimulatedAggregated } from '@workers/commands/stats/devStat
 import { statsUpdateAggregated } from '@workers/commands/stats/statsUpdateAggregated.js';
 import { statsUpdateAggregatedRolling } from '@workers/commands/stats/statsUpdateAggregatedRolling.js';
 
+import { billingCheckoutChannelEnable } from './billing/checkoutChannelEnable.js';
 import { billingStrikeEnsureWebhook } from './billing/ensureStrikeWebhook.js';
 import { billingImportLegacyMembershipExpiry } from './billing/importLegacyMembershipExpiry.js';
+import { billingProcessorProductAdd } from './billing/processorProductAdd.js';
 import { billingReconcile } from './billing/reconcile.js';
-import { billingSeedProcessorProductsFromEnv } from './billing/seedProcessorProductsFromEnv.js';
 import { imageShrinkBackfill } from './imageShrink/backfill.js';
 import { imageShrinkCleanupOrphans } from './imageShrink/cleanupOrphans.js';
 import { imageShrinkSourcePrune } from './imageShrink/pruneSources.js';
@@ -73,10 +74,11 @@ export default {
   devStatsSeedSimulatedAggregated,
   statsUpdateAggregated,
   statsUpdateAggregatedRolling,
+  billingCheckoutChannelEnable,
   billingImportLegacyMembershipExpiry,
+  billingProcessorProductAdd,
   billingReconcile,
   billingStrikeEnsureWebhook,
-  billingSeedProcessorProductsFromEnv,
   scheduledJobsRunDue,
   notificationsPlatformPurge,
   generateOnDemandParserEventReports,

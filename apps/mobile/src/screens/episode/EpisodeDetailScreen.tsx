@@ -24,7 +24,8 @@ import {
   ChapterListRow,
   DescriptionText,
   FundingLinksSection,
-  ItemSummaryPeople,
+  PeoplePane,
+  toAboutPersonFromItem,
 } from '../../components/content';
 import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
 import { MenuSelectChip, SectionChipRow } from '../../components/form';
@@ -699,11 +700,18 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
             textStyle={styles.description}
             toggleTestID="episode-detail-description-toggle"
           />
-          <ItemSummaryPeople
-            itemPersons={episode?.item_persons ?? []}
-            testIDPrefix="episode-detail"
-          />
         </View>
+      );
+    }
+
+    if (activeTab === 'people') {
+      return (
+        <PeoplePane
+          isLoading={episode === null}
+          layout="inline"
+          people={(episode?.item_persons ?? []).map(toAboutPersonFromItem)}
+          testIDPrefix="episode-detail"
+        />
       );
     }
 

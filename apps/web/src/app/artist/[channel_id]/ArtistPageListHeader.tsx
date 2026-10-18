@@ -16,6 +16,7 @@ type ArtistPageListHeaderProps = {
   ssrHasAlbums: boolean;
   ssrHasTracks: boolean;
   ssrHasDescription: boolean;
+  ssrHasPeople: boolean;
   ssrCanShowBoosts: boolean;
 };
 
@@ -24,6 +25,7 @@ export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
   ssrHasAlbums,
   ssrHasTracks,
   ssrHasDescription,
+  ssrHasPeople,
   ssrCanShowBoosts,
 }) => {
   const { filterParams, setFilterParams } = useArtistPageContext();
@@ -95,6 +97,16 @@ export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
       onClick: () => handleTypeChange('podroll'),
       hideDesktop: true,
       zIndex: 2,
+    });
+  }
+
+  if (ssrHasPeople) {
+    tabData.push({
+      key: 'people',
+      label: tInfo('people.people'),
+      onClick: () => handleTypeChange('people'),
+      hideDesktop: true,
+      zIndex: 1,
     });
   }
 

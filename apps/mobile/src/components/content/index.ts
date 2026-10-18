@@ -13,4 +13,5 @@ export { DescriptionText, DESCRIPTION_PROSE_COLLAPSE_LENGTH } from './Descriptio
 export type { DescriptionTextProps } from './DescriptionText';
 export { FundingLinksSection } from './FundingLinksSection';
 export type { FundingLinksSectionProps } from './FundingLinksSection';
-export { ItemSummaryPeople } from './ItemSummaryPeople';
+export { PeoplePane } from './PeoplePane';
+export type { PeoplePaneProps } from './PeoplePane';

@@ -40,8 +40,14 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
-  it('maps billingSeedProcessorProductsFromEnv to Base and ORM', () => {
-    expect(sortCategories(getCategoriesForCommand('billingSeedProcessorProductsFromEnv'))).toEqual(
+  it('maps billingProcessorProductAdd to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('billingProcessorProductAdd'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps billingCheckoutChannelEnable to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('billingCheckoutChannelEnable'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });

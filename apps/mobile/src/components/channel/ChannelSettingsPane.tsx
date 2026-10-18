@@ -16,8 +16,7 @@ import {
   BottomChromeScrollSpacer,
   useBottomChromeScrollIndicatorInsets,
 } from '../../theme/bottomChromeOverlayInset';
-import { screenBodyInsets } from '../../theme/screenLayout';
-import { typography } from '../../theme/typography';
+import { screenBodyInsets, settingsCardInnerGap } from '../../theme/screenLayout';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { ConfirmDialog } from '../feedback/ConfirmDialog';
@@ -39,15 +38,14 @@ export type ChannelSettingsPaneProps = {
   testIDPrefix: string;
 };
 
-const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
+const createStyles = ({ tokens }: ThemedStylesTheme) =>
   StyleSheet.create({
     feedInner: {
-      gap: tokens.spacing.md,
+      gap: settingsCardInnerGap(tokens.spacing),
       padding: tokens.spacing.lg,
     },
-    feedNotice: {
-      ...typography.caption,
-      color: themeStyles.textSecondary.color,
+    feedStatus: {
+      gap: tokens.spacing.xs,
     },
     scroll: {
       flex: 1,
@@ -153,9 +151,13 @@ export function ChannelSettingsPane({
         {showFeed ? (
           <SettingsGroup testID={`${testIDPrefix}-settings-feed-card`} title={t('info.rss_feed')}>
             <View style={styles.feedInner}>
-              {feedStatusLines.map((line) => (
-                <SettingsRowDescription key={line}>{line}</SettingsRowDescription>
-              ))}
+              {feedStatusLines.length > 0 ? (
+                <View style={styles.feedStatus}>
+                  {feedStatusLines.map((line) => (
+                    <SettingsRowDescription key={line}>{line}</SettingsRowDescription>
+                  ))}
+                </View>
+              ) : null}
               <Button
                 fullWidth
                 label={t('settings.feed.check_feed_for_updates')}

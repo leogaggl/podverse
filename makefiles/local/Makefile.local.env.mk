@@ -3,7 +3,7 @@
 .PHONY: local_env_prepare local_env_link local_env_setup local_env_clean
 .PHONY: local_env_sync_db_passwords local_env_worktree_setup local_db_sync_passwords
 .PHONY: local_env_export_secrets_to_home local_seed_embed local_seed_embed_demo_feeds
-.PHONY: local_seed_embed_demo_feeds_k8s
+.PHONY: local_seed_embed_demo_feeds_k8s local_billing_setup_k8s
 
 local_env_link:
 	bash scripts/local-env/link-overrides.sh
@@ -212,3 +212,8 @@ local_seed_embed_demo_feeds: infra/config/local/db.env
 local_seed_embed_demo_feeds_k8s:
 	@K8S_NAMESPACE="$${K8S_NAMESPACE:-podverse-alpha}" npm run seed:embed-demo-showcase-feeds:k8s
 	@echo "Next step: kubectl -n $${K8S_NAMESPACE:-podverse-alpha} logs -f job/<name-from-script-output>"
+
+# One-off billing setup (suspended ops CronJob ops-billing-setup).
+# Example: make local_billing_setup_k8s ARGS='billingProcessorProductAdd --processor apple --cadence monthly --product-id com.example.premium.monthly'
+local_billing_setup_k8s:
+	@K8S_NAMESPACE="$${K8S_NAMESPACE:-podverse-alpha}" npm run billing:setup:k8s -- $(ARGS)

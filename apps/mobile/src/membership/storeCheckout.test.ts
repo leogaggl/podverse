@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   availableCadences,
+  cadenceAfterGrantedCheckout,
   checkoutOptionsRequest,
   checkoutPlanProcessorId,
   checkoutProduct,
@@ -161,6 +162,14 @@ describe('store checkout selection', () => {
     expect(checkoutPlanProcessorId('test', strike)).toBe('test');
     expect(checkoutPlanProcessorId(null, strike)).toBe('strike');
     expect(checkoutPlanProcessorId(null, [])).toBeNull();
+  });
+
+  it('picks the success-screen cadence from the purchase or the restored account', () => {
+    expect(cadenceAfterGrantedCheckout('purchase', 'annual', 'monthly')).toBe('annual');
+    expect(cadenceAfterGrantedCheckout('purchase', null, 'monthly')).toBeNull();
+    expect(cadenceAfterGrantedCheckout('restore', 'annual', 'monthly')).toBe('monthly');
+    expect(cadenceAfterGrantedCheckout('restore', 'monthly', null)).toBeNull();
+    expect(cadenceAfterGrantedCheckout('restore', null, 'weekly')).toBeNull();
   });
 
   it('treats the update-required code as the store-update prompt', () => {

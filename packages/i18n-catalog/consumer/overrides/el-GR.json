@@ -405,6 +405,7 @@
     "now_playing_chapter": "",
     "now_playing_official_clip": "",
     "open_chapter_link": "",
+    "open_named_screen": "",
     "no_media": "",
     "livestream_unavailable": "",
     "show_fullscreen_media_player": "",
@@ -647,6 +648,7 @@
   },
   "popularity_tracking": {
     "title": "",
+    "summary": "",
     "yes": "",
     "no": "",
     "learn_more": "",

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 export type SettingsOptionNavRowProps = {
@@ -29,8 +30,8 @@ export function SettingsOptionNavRow({
     () =>
       StyleSheet.create({
         description: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
           marginTop: tokens.spacing.xs,
         },
         row: {

@@ -10,7 +10,12 @@ import { formatDateAbbrev, primaryChannelListArtworkUrl } from '@podverse/helper
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { ChannelHeader } from '../../components/channel';
-import { DescriptionText, FundingLinksSection, ItemSummaryPeople } from '../../components/content';
+import {
+  DescriptionText,
+  FundingLinksSection,
+  PeoplePane,
+  toAboutPersonFromItem,
+} from '../../components/content';
 import { DownloadRowControl } from '../../components/download/DownloadRowControl';
 import type { SectionChipItem } from '../../components/form';
 import { SectionChipRow } from '../../components/form';
@@ -61,6 +66,7 @@ const renderTrackTabItem = (): null => null;
 
 const TRACK_TAB_LABEL_KEYS: Record<TrackTab, string> = {
   funding: 'info.funding',
+  people: 'info.people.people',
   summary: 'info.summary.summary',
   transcript: 'info.transcript.lyrics',
 };
@@ -324,6 +330,9 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
   const [previewHasFunding, setPreviewHasFunding] = useState<boolean>(
     cachedItemChrome?.hasFunding === true
   );
+  const [previewHasPeople, setPreviewHasPeople] = useState<boolean>(
+    cachedItemChrome?.hasPeople === true
+  );
   const [activeTab, setActiveTab] = useState<TrackTab>(DEFAULT_TRACK_TAB);
   const [transcriptText, setTranscriptText] = useState('');
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
@@ -463,12 +472,18 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
       return;
     }
     const nextHasFunding = (track.item_fundings?.length ?? 0) > 0;
+    const nextHasPeople = (track.item_persons?.length ?? 0) > 0;
     setPreviewHasFunding(nextHasFunding);
-    void sectionChromeFlagsRepository.mergeItem(trackId, { hasFunding: nextHasFunding });
+    setPreviewHasPeople(nextHasPeople);
+    void sectionChromeFlagsRepository.mergeItem(trackId, {
+      hasFunding: nextHasFunding,
+      hasPeople: nextHasPeople,
+    });
   }, [track, trackId]);
 
   const hasTranscript = (track?.item_transcripts?.length ?? 0) > 0;
   const hasFunding = track !== null ? (track.item_fundings?.length ?? 0) > 0 : previewHasFunding;
+  const hasPeople = track !== null ? (track.item_persons?.length ?? 0) > 0 : previewHasPeople;
   const supportedTabs = useMemo<TrackTab[]>(() => {
     const tabs: TrackTab[] = ['summary'];
     if (hasTranscript || transcriptText.length > 0) {
@@ -477,8 +492,11 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     if (hasFunding) {
       tabs.push('funding');
     }
+    if (hasPeople) {
+      tabs.push('people');
+    }
     return tabs;
-  }, [hasFunding, hasTranscript, transcriptText.length]);
+  }, [hasFunding, hasPeople, hasTranscript, transcriptText.length]);
 
   useEffect(() => {
     if (!supportedTabs.includes(activeTab)) {
@@ -702,8 +720,18 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
             textStyle={styles.description}
             toggleTestID="track-detail-description-toggle"
           />
-          <ItemSummaryPeople itemPersons={track?.item_persons ?? []} testIDPrefix="track-detail" />
         </View>
+      );
+    }
+
+    if (activeTab === 'people') {
+      return (
+        <PeoplePane
+          isLoading={track === null}
+          layout="inline"
+          people={(track?.item_persons ?? []).map(toAboutPersonFromItem)}
+          testIDPrefix="track-detail"
+        />
       );
     }
 

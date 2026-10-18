@@ -21,11 +21,13 @@ import { useAlbumPageContext } from './AlbumPageContext';
 import { getAlbumPageDropdownConfig } from './AlbumPageDropdownConfig';
 
 type AlbumPageListHeaderProps = {
+  ssrHasPeople: boolean;
   ssrHasPodroll?: boolean;
   ssrCanShowBoosts: boolean;
 };
 
 export const AlbumPageListHeader: React.FC<AlbumPageListHeaderProps> = ({
+  ssrHasPeople,
   ssrHasPodroll,
   ssrCanShowBoosts,
 }) => {
@@ -115,6 +117,16 @@ export const AlbumPageListHeader: React.FC<AlbumPageListHeaderProps> = ({
       onClick: () => handleTypeChange('podroll'),
       hideDesktop: true,
       zIndex: 2,
+    });
+  }
+
+  if (ssrHasPeople) {
+    tabData.push({
+      key: 'people',
+      label: tInfo('people.people'),
+      onClick: () => handleTypeChange('people'),
+      hideDesktop: true,
+      zIndex: 1,
     });
   }
 

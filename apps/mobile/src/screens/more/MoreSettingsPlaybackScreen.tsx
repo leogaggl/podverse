@@ -6,10 +6,8 @@ import type { MediaTypePreference } from '@podverse/helpers';
 
 import { useAuth } from '../../auth/AuthProvider';
 import { syncPlaybackPreferenceToAccount } from '../../auth/syncAccountPrefs';
-import { OptionChipGroup } from '../../components/form';
+import { OptionChipGroup, SettingsSwitchRow } from '../../components/form';
 import { Card } from '../../components/primitives/Card';
-import { ListRow } from '../../components/primitives/ListRow';
-import { ToggleSwitch } from '../../components/primitives/ToggleSwitch';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import {
   readAutoQueuePrefs,
@@ -21,6 +19,8 @@ import {
   readPlaybackMediaTypePref,
   writePlaybackMediaTypePref,
 } from '../../prefs/preferredMediaType';
+import { settingsCardGap, settingsCardInnerGap } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 const PLAYBACK_MEDIA_OPTIONS: readonly MediaTypePreference[] = ['video', 'audio'];
@@ -99,32 +99,29 @@ export function MoreSettingsPlaybackScreen() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        cardHeading: {
+          paddingHorizontal: tokens.spacing.lg,
+          paddingTop: tokens.spacing.lg,
+        },
         cardStack: {
-          gap: tokens.spacing.xl,
+          gap: settingsCardGap(tokens.spacing),
+        },
+        packedCard: {
+          gap: settingsCardInnerGap(tokens.spacing),
+          padding: tokens.spacing.lg,
         },
         sectionDescription: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginTop: tokens.spacing.xs,
         },
         sectionHeading: {
           color: themeStyles.textPrimary.color,
           fontSize: 16,
           fontWeight: '700',
-          marginBottom: tokens.spacing.xs,
-        },
-        sectionInner: {
-          padding: tokens.spacing.lg,
-        },
-        sectionStack: {
-          marginTop: tokens.spacing.md,
-        },
-        sectionStackAfterDescription: {
-          marginTop: tokens.spacing.lg,
         },
         warningText: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
           marginTop: tokens.spacing.sm,
         },
       }),
@@ -135,56 +132,42 @@ export function MoreSettingsPlaybackScreen() {
     <MobileScreenContainer testID="more-settings-playback-screen">
       <View style={styles.cardStack}>
         <Card padded={false} testID="more-settings-playback-card">
-          <View style={styles.sectionInner}>
+          <View style={styles.packedCard}>
             <Text style={styles.sectionHeading}>{t('settings.preferred_media_type.label')}</Text>
             <Text style={styles.sectionDescription}>
               {t('settings.preferred_media_type.description')}
             </Text>
-            <View style={styles.sectionStackAfterDescription}>
-              <OptionChipGroup
-                onChange={(mediaType) => {
-                  void handlePlaybackMediaTypeChange(mediaType);
-                }}
-                options={playbackMediaOptions}
-                testID="more-settings-playback-chips"
-                value={playbackMediaType}
-              />
-            </View>
+            <OptionChipGroup
+              onChange={(mediaType) => {
+                void handlePlaybackMediaTypeChange(mediaType);
+              }}
+              options={playbackMediaOptions}
+              testID="more-settings-playback-chips"
+              value={playbackMediaType}
+            />
           </View>
         </Card>
 
         <Card padded={false} testID="more-settings-auto-queue-card">
-          <View style={styles.sectionInner}>
-            <Text style={styles.sectionHeading}>{t('media_player.auto_queue')}</Text>
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="more-settings-auto-queue-random"
-                title={t('media_player.shuffle.toggle_shuffle')}
-                trailing={
-                  <ToggleSwitch
-                    onValueChange={(nextValue) => {
-                      void handleAutoQueueRandomToggle(nextValue);
-                    }}
-                    value={autoQueueRandom}
-                  />
-                }
-              />
-            </View>
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="more-settings-auto-queue-repeat"
-                title={t('media_player.repeat.toggle_repeat')}
-                trailing={
-                  <ToggleSwitch
-                    onValueChange={(nextValue) => {
-                      void handleAutoQueueRepeatToggle(nextValue);
-                    }}
-                    value={autoQueueRepeat}
-                  />
-                }
-              />
-            </View>
-          </View>
+          <Text style={[styles.sectionHeading, styles.cardHeading]}>
+            {t('media_player.auto_queue')}
+          </Text>
+          <SettingsSwitchRow
+            onValueChange={(nextValue) => {
+              void handleAutoQueueRandomToggle(nextValue);
+            }}
+            testID="more-settings-auto-queue-random"
+            title={t('media_player.shuffle.toggle_shuffle')}
+            value={autoQueueRandom}
+          />
+          <SettingsSwitchRow
+            onValueChange={(nextValue) => {
+              void handleAutoQueueRepeatToggle(nextValue);
+            }}
+            testID="more-settings-auto-queue-repeat"
+            title={t('media_player.repeat.toggle_repeat')}
+            value={autoQueueRepeat}
+          />
         </Card>
 
         {errorMessageKey !== null ? (

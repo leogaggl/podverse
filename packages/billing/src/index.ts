@@ -4,6 +4,7 @@ export * from './BillingAdapterRegistry.js';
 export * from './BillingEventProcessor.js';
 export * from './errors.js';
 export * from './findStrikeCheckoutSession.js';
+export * from './isMappedBillingProduct.js';
 export * from './isNormalizedBillingEvent.js';
 export * from './ledgerStore.js';
 export * from './ormBillingLedgerStore.js';

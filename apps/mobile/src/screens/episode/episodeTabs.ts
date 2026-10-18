@@ -6,6 +6,7 @@ export const EPISODE_TAB_LABEL_KEYS: Record<EpisodeTab, string> = {
   chapters: 'info.chapter.chapters',
   clips: 'features.clip.clips',
   funding: 'info.funding',
+  people: 'info.people.people',
   soundbites: 'info.soundbite.official_clips',
   summary: 'info.summary.summary',
   transcript: 'info.transcript.transcript',
@@ -14,6 +15,7 @@ export const EPISODE_TAB_LABEL_KEYS: Record<EpisodeTab, string> = {
 export type EpisodeTabItem = {
   item_chapters_feed?: unknown;
   item_fundings?: readonly unknown[] | null;
+  item_persons?: readonly unknown[] | null;
   item_soundbites?: readonly unknown[] | null;
   item_transcripts?: readonly unknown[] | null;
 };
@@ -36,10 +38,15 @@ export const itemHasFunding = (item: EpisodeTabItem): boolean => {
   return (item.item_fundings?.length ?? 0) > 0;
 };
 
+export const itemHasPeople = (item: EpisodeTabItem): boolean => {
+  return (item.item_persons?.length ?? 0) > 0;
+};
+
 export const itemSectionFlagsFromDto = (item: EpisodeTabItem): ItemSectionChromeFlags => {
   return {
     hasChapters: itemHasChapters(item),
     hasFunding: itemHasFunding(item),
+    hasPeople: itemHasPeople(item),
     hasSoundbites: itemHasSoundbites(item),
     hasTranscript: itemHasTranscript(item),
   };
@@ -47,8 +54,8 @@ export const itemSectionFlagsFromDto = (item: EpisodeTabItem): ItemSectionChrome
 
 /**
  * Summary and Clips are always offered. Chapters, official clips, and transcript sit after those
- * and appear from cached evidence until the item DTO confirms them. Funding is last, and only
- * when this item has funding rows.
+ * and appear from cached evidence until the item DTO confirms them. Funding follows when this
+ * item has funding rows. People is last, and only when this item has people.
  */
 export const resolveEpisodeTabs = ({
   episode,
@@ -64,6 +71,7 @@ export const resolveEpisodeTabs = ({
   const hasTranscript =
     episode !== null ? itemHasTranscript(episode) : previewFlags?.hasTranscript === true;
   const hasFunding = episode !== null ? itemHasFunding(episode) : previewFlags?.hasFunding === true;
+  const hasPeople = episode !== null ? itemHasPeople(episode) : previewFlags?.hasPeople === true;
 
   return EPISODE_TABS.filter((tab) => {
     if (ALWAYS_ON_EPISODE_TABS.has(tab)) {
@@ -80,6 +88,9 @@ export const resolveEpisodeTabs = ({
     }
     if (tab === 'funding') {
       return hasFunding;
+    }
+    if (tab === 'people') {
+      return hasPeople;
     }
     return false;
   });

@@ -24,6 +24,16 @@ describe('resolvePodcastSections', () => {
     ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'soundbites', 'podroll']);
   });
 
+  it('seeds People from cache before the channel DTO arrives', () => {
+    expect(
+      resolvePodcastSections({
+        channel: null,
+        hasSoundbites: false,
+        previewHasPeople: true,
+      })
+    ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'people']);
+  });
+
   it('seeds Podroll from cache before the channel DTO arrives', () => {
     expect(
       resolvePodcastSections({
@@ -54,6 +64,19 @@ describe('resolvePodcastSections', () => {
       'funding',
       'settings',
     ]);
+  });
+
+  it('puts People after Funding and before Settings when the channel has people', () => {
+    expect(
+      resolvePodcastSections({
+        channel: {
+          channel_fundings: [{ url: 'https://example.com/support' }],
+          channel_persons: [{ id: 1 }],
+        },
+        hasSoundbites: false,
+        isSignedIn: true,
+      })
+    ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'funding', 'people', 'settings']);
   });
 
   it('hides Settings when signed out', () => {

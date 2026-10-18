@@ -41,6 +41,7 @@ import {
 import { useSync } from '../../sync';
 import { resolveGridCellWidth, resolveGridColumns } from '../../theme/resolveColumns';
 import { listFilterFieldBottomMargin, screenBodyInsets } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useResponsive } from '../../theme/useResponsive';
 import { useTheme } from '../../theme/useTheme';
 import { MEDIA_TYPE_LABEL_KEYS } from '../browse/browseTypes';
@@ -409,8 +410,8 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
         marginBottom: filterBottomMargin,
       },
       notice: {
+        ...typography.body,
         color: themeStyles.textSecondary.color,
-        fontSize: 13,
         marginTop: tokens.spacing.sm,
       },
       selectorSection: {

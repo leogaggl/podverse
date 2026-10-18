@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GestureResponderEvent } from 'react-native';
+import { View } from 'react-native';
 
 import type { PlaybackTransportState } from '../../playback/playbackTransport';
 import { LIST_ROW_ACTION_ICON_SIZE, LIST_ROW_PLAY_ICON_SIZE } from '../../theme/screenLayout';
@@ -15,6 +16,11 @@ type PlayerTransportButtonProps = {
    * fill for a chrome bar that is already its own surface.
    */
   appearance?: 'bare' | 'ring';
+  /**
+   * Outer diameter when a surface needs a circle larger than its size step. The glyph sits in a
+   * square of this size, kept while loading, so the spinner does not shrink the control.
+   */
+  circleSize?: number;
   onPause: (event: GestureResponderEvent) => void;
   onPlay: (event: GestureResponderEvent) => void;
   /** Opens the explanation. Does not retry; the dialog's confirm action does. */
@@ -27,6 +33,8 @@ type PlayerTransportButtonProps = {
 /** Play mark inside the full player's `xl` circle, and inside the `lg` circle a step below it. */
 const PLAYER_CIRCLE_ICON_SIZE = 30;
 const LARGE_CIRCLE_ICON_SIZE = 22;
+/** The ring's border sits outside the content box; a sized circle subtracts it from the slot. */
+const RING_BORDER_WIDTH = 1;
 
 const iconName = (
   state: PlaybackTransportState
@@ -53,6 +61,7 @@ const iconName = (
  */
 export function PlayerTransportButton({
   appearance = 'ring',
+  circleSize,
   onPause,
   onPlay,
   onErrorPress,
@@ -99,12 +108,32 @@ export function PlayerTransportButton({
     }
   };
 
+  const glyphNode =
+    glyph !== null ? <Ionicons color={iconColor} name={glyph} size={iconSize} /> : undefined;
+  const slotSize =
+    circleSize === undefined
+      ? null
+      : Math.max(0, circleSize - (appearance === 'ring' ? RING_BORDER_WIDTH * 2 : 0));
+  const icon =
+    slotSize === null ? (
+      glyphNode
+    ) : (
+      <View
+        style={{
+          alignItems: 'center',
+          height: slotSize,
+          justifyContent: 'center',
+          width: slotSize,
+        }}
+      >
+        {glyphNode}
+      </View>
+    );
+
   return (
     <Button
       accessibilityLabel={label}
-      icon={
-        glyph !== null ? <Ionicons color={iconColor} name={glyph} size={iconSize} /> : undefined
-      }
+      icon={icon}
       iconOnly
       label={label}
       loading={state === 'loading'}

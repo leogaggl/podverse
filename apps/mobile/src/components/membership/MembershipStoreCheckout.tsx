@@ -119,6 +119,10 @@ export function MembershipStoreCheckout() {
     />
   );
 
+  const openingMembership = checkout.returningToMembership ? (
+    <Text style={styles.disclosure}>{t('checkout.success_opening_membership')}</Text>
+  ) : null;
+
   const notices = (
     <>
       {noticeText !== null && checkout.noticeSource !== 'restore' ? (
@@ -138,6 +142,7 @@ export function MembershipStoreCheckout() {
           {noticeText}
         </Text>
       ) : null}
+      {checkout.noticeSource !== 'restore' ? openingMembership : null}
       {checkout.noticeSource !== 'restore' ? viewMembership : null}
       {updateDialog}
     </>
@@ -363,6 +368,7 @@ export function MembershipStoreCheckout() {
                 {noticeText}
               </Text>
             ) : null}
+            {checkout.noticeSource === 'restore' ? openingMembership : null}
             {checkout.noticeSource === 'restore' ? viewMembership : null}
           </View>
         </Accordion>

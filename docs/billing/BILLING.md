@@ -194,11 +194,14 @@ startup in both places that build the registry:
 
 Add the processor's env group in `packages/helpers-config/src/billingProcessorEnv.ts`. A
 processor is registered only when its `BILLING_*_ENABLED` flag is `"true"` and its required
-credential keys are set. Map store product ids with `billingSeedProcessorProductsFromEnv` or
-in management web, and add a checkout channel for each platform that should offer it. The seed
-command refuses to run when `NODE_ENV` is `production`, so those deployments map products in
-management web under **Billing → Processor Products**. A product that is not in
-`billing_processor_product` produces no events, and checkout shows its plan as unavailable.
+credential keys are set. Map store product ids with `billingProcessorProductAdd`, or in
+management web under **Billing → Processor Products**. The command only inserts a missing row.
+It does not change or remove one, so an edit in management is left as management saved it.
+Turn a checkout channel on with `billingCheckoutChannelEnable` or in management. That command
+only sets `enabled` when it is off. A product that is not in `billing_processor_product`
+produces no events, and checkout shows its plan as unavailable. On a cluster, run either
+command as a one-off Job: `npm run billing:setup:k8s`. See
+[BILLING-OPERATIONS.md](BILLING-OPERATIONS.md#mapping-products-without-management).
 
 Two switches, kept separate:
 

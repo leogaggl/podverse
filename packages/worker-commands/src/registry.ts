@@ -41,13 +41,24 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
       'npm run billing_import_legacy_membership_expiry -w apps/workers -- --file /absolute/path/legacy-membership.csv --dry-run',
   },
   {
-    name: 'billingSeedProcessorProductsFromEnv',
-    label: 'Billing: seed processor products from env',
+    name: 'billingProcessorProductAdd',
+    label: 'Billing: add processor product',
     description:
-      'Non-production only. Map the Premium product to PayPal, Apple, and Google Play store ids from BILLING_PRODUCT_* env; empty keys are skipped.',
+      'Add a Premium store-product row. An existing row is left unchanged, including one deactivated in management. PayPal and Strike accept --defaults for their fixed product ids.',
     category: 'billing',
-    risk: 'dev_only',
-    example_cli: 'npm run billing_seed_processor_products_from_env -w apps/workers',
+    risk: 'normal',
+    example_cli:
+      'npm run billing_processor_product_add -w apps/workers -- --processor apple --cadence monthly --product-id com.example.premium.monthly',
+  },
+  {
+    name: 'billingCheckoutChannelEnable',
+    label: 'Billing: enable checkout channel',
+    description:
+      'Turn one checkout channel on. Never turns a channel off and never changes storefronts or the minimum client version.',
+    category: 'billing',
+    risk: 'normal',
+    example_cli:
+      'npm run billing_checkout_channel_enable -w apps/workers -- --processor apple --platform ios',
   },
   {
     name: 'scheduledJobsRunDue',

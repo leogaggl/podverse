@@ -2,7 +2,7 @@ import { ChannelAboutSection } from '../../../components/content';
 import type { PodcastSectionPaneProps } from './podcastSectionPane';
 
 /**
- * Podcast About chip — channel description, tucked RSS and website links, and people.
+ * Podcast About chip — channel description, plus tucked RSS and website links.
  */
 export function PodcastAboutSection({
   channel,

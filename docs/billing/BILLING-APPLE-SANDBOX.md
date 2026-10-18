@@ -13,9 +13,9 @@ Use the same public base URL as PayPal:
 
 ## Create and capture App Store values
 
-Save these in home overrides under
-`~/.config/podverse/local-env-overrides/billing-apple.env` and
-`~/.config/podverse/local-env-overrides/billing-products.env`.
+Save the app and key values in the home override
+`~/.config/podverse/local-env-overrides/billing-apple.env`. Product ids are passed to
+`billingProcessorProductAdd`. They are not env vars.
 
 ### App and key values
 
@@ -55,20 +55,26 @@ to an hour to appear in sandbox. Product ids cannot be changed or reused after c
 another app in the team. Renewing products already in App Store Connect are unused and need no
 setup.
 
-Persist to `billing-products.env`:
-
-- `BILLING_PRODUCT_APPLE_ONE_TIME_MONTHLY_ID`
-- `BILLING_PRODUCT_APPLE_ONE_TIME_ANNUAL_ID`
-
 Those two ids are the non-renewing products in
 `apps/mobile/storekit/PodverseMembership.storekit`. That file is the simulator catalog only;
-App Store Connect never reads it. An empty key stays unmapped, and checkout does not offer that
-cadence.
+App Store Connect never reads it. Checkout does not offer a cadence until its row exists.
 
-A deployment with `NODE_ENV` `production` (alpha included) cannot use the seed command, which
-refuses to run there. Map the ids in management web under **Billing** -> **Processor Products**:
-processor `apple`, the product id as **External ID**, **Base Plan** empty, and the matching
-**Cadence**. Until both rows exist, iOS checkout shows "This plan is not available."
+Map each id with `billingProcessorProductAdd`, or in management web under **Billing** ->
+**Processor Products** (processor `apple`, the product id as **External ID**, **Base Plan**
+empty, and the matching **Cadence**). The command only inserts a missing row. It does not
+change one management already saved. Until both rows exist, iOS checkout shows "This plan is
+not available."
+
+From **Root**, with local Postgres up:
+
+```bash
+npm run build -w apps/workers
+npm run billing_processor_product_add -w apps/workers -- --processor apple --cadence monthly --product-id com.podverse.app.next.premium.nonrenewing.monthly
+npm run billing_processor_product_add -w apps/workers -- --processor apple --cadence annual --product-id com.podverse.app.next.premium.nonrenewing.annual
+```
+
+On a cluster, the same flags go to `npm run billing:setup:k8s`. See
+[Mapping products without management](BILLING-OPERATIONS.md#mapping-products-without-management).
 
 ## Register sandbox ASN URL
 
@@ -108,14 +114,8 @@ sandbox only on a physical device. In the simulator, use StoreKit Testing below.
 | iOS Simulator   | StoreKit Testing in Xcode | `APPLE_IAP_ENVIRONMENT="xcode"`   | Bundle id only        |
 | Physical iPhone | App Store sandbox         | `APPLE_IAP_ENVIRONMENT="sandbox"` | Issuer, key id, `.p8` |
 
-Both paths need the two product ids in `billing-products.env` and seeded, so
-the API can map a purchase to its cadence. From **Root**:
-
-```bash
-make local_env_setup
-npm run build -w apps/workers
-npm run billing_seed_processor_products_from_env -w apps/workers
-```
+Both paths need the two product rows, so the API can map a purchase to its cadence. Add them
+with the commands in [Product IDs](#product-ids). `make local_env_setup` does not map products.
 
 ## StoreKit Testing (simulator)
 

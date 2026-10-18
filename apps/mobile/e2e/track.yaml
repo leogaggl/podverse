@@ -75,6 +75,11 @@ name: Track flow
     id: full-player-jump-back
 - assertNotVisible:
     id: full-player-jump-forward
+# Music plays at 1x and cannot be clipped.
+- assertNotVisible:
+    id: full-player-speed
+- assertNotVisible:
+    id: full-player-create-clip
 - assertVisible: E2E Music Track One
 - takeScreenshot: track-full-player-controls
 

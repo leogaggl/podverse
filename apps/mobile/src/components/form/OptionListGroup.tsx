@@ -1,6 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LIST_ROW_ACTION_ICON_SIZE } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
 export type OptionListItem<T extends string> = {
@@ -41,17 +44,12 @@ export function OptionListGroup<T extends string>({
     () =>
       StyleSheet.create({
         checkmark: {
-          color: themeStyles.buttonPrimary.backgroundColor,
-          fontSize: 18,
-          fontWeight: '700',
           marginLeft: tokens.spacing.md,
         },
         heading: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          fontWeight: '700',
           marginBottom: tokens.spacing.sm,
-          textTransform: 'uppercase',
         },
         list: {
           backgroundColor: tokens.background.secondary,
@@ -61,9 +59,11 @@ export function OptionListGroup<T extends string>({
           overflow: 'hidden',
         },
         optionLabel: {
+          ...typography.subheading,
           color: themeStyles.textPrimary.color,
           flex: 1,
-          fontSize: 16,
+          fontSize: 19,
+          lineHeight: 26,
         },
         optionLabelSelected: {
           fontWeight: '700',
@@ -74,7 +74,7 @@ export function OptionListGroup<T extends string>({
           borderTopWidth: 1,
           flexDirection: 'row',
           paddingHorizontal: tokens.spacing.lg,
-          paddingVertical: tokens.spacing.md,
+          paddingVertical: tokens.spacing.lg,
         },
         optionRowFirst: {
           borderTopWidth: 0,
@@ -107,7 +107,19 @@ export function OptionListGroup<T extends string>({
               <Text style={[styles.optionLabel, isSelected ? styles.optionLabelSelected : null]}>
                 {option.label}
               </Text>
-              {isSelected ? <Text style={styles.checkmark}>✓</Text> : null}
+              {isSelected ? (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                  style={styles.checkmark}
+                >
+                  <Ionicons
+                    color={themeStyles.buttonPrimary.backgroundColor}
+                    name="checkmark"
+                    size={LIST_ROW_ACTION_ICON_SIZE}
+                  />
+                </View>
+              ) : null}
             </Pressable>
           );
         })}

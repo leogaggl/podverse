@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLayoutEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { breakpoints } from '@podverse/design-tokens';
 
@@ -19,6 +19,7 @@ import {
 } from '../../theme/bottomChromeStrip';
 import { useResponsive } from '../../theme/useResponsive';
 import { useTheme } from '../../theme/useTheme';
+import { MarqueeText } from '../primitives/MarqueeText';
 import { nowPlayingSegmentLeadingIcon } from './nowPlayingSegmentIcon';
 import { setNowPlayingSegmentStripVisible } from './nowPlayingSegmentStripPresence';
 
@@ -56,10 +57,10 @@ export function NowPlayingSegmentBar() {
         label: {
           ...bottomChromeStripTextStyle(),
           color: themeStyles.textSecondary.color,
-          flex: 1,
         },
-        labelCentered: {
-          textAlign: 'center',
+        titleSlot: {
+          flex: 1,
+          minWidth: 0,
         },
       }),
     [themeStyles, tokens]
@@ -104,13 +105,15 @@ export function NowPlayingSegmentBar() {
           size={BOTTOM_CHROME_STRIP_ICON_SIZE}
         />
       ) : null}
-      <Text
-        numberOfLines={1}
-        style={[styles.label, iconName === null ? styles.labelCentered : null]}
-        testID="now-playing-segment-title"
-      >
-        {segment.title}
-      </Text>
+      <View style={styles.titleSlot}>
+        <MarqueeText
+          align={iconName === null ? 'center' : 'left'}
+          style={styles.label}
+          testID="now-playing-segment-title"
+        >
+          {segment.title}
+        </MarqueeText>
+      </View>
     </View>
   );
 }

@@ -86,15 +86,15 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
           minWidth: 0,
         },
         segmentText: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 18,
+          color: themeStyles.textPrimary.color,
+          fontSize: 22,
           fontWeight: '600',
-          lineHeight: 22,
+          lineHeight: 28,
         },
         segmentTime: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          lineHeight: 16,
+          color: tokens.text.link,
+          fontSize: 15,
+          lineHeight: 20,
           textAlign: 'center',
         },
         segmentTitle: {

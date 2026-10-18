@@ -81,6 +81,11 @@ tell them; the number belongs on the screen they open to see the number. Determi
 more often than they inform — a transfer with an unknown content length has no honest ratio, so
 prefer indeterminate until a total is known.
 
+On My Library → Downloads, a progress tick updates the bar inside the sliding row. The
+subscription lives in `LibraryDownloadProgressTrack`, so the tick repaints that bar and does not
+re-render the swipeable or relayout the reveal. The bar is clipped to the sliding row and does
+not paint into the revealed action.
+
 **Accessibility:** a busy row still needs `accessibilityState={{ busy: true }}` and a label that
 says what pressing it does. `accessibilityValue` with a live percentage is fine on the single-item
 surfaces above, and is exactly what to leave off a list row — a screen reader announcing a changing

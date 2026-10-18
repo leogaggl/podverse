@@ -2,16 +2,15 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { SettingsRowDescription, SettingsSwitchRow } from '../../components/form';
 import { Button } from '../../components/primitives/Button';
 import { Card } from '../../components/primitives/Card';
 import { ListRow } from '../../components/primitives/ListRow';
 import { ProgressTrack } from '../../components/primitives/ProgressTrack';
-import { ToggleSwitch } from '../../components/primitives/ToggleSwitch';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
-import { ListLoading } from '../../components/state/ListLoading';
 import { autoDownloadRepository } from '../../data/repositories/autoDownloadRepository';
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { DEFAULT_AUTO_DOWNLOAD_CATCH_UP_LIMIT } from '../../downloads/autoDownloadPlanner';
@@ -38,6 +37,7 @@ import {
   writeDownloadAutoDeleteOnDeviceLowEnabled,
   writeDownloadAutoDeleteOnLimitEnabled,
 } from '../../prefs/downloadPrefs';
+import { settingsCardGap, settingsCardInnerGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
@@ -46,7 +46,7 @@ type StorageMeterProps = {
   usedLabel: string;
   /** 0–1 fill when this bucket has a real cap. Omit the track when there is no upper bound. */
   ratio?: number;
-  testID: string;
+  testID?: string;
 };
 
 function StorageMeter({ label, usedLabel, ratio, testID }: StorageMeterProps) {
@@ -55,12 +55,9 @@ function StorageMeter({ label, usedLabel, ratio, testID }: StorageMeterProps) {
     () =>
       StyleSheet.create({
         label: {
-          ...typography.label,
+          ...typography.body,
           color: themeStyles.textSecondary.color,
           marginBottom: tokens.spacing.xs,
-        },
-        meter: {
-          marginBottom: tokens.spacing.lg,
         },
         value: {
           ...typography.title,
@@ -72,17 +69,17 @@ function StorageMeter({ label, usedLabel, ratio, testID }: StorageMeterProps) {
   );
 
   return (
-    <View style={styles.meter} testID={testID}>
+    <View testID={testID}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value} testID={`${testID}-value`}>
+      <Text style={styles.value} testID={testID === undefined ? undefined : `${testID}-value`}>
         {usedLabel}
       </Text>
       {ratio !== undefined ? (
         <ProgressTrack
-          fillTestID={`${testID}-fill`}
+          fillTestID={testID === undefined ? undefined : `${testID}-fill`}
           height={6}
           ratio={ratio}
-          testID={`${testID}-track`}
+          testID={testID === undefined ? undefined : `${testID}-track`}
         />
       ) : null}
     </View>
@@ -155,31 +152,44 @@ export function MoreSettingsDownloadsScreen() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        cardHeading: {
+          paddingHorizontal: tokens.spacing.lg,
+          paddingTop: tokens.spacing.lg,
+        },
         cardStack: {
-          gap: tokens.spacing.xl,
+          gap: settingsCardGap(tokens.spacing),
+        },
+        catchUp: {
+          gap: tokens.spacing.xs,
+          paddingBottom: tokens.spacing.lg,
+          paddingHorizontal: tokens.spacing.lg,
+        },
+        packedCard: {
+          gap: settingsCardInnerGap(tokens.spacing),
+          padding: tokens.spacing.lg,
         },
         sectionDescription: {
+          ...typography.body,
           color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginTop: tokens.spacing.xs,
         },
         sectionHeading: {
           color: themeStyles.textPrimary.color,
           fontSize: 16,
           fontWeight: '700',
-          marginBottom: tokens.spacing.xs,
         },
-        sectionInner: {
-          padding: tokens.spacing.lg,
+        storageBlock: {
+          position: 'relative',
         },
-        sectionStack: {
-          marginTop: tokens.spacing.md,
+        storageMeters: {
+          gap: settingsCardInnerGap(tokens.spacing),
         },
-        toggleDescription: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginTop: tokens.spacing.xs,
-          paddingRight: tokens.spacing['3xl'],
+        storagePending: {
+          opacity: 0,
+        },
+        storageSpinner: {
+          ...StyleSheet.absoluteFill,
+          alignItems: 'center',
+          justifyContent: 'center',
         },
       }),
     [themeStyles, tokens]
@@ -268,41 +278,73 @@ export function MoreSettingsDownloadsScreen() {
     breakdown !== null && breakdown.deviceTotalBytes > 0
       ? Math.min(1, breakdown.deviceUsedBytes / breakdown.deviceTotalBytes)
       : undefined;
+  const storagePending = breakdown === null;
+  const storagePlaceholder = '\u00a0';
+  const deviceMeterRatio =
+    storagePending || deviceRatio !== undefined ? (deviceRatio ?? 0) : undefined;
+  const mediaMeterRatio = storagePending || mediaHasCap ? (limitRatio ?? 0) : undefined;
+  const deviceUsedLabel =
+    breakdown === null
+      ? storagePlaceholder
+      : `${formatDownloadBytes(breakdown.deviceUsedBytes)} / ${formatDownloadBytes(
+          breakdown.deviceTotalBytes
+        )}`;
+  const mediaUsedLabel =
+    breakdown === null
+      ? storagePlaceholder
+      : `${formatDownloadBytes(breakdown.downloadsBytes)} / ${quotaLabel}`;
+  const appDataUsedLabel =
+    breakdown === null ? storagePlaceholder : formatDownloadBytes(breakdown.appDataBytes);
+  const cacheUsedLabel =
+    breakdown === null ? storagePlaceholder : formatDownloadBytes(breakdown.cacheBytes);
 
   return (
     <MobileScreenContainer testID="more-settings-downloads-screen">
       <View style={styles.cardStack}>
         <Card padded={false} testID="more-settings-downloads-storage-card">
-          <View style={styles.sectionInner}>
+          <View style={styles.packedCard}>
             <Text style={styles.sectionHeading}>{t('settings.downloads.storage_heading')}</Text>
-            {breakdown === null ? (
-              <ListLoading testID="settings-downloads-storage-loading" />
-            ) : (
-              <>
-                <StorageMeter
-                  label={t('settings.downloads.device_storage')}
-                  ratio={deviceRatio}
-                  testID="settings-downloads-device"
-                  usedLabel={`${formatDownloadBytes(breakdown.deviceUsedBytes)} / ${formatDownloadBytes(breakdown.deviceTotalBytes)}`}
-                />
-                <StorageMeter
-                  label={t('settings.downloads.downloaded_media')}
-                  ratio={limitRatio}
-                  testID="settings-downloads-media"
-                  usedLabel={`${formatDownloadBytes(breakdown.downloadsBytes)} / ${quotaLabel}`}
-                />
-                <StorageMeter
-                  label={t('settings.downloads.app_data')}
-                  testID="settings-downloads-app-data"
-                  usedLabel={formatDownloadBytes(breakdown.appDataBytes)}
-                />
-                <StorageMeter
-                  label={t('settings.downloads.cache')}
-                  testID="settings-downloads-cache"
-                  usedLabel={formatDownloadBytes(breakdown.cacheBytes)}
-                />
-              </>
-            )}
+            <View style={styles.storageBlock}>
+              <View
+                accessibilityElementsHidden={storagePending}
+                importantForAccessibility={storagePending ? 'no-hide-descendants' : 'auto'}
+                pointerEvents={storagePending ? 'none' : 'auto'}
+                style={storagePending ? styles.storagePending : undefined}
+              >
+                <View style={styles.storageMeters}>
+                  <StorageMeter
+                    label={t('settings.downloads.device_storage')}
+                    ratio={deviceMeterRatio}
+                    testID={storagePending ? undefined : 'settings-downloads-device'}
+                    usedLabel={deviceUsedLabel}
+                  />
+                  <StorageMeter
+                    label={t('settings.downloads.downloaded_media')}
+                    ratio={mediaMeterRatio}
+                    testID={storagePending ? undefined : 'settings-downloads-media'}
+                    usedLabel={mediaUsedLabel}
+                  />
+                  <StorageMeter
+                    label={t('settings.downloads.app_data')}
+                    testID={storagePending ? undefined : 'settings-downloads-app-data'}
+                    usedLabel={appDataUsedLabel}
+                  />
+                  <StorageMeter
+                    label={t('settings.downloads.cache')}
+                    testID={storagePending ? undefined : 'settings-downloads-cache'}
+                    usedLabel={cacheUsedLabel}
+                  />
+                </View>
+              </View>
+              {storagePending ? (
+                <View style={styles.storageSpinner} testID="settings-downloads-storage-loading">
+                  <ActivityIndicator
+                    accessibilityLabel={t('misc.loading')}
+                    color={themeStyles.buttonPrimary.backgroundColor}
+                  />
+                </View>
+              ) : null}
+            </View>
             <ListRow
               onPress={() => {
                 navigation.navigate(MORE_STACK_ROUTES.MoreSettingsDownloadLimit);
@@ -315,126 +357,98 @@ export function MoreSettingsDownloadsScreen() {
         </Card>
 
         <Card padded={false} testID="more-settings-downloads-auto-download-card">
-          <View style={styles.sectionInner}>
-            <Text style={styles.sectionHeading}>
-              {t('settings.downloads.auto_download_heading')}
-            </Text>
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="more-settings-downloads-auto-download-default"
-                title={t('settings.downloads.auto_download_default')}
-                trailing={
-                  <ToggleSwitch
-                    accessibilityLabel={t('settings.downloads.auto_download_default')}
-                    onValueChange={(next) => {
-                      void handleAutoDownloadDefaultToggle(next);
-                    }}
-                    testID="more-settings-downloads-auto-download-default-switch"
-                    value={autoDownloadDefault}
-                  />
-                }
-              />
-              <Text style={styles.toggleDescription}>
-                {t('settings.downloads.auto_download_default_description')}
-              </Text>
-            </View>
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="more-settings-downloads-cellular-default"
-                title={t('settings.downloads.auto_download_cellular_default')}
-                trailing={
-                  <ToggleSwitch
-                    accessibilityLabel={t('settings.downloads.auto_download_cellular_default')}
-                    onValueChange={(next) => {
-                      void handleCellularDefaultToggle(next);
-                    }}
-                    testID="more-settings-downloads-cellular-default-switch"
-                    value={cellularDefault}
-                  />
-                }
-              />
-              <Text style={styles.toggleDescription}>
-                {t('settings.downloads.auto_download_cellular_default_description')}
-              </Text>
-            </View>
-            <View style={styles.sectionStack}>
-              <ListRow
-                onPress={() => {
-                  navigation.navigate(MORE_STACK_ROUTES.MoreSettingsAutoDownloadCatchUp);
-                }}
-                subtitle={t('settings.downloads.auto_download_catch_up_count', {
-                  count: catchUpLimit,
-                })}
-                testID="more-settings-downloads-catch-up-limit"
-                title={t('settings.downloads.auto_download_catch_up_label')}
-              />
-              <Text style={styles.toggleDescription}>
-                {t('settings.downloads.auto_download_catch_up_description')}
-              </Text>
-            </View>
+          <Text style={[styles.sectionHeading, styles.cardHeading]}>
+            {t('settings.downloads.auto_download_heading')}
+          </Text>
+          <SettingsSwitchRow
+            onValueChange={(next) => {
+              void handleAutoDownloadDefaultToggle(next);
+            }}
+            switchTestID="more-settings-downloads-auto-download-default-switch"
+            testID="more-settings-downloads-auto-download-default"
+            title={t('settings.downloads.auto_download_default')}
+            value={autoDownloadDefault}
+          >
+            <SettingsRowDescription>
+              {t('settings.downloads.auto_download_default_description')}
+            </SettingsRowDescription>
+          </SettingsSwitchRow>
+          <SettingsSwitchRow
+            onValueChange={(next) => {
+              void handleCellularDefaultToggle(next);
+            }}
+            switchTestID="more-settings-downloads-cellular-default-switch"
+            testID="more-settings-downloads-cellular-default"
+            title={t('settings.downloads.auto_download_cellular_default')}
+            value={cellularDefault}
+          >
+            <SettingsRowDescription>
+              {t('settings.downloads.auto_download_cellular_default_description')}
+            </SettingsRowDescription>
+          </SettingsSwitchRow>
+          <View style={styles.catchUp}>
+            <ListRow
+              onPress={() => {
+                navigation.navigate(MORE_STACK_ROUTES.MoreSettingsAutoDownloadCatchUp);
+              }}
+              subtitle={t('settings.downloads.auto_download_catch_up_count', {
+                count: catchUpLimit,
+              })}
+              testID="more-settings-downloads-catch-up-limit"
+              title={t('settings.downloads.auto_download_catch_up_label')}
+            />
+            <SettingsRowDescription>
+              {t('settings.downloads.auto_download_catch_up_description')}
+            </SettingsRowDescription>
           </View>
         </Card>
 
         <Card padded={false} testID="more-settings-downloads-auto-free-card">
-          <View style={styles.sectionInner}>
-            <Text style={styles.sectionHeading}>{t('settings.downloads.auto_free_heading')}</Text>
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="more-settings-downloads-auto-limit"
-                title={t('settings.downloads.auto_delete_on_limit')}
-                trailing={
-                  <ToggleSwitch
-                    onValueChange={(next) => {
-                      void writeDownloadAutoDeleteOnLimitEnabled(next).then(() => storage.reload());
-                    }}
-                    value={storage.autoDeleteOnLimitEnabled}
-                  />
-                }
-              />
-              <Text style={styles.toggleDescription}>
-                {t('settings.downloads.auto_delete_on_limit_description')}
-              </Text>
-            </View>
-            <View style={styles.sectionStack}>
-              <ListRow
-                testID="more-settings-downloads-auto-device-low"
-                title={t('settings.downloads.auto_delete_on_device_low')}
-                trailing={
-                  <ToggleSwitch
-                    onValueChange={(next) => {
-                      void writeDownloadAutoDeleteOnDeviceLowEnabled(next).then(() =>
-                        storage.reload()
-                      );
-                    }}
-                    value={storage.autoDeleteOnDeviceLowEnabled}
-                  />
-                }
-              />
-              <Text style={styles.toggleDescription}>
-                {t('settings.downloads.auto_delete_on_device_low_description')}
-              </Text>
-            </View>
-          </View>
+          <Text style={[styles.sectionHeading, styles.cardHeading]}>
+            {t('settings.downloads.auto_free_heading')}
+          </Text>
+          <SettingsSwitchRow
+            onValueChange={(next) => {
+              void writeDownloadAutoDeleteOnLimitEnabled(next).then(() => storage.reload());
+            }}
+            testID="more-settings-downloads-auto-limit"
+            title={t('settings.downloads.auto_delete_on_limit')}
+            value={storage.autoDeleteOnLimitEnabled}
+          >
+            <SettingsRowDescription>
+              {t('settings.downloads.auto_delete_on_limit_description')}
+            </SettingsRowDescription>
+          </SettingsSwitchRow>
+          <SettingsSwitchRow
+            onValueChange={(next) => {
+              void writeDownloadAutoDeleteOnDeviceLowEnabled(next).then(() => storage.reload());
+            }}
+            testID="more-settings-downloads-auto-device-low"
+            title={t('settings.downloads.auto_delete_on_device_low')}
+            value={storage.autoDeleteOnDeviceLowEnabled}
+          >
+            <SettingsRowDescription>
+              {t('settings.downloads.auto_delete_on_device_low_description')}
+            </SettingsRowDescription>
+          </SettingsSwitchRow>
         </Card>
 
         <Card padded={false} testID="more-settings-downloads-delete-all-card">
-          <View style={styles.sectionInner}>
+          <View style={styles.packedCard}>
             <Text style={styles.sectionHeading}>{t('settings.downloads.delete_all_heading')}</Text>
             <Text style={styles.sectionDescription}>
               {t('settings.downloads.delete_all_description')}
             </Text>
-            <View style={styles.sectionStack}>
-              <Button
-                fullWidth
-                label={t('settings.downloads.delete_all')}
-                onPress={() => {
-                  setConfirmVisible(true);
-                }}
-                size="form"
-                testID="more-settings-downloads-delete-all"
-                variant="danger"
-              />
-            </View>
+            <Button
+              fullWidth
+              label={t('settings.downloads.delete_all')}
+              onPress={() => {
+                setConfirmVisible(true);
+              }}
+              size="form"
+              testID="more-settings-downloads-delete-all"
+              variant="danger"
+            />
           </View>
         </Card>
       </View>

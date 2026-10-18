@@ -35,8 +35,9 @@ with scroll. The mini player on other screens is a separate surface.
 - Episode title and channel title share one title block (`FULL_PLAYER_TITLE_BLOCK_HEIGHT`) with a
   tight internal gap. Do not split them into two bands separated by `FULL_PLAYER_REGION_GAP`.
 - Band order matches web's player modal: title block, artwork, segment band, progress, transport,
-  utility. Upper seams use `FULL_PLAYER_REGION_GAP` (three of them). Progress → transport and
-  transport → utility use the tighter `FULL_PLAYER_CONTROL_STACK_GAP` (two of them). Plus
+  utility. Upper seams use `FULL_PLAYER_REGION_GAP` (three of them, two without the segment band).
+  Progress → transport and transport → utility use the tighter `FULL_PLAYER_CONTROL_STACK_GAP` (two
+  of them). Plus
   `FULL_PLAYER_REGION_TOP_PADDING` above the title and `FULL_PLAYER_REGION_BOTTOM_PADDING` below the
   utility row (the seam before the section chips). Both paddings are chrome so the bands sum to the
   region height rather than overflowing. The chip header has no hairlines.
@@ -75,10 +76,12 @@ with scroll. The mini player on other screens is a separate surface.
   outside that sheet. Round all four corners on the single wrapper (`FullPlayerPaneSheet`). Summary,
   transcript, and empty pane copy use the same top inset as the first chapter row (`spacing.base`)
   so the first line of text sits at one position in every tab.
-- The segment band (`FULL_PLAYER_SEGMENT_BAND_HEIGHT`) sits **below** the artwork and is reserved
-  unconditionally, exactly as web reserves `--media-modal-subtitle-reserve`. A chapter or clip name
-  arriving mid-playback fades into a row that is already there — it never resizes the artwork or
-  moves the transport.
+- The segment band (`FULL_PLAYER_SEGMENT_BAND_HEIGHT`) sits **below** the artwork. It is reserved
+  for an item with chapters (`itemHasChapters`, or a non-empty loaded chapter list) or a clip,
+  official clip, or chapter target, the way web reserves `--media-modal-subtitle-reserve`. A chapter
+  or clip name arriving mid-playback fades into a row that is already there — it never resizes the
+  artwork or moves the transport. For an item with neither, the band and one region seam are
+  omitted (`hasSegmentBand: false`) and the artwork takes that height.
 - Duration for the scrubber is seeded from `item.item_about.duration` via
   `resolveMediaFileDurationHintSeconds` when playback starts; native `durationSeconds > 0` still
   wins. The left clock always shows the playhead; seek stays disabled only while duration is still
@@ -101,8 +104,9 @@ with scroll. The mini player on other screens is a separate surface.
 
 ## Do not
 
-- Do not conditionally insert or remove fixed-region rows. Content that comes and goes gets a
-  permanently reserved band; anything else jumps the layout while a listener is watching it.
+- Do not insert or remove fixed-region rows while an item plays. Content that comes and goes gets a
+  band reserved for the whole item; anything else jumps the layout while a listener is watching it.
+  The segment band is decided per item (chapters or a segment target), not per chapter.
 - Do not let pane loading, empty states, or chip switching push transport or utility rows.
 - Do not bind region size to transcript/chapter/clip body height.
 - Do not pin chips, overlay the player above the list, shrink the player with scroll, or add a

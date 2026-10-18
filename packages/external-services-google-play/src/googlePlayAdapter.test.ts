@@ -38,7 +38,17 @@ class StaticIdTokenVerifier implements GoogleIdTokenVerifier {
   }
 }
 
-const SOLD_PRODUCTS = [{ externalProductId: 'premium', externalBasePlanId: 'prepaid-monthly' }];
+function isMappedProduct(
+  processorId: string,
+  externalProductId: string,
+  externalBasePlanId: string | null
+): Promise<boolean> {
+  return Promise.resolve(
+    processorId === 'google_play' &&
+      externalProductId === 'premium' &&
+      externalBasePlanId === 'prepaid-monthly'
+  );
+}
 
 function buildWebhookRequest(
   developerNotification: Record<string, unknown>,
@@ -87,7 +97,7 @@ function adapterConfig(client: GooglePlayClient) {
     rtdnPushServiceAccountEmail:
       'podverse-google-play-billing@podverse-app.iam.gserviceaccount.com',
     client,
-    soldProducts: SOLD_PRODUCTS,
+    isMappedProduct,
   };
 }
 

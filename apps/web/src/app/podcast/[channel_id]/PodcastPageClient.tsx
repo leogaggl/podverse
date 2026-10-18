@@ -66,6 +66,7 @@ export function PodcastPageClient(props: PodcastPageClientProps) {
           <PodcastPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
           <MainColumnStack>
             <PodcastPageListHeader
+              ssrHasPeople={(ssrChannel.channel_persons?.length ?? 0) > 0}
               ssrHasPodroll={!!ssrPodroll}
               ssrHasItemSoundbites={ssrHasItemSoundbites}
               ssrCanShowBoosts={ssrCanShowBoosts}

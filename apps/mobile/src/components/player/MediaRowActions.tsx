@@ -18,6 +18,7 @@ import {
   usePlaybackRow,
 } from '../../playback/PlaybackProvider';
 import { LIST_ROW_ACTION_ICON_SIZE, LIST_ROW_PLAY_ICON_SIZE } from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
@@ -180,10 +181,8 @@ function MediaRowActiveProgress({ testID }: { testID?: string }) {
 const mediaRowProgressTrackStyle = { flex: 1, minWidth: 32 };
 
 const durationStyle = ({ tokens }: ThemedStylesTheme) => ({
+  ...typography.body,
   color: tokens.text.accent,
-  fontSize: 14,
-  fontWeight: '400' as const,
-  lineHeight: 18,
 });
 
 type MediaRowActionStyles = {

@@ -68,11 +68,12 @@ These three get used interchangeably in conversation. In code they are not the s
   the DTO, and internal cell/kind identifiers that hold that text — not for the user-facing
   section label.
 - **About** is the **channel-level** user-facing presentation (`info.about`) of that description
-  plus the extras that stay aligned with web (people; on mobile also RSS and website). Funding
-  is its own chip, not an About body link. Podcast, album, and artist About chips use this name.
+  plus the extras that stay aligned with web (on mobile, RSS and website). People are their own
+  chip, not part of About. Funding is its own chip, not an About body link. Podcast, album, and
+  artist About chips use this name.
 - **Summary** is the **item-level** user-facing presentation (`info.summary.*`) of that
-  description plus item people. Episode, track, livestream, and full-player Summary tabs use
-  this name.
+  description. People are their own chip, not part of Summary. Episode, track, livestream, and
+  full-player Summary tabs use this name.
 
 Do not rename a channel About cell or section to `summary`, or an item Summary tab to
 `description` / `about`, just because the spoken terms overlap. Leave catalog keys on their

@@ -20,6 +20,7 @@ import {
 } from './fullPlayerLayout';
 
 const phoneInput = {
+  hasSegmentBand: true,
   hasSections: true,
   isTablet: false,
   maxContentWidth: 420,
@@ -32,13 +33,25 @@ const phoneInput = {
 
 describe('full player band constants', () => {
   it('merges title and channel into one band with default and control-stack seams', () => {
-    expect(FULL_PLAYER_TITLE_BLOCK_HEIGHT).toBe(48);
+    expect(FULL_PLAYER_TITLE_BLOCK_HEIGHT).toBe(60);
+    expect(FULL_PLAYER_SEGMENT_BAND_HEIGHT).toBe(64);
     expect(FULL_PLAYER_REGION_GAP_COUNT).toBe(3);
     expect(FULL_PLAYER_CONTROL_STACK_GAP_COUNT).toBe(2);
     expect(FULL_PLAYER_CONTROL_STACK_GAP).toBe(8);
-    expect(FULL_PLAYER_PROGRESS_BLOCK_HEIGHT).toBe(52);
+    expect(FULL_PLAYER_PROGRESS_BLOCK_HEIGHT).toBe(56);
   });
 });
+
+const reservedChromeWithBand =
+  FULL_PLAYER_REGION_TOP_PADDING +
+  FULL_PLAYER_REGION_BOTTOM_PADDING +
+  FULL_PLAYER_SEGMENT_BAND_HEIGHT +
+  FULL_PLAYER_TITLE_BLOCK_HEIGHT +
+  FULL_PLAYER_PROGRESS_BLOCK_HEIGHT +
+  FULL_PLAYER_TRANSPORT_ROW_HEIGHT +
+  FULL_PLAYER_UTILITY_ROW_HEIGHT +
+  FULL_PLAYER_REGION_GAP * FULL_PLAYER_REGION_GAP_COUNT +
+  FULL_PLAYER_CONTROL_STACK_GAP * FULL_PLAYER_CONTROL_STACK_GAP_COUNT;
 
 describe('resolveFullPlayerLayout', () => {
   it('returns a positive player region and artwork under the phone cap', () => {
@@ -49,19 +62,21 @@ describe('resolveFullPlayerLayout', () => {
     expect(layout.artworkSize).toBeLessThanOrEqual(FULL_PLAYER_ARTWORK_MAX_PHONE);
   });
 
-  it('reserves the segment band and control-stack gaps whether or not a chapter is playing', () => {
+  it('reserves the segment band and control-stack gaps for an item with chapters or a clip', () => {
     const layout = resolveFullPlayerLayout(phoneInput);
-    const reservedChrome =
-      FULL_PLAYER_REGION_TOP_PADDING +
-      FULL_PLAYER_REGION_BOTTOM_PADDING +
-      FULL_PLAYER_SEGMENT_BAND_HEIGHT +
-      FULL_PLAYER_TITLE_BLOCK_HEIGHT +
-      FULL_PLAYER_PROGRESS_BLOCK_HEIGHT +
-      FULL_PLAYER_TRANSPORT_ROW_HEIGHT +
-      FULL_PLAYER_UTILITY_ROW_HEIGHT +
-      FULL_PLAYER_REGION_GAP * FULL_PLAYER_REGION_GAP_COUNT +
-      FULL_PLAYER_CONTROL_STACK_GAP * FULL_PLAYER_CONTROL_STACK_GAP_COUNT;
-    expect(layout.playerRegionHeight - layout.viewerHeight).toBe(reservedChrome);
+    expect(layout.playerRegionHeight - layout.viewerHeight).toBe(reservedChromeWithBand);
+  });
+
+  it('gives the segment band and one region seam to the artwork when there is no segment', () => {
+    const withBand = resolveFullPlayerLayout(phoneInput);
+    const withoutBand = resolveFullPlayerLayout({ ...phoneInput, hasSegmentBand: false });
+    expect(withoutBand.playerRegionHeight).toBe(withBand.playerRegionHeight);
+    expect(withoutBand.playerRegionHeight - withoutBand.viewerHeight).toBe(
+      reservedChromeWithBand - FULL_PLAYER_SEGMENT_BAND_HEIGHT - FULL_PLAYER_REGION_GAP
+    );
+    expect(withoutBand.viewerHeight - withBand.viewerHeight).toBe(
+      FULL_PLAYER_SEGMENT_BAND_HEIGHT + FULL_PLAYER_REGION_GAP
+    );
   });
 
   it('caps artwork at the tablet cap on tall layouts', () => {
