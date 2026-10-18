@@ -1,13 +1,11 @@
 import type { Server } from 'http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { isMappedBillingProduct } from '@podverse/billing';
 import {
   AppStoreServerClient,
   createAppleAdapter,
 } from '@podverse/external-services-apple-app-store';
 import type { ORMContext } from '@podverse/orm';
-import { BillingCheckoutChannelService, BillingProcessorProductService } from '@podverse/orm';
 
 import { startTestApp, stopTestApp } from './helpers/index.js';
 
@@ -43,6 +41,7 @@ describe('billing setup without management', () => {
   };
 
   it('adds a processor product once and does not reactivate or edit it', async () => {
+    const { BillingProcessorProductService } = await import('@podverse/orm');
     const service = new BillingProcessorProductService();
     const created = await service.addPremiumProcessorProductIfMissing({
       processorId: 'google_play',
@@ -73,6 +72,7 @@ describe('billing setup without management', () => {
   });
 
   it('enables a checkout channel without turning it off again', async () => {
+    const { BillingCheckoutChannelService } = await import('@podverse/orm');
     const service = new BillingCheckoutChannelService();
     const existing = await service.getChannel('apple', 'ios');
     expect(existing).not.toBeNull();
@@ -95,6 +95,8 @@ describe('billing setup without management', () => {
   });
 
   it('accepts an Apple purchase mapped only in the database', async () => {
+    const { BillingProcessorProductService } = await import('@podverse/orm');
+    const { isMappedBillingProduct } = await import('@podverse/billing');
     const service = new BillingProcessorProductService();
     await service.addPremiumProcessorProductIfMissing({
       processorId: 'apple',

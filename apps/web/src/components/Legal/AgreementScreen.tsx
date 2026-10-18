@@ -53,6 +53,16 @@ export function AgreementScreen({
   testId,
 }: AgreementScreenProps) {
   const showCopy = introMarkdown !== null && errorMessage === null && !isLoading;
+  const showAccordion = showCopy && fullMarkdown !== null;
+  const accordionHeader =
+    dateLabel === null ? (
+      accordionTitle
+    ) : (
+      <span className={styles.accordionHeading}>
+        <span>{accordionTitle}</span>
+        <span className={styles.date}>{dateLabel}</span>
+      </span>
+    );
   let checkbox: ReactNode = null;
   if (checkboxLabel !== undefined && onCheckboxChange !== undefined) {
     checkbox = (
@@ -71,7 +81,6 @@ export function AgreementScreen({
     <main aria-label={title} className={styles.screen} data-testid={testId}>
       <div className={styles.panel}>
         <h1 className={styles.title}>{title}</h1>
-        {dateLabel !== null ? <p className={styles.date}>{dateLabel}</p> : null}
         {showCopy && introMarkdown !== null ? (
           <div className={styles.intro}>
             <CopyMarkdown markdown={introMarkdown} />
@@ -85,6 +94,12 @@ export function AgreementScreen({
             </Button>
           </div>
         ) : null}
+        {showAccordion && fullMarkdown !== null ? (
+          <Accordion header={accordionHeader}>
+            <CopyMarkdown markdown={fullMarkdown} />
+          </Accordion>
+        ) : null}
+        {!showAccordion && dateLabel !== null ? <p className={styles.date}>{dateLabel}</p> : null}
         {checkbox}
         <div className={styles.actions}>
           <Button disabled={pending} onClick={onReject} type="button" variant="secondary">
@@ -99,11 +114,6 @@ export function AgreementScreen({
             {acceptLabel}
           </Button>
         </div>
-        {showCopy && fullMarkdown !== null ? (
-          <Accordion header={accordionTitle}>
-            <CopyMarkdown markdown={fullMarkdown} />
-          </Accordion>
-        ) : null}
         <WebLoadingSpinnerOverlay isLoading={isLoading} />
       </div>
     </main>

@@ -49,9 +49,8 @@ name: Library Playlists Authoring
 - tapOn:
     id: playlist-form-sharable-unlisted
 - takeScreenshot: library-playlists-create-form
-# The title field keeps the keyboard over Submit. Tapping the screen title dismisses it.
-- tapOn:
-    text: Create Playlist
+# The title field keeps the keyboard over Save. Return dismisses it.
+- pressKey: Enter
 - tapOn:
     id: playlist-form-submit
 # create replaces the form with the new playlist's detail (navigation.replace).
@@ -91,9 +90,8 @@ name: Library Playlists Authoring
     id: playlist-form-title
 - inputText: " Edited"
 - takeScreenshot: library-playlists-edit-form
-# The title field keeps the keyboard over Submit. Tapping the screen title dismisses it.
-- tapOn:
-    text: Edit Playlist
+# The title field keeps the keyboard over Save. Return dismisses it.
+- pressKey: Enter
 - tapOn:
     id: playlist-form-submit
 - extendedWaitUntil:

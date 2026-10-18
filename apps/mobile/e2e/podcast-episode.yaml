@@ -262,18 +262,17 @@ name: Podcast Episode Flow
     id: podcast-detail-share
 - assertVisible:
     id: podcast-detail-notifications-toggle
+# People sits ahead of Settings, so on a phone Settings starts fully past the trailing edge and
+# stays out of the accessibility tree until the chip row scrolls.
+- swipe:
+    from:
+      id: podcast-detail-sections
+    direction: LEFT
 - extendedWaitUntil:
     visible:
       id: podcast-detail-section-settings
     timeout: ${TIMEOUT_SLOWER}
 - takeScreenshot: podcast-episode-header-actions
-
-# The settings chip counts as visible while its center is still past the trailing edge, so a tap
-# there never selects it.
-- swipe:
-    from:
-      id: podcast-detail-sections
-    direction: LEFT
 - tapOn:
     id: podcast-detail-section-settings
 - extendedWaitUntil:

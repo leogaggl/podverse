@@ -39,11 +39,10 @@ name: Notifications Inbox
     id: notifications-inbox-screen
 - takeScreenshot: notifications-inbox-initial
 
-# Account-level subscribe defaults live under Settings, not the inbox. They are the types copied
-# onto a channel when notifications are turned on, and the switch that can auto-create that row
-# on subscribe — both default off / seeded types, and both need an account.
+# Account-level subscribe defaults live under Settings, not the inbox. Back returns to
+# the More menu.
 - tapOn:
-    id: tab-more
+    id: stack-header-back
 - tapOn:
     id: more-settings
 - assertVisible:

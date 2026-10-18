@@ -1750,7 +1750,7 @@ function TabScaffold({
         },
       }}
       screenListeners={({ navigation, route }) => ({
-        tabPress: () => {
+        tabPress: (event) => {
           const tabState = navigation.getState();
           const focused = tabState.routes[tabState.index];
           if (focused === undefined || focused.key !== route.key) {
@@ -1772,6 +1772,10 @@ function TabScaffold({
           if (decision.action === 'none' || nested?.key === undefined) {
             return;
           }
+          // The nested stack also handles this press and pops on the next frame.
+          // Stopping that default leaves this single pop or reset. A second pop
+          // after the stack is already at its first screen is reported as unhandled.
+          event.preventDefault();
           // More returns to its menu. Other tabs return to the first screen in that stack.
           if (decision.action === 'popToTop') {
             navigation.dispatch({
@@ -1804,7 +1808,8 @@ function TabScaffold({
             <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
-              clip/chapter → mini player. Sync sits at the top of the stack because it comes and
+              clip/chapter → mini player. Playback and perf markers are absolute and are not part
+              of that height. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
               the scene above the tab bar does not resize when a bar appears. The stack overlaps
@@ -1895,9 +1900,9 @@ function TabScaffold({
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // E2E playback markers → sync → Offline Mode → current clip/chapter → mini player. The negative
-  // top margin is the variable strips only, so the safe-area padding stays reserved and the scene
-  // does not resize when a bar appears.
+  // sync → Offline Mode → current clip/chapter → mini player. Playback and perf markers are
+  // absolute and are not part of that height. The negative top margin is the variable strips
+  // only, so the safe-area padding stays reserved and the scene does not resize when a bar appears.
   const scaffold = !isTabletLayout ? (
     navigator
   ) : (

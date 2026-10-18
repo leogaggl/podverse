@@ -47,13 +47,22 @@ name: Player screen flow
     timeout: ${TIMEOUT_SLOWER}
 
 # Outer scroll brings the height-locked sheet on screen (chips at top, bottom radius visible).
-# Android reports bounds clipped to the screen, so a sliver of sheet at the bottom edge already
-# counts as fully visible there; the chapter-row scroll below finishes the outer scroll.
-- scrollUntilVisible:
-    element:
-      id: full-player-pane-sheet
-    direction: DOWN
-    timeout: ${TIMEOUT_SLOW}
+# A center swipe lands on the chapter list once the sheet covers the middle of the screen, so it
+# moves that list and leaves the sheet short of the bottom edge. The chip strip sits in the outer
+# scroller. Android clips the sheet's bounds to the screen, so a sliver already counts as visible
+# and the swipe does not run. Playback keeps the clock moving, so each swipe settles on a bound
+# instead of a still frame.
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: full-player-pane-sheet
+    commands:
+      - swipe:
+          from:
+            id: full-player-sections
+          direction: UP
+          waitToSettleTimeoutMs: 1000
 - assertVisible:
     id: full-player-pane-sheet
 - assertVisible:

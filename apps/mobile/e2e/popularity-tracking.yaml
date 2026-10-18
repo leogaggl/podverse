@@ -19,6 +19,17 @@ name: Popularity Tracking Gate
 
 - tapOn:
     id: popularity-tracking-full-agreement-toggle
+# The disclosure grows above the choice, so Yes starts below the fold. Swipe the
+# modal until it is on screen. The check runs after each swipe and the loop stops
+# there; extra swipes past the end do not run.
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: popularity-tracking-yes
+    commands:
+      - swipe:
+          direction: UP
 - assertVisible:
     id: popularity-tracking-yes
 - tapOn:

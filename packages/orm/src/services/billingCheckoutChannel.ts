@@ -4,11 +4,24 @@ import type { DataSource } from 'typeorm';
 
 import type { BillingPlatform } from '@podverse/helpers';
 
-function readUpdatedId(value: unknown): number | null {
-  if (!Array.isArray(value) || value.length === 0) {
+function queryRows(value: unknown): unknown[] | null {
+  if (!Array.isArray(value)) {
     return null;
   }
   const first: unknown = value[0];
+  // Postgres UPDATE and DELETE results from TypeORM are [rows, affectedCount].
+  if (Array.isArray(first)) {
+    return first;
+  }
+  return value;
+}
+
+function readUpdatedId(value: unknown): number | null {
+  const rows = queryRows(value);
+  if (rows === null || rows.length === 0) {
+    return null;
+  }
+  const first: unknown = rows[0];
   if (typeof first !== 'object' || first === null) {
     return null;
   }

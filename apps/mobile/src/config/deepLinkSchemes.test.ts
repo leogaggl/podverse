@@ -1,16 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
 
-import { UNIVERSAL_LINK_PATH_PREFIXES } from '@podverse/helpers';
+import { describe, expect, it } from 'vitest';
 
 import {
   buildMobileLinkPrefixes,
   DEFAULT_MOBILE_DEEP_LINK_SCHEMES,
-  MOBILE_UNIVERSAL_LINK_PATH_PREFIXES,
   parseMobileDeepLinkSchemes,
 } from './deepLinkSchemes';
 
+const require = createRequire(import.meta.url);
+
 describe('MOBILE_UNIVERSAL_LINK_PATH_PREFIXES', () => {
   it('is the shared https path prefix list', () => {
+    // app.config.ts loads this file with Node's require. Vite's import graph and that
+    // require are different module instances, so the identity check has to use require too.
+    const { UNIVERSAL_LINK_PATH_PREFIXES } = require('@podverse/helpers');
+    const { MOBILE_UNIVERSAL_LINK_PATH_PREFIXES } = require('./deepLinkSchemes.js');
     expect(MOBILE_UNIVERSAL_LINK_PATH_PREFIXES).toBe(UNIVERSAL_LINK_PATH_PREFIXES);
   });
 });

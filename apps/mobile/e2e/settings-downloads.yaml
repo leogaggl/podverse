@@ -88,12 +88,16 @@ name: Settings Downloads Storage
     id: more-settings-downloads-delete-all-dialog
 - takeScreenshot: settings-downloads-delete-cancelled
 
-- scrollUntilVisible:
-    element:
-      id: more-settings-downloads-limit
-    direction: UP
-    timeout: ${TIMEOUT_FAST}
-    waitToSettleTimeoutMs: 1000
+# The limit row is above this fold. The mini player clock never lets the screen go still, so a
+# scroll that waits to settle can give up while the row is already on screen.
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          direction: DOWN
+          waitToSettleTimeoutMs: 400
+- assertVisible:
+    id: more-settings-downloads-limit
 - tapOn:
     id: more-settings-downloads-limit
 - assertVisible:
