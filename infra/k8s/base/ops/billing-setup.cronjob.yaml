@@ -1,0 +1,60 @@
+# Manual only: suspended CronJob. Trigger from monorepo root:
+#   env K8S_NAMESPACE=podverse-alpha npm run billing:setup:k8s -- billingProcessorProductAdd --help
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ops-billing-setup
+spec:
+  schedule: "* * * * *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      # Single attempt: Job default backoffLimit is 6 (creates new pods on failure).
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app: podverse-ops
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: worker
+              image: ghcr.io/podverse/podverse/workers
+              command:
+                - "node"
+                - "apps/workers/dist/index.js"
+              args:
+                - "billingProcessorProductAdd"
+                - "--help"
+              securityContext:
+                runAsUser: 1000
+                runAsGroup: 1000
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"
+              envFrom:
+                - configMapRef:
+                    name: podverse-workers-config
+                - secretRef:
+                    name: podverse-db-opaque
+                - secretRef:
+                    name: podverse-workers-add-by-rss-opaque
+              volumeMounts:
+                - name: logs-volume
+                  mountPath: /logs
+                - name: logs-volume
+                  mountPath: /opt/logs
+          volumes:
+            - name: logs-volume
+              emptyDir: {}

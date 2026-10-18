@@ -34,7 +34,6 @@ import {
   PODCAST_INDEX_DEFAULT_RETRY_BASE_DELAY_MS,
 } from '@podverse/external-services-podcast-index';
 import {
-  BILLING_PROCESSOR_PRODUCT_ENV_KEYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -200,13 +199,6 @@ function validateBillingProcessors(): ValidationResult[] {
     ...validateGooglePlayProcessorEnv(process.env),
     ...validateStrikeProcessorEnv(process.env),
   ];
-}
-
-/** Billing products — only the product seed command reads the `BILLING_PRODUCT_*` keys. */
-function validateBillingProducts(): ValidationResult[] {
-  return BILLING_PROCESSOR_PRODUCT_ENV_KEYS.map((key) =>
-    validateOptional(key, 'Billing products', 'Skipped - processor left unmapped')
-  );
 }
 
 /** Category: ORM/Database */
@@ -645,9 +637,6 @@ function getValidationResultsForCommand(commandName: string): ValidationResult[]
   }
   if (categories.has(CATEGORY_BILLING)) {
     results.push(...validateBillingProcessors());
-  }
-  if (commandName === 'billingSeedProcessorProductsFromEnv') {
-    results.push(...validateBillingProducts());
   }
 
   results.push(...validateObservability());

@@ -312,15 +312,18 @@ make local_env_setup
 Stop and start **Dev** (`npm run dev:all:watch`) so the API loads the processor
 flags.
 
-Map product ids into local Postgres. **Root**, with Postgres from step 3 up:
+Map product ids into local Postgres. **Root**, with Postgres from step 3 up and the
+workers app built. PayPal and Strike:
 
 ```bash
 npm run build -w apps/workers
-npm run billing_seed_processor_products_from_env -w apps/workers
+npm run billing_processor_product_add -w apps/workers -- --processor paypal --defaults
+npm run billing_processor_product_add -w apps/workers -- --processor strike --defaults
 ```
 
-Repeat `make local_env_setup` and the seed command after you add another
-processor's product ids. Empty ids stay unmapped.
+Apple and Google take the store ids as arguments. A row that already exists is left
+unchanged. See
+[Mapping products without management](/docs/billing/BILLING-OPERATIONS.md#mapping-products-without-management).
 
 ### While a checkout test is running
 

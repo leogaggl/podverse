@@ -28,6 +28,7 @@ import {
   isAdminEditableGrant,
   isPaymentProcessorId,
   PAYMENT_PROCESSOR_IDS,
+  storeLinkNeedsCountry,
 } from '@podverse/helpers';
 import type {
   BillingCheckoutChannel,
@@ -92,28 +93,6 @@ function parsePositiveInt(raw: string | undefined): number | null {
   }
   const parsed = Number(raw);
   return parsed > 0 ? parsed : null;
-}
-
-/**
- * PayPal and Strike on iOS or Android open a store listing. Enabling that listing requires
- * at least one storefront country.
- */
-function storeLinkNeedsCountry(
-  channel: BillingCheckoutChannel,
-  patch: { enabled?: boolean; storefront_allowlist?: string[] }
-): boolean {
-  const isStoreLink =
-    (channel.processor_id === 'paypal' || channel.processor_id === 'strike') &&
-    (channel.platform === 'ios' || channel.platform === 'android');
-  if (!isStoreLink) {
-    return false;
-  }
-  const enabled = patch.enabled !== undefined ? patch.enabled : channel.enabled;
-  const allowlist =
-    patch.storefront_allowlist !== undefined
-      ? patch.storefront_allowlist
-      : channel.storefront_allowlist;
-  return enabled && allowlist.length === 0;
 }
 
 function checkoutChannelToJson(channel: BillingCheckoutChannel) {
@@ -249,7 +228,17 @@ router.patch(
         res.status(404).json({ message: 'Checkout channel not found' });
         return;
       }
-      if (storeLinkNeedsCountry(existing, value)) {
+      if (
+        storeLinkNeedsCountry({
+          processorId: existing.processor_id,
+          platform: existing.platform,
+          enabled: value.enabled !== undefined ? value.enabled : existing.enabled,
+          storefrontAllowlist:
+            value.storefront_allowlist !== undefined
+              ? value.storefront_allowlist
+              : existing.storefront_allowlist,
+        })
+      ) {
         res.status(422).json({ message: 'A store link needs at least one storefront country.' });
         return;
       }

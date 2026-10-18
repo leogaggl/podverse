@@ -27,8 +27,9 @@ export type ConfigCategory =
   | typeof CATEGORY_BILLING;
 
 const BASE_ORM_COMMANDS = [
+  'billingCheckoutChannelEnable',
   'billingImportLegacyMembershipExpiry',
-  'billingSeedProcessorProductsFromEnv',
+  'billingProcessorProductAdd',
   'notificationsPlatformPurge',
   'archiveAll',
   'devSeedLocalUserContent',

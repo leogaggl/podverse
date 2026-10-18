@@ -8,6 +8,7 @@ import type {
   BillingProcessorRecordRef,
   BillingWebhookParseResult,
   BillingWebhookRequest,
+  IsMappedBillingProduct,
   NormalizedTransactionSnapshot,
   PaymentProcessorAdapter,
 } from '@podverse/helpers';
@@ -21,12 +22,9 @@ import type {
   CreateAppleClientConfig,
 } from './AppStoreServerClient.js';
 import { AppStoreServerClient, resolveAppleRuntimeEnvironment } from './AppStoreServerClient.js';
-import type { SoldBillingProduct } from './verifyNotification.js';
 import {
   appleSoldTransactionType,
   appleUnsoldTransactionType,
-  isSoldBillingProduct,
-  loadAppleSoldProducts,
   logUnmappedBillingProduct,
   mapVerifiedNotificationToEvents,
 } from './verifyNotification.js';
@@ -34,10 +32,10 @@ import {
 export interface AppleAdapterConfig extends CreateAppleClientConfig {
   client?: AppStoreServerClient;
   /**
-   * Product ids this deployment sells. When omitted, the ids come from the billing product env.
-   * An empty list means no Apple product is mapped, so notifications produce no events.
+   * Whether `billing_processor_product` maps this store id. An inactive row still counts, so a
+   * refund for a retired product still applies. An unmapped id produces no events.
    */
-  soldProducts?: readonly SoldBillingProduct[];
+  isMappedProduct: IsMappedBillingProduct;
   /** Reads StoreKit Testing transactions when `appleEnvironment` is `xcode`. */
   xcodeVerifier?: Pick<AppleSignedPayloadVerifier, 'verifyAndDecodeTransaction'>;
 }
@@ -165,17 +163,19 @@ function mapTransactionSnapshot(
   };
 }
 
-function assertSoldTransaction(
+async function assertSoldTransaction(
   externalId: string,
   externalProductId: string | null,
   transaction: { productId?: string; type?: string },
-  soldProducts: readonly SoldBillingProduct[]
-): void {
+  isMappedProduct: IsMappedBillingProduct
+): Promise<void> {
   const productId = transaction.productId ?? externalProductId;
+  const mapped =
+    productId !== null && productId !== '' && (await isMappedProduct('apple', productId, null));
   if (
     transaction.type === appleUnsoldTransactionType() ||
     transaction.type !== appleSoldTransactionType() ||
-    !isSoldBillingProduct(soldProducts, productId, null)
+    !mapped
   ) {
     logUnmappedBillingProduct('apple', productId, 'fetchTransaction');
     throw new BillingProcessorRecordNotFoundError('apple', externalId);
@@ -214,7 +214,7 @@ async function decodeXcodeTransaction(
  */
 function createXcodeAppleAdapter(
   config: Pick<AppleAdapterConfig, 'bundleId' | 'xcodeVerifier'>,
-  soldProducts: readonly SoldBillingProduct[]
+  isMappedProduct: IsMappedBillingProduct
 ): PaymentProcessorAdapter {
   const verifier =
     config.xcodeVerifier ?? new SignedDataVerifier([], false, Environment.XCODE, config.bundleId);
@@ -232,7 +232,12 @@ function createXcodeAppleAdapter(
 
     async fetchTransaction(ref): Promise<NormalizedTransactionSnapshot> {
       const transaction = await decodeXcodeTransaction(verifier, ref);
-      assertSoldTransaction(ref.externalId, ref.externalProductId, transaction, soldProducts);
+      await assertSoldTransaction(
+        ref.externalId,
+        ref.externalProductId,
+        transaction,
+        isMappedProduct
+      );
       return mapTransactionSnapshot(
         ref.externalId,
         ref.externalProductId,
@@ -246,9 +251,9 @@ function createXcodeAppleAdapter(
 }
 
 export function createAppleAdapter(config: AppleAdapterConfig): PaymentProcessorAdapter {
-  const soldProducts = loadAppleSoldProducts(config.soldProducts);
+  const isMappedProduct = config.isMappedProduct;
   if (resolveAppleRuntimeEnvironment(config.appleEnvironment, config.nodeEnv) === 'xcode') {
-    return createXcodeAppleAdapter(config, soldProducts);
+    return createXcodeAppleAdapter(config, isMappedProduct);
   }
   const client = config.client ?? AppStoreServerClient.fromConfig(config);
   const nowIso = (): string => new Date().toISOString();
@@ -268,7 +273,7 @@ export function createAppleAdapter(config: AppleAdapterConfig): PaymentProcessor
           notification: verified.notification,
           transaction: verified.transaction,
         }),
-        events: mapVerifiedNotificationToEvents(verified, now, soldProducts),
+        events: await mapVerifiedNotificationToEvents(verified, now, isMappedProduct),
       };
     },
 
@@ -280,7 +285,12 @@ export function createAppleAdapter(config: AppleAdapterConfig): PaymentProcessor
         signedTransactionInfo,
         environment
       );
-      assertSoldTransaction(ref.externalId, ref.externalProductId, transaction, soldProducts);
+      await assertSoldTransaction(
+        ref.externalId,
+        ref.externalProductId,
+        transaction,
+        isMappedProduct
+      );
       return mapTransactionSnapshot(
         ref.externalId,
         ref.externalProductId,

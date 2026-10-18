@@ -12,10 +12,9 @@ Use the same public base URL as PayPal:
 
 ## Save local override values
 
-Write these keys in home overrides:
-
-- `~/.config/podverse/local-env-overrides/billing-google-play.env`
-- `~/.config/podverse/local-env-overrides/billing-products.env`
+Write the service-account keys in the home override
+`~/.config/podverse/local-env-overrides/billing-google-play.env`. Product and base plan ids
+are arguments to `billingProcessorProductAdd`. They are not env vars.
 
 Do not commit real values.
 
@@ -50,10 +49,10 @@ Do not commit real values.
 3. Add prepaid base plans:
    - `prepaid-monthly`
    - `prepaid-annual`
-4. Save these ids in `billing-products.env`:
-   - `BILLING_PRODUCT_GOOGLE_SUBSCRIPTION_ID`
-   - `BILLING_PRODUCT_GOOGLE_PREPAID_MONTHLY_BASE_PLAN_ID`
-   - `BILLING_PRODUCT_GOOGLE_PREPAID_ANNUAL_BASE_PLAN_ID`
+4. Map each base plan with `billingProcessorProductAdd`. `--product-id` is the subscription
+   id and `--base-plan-id` is the prepaid plan. Management web **Billing -> Processor
+   Products** adds the same rows. The commands are in
+   [Map processor products](#map-processor-products).
 
 Base plans must be **Active**. Inactive (draft) plans are not returned to the
 Play Billing client, so checkout cannot load an offer token for them.
@@ -168,17 +167,19 @@ the account and signing the phone into it is
 can shorten a prepaid period, so a monthly or yearly purchase can expire within
 minutes.
 
-## Seed processor products
+## Map processor products
 
-After product and base plan ids are in `billing-products.env` and
-`make local_env_setup` has run, seed the ledger rows from **Root**:
+After the subscription and base plans exist in Play Console, add the rows from **Root**
+(Postgres up, workers built):
 
 ```bash
 npm run build -w apps/workers
-npm run billing_seed_processor_products_from_env -w apps/workers
+npm run billing_processor_product_add -w apps/workers -- --processor google_play --cadence monthly --product-id premium --base-plan-id prepaid-monthly
+npm run billing_processor_product_add -w apps/workers -- --processor google_play --cadence annual --product-id premium --base-plan-id prepaid-annual
 ```
 
-Checkout options stay empty for Google until those rows exist.
+A row that already exists is left unchanged. Checkout options stay empty for Google until
+those rows exist. On a cluster, pass the same flags to `npm run billing:setup:k8s`.
 
 ## Voided purchases
 

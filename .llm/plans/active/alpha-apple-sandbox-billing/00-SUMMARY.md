@@ -29,9 +29,10 @@ The `.p8` is mounted from `podverse-billing-apple-iap-opaque`.
   - `com.podverse.app.next.premium.nonrenewing.annual`
   Both are **Non-Renewing Subscription** products on the **Podverse Next** app record. Never the
   old Podverse app (`id1390888454`).
-- Map those ids on alpha in **management web → Billing → Processor Products**. Do not use
-  `billingSeedProcessorProductsFromEnv`. It refuses to run with `NODE_ENV=production`, and alpha
-  is `production`.
+- Map those ids on alpha either in **management web → Billing → Processor Products**, or with
+  the one-off Job `ops-billing-setup` (`billingProcessorProductAdd`). The command only inserts a
+  missing row. It does not change a row management already saved. Alpha runs
+  `NODE_ENV=production`, and that does not block the command.
 - Alpha sets `BILLING_SANDBOX_GRANT_ALL=true` on the API, workers, and management API. The
   allowlist stays empty. Live servers leave the flag unset. Do not change `NODE_ENV`.
 - An empty `PAYPAL_ENVIRONMENT` or `APPLE_IAP_ENVIRONMENT` stays sandbox. `NODE_ENV=production`

@@ -4,9 +4,9 @@ import { Environment, NotificationTypeV2 } from '@apple/app-store-server-library
 import type {
   BillingAmount,
   BillingRevocationReason,
+  IsMappedBillingProduct,
   NormalizedBillingEvent,
 } from '@podverse/helpers';
-import { resolveBillingProcessorProductsFromEnv } from '@podverse/helpers';
 
 import type { VerifiedNotificationPayload } from './AppStoreServerClient.js';
 
@@ -18,41 +18,6 @@ export function appleSoldTransactionType(): string {
 /** App Store `type` this deployment does not sell. Those notifications produce no events. */
 export function appleUnsoldTransactionType(): string {
   return 'Auto-Renewable Subscription';
-}
-
-export interface SoldBillingProduct {
-  externalProductId: string;
-  externalBasePlanId: string | null;
-}
-
-export function loadAppleSoldProducts(
-  override: readonly SoldBillingProduct[] | undefined
-): readonly SoldBillingProduct[] {
-  if (override !== undefined) {
-    return override;
-  }
-  return resolveBillingProcessorProductsFromEnv(process.env).products.filter(
-    (product) => product.processor === 'apple'
-  );
-}
-
-export function isSoldBillingProduct(
-  products: readonly SoldBillingProduct[],
-  externalProductId: string | null,
-  externalBasePlanId: string | null
-): boolean {
-  if (externalProductId === null || externalProductId === '') {
-    return false;
-  }
-  return products.some((product) => {
-    if (product.externalProductId !== externalProductId) {
-      return false;
-    }
-    if (product.externalBasePlanId === null) {
-      return externalBasePlanId === null;
-    }
-    return product.externalBasePlanId === externalBasePlanId;
-  });
 }
 
 export function logUnmappedBillingProduct(
@@ -143,11 +108,11 @@ function isNotificationType(
   return notificationType === expected || notificationType === wireValue;
 }
 
-export function mapVerifiedNotificationToEvents(
+export async function mapVerifiedNotificationToEvents(
   notification: VerifiedNotificationPayload,
   fallbackNowIso: string,
-  soldProducts: readonly SoldBillingProduct[]
-): NormalizedBillingEvent[] {
+  isMappedProduct: IsMappedBillingProduct
+): Promise<NormalizedBillingEvent[]> {
   const notificationType = notification.notification.notificationType;
   if (
     notificationType === undefined ||
@@ -176,7 +141,9 @@ export function mapVerifiedNotificationToEvents(
     return [];
   }
 
-  if (!isSoldBillingProduct(soldProducts, productId, null)) {
+  const mapped =
+    productId !== null && productId !== '' && (await isMappedProduct('apple', productId, null));
+  if (!mapped) {
     logUnmappedBillingProduct('apple', productId, label);
     return [];
   }

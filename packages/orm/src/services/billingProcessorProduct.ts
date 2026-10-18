@@ -25,6 +25,29 @@ type UpsertPremiumProcessorProductResult = {
   created: boolean;
 };
 
+type AddPremiumProcessorProductIfMissingResult = {
+  row: BillingProcessorProduct;
+  created: boolean;
+};
+
+function readInsertedId(value: unknown): number | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const first: unknown = value[0];
+  if (typeof first !== 'object' || first === null) {
+    return null;
+  }
+  const id = Reflect.get(first, 'id');
+  if (typeof id === 'number' && Number.isInteger(id)) {
+    return id;
+  }
+  if (typeof id === 'string' && /^\d+$/.test(id)) {
+    return Number(id);
+  }
+  return null;
+}
+
 /** Maps a processor's store ids to the Premium product and cadence. */
 export class BillingProcessorProductService {
   private dataSourceRead: DataSource;
@@ -172,6 +195,79 @@ export class BillingProcessorProductService {
       return { processorProduct: await repository.save(existing), created: false };
     });
   }
+
+  /**
+   * Inserts the Premium mapping when that store id is new. An existing row, including one an
+   * admin deactivated or edited, is left as it is.
+   */
+  async addPremiumProcessorProductIfMissing(
+    params: UpsertPremiumProcessorProductParams
+  ): Promise<AddPremiumProcessorProductIfMissingResult> {
+    return this.dataSourceReadWrite.transaction(async (transactionalEntityManager) => {
+      await transactionalEntityManager.query(
+        `
+        INSERT INTO billing_product (product_code, name, is_active)
+        SELECT $1, $2, TRUE
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM billing_product
+          WHERE product_code = $1
+        )
+        `,
+        [PREMIUM_BILLING_PRODUCT_CODE, 'Premium Membership']
+      );
+      const inserted: unknown = await transactionalEntityManager.query(
+        `
+        INSERT INTO billing_processor_product (
+          processor_id,
+          external_product_id,
+          external_base_plan_id,
+          billing_product_id,
+          billing_cadence,
+          is_active
+        )
+        SELECT $1, $2, $3, bp.id, $4, TRUE
+        FROM (
+          SELECT id
+          FROM billing_product
+          WHERE product_code = $5
+          ORDER BY id
+          LIMIT 1
+        ) bp
+        ON CONFLICT ON CONSTRAINT billing_processor_product_external_key DO NOTHING
+        RETURNING id
+        `,
+        [
+          params.processorId,
+          params.externalProductId,
+          params.externalBasePlanId,
+          params.cadence,
+          PREMIUM_BILLING_PRODUCT_CODE,
+        ]
+      );
+      const insertedId = readInsertedId(inserted);
+      const repository = transactionalEntityManager.getRepository(BillingProcessorProduct);
+      if (insertedId !== null) {
+        const row = await repository.findOneOrFail({ where: { id: insertedId } });
+        return { row, created: true };
+      }
+
+      const row = await this.getByExternalIdsWithManager(
+        transactionalEntityManager,
+        params.processorId,
+        params.externalProductId,
+        params.externalBasePlanId
+      );
+      if (row === null) {
+        throw new Error('Billing processor product insert did not return a row');
+      }
+      return { row, created: false };
+    });
+  }
 }
 
-export type { UpsertPremiumProcessorProductParams, UpsertPremiumProcessorProductResult };
+export type {
+  AddPremiumProcessorProductIfMissingResult,
+  UpsertPremiumProcessorProductParams,
+  UpsertPremiumProcessorProductResult,
+};

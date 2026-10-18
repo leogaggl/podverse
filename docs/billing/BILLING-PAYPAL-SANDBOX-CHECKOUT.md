@@ -28,15 +28,14 @@ row in `billing_processor_product`. From **Root**, with local Postgres up:
 
 ```bash
 npm run build -w apps/workers
-npm run billing_seed_processor_products_from_env -w apps/workers
+npm run billing_processor_product_add -w apps/workers -- --processor paypal --defaults
 ```
 
-That command maps `podverse_premium_one_time_monthly` and
-`podverse_premium_one_time_annual`. Apple and Google ids come from `billing-products.env`
-and are skipped when empty. The same command is in
-[Sandbox checkout](/docs/QUICKSTART.md#sandbox-checkout). The command refuses to run when
-`NODE_ENV` is `production`, which is why it belongs on the workers app env, not the
-Docker env.
+That adds `podverse_premium_one_time_monthly` and `podverse_premium_one_time_annual` when
+those rows are missing. A row that already exists is left unchanged. Apple and Google ids
+are separate arguments, not env vars. The same command is in
+[Sandbox checkout](/docs/QUICKSTART.md#sandbox-checkout). On a cluster, pass the same flags
+to `npm run billing:setup:k8s`.
 
 The web PayPal channel is enabled by the schema seed. Management web can turn it off
 under **Billing → Checkout Channels**.

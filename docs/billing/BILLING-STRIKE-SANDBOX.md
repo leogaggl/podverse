@@ -19,12 +19,13 @@ Strike product ids are fixed in code (`podverse-premium-monthly`,
 
 ```bash
 npm run build -w apps/workers
-npm run billing_seed_processor_products_from_env -w apps/workers
+npm run billing_processor_product_add -w apps/workers -- --processor strike --defaults
 ```
 
-The command refuses to run when `NODE_ENV` is `production`. PayPal ids are seeded by the
-same command. Apple and Google ids come from `billing-products.env` and are skipped when
-empty.
+`--defaults` adds both fixed ids. A row that already exists is left unchanged, so this is
+safe on a server where management already mapped them. PayPal uses the same flag with
+`--processor paypal`. Apple and Google ids are separate arguments. See
+[Mapping products without management](BILLING-OPERATIONS.md#mapping-products-without-management).
 
 Set `BILLING_STRIKE_ENABLED` to `true` in
 `~/.config/podverse/local-env-overrides/billing.env`, run `make local_env_setup` from

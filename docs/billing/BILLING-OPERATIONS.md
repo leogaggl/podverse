@@ -111,6 +111,39 @@ Leave a processor's flag on while recorded purchases still need refund webhooks.
 flag off makes those webhooks answer 404. To stop new sales, disable its checkout channels
 instead.
 
+## Mapping products without management
+
+Store product rows and checkout channels can be added without the management app. Management
+remains the place that edits or turns a row off. The commands only add.
+
+From **Root**, after `npm run build:packages` and `npm run build -w apps/workers`, with local
+Postgres up:
+
+```bash
+npm run billing_processor_product_add -w apps/workers -- --processor apple --cadence monthly --product-id com.podverse.app.next.premium.nonrenewing.monthly
+npm run billing_processor_product_add -w apps/workers -- --processor google_play --cadence monthly --product-id premium --base-plan-id prepaid-monthly
+npm run billing_processor_product_add -w apps/workers -- --processor paypal --defaults
+npm run billing_checkout_channel_enable -w apps/workers -- --processor apple --platform ios
+```
+
+`--dry-run` writes nothing. `--help` prints the flags. PayPal and Strike `--defaults` add the
+product ids fixed in code. `google_play` requires `--base-plan-id`. A second run that finds the
+same store id leaves that row alone, including a row an admin deactivated. Enabling a channel
+never turns one off and never changes storefronts or the minimum client version. PayPal and
+Strike on `ios` or `android` stay off until the channel has at least one storefront country,
+which is set in management.
+
+On a cluster, the same commands run as a one-off Job from the suspended CronJob
+`ops-billing-setup`. From **Root**:
+
+```bash
+env K8S_NAMESPACE=podverse-alpha npm run billing:setup:k8s -- billingProcessorProductAdd --processor apple --cadence monthly --product-id com.podverse.app.next.premium.nonrenewing.monthly
+```
+
+The script prints the `kubectl logs` command. Apple and Google notifications accept a product
+when that database row exists. They do not read product ids from env. An inactive row still
+counts, so a refund for a retired product still applies.
+
 With every flag off, the deployment sells nothing. Extend memberships from each user's Billing
 page. See [Manual membership management](#manual-membership-management).
 
