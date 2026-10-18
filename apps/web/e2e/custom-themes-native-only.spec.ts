@@ -20,7 +20,7 @@ test.describe('Custom themes (native built-in only)', () => {
     await expectNoCustomThemeStyleTag(page);
 
     const themeSelector = page.locator('#settings_theme_selector');
-    await expectThemeMenuLabels(page, ['Dark', 'Light', 'Dracula']);
+    await expectThemeMenuLabels(page, ['Podverse', 'Light', 'Dracula']);
     await expect(page.getByRole('menuitem', { name: 'Midnight Ocean' })).toHaveCount(0);
 
     await capturePageLoad(
