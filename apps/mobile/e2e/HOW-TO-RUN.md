@@ -227,6 +227,7 @@ npm run mobile:e2e:test -- --platform ios about
 npm run mobile:e2e:test -- --platform ios album
 npm run mobile:e2e:test -- --platform ios alternate-enclosure
 npm run mobile:e2e:test -- --platform ios api-health
+npm run mobile:e2e:test -- --platform ios archived-clip
 npm run mobile:e2e:test -- --platform ios artist
 npm run mobile:e2e:test -- --platform ios auth-login
 npm run mobile:e2e:test -- --platform ios auth-logout
@@ -240,6 +241,7 @@ npm run mobile:e2e:test -- --platform ios hello-world
 npm run mobile:e2e:test -- --platform ios history-screen
 npm run mobile:e2e:test -- --platform ios hls-playback
 npm run mobile:e2e:test -- --platform ios home
+npm run mobile:e2e:test -- --platform ios identity-remap
 npm run mobile:e2e:test -- --platform ios library-downloads
 npm run mobile:e2e:test -- --platform ios library-playlists
 npm run mobile:e2e:test -- --platform ios locale-switch-home-smoke
@@ -263,6 +265,7 @@ npm run mobile:e2e:test -- --platform ios terms-popularity
 npm run mobile:e2e:test -- --platform ios push
 npm run mobile:e2e:test -- --platform ios queue-add
 npm run mobile:e2e:test -- --platform ios queue-screen
+npm run mobile:e2e:test -- --platform ios removed-content
 npm run mobile:e2e:test -- --platform ios search
 npm run mobile:e2e:test -- --platform ios search-unparsed
 npm run mobile:e2e:test -- --platform ios settings-downloads
@@ -283,6 +286,7 @@ npm run mobile:e2e:test -- --platform android about
 npm run mobile:e2e:test -- --platform android album
 npm run mobile:e2e:test -- --platform android alternate-enclosure
 npm run mobile:e2e:test -- --platform android api-health
+npm run mobile:e2e:test -- --platform android archived-clip
 npm run mobile:e2e:test -- --platform android artist
 npm run mobile:e2e:test -- --platform android auth-login
 npm run mobile:e2e:test -- --platform android auth-logout
@@ -296,6 +300,7 @@ npm run mobile:e2e:test -- --platform android hello-world
 npm run mobile:e2e:test -- --platform android history-screen
 npm run mobile:e2e:test -- --platform android hls-playback
 npm run mobile:e2e:test -- --platform android home
+npm run mobile:e2e:test -- --platform android identity-remap
 npm run mobile:e2e:test -- --platform android library-downloads
 npm run mobile:e2e:test -- --platform android library-playlists
 npm run mobile:e2e:test -- --platform android locale-switch-home-smoke
@@ -319,6 +324,7 @@ npm run mobile:e2e:test -- --platform android terms-popularity
 npm run mobile:e2e:test -- --platform android push
 npm run mobile:e2e:test -- --platform android queue-add
 npm run mobile:e2e:test -- --platform android queue-screen
+npm run mobile:e2e:test -- --platform android removed-content
 npm run mobile:e2e:test -- --platform android search
 npm run mobile:e2e:test -- --platform android search-unparsed
 npm run mobile:e2e:test -- --platform android settings-downloads
@@ -420,6 +426,7 @@ that still walks the form (`shared/login-seeded-user-ui.yaml`).
 npm run mobile:e2e:test -- about
 npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
+npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout
@@ -427,6 +434,7 @@ npm run mobile:e2e:test -- browse
 npm run mobile:e2e:test -- deep-link
 npm run mobile:e2e:test -- detail-sort-prefs
 npm run mobile:e2e:test -- home
+npm run mobile:e2e:test -- identity-remap
 npm run mobile:e2e:test -- history-screen
 npm run mobile:e2e:test -- library-playlists
 npm run mobile:e2e:test -- membership-checkout
@@ -444,6 +452,7 @@ npm run mobile:e2e:test -- terms-popularity
 npm run mobile:e2e:test -- push
 npm run mobile:e2e:test -- queue-add
 npm run mobile:e2e:test -- queue-screen
+npm run mobile:e2e:test -- removed-content
 npm run mobile:e2e:test -- search
 npm run mobile:e2e:test -- search-unparsed
 npm run mobile:e2e:test -- settings-downloads

@@ -360,12 +360,19 @@
     "about": "",
     "summary": {
       "summary": "",
-      "no_summary": ""
+      "no_summary": "",
+      "play_from": ""
     },
     "podroll": "",
     "no_podroll_found": "",
     "show_more": "",
     "show_less": "",
+    "truncation": {
+      "read_full_show_notes": "",
+      "read_full_description": "",
+      "show_notes_shortened": "",
+      "description_shortened": ""
+    },
     "transcript": {
       "transcript": "",
       "search_transcript": "",
@@ -396,6 +403,12 @@
       "min": "",
       "start": "",
       "start_end": ""
+    },
+    "removed": {
+      "content_removed": "",
+      "clip_source_removed": "",
+      "playlist_entry_removed": "",
+      "show_not_in_directory": ""
     }
   },
   "media_player": {
@@ -1215,6 +1228,19 @@
       "import_rate_limited_title": "",
       "import_rate_limited": "",
       "import_rate_limited_time": ""
+    },
+    "advanced": {
+      "advanced": "",
+      "removed_content": "",
+      "empty": "",
+      "load_error": "",
+      "left_directory": "",
+      "taken_down": "",
+      "moved_to_add_by_rss": "",
+      "follow_ended": "",
+      "clips": "",
+      "playlist_entries": "",
+      "unknown_show": ""
     },
     "keyboard": {
       "keyboard": "",

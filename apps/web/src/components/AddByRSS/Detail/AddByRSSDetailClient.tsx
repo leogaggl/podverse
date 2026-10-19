@@ -7,6 +7,7 @@ import React from 'react';
 import {
   buildDTOChannelImageLoadCandidates,
   formatDateAbbrev,
+  isDescriptionTruncated,
   prependDistinctImageCandidate,
 } from '@podverse/helpers';
 import {
@@ -29,6 +30,7 @@ import type {
   AddByRSSMappedFeed,
   AddByRSSResourceType,
 } from '../../../utils/addByRSS/types';
+import { DescriptionTruncationNotice } from '../../Content/Description/DescriptionTruncationNotice';
 import { DetailListWrapper } from '../../List/DetailListWrapper';
 import { WebLoadingYourContentSpinnerOverlay } from '../../LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../Main/MainWrapper';
@@ -181,6 +183,12 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
             {feedDescription && (
               <section className={styles.feedDescription}>
                 <DescriptionRenderer description={feedDescription} />
+                {isDescriptionTruncated(mappedChannel?.description) ? (
+                  <DescriptionTruncationNotice
+                    kind="channel"
+                    linkUrl={mappedChannel?.about?.website_link_url}
+                  />
+                ) : null}
               </section>
             )}
 

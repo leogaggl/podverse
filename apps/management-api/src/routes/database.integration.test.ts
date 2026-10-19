@@ -366,6 +366,16 @@ describe('management-api database routes', () => {
       expect(res.body.message).toContain('read-only');
       expect(auditRecordMock).not.toHaveBeenCalled();
     });
+
+    it('refuses a description tier change through the table browser', async () => {
+      const res = await request(app)
+        .patch(`${dbBase}/feed/1`)
+        .set(adminAuthHeaders(1))
+        .send({ description_length_tier_override: 'maximum' });
+
+      expect(res.status).toBe(403);
+      expect(auditRecordMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('DELETE /database/:table/:id', () => {

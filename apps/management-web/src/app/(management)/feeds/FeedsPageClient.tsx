@@ -19,6 +19,11 @@ export function FeedsPageClient() {
       title: t('flagStatusCardTitle'),
       description: t('flagStatusCardDescription'),
     },
+    {
+      href: ROUTES.FEEDS_MERGE_REVIEW,
+      title: t('mergeReviewCardTitle'),
+      description: t('mergeReviewCardDescription'),
+    },
   ];
 
   return (

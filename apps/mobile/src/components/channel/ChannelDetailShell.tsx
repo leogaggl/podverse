@@ -13,7 +13,8 @@ export type ChannelDetailShellProps<TSection extends string> = {
   chipTrailing?: ReactNode;
   sectionBody: ReactNode;
   sectionChips: readonly SectionChipItem<TSection>[];
-  selectedSection: TSection;
+  /** `null` while channel settings is open, so no section chip reads as selected. */
+  selectedSection: TSection | null;
   onSelectSection: (section: TSection) => void;
   isSectionHydrated: boolean;
   loadingTestID?: string;

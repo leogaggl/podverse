@@ -56,6 +56,7 @@ import {
   reqAccountChannelSeenMarkAddByRss,
   reqAccountChannelSeenMarkAll,
 } from './account/channelSeen.js';
+import { reqAccountContentLog } from './account/contentLog.js';
 import {
   reqAccountFCMDeviceCreate,
   reqAccountFCMDeviceDelete,
@@ -172,7 +173,10 @@ import {
   reqPodcastIndexSearchPodcasts,
 } from './externalServices/podcastIndex/index.js';
 import { reqFeedGetByPodcastIndexId } from './feed/feed.js';
+import type { IdentityResolveRequest } from './identity/identity.js';
+import { reqIdentityResolve } from './identity/identity.js';
 import {
+  reqItemDescriptionGetByIdOrIdText,
   reqItemGetByIdOrIdText,
   reqItemGetMany,
   reqItemGetManyByChannel,
@@ -797,6 +801,12 @@ export class ApiRequestService {
     return reqAccountUnfollowPlaylist(this, params);
   }
 
+  /* ACCOUNT > CONTENT LOG */
+
+  reqAccountContentLog(params: { type: 'removed_content' }) {
+    return reqAccountContentLog(this, params);
+  }
+
   /* ACCOUNT > NOTIFICATION > CHANNEL */
 
   reqAccountNotificationChannelCreate(params: { channel_id_text: string }) {
@@ -1003,10 +1013,20 @@ export class ApiRequestService {
     return reqFeedGetByPodcastIndexId(this, podcast_index_id);
   }
 
+  /* IDENTITY */
+
+  reqIdentityResolve(body: IdentityResolveRequest) {
+    return reqIdentityResolve(this, body);
+  }
+
   /* ITEM */
 
   reqItemGetByIdOrIdText(idOrIdText: string) {
     return reqItemGetByIdOrIdText(this, idOrIdText);
+  }
+
+  reqItemDescriptionGetByIdOrIdText(idOrIdText: string) {
+    return reqItemDescriptionGetByIdOrIdText(this, idOrIdText);
   }
 
   reqItemGetMany(params: QueryParamsGetManyPartial) {

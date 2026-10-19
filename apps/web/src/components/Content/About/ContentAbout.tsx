@@ -7,24 +7,43 @@ type ContentAbout = {
   description?: string;
   defaultOpen?: boolean;
   isAccordion?: boolean;
+  isTruncated?: boolean;
+  fullDescriptionUrl?: string | null;
 };
 
 /**
  * Channel About: description prose. People are a separate chip and side-column block.
  */
-export const ContentAbout = ({ description, defaultOpen, isAccordion }: ContentAbout) => {
+export const ContentAbout = ({
+  description,
+  defaultOpen,
+  isAccordion,
+  isTruncated,
+  fullDescriptionUrl,
+}: ContentAbout) => {
   const hasDescription = description !== undefined && description.length > 0;
   if (!hasDescription) {
     return null;
   }
 
   if (isAccordion) {
-    return <ContentAboutAccordion description={description} defaultOpen={defaultOpen} />;
+    return (
+      <ContentAboutAccordion
+        description={description}
+        defaultOpen={defaultOpen}
+        isTruncated={isTruncated}
+        fullDescriptionUrl={fullDescriptionUrl}
+      />
+    );
   }
 
   return (
     <div className={styles.listView}>
-      <ContentAboutDescription description={description} />
+      <ContentAboutDescription
+        description={description}
+        isTruncated={isTruncated}
+        fullDescriptionUrl={fullDescriptionUrl}
+      />
     </div>
   );
 };

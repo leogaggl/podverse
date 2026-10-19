@@ -5,10 +5,15 @@ import type {
   DTOItemSoundbite,
   DTOPlaylistResource,
   DTOQueueResource,
+  DTORemovedSource,
 } from '@podverse/helpers';
-import { primaryChannelListArtworkUrl, primaryListArtworkUrl } from '@podverse/helpers';
+import {
+  getDescriptionPreviewText,
+  isRemovedSource,
+  primaryChannelListArtworkUrl,
+  primaryListArtworkUrl,
+} from '@podverse/helpers';
 import { getNonEmptyTrimmedStringProperty, isObjectLike } from '@podverse/helpers/guards';
-import { htmlToPlainTextPreview } from '@podverse/helpers/html';
 import { formatHHMMSS } from '@podverse/helpers/time';
 
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
@@ -33,6 +38,8 @@ type QueueResourceHomeRowOptions = {
 
 type PlaylistResourceHomeRowOptions = {
   addByRssPrivateTitle?: string;
+  /** Title when a removed entry has no snapshot episode or soundbite title. */
+  playlistEntryRemovedLabel?: string;
 };
 
 /**
@@ -43,14 +50,14 @@ export type ItemHomeRowSource = {
   channel?: Pick<DTOChannel, 'channel_images' | 'medium_id' | 'title'>;
   id_text: string;
   item_about?: { duration?: string | null };
-  item_description?: { value?: string | null };
+  item_description?: { value?: string | null; preview?: string | null; is_truncated?: boolean };
   item_images: DTOItemImage[];
   pub_date?: string | null;
   title?: string | null;
 };
 
 const itemDescriptionPlain = (item: ItemHomeRowSource): string | null => {
-  const plain = htmlToPlainTextPreview(item.item_description?.value ?? undefined);
+  const plain = getDescriptionPreviewText(item.item_description);
   return plain.length > 0 ? plain : null;
 };
 
@@ -84,11 +91,16 @@ export const MIXED_SOURCE_CLIP_ROW_OPTIONS: ClipHomeRowOptions = {
   showItemInfo: true,
 };
 
-/** Clip list rows can omit `item` when the API only returns the clip shell. */
+/**
+ * Clip list rows can omit `item` when the API only returns the clip shell.
+ * `source_removed_at` is optional: a payload that omits it still plays.
+ */
 export type ClipHomeRowSource = {
   end_time?: string | number | null;
   id_text: string;
   item?: ItemHomeRowSource | null;
+  removed_source?: DTORemovedSource | null;
+  source_removed_at?: string | null;
   start_time?: string | number | null;
   title?: string | null;
 };
@@ -122,8 +134,8 @@ const clipTimeString = (value: string | number | null | undefined): string | nul
 };
 
 /**
- * Clip start–end label. `formatRange` supplies the localized join (`info.time.start_end`) so this
- * stays free of catalog strings.
+ * Clip start–end label. `formatRange` supplies the localized playback-range join so this stays
+ * free of catalog strings.
  */
 export function clipListTimeRangeLabel(
   startTime: string | number | null | undefined,
@@ -142,6 +154,15 @@ export function clipListTimeRangeLabel(
   return formatRange(timeStart, formatHHMMSS(end));
 }
 
+const snapshotEpisodeAndShow = (source: DTORemovedSource | null | undefined): string | null => {
+  const episode = nonEmptyTitle(source?.item_title);
+  const show = nonEmptyTitle(source?.channel_title);
+  if (episode !== null && show !== null) {
+    return `${episode} • ${show}`;
+  }
+  return episode ?? show;
+};
+
 export function clipToHomeRow(
   clip: ClipHomeRowSource,
   options: ClipHomeRowOptions = {}
@@ -151,6 +172,20 @@ export function clipToHomeRow(
   const itemTitle = nonEmptyTitle(item?.title);
   const clipStartTime = clipTimeString(clip.start_time);
   const clipEndTime = clipTimeString(clip.end_time);
+
+  if (isRemovedSource(clip)) {
+    return {
+      description: null,
+      duration: null,
+      id: clip.id_text,
+      imageUrl: null,
+      playable: false,
+      removed: true,
+      subtitle: snapshotEpisodeAndShow(clip.removed_source),
+      title: nonEmptyTitle(clip.title) ?? clip.id_text,
+      updatedAt: null,
+    };
+  }
 
   if (item === null || item === undefined) {
     return {
@@ -264,10 +299,29 @@ const readClipItem = (value: unknown): ItemHomeRowSource | null => {
     item_description:
       description === null
         ? undefined
-        : { value: getNonEmptyTrimmedStringProperty(description, 'value') },
+        : {
+            preview: getNonEmptyTrimmedStringProperty(description, 'preview'),
+            value: getNonEmptyTrimmedStringProperty(description, 'value'),
+          },
     item_images: readItemImages(value.item_images),
     pub_date: getNonEmptyTrimmedStringProperty(value, 'pub_date'),
     title: getNonEmptyTrimmedStringProperty(value, 'title'),
+  };
+};
+
+const readRemovedSource = (value: unknown): DTORemovedSource | null => {
+  if (!isObjectLike(value)) {
+    return null;
+  }
+  if (value.kind !== 'item' && value.kind !== 'soundbite') {
+    return null;
+  }
+  return {
+    channel_title: getNonEmptyTrimmedStringProperty(value, 'channel_title'),
+    item_title: getNonEmptyTrimmedStringProperty(value, 'item_title'),
+    kind: value.kind,
+    pub_date: getNonEmptyTrimmedStringProperty(value, 'pub_date'),
+    soundbite_title: getNonEmptyTrimmedStringProperty(value, 'soundbite_title'),
   };
 };
 
@@ -284,10 +338,17 @@ export const clipHomeRowSourceFromUnknown = (value: unknown): ClipHomeRowSource 
   const startTime = value.start_time;
   const endTime = value.end_time;
 
+  const sourceRemovedAt = value.source_removed_at;
+  const removedSource = readRemovedSource(value.removed_source);
+
   return {
     end_time: typeof endTime === 'number' || typeof endTime === 'string' ? endTime : null,
     id_text: idText,
     item: readClipItem(value.item),
+    ...(removedSource !== null ? { removed_source: removedSource } : {}),
+    ...(typeof sourceRemovedAt === 'string' && sourceRemovedAt.length > 0
+      ? { source_removed_at: sourceRemovedAt }
+      : {}),
     start_time: typeof startTime === 'number' || typeof startTime === 'string' ? startTime : null,
     title: getNonEmptyTrimmedStringProperty(value, 'title'),
   };
@@ -330,11 +391,39 @@ export function playlistResourceToHomeRow(
   options?: PlaylistResourceHomeRowOptions
 ): PlaylistResourceHomeRow | null {
   if (resource.clip) {
-    const clipRow = clipToHomeRow(resource.clip, MIXED_SOURCE_CLIP_ROW_OPTIONS);
+    const clipSource = isRemovedSource(resource)
+      ? {
+          ...resource.clip,
+          removed_source: resource.clip.removed_source ?? resource.removed_source,
+          source_removed_at: resource.clip.source_removed_at ?? resource.source_removed_at,
+        }
+      : resource.clip;
+    const clipRow = clipToHomeRow(clipSource, MIXED_SOURCE_CLIP_ROW_OPTIONS);
     return {
       ...clipRow,
       id: `clip-${resource.clip.id_text}`,
       mediaType: 'clips',
+    };
+  }
+
+  if (isRemovedSource(resource)) {
+    const snapshot = resource.removed_source;
+    const title =
+      nonEmptyTitle(snapshot?.item_title) ??
+      nonEmptyTitle(snapshot?.soundbite_title) ??
+      options?.playlistEntryRemovedLabel ??
+      String(resource.id);
+    return {
+      description: null,
+      duration: null,
+      id: `removed-${resource.id}`,
+      imageUrl: null,
+      mediaType: 'episodes',
+      playable: false,
+      removed: true,
+      subtitle: nonEmptyTitle(snapshot?.channel_title),
+      title,
+      updatedAt: snapshot?.pub_date ?? null,
     };
   }
 
@@ -395,10 +484,12 @@ export function playlistResourceToHomeRow(
   const pubDateRaw = resourceData.pub_date;
   const itemDescription = resourceData.item_description;
 
-  const descriptionFromItem =
-    isObjectLike(itemDescription) && typeof itemDescription.value === 'string'
-      ? htmlToPlainTextPreview(itemDescription.value)
-      : '';
+  const descriptionFromItem = isObjectLike(itemDescription)
+    ? getDescriptionPreviewText({
+        preview: getNonEmptyTrimmedStringProperty(itemDescription, 'preview'),
+        value: getNonEmptyTrimmedStringProperty(itemDescription, 'value'),
+      })
+    : '';
 
   return {
     description: descriptionRaw ?? (descriptionFromItem.length > 0 ? descriptionFromItem : null),
@@ -555,10 +646,12 @@ const addByRssToHomeRow = (
   const pubDateRaw = resourceData.pub_date;
   const itemDescription = resourceData.item_description;
 
-  const descriptionFromItem =
-    isObjectLike(itemDescription) && typeof itemDescription.value === 'string'
-      ? htmlToPlainTextPreview(itemDescription.value)
-      : '';
+  const descriptionFromItem = isObjectLike(itemDescription)
+    ? getDescriptionPreviewText({
+        preview: getNonEmptyTrimmedStringProperty(itemDescription, 'preview'),
+        value: getNonEmptyTrimmedStringProperty(itemDescription, 'value'),
+      })
+    : '';
 
   return {
     description: descriptionRaw ?? (descriptionFromItem.length > 0 ? descriptionFromItem : null),

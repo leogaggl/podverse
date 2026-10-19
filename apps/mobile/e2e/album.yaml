@@ -24,6 +24,10 @@ name: Album flow
     id: "home-row-play-.*"
 - assertVisible:
     id: album-detail-section-tracks
+- assertVisible:
+    id: album-detail-header-settings
+- assertNotVisible:
+    id: album-detail-section-settings
 - takeScreenshot: album-detail-tracks
 
 - tapOn:

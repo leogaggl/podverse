@@ -75,6 +75,7 @@ components:
           - channel_title
           - lifecycle_state_key
           - url
+          - description_longest_source_length
     SortOrderQueryOptional:
       in: query
       name: order
@@ -106,6 +107,13 @@ components:
       description: Lifecycle-state filter for feed list results.
       schema:
         type: string
+    FeedDescriptionTruncatedQueryOptional:
+      in: query
+      name: description_truncated
+      required: false
+      description: When true, only feeds whose last successful parse shortened at least one description.
+      schema:
+        type: boolean
   schemas:
     MessageResponse:
       type: object
@@ -826,11 +834,24 @@ components:
           type: integer
           minimum: 1
           nullable: true
+        description_length_tier_override:
+          type: string
+          enum:
+            - standard
+            - extended
+            - maximum
+          nullable: true
+          description: >-
+            Description length tier for this feed. Null resets to the default tier. When the
+            effective tier changes, a forced reparse is scheduled; an unchanged tier schedules
+            nothing.
         policy_overrides:
           $ref: "#/components/schemas/FeedPolicyOverrides"
         takedown_transitional:
           type: boolean
       additionalProperties: false
+      example:
+        description_length_tier_override: extended
     ManagementPatchFeedsIdPolicyStateResponse200:
       type: object
       description: Updated feed policy/lifecycle state.
@@ -907,6 +928,8 @@ components:
         - parse_allowed
         - public_visible
         - add_allowed
+        - description_length_tier_effective
+        - description_truncated_count
       properties:
         id:
           type: integer
@@ -922,6 +945,40 @@ components:
         max_response_body_bytes_override:
           type: integer
           nullable: true
+        description_length_tier_override:
+          type: string
+          enum:
+            - standard
+            - extended
+            - maximum
+          nullable: true
+        description_length_tier_effective:
+          type: string
+          enum:
+            - standard
+            - extended
+            - maximum
+        description_length_tier_suggested:
+          type: string
+          enum:
+            - standard
+            - extended
+            - maximum
+          nullable: true
+          description: Smallest tier that fits the longest source. Null when unknown or beyond every tier.
+        description_truncated_count:
+          type: integer
+          minimum: 0
+          description: Descriptions shortened by the last successful parse.
+        description_longest_source_length:
+          type: integer
+          nullable: true
+          description: Longest description source, in visible characters, from the last successful parse.
+        description_truncated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last successful parse that shortened a description.
         lifecycle_state_key:
           type: string
         lifecycle_reason:
@@ -1702,6 +1759,117 @@ components:
             $ref: "#/components/schemas/FeedOperationsLookupRow"
         pagination:
           $ref: "#/components/schemas/PaginationMeta"
+    FeedMergeNoteRequest:
+      type: object
+      properties:
+        note:
+          type: string
+          nullable: true
+          maxLength: 2000
+    FeedMergeListItem:
+      type: object
+      required:
+        - id
+        - from_podcast_index_id
+        - to_podcast_index_id
+        - from_channel_title
+        - to_channel_title
+        - confidence
+        - mode
+        - status
+      properties:
+        id:
+          type: integer
+        from_podcast_index_id:
+          type: integer
+        to_podcast_index_id:
+          type: integer
+        from_channel_title:
+          type: string
+          nullable: true
+        to_channel_title:
+          type: string
+          nullable: true
+        confidence:
+          type: string
+          nullable: true
+        mode:
+          type: string
+          nullable: true
+          enum:
+            - repoint
+            - absorb
+        status:
+          type: string
+          enum:
+            - detected
+            - verified
+            - needs_review
+            - applied
+            - rejected
+            - reverted
+    FeedMergeItemPair:
+      type: object
+      required:
+        - from_title
+        - to_title
+        - match_tier
+      properties:
+        from_title:
+          type: string
+          nullable: true
+        to_title:
+          type: string
+          nullable: true
+        match_tier:
+          type: string
+          nullable: true
+          enum:
+            - guid
+            - enclosure
+            - fuzzy
+    FeedMergeDetail:
+      allOf:
+        - $ref: "#/components/schemas/FeedMergeListItem"
+        - type: object
+          required:
+            - note
+            - from_feed_lifecycle_state_key
+            - match_stats
+            - item_pairs
+          properties:
+            note:
+              type: string
+              nullable: true
+            from_feed_lifecycle_state_key:
+              type: string
+              nullable: true
+            match_stats:
+              type: object
+              additionalProperties: true
+            item_pairs:
+              type: array
+              items:
+                $ref: "#/components/schemas/FeedMergeItemPair"
+    FeedMergeListResponse:
+      type: object
+      required:
+        - merges
+        - pagination
+      properties:
+        merges:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedMergeListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+    FeedMergeDetailResponse:
+      type: object
+      required:
+        - merge
+      properties:
+        merge:
+          $ref: "#/components/schemas/FeedMergeDetail"
     StorageUsageResponse:
       type: object
       required:
@@ -4351,6 +4519,7 @@ paths:
         - $ref: "#/components/parameters/SortOrderQueryOptional"
         - $ref: "#/components/parameters/QueryTextOptional"
         - $ref: "#/components/parameters/FeedLifecycleQueryOptional"
+        - $ref: "#/components/parameters/FeedDescriptionTruncatedQueryOptional"
       responses:
         "200":
           description: Successful response
@@ -4382,6 +4551,322 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /feeds/merges:
+    get:
+      operationId: managementGetFeedsMerges
+      tags:
+        - feeds
+      summary: GET /feeds/merges
+      description: "Paginated duplicate-feed pairs. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('feeds', 'read'). status defaults to needs_review. Pass status=all to list every status."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/LimitQueryOptional"
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum:
+              - detected
+              - verified
+              - needs_review
+              - applied
+              - rejected
+              - reverted
+              - all
+            default: needs_review
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedMergeListResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /feeds/merges/{id}:
+    get:
+      operationId: managementGetFeedsMergesId
+      tags:
+        - feeds
+      summary: GET /feeds/merges/{id}
+      description: "One duplicate-feed pair, its match stats, and up to 20 item pairs. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('feeds', 'read')."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedMergeDetailResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /feeds/merges/{id}/approve:
+    post:
+      operationId: managementPostFeedsMergesIdApprove
+      tags:
+        - feeds
+      summary: POST /feeds/merges/{id}/approve
+      description: "Marks a needs_review pair verified and stores the note. Does not merge the feeds. The next apply run does. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('feeds', 'update')."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedMergeNoteRequest"
+            example:
+              note: "Same show, titles differ."
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedMergeDetailResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "409":
+          description: The pair is not needs_review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /feeds/merges/{id}/reject:
+    post:
+      operationId: managementPostFeedsMergesIdReject
+      tags:
+        - feeds
+      summary: POST /feeds/merges/{id}/reject
+      description: "Marks a detected, verified, or needs_review pair rejected and stores the note. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('feeds', 'update')."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedMergeNoteRequest"
+            example:
+              note: "Different shows."
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedMergeDetailResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "409":
+          description: The pair is applied, rejected, or reverted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /feeds/merges/{id}/revert:
+    post:
+      operationId: managementPostFeedsMergesIdRevert
+      tags:
+        - feeds
+      summary: POST /feeds/merges/{id}/revert
+      description: "Restores an applied merge. Refused for every other status. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('feeds', 'update')."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedMergeNoteRequest"
+            example:
+              note: "Restore the old show."
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedMergeDetailResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "409":
+          description: The pair is not applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal server error
           content:

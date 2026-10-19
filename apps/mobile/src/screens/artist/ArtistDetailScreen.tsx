@@ -35,6 +35,7 @@ import type { SectionChipItem } from '../../components/form';
 import { CoverImage, FillList, ListRow } from '../../components/primitives';
 import { Button } from '../../components/primitives/Button';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
@@ -133,7 +134,6 @@ const SECTION_LABEL_KEYS: Record<ArtistTab, string> = {
   funding: 'info.funding',
   people: 'info.people.people',
   podroll: 'info.podroll',
-  settings: 'settings.settings',
   tracks: 'media.music.tracks',
 };
 
@@ -371,6 +371,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   const [subscriptionNoticeKey, setSubscriptionNoticeKey] = useState<string | null>(null);
   const isSectionHydrated = true;
   const [section, setSection] = useState<ArtistTab>(DEFAULT_ARTIST_TAB);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [tracksAdded, setTracksAdded] = useState<DTOItem[]>([]);
   const [tracksUnadded, setTracksUnadded] = useState<ArtistTrackUnadded[]>([]);
   const [albumsAdded, setAlbumsAdded] = useState<DTOChannel[]>([]);
@@ -400,13 +401,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        channelActions: {
-          gap: tokens.spacing.sm,
-        },
-        headerActions: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
         notice: {
           color: themeStyles.textSecondary.color,
           fontSize: 13,
@@ -419,9 +413,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         listContent: {
           paddingHorizontal: tokens.spacing.lg,
           paddingTop: tokens.spacing.md,
-        },
-        subscribeButtonRow: {
-          alignItems: 'flex-start',
         },
       }),
     [themeStyles, tokens]
@@ -593,11 +584,8 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     if (hasPeople) {
       tabs.push('people');
     }
-    if (isSignedIn) {
-      tabs.push('settings');
-    }
     return tabs;
-  }, [channel, isSignedIn, previewHasFunding, previewHasPeople, previewHasPodroll]);
+  }, [channel, previewHasFunding, previewHasPeople, previewHasPodroll]);
 
   useEffect(() => {
     if (availableSections.length === 0) {
@@ -624,7 +612,12 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   );
 
   const handleSectionSelect = useCallback((next: ArtistTab) => {
+    setSettingsOpen(false);
     setSection(next);
+  }, []);
+
+  const handleSettingsPress = useCallback(() => {
+    setSettingsOpen((open) => !open);
   }, []);
 
   const handleSubscriptionToggle = useCallback(async () => {
@@ -712,7 +705,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={styles.headerActions}>
+        <HeaderBarActions>
           {canShowBoost && channel !== null ? (
             <HeaderBarAction
               accessibilityLabel={t('value.boost')}
@@ -742,7 +735,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
             onPress={handleShare}
             testID="artist-detail-share"
           />
-        </View>
+        </HeaderBarActions>
       ),
     });
   }, [
@@ -752,7 +745,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     navigation,
     notificationsEnabled,
     openBoost,
-    styles.headerActions,
     t,
     tokens.text.warning,
     toggleNotifications,
@@ -912,21 +904,23 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   const channelHeader = (
     <ChannelHeader
       actions={
-        <View style={styles.channelActions}>
-          <View style={styles.subscribeButtonRow}>
-            <Button
-              label={t(isSubscribed ? 'features.unsubscribe' : 'features.subscribe')}
-              loading={isSavingSubscription}
-              onPress={handleSubscriptionTogglePress}
-              size="sm"
-              testID="artist-detail-subscribe-toggle"
-              variant="outline"
-            />
-          </View>
-        </View>
+        <Button
+          label={t(isSubscribed ? 'features.unsubscribe' : 'features.subscribe')}
+          loading={isSavingSubscription}
+          onPress={handleSubscriptionTogglePress}
+          size="sm"
+          testID="artist-detail-subscribe-toggle"
+          variant="outline"
+        />
       }
       artworkUri={channelArtworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      settings={{
+        accessibilityLabel: t('settings.settings'),
+        onPress: handleSettingsPress,
+        selected: settingsOpen,
+        testID: 'artist-detail-header-settings',
+      }}
       subtitle={subtitle}
       testID="artist-detail-header"
       title={title}
@@ -1196,7 +1190,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     />
   );
 
-  const sectionBody =
+  const sectionListBody =
     section === 'albums'
       ? albumsBody
       : section === 'tracks'
@@ -1207,9 +1201,8 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
             ? podrollBody
             : section === 'funding'
               ? fundingBody
-              : section === 'people'
-                ? peopleBody
-                : settingsBody;
+              : peopleBody;
+  const sectionBody = settingsOpen ? settingsBody : sectionListBody;
 
   return (
     <>
@@ -1221,7 +1214,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         sectionBody={sectionBody}
         sectionChips={sectionChips}
         sectionsTestID="artist-detail-sections"
-        selectedSection={section}
+        selectedSection={settingsOpen ? null : section}
         testID="artist-detail-screen"
       />
       {boostSheet}

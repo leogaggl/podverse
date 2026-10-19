@@ -1,6 +1,12 @@
 import { AppDbDataSourceRead, AppDbDataSourceReadWrite } from '@management-api/orm/db/appDb.js';
 import type { EntityManager } from 'typeorm';
 
+import type { DescriptionLengthTierEnum } from '@podverse/helpers';
+import {
+  isDescriptionLengthTier,
+  resolveDescriptionLengthTier,
+  suggestDescriptionLengthTier,
+} from '@podverse/helpers';
 import type { FeedPolicyReasonEnum } from '@podverse/orm';
 import {
   applyLifecycleConstraintsToEffectiveFlags,
@@ -26,6 +32,14 @@ export type FeedOperationsLookupRow = {
   podcast_index_id: number;
   spam_item_limit_override: number | null;
   max_response_body_bytes_override: number | null;
+  description_length_tier_override: DescriptionLengthTierEnum | null;
+  description_length_tier_effective: DescriptionLengthTierEnum;
+  /** Smallest tier that fits the longest source; null when unknown or beyond every tier. */
+  description_length_tier_suggested: DescriptionLengthTierEnum | null;
+  description_truncated_count: number;
+  description_longest_source_length: number | null;
+  /** ISO timestamp of the last parse that shortened a description. */
+  description_truncated_at: string | null;
   lifecycle_state_key: string;
   lifecycle_reason: string | null;
   updated_source: string;
@@ -48,6 +62,10 @@ const LOOKUP_SQL_BODY = `
   f.podcast_index_id,
   f.spam_item_limit_override,
   f.max_response_body_bytes_override,
+  f.description_length_tier_override,
+  f.description_truncated_count,
+  f.description_longest_source_length,
+  f.description_truncated_at,
   COALESCE(flst.state_key::text, '') AS lifecycle_state_key,
   fls.reason_key AS lifecycle_reason,
   COALESCE(fls.updated_by_source::text, 'system') AS updated_source,
@@ -76,6 +94,26 @@ LEFT JOIN feed_policy_override fpo ON fpo.feed_id = f.id
 LEFT JOIN channel c ON c.feed_id = f.id
 `;
 
+function toIsoTimestampOrNull(raw: unknown): string | null {
+  if (raw instanceof Date) {
+    return Number.isNaN(raw.getTime()) ? null : raw.toISOString();
+  }
+  if (typeof raw === 'string' && raw.length > 0) {
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+  return null;
+}
+
+function channelTitleFromLookupRow(row: Record<string, unknown>): string | null {
+  const title = row.channel_title;
+  if (typeof title === 'string' && title !== '') {
+    return title;
+  }
+  const url = row.url;
+  return typeof url === 'string' && url !== '' ? url : null;
+}
+
 function mapLookupRow(row: Record<string, unknown>): FeedOperationsLookupRow {
   const rawKeys = row.active_condition_keys;
   const keys = normalizeConditionKeys(Array.isArray(rawKeys) ? rawKeys : []);
@@ -102,6 +140,15 @@ function mapLookupRow(row: Record<string, unknown>): FeedOperationsLookupRow {
       }
     : null;
 
+  const tierOverride = isDescriptionLengthTier(row.description_length_tier_override)
+    ? row.description_length_tier_override
+    : null;
+  const longestSourceLength =
+    row.description_longest_source_length === null ||
+    row.description_longest_source_length === undefined
+      ? null
+      : Number(row.description_longest_source_length);
+
   return {
     id: Number(row.id),
     url: String(row.url),
@@ -115,6 +162,12 @@ function mapLookupRow(row: Record<string, unknown>): FeedOperationsLookupRow {
       row.max_response_body_bytes_override === undefined
         ? null
         : Number(row.max_response_body_bytes_override),
+    description_length_tier_override: tierOverride,
+    description_length_tier_effective: resolveDescriptionLengthTier(tierOverride),
+    description_length_tier_suggested: suggestDescriptionLengthTier(longestSourceLength),
+    description_truncated_count: Number(row.description_truncated_count ?? 0),
+    description_longest_source_length: longestSourceLength,
+    description_truncated_at: toIsoTimestampOrNull(row.description_truncated_at),
     lifecycle_state_key: String(row.lifecycle_state_key ?? ''),
     lifecycle_reason:
       row.lifecycle_reason === null || row.lifecycle_reason === undefined
@@ -130,10 +183,7 @@ function mapLookupRow(row: Record<string, unknown>): FeedOperationsLookupRow {
         ? null
         : String(row.primary_block_reason),
     policy_overrides: policyOverrides,
-    channel_title:
-      row.channel_title === null || row.channel_title === undefined
-        ? null
-        : String(row.channel_title),
+    channel_title: channelTitleFromLookupRow(row),
   };
 }
 
@@ -175,7 +225,12 @@ export async function findFeedByUrl(url: string): Promise<FeedOperationsLookupRo
 }
 
 export type FeedOperationsListSortKey =
-  'id' | 'podcast_index_id' | 'channel_title' | 'lifecycle_state_key' | 'url';
+  | 'id'
+  | 'podcast_index_id'
+  | 'channel_title'
+  | 'lifecycle_state_key'
+  | 'url'
+  | 'description_longest_source_length';
 
 export type ListFeedOperationsForTableParams = {
   page: number;
@@ -184,6 +239,7 @@ export type ListFeedOperationsForTableParams = {
   order: 'asc' | 'desc';
   q: string | null;
   lifecycle: string | null;
+  descriptionTruncated: boolean;
 };
 
 export type ListFeedOperationsForTableResult = {
@@ -194,18 +250,28 @@ export type ListFeedOperationsForTableResult = {
 const LIST_SORT_SQL: Record<FeedOperationsListSortKey, string> = {
   id: 'f.id',
   podcast_index_id: 'f.podcast_index_id',
-  channel_title: "LOWER(COALESCE(c.title, ''))",
+  channel_title: "LOWER(COALESCE(NULLIF(c.title, ''), f.url))",
   lifecycle_state_key: "LOWER(COALESCE(flst.state_key::text, ''))",
   url: 'LOWER(f.url)',
+  description_longest_source_length: 'f.description_longest_source_length',
 };
 
-function buildListWhereClause(params: { q: string | null; lifecycle: string | null }): {
+function buildListWhereClause(params: {
+  q: string | null;
+  lifecycle: string | null;
+  descriptionTruncated: boolean;
+}): {
   sql: string;
   values: unknown[];
 } {
   const values: unknown[] = [];
   let i = 1;
   const parts: string[] = ['TRUE'];
+
+  // Matches the predicate of feed_description_truncated_idx.
+  if (params.descriptionTruncated) {
+    parts.push('f.description_truncated_count > 0');
+  }
 
   if (params.lifecycle !== null && params.lifecycle.trim() !== '') {
     parts.push(`flst.state_key::text = $${i}`);
@@ -235,7 +301,11 @@ export async function listFeedOperationsForTable(
     throw new Error('Invalid sort key');
   }
   const orderDir = args.order === 'asc' ? 'ASC' : 'DESC';
-  const whereBuilt = buildListWhereClause({ q: args.q, lifecycle: args.lifecycle });
+  const whereBuilt = buildListWhereClause({
+    q: args.q,
+    lifecycle: args.lifecycle,
+    descriptionTruncated: args.descriptionTruncated,
+  });
   const offset = (args.page - 1) * args.limit;
 
   const countRows = (await AppDbDataSourceRead.query(
@@ -275,7 +345,11 @@ export type TakedownReasonOption = { reason: string };
 
 export async function listLifecycleStateOptions(): Promise<LifecycleStateOption[]> {
   return (await AppDbDataSourceRead.query(
-    `SELECT state_key::text AS state_key FROM feed_lifecycle_state_type ORDER BY id ASC`
+    `SELECT state_key::text AS state_key
+     FROM feed_lifecycle_state_type
+     WHERE state_key::text <> $1
+     ORDER BY id ASC`,
+    [FeedLifecycleStateKeyEnum.Merged]
   )) as LifecycleStateOption[];
 }
 
@@ -317,6 +391,8 @@ export type UpdateFeedOperationsPolicyStateParams = {
   conditionNote?: string | null;
   spamItemLimitOverride?: number | null;
   maxResponseBodyBytesOverride?: number | null;
+  /** Null resets the feed to the default tier. */
+  descriptionLengthTierOverride?: DescriptionLengthTierEnum | null;
   policyOverrides?: {
     parse_allowed_override?: boolean | null;
     public_visible_override?: boolean | null;
@@ -347,6 +423,7 @@ async function readCurrentLifecycleKey(
     key === FeedLifecycleStateKeyEnum.Active ||
     key === FeedLifecycleStateKeyEnum.PendingArchive ||
     key === FeedLifecycleStateKeyEnum.Archived ||
+    key === FeedLifecycleStateKeyEnum.Merged ||
     key === FeedLifecycleStateKeyEnum.Takedown
   ) {
     return key;
@@ -571,38 +648,78 @@ function mergeOverridesIntoEffective(
   return { parseAllowed, publicVisible, addAllowed };
 }
 
+export type UpdateFeedOperationsPolicyStateResult = {
+  /**
+   * True when the effective description tier changed. The caller schedules the reparse after the
+   * transaction commits; scheduling clears the feed's file hash, which would wait on this
+   * transaction's row lock if done inside it.
+   */
+  descriptionTierChanged: boolean;
+};
+
+async function readStoredDescriptionTierOverride(
+  manager: EntityManager,
+  feedId: number
+): Promise<DescriptionLengthTierEnum | null> {
+  const rows: unknown = await manager.query(
+    `SELECT description_length_tier_override FROM feed WHERE id = $1 FOR UPDATE`,
+    [feedId]
+  );
+  const stored: unknown = Array.isArray(rows)
+    ? Reflect.get(Object(rows[0]), 'description_length_tier_override')
+    : null;
+  return isDescriptionLengthTier(stored) ? stored : null;
+}
+
 export async function updateFeedOperationsPolicyState(
   feedId: number,
   adminAccountId: number,
   params: UpdateFeedOperationsPolicyStateParams
-): Promise<void> {
-  await AppDbDataSourceReadWrite.manager.transaction(async (manager) => {
+): Promise<UpdateFeedOperationsPolicyStateResult> {
+  return AppDbDataSourceReadWrite.manager.transaction(async (manager) => {
+    let descriptionTierChanged = false;
     const currentLifecycle = await readCurrentLifecycleKey(manager, feedId);
 
     if (params.lifecycleStateKey !== undefined) {
+      if (
+        params.lifecycleStateKey !== currentLifecycle &&
+        (params.lifecycleStateKey === FeedLifecycleStateKeyEnum.Merged ||
+          currentLifecycle === FeedLifecycleStateKeyEnum.Merged)
+      ) {
+        throw new Error('Disallowed lifecycle transition: merged is not changed from this form');
+      }
       assertLifecycleTransitionAllowed(currentLifecycle, params.lifecycleStateKey, {
         explicitManagementOverride: true,
       });
     }
 
-    const feedNumericParts: string[] = [];
-    const feedNumericValues: unknown[] = [];
+    const feedColumnParts: string[] = [];
+    const feedColumnValues: unknown[] = [];
     let placeholder = 1;
     if (params.spamItemLimitOverride !== undefined) {
-      feedNumericParts.push(`spam_item_limit_override = $${placeholder}`);
+      feedColumnParts.push(`spam_item_limit_override = $${placeholder}`);
       placeholder += 1;
-      feedNumericValues.push(params.spamItemLimitOverride);
+      feedColumnValues.push(params.spamItemLimitOverride);
     }
     if (params.maxResponseBodyBytesOverride !== undefined) {
-      feedNumericParts.push(`max_response_body_bytes_override = $${placeholder}`);
+      feedColumnParts.push(`max_response_body_bytes_override = $${placeholder}`);
       placeholder += 1;
-      feedNumericValues.push(params.maxResponseBodyBytesOverride);
+      feedColumnValues.push(params.maxResponseBodyBytesOverride);
     }
-    if (feedNumericParts.length > 0) {
-      feedNumericValues.push(feedId);
+    if (params.descriptionLengthTierOverride !== undefined) {
+      const storedTier = await readStoredDescriptionTierOverride(manager, feedId);
+      descriptionTierChanged =
+        resolveDescriptionLengthTier(storedTier) !==
+        resolveDescriptionLengthTier(params.descriptionLengthTierOverride);
+      feedColumnParts.push(`description_length_tier_override = $${placeholder}`);
+      placeholder += 1;
+      feedColumnValues.push(params.descriptionLengthTierOverride);
+    }
+    if (feedColumnParts.length > 0) {
+      feedColumnValues.push(feedId);
       await manager.query(
-        `UPDATE feed SET ${feedNumericParts.join(', ')} WHERE id = $${placeholder}`,
-        feedNumericValues
+        `UPDATE feed SET ${feedColumnParts.join(', ')} WHERE id = $${placeholder}`,
+        feedColumnValues
       );
     }
 
@@ -705,5 +822,7 @@ export async function updateFeedOperationsPolicyState(
       merged.addAllowed,
       computed.primaryBlockReason
     );
+
+    return { descriptionTierChanged };
   });
 }

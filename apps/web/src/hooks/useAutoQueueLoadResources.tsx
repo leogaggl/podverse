@@ -13,6 +13,7 @@ import type { AutoQueueResourcesMap } from '../contexts/AutoQueue';
 import { useAutoQueue } from '../contexts/AutoQueue';
 import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { isPlayablePlaylistResource } from '../lib/playlist/playablePlaylistResource';
 
 export function useAutoQueueLoadResources() {
   const { mpChannel, mpItem, mpClip, mpItemSoundbite } = useMediaPlayer();
@@ -186,6 +187,9 @@ export function useAutoQueueLoadResources() {
     if (autoQueueConfigRef.current.playlist_id_text) {
       let validIdx = 0;
       playlistResourcesResponse.forEach((playlistResource) => {
+        if (!isPlayablePlaylistResource(playlistResource)) {
+          return;
+        }
         if (playlistResource.clip && playlistResource.clip.item) {
           newAutoQueueResources[startKey + validIdx] = {
             item: playlistResource.clip.item,

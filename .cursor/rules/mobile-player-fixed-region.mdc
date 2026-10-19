@@ -69,13 +69,18 @@ with scroll. The mini player on other screens is a separate surface.
   silence it only via `ignoreFullPlayerBoundedNestedListWarning()` from
   `listVirtualization.ts` (called from `FullPlayerScreen`). Do not de-virtualize chapters/clips into
   `ScrollView` + `.map()`, and do not broaden that ignore to unrelated nesting. Summary prose still
-  uses the mobile About/Summary **Show more** / **Show less** collapse (**about-summary-web-mobile-alignment**)
-  — the height-locked sheet does not replace that truncate.
+  uses **Show more** / **Show less** (**about-summary-web-mobile-alignment**). The collapsed preview
+  fills the sheet and runs a little past it, so Show more is reached by a short scroll. Do not mount
+  the full description until the listener expands it.
 - The pane sits in a rounded, inset sheet (`themeStyles.paneSheet`) so the fold reads as a distinct
   surface. Dark uses page ink (`background.primary`); other themes use the card surface. Chips stay
-  outside that sheet. Round all four corners on the single wrapper (`FullPlayerPaneSheet`). Summary,
-  transcript, and empty pane copy use the same top inset as the first chapter row (`spacing.base`)
-  so the first line of text sits at one position in every tab.
+  outside that sheet. Round all four corners on the single wrapper (`FullPlayerPaneSheet`). The
+  sheet does not pad its children vertically. Chapter, clip, and official-clip rows run to the top
+  and bottom edges; `overflow: 'hidden'` clips the first and last rows to the radius. Summary and
+  transcript keep `spacing.base` above and below the scroller, the same inset as the first chapter
+  title, and that inset stays put while the prose scrolls. Empty pane copy uses that same top inset
+  inside the footer. A load error in the footer keeps the pane's horizontal inset (`spacing.lg`) on
+  its own wrapper, so a failed tab does not change the inset of a tab that has rows.
 - The segment band (`FULL_PLAYER_SEGMENT_BAND_HEIGHT`) sits **below** the artwork. It is reserved
   for an item with chapters (`itemHasChapters`, or a non-empty loaded chapter list) or a clip,
   official clip, or chapter target, the way web reserves `--media-modal-subtitle-reserve`. A chapter
@@ -95,7 +100,12 @@ with scroll. The mini player on other screens is a separate surface.
 - Playhead UI lives in leaf components that read `playbackProgressStore`; the region shell
   uses `usePlaybackSession()` only.
 - Pull-to-dismiss is the native-stack top-edge gesture only (`fullScreenGestureEnabled: false`).
-- The outer and inner scrollers do not bounce or over-scroll — this screen has no pull-to-refresh.
+- Neither scroller bounces or over-scrolls, and this screen has no pull-to-refresh.
+- The outer column hides its vertical scroll indicator (`showsVerticalScrollIndicator={false}`).
+- The pane list draws a vertical scroll indicator (`showsVerticalScrollIndicator`, and
+  `persistentScrollbar` on Android) when its content is taller than the sheet. The thumb stays the
+  system pill. On iOS, `indicatorStyle` is `white` on dark themes and `black` on light themes
+  (`isLightUiTheme`) so the pill reads against the sheet. It still fades after the finger lifts.
 - The full player has no empty-session body. When the item completes and nothing is ahead,
   now-playing clears and the **focused** full player dismisses (`onClose`). Do not dismiss while
   Make clip is authoring (`isAuthoringHold`) or while this screen is unfocused — `goBack()` would
@@ -113,6 +123,7 @@ with scroll. The mini player on other screens is a separate surface.
   condensed now-playing bar on this screen. Do not put chips in a sticky `SectionList` header.
 - Do not let tab bodies add their own `minHeight` spacer or grow the outer column — the
   **wrapper** owns the viewport-derived minHeight/height slot.
+- Do not pad the pane sheet vertically to keep the first or last row off the rounded corners.
 - Do not give the region a minimum height that can exceed the viewport, and do not reserve peek from
   a hardcoded chip height alone — both push the chip strip off-screen on short viewports or at large
   text sizes.

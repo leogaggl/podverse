@@ -83,6 +83,7 @@ describe('per-parse notification cap', () => {
     );
 
     await handleNewItemNotifications(channel(), {
+      hadStoredItems: true,
       newItemGuidEnclosureUrls: [],
       newItemGuids: Array.from({ length: 100 }, (_, index) => `guid-${index}`),
     });

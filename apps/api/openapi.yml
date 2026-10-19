@@ -1292,6 +1292,60 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/AccountNotificationChannel"
+    AccountContentLog:
+      type: object
+      required:
+        - id
+        - log_type
+        - channel_id_text
+        - channel_title
+        - reason
+        - follow_outcome
+        - clip_count
+        - playlist_entry_count
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Row id. A bigint rendered as a string.
+        log_type:
+          type: string
+          enum:
+            - removed_content
+        channel_id_text:
+          type: string
+        channel_title:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          enum:
+            - left_directory
+            - taken_down
+        follow_outcome:
+          type: string
+          nullable: true
+          enum:
+            - ended
+            - moved_to_add_by_rss
+        clip_count:
+          type: integer
+          minimum: 0
+        playlist_entry_count:
+          type: integer
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+    ApiGetAccountContentLogResponse200:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountContentLog"
     ApiGetAccountNotificationsResponse200:
       type: object
       properties:
@@ -1826,6 +1880,109 @@ components:
     ApiGetChannelIdoridtextResponse200:
       allOf:
         - $ref: "#/components/schemas/ChannelDetailResponse"
+    MergedIntoResponse:
+      type: object
+      required:
+        - merged_into
+      properties:
+        merged_into:
+          type: object
+          required:
+            - kind
+            - id_text
+          properties:
+            kind:
+              type: string
+              enum:
+                - channel
+                - item
+            id_text:
+              type: string
+    ChannelGoneResponse:
+      type: object
+      required:
+        - message
+        - gone
+      properties:
+        message:
+          type: string
+          example: Show is no longer in the directory
+        gone:
+          type: object
+          required:
+            - reason
+            - add_by_rss_feed_url
+          properties:
+            reason:
+              type: string
+              enum:
+                - archived
+            add_by_rss_feed_url:
+              type: string
+              nullable: true
+    IdentityResolveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        channel_id_texts:
+          type: array
+          maxItems: 500
+          items:
+            type: string
+        item_id_texts:
+          type: array
+          maxItems: 500
+          items:
+            type: string
+        podcast_index_ids:
+          type: array
+          maxItems: 500
+          items:
+            type: integer
+            minimum: 1
+    IdentityResolveResponse:
+      type: object
+      required:
+        - channels
+        - items
+        - podcast_index_ids
+      properties:
+        channels:
+          type: array
+          items:
+            type: object
+            required:
+              - from_id_text
+              - to_id_text
+            properties:
+              from_id_text:
+                type: string
+              to_id_text:
+                type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - from_id_text
+              - to_id_text
+            properties:
+              from_id_text:
+                type: string
+              to_id_text:
+                type: string
+        podcast_index_ids:
+          type: array
+          items:
+            type: object
+            required:
+              - from
+              - to_channel_id_text
+            properties:
+              from:
+                type: integer
+              to_channel_id_text:
+                type: string
     ApiGetChannelCategoryRecentResponse200:
       allOf:
         - $ref: "#/components/schemas/ChannelListResponse"
@@ -2471,6 +2628,8 @@ components:
         medium_id:
           type: integer
           nullable: true
+        channel_description:
+          $ref: "#/components/schemas/DTOChannelDescription"
     ChannelListResponse:
       type: object
       required:
@@ -2600,6 +2759,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        item_description:
+          $ref: "#/components/schemas/DTOItemDescription"
         live_item:
           $ref: "#/components/schemas/LiveItem"
         channel:
@@ -2616,6 +2777,79 @@ components:
     ItemDetailResponse:
       allOf:
         - $ref: "#/components/schemas/Item"
+    DTOChannelDescription:
+      type: object
+      required:
+        - id
+        - channel_id
+      properties:
+        id:
+          type: integer
+        channel_id:
+          type: integer
+        value:
+          type: string
+          description: Omitted in channel list responses and present on channel detail.
+        preview:
+          type: string
+          nullable: true
+        is_truncated:
+          type: boolean
+        source_length:
+          type: integer
+          nullable: true
+    DTOItemDescription:
+      type: object
+      required:
+        - id
+        - item_id
+      properties:
+        id:
+          type: integer
+        item_id:
+          type: integer
+        value:
+          type: string
+          description: Omitted in item list responses and present on item detail and this endpoint.
+        preview:
+          type: string
+          nullable: true
+        is_truncated:
+          type: boolean
+        source_length:
+          type: integer
+          nullable: true
+    DTOItemDescriptionDetail:
+      type: object
+      required:
+        - item_id_text
+        - value
+        - preview
+        - is_truncated
+        - source_length
+        - link_url
+      properties:
+        item_id_text:
+          type: string
+        value:
+          type: string
+          nullable: true
+          description: Sanitized show notes HTML, null when the item has none.
+        preview:
+          type: string
+          nullable: true
+          description: Plain-text preview of the notes.
+        is_truncated:
+          type: boolean
+          description: True when the stored notes were shortened to the feed's description tier.
+        source_length:
+          type: integer
+          nullable: true
+          description: Visible length of the feed's notes before shortening, when known.
+        link_url:
+          type: string
+          nullable: true
+          description: The item's link, where the full notes live when is_truncated is true.
     LiveItemChannelResponse:
       type: array
       items:
@@ -2650,7 +2884,60 @@ components:
           type: string
           format: date-time
         item:
-          $ref: "#/components/schemas/Item"
+          description: Null when the clip's episode was removed from Podverse.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Item"
+        removed_source:
+          description: What the clip pointed at before its episode was removed. Returned only to the clip owner; null for everyone else.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RemovedSource"
+        source_removed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the clip's episode was removed.
+    RemovedSource:
+      type: object
+      required:
+        - kind
+        - item_title
+        - channel_title
+        - pub_date
+        - soundbite_title
+      properties:
+        kind:
+          type: string
+          enum:
+            - item
+            - soundbite
+        item_title:
+          type: string
+          nullable: true
+        channel_title:
+          type: string
+          nullable: true
+        pub_date:
+          type: string
+          format: date-time
+          nullable: true
+        soundbite_title:
+          type: string
+          nullable: true
+    ClipSourceRemovedResponse:
+      type: object
+      required:
+        - message
+        - removed
+      properties:
+        message:
+          type: string
+          example: Clip source was removed
+        removed:
+          type: boolean
+          enum:
+            - true
     ClipCreateRequest:
       type: object
       required:
@@ -2678,9 +2965,9 @@ components:
           minimum: 1
     ClipUpdateRequest:
       type: object
+      description: item_id_text is required unless the clip's episode was removed. A clip whose episode was removed accepts title and description changes only; start_time, end_time, and sharable_status_id must match the stored values.
       required:
         - start_time
-        - item_id_text
         - sharable_status_id
       properties:
         start_time:
@@ -2698,6 +2985,7 @@ components:
           nullable: true
         item_id_text:
           type: string
+          nullable: true
         sharable_status_id:
           type: integer
           minimum: 1
@@ -2987,7 +3275,20 @@ components:
         clip:
           $ref: "#/components/schemas/Clip"
         item:
-          $ref: "#/components/schemas/Item"
+          description: Null when the entry's episode was removed from Podverse.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Item"
+        removed_source:
+          description: What the entry pointed at before it was removed. Returned only to the playlist owner; null for everyone else.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RemovedSource"
+        source_removed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the entry's episode or soundbite was removed. Set for every requester.
     PlaylistResourceListResponse:
       type: object
       properties:
@@ -6154,6 +6455,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/content-log:
+    get:
+      operationId: apiGetAccountContentLog
+      tags:
+        - account
+      summary: GET /account/content-log
+      description: Returns that account's content log, newest first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - removed_content
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAccountContentLogResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /account/notifications:
     get:
       operationId: apiGetAccountNotifications
@@ -9078,6 +9422,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /identity/resolve:
+    post:
+      operationId: apiPostIdentityResolve
+      tags:
+        - identity
+      summary: POST /identity/resolve
+      description: >
+        Public lookup of show, episode, and Podcast Index ids that moved in an applied absorb.
+        Ids that did not move are omitted. Each array is optional, at least one id is required,
+        and each array is capped at 500.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentityResolveRequest"
+            examples:
+              movedIds:
+                summary: One show id, one episode id, and one Podcast Index id
+                value:
+                  channel_id_texts:
+                    - old-show
+                  item_id_texts:
+                    - old-episode
+                  podcast_index_ids:
+                    - 1001
+      responses:
+        "200":
+          description: Only the ids that moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityResolveResponse"
+              examples:
+                moved:
+                  summary: The show and episode that moved, and the old Podcast Index id
+                  value:
+                    channels:
+                      - from_id_text: old-show
+                        to_id_text: surviving-show
+                    items:
+                      - from_id_text: old-episode
+                        to_id_text: surviving-episode
+                    podcast_index_ids:
+                      - from: 1001
+                        to_channel_id_text: surviving-show
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /channel/{id_or_id_text}:
     get:
       operationId: apiGetChannelIdoridtext
@@ -9143,6 +9546,19 @@ paths:
                       - field: id_or_id_text
                         message: No channel matched the provided identifier
                         code: missing_channel
+        "410":
+          description: The channel was absorbed into a surviving show
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedChannel:
+                  summary: Channel id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: channel
+                      id_text: syntax-fm
         "500":
           description: Internal server error
           content:
@@ -9760,7 +10176,7 @@ paths:
       tags:
         - clip
       summary: GET /clip/{clip_id_text}
-      description: Public endpoint for clip lookup; private clips are only visible to the owner.
+      description: Public endpoint for clip lookup; private clips are only visible to the owner. When the clip's episode was removed, the owner gets 200 with item null, removed_source, and source_removed_at; everyone else gets 410.
       security: []
       parameters:
         - in: path
@@ -9799,6 +10215,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The clip's episode was removed and the requester does not own the clip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipSourceRemovedResponse"
         "500":
           description: Internal server error
           content:
@@ -9810,7 +10232,7 @@ paths:
       tags:
         - clip
       summary: PATCH /clip/{clip_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Authenticated endpoint (cookieAuth or bearerAuth). When the clip's episode was removed, a change to start_time, end_time, or sharable_status_id returns 400; title and description changes are accepted.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -11074,6 +11496,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /item/{id_or_id_text}/description:
+    get:
+      operationId: apiGetItemIdoridtextDescription
+      tags:
+        - item
+      summary: GET /item/{id_or_id_text}/description
+      description: >-
+        Public endpoint returning one item's full show notes, a plain preview, whether the stored
+        notes were shortened, and the item link. Loads only the description and about rows. An
+        item with no description row returns 200 with null notes and is_truncated false.
+      security: []
+      parameters:
+        - in: path
+          name: id_or_id_text
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DTOItemDescriptionDetail"
+              examples:
+                shortenedNotes:
+                  summary: Notes longer than the feed's tier were shortened
+                  value:
+                    item_id_text: e2ePodLongNt01
+                    value: "<h2>About This Episode</h2><p>This deterministic E2E episode carries long, richly formatted show notes.</p>"
+                    preview: About This Episode This deterministic E2E episode carries long, richly formatted show notes.
+                    is_truncated: true
+                    source_length: 18000
+                    link_url: https://example.com/e2e-long-show-notes
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The episode was matched onto a surviving episode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedItem:
+                  summary: Episode id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: item
+                      id_text: surviving-episode
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /item/{id_or_id_text}:
     get:
       operationId: apiGetItemIdoridtext
@@ -11119,6 +11606,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The episode was matched onto a surviving episode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedItem:
+                  summary: Episode id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: item
+                      id_text: surviving-episode
         "500":
           description: Internal server error
           content:
@@ -11284,7 +11784,7 @@ paths:
       tags:
         - item
       summary: GET /item/channel/oldest/{channel_id_or_id_text}
-      description: Public endpoint returning oldest items for a channel.
+      description: Public endpoint returning oldest items for a channel. An applied merge returns 410 with MergedIntoResponse. An archived show returns 410 with ChannelGoneResponse. A taken-down show returns 404.
       security: []
       parameters:
         - in: path
@@ -11324,6 +11824,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: Applied merge (MergedIntoResponse) or archived show (ChannelGoneResponse). A taken-down show returns 404.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MergedIntoResponse"
+                  - $ref: "#/components/schemas/ChannelGoneResponse"
         "500":
           description: Internal server error
           content:
@@ -11336,7 +11844,7 @@ paths:
       tags:
         - item
       summary: GET /item/channel/recent/{channel_id_or_id_text}
-      description: Public endpoint returning recent items for a channel.
+      description: Public endpoint returning recent items for a channel. An applied merge returns 410 with MergedIntoResponse. An archived show returns 410 with ChannelGoneResponse. A taken-down show returns 404.
       security: []
       parameters:
         - in: path
@@ -11376,6 +11884,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: Applied merge (MergedIntoResponse) or archived show (ChannelGoneResponse). A taken-down show returns 404.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MergedIntoResponse"
+                  - $ref: "#/components/schemas/ChannelGoneResponse"
         "500":
           description: Internal server error
           content:
@@ -11388,10 +11904,8 @@ paths:
       tags:
         - item
       summary: GET /item/channel/season/backward/{channel_id_or_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: Public endpoint returning a channel's episodes in season order, backward. An applied merge returns 410 with MergedIntoResponse. An archived show returns 410 with ChannelGoneResponse. A taken-down show returns 404.
+      security: []
       parameters:
         - in: path
           name: channel_id_or_id_text
@@ -11429,6 +11943,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: Applied merge (MergedIntoResponse) or archived show (ChannelGoneResponse). A taken-down show returns 404.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MergedIntoResponse"
+                  - $ref: "#/components/schemas/ChannelGoneResponse"
         "500":
           description: Internal server error
           content:
@@ -11441,10 +11963,8 @@ paths:
       tags:
         - item
       summary: GET /item/channel/season/forward/{channel_id_or_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: Public endpoint returning a channel's episodes in season order, forward. An applied merge returns 410 with MergedIntoResponse. An archived show returns 410 with ChannelGoneResponse. A taken-down show returns 404.
+      security: []
       parameters:
         - in: path
           name: channel_id_or_id_text
@@ -11482,6 +12002,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: Applied merge (MergedIntoResponse) or archived show (ChannelGoneResponse). A taken-down show returns 404.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MergedIntoResponse"
+                  - $ref: "#/components/schemas/ChannelGoneResponse"
         "500":
           description: Internal server error
           content:
@@ -11494,10 +12022,8 @@ paths:
       tags:
         - item
       summary: GET /item/channel/shuffle/{channel_id_or_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: Public endpoint returning a shuffled page of items for a channel. An applied merge returns 410 with MergedIntoResponse. An archived show returns 410 with ChannelGoneResponse. A taken-down show returns 404.
+      security: []
       parameters:
         - in: path
           name: channel_id_or_id_text
@@ -11535,6 +12061,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: Applied merge (MergedIntoResponse) or archived show (ChannelGoneResponse). A taken-down show returns 404.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MergedIntoResponse"
+                  - $ref: "#/components/schemas/ChannelGoneResponse"
         "500":
           description: Internal server error
           content:
@@ -11547,7 +12081,7 @@ paths:
       tags:
         - item
       summary: GET /item/channel/top/{channel_id_or_id_text}
-      description: Public endpoint returning top items for a channel and stats range.
+      description: Public endpoint returning top items for a channel and stats range. An applied merge returns 410 with MergedIntoResponse. An archived show returns 410 with ChannelGoneResponse. A taken-down show returns 404.
       security: []
       parameters:
         - in: path
@@ -11588,6 +12122,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: Applied merge (MergedIntoResponse) or archived show (ChannelGoneResponse). A taken-down show returns 404.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MergedIntoResponse"
+                  - $ref: "#/components/schemas/ChannelGoneResponse"
         "500":
           description: Internal server error
           content:
@@ -17404,7 +17946,7 @@ paths:
       tags:
         - stats
       summary: POST /stats/clip
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Authenticated endpoint (cookieAuth or bearerAuth). Returns 410 when the clip's episode was removed.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -17445,6 +17987,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The clip's episode was removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipSourceRemovedResponse"
         "500":
           description: Internal server error
           content:

@@ -1,6 +1,9 @@
 import { desc, eq, isNotNull } from 'drizzle-orm';
 
-import type { AddByRSSParseCacheEntry } from '@podverse/helpers';
+import type {
+  AddByRSSParseCacheEntry,
+  DTOAccountFollowingAddByRSSChannel,
+} from '@podverse/helpers';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
 // Import directly from the request module (not the auth barrel) to avoid a cycle, mirroring
@@ -20,7 +23,11 @@ import {
   toAddByRssCredentialFeedUrl,
 } from '../../lib/addByRss/credentials';
 import type { AddByRssPollResult } from '../../lib/addByRss/domain';
-import { buildAddByRssFeedRecord, pollAddByRssParseStatus } from '../../lib/addByRss/domain';
+import {
+  buildAddByRssFeedRecord,
+  localFeedForServerFollow,
+  pollAddByRssParseStatus,
+} from '../../lib/addByRss/domain';
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { AddByRssFeedRow } from '../db/schema';
@@ -455,6 +462,44 @@ export const addByRssRepository = {
   },
 
   /**
+   * Store a server follow this device has no row for, using that follow's title and image.
+   * A row that already exists is left untouched. A later parse still fills episodes.
+   */
+  ensureLocalFeedFromFollow: async (
+    context: MobileAuthRequestContext,
+    feedUrl: string,
+    accountIdText: string | null
+  ): Promise<void> => {
+    if (accountIdText === null || accountIdText.length === 0) {
+      return;
+    }
+    const existing = await addByRssRepository.getFeedByUrl(feedUrl);
+    if (existing !== null) {
+      return;
+    }
+    let follows: DTOAccountFollowingAddByRSSChannel[];
+    try {
+      follows = await requestWithMobileAuthRefresh(context, async (apiRequestService) =>
+        apiRequestService.reqAccountGetFollowedAddByRSSChannels({
+          account_id_text: accountIdText,
+        })
+      );
+    } catch {
+      return;
+    }
+    const follow = follows.find((entry) => entry.feed_url === feedUrl);
+    if (follow === undefined) {
+      return;
+    }
+    const again = await addByRssRepository.getFeedByUrl(feedUrl);
+    const record = localFeedForServerFollow(follow, again);
+    if (record === null) {
+      return;
+    }
+    await addByRssRepository.upsertFeed(record);
+  },
+
+  /**
    * Poll one re-parse ticket and adopt the result.
    *
    * A parse that has not resolved yet, or resolved without a usable payload, leaves the stored
@@ -465,7 +510,8 @@ export const addByRssRepository = {
    */
   applyRefreshResult: async (
     context: MobileAuthRequestContext,
-    ticket: AddByRssRefreshTicket
+    ticket: AddByRssRefreshTicket,
+    accountIdText: string | null
   ): Promise<boolean> => {
     const result = await pollAddByRssParseStatus(ticket.requestId, async (requestId) =>
       requestWithMobileAuthRefresh(context, async (apiRequestService) =>
@@ -479,7 +525,11 @@ export const addByRssRepository = {
       )
     );
     const { mappedFeed, preview } = result;
-    const existingFeed = await addByRssRepository.getFeedByUrl(ticket.feedUrl);
+    let existingFeed = await addByRssRepository.getFeedByUrl(ticket.feedUrl);
+    if (existingFeed === null) {
+      await addByRssRepository.ensureLocalFeedFromFollow(context, ticket.feedUrl, accountIdText);
+      existingFeed = await addByRssRepository.getFeedByUrl(ticket.feedUrl);
+    }
     const credentialStatus = resolveAddByRssCredentialStatus({
       credentialsState: result.credentialsState,
       current: existingFeed?.requiresCredentials === true,

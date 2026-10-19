@@ -25,17 +25,17 @@ import {
  * One-tap sign-in for Maestro. Hidden unless Metro is a dev bundle and
  * `EXPO_PUBLIC_MOBILE_E2E=1`.
  *
- * Each target is 44pt and fully opaque. iOS drops touches on a view at or below 0.01 opacity
- * even when that view is still in the accessibility tree, and Maestro still reports the tap as
- * passed. The boxes paint nothing, so screenshots stay clean.
+ * Each target is 44pt tall and fully opaque. iOS drops touches on a view at or below 0.01
+ * opacity even when that view is still in the accessibility tree, and Maestro still reports
+ * the tap as passed. The boxes paint nothing, so screenshots stay clean.
  *
- * The targets wrap two-wide, inset past the back control, and stop before the trailing
- * actions. Create Clip is the first of those, so a single row of four targets lands on it
- * and Maestro still reports the tap. The wrap stays off the leading and trailing edges
- * under the header, where list-row play and More sit. The session marker is a separate
- * non-interactive box at the bottom-left.
+ * All four sit in one header row: inset past the back control, and short of Create Clip,
+ * which is the first trailing action. They stay in that row so they do not cover the chip
+ * row under the header. The session marker is a separate non-interactive box at the
+ * bottom-left.
  */
-const E2E_QUICK_LOGIN_HIT_SIZE = 44;
+const E2E_QUICK_LOGIN_HIT_HEIGHT = 44;
+const E2E_QUICK_LOGIN_HIT_WIDTH = 28;
 
 export function E2eQuickLogin() {
   const enabled = isE2eQuickLoginEnabled({
@@ -56,24 +56,23 @@ export function E2eQuickLogin() {
       padding: tokens.spacing.md,
     },
     hit: {
-      height: E2E_QUICK_LOGIN_HIT_SIZE,
-      width: E2E_QUICK_LOGIN_HIT_SIZE,
+      height: E2E_QUICK_LOGIN_HIT_HEIGHT,
+      width: E2E_QUICK_LOGIN_HIT_WIDTH,
     },
     host: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       left: HEADER_BAR_HEIGHT + 12,
       position: 'absolute',
       top: insets.top,
-      width: E2E_QUICK_LOGIN_HIT_SIZE * 2,
+      width: E2E_QUICK_LOGIN_HIT_WIDTH * 4,
       zIndex: 2000,
     },
     marker: {
       bottom: insets.bottom + tokens.spacing.sm,
-      height: E2E_QUICK_LOGIN_HIT_SIZE,
+      height: E2E_QUICK_LOGIN_HIT_HEIGHT,
       left: tokens.spacing.sm,
       position: 'absolute',
-      width: E2E_QUICK_LOGIN_HIT_SIZE,
+      width: E2E_QUICK_LOGIN_HIT_HEIGHT,
       zIndex: 2000,
     },
   });

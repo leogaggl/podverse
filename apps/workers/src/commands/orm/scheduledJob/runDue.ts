@@ -1,4 +1,5 @@
 import type { CommandLineArgs } from '@workers/commands/index.js';
+import { parsePodcastIndexFeedDirectly } from '@workers/commands/parser/rss/parseFeed.js';
 import { getLogger } from '@workers/factories/logger.js';
 
 import {
@@ -11,8 +12,13 @@ import {
   ADMIN_NOTIFICATION_SEND_JOB_TYPE,
   AdminNotificationCampaignService,
   dispatchAdminNotificationCampaign,
+  FEED_FORCE_REPARSE_JOB_TYPE,
+  FeedLifecycleStateKeyEnum,
+  FeedService,
   parseAdminNotificationSendPayload,
+  parseFeedForceReparsePayload,
   ScheduledJobService,
+  shouldAttemptFeedParseFromLifecycleAndPolicy,
 } from '@podverse/orm';
 
 type JobHandlerResult = {
@@ -81,8 +87,42 @@ const handleAdminNotificationSend: JobHandler = async (job) => {
   return { outcome: 'completed' };
 };
 
+const handleFeedForceReparse: JobHandler = async (job) => {
+  const payload = parseFeedForceReparsePayload(job.payload);
+  if (payload === null) {
+    throw new Error('Invalid feed-force-reparse payload');
+  }
+
+  const feed = await new FeedService().get(payload.feedId);
+  if (feed === null) {
+    return { outcome: 'cancelled', reason: 'Feed not found' };
+  }
+
+  const lifecycleStateKey =
+    feed.feed_lifecycle_state?.feed_lifecycle_state_type?.state_key ??
+    FeedLifecycleStateKeyEnum.Active;
+  if (
+    !shouldAttemptFeedParseFromLifecycleAndPolicy({
+      lifecycleStateKey,
+      feedPolicy: feed.feed_policy,
+    })
+  ) {
+    return {
+      outcome: 'cancelled',
+      reason: `Feed may not be parsed (lifecycle=${lifecycleStateKey})`,
+    };
+  }
+
+  await parsePodcastIndexFeedDirectly(feed.podcast_index_id, true, {
+    enqueueFollowUpWork: true,
+    suppressNewItemSideEffectsPublishedBeforeMs: job.created_at.getTime(),
+  });
+  return { outcome: 'completed' };
+};
+
 const jobHandlers: Record<string, JobHandler> = {
   [ADMIN_NOTIFICATION_SEND_JOB_TYPE]: handleAdminNotificationSend,
+  [FEED_FORCE_REPARSE_JOB_TYPE]: handleFeedForceReparse,
 };
 
 export const scheduledJobsRunDue = async (args: CommandLineArgs) => {

@@ -45,6 +45,7 @@ router.get('/category/top', asyncHandler(ItemController.getManyCategoryTop));
 router.get('/subscribed/recent', asyncHandler(ItemController.getManySubscribedRecent));
 router.get('/subscribed/top', asyncHandler(ItemController.getManySubscribedTop));
 
+router.get('/:idOrIdText/description', asyncHandler(ItemController.getDescriptionByIdOrIdText));
 router.get('/:idOrIdText', asyncHandler(ItemController.getByIdOrIdText));
 
 export const itemRouter = router;

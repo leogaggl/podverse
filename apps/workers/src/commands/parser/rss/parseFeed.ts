@@ -4,6 +4,7 @@ import { getPodcastIndexService } from '@workers/factories/podcastIndexService.j
 
 import { hasImageHints, MQ_IMAGE_SHRINK_HINTS_CONFIG, MQ_QUEUES } from '@podverse/helpers';
 import { mqImageShrinkHintAdd, mqRSSAdd as mqRSSAddFunction } from '@podverse/mq';
+import type { ParseRSSFeedAndSaveToDatabaseOptions } from '@podverse/parser';
 import { parseRSSFeedAndSaveToDatabase } from '@podverse/parser';
 
 /**
@@ -22,11 +23,14 @@ export async function parsePodcastIndexFeedById(
 /**
  * Fetches a Podcast Index feed, parses RSS, and persists to the DB. Optionally skips MQ
  * follow-up (remote items, image hints) for one-shot seed/ops jobs.
+ *
+ * `suppressNewItemSideEffectsPublishedBeforeMs` keeps a maintenance reparse from sending
+ * new-episode notifications or auto-download pushes for items published before that instant.
  */
 export async function parsePodcastIndexFeedDirectly(
   podcastIndexId: number,
   forceParse: boolean,
-  options: { enqueueFollowUpWork: boolean }
+  options: { enqueueFollowUpWork: boolean; suppressNewItemSideEffectsPublishedBeforeMs?: number }
 ): Promise<void> {
   const feedData = await getPodcastIndexService().podcastGetById(podcastIndexId);
   const feedUrl = feedData?.feed?.url;
@@ -34,23 +38,18 @@ export async function parsePodcastIndexFeedDirectly(
     throw new Error(`No feedUrl found for podcast_index_id ${podcastIndexId}`);
   }
 
-  const parseOptions = forceParse
-    ? {
-        forceParse: true,
-        onDemandParserEvent: {
-          accountId: null,
-          type: null,
-          remoteParentPodcastIndexId: null,
-        },
-      }
-    : {
-        forceParse: false,
-        onDemandParserEvent: {
-          accountId: null,
-          type: null,
-          remoteParentPodcastIndexId: null,
-        },
-      };
+  const parseOptions: ParseRSSFeedAndSaveToDatabaseOptions = {
+    forceParse,
+    onDemandParserEvent: {
+      accountId: null,
+      type: null,
+      remoteParentPodcastIndexId: null,
+    },
+  };
+  if (options.suppressNewItemSideEffectsPublishedBeforeMs !== undefined) {
+    parseOptions.suppressNewItemSideEffectsPublishedBeforeMs =
+      options.suppressNewItemSideEffectsPublishedBeforeMs;
+  }
 
   const result = await parseRSSFeedAndSaveToDatabase(feedUrl, podcastIndexId, parseOptions);
 

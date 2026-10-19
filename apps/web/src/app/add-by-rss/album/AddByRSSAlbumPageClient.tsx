@@ -8,6 +8,7 @@ import type { AddByRSSParseStatus } from '@podverse/helpers';
 import {
   DEDUPE_WINDOW_ADD_BY_RSS_ON_DEMAND_MS,
   getTotalPages,
+  isDescriptionTruncated,
   PAGINATION,
 } from '@podverse/helpers';
 import { getStatusCodeFromError } from '@podverse/helpers-requests';
@@ -27,6 +28,7 @@ import { AddByRSSAlbumTrackNodes } from '../../../components/AddByRSS/Artist/Alb
 import { AddByRSSLivestreamNodes } from '../../../components/AddByRSS/Livestream/AddByRSSLivestreamNodes';
 import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMessagesSection';
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
+import { DescriptionTruncationNotice } from '../../../components/Content/Description/DescriptionTruncationNotice';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { Pagination } from '../../../components/Pagination/Pagination';
@@ -377,7 +379,15 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
               </Pagination>
             )}
             {activeTab === 'about' && channelDescription && (
-              <DescriptionRenderer description={channelDescription} />
+              <>
+                <DescriptionRenderer description={channelDescription} />
+                {isDescriptionTruncated(mappedChannel?.description) ? (
+                  <DescriptionTruncationNotice
+                    kind="channel"
+                    linkUrl={mappedChannel?.about?.website_link_url}
+                  />
+                ) : null}
+              </>
             )}
             {activeTab === 'boosts' && boostsPageFetcher !== null && (
               <BoostMessagesSection

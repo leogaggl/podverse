@@ -170,6 +170,7 @@ These commands run the selected phone flow on both phone platforms:
 npm run mobile:e2e:test -- add-by-rss
 npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
+npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout
@@ -182,6 +183,7 @@ npm run mobile:e2e:test -- hello-world
 npm run mobile:e2e:test -- history-screen
 npm run mobile:e2e:test -- hls-playback
 npm run mobile:e2e:test -- home
+npm run mobile:e2e:test -- identity-remap
 npm run mobile:e2e:test -- library-downloads
 npm run mobile:e2e:test -- library-playlists
 npm run mobile:e2e:test -- locale-switch-home-smoke
@@ -201,6 +203,7 @@ npm run mobile:e2e:test -- terms-popularity
 npm run mobile:e2e:test -- push
 npm run mobile:e2e:test -- queue-add
 npm run mobile:e2e:test -- queue-screen
+npm run mobile:e2e:test -- removed-content
 npm run mobile:e2e:test -- search-unparsed
 npm run mobile:e2e:test -- search
 npm run mobile:e2e:test -- settings-downloads

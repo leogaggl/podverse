@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOChannel, DTOClip, DTOItem } from '@podverse/helpers';
+import { isRemovedSource } from '@podverse/helpers';
+import { getErrorResponseBody, getErrorResponseStatus } from '@podverse/helpers/error';
 import { formatHHMMSS } from '@podverse/helpers/time';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
@@ -17,10 +19,14 @@ import { ListError } from '../../components/state/ListError';
 import { ListLoading } from '../../components/state/ListLoading';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
 import { clipRepository } from '../../data/repositories/clipRepository';
+import { useItemDescription } from '../../hooks/useItemDescription';
+import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
+import { mobileBrandName } from '../../lib/mobileBrandName';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { navigateToMakeClipScreen } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import {
   BottomChromeScrollSpacer,
   useBottomChromeScrollIndicatorInsets,
@@ -42,6 +48,21 @@ const parseSeconds = (value: string): number => {
     return 0;
   }
   return Math.floor(parsed);
+};
+
+const isVisitorRemovedClip = (error: unknown): boolean => {
+  if (getErrorResponseStatus(error) !== 410) {
+    return false;
+  }
+  const body = getErrorResponseBody(error);
+  return body !== undefined && body.removed === true;
+};
+
+const snapshotTitles = (clip: DTOClip): string | null => {
+  const episode = clip.removed_source?.item_title?.trim() ?? '';
+  const show = clip.removed_source?.channel_title?.trim() ?? '';
+  const parts = [episode, show].filter((part) => part.length > 0);
+  return parts.length > 0 ? parts.join(' • ') : null;
 };
 
 const itemFromTarget = (target: PlaybackTarget | null): DTOItem | null => {
@@ -66,6 +87,8 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [visitorRemoved, setVisitorRemoved] = useState<boolean>(false);
+  const onItemDescriptionClock = useItemDescriptionClock(item, channel);
   const { clipId } = route.params;
 
   const styles = useMemo(
@@ -136,6 +159,7 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
   const loadClip = useCallback(async () => {
     setIsLoading(true);
     setErrorKey(null);
+    setVisitorRemoved(false);
     try {
       const clipResponse = await requestWithMobileAuthRefresh(
         {
@@ -148,6 +172,12 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
       );
       setClip(clipResponse);
 
+      if (isRemovedSource(clipResponse)) {
+        setItem(null);
+        setChannel(null);
+        return;
+      }
+
       const itemId = clipResponse.item?.id_text ?? String(clipResponse.item_id);
       const itemResponse = await requestWithMobileAuthRefresh(
         {
@@ -159,6 +189,7 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
         async (api) => api.reqItemGetByIdOrIdText(itemId)
       );
       setItem(itemResponse);
+      void cacheItemDescriptionFromDetail(itemResponse);
 
       if (itemResponse.channel) {
         setChannel(itemResponse.channel);
@@ -174,7 +205,16 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
         );
         setChannel(channelResponse);
       }
-    } catch {
+    } catch (error) {
+      if (isVisitorRemovedClip(error)) {
+        setVisitorRemoved(true);
+        setErrorKey(null);
+        setClip(null);
+        setItem(null);
+        setChannel(null);
+        return;
+      }
+      setVisitorRemoved(false);
       setErrorKey('errors.generic');
       setClip(null);
       setItem(null);
@@ -191,15 +231,21 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
     }, [loadClip])
   );
 
+  const itemDescription = useItemDescription(item);
+  const clipHasOwnDescription =
+    clip?.description !== undefined && clip.description !== null && clip.description.length > 0;
   const clipDescriptionHtml =
     clip?.description !== undefined && clip.description !== null && clip.description.length > 0
       ? clip.description
-      : (item?.item_description?.value ?? null);
+      : (itemDescription?.html ?? (itemDescription?.preview || null));
   const activeItemId = itemFromTarget(activeTarget)?.id_text ?? null;
   const isOwnedClip =
     clip?.account?.id_text !== undefined &&
     account?.id_text !== undefined &&
     clip.account.id_text === account.id_text;
+  const ownerRemoved = clip !== null && isRemovedSource(clip);
+  const removedSentence = t('info.removed.clip_source_removed', { brand_name: mobileBrandName() });
+  const ownerSnapshot = clip !== null ? snapshotTitles(clip) : null;
 
   const handleOpenEdit = useCallback(() => {
     if (clip === null || item === null || channel === null) {
@@ -248,7 +294,9 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
       style={{ backgroundColor: themeStyles.screen.backgroundColor }}
       testID="clip-detail-screen"
     >
-      <Text style={styles.heading}>{clip?.title ?? t('features.clip.clip')}</Text>
+      {visitorRemoved ? null : (
+        <Text style={styles.heading}>{clip?.title ?? t('features.clip.clip')}</Text>
+      )}
       {isLoading ? <ListLoading testID="clip-detail-loading" /> : null}
       {!isLoading && errorKey !== null ? (
         <ListError
@@ -259,7 +307,42 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
           testID="clip-detail-error"
         />
       ) : null}
-      {!isLoading && errorKey === null && clip !== null && item !== null ? (
+      {!isLoading && errorKey === null && visitorRemoved ? (
+        <Text style={styles.cardText} testID="clip-detail-removed">
+          {removedSentence}
+        </Text>
+      ) : null}
+      {!isLoading && errorKey === null && ownerRemoved && clip !== null ? (
+        <View style={styles.card}>
+          <Text style={styles.cardHeading}>{clip.title ?? t('features.clip.clip')}</Text>
+          {ownerSnapshot !== null ? <Text style={styles.cardText}>{ownerSnapshot}</Text> : null}
+          <Text style={styles.cardText}>
+            {t('features.clip.clip_time_range', {
+              hhmmssEnd: formatHHMMSS(Number(clip.end_time)),
+              hhmmssStart: formatHHMMSS(Number(clip.start_time)),
+            })}
+          </Text>
+          <Text style={styles.cardText} testID="clip-detail-removed">
+            {removedSentence}
+          </Text>
+          {isOwnedClip ? (
+            <FormActions
+              actions={[
+                {
+                  label: t('features.clip.delete_clip'),
+                  onPress: () => {
+                    setShowDeleteConfirm(true);
+                  },
+                  testID: 'clip-detail-delete',
+                  variant: 'danger',
+                },
+              ]}
+              style={styles.ownerActions}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {!isLoading && errorKey === null && !ownerRemoved && clip !== null && item !== null ? (
         <>
           <View style={styles.card}>
             <Text style={styles.cardHeading}>{clip.title ?? t('features.clip.clip')}</Text>
@@ -268,9 +351,9 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
               {channel?.title ?? t('media.podcast.podcast')}
             </Text>
             <Text style={styles.cardText}>
-              {t('info.time.start_end', {
-                timeEnd: formatHHMMSS(Number(clip.end_time)),
-                timeStart: formatHHMMSS(Number(clip.start_time)),
+              {t('features.clip.clip_time_range', {
+                hhmmssEnd: formatHHMMSS(Number(clip.end_time)),
+                hhmmssStart: formatHHMMSS(Number(clip.start_time)),
               })}
             </Text>
             <Pressable
@@ -320,9 +403,16 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
               emptyLabel={t('info.summary.no_summary')}
               html={clipDescriptionHtml}
               linkStyle={styles.cardLink}
+              onDescriptionClock={clipHasOwnDescription ? undefined : onItemDescriptionClock}
               resetKey={clipId}
+              showMoreStyle={styles.cardLink}
               testID="clip-detail-description"
               textStyle={styles.cardText}
+              truncation={
+                !clipHasOwnDescription && itemDescription?.isTruncated === true
+                  ? { kind: 'item', linkUrl: itemDescription.linkUrl }
+                  : undefined
+              }
             />
           </View>
 

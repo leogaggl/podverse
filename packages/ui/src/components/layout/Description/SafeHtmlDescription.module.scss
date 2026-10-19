@@ -66,6 +66,20 @@
   text-decoration: underline;
 }
 
+.safeHtmlDescription .descriptionClock {
+  background: none;
+  border: 0;
+  color: var(--text-color-link);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.safeHtmlDescription .descriptionClock:focus-visible {
+  outline: 2px solid var(--text-color-link);
+}
+
 .safeHtmlDescription strong,
 .safeHtmlDescription b {
   font-weight: var(--font-weight-medium);

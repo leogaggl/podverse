@@ -53,6 +53,7 @@ interface PodcastPageContextProviderProps {
   ssrItems: DTOItem[];
   ssrClips: DTOClip[];
   ssrTotalPages: number;
+  directoryRemoved?: boolean;
 }
 
 export const PodcastPageContextProvider = ({
@@ -65,6 +66,7 @@ export const PodcastPageContextProvider = ({
   ssrItems,
   ssrClips,
   ssrTotalPages,
+  directoryRemoved = false,
 }: PodcastPageContextProviderProps) => {
   const params = useParams();
 
@@ -122,6 +124,10 @@ export const PodcastPageContextProvider = ({
   });
 
   useSkipInitialEffect(() => {
+    if (directoryRemoved) {
+      return;
+    }
+
     // Skip fetch if we just restored from cache - data is already correct
     if (restoredFromCacheRef.current) {
       restoredFromCacheRef.current = false;
@@ -233,7 +239,7 @@ export const PodcastPageContextProvider = ({
     }
 
     fetchData();
-  }, [filterParams, loggedInAccount]);
+  }, [directoryRemoved, filterParams, loggedInAccount]);
 
   return (
     <PodcastPageContext.Provider

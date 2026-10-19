@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { isAlbumMediumId, parseMediumId } from '@podverse/helpers';
+import { isAlbumMediumId, isDescriptionTruncated, parseMediumId } from '@podverse/helpers';
 import { createAddByRSSIdText } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
 import {
@@ -373,6 +373,10 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
               trackItems={sortedTrackItems}
               liveItems={sortedLiveItems}
               description={description}
+              descriptionIsTruncated={isDescriptionTruncated(
+                feed?.mappedFeed?.channel?.description
+              )}
+              fullDescriptionUrl={feed?.mappedFeed?.channel?.about?.website_link_url ?? null}
               viewSelected={viewSelected}
               boostsPageFetcher={boostsPageFetcher}
               breadcrumbLinkResolver={breadcrumbLinkResolver}

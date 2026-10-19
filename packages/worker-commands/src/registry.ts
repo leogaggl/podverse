@@ -70,6 +70,25 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run scheduled_jobs_run_due -w apps/workers -- -limit 100',
   },
   {
+    name: 'ormArchivedSlimReport',
+    label: 'Archived content: slim report',
+    description:
+      'Counts and removable-row sizes for archived episodes and shows that are not slimmed.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli: 'npm run orm_archived_slim_report -w apps/workers',
+  },
+  {
+    name: 'ormDescriptionsBackfill',
+    label: 'Descriptions: backfill previews and reparses',
+    description:
+      'Re-prepare stored item and channel descriptions that have no preview. With -enqueueReparse, schedule throttled feed-force-reparse jobs for feeds whose descriptions were cut before their source length was recorded. Idempotent.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli:
+      'npm run orm_descriptions_backfill -w apps/workers -- -enqueueReparse -maxFeeds 200',
+  },
+  {
     name: 'notificationsPlatformPurge',
     label: 'Notifications: purge expired and terminal rows',
     description:
@@ -77,6 +96,15 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     category: 'orm',
     risk: 'normal',
     example_cli: 'npm run notifications_platform_purge -w apps/workers',
+  },
+  {
+    name: 'accountContentLogPurge',
+    label: 'Removed Content: purge old rows',
+    description:
+      'Delete account_content_log rows whose updated_at is older than ACCOUNT_CONTENT_LOG_RETENTION_DAYS.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli: 'npm run account_content_log_purge -w apps/workers',
   },
   {
     name: 'deleteOutdatedOnDemandParserEvent',
@@ -288,17 +316,10 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run seed_embed_demo_showcase_feeds -w apps/workers',
   },
   {
-    name: 'podcastIndexDeadFeedsDeleteCache',
-    label: 'Podcast Index: dead feeds cache delete',
-    description: 'Delete cached data used for “dead feed” processing.',
-    category: 'podcast_index',
-    risk: 'normal',
-    example_cli: 'npm run podcast_index_dead_feeds_delete_cache -w apps/workers',
-  },
-  {
     name: 'podcastIndexDeadFeedsFlagAndMerge',
     label: 'Podcast Index: dead feeds flag and merge',
-    description: 'Flag/merge dead feeds in Podcast Index–related processing.',
+    description:
+      'Download the Podcast Index dead-feed list, record duplicateOf pairs for feeds we store, and retire feeds that list marks when PODCAST_INDEX_DEAD_FEED_RETIRE_MODE is apply.',
     category: 'podcast_index',
     risk: 'normal',
     example_cli: 'npm run podcast_index_dead_feeds_flag_and_merge -w apps/workers',

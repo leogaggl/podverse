@@ -60,11 +60,13 @@ Sources:
 - `packages/orm/src/entities/item/itemFlagStatus.ts`
 - `packages/helpers/src/dtos/item/itemFlagStatus.ts`
 
-### 4) Dead-feed merge CronJob is suspended
+### 4) Dead-feed job records duplicate pairs
 
 Observed behavior:
 
-- CronJob has `suspend: true` and an inline TODO that it is currently broken.
+- CronJob runs hourly at minute 15.
+- `PODCAST_INDEX_DUPLICATE_MERGE_MODE=off` exits before the CSV download.
+- `dry_run` and `apply` record detected `duplicateOf` pairs and do not merge or set `PendingArchive`.
 
 Sources:
 
@@ -202,7 +204,7 @@ Likely test locations:
 
 Likely test locations:
 
-- `packages/orm/src/services/deduplicator` tests
+- `apps/api/src/test/channel-merge.integration.test.ts`
 - workers command tests around dead-feed merge flow
 
 ## Prioritization Recommendation

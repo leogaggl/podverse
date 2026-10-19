@@ -24,8 +24,8 @@ test.describe('Custom themes (remote pack only)', () => {
     await expectCustomThemeStyleTagContains(page, `[data-ui-theme='${CUSTOM_THEME_MINIMAL_ID}']`);
 
     const themeSelector = page.locator('#settings_theme_selector');
-    await expect(themeSelector).toContainText('Dark');
-    await expectThemeMenuLabels(page, ['Dark', 'custom_minimal']);
+    await expect(themeSelector).toContainText('Podverse');
+    await expectThemeMenuLabels(page, ['Podverse', 'custom_minimal']);
     await expectHtmlUiTheme(page, 'dark');
 
     await actionAndCapture(
@@ -45,12 +45,12 @@ test.describe('Custom themes (remote pack only)', () => {
     await capturePageLoad(
       page,
       testInfo,
-      'Settings shows the theme selector with Dark as the configured default and remote themes in the menu.',
+      'Settings shows the theme selector with Podverse as the configured default and remote themes in the menu.',
       themeSelector
     );
   });
 
-  test('When the visitor selects the built-in Dark theme, data-ui-theme switches to dark.', async ({
+  test('When the visitor selects the Podverse theme, data-ui-theme switches to dark.', async ({
     page,
   }, testInfo) => {
     await loginE2eUser(page);
@@ -59,9 +59,9 @@ test.describe('Custom themes (remote pack only)', () => {
     await actionAndCapture(
       page,
       testInfo,
-      'After choosing the built-in Dark theme, the document uses the dark data-ui-theme attribute.',
+      'After choosing the Podverse theme, the document uses the dark data-ui-theme attribute.',
       async () => {
-        await selectThemeByMenuLabel(page, 'Dark');
+        await selectThemeByMenuLabel(page, 'Podverse');
         await expectHtmlUiTheme(page, 'dark');
       },
       page.locator('html')

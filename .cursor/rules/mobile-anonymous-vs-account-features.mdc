@@ -156,6 +156,9 @@ with the login modal still dismissing and wedges both, leaving a black screen ov
 - Present gated features as an upgrade affordance, not a broken control (see
   **entitlement-gating-rollout**). On a usable screen, show the gate **when the user taps the
   action** (`openGate`), not as a persistent inline "Account required" card.
+- Keep the channel settings gear on podcast, album, and artist `ChannelHeader` when signed out.
+  Check feed, notifications, and auto-download open `openGate('needs_account')` on press.
+  Auto-download, once signed in, still explains that it is not available yet.
 - When a feature has both a local and a server-backed form, ship the local form signed out and use
   the server form to add cross-device sync (for example, per-channel "seen" state).
 

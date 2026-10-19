@@ -115,6 +115,12 @@ const sampleFeed = {
   podcast_index_id: 55,
   spam_item_limit_override: null,
   max_response_body_bytes_override: null,
+  description_length_tier_override: null,
+  description_length_tier_effective: 'standard',
+  description_length_tier_suggested: 'extended',
+  description_truncated_count: 3,
+  description_longest_source_length: 18500,
+  description_truncated_at: '2026-10-01T12:00:00.000Z',
   lifecycle_state_key: 'active',
   lifecycle_reason: null,
   updated_source: 'admin',
@@ -139,7 +145,9 @@ const {
   getSnap,
   updatePolicy,
   audit,
+  scheduleReparse,
 } = vi.hoisted(() => ({
+  scheduleReparse: vi.fn(),
   findByPi: vi.fn(),
   findById: vi.fn(),
   findByUrl: vi.fn(),
@@ -182,6 +190,15 @@ vi.mock('@management-api/lib/feed/feedFlagStatusAppDb.js', () => ({
   ) => updatePolicy(feedId, adminId, params),
 }));
 
+vi.mock('@podverse/orm', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@podverse/orm')>();
+  return {
+    ...actual,
+    scheduleFeedForceReparse: (feedId: number, reason: string, runAfter: Date) =>
+      scheduleReparse(feedId, reason, runAfter),
+  };
+});
+
 vi.mock('@management-api/lib/database/auditLog.js', () => {
   class AuditLogService {
     async record(args: unknown) {
@@ -220,6 +237,8 @@ describe('feeds routes', () => {
     assertTkReason.mockReset();
     getSnap.mockReset();
     updatePolicy.mockReset();
+    updatePolicy.mockResolvedValue({ descriptionTierChanged: false });
+    scheduleReparse.mockReset();
     audit.mockReset();
     findByPi.mockImplementation(async (id: number) => (id === 55 ? sampleFeed : null));
     getSnap.mockImplementation(async (id: number) =>
@@ -483,5 +502,104 @@ describe('feeds routes', () => {
         afterSnapshot: expect.any(Object),
       })
     );
+  });
+
+  describe('description length tier', () => {
+    it('PATCH extended stores the tier and schedules one forced reparse', async () => {
+      updatePolicy.mockResolvedValueOnce({ descriptionTierChanged: true });
+      findById.mockResolvedValue({
+        ...sampleFeed,
+        description_length_tier_override: 'extended',
+        description_length_tier_effective: 'extended',
+      });
+      const res = await request(app)
+        .patch(`${feedsBase}/9/policy-state`)
+        .set(adminAuthHeaders(1))
+        .send({ description_length_tier_override: 'extended' });
+
+      expect(res.status).toBe(200);
+      expect(updatePolicy).toHaveBeenCalledWith(
+        9,
+        1,
+        expect.objectContaining({ descriptionLengthTierOverride: 'extended' })
+      );
+      expect(scheduleReparse).toHaveBeenCalledTimes(1);
+      expect(scheduleReparse).toHaveBeenCalledWith(9, 'description_tier_change', expect.any(Date));
+      expect(res.body.feed.description_length_tier_effective).toBe('extended');
+      expect(res.body.feed.description_length_tier_suggested).toBe('extended');
+    });
+
+    it('PATCH with an unchanged tier schedules nothing', async () => {
+      findById.mockResolvedValue({
+        ...sampleFeed,
+        description_length_tier_override: 'extended',
+        description_length_tier_effective: 'extended',
+      });
+      const res = await request(app)
+        .patch(`${feedsBase}/9/policy-state`)
+        .set(adminAuthHeaders(1))
+        .send({ description_length_tier_override: 'extended' });
+
+      expect(res.status).toBe(200);
+      expect(scheduleReparse).not.toHaveBeenCalled();
+    });
+
+    it('PATCH null resets to the default tier', async () => {
+      updatePolicy.mockResolvedValueOnce({ descriptionTierChanged: true });
+      findById.mockResolvedValue({ ...sampleFeed });
+      const res = await request(app)
+        .patch(`${feedsBase}/9/policy-state`)
+        .set(adminAuthHeaders(1))
+        .send({ description_length_tier_override: null });
+
+      expect(res.status).toBe(200);
+      expect(updatePolicy).toHaveBeenCalledWith(
+        9,
+        1,
+        expect.objectContaining({ descriptionLengthTierOverride: null })
+      );
+      expect(res.body.feed.description_length_tier_override).toBeNull();
+      expect(res.body.feed.description_length_tier_effective).toBe('standard');
+    });
+
+    it('PATCH an unknown tier returns 400', async () => {
+      const res = await request(app)
+        .patch(`${feedsBase}/9/policy-state`)
+        .set(adminAuthHeaders(1))
+        .send({ description_length_tier_override: 'huge' });
+
+      expect(res.status).toBe(400);
+      expect(updatePolicy).not.toHaveBeenCalled();
+      expect(scheduleReparse).not.toHaveBeenCalled();
+    });
+
+    it('GET / filters to shortened descriptions sorted by longest source', async () => {
+      const res = await request(app)
+        .get(`${feedsBase}`)
+        .query({
+          description_truncated: true,
+          sort: 'description_longest_source_length',
+          order: 'desc',
+        })
+        .set(adminAuthHeaders(1));
+
+      expect(res.status).toBe(200);
+      expect(listForTable).toHaveBeenCalledWith(
+        expect.objectContaining({
+          descriptionTruncated: true,
+          sort: 'description_longest_source_length',
+          order: 'desc',
+        })
+      );
+      expect(res.body.feeds[0].description_truncated_count).toBe(3);
+    });
+
+    it('GET / leaves the shortened-description filter off by default', async () => {
+      await request(app).get(`${feedsBase}`).set(adminAuthHeaders(1));
+
+      expect(listForTable).toHaveBeenCalledWith(
+        expect.objectContaining({ descriptionTruncated: false })
+      );
+    });
   });
 });

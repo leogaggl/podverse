@@ -66,7 +66,7 @@ Sources:
 | Status Change                          | Writer                                                        | Trigger                                                                                                                                                                 |
 | -------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Feed -> `Spam`                         | `packages/parser/src/lib/rss/parser.ts`                       | Parsed feed crosses status-based spam limits (`PARSER_SPAM_FEED_ITEM_THRESHOLD_DEFAULT` / `PARSER_SPAM_FEED_ITEM_THRESHOLD_SPAM_PERMITTED`; defaults 10,000 / 100,000). |
-| Feed -> `PendingArchive`               | `apps/workers/src/lib/deduplicator.ts`                        | Dead-feed merge flow marks duplicate feed pending archive.                                                                                                              |
+| Feed -> `PendingArchive`               | Management API feed operations                                | An admin sets lifecycle `pending_archive`. A Podcast Index duplicate is not sent here.                                                                                  |
 | Feed -> `Archived`                     | `packages/orm/src/services/archiver.ts`                       | `processPendingArchiveFeeds()` finishes item handling for that feed.                                                                                                    |
 | Feed stays `Spam` (item cleanup only)  | `packages/orm/src/services/archiver.ts`                       | `processSpamFeeds()` during `archiveAll` applies `processItems` to `Active` / `PendingArchive` items; feed status is not changed.                                       |
 | Feed lifecycle / policy (manual admin) | Management API / management-web feed operations               | Admin workflows set lifecycle state and conditions via management tools.                                                                                                |
@@ -164,7 +164,7 @@ Source:
 
 - `worker-recent-feeds` every 5 minutes enqueues recently updated feeds to `rss-normal`.
 - `worker-archive-all` at `0 6,18 * * *` runs `archiveAll`.
-- `worker-dead-feeds-merge` is configured daily but currently `suspend: true`.
+- `worker-dead-feeds-merge` runs hourly at minute 15. With `PODCAST_INDEX_DUPLICATE_MERGE_MODE=off` it exits before downloading the CSV.
 
 Sources:
 
@@ -212,17 +212,40 @@ Dependency references:
 
 ## Dedup Merge Behavior
 
-Dead-feed dedup flow updates references for duplicate channel items:
+`podcastIndexDeadFeedsFlagAndMerge` downloads the Podcast Index dead-feed CSV and records a
+`channel_merge` row when a dead feed id has a `duplicateOf` target and that dead id is a feed
+we already store. Chains are followed to the feed that is not itself on the dead list. A cycle,
+a target that is dead with no further duplicate, and a row with an empty duplicate column are
+skipped.
 
-- repoints `Clip.item_id`,
-- repoints `PlaylistResource.item_id`,
-- marks archived feed as `PendingArchive`.
+`PODCAST_INDEX_DUPLICATE_MERGE_MODE=off` exits before the download. It does not assess or apply.
+`dry_run` records `detected` rows, then writes `verified` or `needs_review` and one
+`item_merge_map` row per stored episode. It does not move follows, queue rows, or clips, and it
+does not change lifecycle. `apply` does that assessment, then applies each `verified` row in its
+own transaction. A row that is already `applied`, `needs_review`, `rejected`, or `reverted` is
+left alone.
+
+When the surviving Podcast Index id has no Podverse feed, apply re-points the feed we already
+have. The feed URL and Podcast Index id move to the survivor, matched episode GUIDs and
+enclosure URLs are updated, and one parse of the new URL is enqueued. Channel and episode ids
+stay. When both feeds already have channels, apply absorbs the old channel into the survivor.
+Follows, notification rows, auto-download rows, queue progress, clips, and playlist rows move
+onto the survivor. An account that already follows the survivor keeps that one follow. The old
+feed's lifecycle becomes `merged`, which blocks further parses. The channel row stays.
+
+Every inserted, updated, or deleted row is written to `channel_merge_journal`.
+`revertChannelMerge` walks that journal backward. For an absorb it also sets the old feed's
+lifecycle back to `active`. A re-point revert restores the feed URL, Podcast Index id, and
+episode GUIDs. It does not remove episodes a later parse added.
+
+Pairs below the episode-match line stay `needs_review` and are not applied.
 
 Source files:
 
-- `packages/orm/src/services/deduplicator.ts`
-- `apps/workers/src/lib/deduplicator.ts`
 - `apps/workers/src/commands/podcastIndex/deadFeeds/flagAndMerge.ts`
+- `packages/external-services-podcast-index/src/deadFeedDuplicateChains.ts`
+- `packages/orm/src/services/channel/channelMerge.ts`
+- `packages/orm/src/services/channel/applyChannelMerge.ts`
 
 ## Known Special Cases
 

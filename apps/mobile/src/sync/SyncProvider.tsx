@@ -43,6 +43,7 @@ import {
 import { subscribeTermsBlocksAccountSync, termsBlocksAccountSync } from '../terms/termsSyncGate';
 import { publishPlaybackPositionAdoptions } from './playbackPositionAdoption';
 import { publishPlaybackReconcileConflicts } from './playbackReconcileConflict';
+import { registerAddByRssRefreshRequest } from './requestAddByRssRefresh';
 import { attachSyncEventLogSink } from './syncEventLogSink';
 import type { SyncTrigger } from './syncJobPlan';
 import { planSyncRun } from './syncJobPlan';
@@ -204,6 +205,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
     );
     startAutoDownloadCatchUpIfIdle();
   }, []);
+
+  useEffect(() => {
+    registerAddByRssRefreshRequest(() => {
+      requestSync('add-by-rss-pull-to-refresh');
+    });
+    return () => {
+      registerAddByRssRefreshRequest(null);
+    };
+  }, [requestSync]);
 
   // Signing out drops queued account work, the in-memory queue, and pending playback conflicts.
   // Those conflicts name queue ids the next account does not own.

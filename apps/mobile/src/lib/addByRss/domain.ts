@@ -291,6 +291,32 @@ export function mergeLocalAndRemoteAddByRssFeeds(
   return [...mergedRemote, ...localOnly];
 }
 
+/**
+ * A local row for a server follow this device does not have yet.
+ * Returns null when a row already exists, so a second refresh does not rewrite it.
+ */
+export function localFeedForServerFollow(
+  follow: { feed_url: string; image_url: string | null; title: string | null },
+  existing: MobileAddByRSSFeedRecord | null
+): MobileAddByRSSFeedRecord | null {
+  if (existing !== null) {
+    return null;
+  }
+  const idText = createAddByRSSIdText();
+  return {
+    enclosureUrl: null,
+    feedUrl: follow.feed_url,
+    id: createAddByRSSId(idText),
+    idText,
+    imageUrl: follow.image_url,
+    latestItemPubDateMs: null,
+    playbackPosition: null,
+    resourceType: 'podcasts',
+    title: follow.title ?? follow.feed_url,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function buildAddByRssFeedRecord(
   feedUrl: string,
   existingFeed: MobileAddByRSSFeedRecord | undefined,

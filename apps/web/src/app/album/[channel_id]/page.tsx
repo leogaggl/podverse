@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import type { DTOItem, SortPrefScope, SortPrefValue } from '@podverse/helpers';
@@ -12,6 +12,7 @@ import {
   QUERY_PARAMS_STATS_RANGE_VALUES,
 } from '@podverse/helpers-requests';
 
+import { loadChannelItemList } from '../../../lib/channel/loadChannelItemList';
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import { getChannelForSeoPage, getChannelHeroImageUrl } from '../../../lib/seo/fetchers';
 import { toSeoPlainText } from '../../../lib/seo/toSeoPlainText';
@@ -27,6 +28,7 @@ import {
   getStoredSortPref,
 } from '../../../utils/localSettings/localSettings';
 import { enforceCanonicalChannelRoute } from '../../../utils/redirect/enforceCanonicalMediumRoute';
+import { permanentRedirectIfMerged } from '../../../utils/redirect/permanentRedirectIfMerged';
 import { AlbumPageClient } from './AlbumPageClient';
 import type { AlbumPageDropdownConfigCurrentParams } from './AlbumPageDropdownConfig';
 import { getAlbumPageFilterParams } from './AlbumPageDropdownConfig';
@@ -54,9 +56,18 @@ export type AlbumPageProps = {
   params: Promise<{ channel_id: string }>;
 };
 
-export async function generateMetadata({ params }: AlbumPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: AlbumPageProps): Promise<Metadata> {
+  const { channel_id } = await params;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'album',
+    searchParams: await searchParams,
+  });
   try {
-    const { channel_id } = await params;
     const channel = await getChannelForSeoPage(channel_id);
     const descriptionPlain = truncateMetaDescription(
       toSeoPlainText(channel.channel_description?.value || channel.title)
@@ -86,6 +97,12 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
 export default async function AlbumPage({ params, searchParams }: AlbumPageProps) {
   const { channel_id } = await params;
   const queryParams = await searchParams;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'album',
+    searchParams: queryParams,
+  });
 
   const { ssrApiRequestService } = await getSSRAuthService();
 
@@ -107,15 +124,28 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     ssrChannel.id_text
   );
 
-  const responseItems = await ssrApiRequestService.reqItemGetManyByChannelBySeason({
-    idOrIdText: ssrChannel.id_text,
-    page: currentPage,
-    sort: currentSort,
-    range: currentRange,
-  });
-
-  const ssrItems = [...ssrItemsWithLiveItem, ...responseItems.data];
-  const ssrTotalPages = getCurrentTotalPages({ currentType, responseItems, currentPage });
+  const itemList = await loadChannelItemList(() =>
+    ssrApiRequestService.reqItemGetManyByChannelBySeason({
+      idOrIdText: ssrChannel.id_text,
+      page: currentPage,
+      sort: currentSort,
+      range: currentRange,
+    })
+  );
+  if (itemList.kind === 'missing') {
+    notFound();
+  }
+  const directoryRemoved = itemList.kind === 'archived';
+  const ssrItems =
+    itemList.kind === 'ok' ? [...ssrItemsWithLiveItem, ...itemList.response.data] : [];
+  const ssrTotalPages =
+    itemList.kind === 'ok'
+      ? getCurrentTotalPages({
+          currentType,
+          responseItems: itemList.response,
+          currentPage,
+        })
+      : 1;
 
   let ssrPodroll = null;
   if ((ssrChannel?.channel_podroll?.channel_podroll_remote_items?.length ?? 0) > 0) {
@@ -136,6 +166,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
       ssrItems={ssrItems}
       ssrTotalPages={ssrTotalPages}
       ssrPodroll={ssrPodroll}
+      directoryRemoved={directoryRemoved}
     />
   );
 }

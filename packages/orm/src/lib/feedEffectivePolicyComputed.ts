@@ -1,11 +1,12 @@
 /**
  * Pure feed effective-policy computation from condition keys + lifecycle guards (no DB).
- * Used by {@link FeedPolicyService} and parity tests (plan **07b**).
+ * Used by {@link FeedPolicyService} and the parity tests.
  */
 
 import { FeedConditionTypeKeyEnum } from '@orm/entities/feed/feedConditionType.js';
-import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleStateType.js';
+import type { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleStateType.js';
 import { FeedPolicyReasonEnum } from '@orm/entities/feed/feedPolicy.js';
+import { lifecycleStateBlocksParseAndVisibility } from '@orm/lib/feedLifecycleState.js';
 
 export type ComputedFeedEffectivePolicy = {
   parseAllowed: boolean;
@@ -84,16 +85,12 @@ export function computeEffectivePolicyFromConditionKeys(
   };
 }
 
-/** Management API / 05b / 01b: pending archive, archived, and takedown disallow parse/public/add. */
+/** Pending archive, archived, merged, and takedown disallow parse, public visibility, and add. */
 export function applyLifecycleConstraintsToComputedPolicy(
   lifecycleKey: FeedLifecycleStateKeyEnum,
   effective: ComputedFeedEffectivePolicy
 ): void {
-  if (
-    lifecycleKey === FeedLifecycleStateKeyEnum.PendingArchive ||
-    lifecycleKey === FeedLifecycleStateKeyEnum.Archived ||
-    lifecycleKey === FeedLifecycleStateKeyEnum.Takedown
-  ) {
+  if (lifecycleStateBlocksParseAndVisibility(lifecycleKey)) {
     effective.parseAllowed = false;
     effective.publicVisible = false;
     effective.addAllowed = false;
@@ -105,11 +102,7 @@ export function applyLifecycleConstraintsToEffectiveFlags(
   lifecycleKey: FeedLifecycleStateKeyEnum,
   flags: { parseAllowed: boolean; publicVisible: boolean; addAllowed: boolean }
 ): void {
-  if (
-    lifecycleKey === FeedLifecycleStateKeyEnum.PendingArchive ||
-    lifecycleKey === FeedLifecycleStateKeyEnum.Archived ||
-    lifecycleKey === FeedLifecycleStateKeyEnum.Takedown
-  ) {
+  if (lifecycleStateBlocksParseAndVisibility(lifecycleKey)) {
     flags.parseAllowed = false;
     flags.publicVisible = false;
     flags.addAllowed = false;

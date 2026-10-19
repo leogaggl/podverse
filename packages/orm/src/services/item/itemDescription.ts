@@ -5,6 +5,9 @@ import type { EntityManager } from 'typeorm';
 
 type ItemDescriptionDto = {
   value: string;
+  preview: string;
+  is_truncated: boolean;
+  source_length: number | null;
 };
 
 export class ItemDescriptionService extends BaseOneService<ItemDescription, 'item'> {
@@ -13,6 +16,24 @@ export class ItemDescriptionService extends BaseOneService<ItemDescription, 'ite
   }
 
   async update(item: Item, dto: ItemDescriptionDto): Promise<ItemDescription> {
-    return super._update(item, dto);
+    return super._update(item, dto, {
+      select: {
+        id: true,
+        value: true,
+        preview: true,
+        is_truncated: true,
+        source_length: true,
+      },
+    });
+  }
+
+  async getValueByParentId(itemId: number): Promise<string | null> {
+    const row = await this.repositoryRead
+      .createQueryBuilder('item_description')
+      .select('item_description.value', 'value')
+      .where('item_description.item_id = :itemId', { itemId })
+      .getRawOne<{ value: string }>();
+
+    return row?.value ?? null;
   }
 }

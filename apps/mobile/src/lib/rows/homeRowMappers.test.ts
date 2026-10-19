@@ -5,6 +5,7 @@ import type { DTOPlaylistResource, DTOQueueResource } from '@podverse/helpers/dt
 import { safeJsonParse } from '../../data/db/serialization';
 import type { ItemHomeRowSource } from './homeRowMappers';
 import {
+  clipHomeRowSourceFromUnknown,
   clipListTimeRangeLabel,
   clipToHomeRow,
   playlistResourceToHomeRow,
@@ -86,6 +87,30 @@ describe('queueResourceToHomeRow', () => {
     expect(row?.subtitle).toBe('Test channel');
     expect(row?.mediaType).toBe('episodes');
     expect(row?.description).toBe('Example description');
+  });
+
+  it('reads the stored preview, and still derives a snippet from a payload with only value', () => {
+    const withPreview = queueResourceToHomeRow(
+      buildResource({
+        item: buildItem({
+          item_description: {
+            is_truncated: true,
+            preview: 'Stored preview text',
+            value: '<h2>Heading</h2><p>Full notes body</p>',
+          },
+        }),
+      }),
+      'queue'
+    );
+    const legacyPayload = queueResourceToHomeRow(
+      buildResource({
+        item: buildItem({ item_description: { value: '<p>Notes from an older payload</p>' } }),
+      }),
+      'queue'
+    );
+
+    expect(withPreview?.description).toBe('Stored preview text');
+    expect(legacyPayload?.description).toBe('Notes from an older payload');
   });
 
   it('maps clip resources that only carry clip.item on queue screens', () => {
@@ -272,6 +297,56 @@ describe('clipToHomeRow', () => {
     expect(row.description).toBeNull();
     expect(row.imageUrl).toBeNull();
   });
+
+  it('shows snapshot titles for a removed clip and does not mark it playable', () => {
+    const row = clipToHomeRow(
+      {
+        id_text: 'clip-removed',
+        removed_source: {
+          channel_title: 'E2E Removed Show',
+          item_title: 'E2E Removed Episode',
+          kind: 'item',
+          pub_date: null,
+          soundbite_title: null,
+        },
+        source_removed_at: '2026-01-02T00:00:00.000Z',
+        title: 'E2E Removed Clip',
+      },
+      { showChannelInfo: true, showItemInfo: true }
+    );
+
+    expect(row.title).toBe('E2E Removed Clip');
+    expect(row.subtitle).toBe('E2E Removed Episode • E2E Removed Show');
+    expect(row.imageUrl).toBeNull();
+    expect(row.playable).toBe(false);
+    expect(row.removed).toBe(true);
+  });
+
+  it('keeps a cached clip that omits removed fields on the existing item path', () => {
+    const source = clipHomeRowSourceFromUnknown({
+      end_time: '2',
+      id_text: 'clip-old',
+      item: {
+        channel: { title: 'Show' },
+        id_text: 'item-1',
+        item_images: [],
+        title: 'Episode',
+      },
+      start_time: '1',
+      title: 'Old clip',
+    });
+
+    expect(source).not.toBeNull();
+    if (source === null) {
+      return;
+    }
+    expect(source.source_removed_at).toBeUndefined();
+    const row = clipToHomeRow(source, { showChannelInfo: true, showItemInfo: true });
+    expect(row.title).toBe('Old clip');
+    expect(row.subtitle).toBe('Show • Episode');
+    expect(row.removed).toBeUndefined();
+    expect(row.playable).toBeUndefined();
+  });
 });
 
 describe('playlistResourceToHomeRow', () => {
@@ -370,6 +445,54 @@ describe('playlistResourceToHomeRow', () => {
     expect(row?.id).toBe('add-by-rss-5');
     expect(row?.title).toBe('Private Add-by-RSS Item');
     expect(row?.imageUrl).toBeNull();
+  });
+
+  it('keeps a removed item entry with its snapshot title and the removed label slot', () => {
+    const row = playlistResourceToHomeRow(
+      buildPlaylistResource({
+        id: 9,
+        item: null,
+        item_id: null,
+        removed_source: {
+          channel_title: 'Gone show',
+          item_title: 'Gone episode',
+          kind: 'item',
+          pub_date: null,
+          soundbite_title: null,
+        },
+        source_removed_at: '2026-01-02T00:00:00.000Z',
+      }),
+      { playlistEntryRemovedLabel: 'This item was removed from Podverse Next.' }
+    );
+
+    expect(row).not.toBeNull();
+    expect(row?.title).toBe('Gone episode');
+    expect(row?.subtitle).toBe('Gone show');
+    expect(row?.imageUrl).toBeNull();
+    expect(row?.playable).toBe(false);
+    expect(row?.removed).toBe(true);
+  });
+
+  it('uses the removed-entry label when a removed row has no snapshot title', () => {
+    const row = playlistResourceToHomeRow(
+      buildPlaylistResource({
+        id: 10,
+        item: null,
+        item_id: null,
+        removed_source: {
+          channel_title: null,
+          item_title: null,
+          kind: 'soundbite',
+          pub_date: null,
+          soundbite_title: null,
+        },
+        source_removed_at: '2026-01-02T00:00:00.000Z',
+      }),
+      { playlistEntryRemovedLabel: 'This item was removed from Podverse Next.' }
+    );
+
+    expect(row?.title).toBe('This item was removed from Podverse Next.');
+    expect(row?.playable).toBe(false);
   });
 
   it('returns null for unusable resources', () => {

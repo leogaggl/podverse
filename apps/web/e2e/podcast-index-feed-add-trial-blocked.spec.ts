@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+import { setE2eAccountTrial } from './helpers/setE2eAccountTrial';
 import { capturePageLoad } from './helpers/stepScreenshots';
 
 test.describe('Podcast Index add feed when directory add is blocked for Trial', () => {
   test.beforeEach(async ({ page }) => {
+    await setE2eAccountTrial();
     await page.route('**/mq/rss/add/on-demand', async (route) => {
       if (route.request().method() !== 'POST') {
         await route.continue();

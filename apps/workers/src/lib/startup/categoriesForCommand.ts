@@ -31,6 +31,7 @@ const BASE_ORM_COMMANDS = [
   'billingImportLegacyMembershipExpiry',
   'billingProcessorProductAdd',
   'notificationsPlatformPurge',
+  'accountContentLogPurge',
   'archiveAll',
   'devSeedLocalUserContent',
   'devStatsSeedSimulatedAggregated',
@@ -38,12 +39,11 @@ const BASE_ORM_COMMANDS = [
   'statsUpdateAggregatedRolling',
   'generateOnDemandParserEventReports',
   'deleteOutdatedOnDemandParserEvent',
-  'scheduledJobsRunDue',
+  'ormDescriptionsBackfill',
+  'ormArchivedSlimReport',
 ] as const;
 
 const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;
-
-const BASE_ONLY_COMMANDS = ['podcastIndexDeadFeedsDeleteCache'] as const;
 
 const BASE_PODCAST_INDEX_COMMANDS = [
   'podcastIndexTrendingPodcastsGet',
@@ -74,8 +74,10 @@ const BASE_ORM_IMAGE_SHRINK_COMMANDS = [
   'imageShrinkSourcePrune',
 ] as const;
 
+/** `scheduledJobsRunDue` is here because the feed-force-reparse job parses a feed. */
 const BASE_ORM_PARSER_PODCAST_INDEX_COMMANDS = [
   'parserRSSParseFeed',
+  'scheduledJobsRunDue',
   'devParserRSSParseArtistPublisherFeeds',
   'devParserRSSParseMusicMediumFeeds',
   'devParserRSSParsePodcasting20Feeds',
@@ -112,10 +114,6 @@ export function getCategoriesForCommand(commandName: string): Set<ConfigCategory
   ) {
     categories.add(CATEGORY_ORM);
     categories.add(CATEGORY_BILLING);
-    return categories;
-  }
-
-  if (BASE_ONLY_COMMANDS.includes(commandName as (typeof BASE_ONLY_COMMANDS)[number])) {
     return categories;
   }
 

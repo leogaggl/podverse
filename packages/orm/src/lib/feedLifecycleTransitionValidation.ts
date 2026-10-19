@@ -5,11 +5,16 @@
  * - `active` → `takedown`
  * - `pending_archive` → `takedown`
  * - `archived` → `takedown`
+ * - `active` → `merged`
+ * - `pending_archive` → `merged`
+ * - `archived` → `merged`
+ * - `merged` → `takedown`
  * - `takedown` → `active` **only** with operator un-takedown path (`operatorUntakedown`)
  *
  * Disallowed without **`explicitManagementOverride`**:
  * - `archived` → `active`
  * - `takedown` → `pending_archive`
+ * - `merged` → `active`
  *
  * Callers must persist **source** (`parser` | `archiver` | `admin` | `system`) and **note** on
  * `feed_lifecycle_event` rows when applying transitions (not enforced here).
@@ -20,7 +25,7 @@ import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleState
 export type LifecycleTransitionValidationOptions = {
   /**
    * Allows normally forbidden transitions:
-   * `archived`→`active`, `takedown`→`pending_archive`.
+   * `archived`→`active`, `takedown`→`pending_archive`, `merged`→`active`.
    */
   explicitManagementOverride?: boolean;
   /** Required for `takedown`→`active` (operator un-takedown). */
@@ -35,6 +40,10 @@ const BASE_ALLOWED_TRANSITIONS: ReadonlyArray<
   [FeedLifecycleStateKeyEnum.Active, FeedLifecycleStateKeyEnum.Takedown],
   [FeedLifecycleStateKeyEnum.PendingArchive, FeedLifecycleStateKeyEnum.Takedown],
   [FeedLifecycleStateKeyEnum.Archived, FeedLifecycleStateKeyEnum.Takedown],
+  [FeedLifecycleStateKeyEnum.Active, FeedLifecycleStateKeyEnum.Merged],
+  [FeedLifecycleStateKeyEnum.PendingArchive, FeedLifecycleStateKeyEnum.Merged],
+  [FeedLifecycleStateKeyEnum.Archived, FeedLifecycleStateKeyEnum.Merged],
+  [FeedLifecycleStateKeyEnum.Merged, FeedLifecycleStateKeyEnum.Takedown],
 ];
 
 export function isLifecycleTransitionAllowed(
@@ -58,6 +67,10 @@ export function isLifecycleTransitionAllowed(
     from === FeedLifecycleStateKeyEnum.Takedown &&
     to === FeedLifecycleStateKeyEnum.PendingArchive
   ) {
+    return options?.explicitManagementOverride === true;
+  }
+
+  if (from === FeedLifecycleStateKeyEnum.Merged && to === FeedLifecycleStateKeyEnum.Active) {
     return options?.explicitManagementOverride === true;
   }
 

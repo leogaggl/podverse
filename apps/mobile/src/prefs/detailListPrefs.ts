@@ -29,9 +29,9 @@ import { readSortPref, writeSortPref } from './sortPrefs';
  * Which pane of a podcast can show.
  *
  * Always-on panes come first in the available set; evidence panes (Official clips, Podroll) and
- * Funding follow. Settings (signed-in) is the last section chip — only the optional trailing
- * sort / category filter chip may sit after it. A selected evidence pane is still subject to what
- * this channel actually carries — the caller reconciles that.
+ * Funding follow. Channel settings are the gear on the channel header, not a chip. Only the
+ * optional trailing sort / category filter chip may sit after the last content chip. A selected
+ * evidence pane is still subject to what this channel actually carries — the caller reconciles that.
  */
 export const PODCAST_TABS = [
   'episodes',
@@ -42,7 +42,6 @@ export const PODCAST_TABS = [
   'podroll',
   'funding',
   'people',
-  'settings',
 ] as const;
 
 export type PodcastTab = (typeof PODCAST_TABS)[number];
@@ -83,7 +82,7 @@ export type AddByRssEpisodeSort = (typeof ADD_BY_RSS_EPISODE_SORT_OPTIONS)[numbe
 
 export const DEFAULT_ADD_BY_RSS_EPISODE_SORT: AddByRssEpisodeSort = 'recent';
 
-export const ALBUM_TABS = ['tracks', 'about', 'podroll', 'funding', 'people', 'settings'] as const;
+export const ALBUM_TABS = ['tracks', 'about', 'podroll', 'funding', 'people'] as const;
 
 export type AlbumTab = (typeof ALBUM_TABS)[number];
 
@@ -104,15 +103,7 @@ export type AlbumDetailRange = QueryParamsStatsRange;
 
 export const DEFAULT_ALBUM_DETAIL_RANGE: AlbumDetailRange = 'week';
 
-export const ARTIST_TABS = [
-  'albums',
-  'tracks',
-  'about',
-  'podroll',
-  'funding',
-  'people',
-  'settings',
-] as const;
+export const ARTIST_TABS = ['albums', 'tracks', 'about', 'podroll', 'funding', 'people'] as const;
 
 export type ArtistTab = (typeof ARTIST_TABS)[number];
 

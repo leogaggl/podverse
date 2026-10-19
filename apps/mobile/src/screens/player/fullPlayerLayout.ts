@@ -57,7 +57,7 @@ export type FullPlayerViewport = {
  */
 export const FULL_PLAYER_SEGMENT_BAND_HEIGHT = 64;
 /** Episode title + channel title share one band with a tight internal gap. */
-export const FULL_PLAYER_TITLE_BLOCK_HEIGHT = 60;
+export const FULL_PLAYER_TITLE_BLOCK_HEIGHT = 56;
 export const FULL_PLAYER_PROGRESS_BLOCK_HEIGHT = 56;
 export const FULL_PLAYER_TRANSPORT_ROW_HEIGHT = 72;
 export const FULL_PLAYER_UTILITY_ROW_HEIGHT = 48;
@@ -66,7 +66,7 @@ export const FULL_PLAYER_UTILITY_ROW_HEIGHT = 48;
  * Default seam between bands in the fixed region (title, artwork, segment, progress). The region
  * styles read this constant so the space the math reserves is the space the bands actually get.
  */
-export const FULL_PLAYER_REGION_GAP = 16;
+export const FULL_PLAYER_REGION_GAP = 12;
 /**
  * Tighter seams between progress → transport and transport → utility, matching web's modal
  * progress-to-controls spacing.

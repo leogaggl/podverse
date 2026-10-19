@@ -28,6 +28,7 @@ import { clipListTimeRangeLabel } from '../../lib/rows/homeRowMappers';
 import { usePlaybackRow } from '../../playback/PlaybackProvider';
 import {
   LIST_ROW_ARTWORK_SIZE,
+  LIST_ROW_SHOW_VERTICAL_INSET,
   listRowArtworkGap,
   listRowVerticalPadding,
 } from '../../theme/screenLayout';
@@ -127,6 +128,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       justifyContent: 'center',
       minWidth: 0,
     },
+    showIdentityText: {
+      gap: tokens.spacing.xs,
+    },
     liveBadge: {
       alignSelf: 'center',
     },
@@ -152,6 +156,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       minWidth: 0,
       ...listRowVerticalPadding(tokens.spacing.lg),
     },
+    showRowBody: {
+      ...listRowVerticalPadding(LIST_ROW_SHOW_VERTICAL_INSET),
+    },
     unseenRail: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -171,6 +178,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     },
     showFooterReserve: {
       height: 20,
+    },
+    showTitle: {
+      fontWeight: '400',
     },
     title: {
       ...typography.subheading,
@@ -300,7 +310,7 @@ const useClipRangeLabel = (row: HomeFeedRowData): string | null => {
       return row.durationLabel;
     }
     return clipListTimeRangeLabel(row.clipStartTime, row.clipEndTime, (timeStart, timeEnd) =>
-      t('info.time.start_end', { timeEnd, timeStart })
+      t('features.clip.clip_time_range', { hhmmssEnd: timeEnd, hhmmssStart: timeStart })
     );
   }, [row.clipEndTime, row.clipStartTime, row.durationLabel, t]);
 };
@@ -343,7 +353,8 @@ export const HomeFeedRow = memo(function HomeFeedRow({
   }, []);
   perfCount('home.row.render');
   const styles = useThemedStyles(createStyles);
-  const isPlayable = isPlayableDirectoryMediaType(mediaType);
+  const isPlayable = row.playable !== false && isPlayableDirectoryMediaType(mediaType);
+  const removedLabel = row.removed === true ? t('info.removed.content_removed') : null;
   const showInlineTrackMore = customActions === undefined && mediaType === 'tracks';
   const { liveLabel, unseenSpoken } = useMetadataAnnouncements(row.metadata);
   const unseenBadge = row.metadata?.unseenBadge ?? null;
@@ -373,6 +384,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       ? row.description
       : null;
   const isChannelList = isChannelListMediaType(mediaType);
+  const showArtwork = showChannelContext && row.removed !== true;
   const contextLineVisible = showContextLine ?? showChannelContext;
   const channelLabel =
     !isChannelList && contextLineVisible && row.subtitle !== null && row.subtitle.length > 0
@@ -387,7 +399,6 @@ export const HomeFeedRow = memo(function HomeFeedRow({
     channelFooter?.kind === 'count' || channelFooter?.kind === 'author'
       ? channelFooter.label
       : null;
-  const showArtwork = showChannelContext;
 
   const moreActions = useMemo(() => {
     const standardActions = buildMediaRowMoreActions(
@@ -498,7 +509,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       accessibilityLabel={[
         ...(isChannelList
           ? [updatedLabel, row.title, footerLabel]
-          : [channelLabel, row.title, updatedLabel]),
+          : [channelLabel, removedLabel, row.title, updatedLabel]),
         description,
         durationLabel,
         liveLabel,
@@ -513,7 +524,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       style={[styles.row, style]}
       testID={testID ?? `home-feed-row-${row.id}`}
     >
-      <View style={styles.rowBody}>
+      <View style={[styles.rowBody, isChannelList ? styles.showRowBody : null]}>
         <View style={styles.identityRow}>
           {showArtwork ? (
             <View style={styles.artworkWrap}>
@@ -535,7 +546,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
               ) : null}
             </View>
           ) : null}
-          <View style={styles.identityText}>
+          <View style={[styles.identityText, isChannelList ? styles.showIdentityText : null]}>
             {isChannelList ? dateLine(styles.showDate) : null}
             {channelLabel !== null ? (
               <Text
@@ -546,7 +557,20 @@ export const HomeFeedRow = memo(function HomeFeedRow({
                 {channelLabel}
               </Text>
             ) : null}
-            <Text numberOfLines={2} style={styles.title} testID={`home-feed-row-title-${row.id}`}>
+            {removedLabel !== null ? (
+              <Text
+                numberOfLines={1}
+                style={styles.channelTitle}
+                testID={`home-feed-row-removed-${row.id}`}
+              >
+                {removedLabel}
+              </Text>
+            ) : null}
+            <Text
+              numberOfLines={2}
+              style={[styles.title, isChannelList ? styles.showTitle : null]}
+              testID={`home-feed-row-title-${row.id}`}
+            >
               {row.title}
             </Text>
             {isChannelList ? null : dateLine(styles.date)}

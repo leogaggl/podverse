@@ -1,14 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+import { setE2eAccountTrial } from './helpers/setE2eAccountTrial';
 import { capturePageLoad } from './helpers/stepScreenshots';
 
 // A logged-in Trial member attempting a member-only action (here: creating a playlist) must see
 // the shared membership modal (Cancel + Buy Membership) instead of a generic error. The 403 is
 // mocked with the real membership-expired payload (i18nKey + renewPath) that
-// `parseMembershipGateError` interprets. The seeded account is Trial, so the button is Buy
-// Membership even though the payload says the membership expired.
+// `parseMembershipGateError` interprets. Buy Membership is the Trial purchase label.
 test.describe('Membership gate on member-only actions', () => {
   test.beforeEach(async ({ page }) => {
+    await setE2eAccountTrial();
     await page.route('**/playlist', async (route) => {
       if (route.request().method() !== 'POST') {
         await route.continue();

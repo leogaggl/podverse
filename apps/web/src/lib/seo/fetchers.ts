@@ -1,6 +1,6 @@
 import { cache } from 'react';
 
-import type { PodcastByIdFeed } from '@podverse/helpers';
+import type { DTOItem, PodcastByIdFeed } from '@podverse/helpers';
 import {
   findDTOChannelImageForHero,
   mergeDTOItemThenChannelImageHeroCandidates,
@@ -22,6 +22,14 @@ export const getItemForSeoPage = cache(async (idOrIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
   return ssrApiRequestService.reqItemGetByIdOrIdText(idOrIdText);
 });
+
+/** Prefer the channel carried on an unmatched episode whose show was absorbed. */
+export const getChannelForItemPage = async (item: DTOItem) => {
+  if (item.channel) {
+    return item.channel;
+  }
+  return getChannelForSeoPage(item.channel_id);
+};
 
 export const getPodcastIndexFeedForSeoPage = cache(async (podcastIndexId: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();

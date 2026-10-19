@@ -9,6 +9,7 @@ import type { DTOPlaylist, DTOPlaylistResource } from '@podverse/helpers';
 import {
   getQueueForMedium,
   getQueueMediumIdForChannelMediumId,
+  isRemovedSource,
   MediumEnum,
 } from '@podverse/helpers';
 import type { MoreButtonMenuItem } from '@podverse/ui';
@@ -16,6 +17,7 @@ import { Button, ImagesPerView, MoreButton } from '@podverse/ui';
 
 import { IMAGES } from '../../../constants/images';
 import { useAccount } from '../../../contexts/Account';
+import { useConfig } from '../../../contexts/Config';
 import { useModals } from '../../../contexts/Modals';
 import { useQueues } from '../../../contexts/Queue';
 import { getApiRequestService } from '../../../factories/apiRequestService';
@@ -338,6 +340,25 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
     );
   }
 
+  if (clip && isRemovedSource(clip)) {
+    return (
+      <ListClipRow
+        channel={clip.item?.channel ?? null}
+        item={clip.item ?? null}
+        clip={clip}
+        showChannelInfo
+        showItemInfo
+        isEditModePlaylist={isEditModePlaylist}
+        removeFromPlaylist={removeFromPlaylist}
+        playlist_id_text={playlist.id_text}
+      />
+    );
+  }
+
+  if (isRemovedSource(playlistResource)) {
+    return <RemovedPlaylistEntryRow playlistResource={playlistResource} />;
+  }
+
   if (item) {
     const channel = item.channel;
 
@@ -409,3 +430,46 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
 
   return null;
 };
+
+function nonEmptyTitle(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function RemovedPlaylistEntryRow({ playlistResource }: { playlistResource: DTOPlaylistResource }) {
+  const tInfo = useTranslations('info');
+  const config = useConfig();
+  const source = playlistResource.removed_source;
+  const fallback = tInfo('removed.playlist_entry_removed', {
+    brand_name: config.public.brand.name,
+  });
+  const primary = nonEmptyTitle(source?.item_title)
+    ? source.item_title
+    : nonEmptyTitle(source?.soundbite_title)
+      ? source.soundbite_title
+      : fallback;
+  const channelTitle = nonEmptyTitle(source?.channel_title) ? source.channel_title : null;
+
+  return (
+    <div className={styles.row} data-removed-source="true">
+      <ImagesPerView
+        candidates={[]}
+        alt={primary}
+        widthDesktop={IMAGES.LIST.EPISODES.DESKTOP.SIZE}
+        heightDesktop={IMAGES.LIST.EPISODES.DESKTOP.SIZE}
+        widthMobile={IMAGES.LIST.EPISODES.MOBILE.SIZE}
+        heightMobile={IMAGES.LIST.EPISODES.MOBILE.SIZE}
+        classNameDesktop={styles.image}
+        classNameMobile={styles.imageMobile}
+      />
+      <div className={styles.content}>
+        <div className={styles.topSection}>
+          <h3 className={styles.trackTitle}>{primary}</h3>
+          {channelTitle ? <div className={styles.channelTitle}>{channelTitle}</div> : null}
+        </div>
+        <div className={styles.bottomSection}>
+          <div className={styles.timeSection}>{tInfo('removed.content_removed')}</div>
+        </div>
+      </div>
+    </div>
+  );
+}

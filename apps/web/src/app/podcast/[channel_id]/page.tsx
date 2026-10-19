@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import type {
@@ -18,6 +18,7 @@ import {
   QUERY_PARAMS_STATS_RANGE_VALUES,
 } from '@podverse/helpers-requests';
 
+import { loadChannelItemList } from '../../../lib/channel/loadChannelItemList';
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import { buildNoindexMetadata } from '../../../lib/seo/buildNoindexMetadata';
 import { getChannelForSeoPage, getChannelHeroImageUrl } from '../../../lib/seo/fetchers';
@@ -34,6 +35,7 @@ import {
   getStoredSortPref,
 } from '../../../utils/localSettings/localSettings';
 import { enforceCanonicalChannelRoute } from '../../../utils/redirect/enforceCanonicalMediumRoute';
+import { permanentRedirectIfMerged } from '../../../utils/redirect/permanentRedirectIfMerged';
 import { PodcastPageClient } from './PodcastPageClient';
 import type { PodcastPageDropdownConfigCurrentParams } from './PodcastPageDropdownConfig';
 import { getPodcastPageFilterParams } from './PodcastPageDropdownConfig';
@@ -61,9 +63,18 @@ export type PodcastPageProps = {
   params: Promise<{ channel_id: string }>;
 };
 
-export async function generateMetadata({ params }: PodcastPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: PodcastPageProps): Promise<Metadata> {
+  const { channel_id } = await params;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'podcast',
+    searchParams: await searchParams,
+  });
   try {
-    const { channel_id } = await params;
     const channel = await getChannelForSeoPage(channel_id);
     const descriptionPlain = truncateMetaDescription(
       toSeoPlainText(channel.channel_description?.value || channel.title)
@@ -93,6 +104,12 @@ export async function generateMetadata({ params }: PodcastPageProps): Promise<Me
 export default async function PodcastPage({ params, searchParams }: PodcastPageProps) {
   const { channel_id } = await params;
   const queryParams = await searchParams;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'podcast',
+    searchParams: queryParams,
+  });
 
   const { ssrApiRequestService } = await getSSRAuthService();
 
@@ -128,22 +145,34 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
     ssrChannel.id_text
   );
 
-  if (currentType === 'clips') {
+  const itemList = await loadChannelItemList(() =>
+    ssrApiRequestService.reqItemGetManyByChannel({
+      idOrIdText: ssrChannel.id_text,
+      page: currentPage,
+      sort: currentSort,
+      range: currentRange,
+    })
+  );
+  const directoryRemoved = itemList.kind === 'archived';
+
+  if (itemList.kind === 'archived') {
+    ssrItems = [];
+    ssrTotalPages = 1;
+  } else if (currentType === 'clips') {
     ssrClips = [];
   } else if (currentType === 'boosts') {
     ssrTotalPages = 1;
   } else if (currentType === 'soundbites' && currentSort !== 'top') {
     ssrTotalPages = getCurrentTotalPages({ currentType, responseItemSoundbites, currentPage });
+  } else if (itemList.kind === 'missing') {
+    notFound();
   } else {
-    const responseItems = await ssrApiRequestService.reqItemGetManyByChannel({
-      idOrIdText: ssrChannel.id_text,
-      page: currentPage,
-      sort: currentSort,
-      range: currentRange,
+    ssrItems = [...ssrItemsWithLiveItem, ...itemList.response.data];
+    ssrTotalPages = getCurrentTotalPages({
+      currentType,
+      responseItems: itemList.response,
+      currentPage,
     });
-
-    ssrItems = [...ssrItemsWithLiveItem, ...responseItems.data];
-    ssrTotalPages = getCurrentTotalPages({ currentType, responseItems, currentPage });
   }
 
   let ssrPodroll = null;
@@ -168,6 +197,7 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
       ssrHasItemSoundbites={ssrHasItemSoundbites}
       ssrTotalPages={ssrTotalPages}
       ssrPodroll={ssrPodroll}
+      directoryRemoved={directoryRemoved}
     />
   );
 }

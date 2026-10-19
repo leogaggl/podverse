@@ -2,12 +2,29 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CHANNEL_HEADER_SETTINGS_ICON_SIZE } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { CoverImage } from '../primitives';
+import { HeaderBarAction } from '../screen/HeaderBarAction';
 
 /** Square art beside the title. Shared by the style and the iOS thumbnail decode edge. */
 const CHANNEL_HEADER_ARTWORK_EDGE = 78;
+
+/**
+ * Heading size at a shorter line height. Two lines are 44pt, and the subscribe control is about
+ * 26pt, so both fit in the artwork with a gap between them. The font size stays the heading size.
+ */
+const CHANNEL_HEADER_TITLE_LINE_HEIGHT = 22;
+
+const CHANNEL_HEADER_TITLE_MAX_LINES = 2;
+
+type ChannelHeaderSettings = {
+  accessibilityLabel: string;
+  onPress: () => void;
+  selected: boolean;
+  testID: string;
+};
 
 export type ChannelHeaderProps = {
   /** List-size artwork. Missing art uses the shared headphone placeholder. */
@@ -16,7 +33,7 @@ export type ChannelHeaderProps = {
   description?: string | null;
   /** Lines of description before truncation. */
   descriptionLines?: number;
-  /** Renders under the title — typically subscribe. RSS and website live on About. */
+  /** Renders in the action row — typically subscribe. RSS and website live on About. */
   actions?: ReactNode;
   /** Already-localized status text under the actions, e.g. a failed follow. */
   notice?: string | null;
@@ -24,25 +41,165 @@ export type ChannelHeaderProps = {
   subtitle?: string | null;
   /** Opens the linked channel when the title is pressed. */
   onTitlePress?: () => void;
+  /**
+   * Gear at the top right of the title row. Podcast, album, and artist use it for channel
+   * settings. Omit it on item headers.
+   */
+  settings?: ChannelHeaderSettings;
   testID?: string;
   title: string;
   /** Largest original for the full-screen viewer. Defaults to `artworkUri`. */
   viewerUri?: string | null;
 };
 
+type ChannelHeaderTitleRowProps = {
+  onTitlePress?: () => void;
+  settings?: ChannelHeaderSettings;
+  subtitle?: string | null;
+  title: string;
+  titleLines: number;
+};
+
 /**
- * Identity block at the top of a channel: art beside the title and subscribe control.
+ * Title row: the name, then the settings gear. The name ellipsizes after `titleLines` and stops
+ * short of the gear. A subtitle sits under the name in this same group.
+ */
+function ChannelHeaderTitleRow({
+  onTitlePress,
+  settings,
+  subtitle,
+  title,
+  titleLines,
+}: ChannelHeaderTitleRowProps) {
+  const { styles: themeStyles, tokens } = useTheme();
+  const hasSubtitle = (subtitle ?? '').length > 0;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        gear: {
+          flexShrink: 0,
+        },
+        group: {
+          gap: tokens.spacing.xs,
+          minWidth: 0,
+        },
+        subtitle: {
+          ...typography.label,
+          color: themeStyles.textSecondary.color,
+        },
+        title: {
+          ...typography.heading,
+          color: themeStyles.textPrimary.color,
+          includeFontPadding: false,
+          lineHeight: CHANNEL_HEADER_TITLE_LINE_HEIGHT,
+        },
+        titleFlex: {
+          flex: 1,
+          minWidth: 0,
+        },
+        titlePress: {
+          alignSelf: 'stretch',
+        },
+        titleRow: {
+          alignItems: 'flex-start',
+          flexDirection: 'row',
+          gap: tokens.spacing.md,
+        },
+      }),
+    [themeStyles, tokens]
+  );
+
+  const titleText = (
+    <Text
+      accessibilityElementsHidden={onTitlePress !== undefined}
+      accessibilityRole={onTitlePress !== undefined ? undefined : 'header'}
+      ellipsizeMode="tail"
+      importantForAccessibility={onTitlePress !== undefined ? 'no' : undefined}
+      numberOfLines={titleLines}
+      style={styles.title}
+    >
+      {title}
+    </Text>
+  );
+
+  return (
+    <View style={styles.group}>
+      <View style={styles.titleRow}>
+        <View style={styles.titleFlex}>
+          {onTitlePress !== undefined ? (
+            <Pressable
+              accessibilityLabel={title}
+              accessibilityRole="link"
+              onPress={onTitlePress}
+              style={styles.titlePress}
+            >
+              {titleText}
+            </Pressable>
+          ) : (
+            titleText
+          )}
+        </View>
+        {settings !== undefined ? (
+          <View style={styles.gear}>
+            <HeaderBarAction
+              accessibilityLabel={settings.accessibilityLabel}
+              icon={settings.selected ? 'settings' : 'settings-outline'}
+              iconSize={CHANNEL_HEADER_SETTINGS_ICON_SIZE}
+              layout="inline"
+              onPress={settings.onPress}
+              selected={settings.selected}
+              testID={settings.testID}
+            />
+          </View>
+        ) : null}
+      </View>
+      {hasSubtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * Action row under the title. Subscribe is the first control. A sibling passed beside it sits on
+ * the right with the same gap.
+ */
+function ChannelHeaderActionRow({ children }: { children: ReactNode }) {
+  const { tokens } = useTheme();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        row: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          flexShrink: 0,
+          gap: tokens.spacing.md,
+        },
+      }),
+    [tokens]
+  );
+
+  return <View style={styles.row}>{children}</View>;
+}
+
+/**
+ * Identity block at the top of a channel: art beside a title row and an action row.
  *
- * Art stays square and opens the viewer on its own. The title column sits to the right so the
+ * Art stays square and opens the viewer on its own. The text column sits to the right so the
  * episode list — the reason the screen was opened — stays closer to the top of the page than a
  * stacked 120px cover would allow.
+ *
+ * When `actions` is set, the column is the artwork's height. The title row stays at the top and
+ * the action row stays on the bottom edge, so a one-line title and a two-line title keep
+ * subscribe in the same place. A subtitle shares the title row's height, and the title is then
+ * one line, so the action row still lands on that edge.
  *
  * Description is optional. Podcast detail leaves it off because About already holds the full text;
  * other mediums may still pass a short clip when they have no About section yet.
  *
  * Unboxed on purpose: the gutter comes from the host (pinned chrome or a list), so the block reads
  * as the top of the page rather than as a card sitting on it, and the stack title above it is the
- * only chrome.
+ * only chrome. When `settings` is set, the gear sits at the top right of the title row.
  */
 export function ChannelHeader({
   actions,
@@ -51,6 +208,7 @@ export function ChannelHeader({
   descriptionLines = 4,
   notice,
   onTitlePress,
+  settings,
   subtitle,
   testID,
   title,
@@ -61,10 +219,6 @@ export function ChannelHeader({
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        actions: {
-          alignItems: 'flex-start',
-          marginTop: tokens.spacing.md,
-        },
         artwork: {
           height: CHANNEL_HEADER_ARTWORK_EDGE,
           width: CHANNEL_HEADER_ARTWORK_EDGE,
@@ -85,18 +239,13 @@ export function ChannelHeader({
           // Wider than list-row art→text so the 78px header mark breathes beside the title stack.
           gap: tokens.spacing.lg,
         },
-        subtitle: {
-          ...typography.label,
-          color: themeStyles.textSecondary.color,
-          marginTop: tokens.spacing.xs,
-        },
         textColumn: {
           flex: 1,
           minWidth: 0,
         },
-        title: {
-          ...typography.heading,
-          color: themeStyles.textPrimary.color,
+        textColumnLocked: {
+          height: CHANNEL_HEADER_ARTWORK_EDGE,
+          justifyContent: 'space-between',
         },
       }),
     [themeStyles, tokens]
@@ -105,6 +254,8 @@ export function ChannelHeader({
   const hasDescription = (description ?? '').length > 0;
   const hasSubtitle = (subtitle ?? '').length > 0;
   const hasNotice = (notice ?? '').length > 0;
+  const hasActions = actions !== undefined && actions !== null;
+  const titleLines = hasActions && hasSubtitle ? 1 : CHANNEL_HEADER_TITLE_MAX_LINES;
 
   return (
     <View testID={testID}>
@@ -116,27 +267,15 @@ export function ChannelHeader({
           uri={artworkUri}
           viewerUri={viewerUri}
         />
-        <View style={styles.textColumn}>
-          {onTitlePress !== undefined ? (
-            <Pressable accessibilityLabel={title} accessibilityRole="link" onPress={onTitlePress}>
-              <Text
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-                numberOfLines={2}
-                style={styles.title}
-              >
-                {title}
-              </Text>
-            </Pressable>
-          ) : (
-            <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
-              {title}
-            </Text>
-          )}
-          {hasSubtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-          {actions !== undefined && actions !== null ? (
-            <View style={styles.actions}>{actions}</View>
-          ) : null}
+        <View style={hasActions ? [styles.textColumn, styles.textColumnLocked] : styles.textColumn}>
+          <ChannelHeaderTitleRow
+            onTitlePress={onTitlePress}
+            settings={settings}
+            subtitle={hasSubtitle ? subtitle : null}
+            title={title}
+            titleLines={titleLines}
+          />
+          {hasActions ? <ChannelHeaderActionRow>{actions}</ChannelHeaderActionRow> : null}
         </View>
       </View>
       {hasDescription ? (

@@ -9,8 +9,8 @@ export const MARQUEE_LOOP_GAP = spacing['2xl'];
 /** Scroll speed. Slow enough to read a long episode title while it passes. */
 export const MARQUEE_SPEED_DP_PER_SECOND = 28;
 
-/** Pause with the start of the label visible before the loop starts. */
-export const MARQUEE_EDGE_HOLD_MS = 1600;
+/** Rest with the first word visible before every pass, so the label is readable between passes. */
+export const MARQUEE_EDGE_HOLD_MS = 2500;
 
 /** Sub-pixel differences are measurement noise, not overflow worth animating. */
 const OVERFLOW_EPSILON = 1;
@@ -48,6 +48,37 @@ export const shouldMarqueeScroll = ({
     return false;
   }
   return contentWidth - viewportWidth > OVERFLOW_EPSILON;
+};
+
+/** Measuring until both widths exist, then either a resting fit or a scroll. */
+export type MarqueeLayout = 'fit' | 'measuring' | 'scroll';
+
+/**
+ * Layout for one label. A width of 0 is still measuring, so a new string cannot reuse the
+ * previous string's width. Reduce Motion never scrolls: an overflowing label truncates in the
+ * fit layout. `restInset` is space reserved before the first word, so the overflow check uses
+ * the width that remains.
+ */
+export const resolveMarqueeLayout = ({
+  contentWidth,
+  reduceMotion,
+  restInset,
+  viewportWidth,
+}: {
+  contentWidth: number;
+  reduceMotion: boolean;
+  restInset: number;
+  viewportWidth: number;
+}): MarqueeLayout => {
+  if (viewportWidth <= 0 || contentWidth <= 0) {
+    return 'measuring';
+  }
+  const scrolls = shouldMarqueeScroll({
+    contentWidth,
+    reduceMotion,
+    viewportWidth: Math.max(0, viewportWidth - restInset),
+  });
+  return scrolls ? 'scroll' : 'fit';
 };
 
 /** How far one revolution travels: one full copy plus the seam before the title repeats. */

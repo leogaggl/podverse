@@ -454,7 +454,7 @@ export type PlaybackContextValue = {
   playItem: (
     item: DTOItem,
     channel: DTOChannel,
-    options?: { intent?: MusicItemPlaybackIntent }
+    options?: { intent?: MusicItemPlaybackIntent; explicitPlaybackSeconds?: number }
   ) => Promise<void>;
   playClip: (clip: DTOClip, item: DTOItem, channel: DTOChannel) => Promise<void>;
   playSoundbite: (soundbite: DTOItemSoundbite, item: DTOItem, channel: DTOChannel) => Promise<void>;
@@ -1426,10 +1426,11 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     async (
       item: DTOItem,
       channel: DTOChannel,
-      options?: { intent?: MusicItemPlaybackIntent }
+      options?: { intent?: MusicItemPlaybackIntent; explicitPlaybackSeconds?: number }
     ): Promise<void> => {
       await startItemPlayback(item, channel, {
         autoQueue: { mode: 'clear' },
+        explicitPlaybackSeconds: options?.explicitPlaybackSeconds,
         intent: options?.intent ?? 'explicit_play',
       });
     },
@@ -1725,6 +1726,10 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       try {
         const clip = await playbackContentRepository.getClipByIdText(buildContext(), idText);
         const item = clip.item;
+        if (item === null || item === undefined) {
+          setNoticeKey('media_player.no_media');
+          return;
+        }
         const channel = await ensureChannel(item);
         if (channel === null) {
           setNoticeKey('media_player.no_media');
@@ -1820,10 +1825,11 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         return;
       }
       if (resource.clip) {
-        const item = await playbackContentRepository.ensureItemValues(
-          buildContext(),
-          resource.clip.item
-        );
+        const clipItem = resource.clip.item;
+        if (clipItem === null || clipItem === undefined) {
+          return;
+        }
+        const item = await playbackContentRepository.ensureItemValues(buildContext(), clipItem);
         const channel = await ensureChannel(item);
         if (channel === null) {
           return;
@@ -2058,6 +2064,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       const preserve: AutoQueueDirective = { mode: 'preserve' };
       if (row.clip) {
         const item = row.clip.item;
+        if (item === null || item === undefined) {
+          return false;
+        }
         const channel = row.channel ?? (await ensureChannel(item));
         if (channel === null) {
           return false;
@@ -2322,6 +2331,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         if (snapshot.kind === 'clip') {
           const clip = await playbackContentRepository.getClipByIdText(context, snapshot.id_text);
           const item = clip.item;
+          if (item === null || item === undefined) {
+            return;
+          }
           const channel = await ensureChannel(item);
           if (channel === null || !(await snapshotStillCurrent())) {
             return;

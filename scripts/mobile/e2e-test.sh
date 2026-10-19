@@ -38,12 +38,12 @@ TIMEOUTS_ENV="$E2E_DIR/shared/timeouts.env"
 # API-backed apps/mobile/e2e/<area>.yaml — full suite (`all`) always requires the API.
 flow_needs_e2e_api() {
   case "$1" in
-  add-by-rss | add-by-rss-credentials | about | album | api-health | artist | auth-login | auth-logout | auto-queue-advance | browse | deep-link | \
-  detail-sort-prefs | engine-audio-spike | hls-playback | home | history-screen | library-downloads | library-playlists | \
+  add-by-rss | add-by-rss-credentials | about | album | api-health | archived-clip | artist | auth-login | auth-logout | auto-queue-advance | browse | deep-link | \
+  detail-sort-prefs | engine-audio-spike | hls-playback | home | history-screen | identity-remap | library-downloads | library-playlists | \
   make-clip | membership-checkout | membership-gate | notifications-inbox | offline-mode | opml | perf-chip-switch | \
   perf-scroll | play-mini-player | \
   playback-multi-device-handoff | playback-offline-reconciliation | playback-resume-on-relaunch | \
-  player-screen | podcast-episode | track | \
+  player-screen | podcast-episode | removed-content | removed-content-log | show-notes | track | \
   popularity-tracking | push | queue-add | queue-screen | search | search-unparsed | settings-downloads | \
   subscriptions-anonymous | tab-switch-playback | tablet | terms-account-access | terms-popularity | v4v | \
   video-transition)
@@ -84,7 +84,7 @@ flow_needs_test_assets() {
   case "$1" in
   add-by-rss | add-by-rss-credentials | auto-queue-advance | engine-audio-spike | hls-playback | library-downloads | make-clip | \
   membership-gate | play-mini-player | playback-offline-reconciliation | playback-resume-on-relaunch | player-screen | \
-  tab-switch-playback | tablet | v4v | video-transition)
+  show-notes | tab-switch-playback | tablet | v4v | video-transition)
     return 0
     ;;
   *)

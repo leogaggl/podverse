@@ -5,6 +5,8 @@ import { timerManager } from '@parser/factories/timerManager.js';
 // import { handleNewItemsNotifications, handleNewLiveItemsNotifications } from '@parser/lib/notifications.js';
 import { handleParsedChannel } from '@parser/lib/rss/channel/channel.js';
 import { handleParsedChannelSeasons } from '@parser/lib/rss/channel/channelSeason.js';
+import type { DescriptionIngestContext } from '@parser/lib/rss/descriptionIngestContext.js';
+import { createDescriptionIngestContext } from '@parser/lib/rss/descriptionIngestContext.js';
 import {
   handleGetRSSFeed,
   handleParsedFeed,
@@ -31,6 +33,7 @@ import {
 } from '@podverse/helpers';
 import { getStatusCodeFromError, isTlsOrProtocolError } from '@podverse/helpers-requests';
 import { canonicalHttpOrHttpsUrl } from '@podverse/helpers-validation';
+import type { Channel, Item } from '@podverse/orm';
 import {
   AccountFollowingChannelService,
   AccountPendingFollowingChannelService,
@@ -45,6 +48,7 @@ import {
   FeedLogService,
   FeedPolicyService,
   FeedService,
+  ItemService,
   OnDemandParserEventService,
   resolveSpamFeedItemThresholds,
   shouldAttemptFeedParseFromLifecycleAndPolicy,
@@ -97,6 +101,11 @@ export type ParseRSSOnDemandParserEvent = {
 export type ParseRSSFeedAndSaveToDatabaseOptions = {
   forceParse: boolean; // If true, will parse fully without checking for changes.
   onDemandParserEvent: ParseRSSOnDemandParserEvent;
+  /**
+   * When set, new-episode notifications and auto-download pushes omit items whose
+   * pub_date is missing or earlier than this instant.
+   */
+  suppressNewItemSideEffectsPublishedBeforeMs?: number;
 };
 
 export type ParseRSSFeedAndSaveToDatabaseResult = {
@@ -226,6 +235,7 @@ export const parseRSSFeedAndSaveToDatabase = async (
   timerManager.start(timerFullRunLabel);
 
   let parsedFeed: FeedObject | null = null;
+  let descriptionContext: DescriptionIngestContext | null = null;
   const imageHints: ImageShrinkHint[] = [];
   let parseSucceeded = false;
 
@@ -305,6 +315,7 @@ export const parseRSSFeedAndSaveToDatabase = async (
       note: null,
     });
     feed = await handleParsedFeed(parsedFeed, feed, options);
+    descriptionContext = createDescriptionIngestContext(feed.description_length_tier_override);
 
     const parserRuntimeSettings = getParserConfig().parser;
     const spamThresholds = parserRuntimeSettings
@@ -350,7 +361,12 @@ export const parseRSSFeedAndSaveToDatabase = async (
     const channelSeasonService = new ChannelSeasonService();
     const channelSeasonIndex = await channelSeasonService.getChannelSeasonIndex(channel);
 
-    const parsedChannelResult = await handleParsedChannel(parsedFeed, channel, channelSeasonIndex);
+    const parsedChannelResult = await handleParsedChannel(
+      parsedFeed,
+      channel,
+      channelSeasonIndex,
+      descriptionContext
+    );
     const newRemoteItems = newRemoteItemsFromParsedChannel(parsedChannelResult);
     await resolvePendingChannelFollows({
       channelIdText: channel.id_text,
@@ -377,7 +393,8 @@ export const parseRSSFeedAndSaveToDatabase = async (
     const newItemIdentifiers: HandleParsedItemsResult = await handleParsedItems(
       parsedFeed.items,
       channel,
-      channelSeasonIndex
+      channelSeasonIndex,
+      descriptionContext
     );
     for (const item of parsedFeed.items) {
       const itemImageDtos = compatItemImageDtos(item);
@@ -401,6 +418,7 @@ export const parseRSSFeedAndSaveToDatabase = async (
         parsedFeed.podcastLiveItems,
         channel,
         channelSeasonIndex,
+        descriptionContext,
         parsedItemStableKeys
       );
     }
@@ -414,12 +432,21 @@ export const parseRSSFeedAndSaveToDatabase = async (
       await handleNewLiveItemNotifications(channel, newLiveItemIdentifiers);
     }
 
-    if (
-      newItemIdentifiers.newItemGuids.length > 0 ||
-      newItemIdentifiers.newItemGuidEnclosureUrls.length > 0
-    ) {
-      await handleNewItemNotifications(channel, newItemIdentifiers);
-      await handleNewItemAutoDownloadPushes(channel, newItemIdentifiers);
+    // A channel with no stored episodes treats every item as new. New-episode
+    // notifications and auto-download wait until a later parse.
+    if (channel !== null && newItemIdentifiers.hadStoredItems) {
+      const sideEffectIdentifiers = await filterNewItemSideEffectsPublishedBefore(
+        channel,
+        newItemIdentifiers,
+        options.suppressNewItemSideEffectsPublishedBeforeMs
+      );
+      if (
+        sideEffectIdentifiers.newItemGuids.length > 0 ||
+        sideEffectIdentifiers.newItemGuidEnclosureUrls.length > 0
+      ) {
+        await handleNewItemNotifications(channel, sideEffectIdentifiers);
+        await handleNewItemAutoDownloadPushes(channel, sideEffectIdentifiers);
+      }
     }
 
     if (newRemoteItems.length > 0) {
@@ -474,11 +501,23 @@ export const parseRSSFeedAndSaveToDatabase = async (
       const feedUpdateDto: {
         is_parsing: null;
         last_parsed_file_hash?: string;
+        description_truncated_count?: number;
+        description_longest_source_length?: number | null;
+        description_truncated_at?: Date;
       } = {
         is_parsing: null,
       };
       if (parseSucceeded && parsedFeed) {
         feedUpdateDto.last_parsed_file_hash = getParsedFeedMd5Hash(parsedFeed);
+        if (descriptionContext) {
+          const { truncatedCount, longestSourceLength } = descriptionContext.stats;
+          feedUpdateDto.description_truncated_count = truncatedCount;
+          feedUpdateDto.description_longest_source_length =
+            longestSourceLength > 0 ? longestSourceLength : null;
+          if (truncatedCount > 0) {
+            feedUpdateDto.description_truncated_at = new Date();
+          }
+        }
       }
       await feedService.update(feed.id, feedUpdateDto);
     }
@@ -512,3 +551,60 @@ export const parseRSSFeedAndSaveToDatabase = async (
 
   return { remoteItemsToParse: [], imageHints };
 };
+
+/**
+ * Keep identifiers whose pub_date is at or after cutoffMs.
+ * A missing pub_date is dropped. When cutoffMs is omitted, the lists are unchanged.
+ */
+async function filterNewItemSideEffectsPublishedBefore(
+  channel: Channel,
+  identifiers: HandleParsedItemsResult,
+  cutoffMs: number | undefined
+): Promise<HandleParsedItemsResult> {
+  if (cutoffMs === undefined) {
+    return identifiers;
+  }
+
+  const itemService = new ItemService();
+  const guidItems =
+    identifiers.newItemGuids.length > 0
+      ? await itemService.getManyByGuid(channel, identifiers.newItemGuids)
+      : [];
+  const enclosureItems =
+    identifiers.newItemGuidEnclosureUrls.length > 0
+      ? await itemService.getManyByGuidEnclosureUrl(channel, identifiers.newItemGuidEnclosureUrls)
+      : [];
+
+  return {
+    hadStoredItems: identifiers.hadStoredItems,
+    newItemGuids: identifiers.newItemGuids.filter((guid) =>
+      pubDateIsOnOrAfterCutoff(pubDateForItemKey(guidItems, 'guid', guid), cutoffMs)
+    ),
+    newItemGuidEnclosureUrls: identifiers.newItemGuidEnclosureUrls.filter((url) =>
+      pubDateIsOnOrAfterCutoff(
+        pubDateForItemKey(enclosureItems, 'guid_enclosure_url', url),
+        cutoffMs
+      )
+    ),
+  };
+}
+
+function pubDateForItemKey(
+  items: readonly Item[],
+  key: 'guid' | 'guid_enclosure_url',
+  value: string
+): Date | string | null | undefined {
+  const match = items.find((item) => item[key] === value);
+  return match === undefined ? null : match.pub_date;
+}
+
+function pubDateIsOnOrAfterCutoff(
+  pubDate: Date | string | null | undefined,
+  cutoffMs: number
+): boolean {
+  if (pubDate === null || pubDate === undefined) {
+    return false;
+  }
+  const ms = pubDate instanceof Date ? pubDate.getTime() : Date.parse(pubDate);
+  return Number.isFinite(ms) && ms >= cutoffMs;
+}

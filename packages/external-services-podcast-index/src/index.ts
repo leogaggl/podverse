@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
-import csv from 'csv-parser';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import type {
@@ -18,9 +20,12 @@ import {
   sleep,
 } from '@podverse/helpers';
 import { type ILoggerLike, summarizeUpstreamHttpErrorForLog } from '@podverse/helpers-backend';
-import { type AxiosRequestConfig, requestWithUserAgent } from '@podverse/helpers-requests';
+import type { AxiosRequestConfig } from '@podverse/helpers-requests';
+import { requestWithHeadersWithUserAgent, requestWithUserAgent } from '@podverse/helpers-requests';
 import { canonicalHttpOrHttpsUrl } from '@podverse/helpers-validation';
 
+import type { DeadFeedCsvRow } from './deadFeedDuplicateChains.js';
+import { extractDeadFeedCsvRow, forEachDeadFeedCsvRow } from './deadFeedDuplicateChains.js';
 import { shouldRetryPodcastIndexRequest } from './isRetryablePodcastIndexError.js';
 import {
   PODCAST_INDEX_DEFAULT_MAX_RETRIES,
@@ -70,6 +75,51 @@ function isExpectedMissStatus(
   }
   const status = httpStatusFromUpstreamError(error);
   return status !== null && expectedMissStatuses.includes(status);
+}
+
+export type DeadFeedCsvDownloadResult =
+  { notModified: true } | { notModified: false; lastModified: string | null; etag: string | null };
+
+function destroyResponseBody(data: unknown): void {
+  if (typeof data !== 'object' || data === null) {
+    return;
+  }
+  const destroy = Reflect.get(data, 'destroy');
+  if (typeof destroy === 'function') {
+    destroy.call(data);
+  }
+}
+
+function responseBodyStream(data: unknown): Readable {
+  if (data instanceof Readable) {
+    return data;
+  }
+  throw new Error('Dead-feed CSV response was not a stream');
+}
+
+function responseHeader(headers: unknown, name: string): string | null {
+  if (typeof headers !== 'object' || headers === null) {
+    return null;
+  }
+  const raw = Reflect.get(headers, name);
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    const first = raw[0];
+    if (typeof first === 'string' && first.trim() !== '') {
+      return first;
+    }
+  }
+  const get = Reflect.get(headers, 'get');
+  if (typeof get !== 'function') {
+    return null;
+  }
+  const fromGet = Reflect.apply(get, headers, [name]);
+  if (typeof fromGet === 'string' && fromGet.trim() !== '') {
+    return fromGet;
+  }
+  return null;
 }
 
 type Constructor = {
@@ -204,54 +254,71 @@ export class PodcastIndexService {
   // Dead Feeds
 
   deadFeedsDownloadAndExtractCSV = async (
-    resolveHandler: (row: string[]) => void
-  ): Promise<void> => {
+    resolveHandler: (row: string[]) => void | Promise<void>,
+    conditional?: { ifModifiedSince?: string | null; ifNoneMatch?: string | null }
+  ): Promise<DeadFeedCsvDownloadResult> => {
     const url = 'https://public.podcastindex.org/podcastindex_dead_feeds.csv';
-    const tmpDir = path.join(__dirname, 'tmp');
-    const filePath = path.join(tmpDir, 'podcastindex_dead_feeds.csv');
-
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir);
+    const headers: Record<string, string> = {};
+    if (conditional?.ifModifiedSince) {
+      headers['If-Modified-Since'] = conditional.ifModifiedSince;
+    }
+    if (conditional?.ifNoneMatch) {
+      headers['If-None-Match'] = conditional.ifNoneMatch;
     }
 
-    const data = await this.podcastIndexAPIRequest(url, { responseType: 'stream' });
+    const maxAttempts = this.maxRetries + 1;
+    let lastError: unknown;
 
-    const writer = fs.createWriteStream(filePath);
-    data.pipe(writer);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await requestWithHeadersWithUserAgent<unknown>(
+          url,
+          {
+            headers,
+            responseType: 'stream',
+            validateStatus: (status: number) => status === 200 || status === 304,
+          },
+          this.userAgent
+        );
 
-    await new Promise<void>((resolve, reject) => {
-      writer.on('finish', () => resolve());
-      writer.on('error', reject);
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      const stream = fs.createReadStream(filePath).pipe(csv({ headers: false, skipLines: 0 }));
-
-      stream.on('data', async (row: string[]) => {
-        stream.pause();
-        try {
-          await resolveHandler(row);
-          stream.resume();
-        } catch (err) {
-          stream.destroy(err instanceof Error ? err : new Error(String(err)));
+        if (response.status === 304) {
+          destroyResponseBody(response.data);
+          return { notModified: true };
         }
-      });
-      stream.on('end', () => resolve());
-      stream.on('error', reject);
-      stream.on('close', () => resolve());
-    });
 
-    fs.unlinkSync(filePath);
+        const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pi-dead-feeds-'));
+        const filePath = path.join(tmpDir, 'podcastindex_dead_feeds.csv');
+        try {
+          await pipeline(responseBodyStream(response.data), fs.createWriteStream(filePath));
+          await forEachDeadFeedCsvRow(fs.createReadStream(filePath), resolveHandler);
+          return {
+            notModified: false,
+            lastModified: responseHeader(response.headers, 'last-modified'),
+            etag: responseHeader(response.headers, 'etag'),
+          };
+        } finally {
+          await fs.promises.rm(tmpDir, { recursive: true, force: true });
+        }
+      } catch (error: unknown) {
+        lastError = error;
+        const canRetry =
+          attempt < maxAttempts - 1 &&
+          shouldRetryPodcastIndexRequest(error, { clientAbortRequested: false });
+        if (!canRetry) {
+          throw error;
+        }
+        const delayMs = computeExponentialBackoffDelayMs(attempt, this.retryBaseDelayMs);
+        this.loggerService.warn(
+          `[PodcastIndex] Dead-feed CSV download failed; retrying in ${delayMs}ms`
+        );
+        await sleep(delayMs);
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('Dead-feed CSV download failed');
   };
 
-  deadFeedsExtractRow = (row: string[]) => {
-    const id_to_archive = row[0] ?? '';
-    const duplicate_id_to_keep = row[1] ?? null;
-    return {
-      id_to_archive: parseInt(id_to_archive, 10),
-      duplicate_id_to_keep: duplicate_id_to_keep ? parseInt(duplicate_id_to_keep, 10) : null,
-    };
-  };
+  deadFeedsExtractRow = (row: string[]): DeadFeedCsvRow | null => extractDeadFeedCsvRow(row);
 
   // Podcast
 
@@ -680,6 +747,18 @@ export class PodcastIndexService {
   };
 }
 
+export {
+  deadFeedPairsWeHold,
+  deadFeedTargetMap,
+  extractDeadFeedCsvRow,
+  forEachDeadFeedCsvRow,
+  podcastIndexIdsToRetire,
+  resolveDeadFeedDuplicateChains,
+  RETIRE_BRAKE_MIN_GROWTH,
+  RETIRE_MAX_PER_RUN,
+  retireGrowthExceedsBrake,
+} from './deadFeedDuplicateChains.js';
+export type { DeadFeedCsvRow, DeadFeedDuplicatePair } from './deadFeedDuplicateChains.js';
 export { iterateFeedsFromDb, type FeedRow } from './publicFeedsDb.js';
 export { isRetryablePodcastIndexError } from './isRetryablePodcastIndexError.js';
 export {

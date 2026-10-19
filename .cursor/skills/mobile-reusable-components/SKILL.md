@@ -33,7 +33,7 @@ Consistency and DRYness across tabs/screens matter as much as on web. Rebuilding
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Low-level controls                          | `components/primitives/` (`Button`, `Card`, `CountBadge`, `UnseenIndicator`, `CoverImage`, `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`, `ToggleSwitch`, `VerticalCenter`)             |
 | Reorder / drag                              | `components/reorder/` (`ReorderableSections`, `ReorderableList`)                                                                                                                                             |
-| Screen scaffold                             | `components/screen/` (`HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `OfflineModeBanner`, `MobileScreenContainer`, `ModalSafeArea`, `ThemedStackHeader`)                                                 |
+| Screen scaffold                             | `components/screen/` (`HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `HeaderBarActions`, `OfflineModeBanner`, `MobileScreenContainer`, `ModalSafeArea`, `ThemedStackHeader`)                             |
 | Section / list grouping                     | `components/section/` (`SectionHeading`, `SectionCard`)                                                                                                                                                      |
 | Loading / empty / error / auth-gated chrome | `components/state/` (`ListLoading`, `ListEmpty`, `ListError`, `CallToActionSection`, `LoadingSection`, `AuthAwareLoadState`, `RetryableError`)                                                               |
 | Playback row actions / mini player          | `components/player/`                                                                                                                                                                                         |
@@ -137,8 +137,10 @@ subscriptions) and has no item count either. Search stays Podcast Index full-tex
 Browse rows there.
 
 **List rows:** `HomeFeedRow` for media/results (a top hairline on every row, including the first;
-no bottom hairline; vertical padding is `spacing.lg` on that row, `spacing.base` on Downloads
-and category rows; artwork is 78×78). Identity lines use a column `gap` (`spacing.base`), not
+no bottom hairline; a podcast, album, or artist row uses `LIST_ROW_SHOW_VERTICAL_INSET` (10) so
+the 78×78 artwork makes a 98pt row, and its date/title/footer gap is `spacing.sm`. Episode,
+clip, and track rows use `spacing.lg` and an identity `gap` of `spacing.base`. Downloads and
+category rows use `spacing.base`. Artwork is 78×78). Identity lines use a column `gap`, not
 per-line margins, and the text stack is vertically centered. Track rows (`mediaType="tracks"`)
 omit the list play/pause band and put More in `identityRow`, vertically centered with the
 artwork and text; the row press still starts playback. `ListRow` is the title/subtitle primitive.
@@ -175,8 +177,9 @@ on `AccessDenialReason`, no fallback `t(...)`. See **mobile-screen-layout** and
 **Screen layout:** tab roots and stack screens share `HeaderBar` (44pt row, no divider under the
 title) and the same page-body gutter — `screenBodyInsets` from `theme/screenLayout.ts`
 (`spacing.lg` below the bar and on both sides). Header icons and header action labels use
-`tokens.text.primary` via `HeaderBarAction` (same as the title — not accent/link blue). Those
-icons use the 26pt default. Do not
+`tokens.text.primary` via `HeaderBarAction` (same as the title — not accent/link blue). Stack
+header icons use the 26pt default. The channel settings gear is 22pt and top-aligned with the
+title (`CHANNEL_HEADER_SETTINGS_ICON_SIZE`). Do not
 add a second inner `Card` inset on top of that gutter. Do not wrap a scrolling result list in a
 perimeter `Card`. Screen lists that show a `VerticalCenter` fill empty use **`FillList`** (scroll
 locked when `data` is empty and `ListEmptyComponent` is set). Login and Sign up overlay the tabs
@@ -199,8 +202,9 @@ link switch under Submit. See **mobile-screen-layout**.
       above the card. Chevron only on rows that push a screen — not on Log out.
 - [ ] List/media rows use `ListRow` / `HomeFeedRow` / `MediaRowActions` (or a shared row wrapper)
       when the layout matches existing screens. Do **not** add a media-type pill on those rows.
-      Top hairline on every content row, including the first. No bottom hairline. `HomeFeedRow`
-      vertical padding is `spacing.lg` (Downloads and category rows use `spacing.base`). No
+      Top hairline on every content row, including the first. No bottom hairline. A podcast,
+      album, or artist `HomeFeedRow` uses `LIST_ROW_SHOW_VERTICAL_INSET`; episode, clip, and
+      track rows use `spacing.lg` (Downloads and category rows use `spacing.base`). No
       standalone divider under chips or a filter.
 - [ ] Cover / artwork images use `CoverImage` (square corners). Do not round podcast or episode art.
       Standalone art opens the `ImageViewer` root screen by default. Pass

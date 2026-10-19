@@ -12,8 +12,11 @@ import {
 } from '../../../../lib/seo/fetchers';
 import { toSeoPlainText } from '../../../../lib/seo/toSeoPlainText';
 import { truncateMetaDescription } from '../../../../lib/seo/truncateMetaDescription';
-import { redirectToChannelPageByMediumServer } from '../../../../utils/redirect/redirectToChannelPageByMedium';
-import { getChannelPathByMedium } from '../../../../utils/redirect/redirectToChannelPageByMedium';
+import { permanentRedirectIfMerged } from '../../../../utils/redirect/permanentRedirectIfMerged';
+import {
+  getChannelPathByMedium,
+  redirectToChannelPageByMediumServer,
+} from '../../../../utils/redirect/redirectToChannelPageByMedium';
 import { PodcastIndexFeedClient } from './PodcastIndexFeedClient';
 
 type PodcastIndexFeedPageProps = {
@@ -21,8 +24,9 @@ type PodcastIndexFeedPageProps = {
 };
 
 export async function generateMetadata({ params }: PodcastIndexFeedPageProps): Promise<Metadata> {
+  const { podcast_index_id } = await params;
+  await permanentRedirectIfMerged({ kind: 'podcast_index', id: podcast_index_id });
   try {
-    const { podcast_index_id } = await params;
     const podcastIndexResponse = await getPodcastIndexFeedForSeoPage(podcast_index_id);
     const ssrInternalFeed = await getInternalFeedForSeoPage(podcast_index_id);
     const ssrFeed = podcastIndexResponse.feed;
@@ -56,6 +60,7 @@ export async function generateMetadata({ params }: PodcastIndexFeedPageProps): P
 
 export default async function PodcastIndexFeedPage(props: PodcastIndexFeedPageProps) {
   const { podcast_index_id } = await props.params;
+  await permanentRedirectIfMerged({ kind: 'podcast_index', id: podcast_index_id });
   const podcastIndexResponse = await getPodcastIndexFeedForSeoPage(podcast_index_id);
   const ssrInternalFeed = await getInternalFeedForSeoPage(podcast_index_id);
 

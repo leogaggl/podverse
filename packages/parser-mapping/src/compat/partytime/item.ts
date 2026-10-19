@@ -1,7 +1,10 @@
+import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
 import {
   DATABASE_CONSTANTS,
   formatGuidEnclosureUrl,
   getItemItunesEpisodeTypeEnumValue,
+  pickItemDescriptionSource,
+  prepareDescriptionForStorage,
 } from '@podverse/helpers';
 import { isValidHttpUrl } from '@podverse/helpers-validation';
 
@@ -67,13 +70,17 @@ export const compatItemChatDto = (parsedItem: Episode) => {
   };
 };
 
-export const compatItemDescriptionDto = (parsedItem: Episode) => {
-  if (!parsedItem.description) {
-    return null;
-  }
-  return {
-    value: parsedItem.description.slice(0, DATABASE_CONSTANTS.varchar_long),
-  };
+export const compatItemDescriptionDto = (
+  parsedItem: Episode,
+  tier: DescriptionLengthTierEnum
+): PreparedDescription | null => {
+  const source = pickItemDescriptionSource({
+    content: parsedItem.content ?? undefined,
+    descriptionRaw: parsedItem.descriptionRaw ?? undefined,
+    description: parsedItem.description ?? undefined,
+    summary: parsedItem.summary ?? undefined,
+  });
+  return prepareDescriptionForStorage(source, tier);
 };
 
 export const compatItemEnclosureDtos = (parsedItem: Episode) => {

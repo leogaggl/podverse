@@ -9,6 +9,13 @@ import type { ThemeTokens } from '@podverse/design-tokens';
 export const LIST_ROW_ARTWORK_SIZE = 78;
 
 /**
+ * Inset above and below the artwork on a podcast, album, or artist row. With
+ * `LIST_ROW_ARTWORK_SIZE` the row is 98pt: the date, title, and footer sit inside the artwork,
+ * and each hairline sits this far from the art.
+ */
+export const LIST_ROW_SHOW_VERTICAL_INSET = 10;
+
+/**
  * Square edge of a stacked preview cover. The view size and `CoverImage` `decodeEdge` both read
  * this.
  */
@@ -31,6 +38,12 @@ export const FORM_BUTTON_MIN_HEIGHT = 52;
  * icon reads clearly without looking cramped — same optical weight for More and trash.
  */
 export const LIST_ROW_ACTION_ICON_SIZE = 26;
+
+/**
+ * Channel-header settings gear. One step under the stack-header glyph so the icon can sit on the
+ * title's top edge beside a two-line name.
+ */
+export const CHANNEL_HEADER_SETTINGS_ICON_SIZE = 22;
 
 /**
  * Glyph size for the Play / Pause triangle inside the glowing circle. Smaller than bare-row glyphs

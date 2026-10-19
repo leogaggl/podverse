@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import type { DTOChannel, RemoteItemsResponse } from '@podverse/helpers';
-import { buildAlbumPath, buildTrackPath } from '@podverse/helpers';
+import { buildAlbumPath, buildTrackPath, isDescriptionTruncated } from '@podverse/helpers';
 
 import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMessagesSection';
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
@@ -52,7 +52,13 @@ export const AlbumPageList: React.FC<AlbumPageListProps> = ({
           viewSelected="rows"
         />
       )}
-      {type === 'about' && <ContentAbout description={ssrChannel.channel_description?.value} />}
+      {type === 'about' && (
+        <ContentAbout
+          description={ssrChannel.channel_description?.value}
+          isTruncated={isDescriptionTruncated(ssrChannel.channel_description)}
+          fullDescriptionUrl={ssrChannel.channel_about?.website_link_url}
+        />
+      )}
       {type === 'people' && <ContentPeopleRows channel_persons={ssrChannel.channel_persons} />}
       {type === 'boosts' && boostsPageFetcher !== null && (
         <BoostMessagesSection

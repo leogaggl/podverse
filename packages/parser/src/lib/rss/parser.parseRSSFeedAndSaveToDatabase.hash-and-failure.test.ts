@@ -24,6 +24,8 @@ const {
   handleParsedFeedMock,
   handleParsedItemsMock,
   handleParsedLiveItemsMock,
+  itemGetManyByGuidMock,
+  itemGetManyByGuidEnclosureUrlMock,
   handleRequestRSSFeedMock,
   feedLogGetMock,
   feedLogUpdateMock,
@@ -46,6 +48,8 @@ const {
   handleParsedFeedMock: vi.fn(),
   handleParsedItemsMock: vi.fn(),
   handleParsedLiveItemsMock: vi.fn(),
+  itemGetManyByGuidMock: vi.fn(),
+  itemGetManyByGuidEnclosureUrlMock: vi.fn(),
   handleRequestRSSFeedMock: vi.fn(),
   feedLogGetMock: vi.fn(),
   feedLogUpdateMock: vi.fn(),
@@ -206,6 +210,10 @@ vi.mock('@podverse/orm', () => ({
     refreshFeedPolicy = conditionMocks.refreshFeedPolicy;
     update = feedServiceUpdateMock;
   },
+  ItemService: class ItemService {
+    getManyByGuid = itemGetManyByGuidMock;
+    getManyByGuidEnclosureUrl = itemGetManyByGuidEnclosureUrlMock;
+  },
   OnDemandParserEventService: class OnDemandParserEventService {
     getCountByAccountIdAndTypeSince = onDemandGetCountMock;
     create = onDemandCreateMock;
@@ -222,6 +230,8 @@ vi.mock('@podverse/orm', () => ({
     conditionMocks.shouldAttemptFeedParseFromLifecycleAndPolicy,
 }));
 
+import type { DescriptionIngestContext } from './descriptionIngestContext.js';
+import { recordPreparedDescription } from './descriptionIngestContext.js';
 import { parseRSSFeedAndSaveToDatabase } from './parser.js';
 
 const baseFeed = {
@@ -273,9 +283,12 @@ describe('parseRSSFeedAndSaveToDatabase failure timestamp and hash-on-success', 
     handleParsedChannelSeasonsMock.mockResolvedValue(undefined);
     handleParsedChannelMock.mockResolvedValue(undefined);
     handleParsedItemsMock.mockResolvedValue({
+      hadStoredItems: true,
       newItemGuids: [],
       newItemGuidEnclosureUrls: [],
     });
+    itemGetManyByGuidMock.mockResolvedValue([]);
+    itemGetManyByGuidEnclosureUrlMock.mockResolvedValue([]);
     handleParsedLiveItemsMock.mockResolvedValue({
       pendingItemGuids: [],
       liveItemGuids: [],
@@ -374,6 +387,7 @@ describe('parseRSSFeedAndSaveToDatabase failure timestamp and hash-on-success', 
 
   it('sends livestream notifications before new-content and auto-download pushes', async () => {
     const newItemIdentifiers = {
+      hadStoredItems: true,
       newItemGuids: ['item-1'],
       newItemGuidEnclosureUrls: [],
     };
@@ -408,6 +422,7 @@ describe('parseRSSFeedAndSaveToDatabase failure timestamp and hash-on-success', 
 
   it('sends new-content then auto-download pushes when no livestream identifiers are new', async () => {
     const newItemIdentifiers = {
+      hadStoredItems: true,
       newItemGuids: [],
       newItemGuidEnclosureUrls: ['https://example.com/ep.mp3'],
     };
@@ -435,6 +450,7 @@ describe('parseRSSFeedAndSaveToDatabase failure timestamp and hash-on-success', 
 
   it('does not send new-content or auto-download pushes for a livestream-only parse', async () => {
     handleParsedItemsMock.mockResolvedValue({
+      hadStoredItems: true,
       newItemGuids: [],
       newItemGuidEnclosureUrls: [],
     });
@@ -448,5 +464,148 @@ describe('parseRSSFeedAndSaveToDatabase failure timestamp and hash-on-success', 
     expect(handleNewLiveItemNotificationsMock).toHaveBeenCalledTimes(1);
     expect(handleNewItemNotificationsMock).not.toHaveBeenCalled();
     expect(handleNewItemAutoDownloadPushesMock).not.toHaveBeenCalled();
+  });
+
+  it('does not send new-episode side effects on the first parse of a channel', async () => {
+    handleParsedItemsMock.mockResolvedValue({
+      hadStoredItems: false,
+      newItemGuids: ['ep-1', 'ep-2', 'ep-3'],
+      newItemGuidEnclosureUrls: ['https://example.com/a.mp3'],
+    });
+    handleParsedLiveItemsMock.mockResolvedValue({
+      pendingItemGuids: [],
+      liveItemGuids: ['live-1'],
+    });
+
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, parseOptions);
+
+    expect(handleNewLiveItemNotificationsMock).toHaveBeenCalledTimes(1);
+    expect(handleNewItemNotificationsMock).not.toHaveBeenCalled();
+    expect(handleNewItemAutoDownloadPushesMock).not.toHaveBeenCalled();
+    expect(itemGetManyByGuidMock).not.toHaveBeenCalled();
+    expect(itemGetManyByGuidEnclosureUrlMock).not.toHaveBeenCalled();
+  });
+
+  it('sends new-episode side effects when the channel already has stored items', async () => {
+    const newItemIdentifiers = {
+      hadStoredItems: true,
+      newItemGuids: ['item-1'],
+      newItemGuidEnclosureUrls: [],
+    };
+    handleParsedItemsMock.mockResolvedValue(newItemIdentifiers);
+
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, parseOptions);
+
+    expect(handleNewItemNotificationsMock).toHaveBeenCalledWith(
+      { id: 1, id_text: 'c1' },
+      newItemIdentifiers
+    );
+    expect(handleNewItemAutoDownloadPushesMock).toHaveBeenCalledWith(
+      { id: 1, id_text: 'c1' },
+      newItemIdentifiers
+    );
+  });
+
+  it('omits items published before the side-effect cutoff', async () => {
+    const cutoffMs = Date.parse('2026-01-15T00:00:00.000Z');
+    handleParsedItemsMock.mockResolvedValue({
+      hadStoredItems: true,
+      newItemGuids: ['old-ep', 'new-ep', 'undated-ep'],
+      newItemGuidEnclosureUrls: [],
+    });
+    itemGetManyByGuidMock.mockResolvedValue([
+      { guid: 'old-ep', pub_date: new Date('2026-01-01T00:00:00.000Z') },
+      { guid: 'new-ep', pub_date: new Date('2026-02-01T00:00:00.000Z') },
+      { guid: 'undated-ep', pub_date: null },
+    ]);
+
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, {
+      ...parseOptions,
+      suppressNewItemSideEffectsPublishedBeforeMs: cutoffMs,
+    });
+
+    const filtered = {
+      hadStoredItems: true,
+      newItemGuids: ['new-ep'],
+      newItemGuidEnclosureUrls: [],
+    };
+    expect(handleNewItemNotificationsMock).toHaveBeenCalledWith({ id: 1, id_text: 'c1' }, filtered);
+    expect(handleNewItemAutoDownloadPushesMock).toHaveBeenCalledWith(
+      { id: 1, id_text: 'c1' },
+      filtered
+    );
+  });
+});
+
+describe('parseRSSFeedAndSaveToDatabase description telemetry', () => {
+  const recordTwoShortenedItems = async (
+    _items: unknown,
+    _channel: unknown,
+    _channelSeasonIndex: unknown,
+    context: DescriptionIngestContext
+  ) => {
+    recordPreparedDescription(context, {
+      value: '<p>a</p>',
+      preview: 'a',
+      is_truncated: true,
+      source_length: 12_000,
+    });
+    recordPreparedDescription(context, {
+      value: '<p>b</p>',
+      preview: 'b',
+      is_truncated: true,
+      source_length: 18_500,
+    });
+    recordPreparedDescription(context, {
+      value: '<p>c</p>',
+      preview: 'c',
+      is_truncated: false,
+      source_length: 300,
+    });
+    return { hadStoredItems: true, newItemGuids: [], newItemGuidEnclosureUrls: [] };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    conditionMocks.shouldAttemptFeedParseFromLifecycleAndPolicy.mockReturnValue(true);
+    conditionMocks.tryStartParsing.mockResolvedValue(true);
+    conditionMocks.recomputePolicy.mockResolvedValue({ parse_allowed: true });
+    conditionMocks.getActiveConditionKeys.mockResolvedValue([]);
+    feedLogGetMock.mockResolvedValue({ parse_errors: 0 });
+    handleGetRSSFeedMock.mockResolvedValue(baseFeed);
+    handleRequestRSSFeedMock.mockResolvedValue(parsedFeedFixture);
+    handleParsedFeedMock.mockImplementation(async (_parsed: unknown, f: { id: number }) => f);
+    handleParsedChannelSeasonsMock.mockResolvedValue(undefined);
+    handleParsedChannelMock.mockResolvedValue(undefined);
+    handleParsedItemsMock.mockImplementation(recordTwoShortenedItems);
+    handleParsedLiveItemsMock.mockResolvedValue({ pendingItemGuids: [], liveItemGuids: [] });
+    handleAllRemoteItemsFeedParsingMock.mockResolvedValue([]);
+    feedServiceUpdateMock.mockImplementation(async (_id: number, dto: unknown) => dto);
+    pendingFollowGetMock.mockResolvedValue([]);
+  });
+
+  it('records the shortened count and the longest source length on success', async () => {
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, parseOptions);
+
+    expect(feedServiceUpdateMock).toHaveBeenCalledWith(
+      baseFeed.id,
+      expect.objectContaining({
+        description_truncated_count: 2,
+        description_longest_source_length: 18_500,
+        description_truncated_at: expect.any(Date),
+      })
+    );
+  });
+
+  it('writes no description telemetry when the parse fails', async () => {
+    handleParsedLiveItemsMock.mockRejectedValueOnce(new Error('live item parse failed'));
+
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, parseOptions);
+
+    const telemetryCall = feedServiceUpdateMock.mock.calls.find(
+      ([, dto]: [number, { description_truncated_count?: number }]) =>
+        dto.description_truncated_count !== undefined
+    );
+    expect(telemetryCall).toBeUndefined();
   });
 });

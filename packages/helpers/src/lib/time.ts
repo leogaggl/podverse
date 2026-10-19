@@ -39,6 +39,15 @@ export const DEFAULT_SCHEDULED_JOB_RETENTION_DAYS = 30;
 export const DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS = 30;
 
 /**
+ * Default retention for Removed Content log rows (see ACCOUNT_CONTENT_LOG_RETENTION_DAYS).
+ *
+ * A row explains why a show left an account's library. Thirty days is long enough to notice
+ * and short enough that the table stays a recent list. Purging on updated_at keeps a row that
+ * was just updated for a later takedown.
+ */
+export const DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS = 30;
+
+/**
  * Player clock for every Podverse surface. First unit is never zero-padded:
  * `1:19:59`, `1:05`, `0:00` — not `01:19:59`. Hours appear only at 3600s+.
  * Accepts a number or a DTO string of seconds (`start_time` / `end_time`).

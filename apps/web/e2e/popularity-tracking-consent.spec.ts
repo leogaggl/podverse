@@ -73,10 +73,17 @@ test.describe('Popularity tracking consent', () => {
     await actionAndCapture(
       page,
       testInfo,
-      'How It Works opens in the accordion under the choice buttons.',
+      'How It Works opens above the choice buttons.',
       async () => {
         await expect(screen.getByText('Popularity Tracking is optional')).toBeVisible();
-        await screen.getByText('How It Works').click();
+        const disclosure = screen.getByText('How It Works');
+        const yes = screen.getByRole('button', { name: 'Yes, Track Me' });
+        const disclosureBox = await disclosure.boundingBox();
+        const yesBox = await yes.boundingBox();
+        expect(disclosureBox).not.toBeNull();
+        expect(yesBox).not.toBeNull();
+        expect(disclosureBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(yesBox?.y ?? 0);
+        await disclosure.click();
         await expect(page).toHaveURL('/');
         await expect(screen.getByRole('heading', { name: 'What We Store' })).toBeVisible();
       },

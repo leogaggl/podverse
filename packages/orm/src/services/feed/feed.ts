@@ -2,18 +2,18 @@ import { AppDataSourceRead, AppDataSourceReadWrite } from '@orm/db/index.js';
 import { Feed } from '@orm/entities/feed/feed.js';
 import type { FeedConditionSourceEnum } from '@orm/entities/feed/feedCondition.js';
 import type { FeedConditionTypeKeyEnum } from '@orm/entities/feed/feedConditionType.js';
+import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleStateType.js';
 import type { FeedPolicy } from '@orm/entities/feed/feedPolicy.js';
 import { applyProperties } from '@orm/lib/applyProperties.js';
 import { isPostgresUniqueViolation } from '@orm/lib/postgresUniqueViolation.js';
-import type { FindOptionsRelations } from 'typeorm';
+import type { EntityManager, FindOptionsRelations } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
 
 import { canonicalHttpOrHttpsUrl } from '@podverse/helpers-validation';
 
 import { computeParsingStaleBefore, deriveHttpsAndHttpUrlsFromInput } from './feed.helpers.js';
-import {
-  FeedLifecycleStateService,
-  type SetFeedLifecycleStateParams,
-} from './feedLifecycleState.js';
+import type { SetFeedLifecycleStateParams } from './feedLifecycleState.js';
+import { FeedLifecycleStateService } from './feedLifecycleState.js';
 import { FeedPolicyService } from './feedPolicy.js';
 
 type FeedCreateDto = {
@@ -27,6 +27,9 @@ type FeedUpdateDto = {
   parsing_priority?: number;
   last_parsed_file_hash?: string | null;
   container_id?: string | null;
+  description_truncated_count?: number;
+  description_longest_source_length?: number | null;
+  description_truncated_at?: Date;
 };
 
 /** Mutations applied inside {@link FeedService.applyFeedModerationChanges}. */
@@ -41,6 +44,8 @@ export type ApplyFeedModerationChangesParams = {
   conditionMutations?: FeedConditionMutation[];
   lifecycle?: SetFeedLifecycleStateParams;
   refreshPolicy?: boolean;
+  /** When set, lifecycle and policy writes join this transaction instead of opening one. */
+  manager?: EntityManager;
 };
 
 const FEED_RELATIONS: FindOptionsRelations<Feed> = {
@@ -127,6 +132,25 @@ export class FeedService {
       },
       relations: FEED_RELATIONS,
     });
+  }
+
+  async listPodcastIndexIds(): Promise<number[]> {
+    const rows = await this.repositoryRead
+      .createQueryBuilder('feed')
+      .select('feed.podcast_index_id', 'podcast_index_id')
+      .where('feed.podcast_index_id IS NOT NULL')
+      .getRawMany<{ podcast_index_id: number | string }>();
+    const ids: number[] = [];
+    for (const row of rows) {
+      const id =
+        typeof row.podcast_index_id === 'number'
+          ? row.podcast_index_id
+          : Number(row.podcast_index_id);
+      if (Number.isFinite(id)) {
+        ids.push(id);
+      }
+    }
+    return ids;
   }
 
   /** Returns the maximum podcast_index_id in the feeds table, or null if empty. Used in test-assets mode for auto-increment. */
@@ -220,7 +244,7 @@ export class FeedService {
     feedId: number,
     params: ApplyFeedModerationChangesParams
   ): Promise<Feed> {
-    await AppDataSourceReadWrite.transaction(async (manager) => {
+    const apply = async (manager: EntityManager) => {
       const fp = new FeedPolicyService(manager);
       const lifecycleSvc = new FeedLifecycleStateService(manager);
 
@@ -243,9 +267,17 @@ export class FeedService {
       if (params.refreshPolicy !== false) {
         await fp.recomputePolicy(feedId);
       }
-    });
+    };
 
-    const fed = await this.get(feedId);
+    if (params.manager) {
+      await apply(params.manager);
+    } else {
+      await AppDataSourceReadWrite.transaction(apply);
+    }
+
+    const fed = params.manager
+      ? await params.manager.findOne(Feed, { where: { id: feedId }, relations: FEED_RELATIONS })
+      : await this.get(feedId);
     if (!fed) {
       throw new Error(
         `FeedService.applyFeedModerationChanges: feed ${feedId} not found after update`
@@ -268,11 +300,12 @@ export class FeedService {
   async setFeedLifecycleState(
     feedId: number,
     lifecycle: SetFeedLifecycleStateParams,
-    options?: { refreshPolicy?: boolean }
+    options?: { refreshPolicy?: boolean; manager?: EntityManager }
   ): Promise<Feed> {
     return this.applyFeedModerationChanges(feedId, {
       lifecycle,
       refreshPolicy: options?.refreshPolicy !== false,
+      ...(options?.manager ? { manager: options.manager } : {}),
     });
   }
 
@@ -292,4 +325,158 @@ export class FeedService {
 
     return policy;
   }
+
+  /**
+   * Feed id and lifecycle state key for each Podcast Index id we store.
+   * A feed with no lifecycle row has `stateKey` null.
+   */
+  async listLifecycleByPodcastIndexIds(
+    podcastIndexIds: readonly number[]
+  ): Promise<FeedLifecycleByPodcastIndexId[]> {
+    const rows: FeedLifecycleByPodcastIndexId[] = [];
+    const chunkSize = 2000;
+    for (let index = 0; index < podcastIndexIds.length; index += chunkSize) {
+      const chunk = podcastIndexIds.slice(index, index + chunkSize);
+      if (chunk.length === 0) {
+        continue;
+      }
+      const found = await this.repositoryRead
+        .createQueryBuilder('feed')
+        .leftJoin('feed.feed_lifecycle_state', 'lifecycle')
+        .leftJoin('lifecycle.feed_lifecycle_state_type', 'lifecycle_type')
+        .select('feed.id', 'feed_id')
+        .addSelect('feed.podcast_index_id', 'podcast_index_id')
+        .addSelect('lifecycle_type.state_key', 'state_key')
+        .where('feed.podcast_index_id IN (:...ids)', { ids: chunk })
+        .getRawMany<{
+          feed_id: number | string;
+          podcast_index_id: number | string;
+          state_key: string | null;
+        }>();
+      for (const row of found) {
+        const feedId = finiteInteger(row.feed_id);
+        const podcastIndexId = finiteInteger(row.podcast_index_id);
+        if (feedId === null || podcastIndexId === null) {
+          continue;
+        }
+        rows.push({
+          feedId,
+          podcastIndexId,
+          stateKey: feedLifecycleStateKey(row.state_key),
+        });
+      }
+    }
+    return rows;
+  }
+
+  /** Feeds with this lifecycle reason and no channel row. Ordered by Podcast Index id. */
+  async listByLifecycleReasonWithoutChannel(reasonKey: string): Promise<FeedIdAndPodcastIndexId[]> {
+    const found = await this.repositoryRead
+      .createQueryBuilder('feed')
+      .innerJoin('feed.feed_lifecycle_state', 'lifecycle')
+      .leftJoin('feed.channel', 'channel')
+      .select('feed.id', 'feed_id')
+      .addSelect('feed.podcast_index_id', 'podcast_index_id')
+      .where('lifecycle.reason_key = :reasonKey', { reasonKey })
+      .andWhere('channel.id IS NULL')
+      .orderBy('feed.podcast_index_id', 'ASC')
+      .getRawMany<{ feed_id: number | string; podcast_index_id: number | string }>();
+    const rows: FeedIdAndPodcastIndexId[] = [];
+    for (const row of found) {
+      const id = finiteInteger(row.feed_id);
+      const podcastIndexId = finiteInteger(row.podcast_index_id);
+      if (id === null || podcastIndexId === null) {
+        continue;
+      }
+      rows.push({ id, podcastIndexId });
+    }
+    return rows;
+  }
+
+  /**
+   * Deletes the feed when no channel points at it.
+   * `blocked` means a foreign key refused the delete. The row is left in place.
+   */
+  async deleteFeedWithoutChannel(feedId: number): Promise<FeedDeleteWithoutChannelResult> {
+    try {
+      const result: unknown = await this.repositoryReadWrite.query(
+        `DELETE FROM public.feed AS target
+         WHERE target.id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM public.channel AS channel WHERE channel.feed_id = target.id
+           )`,
+        [feedId]
+      );
+      return postgresRowCount(result) > 0 ? 'deleted' : 'skipped';
+    } catch (error) {
+      if (isPostgresForeignKeyViolation(error)) {
+        return 'blocked';
+      }
+      throw error;
+    }
+  }
+}
+
+export type FeedLifecycleByPodcastIndexId = {
+  feedId: number;
+  podcastIndexId: number;
+  stateKey: FeedLifecycleStateKeyEnum | null;
+};
+
+export type FeedIdAndPodcastIndexId = {
+  id: number;
+  podcastIndexId: number;
+};
+
+export type FeedDeleteWithoutChannelResult = 'deleted' | 'skipped' | 'blocked';
+
+function finiteInteger(value: number | string | null | undefined): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function feedLifecycleStateKey(value: string | null): FeedLifecycleStateKeyEnum | null {
+  if (
+    value === FeedLifecycleStateKeyEnum.Active ||
+    value === FeedLifecycleStateKeyEnum.PendingArchive ||
+    value === FeedLifecycleStateKeyEnum.Archived ||
+    value === FeedLifecycleStateKeyEnum.Merged ||
+    value === FeedLifecycleStateKeyEnum.Takedown
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function postgresRowCount(result: unknown): number {
+  if (Array.isArray(result)) {
+    const rowCount = result[1];
+    return typeof rowCount === 'number' ? rowCount : 0;
+  }
+  if (typeof result === 'object' && result !== null) {
+    const rowCount = Reflect.get(result, 'rowCount');
+    if (typeof rowCount === 'number') {
+      return rowCount;
+    }
+  }
+  return 0;
+}
+
+const PG_FOREIGN_KEY_VIOLATION = '23503';
+
+function isPostgresForeignKeyViolation(error: unknown): boolean {
+  if (!(error instanceof QueryFailedError)) {
+    return false;
+  }
+  const ownCode = Reflect.get(error, 'code');
+  const driver = error.driverError;
+  const driverCode =
+    typeof driver === 'object' && driver !== null ? Reflect.get(driver, 'code') : undefined;
+  return ownCode === PG_FOREIGN_KEY_VIOLATION || driverCode === PG_FOREIGN_KEY_VIOLATION;
 }

@@ -1,0 +1,46 @@
+appId: com.podverse.app.next
+name: Archived Clip Flow
+---
+# Slimmed archived episode. Channel lists omit it, so both screens open by deep link:
+# podverse-next://episode/e2ePodArchEp01 and podverse-next://clip/e2eArchClip01
+# (apps/web/e2e/helpers/seedConstants.ts).
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- openLink: podverse-next://episode/e2ePodArchEp01
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: episode-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- scrollUntilVisible:
+    element:
+      text: "This archived episode keeps a short preview."
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    text: "This archived episode keeps a short preview."
+- assertNotVisible:
+    id: episode-detail-tab-chapters
+- assertNotVisible:
+    id: episode-detail-tab-transcript
+- assertNotVisible:
+    id: episode-detail-tab-people
+- assertNotVisible:
+    id: episode-detail-tab-funding
+- takeScreenshot: archived-clip-episode-summary
+
+- openLink: podverse-next://clip/e2eArchClip01
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: clip-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    text: "^E2E Archived Clip$"
+- assertNotVisible:
+    id: episode-detail-tab-chapters
+- assertNotVisible:
+    id: episode-detail-tab-transcript
+- takeScreenshot: archived-clip-detail

@@ -33,7 +33,9 @@ import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChr
 import { downloadActionLabelKey, runDownloadAction } from '../../downloads/downloadAction';
 import { useDownloadAction } from '../../downloads/useDownloads';
 import { useActionError } from '../../feedback/ActionErrorProvider';
+import { useItemDescription } from '../../hooks/useItemDescription';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
+import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLabel';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { getCachedItemSectionFlags } from '../../lib/sectionChromeFlags';
@@ -42,6 +44,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { ChannelBrowseStackParamList } from '../../navigation';
 import { buildAlbumDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import type { TrackTab } from '../../prefs/detailListPrefs';
 import { DEFAULT_TRACK_TAB } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -432,6 +435,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         api.reqItemGetByIdOrIdText(trackId)
       );
       void channelItemsRepository.updateStoredItem(fresh);
+      void cacheItemDescriptionFromDetail(fresh);
 
       let nextChannel = fresh.channel ?? null;
       if (nextChannel === null) {
@@ -547,7 +551,9 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     setActiveTab(tab);
   }, []);
 
-  const descriptionHtml = track?.item_description?.value ?? null;
+  const description = useItemDescription(track);
+  const descriptionHtml = description?.html ?? (description?.preview || null);
+  const onDescriptionClock = useItemDescriptionClock(track, channel);
 
   const playableTrack = useMemo((): DTOItem | null => {
     if (track === null) {
@@ -714,11 +720,17 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
             emptyLabel={t('info.summary.no_summary')}
             html={descriptionHtml}
             linkStyle={styles.showMore}
+            onDescriptionClock={onDescriptionClock}
             resetKey={trackId}
             showMoreStyle={styles.showMore}
             testID="track-detail-description"
             textStyle={styles.description}
             toggleTestID="track-detail-description-toggle"
+            truncation={
+              description?.isTruncated === true
+                ? { kind: 'item', linkUrl: description.linkUrl }
+                : undefined
+            }
           />
         </View>
       );
@@ -781,8 +793,10 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     );
   }, [
     activeTab,
+    description,
     descriptionHtml,
     handleRetryTranscript,
+    onDescriptionClock,
     isTranscriptLoading,
     offlineModeEnabled,
     styles.description,

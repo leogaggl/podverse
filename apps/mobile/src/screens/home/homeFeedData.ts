@@ -1,7 +1,10 @@
-import { articleStrippedTitle, primaryListArtworkUrl } from '@podverse/helpers';
+import {
+  articleStrippedTitle,
+  getDescriptionPreviewText,
+  primaryListArtworkUrl,
+} from '@podverse/helpers';
 import type { DTOItem } from '@podverse/helpers/dto';
 import { getNonEmptyTrimmedStringProperty, isObjectLike } from '@podverse/helpers/guards';
-import { htmlToPlainTextPreview } from '@podverse/helpers/html';
 
 import type { SubscribedChannel, SubscriptionSource } from '../../data/repositories';
 import {
@@ -68,6 +71,15 @@ export type HomeFeedRowData = {
   /** Clip segment bounds in seconds. The row formats these as a start–end label. */
   clipStartTime?: string | null;
   clipEndTime?: string | null;
+  /**
+   * False when this row must not start playback. Omitted rows stay playable.
+   */
+  playable?: boolean;
+  /**
+   * The episode behind this clip or playlist entry was removed. The row shows the removed
+   * label and no artwork.
+   */
+  removed?: boolean;
   /**
    * Set only for subscription rows. The other media types list content rather than follows, and
    * "how many unseen" is a question only a subscription can answer.
@@ -325,8 +337,10 @@ export const normalizeItemRows = (
       readStringFromNestedRecord(item, 'channel', 'title') ?? readFlatItemSubtitle(item);
     const updatedAt = readUpdatedAt(item.pub_date);
     const duration = readStringFromNestedRecord(item, 'item_about', 'duration');
-    const descriptionSource = readStringFromNestedRecord(item, 'item_description', 'value');
-    const description = descriptionSource !== null ? htmlToPlainTextPreview(descriptionSource) : '';
+    const description = getDescriptionPreviewText({
+      preview: readStringFromNestedRecord(item, 'item_description', 'preview'),
+      value: readStringFromNestedRecord(item, 'item_description', 'value'),
+    });
 
     const row: HomeFeedRowData = {
       id,
@@ -412,7 +426,7 @@ export const mapItemToHomeFeedRow = (
     return mapTrackToHomeFeedRow(item);
   }
 
-  const plainDescription = htmlToPlainTextPreview(item.item_description?.value);
+  const plainDescription = getDescriptionPreviewText(item.item_description);
   const duration = item.item_about?.duration?.trim() ?? '';
 
   return {

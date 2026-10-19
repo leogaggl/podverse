@@ -11,6 +11,7 @@ import type { MenuSelectChipOption } from '../../components/form';
 import { ListFilterField, ListFilterHeader, MenuSelectChip } from '../../components/form';
 import { FillList, VerticalCenter } from '../../components/primitives';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { ListLoading } from '../../components/state/ListLoading';
@@ -286,7 +287,7 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ alignItems: 'center', flexDirection: 'row', gap: 4 }}>
+        <HeaderBarActions>
           <HeaderBarAction
             accessibilityLabel={t('features.add_feed.add_feed')}
             icon="add"
@@ -302,7 +303,7 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
               viewMode={resolvedPrefs.viewMode}
             />
           ) : null}
-        </View>
+        </HeaderBarActions>
       ),
     });
   }, [

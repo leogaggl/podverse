@@ -9,6 +9,7 @@ import { Tabs } from '@podverse/ui';
 import { useAccount } from '../../contexts/Account';
 import { ListHeader } from '../List/ListHeader';
 import { SettingsAccount } from './Panels/SettingsAccount/SettingsAccount';
+import { SettingsRemovedContent } from './Panels/SettingsAdvanced/SettingsRemovedContent';
 import { SettingsGeneral } from './Panels/SettingsGeneral/SettingsGeneral';
 import { SettingsKeyboard } from './Panels/SettingsKeyboard/SettingsKeyboard';
 import { SettingsNotifications } from './Panels/SettingsNotifications/SettingsNotifications';
@@ -16,11 +17,19 @@ import { SettingsOpml } from './Panels/SettingsOpml/SettingsOpml';
 import { SettingsProfile } from './Panels/SettingsProfile/SettingsProfile';
 import { SettingsWrapper } from './SettingsWrapper';
 
-type TabKey = 'account' | 'general' | 'keyboard' | 'notifications' | 'opml' | 'profile';
+type TabKey =
+  'account' | 'advanced' | 'general' | 'keyboard' | 'notifications' | 'opml' | 'profile';
 
 function tabFromQueryParam(value: string | null): TabKey | null {
-  if (value === 'account' || value === 'profile' || value === 'notifications' || value === 'opml')
+  if (
+    value === 'account' ||
+    value === 'advanced' ||
+    value === 'profile' ||
+    value === 'notifications' ||
+    value === 'opml'
+  ) {
     return value;
+  }
   if (value === 'general') return 'general';
   if (value === 'keyboard') return 'keyboard';
   return null;
@@ -117,6 +126,13 @@ export function Settings() {
         zIndex: z,
       });
       z -= 1;
+      rows.push({
+        key: 'advanced',
+        label: tSettings('advanced.advanced'),
+        onClick: () => handleTabChange('advanced'),
+        zIndex: z,
+      });
+      z -= 1;
     }
     rows.push({
       key: 'keyboard',
@@ -137,6 +153,7 @@ export function Settings() {
         {loggedInAccount && tab === 'profile' && <SettingsProfile />}
         {loggedInAccount && tab === 'notifications' && <SettingsNotifications />}
         {loggedInAccount && tab === 'opml' && <SettingsOpml />}
+        {loggedInAccount && tab === 'advanced' && <SettingsRemovedContent />}
       </SettingsWrapper>
     </div>
   );

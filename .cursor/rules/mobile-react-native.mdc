@@ -106,7 +106,7 @@ alwaysApply: false
 
   Inventory (extend here when adding new shared UI): `Button`, `Card`, `CoverImage`,
   `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`,
-  `VerticalCenter`, `HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `MobileScreenContainer`,
+  `VerticalCenter`, `HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `HeaderBarActions`, `MobileScreenContainer`,
   `ThemedStackHeader`,
   `SectionCard`, `ListSection`, `ReorderableSections` / `ReorderableList` (`dragActivation` supports
   row-long-press and `showHandle` toggles handle-only vs body drag),

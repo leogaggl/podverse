@@ -3,7 +3,11 @@ import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { LIST_ROW_ACTION_SIZE } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
+
+/** `bar` is the 44pt title-bar slot. `inline` sizes the control to the glyph. */
+export type HeaderBarActionLayout = 'bar' | 'inline';
 
 export type HeaderBarActionProps = {
   accessibilityLabel: string;
@@ -12,7 +16,14 @@ export type HeaderBarActionProps = {
   iconColor?: string;
   iconSize?: number;
   label?: string;
+  /**
+   * `bar` reserves a 44pt slot and centers the glyph. `inline` sizes the control to the glyph
+   * and keeps a 44pt hit target with hitSlop, so the icon can line up with a neighboring title.
+   */
+  layout?: HeaderBarActionLayout;
   onPress: () => void;
+  /** Set when the control toggles a pane, so assistive tech hears the same selected state. */
+  selected?: boolean;
   testID: string;
 };
 
@@ -29,10 +40,13 @@ export function HeaderBarAction({
   iconColor,
   iconSize = 26,
   label,
+  layout = 'bar',
   onPress,
+  selected,
   testID,
 }: HeaderBarActionProps) {
   const { tokens } = useTheme();
+  const inline = layout === 'inline';
 
   const styles = useMemo(
     () =>
@@ -40,9 +54,16 @@ export function HeaderBarAction({
         button: {
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: 44,
-          minWidth: 44,
-          paddingHorizontal: tokens.spacing.sm,
+          ...(inline
+            ? {
+                height: iconSize,
+                width: iconSize,
+              }
+            : {
+                minHeight: LIST_ROW_ACTION_SIZE,
+                minWidth: LIST_ROW_ACTION_SIZE,
+                paddingHorizontal: tokens.spacing.sm,
+              }),
         },
         buttonDisabled: {
           opacity: 0.4,
@@ -50,22 +71,31 @@ export function HeaderBarAction({
         buttonPressed: {
           opacity: 0.7,
         },
+        inlineIcon: {
+          includeFontPadding: false,
+          lineHeight: iconSize,
+        },
         label: {
           color: tokens.text.primary,
           fontSize: 16,
           fontWeight: '700',
         },
       }),
-    [tokens]
+    [iconSize, inline, tokens]
   );
+
+  const inlineHitSlop = Math.max(0, (LIST_ROW_ACTION_SIZE - iconSize) / 2);
 
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{
+        disabled,
+        ...(selected !== undefined ? { selected } : {}),
+      }}
       disabled={disabled}
-      hitSlop={8}
+      hitSlop={inline ? inlineHitSlop : 8}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -75,7 +105,12 @@ export function HeaderBarAction({
       testID={testID}
     >
       {icon !== undefined ? (
-        <Ionicons color={iconColor ?? tokens.text.primary} name={icon} size={iconSize} />
+        <Ionicons
+          color={iconColor ?? tokens.text.primary}
+          name={icon}
+          size={iconSize}
+          style={inline ? styles.inlineIcon : undefined}
+        />
       ) : null}
       {label !== undefined ? <Text style={styles.label}>{label}</Text> : null}
     </Pressable>

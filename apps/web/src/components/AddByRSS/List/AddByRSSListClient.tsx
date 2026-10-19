@@ -12,7 +12,11 @@ import { useAccount } from '../../../contexts/Account';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
 import type { AddByRSSParseOutcome } from '../../../utils/addByRSS/actions';
-import { applyAddByRSSParseStatus } from '../../../utils/addByRSS/actions';
+import {
+  applyAddByRSSParseStatus,
+  enqueueAddByRSSParseWithStoredCredentials,
+  pollAddByRSSParseStatus,
+} from '../../../utils/addByRSS/actions';
 import { getFollowedAddByRSSChannels } from '../../../utils/addByRSS/api';
 import { partitionAddByRSSFeedsByCredentials } from '../../../utils/addByRSS/credentialsStatus';
 import { listFeedsWithCredentials } from '../../../utils/addByRSS/credentialStore';
@@ -89,6 +93,66 @@ const upsertFeedInState = (
   next[index] = updated;
   return next;
 };
+
+const uncachedFollowParses = new Set<string>();
+
+function feedNeedsFirstParse(feed: AddByRSSFeedRecord): boolean {
+  return (
+    feed.cache === undefined &&
+    (feed.lastParsedAt === undefined || feed.lastParsedAt === null) &&
+    feed.status === undefined
+  );
+}
+
+/** One parse per followed URL that has no local cache yet, shared across list mounts. */
+async function enqueueFollowsWithoutCache(
+  accountId: string,
+  onStatus: (
+    feedUrl: string,
+    parsedFeed: AddByRSSParsedFeed | undefined,
+    status: AddByRSSParseStatus,
+    cache?: AddByRSSFeedRecord['cache'],
+    outcome?: AddByRSSParseOutcome
+  ) => Promise<void>
+): Promise<void> {
+  const feeds = await getAllAddByRSSFeeds();
+  const pending: AddByRSSFeedRecord[] = [];
+  for (const feed of feeds) {
+    if (!feedNeedsFirstParse(feed) || uncachedFollowParses.has(feed.feedUrl)) {
+      continue;
+    }
+    uncachedFollowParses.add(feed.feedUrl);
+    pending.push(feed);
+  }
+
+  for (const feed of pending) {
+    try {
+      await onStatus(feed.feedUrl, undefined, 'queued');
+      const { request_id } = await enqueueAddByRSSParseWithStoredCredentials({
+        accountId,
+        feedUrl: feed.feedUrl,
+      });
+      void pollAddByRSSParseStatus({
+        requestId: request_id,
+        onStatusUpdate: async (statusResponse) => {
+          await onStatus(
+            feed.feedUrl,
+            statusResponse.payload,
+            statusResponse.status,
+            statusResponse.cache,
+            statusResponse
+          );
+        },
+      }).catch((error: unknown) => {
+        console.error(error);
+        uncachedFollowParses.delete(feed.feedUrl);
+      });
+    } catch (error: unknown) {
+      console.error(error);
+      uncachedFollowParses.delete(feed.feedUrl);
+    }
+  }
+}
 
 export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resourceType }) => {
   const tFeatures = useTranslations('features');
@@ -409,6 +473,13 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
   React.useEffect(() => {
     void loadFeeds();
   }, [loadFeeds]);
+
+  React.useEffect(() => {
+    if (!loggedInAccount) {
+      return;
+    }
+    void enqueueFollowsWithoutCache(loggedInAccount.id_text, handleParseStatus);
+  }, [feeds, handleParseStatus, loggedInAccount]);
 
   return (
     <>

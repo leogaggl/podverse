@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
-import { buildClipPath } from '@podverse/helpers';
+import { buildClipPath, isRemovedSource } from '@podverse/helpers';
 
+import { RemovedClipPage } from '../../../components/Clip/RemovedClipPage';
+import { CLIP_REMOVED_REQUEST_HEADER, isRemovedClipHttpError } from '../../../lib/clip/removedClip';
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
+import { buildNoindexMetadata } from '../../../lib/seo/buildNoindexMetadata';
 import {
   getChannelForSeoPage,
   getClipForSeoPage,
@@ -18,10 +22,25 @@ export type ClipPageProps = {
   params: Promise<{ clip_id: string }>;
 };
 
+async function visitorRemovedRequest(): Promise<boolean> {
+  const requestHeaders = await headers();
+  return requestHeaders.get(CLIP_REMOVED_REQUEST_HEADER) === '1';
+}
+
 export async function generateMetadata({ params }: ClipPageProps): Promise<Metadata> {
+  if (await visitorRemovedRequest()) {
+    return buildNoindexMetadata();
+  }
+
   try {
     const { clip_id } = await params;
     const clip = await getClipForSeoPage(clip_id);
+    if (isRemovedSource(clip)) {
+      return buildNoindexMetadata(clip.title ?? undefined);
+    }
+    if (!clip.item) {
+      return {};
+    }
     const item = await getItemForSeoPage(clip.item.id_text);
     const channel = await getChannelForSeoPage(item.channel_id);
     const descriptionPlain = truncateMetaDescription(
@@ -35,30 +54,53 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
       imageUrl: getItemThenChannelHeroImageUrl(item.item_images, channel.channel_images),
       type: 'article',
     });
-  } catch {
+  } catch (error) {
+    if (isRemovedClipHttpError(error)) {
+      return buildNoindexMetadata();
+    }
     return {};
   }
 }
 
 export default async function ClipPage({ params }: ClipPageProps) {
+  if (await visitorRemovedRequest()) {
+    return <RemovedClipPage kind="visitor" />;
+  }
+
   const { clip_id } = await params;
-  const ssrClip = await getClipForSeoPage(clip_id);
 
-  if (!ssrClip) {
-    return notFound();
+  try {
+    const ssrClip = await getClipForSeoPage(clip_id);
+
+    if (!ssrClip) {
+      return notFound();
+    }
+
+    if (isRemovedSource(ssrClip)) {
+      return <RemovedClipPage kind="owner" clip={ssrClip} />;
+    }
+
+    if (!ssrClip.item) {
+      return notFound();
+    }
+
+    const ssrItem = await getItemForSeoPage(ssrClip.item.id_text);
+
+    if (!ssrItem) {
+      return notFound();
+    }
+
+    const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
+
+    if (!ssrChannel) {
+      return notFound();
+    }
+
+    return <ClipPageClient ssrChannel={ssrChannel} ssrItem={ssrItem} ssrClip={ssrClip} />;
+  } catch (error) {
+    if (isRemovedClipHttpError(error)) {
+      return <RemovedClipPage kind="visitor" />;
+    }
+    throw error;
   }
-
-  const ssrItem = await getItemForSeoPage(ssrClip.item.id_text);
-
-  if (!ssrItem) {
-    return notFound();
-  }
-
-  const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
-
-  if (!ssrChannel) {
-    return notFound();
-  }
-
-  return <ClipPageClient ssrChannel={ssrChannel} ssrItem={ssrItem} ssrClip={ssrClip} />;
 }

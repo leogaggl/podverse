@@ -174,6 +174,32 @@ export const writeSortPrefIntoStore = (
  * not age out behind thirty one-off visits. Absent keys are left absent: a screen the user has never
  * customised has no preference worth a slot.
  */
+/**
+ * Move a remembered sort from one instance onto another, then drop the old key.
+ *
+ * When the survivor already has its own entry, that entry stays and only the old key is removed.
+ * Returns the same store when the old key is absent, so a caller can skip writing the cookie.
+ */
+export const carrySortPrefStore = (
+  store: SortPrefStore,
+  fromKey: string,
+  toKey: string
+): SortPrefStore => {
+  if (fromKey === toKey) {
+    return store;
+  }
+  const fromEntry = store.find(([key]) => key === fromKey);
+  if (fromEntry === undefined) {
+    return store;
+  }
+  const withoutFrom = store.filter(([key]) => key !== fromKey);
+  if (withoutFrom.some(([key]) => key === toKey)) {
+    return withoutFrom;
+  }
+  const carried: SortPrefStoreEntry = [toKey, fromEntry[1]];
+  return [carried, ...withoutFrom].slice(0, SORT_PREF_MAX_ENTRIES);
+};
+
 export const touchSortPrefInStore = (store: SortPrefStore, scope: SortPrefScope): SortPrefStore => {
   const key = buildSortPrefScopeKey(scope);
   if (key === null || store[0]?.[0] === key) {

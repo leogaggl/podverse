@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import type { TranscriptRow } from '@podverse/helpers';
+import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
 import { MainColumnStack, MainSidebarLayout, SideContent, Tabs } from '@podverse/ui';
 
@@ -24,6 +25,7 @@ import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { useAccount } from '../../../contexts/Account';
 import { getApiRequestService } from '../../../factories/apiRequestService';
+import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
 import {
   getAddByRSSChaptersTranscriptCredentials,
   getCachedChaptersTranscript,
@@ -296,6 +298,10 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
     return tabs;
   }, [canShowBoostTab, handleTabSelect, tInfo, tValue, transcriptUrl]);
 
+  const clock = useDescriptionClockPlayback(
+    track === null ? null : { indexItem: track, kind: 'add-by-rss' }
+  );
+
   if (isLoading) {
     return <WebLoadingYourContentSpinnerOverlay isLoading />;
   }
@@ -326,7 +332,15 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
           <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
           <DetailListWrapper>
             {selectedTab === 'summary' &&
-              (description ? <CoreEpisodeSummary description={description} /> : null)}
+              (description ? (
+                <CoreEpisodeSummary
+                  description={description}
+                  descriptionClockLabel={clock.descriptionClockLabel}
+                  onDescriptionClock={clock.onDescriptionClock}
+                  isTruncated={isDescriptionTruncated(track.bundle.description)}
+                  fullNotesUrl={track.bundle.about.website_link_url}
+                />
+              ) : null)}
             {selectedTab === 'boosts' && boostsPageFetcher !== null && (
               <BoostMessagesSection
                 heading={tV4VBoostMessages('title')}

@@ -8,7 +8,6 @@ export { PodcastPeopleSection } from './PodcastPeopleSection';
 export { PodcastPodrollSection } from './PodcastPodrollSection';
 export { PodcastSectionList } from './PodcastSectionList';
 export type { PodcastSectionListProps } from './PodcastSectionList';
-export { PodcastSettingsSection } from './PodcastSettingsSection';
 export type { PodcastSectionPaneProps } from './podcastSectionPane';
 export {
   PODCAST_SECTION_OFFLINE_MESSAGE_KEY,

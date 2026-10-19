@@ -6,6 +6,7 @@ import {
   AccountChannelSeenController,
   channelSeenReadRateLimit,
 } from '@api/controllers/account/accountChannelSeen.js';
+import { AccountContentLogController } from '@api/controllers/account/accountContentLog.js';
 import { AccountDeviceAutoDownloadController } from '@api/controllers/account/accountDeviceAutoDownload.js';
 import { AccountFCMDeviceController } from '@api/controllers/account/accountFCMDevice.js';
 import { AccountFollowingAccountController } from '@api/controllers/account/accountFollowingAccount.js';
@@ -223,6 +224,7 @@ router.get(
   '/notification/channels',
   asyncHandler(AccountNotificationChannelController.getAllByAccount)
 );
+router.get('/content-log', asyncHandler(AccountContentLogController.list));
 router.get('/notifications', asyncHandler(AccountNotificationController.getNotifications));
 router.get(
   '/notifications/unread-count',

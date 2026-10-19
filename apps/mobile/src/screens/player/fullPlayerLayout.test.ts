@@ -33,7 +33,7 @@ const phoneInput = {
 
 describe('full player band constants', () => {
   it('merges title and channel into one band with default and control-stack seams', () => {
-    expect(FULL_PLAYER_TITLE_BLOCK_HEIGHT).toBe(60);
+    expect(FULL_PLAYER_TITLE_BLOCK_HEIGHT).toBe(56);
     expect(FULL_PLAYER_SEGMENT_BAND_HEIGHT).toBe(64);
     expect(FULL_PLAYER_REGION_GAP_COUNT).toBe(3);
     expect(FULL_PLAYER_CONTROL_STACK_GAP_COUNT).toBe(2);

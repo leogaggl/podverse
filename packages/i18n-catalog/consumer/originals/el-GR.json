@@ -192,7 +192,7 @@
       "end_time": "Ώρα λήξης",
       "end_time_aria": "Ώρα λήξης σε ώρες, λεπτά και δευτερόλεπτα (hh:mm:ss)",
       "end_time_play_aria": "Αναπαραγωγή από την ώρα λήξης του αποσπάσματος",
-      "clip_time_range": "{hhmmssStart} έως {hhmmssEnd}",
+      "clip_time_range": "{hhmmssStart} - {hhmmssEnd}",
       "login_prompt": "Συνδεθείτε για να χρησιμοποιήσετε αυτή τη λειτουργία."
     },
     "my_clips": "Τα αποσπάσματά μου",
@@ -360,12 +360,19 @@
     "about": "Σχετικά",
     "summary": {
       "summary": "Περίληψη",
-      "no_summary": "Δεν διατίθεται περίληψη"
+      "no_summary": "Δεν διατίθεται περίληψη",
+      "play_from": "Αναπαραγωγή από {time}"
     },
     "podroll": "Podroll",
     "no_podroll_found": "Δεν βρέθηκαν προτεινόμενα podcast",
     "show_more": "Περισσότερα",
     "show_less": "Λιγότερα",
+    "truncation": {
+      "read_full_show_notes": "Ανάγνωση πλήρων σημειώσεων επεισοδίου",
+      "read_full_description": "Ανάγνωση πλήρους περιγραφής",
+      "show_notes_shortened": "Αυτές οι σημειώσεις επεισοδίου συντομεύτηκαν.",
+      "description_shortened": "Αυτή η περιγραφή συντομεύτηκε."
+    },
     "transcript": {
       "transcript": "Μεταγραφή",
       "search_transcript": "Αναζήτηση μεταγραφής...",
@@ -396,6 +403,12 @@
       "min": "{count} λεπ",
       "start": "{timeStart} αρχική ώρα",
       "start_end": "{timeStart} έως {timeEnd}"
+    },
+    "removed": {
+      "content_removed": "Το περιεχόμενο αφαιρέθηκε",
+      "clip_source_removed": "Το επεισόδιο αυτού του αποσπάσματος αφαιρέθηκε από το {brand_name}.",
+      "playlist_entry_removed": "Αυτό το στοιχείο αφαιρέθηκε από το {brand_name}.",
+      "show_not_in_directory": "Αυτή η εκπομπή δεν βρίσκεται πλέον στον κατάλογο του {brand_name}."
     }
   },
   "media_player": {
@@ -1215,6 +1228,19 @@
       "import_rate_limited_title": "Έφτασε το όριο εισαγωγής OPML",
       "import_rate_limited": "Μπορείτε να προσθέσετε έως {limit} ροές ανά ώρα. Για να ολοκληρώσετε την εισαγωγή των υπολοίπων, δοκιμάστε ξανά μετά από {time}.",
       "import_rate_limited_time": "{minutes, plural, one {# λεπτό} other {# λεπτά}}"
+    },
+    "advanced": {
+      "advanced": "Για προχωρημένους",
+      "removed_content": "Περιεχόμενο που αφαιρέθηκε",
+      "empty": "Δεν αφαιρέθηκε τίποτα από τη βιβλιοθήκη σας τις τελευταίες 30 ημέρες.",
+      "load_error": "Δεν ήταν δυνατή η φόρτωση του περιεχομένου που αφαιρέθηκε.",
+      "left_directory": "{title} δεν βρίσκεται πλέον στον κατάλογο.",
+      "taken_down": "{title} αφαιρέθηκε.",
+      "moved_to_add_by_rss": "Η εγγραφή σας μεταφέρθηκε στην Προσθήκη μέσω RSS.",
+      "follow_ended": "Η εγγραφή σας τερματίστηκε.",
+      "clips": "{count, plural, one {# από τα αποσπάσματά σας εμφανίζει πλέον «Το περιεχόμενο αφαιρέθηκε».} other {# από τα αποσπάσματά σας εμφανίζουν πλέον «Το περιεχόμενο αφαιρέθηκε».}}",
+      "playlist_entries": "{count, plural, one {# στοιχείο των λιστών αναπαραγωγής σας εμφανίζει πλέον «Το περιεχόμενο αφαιρέθηκε».} other {# στοιχεία των λιστών αναπαραγωγής σας εμφανίζουν πλέον «Το περιεχόμενο αφαιρέθηκε».}}",
+      "unknown_show": "Μια εκπομπή"
     },
     "keyboard": {
       "keyboard": "Πληκτρολόγιο",

@@ -27,7 +27,9 @@ import {
 import { feedOperationsUpdatePolicyStateBodySchema } from '@management-api/schemas/feedOperationsPolicy.js';
 import express from 'express';
 
-import { FeedLifecycleStateKeyEnum } from '@podverse/orm';
+import { FeedLifecycleStateKeyEnum, scheduleFeedForceReparse } from '@podverse/orm';
+
+import { registerFeedMergeReviewRoutes } from './feedMergeReview.js';
 
 const router = express.Router();
 const auditLog = new AuditLogService();
@@ -74,6 +76,7 @@ router.get('/', ensureAuthenticated, requireCrud('feeds', 'read'), async (req, r
       order: q.order,
       q: qTrimmed,
       lifecycle: lifecycleTrimmed,
+      descriptionTruncated: q.description_truncated === true,
     });
     const totalPages = Math.max(1, Math.ceil(total / q.limit));
     res.json({
@@ -155,6 +158,9 @@ router.get('/lookup', ensureAuthenticated, requireCrud('feeds', 'read'), async (
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+// Static /merges paths stay ahead of /:id so "merges" is not parsed as a feed id.
+registerFeedMergeReviewRoutes(router);
 
 router.patch(
   '/:id/policy-state',
@@ -251,6 +257,9 @@ router.patch(
       if (value.max_response_body_bytes_override !== undefined) {
         payload.maxResponseBodyBytesOverride = value.max_response_body_bytes_override;
       }
+      if (value.description_length_tier_override !== undefined) {
+        payload.descriptionLengthTierOverride = value.description_length_tier_override;
+      }
       if (value.policy_overrides !== undefined) {
         payload.policyOverrides = value.policy_overrides ?? null;
       }
@@ -258,7 +267,14 @@ router.patch(
         payload.takedownTransitional = value.takedown_transitional;
       }
 
-      await updateFeedOperationsPolicyState(feedId, adminId, payload);
+      const { descriptionTierChanged } = await updateFeedOperationsPolicyState(
+        feedId,
+        adminId,
+        payload
+      );
+      if (descriptionTierChanged) {
+        await scheduleFeedForceReparse(feedId, 'description_tier_change', new Date());
+      }
 
       const afterFeed = await findFeedByInternalId(feedId);
       if (!afterFeed) {

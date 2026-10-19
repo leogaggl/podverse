@@ -7,6 +7,7 @@ import { selectItemChapterForTime } from '@podverse/playback-core/selectItemChap
 import { useAuth } from '../auth/AuthProvider';
 import type { MobileAuthRequestContext } from '../data';
 import { segmentsRepository } from '../data';
+import { warmItemDescription } from '../lib/content/itemDescriptionAccess';
 import { usePlaybackProgress, usePlaybackSession } from './PlaybackProvider';
 import { usePlaybackScrubPreview } from './playbackScrubPreviewStore';
 
@@ -108,8 +109,9 @@ export const resolveNowPlayingChapters = async (
 };
 
 /**
- * Fetch chapters once per now-playing episode (process-wide cache). Does not subscribe to the
- * playhead — pair with {@link useActiveNowPlayingChapter} in leaf chrome.
+ * Fetch chapters once per now-playing episode (process-wide cache), and warm that episode's show
+ * notes for the full player. Does not subscribe to the playhead — pair with
+ * {@link useActiveNowPlayingChapter} in leaf chrome.
  */
 export function useNowPlayingChapters(): { chapters: DTOItemChapter[] } {
   const { accessToken, clearSession, refreshToken, setTokens } = useAuth();
@@ -118,6 +120,12 @@ export function useNowPlayingChapters(): { chapters: DTOItemChapter[] } {
 
   const item = itemFromTarget(activeTarget);
   const chaptersItemIdText = item !== null ? item.id_text : null;
+
+  useEffect(() => {
+    if (item !== null) {
+      warmItemDescription(item);
+    }
+  }, [item]);
 
   useEffect(() => {
     if (chaptersItemIdText === null) {

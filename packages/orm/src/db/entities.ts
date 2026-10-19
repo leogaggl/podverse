@@ -1,4 +1,5 @@
 import { Account } from '@orm/entities/account/account.js';
+import { AccountContentLog } from '@orm/entities/account/accountContentLog.js';
 import { AccountCredentials } from '@orm/entities/account/accountCredentials.js';
 import { AccountDeviceAutoDownloadChannel } from '@orm/entities/account/accountDeviceAutoDownloadChannel.js';
 import { AccountEmailChangeVerification } from '@orm/entities/account/accountEmailChangeVerification.js';
@@ -51,6 +52,8 @@ import { ChannelInternalSettings } from '@orm/entities/channel/channelInternalSe
 import { ChannelItunesType } from '@orm/entities/channel/channelItunesType.js';
 import { ChannelLicense } from '@orm/entities/channel/channelLicense.js';
 import { ChannelLocation } from '@orm/entities/channel/channelLocation.js';
+import { ChannelMerge } from '@orm/entities/channel/channelMerge.js';
+import { ChannelMergeJournal } from '@orm/entities/channel/channelMergeJournal.js';
 import { ChannelMetaBoost } from '@orm/entities/channel/channelMetaBoost.js';
 import { ChannelPerson } from '@orm/entities/channel/channelPerson.js';
 import { ChannelPodroll } from '@orm/entities/channel/channelPodroll.js';
@@ -64,6 +67,8 @@ import { ChannelTrailer } from '@orm/entities/channel/channelTrailer.js';
 import { ChannelTxt } from '@orm/entities/channel/channelTxt.js';
 import { ChannelValue } from '@orm/entities/channel/channelValue.js';
 import { ChannelValueRecipient } from '@orm/entities/channel/channelValueRecipient.js';
+import { ItemMergeMap } from '@orm/entities/channel/itemMergeMap.js';
+import { PodcastIndexDeadFeedSync } from '@orm/entities/channel/podcastIndexDeadFeedSync.js';
 import { Clip } from '@orm/entities/clip.js';
 import { Feed } from '@orm/entities/feed/feed.js';
 import { FeedCondition } from '@orm/entities/feed/feedCondition.js';
@@ -134,6 +139,7 @@ import { ImageShrinkSource } from '../entities/imageShrinkSource.js';
 
 export const entities = [
   Account,
+  AccountContentLog,
   AccountCredentials,
   AccountEmailChangeVerification,
   AccountDeviceAutoDownloadChannel,
@@ -196,8 +202,12 @@ export const entities = [
   ChannelTrailer,
   ChannelTxt,
   ChannelMetaBoost,
+  ChannelMerge,
+  ChannelMergeJournal,
   ChannelValue,
   ChannelValueRecipient,
+  ItemMergeMap,
+  PodcastIndexDeadFeedSync,
   Clip,
   Feed,
   FeedCondition,

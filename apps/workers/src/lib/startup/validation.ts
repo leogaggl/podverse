@@ -34,6 +34,7 @@ import {
   PODCAST_INDEX_DEFAULT_RETRY_BASE_DELAY_MS,
 } from '@podverse/external-services-podcast-index';
 import {
+  DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -165,6 +166,13 @@ function validateBase(): ValidationResult[] {
       'NOTIFICATION_RETENTION_DAYS',
       'Notifications',
       DEFAULT_NOTIFICATION_RETENTION_DAYS
+    )
+  );
+  results.push(
+    validateRetentionDays(
+      'ACCOUNT_CONTENT_LOG_RETENTION_DAYS',
+      'Removed Content',
+      DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS
     )
   );
   results.push(
@@ -459,11 +467,46 @@ function validateParser(): ValidationResult[] {
   return results;
 }
 
+function validatePodcastIndexMode(name: string): ValidationResult {
+  const category = 'Podcast Index';
+  const value = process.env[name];
+  if (value === undefined || value.trim() === '') {
+    return {
+      name,
+      isSet: false,
+      isValid: false,
+      isRequired: true,
+      message: 'Missing or empty',
+      category,
+    };
+  }
+  if (value === 'off' || value === 'dry_run' || value === 'apply') {
+    return {
+      name,
+      isSet: true,
+      isValid: true,
+      isRequired: true,
+      message: 'Set',
+      category,
+    };
+  }
+  return {
+    name,
+    isSet: true,
+    isValid: false,
+    isRequired: true,
+    message: 'Must be off, dry_run, or apply',
+    category,
+  };
+}
+
 /** Category: Podcast Index */
 function validatePodcastIndex(): ValidationResult[] {
   const results: ValidationResult[] = [];
-  results.push(validateRequired('PODCAST_INDEX_AUTH_KEY', 'Podcast Index'));
   results.push(validateRequired('PODCAST_INDEX_BASE_URL', 'Podcast Index'));
+  results.push(validatePodcastIndexMode('PODCAST_INDEX_DUPLICATE_MERGE_MODE'));
+  results.push(validatePodcastIndexMode('PODCAST_INDEX_DEAD_FEED_RETIRE_MODE'));
+  results.push(validateRequired('PODCAST_INDEX_AUTH_KEY', 'Podcast Index'));
   results.push(validateRequired('PODCAST_INDEX_SECRET_KEY', 'Podcast Index'));
   results.push(
     validateOptional('PODCAST_INDEX_API_RATE_LIMIT_DELAY', 'Podcast Index', 'Use Default (200)')

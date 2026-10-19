@@ -1,4 +1,9 @@
-import type { DTOItem, DTOItemChapter, DTOItemQueueItem } from '@podverse/helpers';
+import type {
+  DTOItem,
+  DTOItemChapter,
+  DTOItemDescriptionDetail,
+  DTOItemQueueItem,
+} from '@podverse/helpers';
 
 import type { ApiRequestService } from '../_request.js';
 import type { ApiListResponse } from '../_response.js';
@@ -22,6 +27,16 @@ import type {
 export async function reqItemGetByIdOrIdText(api: ApiRequestService, idOrIdText: string) {
   return api.apiRequest<DTOItem>({
     path: `/item/${idOrIdText}`,
+    method: 'GET',
+  });
+}
+
+export async function reqItemDescriptionGetByIdOrIdText(
+  api: ApiRequestService,
+  idOrIdText: string
+) {
+  return api.apiRequest<DTOItemDescriptionDetail>({
+    path: `/item/${idOrIdText}/description`,
     method: 'GET',
   });
 }

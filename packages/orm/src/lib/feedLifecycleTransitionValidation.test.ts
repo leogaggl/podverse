@@ -16,7 +16,7 @@ describe('isLifecycleTransitionAllowed', () => {
     ).toBe(true);
   });
 
-  it('allows the base matrix edges from 01b', () => {
+  it('allows the base matrix edges', () => {
     expect(
       isLifecycleTransitionAllowed(
         FeedLifecycleStateKeyEnum.Active,
@@ -96,6 +96,71 @@ describe('isLifecycleTransitionAllowed', () => {
         { explicitManagementOverride: true }
       )
     ).toBe(true);
+  });
+
+  it('allows active, pending_archive, and archived to move to merged, and merged to takedown', () => {
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Active,
+        FeedLifecycleStateKeyEnum.Merged
+      )
+    ).toBe(true);
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.PendingArchive,
+        FeedLifecycleStateKeyEnum.Merged
+      )
+    ).toBe(true);
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Archived,
+        FeedLifecycleStateKeyEnum.Merged
+      )
+    ).toBe(true);
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Merged,
+        FeedLifecycleStateKeyEnum.Takedown
+      )
+    ).toBe(true);
+  });
+
+  it('allows merged -> active only with explicitManagementOverride', () => {
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Merged,
+        FeedLifecycleStateKeyEnum.Active
+      )
+    ).toBe(false);
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Merged,
+        FeedLifecycleStateKeyEnum.Active,
+        { explicitManagementOverride: true }
+      )
+    ).toBe(true);
+  });
+
+  it('denies other transitions that involve merged', () => {
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Merged,
+        FeedLifecycleStateKeyEnum.PendingArchive,
+        { explicitManagementOverride: true }
+      )
+    ).toBe(false);
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Merged,
+        FeedLifecycleStateKeyEnum.Archived
+      )
+    ).toBe(false);
+    expect(
+      isLifecycleTransitionAllowed(
+        FeedLifecycleStateKeyEnum.Takedown,
+        FeedLifecycleStateKeyEnum.Merged
+      )
+    ).toBe(false);
   });
 
   it('denies transitions outside the matrix when no escape hatch applies', () => {

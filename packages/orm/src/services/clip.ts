@@ -3,7 +3,7 @@ import { getChannelCategoryWhere } from '@orm/lib/categoryFilterWhere.js';
 import { AccountService } from '@orm/services/account/account.js';
 import { BaseManyService } from '@orm/services/base/baseManyService.js';
 import type { EntityManager, FindManyOptions, FindOneOptions } from 'typeorm';
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 
 import type { QueryParamsMedium } from '@podverse/helpers';
 import { getMediumIdArrayFromType, SharableStatusEnum } from '@podverse/helpers';
@@ -18,6 +18,33 @@ export type ClipDto = {
   item_id_text: string;
   sharable_status_id: number;
 };
+
+export type ClipUpdateDto = Omit<ClipDto, 'item_id_text'> & {
+  item_id_text?: string | null;
+};
+
+export const CLIP_SOURCE_REMOVED_MESSAGE = 'Clip source was removed';
+
+/** A clip whose episode is gone: captured at removal, or nulled by the foreign key. */
+export function isClipSourceRemoved(clip: Pick<Clip, 'item_id' | 'source_removed_at'>): boolean {
+  return clip.source_removed_at !== null || clip.item_id === null;
+}
+
+/** An update the clip cannot accept; the API answers 400. */
+export class ClipUpdateRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ClipUpdateRejectedError';
+  }
+}
+
+/** Request bodies carry numbers; stored media times come back as strings. */
+function toTimeOrNull(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  return Number(value);
+}
 
 export class ClipService extends BaseManyService<Clip, 'account'> {
   private accountService: AccountService;
@@ -58,7 +85,7 @@ export class ClipService extends BaseManyService<Clip, 'account'> {
     return this._update(account, whereKeys, finalDto);
   }
 
-  async update(account_id: number, clip_id_text: string, dto: ClipDto): Promise<Clip> {
+  async update(account_id: number, clip_id_text: string, dto: ClipUpdateDto): Promise<Clip> {
     const account = await this.accountService.get(account_id);
     if (!account) {
       throw new Error('Account not found.');
@@ -67,6 +94,32 @@ export class ClipService extends BaseManyService<Clip, 'account'> {
     const clip = await this._get(account, { id_text: clip_id_text });
     if (!clip) {
       throw new Error('Clip not found.');
+    }
+
+    const whereKeys = ['id_text'] as (keyof Clip)[];
+
+    if (isClipSourceRemoved(clip)) {
+      const timesChanged =
+        toTimeOrNull(dto.start_time) !== toTimeOrNull(clip.start_time) ||
+        toTimeOrNull(dto.end_time) !== toTimeOrNull(clip.end_time);
+      const sharingChanged = dto.sharable_status_id !== clip.sharable_status_id;
+      if (timesChanged || sharingChanged) {
+        throw new ClipUpdateRejectedError(
+          'Clip source was removed. Only the title and description can change.'
+        );
+      }
+
+      return this._update(
+        account,
+        whereKeys,
+        { title: dto.title || null, description: dto.description || null },
+        undefined,
+        clip
+      );
+    }
+
+    if (!dto.item_id_text) {
+      throw new ClipUpdateRejectedError('item_id_text is required.');
     }
 
     const item = await this.itemService.getByIdOrIdText(dto.item_id_text);
@@ -87,7 +140,6 @@ export class ClipService extends BaseManyService<Clip, 'account'> {
       sharable_status_id: dto.sharable_status_id,
     };
 
-    const whereKeys = ['id_text'] as (keyof Clip)[];
     return this._update(account, whereKeys, finalDto, undefined, clip);
   }
 
@@ -209,25 +261,34 @@ export class ClipService extends BaseManyService<Clip, 'account'> {
     return this._getAll(account);
   }
 
+  /** The account's own clips, including clips whose episode was removed. */
   async getManyByAccountIdTextAndCount(
     account_id_text: string,
     config: FindManyOptions<Clip>
   ): Promise<[Clip[], number]> {
     return this.repositoryRead.findAndCount({
-      where: {
-        account: {
-          id_text: account_id_text,
-        },
-        item: {
-          channel: {
-            feed: {
-              feed_policy: {
-                public_visible: true,
+      where: [
+        {
+          account: {
+            id_text: account_id_text,
+          },
+          item: {
+            channel: {
+              feed: {
+                feed_policy: {
+                  public_visible: true,
+                },
               },
             },
           },
         },
-      },
+        {
+          account: {
+            id_text: account_id_text,
+          },
+          item_id: IsNull(),
+        },
+      ],
       ...config,
     });
   }

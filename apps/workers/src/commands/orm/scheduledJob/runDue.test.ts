@@ -6,6 +6,7 @@ const {
   campaignMarkSentMock,
   claimDueBatchMock,
   dispatchAdminNotificationCampaignMock,
+  feedGetMock,
   listDuePendingBatchMock,
   loggerErrorMock,
   loggerInfoMock,
@@ -14,14 +15,17 @@ const {
   markCompletedMock,
   markFailedMock,
   parseAdminNotificationSendPayloadMock,
+  parsePodcastIndexFeedDirectlyMock,
   releaseStaleRunningBeforeMock,
   requeueWithBackoffMock,
+  shouldAttemptFeedParseMock,
 } = vi.hoisted(() => ({
   campaignGetByIdTextMock: vi.fn(),
   campaignMarkSendingMock: vi.fn(),
   campaignMarkSentMock: vi.fn(),
   claimDueBatchMock: vi.fn(),
   dispatchAdminNotificationCampaignMock: vi.fn(),
+  feedGetMock: vi.fn(),
   listDuePendingBatchMock: vi.fn(),
   loggerErrorMock: vi.fn(),
   loggerInfoMock: vi.fn(),
@@ -30,8 +34,14 @@ const {
   markCompletedMock: vi.fn(),
   markFailedMock: vi.fn(),
   parseAdminNotificationSendPayloadMock: vi.fn(),
+  parsePodcastIndexFeedDirectlyMock: vi.fn(),
   releaseStaleRunningBeforeMock: vi.fn(),
   requeueWithBackoffMock: vi.fn(),
+  shouldAttemptFeedParseMock: vi.fn(),
+}));
+
+vi.mock('@workers/commands/parser/rss/parseFeed.js', () => ({
+  parsePodcastIndexFeedDirectly: parsePodcastIndexFeedDirectlyMock,
 }));
 
 vi.mock('@workers/factories/logger.js', () => ({
@@ -59,16 +69,38 @@ vi.mock('@podverse/orm', () => {
     markSent = campaignMarkSentMock;
   }
 
+  class MockFeedService {
+    get = feedGetMock;
+  }
+
   return {
     ADMIN_NOTIFICATION_SEND_JOB_TYPE: 'admin-notification-send',
     AdminNotificationCampaignService: MockAdminNotificationCampaignService,
+    FEED_FORCE_REPARSE_JOB_TYPE: 'feed-force-reparse',
+    FeedLifecycleStateKeyEnum: { Active: 'active' },
+    FeedService: MockFeedService,
     ScheduledJobService: MockScheduledJobService,
     dispatchAdminNotificationCampaign: dispatchAdminNotificationCampaignMock,
     parseAdminNotificationSendPayload: parseAdminNotificationSendPayloadMock,
+    parseFeedForceReparsePayload: (payload: { feedId?: unknown }) =>
+      typeof payload.feedId === 'number'
+        ? { feedId: payload.feedId, reason: 'description_backfill' }
+        : null,
+    shouldAttemptFeedParseFromLifecycleAndPolicy: shouldAttemptFeedParseMock,
   };
 });
 
 import { scheduledJobsRunDue } from './runDue.js';
+
+const reparseJob = {
+  attempts: 1,
+  created_at: new Date('2026-10-01T12:00:00.000Z'),
+  dedupe_key: 'feed-force-reparse:55',
+  id: 31,
+  job_type: 'feed-force-reparse',
+  max_attempts: 5,
+  payload: { feedId: 55, reason: 'description_backfill' },
+};
 
 const campaignJob = {
   attempts: 1,
@@ -170,5 +202,60 @@ describe('scheduledJobsRunDue', () => {
 
     expect(requeueWithBackoffMock).toHaveBeenCalledWith(18, 'database unavailable', 10 * 60 * 1000);
     expect(markFailedMock).not.toHaveBeenCalled();
+  });
+
+  describe('feed-force-reparse', () => {
+    beforeEach(() => {
+      feedGetMock.mockReset();
+      parsePodcastIndexFeedDirectlyMock.mockReset();
+      shouldAttemptFeedParseMock.mockReset();
+      claimDueBatchMock.mockResolvedValue([reparseJob]);
+      shouldAttemptFeedParseMock.mockReturnValue(true);
+      parsePodcastIndexFeedDirectlyMock.mockResolvedValue(undefined);
+    });
+
+    it('cancels when the feed no longer exists', async () => {
+      feedGetMock.mockResolvedValue(null);
+
+      await scheduledJobsRunDue({ _: [] });
+
+      expect(markCancelledMock).toHaveBeenCalledWith(31, 'Feed not found');
+      expect(parsePodcastIndexFeedDirectlyMock).not.toHaveBeenCalled();
+    });
+
+    it('cancels when the feed may not be parsed', async () => {
+      feedGetMock.mockResolvedValue({
+        id: 55,
+        podcast_index_id: 9055,
+        feed_lifecycle_state: { feed_lifecycle_state_type: { state_key: 'merged' } },
+        feed_policy: null,
+      });
+      shouldAttemptFeedParseMock.mockReturnValue(false);
+
+      await scheduledJobsRunDue({ _: [] });
+
+      expect(markCancelledMock).toHaveBeenCalledWith(
+        31,
+        'Feed may not be parsed (lifecycle=merged)'
+      );
+      expect(parsePodcastIndexFeedDirectlyMock).not.toHaveBeenCalled();
+    });
+
+    it('force parses and suppresses notifications for items older than the job', async () => {
+      feedGetMock.mockResolvedValue({
+        id: 55,
+        podcast_index_id: 9055,
+        feed_lifecycle_state: null,
+        feed_policy: null,
+      });
+
+      await scheduledJobsRunDue({ _: [] });
+
+      expect(parsePodcastIndexFeedDirectlyMock).toHaveBeenCalledWith(9055, true, {
+        enqueueFollowUpWork: true,
+        suppressNewItemSideEffectsPublishedBeforeMs: reparseJob.created_at.getTime(),
+      });
+      expect(markCompletedMock).toHaveBeenCalledWith(31);
+    });
   });
 });

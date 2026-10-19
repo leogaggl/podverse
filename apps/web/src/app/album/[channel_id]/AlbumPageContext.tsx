@@ -45,6 +45,7 @@ interface AlbumPageContextProviderProps {
   ssrItemsWithLiveItem: DTOItem[];
   ssrItems: DTOItem[];
   ssrTotalPages: number;
+  directoryRemoved?: boolean;
 }
 
 export const AlbumPageContextProvider = ({
@@ -55,6 +56,7 @@ export const AlbumPageContextProvider = ({
   ssrItemsWithLiveItem,
   ssrItems,
   ssrTotalPages,
+  directoryRemoved = false,
 }: AlbumPageContextProviderProps) => {
   const params = useParams();
 
@@ -106,6 +108,10 @@ export const AlbumPageContextProvider = ({
   });
 
   useSkipInitialEffect(() => {
+    if (directoryRemoved) {
+      return;
+    }
+
     // Skip fetch if we just restored from cache - data is already correct
     if (restoredFromCacheRef.current) {
       restoredFromCacheRef.current = false;
@@ -161,7 +167,7 @@ export const AlbumPageContextProvider = ({
     }
 
     fetchData();
-  }, [filterParams, loggedInAccount]);
+  }, [directoryRemoved, filterParams, loggedInAccount]);
 
   return (
     <AlbumPageContext.Provider

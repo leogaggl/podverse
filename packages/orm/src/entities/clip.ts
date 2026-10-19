@@ -12,6 +12,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+import type { DTORemovedSource } from '@podverse/helpers';
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
 @Entity('clip')
@@ -26,12 +27,18 @@ export class Clip {
   @JoinColumn({ name: 'account_id' })
   account!: Relation<Account>;
 
-  @Column()
-  item_id!: string;
+  @Column({ nullable: true })
+  item_id!: string | null;
 
-  @ManyToOne('Item', (item: Item) => item.id, { onDelete: 'CASCADE' })
+  @ManyToOne('Item', (item: Item) => item.id, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'item_id' })
-  item!: Relation<Item>;
+  item!: Relation<Item> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  removed_source!: DTORemovedSource | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  source_removed_at!: Date | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   start_time!: string;

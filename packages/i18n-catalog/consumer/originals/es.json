@@ -192,7 +192,7 @@
       "end_time": "Hora de fin",
       "end_time_aria": "Hora de fin en horas, minutos y segundos (hh:mm:ss)",
       "end_time_play_aria": "Reproducir desde la hora de fin del clip",
-      "clip_time_range": "{hhmmssStart} hasta {hhmmssEnd}",
+      "clip_time_range": "{hhmmssStart} - {hhmmssEnd}",
       "login_prompt": "Inicia sesión para usar esta función."
     },
     "my_clips": "Mis clips",
@@ -360,12 +360,19 @@
     "about": "Acerca de",
     "summary": {
       "summary": "Resumen",
-      "no_summary": "No hay resumen disponible"
+      "no_summary": "No hay resumen disponible",
+      "play_from": "Reproducir desde {time}"
     },
     "podroll": "Podroll",
     "no_podroll_found": "No se encontraron podcasts recomendados",
     "show_more": "Mostrar más",
     "show_less": "Mostrar menos",
+    "truncation": {
+      "read_full_show_notes": "Leer las notas completas del episodio",
+      "read_full_description": "Leer la descripción completa",
+      "show_notes_shortened": "Estas notas del episodio se acortaron.",
+      "description_shortened": "Esta descripción se acortó."
+    },
     "transcript": {
       "transcript": "Transcripción",
       "search_transcript": "Buscar transcripción...",
@@ -396,6 +403,12 @@
       "min": "{count} min",
       "start": "{timeStart} hora de inicio",
       "start_end": "{timeStart} a {timeEnd}"
+    },
+    "removed": {
+      "content_removed": "Contenido eliminado",
+      "clip_source_removed": "El episodio de este clip se eliminó de {brand_name}.",
+      "playlist_entry_removed": "Este elemento se eliminó de {brand_name}.",
+      "show_not_in_directory": "Este programa ya no está en el directorio de {brand_name}."
     }
   },
   "media_player": {
@@ -1215,6 +1228,19 @@
       "import_rate_limited_title": "Límite de importación OPML alcanzado",
       "import_rate_limited": "Puedes añadir hasta {limit} feeds por hora. Para terminar de importar el resto, inténtalo de nuevo después de {time}.",
       "import_rate_limited_time": "{minutes, plural, one {# minuto} other {# minutos}}"
+    },
+    "advanced": {
+      "advanced": "Avanzado",
+      "removed_content": "Contenido eliminado",
+      "empty": "No se eliminó nada de tu biblioteca en los últimos 30 días.",
+      "load_error": "No se pudo cargar el contenido eliminado.",
+      "left_directory": "{title} ya no está en el directorio.",
+      "taken_down": "{title} fue retirado.",
+      "moved_to_add_by_rss": "Tu suscripción se movió a Añadir por RSS.",
+      "follow_ended": "Tu suscripción terminó.",
+      "clips": "{count, plural, one {# de tus clips ahora muestra «Contenido eliminado».} other {# de tus clips ahora muestran «Contenido eliminado».}}",
+      "playlist_entries": "{count, plural, one {# elemento de tus listas de reproducción ahora muestra «Contenido eliminado».} other {# elementos de tus listas de reproducción ahora muestran «Contenido eliminado».}}",
+      "unknown_show": "Un programa"
     },
     "keyboard": {
       "keyboard": "Teclado",

@@ -176,7 +176,10 @@
     "quick_login_popularity": "",
     "quick_login_stale_terms": "",
     "quick_login_perf": "",
-    "session_ready": ""
+    "session_ready": "",
+    "identity_remap": "",
+    "identity_remap_prepare": "",
+    "identity_remap_intro": ""
   },
   "subscriptions": {
     "downloaded_only": ""
@@ -196,9 +199,25 @@
       "live_status": "",
       "clips": "",
       "home_feed": "",
-      "auto_download": ""
+      "auto_download": "",
+      "identity_remap": ""
     },
     "progress": ""
+  },
+  "removed_content": {
+    "title": "",
+    "menu_subtitle": "",
+    "empty": "",
+    "load_error": "",
+    "left_directory": "",
+    "taken_down": "",
+    "moved_to_add_by_rss": "",
+    "follow_ended": "",
+    "clips_one": "",
+    "clips_other": "",
+    "playlist_entries_one": "",
+    "playlist_entries_other": "",
+    "unknown_show": ""
   },
   "error_log": {
     "intro": "",
@@ -264,6 +283,7 @@
     "outcome_skipped": "",
     "outcome_success": "",
     "directory_channel_gone": "",
+    "directory_channel_converted": "",
     "row_a11y_hint": "",
     "saved_footnote": "",
     "kind": {

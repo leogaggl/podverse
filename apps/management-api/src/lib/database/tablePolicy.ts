@@ -127,6 +127,26 @@ export const TABLE_POLICIES: TablePolicyDefinition[] = [
         nullable: true,
         updatable: true,
       },
+      // Changing the tier must schedule a reparse, which only PATCH /feeds/:id/policy-state does.
+      {
+        name: 'description_length_tier_override',
+        type: 'text',
+        nullable: true,
+        updatable: false,
+      },
+      { name: 'description_truncated_count', type: 'integer', nullable: false, updatable: false },
+      {
+        name: 'description_longest_source_length',
+        type: 'integer',
+        nullable: true,
+        updatable: false,
+      },
+      {
+        name: 'description_truncated_at',
+        type: 'timestamp',
+        nullable: true,
+        updatable: false,
+      },
       { name: 'last_parsed_file_hash', type: 'text', nullable: true, updatable: false },
       { name: 'is_parsing', type: 'timestamp', nullable: true, updatable: false },
       { name: 'parsing_priority', type: 'integer', nullable: false, updatable: true },

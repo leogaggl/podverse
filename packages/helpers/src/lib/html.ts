@@ -14,6 +14,16 @@ export function decodeHtmlEntities(input?: string): string {
   return decode(input);
 }
 
+/** Escape text that will be placed inside an HTML element. */
+export function escapeHtml(input: string): string {
+  return input
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 export function stripAndDecodeHtml(input?: string): string {
   return stripHtmlTags(decodeHtmlEntities(input));
 }

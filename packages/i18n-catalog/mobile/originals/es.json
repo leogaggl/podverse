@@ -176,7 +176,10 @@
     "quick_login_popularity": "Iniciar sesión como usuario E2E indeciso",
     "quick_login_stale_terms": "Iniciar sesión como usuario E2E con términos desactualizados",
     "quick_login_perf": "Iniciar sesión como usuario E2E perf",
-    "session_ready": "Sesión E2E lista"
+    "session_ready": "Sesión E2E lista",
+    "identity_remap": "Programa fusionado",
+    "identity_remap_prepare": "Preparar programa fusionado",
+    "identity_remap_intro": "Guarda una suscripción local y una descarga terminada de un programa fusionado, y luego actualiza."
   },
   "subscriptions": {
     "downloaded_only": "Solo descargados"
@@ -196,9 +199,25 @@
       "live_status": "Comprobando qué está en directo",
       "clips": "Actualizando tus clips",
       "home_feed": "Lectura de Inicio en este dispositivo",
-      "auto_download": "Descargando episodios nuevos"
+      "auto_download": "Descargando episodios nuevos",
+      "identity_remap": "Actualizando tus programas"
     },
     "progress": "{completed} de {total}"
+  },
+  "removed_content": {
+    "title": "Contenido eliminado",
+    "menu_subtitle": "Programas y elementos eliminados de tu biblioteca",
+    "empty": "No se eliminó nada de tu biblioteca en los últimos 30 días.",
+    "load_error": "No se pudo cargar el contenido eliminado.",
+    "left_directory": "{title} ya no está en el directorio.",
+    "taken_down": "{title} fue retirado.",
+    "moved_to_add_by_rss": "Tu suscripción se movió a Añadir por RSS.",
+    "follow_ended": "Tu suscripción terminó.",
+    "clips_one": "{count} de tus clips ahora muestra «Contenido eliminado».",
+    "clips_other": "{count} de tus clips ahora muestran «Contenido eliminado».",
+    "playlist_entries_one": "{count} elemento de tus listas de reproducción ahora muestra «Contenido eliminado».",
+    "playlist_entries_other": "{count} elementos de tus listas de reproducción ahora muestran «Contenido eliminado».",
+    "unknown_show": "Un programa"
   },
   "error_log": {
     "intro": "Abre una entrada y toca Enviar detalles por correo para enviar el informe a {email}. Copiar detalles copia el mismo informe.",
@@ -264,6 +283,7 @@
     "outcome_skipped": "Omitido — sin conexión",
     "outcome_success": "Correcto",
     "directory_channel_gone": "Se eliminó {channel} de este dispositivo. Ya no está en el directorio.",
+    "directory_channel_converted": "Se movió {channel} a Añadir por RSS. Ya no está en el directorio.",
     "row_a11y_hint": "Abre los detalles completos",
     "saved_footnote": "Los detalles completos se guardan en Más › Avanzado › Registro de errores.",
     "kind": {

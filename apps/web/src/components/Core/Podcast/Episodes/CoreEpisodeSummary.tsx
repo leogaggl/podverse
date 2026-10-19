@@ -3,6 +3,8 @@
 import dynamic from 'next/dynamic';
 import React from 'react';
 
+import { DescriptionTruncationNotice } from '../../../Content/Description/DescriptionTruncationNotice';
+
 const DescriptionRenderer = dynamic(
   () =>
     import('@podverse/ui').then((mod) => ({
@@ -13,12 +15,23 @@ const DescriptionRenderer = dynamic(
 
 type CoreEpisodeSummaryProps = {
   description?: string;
+  onDescriptionClock?: (seconds: number) => void;
+  descriptionClockLabel?: (clockText: string) => string;
+  isTruncated?: boolean;
+  fullNotesUrl?: string | null;
 };
 
 /**
- * Item Summary: description prose. People are a separate chip.
+ * Item Summary: description prose, then the truncation notice when the stored notes were
+ * shortened. People are a separate chip.
  */
-export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({ description }) => {
+export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({
+  description,
+  descriptionClockLabel,
+  onDescriptionClock,
+  isTruncated,
+  fullNotesUrl,
+}) => {
   const hasDescription = description !== undefined && description.length > 0;
   if (!hasDescription) {
     return null;
@@ -26,7 +39,12 @@ export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({ descript
 
   return (
     <div>
-      <DescriptionRenderer description={description || ''} />
+      <DescriptionRenderer
+        description={description || ''}
+        descriptionClockLabel={descriptionClockLabel}
+        onDescriptionClock={onDescriptionClock}
+      />
+      {isTruncated ? <DescriptionTruncationNotice kind="item" linkUrl={fullNotesUrl} /> : null}
     </div>
   );
 };

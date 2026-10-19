@@ -72,9 +72,11 @@ import { MoreE2ePlaybackScreen } from '../screens/more/MoreE2ePlaybackScreen';
 import { MoreErrorLogDetailScreen } from '../screens/more/MoreErrorLogDetailScreen';
 import { MoreErrorLogScreen } from '../screens/more/MoreErrorLogScreen';
 import { MoreFaqScreen } from '../screens/more/MoreFaqScreen';
+import { MoreIdentityRemapScreen } from '../screens/more/MoreIdentityRemapScreen';
 import { MoreMembershipExtendScreen } from '../screens/more/MoreMembershipExtendScreen';
 import { MoreMembershipScreen } from '../screens/more/MoreMembershipScreen';
 import { MoreOpmlScreen } from '../screens/more/MoreOpmlScreen';
+import { MoreRemovedContentScreen } from '../screens/more/MoreRemovedContentScreen';
 import { MoreSettingsAppearanceScreen } from '../screens/more/MoreSettingsAppearanceScreen';
 import { MoreSettingsAutoDownloadCatchUpScreen } from '../screens/more/MoreSettingsAutoDownloadCatchUpScreen';
 import { MoreSettingsDownloadLimitScreen } from '../screens/more/MoreSettingsDownloadLimitScreen';
@@ -89,10 +91,6 @@ import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
 import type { FullPlayerOpenRequest } from '../screens/player/fullPlayerContentLink';
-import {
-  contentTabForDestination,
-  focusedContentTabFromRootState,
-} from '../screens/player/fullPlayerContentLink';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
 import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
@@ -212,6 +210,7 @@ export const NOTIFICATIONS_STACK_ROUTES = {
 export const MORE_STACK_ROUTES = {
   MoreAbout: 'MoreAbout',
   MoreE2ePlayback: 'MoreE2ePlayback',
+  MoreIdentityRemap: 'MoreIdentityRemap',
   MoreFaq: 'MoreFaq',
   MoreMembership: 'MoreMembership',
   MoreMembershipExtend: 'MoreMembershipExtend',
@@ -243,6 +242,7 @@ export const MORE_STACK_ROUTES = {
   MoreCustomApi: 'MoreCustomApi',
   MoreErrorLog: 'MoreErrorLog',
   MoreErrorLogDetail: 'MoreErrorLogDetail',
+  MoreRemovedContent: 'MoreRemovedContent',
 } as const;
 
 export const ROOT_STACK_ROUTES = {
@@ -288,7 +288,9 @@ const moreTabLinkScreens = {
   MoreAdvanced: 'more/advanced',
   MoreCustomApi: 'more/advanced/custom-api',
   MoreE2ePlayback: 'more/e2e/playback',
+  MoreIdentityRemap: 'more/e2e/identity-remap',
   MoreErrorLog: 'more/advanced/error-log',
+  MoreRemovedContent: 'more/advanced/removed-content',
   MoreFaq: 'more/faq',
   MoreMembership: `more${APP_ROUTES.MEMBERSHIP}`,
   MoreMembershipExtend: `more${APP_ROUTES.MEMBERSHIP_RENEW}`,
@@ -524,6 +526,7 @@ export type NotificationsStackParamList = {
 export type MoreStackParamList = {
   MoreAbout: undefined;
   MoreE2ePlayback: undefined;
+  MoreIdentityRemap: undefined;
   MoreFaq: undefined;
   MoreMembership: undefined;
   MoreMembershipExtend: undefined;
@@ -555,6 +558,7 @@ export type MoreStackParamList = {
   MoreCustomApi: undefined;
   MoreErrorLog: undefined;
   MoreErrorLogDetail: { entryId: number };
+  MoreRemovedContent: undefined;
 };
 
 /** Slide-up image viewer. `addByRssFeedUrl` is a feed URL, never a request header. */
@@ -586,39 +590,33 @@ export type MobileTabParamList = {
 
 const openFullPlayerContent = (
   navigation: NavigationProp<RootStackParamList>,
-  request: FullPlayerOpenRequest
+  request: FullPlayerOpenRequest,
+  visibleTabIds: readonly ContentTabId[]
 ): void => {
-  const tab = contentTabForDestination(
-    focusedContentTabFromRootState(navigation.getState()),
-    request
-  );
   const previewImageUrl = request.imageUrl;
   const previewTitle = request.name;
 
-  if (tab === 'Home') {
+  if (request.stack === 'Home') {
+    const params = homeContentParams(request, previewImageUrl, previewTitle);
+    if (visibleTabIds.includes('Home')) {
+      navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params, screen: 'Home' });
+      return;
+    }
     navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-      params: homeContentParams(request, previewImageUrl, previewTitle),
-      screen: 'Home',
+      params: { initial: false, params, screen: MORE_STACK_ROUTES.MoreOverflowHome },
+      screen: 'More',
     });
     return;
   }
-  if (tab === 'Search') {
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-      params: searchContentParams(request, previewImageUrl, previewTitle),
-      screen: 'Search',
-    });
-    return;
-  }
-  if (tab === 'Browse') {
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-      params: browseContentParams(request, previewImageUrl, previewTitle),
-      screen: 'Browse',
-    });
+
+  const params = browseContentParams(request, previewImageUrl, previewTitle);
+  if (visibleTabIds.includes('Browse')) {
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params, screen: 'Browse' });
     return;
   }
   navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-    params: libraryContentParams(request, previewImageUrl, previewTitle),
-    screen: 'My Library',
+    params: { initial: false, params, screen: MORE_STACK_ROUTES.MoreOverflowBrowse },
+    screen: 'More',
   });
 };
 
@@ -673,25 +671,11 @@ const homeContentParams = (
   }
 };
 
-const searchContentParams = (
-  request: FullPlayerOpenRequest,
-  previewImageUrl: string | null,
-  previewTitle: string
-): NavigatorScreenParams<SearchStackParamList> => {
-  if (request.kind === 'add-by-rss') {
-    return { screen: 'SearchRoot' };
-  }
-  return catalogContentParams(request, previewImageUrl, previewTitle);
-};
-
 const browseContentParams = (
   request: FullPlayerOpenRequest,
   previewImageUrl: string | null,
   previewTitle: string
 ): NavigatorScreenParams<BrowseStackParamList> => {
-  if (request.kind === 'add-by-rss') {
-    return { screen: 'BrowseRoot' };
-  }
   return catalogContentParams(request, previewImageUrl, previewTitle);
 };
 
@@ -738,63 +722,7 @@ const catalogContentParams = (
         screen: 'ArtistDetail',
       };
     case 'add-by-rss':
-      // Search and Browse have no Add by RSS screen.
-      throw new Error('Add by RSS content opens on Home or My Library.');
-  }
-};
-
-const libraryContentParams = (
-  request: FullPlayerOpenRequest,
-  previewImageUrl: string | null,
-  previewTitle: string
-): NavigatorScreenParams<LibraryStackParamList> => {
-  switch (request.kind) {
-    case 'episode':
-      return { initial: false, params: { episodeId: request.idText }, screen: 'EpisodeDetail' };
-    case 'clip':
-      return {
-        initial: false,
-        params: { clipId: request.idText },
-        screen: 'LibraryClipDetail',
-      };
-    case 'track':
-      return {
-        initial: false,
-        params: buildTrackDetailParams({ previewImageUrl, previewTitle, trackId: request.idText }),
-        screen: 'TrackDetail',
-      };
-    case 'podcast':
-      return {
-        initial: false,
-        params: buildPodcastDetailParams({
-          podcastId: request.idText,
-          previewImageUrl,
-          previewTitle,
-        }),
-        screen: 'PodcastDetail',
-      };
-    case 'album':
-      return {
-        initial: false,
-        params: buildAlbumDetailParams({ albumId: request.idText, previewImageUrl, previewTitle }),
-        screen: 'AlbumDetail',
-      };
-    case 'artist':
-      return {
-        initial: false,
-        params: buildArtistDetailParams({
-          artistId: request.idText,
-          previewImageUrl,
-          previewTitle,
-        }),
-        screen: 'ArtistDetail',
-      };
-    case 'add-by-rss':
-      return {
-        initial: false,
-        params: { feedIdText: request.idText },
-        screen: 'AddByRssPodcastDetail',
-      };
+      throw new Error('Add by RSS content opens on Home.');
   }
 };
 
@@ -1395,6 +1323,11 @@ function MoreStackNavigator({
         options={{ title: t('error_log.title') }}
       />
       <MoreStack.Screen
+        component={MoreRemovedContentScreen}
+        name={MORE_STACK_ROUTES.MoreRemovedContent}
+        options={{ title: t('removed_content.title') }}
+      />
+      <MoreStack.Screen
         component={MoreErrorLogDetailScreen}
         name={MORE_STACK_ROUTES.MoreErrorLogDetail}
         options={{ title: t('error_log.detail.title') }}
@@ -1415,6 +1348,13 @@ function MoreStackNavigator({
           component={MoreE2ePlaybackScreen}
           name={MORE_STACK_ROUTES.MoreE2ePlayback}
           options={{ title: t('e2e.playback') }}
+        />
+      ) : null}
+      {isMobileE2eFromEnv() ? (
+        <MoreStack.Screen
+          component={MoreIdentityRemapScreen}
+          name={MORE_STACK_ROUTES.MoreIdentityRemap}
+          options={{ title: t('e2e.identity_remap') }}
         />
       ) : null}
     </MoreStack.Navigator>
@@ -1671,6 +1611,13 @@ function MoreRootScreen({
         testID: 'more-nav-e2e-playback',
         title: t('e2e.playback'),
       });
+      e2eItems.push({
+        onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreIdentityRemap);
+        },
+        testID: 'more-nav-identity-remap',
+        title: t('e2e.identity_remap'),
+      });
     }
     sections.push({
       items: e2eItems,
@@ -1750,7 +1697,7 @@ function TabScaffold({
         },
       }}
       screenListeners={({ navigation, route }) => ({
-        tabPress: () => {
+        tabPress: (event) => {
           const tabState = navigation.getState();
           const focused = tabState.routes[tabState.index];
           if (focused === undefined || focused.key !== route.key) {
@@ -1772,6 +1719,10 @@ function TabScaffold({
           if (decision.action === 'none' || nested?.key === undefined) {
             return;
           }
+          // The nested stack also handles this press and pops on the next frame.
+          // Stopping that default leaves this single pop or reset. A second pop
+          // after the stack is already at its first screen is reported as unhandled.
+          event.preventDefault();
           // More returns to its menu. Other tabs return to the first screen in that stack.
           if (decision.action === 'popToTop') {
             navigation.dispatch({
@@ -1804,7 +1755,8 @@ function TabScaffold({
             <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
-              clip/chapter → mini player. Sync sits at the top of the stack because it comes and
+              clip/chapter → mini player. Playback and perf markers are absolute and are not part
+              of that height. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
               the scene above the tab bar does not resize when a bar appears. The stack overlaps
@@ -1895,9 +1847,9 @@ function TabScaffold({
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // E2E playback markers → sync → Offline Mode → current clip/chapter → mini player. The negative
-  // top margin is the variable strips only, so the safe-area padding stays reserved and the scene
-  // does not resize when a bar appears.
+  // sync → Offline Mode → current clip/chapter → mini player. Playback and perf markers are
+  // absolute and are not part of that height. The negative top margin is the variable strips
+  // only, so the safe-area padding stays reserved and the scene does not resize when a bar appears.
   const scaffold = !isTabletLayout ? (
     navigator
   ) : (
@@ -1948,6 +1900,7 @@ export function MobileTabNavigator({
   onRequestSignUp,
 }: MobileTabNavigatorProps) {
   const navigationTheme = useNavigationTheme();
+  const { visibleTabIds } = useTabLayout();
 
   useEffect(() => {
     if (pendingDeepLinkUrl === null || !rootNavigationRef.isReady()) {
@@ -1989,7 +1942,7 @@ export function MobileTabNavigator({
           {(props) => (
             <FullPlayerScreen
               onOpenContent={(request) => {
-                openFullPlayerContent(props.navigation, request);
+                openFullPlayerContent(props.navigation, request, visibleTabIds);
               }}
               onClose={() => {
                 if (props.navigation.canGoBack()) {

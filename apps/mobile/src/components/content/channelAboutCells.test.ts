@@ -22,4 +22,20 @@ describe('buildChannelAboutCells', () => {
 
     expect(kinds).toEqual(['description']);
   });
+
+  it('falls back to the stored preview and carries the shortened flag', () => {
+    const [cell] = buildChannelAboutCells({
+      channel_description: { is_truncated: true, preview: 'A shortened show.' },
+    });
+
+    expect(cell).toMatchObject({ isTruncated: true, text: 'A shortened show.' });
+  });
+
+  it('reads an older payload with no shortened flag as complete', () => {
+    const [cell] = buildChannelAboutCells({
+      channel_description: { value: 'A show about feeds.' },
+    });
+
+    expect(cell?.isTruncated).toBe(false);
+  });
 });

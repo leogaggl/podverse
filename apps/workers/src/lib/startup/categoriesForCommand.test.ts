@@ -16,8 +16,29 @@ function sortCategories(set: ReadonlySet<string>): string[] {
 }
 
 describe('getCategoriesForCommand', () => {
-  it('maps scheduledJobsRunDue to Base and ORM', () => {
+  it('maps scheduledJobsRunDue to full parser stack categories', () => {
     expect(sortCategories(getCategoriesForCommand('scheduledJobsRunDue'))).toEqual(
+      sortCategories(
+        new Set([
+          CATEGORY_BASE,
+          CATEGORY_ORM,
+          CATEGORY_MQ,
+          CATEGORY_PARSER,
+          CATEGORY_PODCAST_INDEX,
+          CATEGORY_WEB_NOTIFICATIONS,
+        ])
+      )
+    );
+  });
+
+  it('maps ormDescriptionsBackfill to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('ormDescriptionsBackfill'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps ormArchivedSlimReport to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('ormArchivedSlimReport'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });
@@ -52,6 +73,12 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps accountContentLogPurge to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('accountContentLogPurge'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
   it('maps archiveAll to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('archiveAll'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
@@ -70,10 +97,10 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
-  it('maps podcastIndexDeadFeedsDeleteCache to Base only', () => {
-    expect(sortCategories(getCategoriesForCommand('podcastIndexDeadFeedsDeleteCache'))).toEqual([
-      CATEGORY_BASE,
-    ]);
+  it('maps podcastIndexDeadFeedsFlagAndMerge to Base, ORM, and Podcast Index', () => {
+    expect(sortCategories(getCategoriesForCommand('podcastIndexDeadFeedsFlagAndMerge'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM, CATEGORY_PODCAST_INDEX]))
+    );
   });
 
   it('maps mqRSSRunParser to full parser stack categories', () => {

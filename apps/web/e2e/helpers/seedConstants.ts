@@ -13,6 +13,11 @@
 export const E2E_PODCAST_CHANNEL_ID_TEXT = 'e2ePodChnl001';
 export const E2E_PODCAST_CHANNEL_TITLE = 'E2E Podcast Seed Channel';
 
+/** Applied absorb pair for the merged-channel redirect spec. */
+export const E2E_MERGED_OLD_CHANNEL_ID_TEXT = 'e2eMrgOldCh01';
+export const E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT = 'e2eMrgSurCh01';
+export const E2E_MERGED_UNMATCHED_ITEM_ID_TEXT = 'e2eMrgUnmIt01';
+
 export const E2E_LIVESTREAM_CHANNEL_ID_TEXT = 'v5fCrIj9Io';
 export const E2E_LIVESTREAM_CHANNEL_TITLE = 'E2E Livestream Channel';
 export const E2E_LIVESTREAM_ITEM_ID_TEXT = 'e2eLiveStrm01';
@@ -26,6 +31,36 @@ export const E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT = 'e2ePodResume01';
 export const E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT = 'e2ePodResume02';
 export const E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT = 'e2ePodResume03';
 export const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
+/** Stored notes are marked shortened; `item_about.website_link_url` is the full-notes link. */
+export const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
+export const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
+
+/** Archived, slimmed episode. Channel lists omit it; open `/episode/` and `/clip/` by these ids. */
+export const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
+export const E2E_ARCHIVED_CLIP_EPISODE_TITLE = 'E2E Archived Clip Episode';
+export const E2E_ARCHIVED_CLIP_ID_TEXT = 'e2eArchClip01';
+export const E2E_ARCHIVED_CLIP_TITLE = 'E2E Archived Clip';
+export const E2E_ARCHIVED_CLIP_PREVIEW = 'This archived episode keeps a short preview.';
+export const E2E_ARCHIVED_CLIP_LINK_URL = 'https://example.com/e2e-archived-clip-episode';
+
+/** Clip whose episode was removed. Owned by the seeded E2E user. */
+export const E2E_REMOVED_CLIP_ID_TEXT = 'e2eRemClip01';
+export const E2E_REMOVED_CLIP_TITLE = 'E2E Removed Clip';
+export const E2E_REMOVED_EPISODE_TITLE = 'E2E Removed Episode';
+export const E2E_REMOVED_SHOW_TITLE = 'E2E Removed Show';
+
+/** Playlist with one live episode and one removed entry. Owned by the seeded E2E user. */
+export const E2E_REMOVED_PLAYLIST_ID_TEXT = 'e2eRemPlay01';
+export const E2E_REMOVED_PLAYLIST_TITLE = 'E2E Removed Playlist';
+
+/** Archived show the seeded E2E user still follows. No episodes. */
+export const E2E_ARCHIVED_SHOW_ID_TEXT = 'e2eArchShow01';
+export const E2E_ARCHIVED_SHOW_TITLE = 'E2E Archived Show';
+export const E2E_ARCHIVED_SHOW_FEED_URL = 'https://e2e-seed-archived-show.example/podcast.xml';
+
+/** Removed Content log row for the seeded E2E user. The show is the archived follow. */
+export const E2E_CONTENT_LOG_CHANNEL_ID_TEXT = E2E_ARCHIVED_SHOW_ID_TEXT;
+export const E2E_CONTENT_LOG_CHANNEL_TITLE = E2E_ARCHIVED_SHOW_TITLE;
 
 export const E2E_ITEM_CHAPTER_INTRO_ID_TEXT = 'e2eChapIntro01';
 export const E2E_ITEM_CHAPTER_TOPIC_ID_TEXT = 'e2eChapTopic01';

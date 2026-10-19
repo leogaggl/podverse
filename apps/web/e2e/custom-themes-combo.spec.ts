@@ -28,7 +28,7 @@ test.describe('Custom themes (built-in plus remote pack)', () => {
     await expectCustomThemeStyleTagContains(page, "[data-ui-theme='custom_sunrise_sand']");
 
     const themeSelector = page.locator('#settings_theme_selector');
-    await expectThemeMenuLabels(page, ['Midnight Ocean', 'Sunrise Sand', 'Dark', 'Light']);
+    await expectThemeMenuLabels(page, ['Midnight Ocean', 'Sunrise Sand', 'Podverse', 'Light']);
 
     await capturePageLoad(
       page,
@@ -38,7 +38,7 @@ test.describe('Custom themes (built-in plus remote pack)', () => {
     );
   });
 
-  test('When the visitor selects Midnight Ocean or Sunrise Sand, custom UI colors apply; Dark uses the built-in theme id.', async ({
+  test('When the visitor selects Midnight Ocean or Sunrise Sand, custom UI colors apply; Podverse uses the built-in theme id.', async ({
     page,
   }, testInfo) => {
     await loginE2eUser(page);
@@ -71,9 +71,9 @@ test.describe('Custom themes (built-in plus remote pack)', () => {
     await actionAndCapture(
       page,
       testInfo,
-      'After selecting the built-in Dark theme, the document uses the dark data-ui-theme attribute.',
+      'After selecting the Podverse theme, the document uses the dark data-ui-theme attribute.',
       async () => {
-        await selectThemeByMenuLabel(page, 'Dark');
+        await selectThemeByMenuLabel(page, 'Podverse');
         await expectHtmlUiTheme(page, 'dark');
       },
       page.locator('html')

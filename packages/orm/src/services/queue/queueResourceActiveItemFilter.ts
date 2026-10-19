@@ -62,8 +62,9 @@ export function applyResolvesToActiveItemOrAddByRss(
 
 /**
  * Remove `queue_resource` rows that resolve to a non-`Active` `item` (direct item, or via
- * `clip` / `item_soundbite`). Add-by-RSS rows are not deleted here. Call after item status
- * changes in `archiveAll` so queues stay aligned with `item_flag_status`.
+ * `clip` / `item_soundbite`), and clip rows whose clip lost its episode. Add-by-RSS rows are
+ * not deleted here. Call after item status changes in `archiveAll` so queues stay aligned
+ * with `item_flag_status`.
  */
 export async function pruneNonActiveItemBackedQueueResourceRows(): Promise<void> {
   const repo = AppDataSourceReadWrite.getRepository(QueueResource);
@@ -79,8 +80,8 @@ export async function pruneNonActiveItemBackedQueueResourceRows(): Promise<void>
     `DELETE FROM queue_resource WHERE id IN (
       SELECT qr.id FROM queue_resource qr
       INNER JOIN clip c ON qr.clip_id = c.id
-      INNER JOIN item i ON c.item_id = i.id
-      WHERE qr.clip_id IS NOT NULL AND i.item_flag_status_id <> $1
+      LEFT JOIN item i ON c.item_id = i.id
+      WHERE qr.clip_id IS NOT NULL AND (c.item_id IS NULL OR i.item_flag_status_id <> $1)
     )`,
     `DELETE FROM queue_resource WHERE id IN (
       SELECT qr.id FROM queue_resource qr

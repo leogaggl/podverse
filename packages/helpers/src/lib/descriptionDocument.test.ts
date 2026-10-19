@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { readDescriptionDocument } from './descriptionDocument.js';
+import {
+  buildDescriptionTree,
+  descriptionNodesToPlainText,
+  readDescriptionDocument,
+  serializeDescriptionNodes,
+} from './descriptionDocument.js';
 import { htmlToPlainText } from './html.js';
 
 describe('readDescriptionDocument', () => {
@@ -112,5 +117,70 @@ describe('readDescriptionDocument', () => {
         ],
       },
     ]);
+  });
+});
+
+describe('buildDescriptionTree (lenient)', () => {
+  it('recovers implicit closes and ignores stray closing tags', () => {
+    const tree = buildDescriptionTree('<p>a<p>b</p><ul><li>x<li>y</ul></p></div>', 'lenient');
+
+    expect(tree).toEqual([
+      { kind: 'p', children: [{ kind: 'text', text: 'a' }] },
+      { kind: 'p', children: [{ kind: 'text', text: 'b' }] },
+      {
+        kind: 'ul',
+        children: [
+          { kind: 'li', children: [{ kind: 'text', text: 'x' }] },
+          { kind: 'li', children: [{ kind: 'text', text: 'y' }] },
+        ],
+      },
+    ]);
+  });
+
+  it('drops unclosed script contents to end of input', () => {
+    const tree = buildDescriptionTree('<p>Safe</p><script>drop me forever', 'lenient');
+
+    expect(tree).toEqual([{ kind: 'p', children: [{ kind: 'text', text: 'Safe' }] }]);
+  });
+
+  it('drops a truncated trailing tag in lenient mode', () => {
+    const tree = buildDescriptionTree('<p>Safe</p><a href="https://example.com', 'lenient');
+
+    expect(tree).toEqual([{ kind: 'p', children: [{ kind: 'text', text: 'Safe' }] }]);
+  });
+
+  it('removes empty containers and normalizes br runs', () => {
+    const tree = buildDescriptionTree('<p><br><b></b>One<br><br><br>Two<br></p>', 'lenient');
+
+    expect(tree).toEqual([
+      {
+        kind: 'p',
+        children: [
+          { kind: 'text', text: 'One' },
+          { kind: 'br' },
+          { kind: 'br' },
+          { kind: 'text', text: 'Two' },
+        ],
+      },
+    ]);
+  });
+});
+
+describe('description tree helpers', () => {
+  it('serialized lenient trees parse in strict mode with matching plain text', () => {
+    const tree = buildDescriptionTree('<p><strong>A</p><ul><li>B<li>C</ul></strong>', 'lenient');
+    const html = serializeDescriptionNodes(tree);
+    const parsed = readDescriptionDocument(html);
+
+    expect(tree.length).toBeGreaterThan(0);
+    expect(parsed.rich).not.toBeNull();
+    expect(parsed.plain).toBe(descriptionNodesToPlainText(tree, ' '));
+  });
+
+  it('converts trees to plain text using block separators', () => {
+    const tree = buildDescriptionTree('<p>One</p><ul><li>Two</li><li>Three</li></ul>', 'lenient');
+
+    expect(descriptionNodesToPlainText(tree, '\n')).toBe('One\nTwo\nThree');
+    expect(descriptionNodesToPlainText(tree, ' | ')).toBe('One | Two | Three');
   });
 });

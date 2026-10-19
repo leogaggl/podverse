@@ -192,7 +192,7 @@
       "end_time": "Heure de fin",
       "end_time_aria": "Heure de fin en heures, minutes et secondes (hh:mm:ss)",
       "end_time_play_aria": "Jouer depuis l'heure de fin du clip",
-      "clip_time_range": "{hhmmssStart} à {hhmmssEnd}",
+      "clip_time_range": "{hhmmssStart} - {hhmmssEnd}",
       "login_prompt": "Connectez-vous pour utiliser cette fonctionnalité."
     },
     "my_clips": "Mes clips",
@@ -360,12 +360,19 @@
     "about": "À propos",
     "summary": {
       "summary": "Résumé",
-      "no_summary": "Aucun résumé disponible"
+      "no_summary": "Aucun résumé disponible",
+      "play_from": "Lire à partir de {time}"
     },
     "podroll": "Podroll",
     "no_podroll_found": "Aucun podcast recommandé trouvé",
     "show_more": "Afficher plus",
     "show_less": "Afficher moins",
+    "truncation": {
+      "read_full_show_notes": "Lire les notes complètes de l’épisode",
+      "read_full_description": "Lire la description complète",
+      "show_notes_shortened": "Ces notes d’épisode ont été raccourcies.",
+      "description_shortened": "Cette description a été raccourcie."
+    },
     "transcript": {
       "transcript": "Transcription",
       "search_transcript": "Rechercher dans la transcription...",
@@ -396,6 +403,12 @@
       "min": "{count} min",
       "start": "{timeStart} heure de début",
       "start_end": "{timeStart} à {timeEnd}"
+    },
+    "removed": {
+      "content_removed": "Contenu supprimé",
+      "clip_source_removed": "L'épisode de ce clip a été supprimé de {brand_name}.",
+      "playlist_entry_removed": "Cet élément a été supprimé de {brand_name}.",
+      "show_not_in_directory": "Cette émission n'est plus dans le répertoire {brand_name}."
     }
   },
   "media_player": {
@@ -1215,6 +1228,19 @@
       "import_rate_limited_title": "Limite d'importation OPML atteinte",
       "import_rate_limited": "Vous pouvez ajouter jusqu'à {limit} flux par heure. Pour terminer l'importation du reste, réessayez après {time}.",
       "import_rate_limited_time": "{minutes, plural, one {# minute} other {# minutes}}"
+    },
+    "advanced": {
+      "advanced": "Avancé",
+      "removed_content": "Contenu supprimé",
+      "empty": "Rien n'a été supprimé de votre bibliothèque au cours des 30 derniers jours.",
+      "load_error": "Impossible de charger le contenu supprimé.",
+      "left_directory": "{title} n'est plus dans le répertoire.",
+      "taken_down": "{title} a été retiré.",
+      "moved_to_add_by_rss": "Votre abonnement a été déplacé vers Ajouter par RSS.",
+      "follow_ended": "Votre abonnement a pris fin.",
+      "clips": "{count, plural, one {# de vos clips affiche désormais « Contenu supprimé ».} other {# de vos clips affichent désormais « Contenu supprimé ».}}",
+      "playlist_entries": "{count, plural, one {# élément de vos playlists affiche désormais « Contenu supprimé ».} other {# éléments de vos playlists affichent désormais « Contenu supprimé ».}}",
+      "unknown_show": "Un programme"
     },
     "keyboard": {
       "keyboard": "Clavier",

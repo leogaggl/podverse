@@ -192,7 +192,7 @@
       "end_time": "End Time",
       "end_time_aria": "End Time in Hours, Minutes, and Seconds (hh:mm:ss)",
       "end_time_play_aria": "Play from Clip End Time",
-      "clip_time_range": "{hhmmssStart} to {hhmmssEnd}",
+      "clip_time_range": "{hhmmssStart} - {hhmmssEnd}",
       "login_prompt": "Log in to use this feature."
     },
     "my_clips": "My Clips",
@@ -360,12 +360,19 @@
     "about": "About",
     "summary": {
       "summary": "Summary",
-      "no_summary": "No Summary Available"
+      "no_summary": "No Summary Available",
+      "play_from": "Play from {time}"
     },
     "podroll": "Podroll",
     "no_podroll_found": "No Recommended Podcasts Found",
     "show_more": "Show More",
     "show_less": "Show Less",
+    "truncation": {
+      "read_full_show_notes": "Read Full Show Notes",
+      "read_full_description": "Read Full Description",
+      "show_notes_shortened": "These show notes were shortened.",
+      "description_shortened": "This description was shortened."
+    },
     "transcript": {
       "transcript": "Transcript",
       "search_transcript": "Search Transcript...",
@@ -396,6 +403,12 @@
       "min": "{count} min",
       "start": "{timeStart} start time",
       "start_end": "{timeStart} to {timeEnd}"
+    },
+    "removed": {
+      "content_removed": "Content Removed",
+      "clip_source_removed": "The episode for this clip was removed from {brand_name}.",
+      "playlist_entry_removed": "This item was removed from {brand_name}.",
+      "show_not_in_directory": "This show is no longer in the {brand_name} directory."
     }
   },
   "media_player": {
@@ -1227,6 +1240,19 @@
       "import_rate_limited_title": "OPML Import Limit Reached",
       "import_rate_limited": "You can add up to {limit} feeds per hour. To finish importing the rest, try again after {time}.",
       "import_rate_limited_time": "{minutes, plural, one {# minute} other {# minutes}}"
+    },
+    "advanced": {
+      "advanced": "Advanced",
+      "removed_content": "Removed Content",
+      "empty": "Nothing in your library was removed in the last 30 days.",
+      "load_error": "Could not load removed content.",
+      "left_directory": "{title} is no longer in the directory.",
+      "taken_down": "{title} was taken down.",
+      "moved_to_add_by_rss": "Your follow was moved to Add by RSS.",
+      "follow_ended": "Your follow ended.",
+      "clips": "{count, plural, one {# of your clips now shows Content Removed.} other {# of your clips now show Content Removed.}}",
+      "playlist_entries": "{count, plural, one {# of your playlist entries now shows Content Removed.} other {# of your playlist entries now show Content Removed.}}",
+      "unknown_show": "A show"
     },
     "keyboard": {
       "keyboard": "Keyboard",

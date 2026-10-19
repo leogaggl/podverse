@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 
+import { AccountMembershipEnum } from '@podverse/helpers';
+
 import { capturePageLoad } from './helpers/stepScreenshots';
 
 const LOGIN_EMAIL = 'e2e-user@example.com';
@@ -32,14 +34,14 @@ async function setMembershipExpiry(email: string, expiresAt: Date): Promise<void
     const startsAt = new Date(expiresAt.getTime() - 30 * 24 * 60 * 60 * 1000);
     await client.query(
       `UPDATE account_membership_status
-       SET membership_expires_at = $2
+       SET account_membership_id = $2, membership_expires_at = $3
        WHERE account_id = $1`,
-      [accountId, expiresAt]
+      [accountId, AccountMembershipEnum.Trial, expiresAt]
     );
     await client.query(`DELETE FROM billing_membership_grant WHERE account_id = $1`, [accountId]);
     await client.query(
       `INSERT INTO billing_membership_grant (account_id, source, starts_at, ends_at)
-       VALUES ($1, 'admin', $2, $3)`,
+       VALUES ($1, 'trial', $2, $3)`,
       [accountId, startsAt, expiresAt]
     );
   } finally {

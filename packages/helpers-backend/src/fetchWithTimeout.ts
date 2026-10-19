@@ -15,9 +15,74 @@ export type FetchWithTimeoutOptions = {
   headers?: Record<string, string>;
   method?: string;
   timeoutMs?: number;
+  /**
+   * When set to a non-negative finite number, the returned body contains at most this many
+   * bytes. The rest of the response is discarded.
+   */
+  maxBodyBytes?: number;
 };
 
 const TRACER_NAME = 'podverse.helpers-backend.http';
+
+function hasBodyCap(maxBodyBytes: number | undefined): maxBodyBytes is number {
+  return typeof maxBodyBytes === 'number' && Number.isFinite(maxBodyBytes) && maxBodyBytes >= 0;
+}
+
+async function readAtMost(response: Response, maxBodyBytes: number): Promise<Uint8Array> {
+  const body = response.body;
+  if (body === null) {
+    const full = new Uint8Array(await response.arrayBuffer());
+    return full.subarray(0, maxBodyBytes);
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (received < maxBodyBytes) {
+      const next = await reader.read();
+      if (next.done) {
+        break;
+      }
+      const room = maxBodyBytes - received;
+      const piece = next.value.byteLength > room ? next.value.subarray(0, room) : next.value;
+      chunks.push(piece);
+      received += piece.byteLength;
+    }
+  } finally {
+    await reader.cancel().catch(() => {
+      // The unread remainder is discarded. Cancel after a finished stream is a no-op.
+    });
+  }
+
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+async function limitResponseBody(
+  response: Response,
+  maxBodyBytes: number | undefined
+): Promise<Response> {
+  if (!hasBodyCap(maxBodyBytes)) {
+    return response;
+  }
+  const bytes = await readAtMost(response, maxBodyBytes);
+  // The bytes are already decoded. Leaving content-encoding on the new response makes text()
+  // try to decode them again.
+  const headers = new Headers(response.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
+  return new Response(bytes, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
 
 const fetchWithInjectedHeaders = async (
   url: string,
@@ -59,7 +124,7 @@ export async function fetchWithTimeout(
   options?: FetchWithTimeoutOptions
 ): Promise<Response> {
   if (!isObservabilityInitialized()) {
-    return fetchWithInjectedHeaders(url, options);
+    return limitResponseBody(await fetchWithInjectedHeaders(url, options), options?.maxBodyBytes);
   }
 
   const method = options?.method ?? 'GET';
@@ -80,7 +145,7 @@ export async function fetchWithTimeout(
       if (response.status >= 500) {
         span.setStatus({ code: SpanStatusCode.ERROR });
       }
-      return response;
+      return await limitResponseBody(response, options?.maxBodyBytes);
     } catch (error) {
       span.setStatus({ code: SpanStatusCode.ERROR });
       if (error instanceof Error) {

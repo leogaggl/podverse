@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -8,6 +9,7 @@ import {
 } from '@podverse/helpers';
 
 import {
+  getAccountContentLogRetentionConfig,
   getNotificationsRetentionConfig,
   getOnDemandParserEventRetentionConfig,
   getScheduledJobRetentionConfig,
@@ -29,6 +31,12 @@ const RETENTION_CASES: readonly {
     envKey: 'NOTIFICATION_RETENTION_DAYS',
     fallback: DEFAULT_NOTIFICATION_RETENTION_DAYS,
     read: () => getNotificationsRetentionConfig().retentionDays,
+  },
+  {
+    name: 'removed content log',
+    envKey: 'ACCOUNT_CONTENT_LOG_RETENTION_DAYS',
+    fallback: DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
+    read: () => getAccountContentLogRetentionConfig().retentionDays,
   },
   {
     name: 'scheduled jobs',

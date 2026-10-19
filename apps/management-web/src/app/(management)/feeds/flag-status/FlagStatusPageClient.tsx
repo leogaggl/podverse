@@ -2,10 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import {
+  DEFAULT_DESCRIPTION_LENGTH_TIER,
+  DESCRIPTION_LENGTH_TIERS,
+  DescriptionLengthTierEnum,
+  formatDateTimeAbbrevOrFallback,
+  isDescriptionLengthTier,
+  resolveDescriptionLengthTier,
+} from '@podverse/helpers';
 import type { FormDropdownOption } from '@podverse/ui';
 import {
   ActionLink,
@@ -92,6 +100,26 @@ function directoryLifecycleBadgeVariant(
   return 'neutral';
 }
 
+const DESCRIPTION_TIER_ORDER: readonly DescriptionLengthTierEnum[] = [
+  DescriptionLengthTierEnum.Standard,
+  DescriptionLengthTierEnum.Extended,
+  DescriptionLengthTierEnum.Maximum,
+];
+
+type DescriptionTierNameKey =
+  'descriptionTierStandard' | 'descriptionTierExtended' | 'descriptionTierMaximum';
+
+function descriptionTierNameKey(tier: DescriptionLengthTierEnum): DescriptionTierNameKey {
+  switch (tier) {
+    case DescriptionLengthTierEnum.Standard:
+      return 'descriptionTierStandard';
+    case DescriptionLengthTierEnum.Extended:
+      return 'descriptionTierExtended';
+    case DescriptionLengthTierEnum.Maximum:
+      return 'descriptionTierMaximum';
+  }
+}
+
 function buildConditionChecked(
   types: { condition_key: string }[],
   activeKeys: string[]
@@ -106,6 +134,7 @@ function buildConditionChecked(
 
 export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
   const t = useTranslations('feedFlagStatus');
+  const locale = useLocale();
   const tc = useTranslations('common');
   const td = useTranslations('database');
   const tNav = useTranslations('nav');
@@ -126,6 +155,8 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
   const [conditionNote, setConditionNote] = useState('');
   const [spamItemLimitOverrideInput, setSpamItemLimitOverrideInput] = useState('');
   const [maxResponseBodyBytesOverrideInput, setMaxResponseBodyBytesOverrideInput] = useState('');
+  /** Empty string selects the default tier (sent as null). */
+  const [descriptionTierInput, setDescriptionTierInput] = useState('');
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -137,6 +168,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
   const [directorySortField, setDirectorySortField] = useState<FeedOperationsListSortKey>('id');
   const [directorySortDir, setDirectorySortDir] = useState<'ASC' | 'DESC'>('DESC');
   const [directoryLifecycleFilter, setDirectoryLifecycleFilter] = useState('');
+  const [directoryTruncatedOnly, setDirectoryTruncatedOnly] = useState(false);
   /** Start true so the first paint after options load does not treat directoryTotal 0 as loaded (FOUC system-empty / tools). */
   const [directoryLoading, setDirectoryLoading] = useState(true);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
@@ -196,6 +228,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
           q: qRaw.trim() !== '' ? qRaw.trim() : undefined,
           lifecycle:
             directoryLifecycleFilter.trim() !== '' ? directoryLifecycleFilter.trim() : undefined,
+          description_truncated: directoryTruncatedOnly ? true : undefined,
         });
         if (!cancelled) {
           setDirectoryFeeds(res.feeds);
@@ -221,6 +254,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
     directorySortField,
     directorySortDir,
     directoryLifecycleFilter,
+    directoryTruncatedOnly,
     directoryRefresh,
     searchParams,
     t,
@@ -249,6 +283,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
           ? String(nextFeed.max_response_body_bytes_override)
           : ''
       );
+      setDescriptionTierInput(nextFeed.description_length_tier_override ?? '');
     },
     []
   );
@@ -359,6 +394,12 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
       }
       maxResponseBodyBytesOverride = parsedMaxResponseOverride;
     }
+    const descriptionTierOverride = isDescriptionLengthTier(descriptionTierInput)
+      ? descriptionTierInput
+      : null;
+    const descriptionTierChanged =
+      resolveDescriptionLengthTier(feed.description_length_tier_override) !==
+      resolveDescriptionLengthTier(descriptionTierOverride);
     setApplyLoading(true);
     setApplyError(null);
     setApplyMessage(null);
@@ -377,8 +418,13 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
         condition_note: conditionTrim.length > 0 ? conditionTrim : null,
         spam_item_limit_override: spamItemLimitOverride,
         max_response_body_bytes_override: maxResponseBodyBytesOverride,
+        description_length_tier_override: descriptionTierOverride,
       });
-      setApplyMessage(t('applySuccess'));
+      setApplyMessage(
+        descriptionTierChanged
+          ? `${t('applySuccess')} ${t('descriptionReparseScheduled')}`
+          : t('applySuccess')
+      );
       setConfirmOpen(false);
       setFeed((prev) =>
         prev
@@ -392,6 +438,9 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
               active_condition_keys: selectedActiveConditionKeys,
               spam_item_limit_override: spamItemLimitOverride,
               max_response_body_bytes_override: maxResponseBodyBytesOverride,
+              description_length_tier_override: descriptionTierOverride,
+              description_length_tier_effective:
+                resolveDescriptionLengthTier(descriptionTierOverride),
             }
           : null
       );
@@ -416,6 +465,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
     selectedActiveConditionKeys,
     spamItemLimitOverrideInput,
     maxResponseBodyBytesOverrideInput,
+    descriptionTierInput,
     t,
   ]);
 
@@ -528,13 +578,58 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
     ];
   }, [options?.takedown_reasons, t]);
 
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+
+  const descriptionTierName = useCallback(
+    (tier: DescriptionLengthTierEnum) => t(descriptionTierNameKey(tier)),
+    [t]
+  );
+
+  const descriptionTierOptions = useMemo<FormDropdownOption[]>(
+    () => [
+      {
+        value: '',
+        label: t('descriptionTierDefault', {
+          tier: descriptionTierName(DEFAULT_DESCRIPTION_LENGTH_TIER),
+        }),
+      },
+      ...DESCRIPTION_TIER_ORDER.map((tier) => ({
+        value: tier,
+        label: t('descriptionTierOption', {
+          tier: descriptionTierName(tier),
+          characters: numberFormatter.format(DESCRIPTION_LENGTH_TIERS[tier].visibleMax),
+        }),
+      })),
+    ],
+    [descriptionTierName, numberFormatter, t]
+  );
+
+  const formatCharacterCount = useCallback(
+    (value: number | null): string =>
+      value === null
+        ? t('emptyValue')
+        : t('characterCount', { count: numberFormatter.format(value) }),
+    [numberFormatter, t]
+  );
+
+  const suggestedTierDisplay = useMemo(() => {
+    if (!feed || feed.description_longest_source_length === null) {
+      return t('emptyValue');
+    }
+    return feed.description_length_tier_suggested === null
+      ? t('descriptionTierExceedsMaximum')
+      : descriptionTierName(feed.description_length_tier_suggested);
+  }, [descriptionTierName, feed, t]);
+
   const directoryUrlSearchTrim = (searchParams.get('search') ?? '').trim();
   const directoryHasFilters =
-    directoryUrlSearchTrim !== '' || directoryLifecycleFilter.trim() !== '';
+    directoryUrlSearchTrim !== '' ||
+    directoryLifecycleFilter.trim() !== '' ||
+    directoryTruncatedOnly;
 
   useEffect(() => {
     setDirectoryProbeHasFeeds(undefined);
-  }, [directoryUrlSearchTrim, directoryLifecycleFilter]);
+  }, [directoryUrlSearchTrim, directoryLifecycleFilter, directoryTruncatedOnly]);
 
   useEffect(() => {
     if (directoryLoading || directoryError !== null) {
@@ -631,6 +726,13 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
         label: t('tableUrl'),
         sortAriaLabel: chrome.sortAriaForColumn(String(t('tableUrl'))),
         sortKey: 'url',
+      },
+      {
+        header: t('tableLongestDescription'),
+        id: 'description_longest_source_length',
+        label: t('tableLongestDescription'),
+        sortAriaLabel: chrome.sortAriaForColumn(String(t('tableLongestDescription'))),
+        sortKey: 'description_longest_source_length',
       },
     ],
     [chrome, t]
@@ -744,6 +846,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                         'podcast_index_id',
                         'lifecycle_state_key',
                         'url',
+                        'description_longest_source_length',
                       ]}
                       basePath={basePath}
                       columns={directoryColumns}
@@ -775,6 +878,7 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                         'podcast_index_id',
                         'lifecycle_state_key',
                         'url',
+                        'description_longest_source_length',
                       ]}
                       initialSearch={searchParams.get('search') ?? ''}
                       labels={{
@@ -808,6 +912,11 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                           <Table.Cell>
                             <MutedBreakableText>{row.url}</MutedBreakableText>
                           </Table.Cell>
+                          <Table.Cell>
+                            {row.description_longest_source_length === null
+                              ? t('emptyValue')
+                              : numberFormatter.format(row.description_longest_source_length)}
+                          </Table.Cell>
                         </>
                       )}
                       rows={directoryFeeds}
@@ -820,20 +929,31 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                         'podcast_index_id',
                         'lifecycle_state_key',
                         'url',
+                        'description_longest_source_length',
                       ]}
                       trailingToolbar={
-                        <div style={{ minWidth: 'min(100%, 220px)' }}>
-                          <FormDropdown
-                            eyebrow={t('filterLifecycleLabel')}
-                            id="feed-directory-lifecycle"
-                            options={feedDirectoryLifecycleOptions}
-                            value={directoryLifecycleFilter}
-                            onChange={(v) => {
-                              setDirectoryLifecycleFilter(v);
+                        <>
+                          <div style={{ minWidth: 'min(100%, 220px)' }}>
+                            <FormDropdown
+                              eyebrow={t('filterLifecycleLabel')}
+                              id="feed-directory-lifecycle"
+                              options={feedDirectoryLifecycleOptions}
+                              value={directoryLifecycleFilter}
+                              onChange={(v) => {
+                                setDirectoryLifecycleFilter(v);
+                                setDirectoryPage(1);
+                              }}
+                            />
+                          </div>
+                          <CheckboxField
+                            checked={directoryTruncatedOnly}
+                            label={t('filterDescriptionTruncatedOnly')}
+                            onChange={(checked) => {
+                              setDirectoryTruncatedOnly(checked);
                               setDirectoryPage(1);
                             }}
                           />
-                        </div>
+                        </>
                       }
                       onSortChange={(sortKey, order) => {
                         setDirectorySortField(sortKey as FeedOperationsListSortKey);
@@ -940,6 +1060,22 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                   <dd>{feed.spam_item_limit_override ?? t('emptyValue')}</dd>
                   <dt>{t('dtMaxResponseBytesOverride')}</dt>
                   <dd>{feed.max_response_body_bytes_override ?? t('emptyValue')}</dd>
+                  <dt>{t('descriptionLength')}</dt>
+                  <dd>{descriptionTierName(feed.description_length_tier_effective)}</dd>
+                  <dt>{t('dtDescriptionTruncatedCount')}</dt>
+                  <dd>{numberFormatter.format(feed.description_truncated_count)}</dd>
+                  <dt>{t('dtDescriptionLongestSource')}</dt>
+                  <dd>{formatCharacterCount(feed.description_longest_source_length)}</dd>
+                  <dt>{t('dtDescriptionTruncatedAt')}</dt>
+                  <dd>
+                    {formatDateTimeAbbrevOrFallback(
+                      feed.description_truncated_at,
+                      locale,
+                      t('emptyValue')
+                    )}
+                  </dd>
+                  <dt>{t('dtDescriptionTierSuggested')}</dt>
+                  <dd>{suggestedTierDisplay}</dd>
                   <dt>{t('dtLifecycleReason')}</dt>
                   <dd>{feed.lifecycle_reason ?? t('emptyValue')}</dd>
                   <dt>{t('dtUpdatedSource')}</dt>
@@ -1038,6 +1174,16 @@ export function FlagStatusPageClient({ user }: FlagStatusPageClientProps) {
                           type="number"
                           value={maxResponseBodyBytesOverrideInput}
                           onChange={(e) => setMaxResponseBodyBytesOverrideInput(e.target.value)}
+                        />
+                        <FormDropdown
+                          eyebrow={t('descriptionLength')}
+                          id="feed-apply-description-tier"
+                          info={t('descriptionTierHint')}
+                          options={descriptionTierOptions}
+                          value={descriptionTierInput}
+                          onChange={(v) => {
+                            setDescriptionTierInput(v);
+                          }}
                         />
                         {applyError ? <Alert variant="error">{applyError}</Alert> : null}
                         {applyMessage ? <Alert variant="default">{applyMessage}</Alert> : null}

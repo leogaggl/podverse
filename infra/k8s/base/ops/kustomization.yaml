@@ -25,7 +25,7 @@ configMapGenerator:
   - name: podverse-ops-migration-scripts
     literals:
       - MIGRATION_BUNDLE_SHA=linear-migrations-v1
-      - API_EXPECTED_MIGRATION_FILENAME=0014_billing_strike.sql
+      - API_EXPECTED_MIGRATION_FILENAME=0019_account_content_log.sql
       - MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME=0003_billing_permissions.sql
     files:
       - source/database/runner/run-linear-migrations.sh
@@ -54,6 +54,11 @@ configMapGenerator:
       - source/database/linear-migrations/app/0012_add_by_rss_client_credentials.sql
       - source/database/linear-migrations/app/0013_membership_billing_ledger.sql
       - source/database/linear-migrations/app/0014_billing_strike.sql
+      - source/database/linear-migrations/app/0015_channel_merge.sql
+      - source/database/linear-migrations/app/0016_description_length_tiers.sql
+      - source/database/linear-migrations/app/0017_archived_slimming.sql
+      - source/database/linear-migrations/app/0018_removed_content_references.sql
+      - source/database/linear-migrations/app/0019_account_content_log.sql
   - name: podverse-ops-management-linear-migrations
     options:
       annotations:

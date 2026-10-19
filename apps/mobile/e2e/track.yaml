@@ -80,13 +80,18 @@ name: Track flow
     id: full-player-speed
 - assertNotVisible:
     id: full-player-create-clip
-- assertVisible: E2E Music Track One
+# The title is the link's accessible name, not a separate text node.
+- assertVisible:
+    id: full-player-title-link
+    text: ".*E2E Music Track One.*"
 - takeScreenshot: track-full-player-controls
 
 - tapOn:
     id: full-player-skip-next
 - extendedWaitUntil:
-    visible: E2E Music Track Two
+    visible:
+      id: full-player-title-link
+      text: ".*E2E Music Track Two.*"
     timeout: ${TIMEOUT_SLOW}
 - takeScreenshot: track-next-track
 

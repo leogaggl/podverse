@@ -48,6 +48,9 @@ export function NowPlayingSegmentBar() {
           flexDirection: 'row',
           gap: tokens.spacing.md,
           ...bottomChromeStripContainerLayout(tokens.spacing),
+          // Full-bleed clip. The resting first word is inset inside the marquee, and that inset
+          // scrolls away so the glyphs exit at the strip edge.
+          paddingHorizontal: 0,
         },
         containerTablet: {
           alignSelf: 'center',
@@ -57,6 +60,9 @@ export function NowPlayingSegmentBar() {
         label: {
           ...bottomChromeStripTextStyle(),
           color: themeStyles.textSecondary.color,
+        },
+        leadingIcon: {
+          marginLeft: tokens.spacing.lg,
         },
         titleSlot: {
           flex: 1,
@@ -103,13 +109,17 @@ export function NowPlayingSegmentBar() {
           color={themeStyles.textSecondary.color}
           name={iconName}
           size={BOTTOM_CHROME_STRIP_ICON_SIZE}
+          style={styles.leadingIcon}
         />
       ) : null}
       <View style={styles.titleSlot}>
         <MarqueeText
           align={iconName === null ? 'center' : 'left'}
+          restInset={iconName === null ? tokens.spacing.lg : 0}
           style={styles.label}
           testID="now-playing-segment-title"
+          turnGroup="mini-player"
+          turnOrder={1}
         >
           {segment.title}
         </MarqueeText>

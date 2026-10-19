@@ -17,6 +17,7 @@ export type { ChannelItemRecord, ChannelItemWindow } from './channelItemWindow';
 export { channelItemsRepository } from './channelItemsRepository';
 export type { ChannelWindowSyncResult } from './channelItemsRepository';
 export {
+  DIRECTORY_CHANNEL_CONVERTED_CODE,
   DIRECTORY_CHANNEL_GONE_CODE,
   dropGoneDirectoryChannel,
   extendDirectoryChannelOrDropGone,
@@ -31,6 +32,11 @@ export type { ChannelSeenUnseen } from './channelSeenRepository';
 export { clipRepository } from './clipRepository';
 export type { CreateClipInput, UpdateClipInput } from './clipRepository';
 export { homeClipsCacheRepository } from './homeClipsCacheRepository';
+export { itemDescriptionCacheRepository } from './itemDescriptionCacheRepository';
+export type {
+  ItemDescriptionCacheEntry,
+  ItemDescriptionCacheWrite,
+} from './itemDescriptionCacheRepository';
 export { downloadsRepository } from './downloadsRepository';
 export type { UnsubscribedDownloadChannel } from './downloadsRepository';
 export { autoDownloadRepository } from './autoDownloadRepository';

@@ -38,8 +38,15 @@ test.describe('Terms version acceptance', () => {
       await expect(termsScreen).toBeVisible();
       await expect(termsScreen.getByText(TERMS_DATE)).toBeVisible();
       await expect(termsScreen.getByRole('button', { name: 'Accept' })).toBeDisabled();
+      const disclosure = termsScreen.getByText('View Terms of Service');
+      const accept = termsScreen.getByRole('button', { name: 'Accept' });
+      const disclosureBox = await disclosure.boundingBox();
+      const acceptBox = await accept.boundingBox();
+      expect(disclosureBox).not.toBeNull();
+      expect(acceptBox).not.toBeNull();
+      expect(disclosureBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(acceptBox?.y ?? 0);
 
-      await termsScreen.getByText('View Terms of Service').click();
+      await disclosure.click();
       await expect(termsScreen.getByRole('heading', { name: 'The Service' })).toBeVisible();
 
       await capturePageLoad(

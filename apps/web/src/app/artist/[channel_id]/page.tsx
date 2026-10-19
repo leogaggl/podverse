@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { buildArtistPath } from '@podverse/helpers';
 import { QUERY_PARAMS_CHANNEL_MUSIC_ARTIST_TYPE_VALUES } from '@podverse/helpers-requests';
 
+import { loadChannelItemList } from '../../../lib/channel/loadChannelItemList';
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import {
   getChannelHeroImageUrl,
@@ -14,6 +15,7 @@ import { truncateMetaDescription } from '../../../lib/seo/truncateMetaDescriptio
 import { getSSRAuthService } from '../../../utils/auth/ssrAuth';
 import { resolveStoredToken } from '../../../utils/localSettings/detailSortPrefs';
 import { enforceCanonicalChannelRoute } from '../../../utils/redirect/enforceCanonicalMediumRoute';
+import { permanentRedirectIfMerged } from '../../../utils/redirect/permanentRedirectIfMerged';
 import { ArtistPageClient } from './ArtistPageClient';
 import type { ArtistPageDropdownConfigCurrentParams } from './ArtistPageDropdownConfig';
 import { getArtistPageFilterParams } from './ArtistPageDropdownConfig';
@@ -33,9 +35,18 @@ export type ArtistPageProps = {
   params: Promise<{ channel_id: string }>;
 };
 
-export async function generateMetadata({ params }: ArtistPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: ArtistPageProps): Promise<Metadata> {
+  const { channel_id } = await params;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'artist',
+    searchParams: await searchParams,
+  });
   try {
-    const { channel_id } = await params;
     const response = await getPublisherRemoteItemsForChannelSeoPage(channel_id);
     const channel = response.channel;
     const descriptionPlain = truncateMetaDescription(
@@ -56,6 +67,12 @@ export async function generateMetadata({ params }: ArtistPageProps): Promise<Met
 export default async function ArtistPage({ params, searchParams }: ArtistPageProps) {
   const { channel_id } = await params;
   const queryParams = await searchParams;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'artist',
+    searchParams: queryParams,
+  });
 
   const { ssrApiRequestService } = await getSSRAuthService();
 
@@ -69,6 +86,16 @@ export default async function ArtistPage({ params, searchParams }: ArtistPagePro
     ssrPodroll = await ssrApiRequestService.reqPodrollGetForChannel(response.channel.id_text);
   }
 
+  const itemList = await loadChannelItemList(() =>
+    ssrApiRequestService.reqItemGetManyByChannel({
+      idOrIdText: response.channel.id_text,
+      page: 1,
+      sort: 'recent',
+      range: null,
+    })
+  );
+  const directoryRemoved = itemList.kind === 'archived';
+
   return (
     <ArtistPageClient
       initialQueryParams={{
@@ -80,6 +107,7 @@ export default async function ArtistPage({ params, searchParams }: ArtistPagePro
       ssrItemsAdded={response.itemsAdded}
       ssrItemsUnadded={response.itemsUnadded}
       ssrPodroll={ssrPodroll}
+      directoryRemoved={directoryRemoved}
     />
   );
 }

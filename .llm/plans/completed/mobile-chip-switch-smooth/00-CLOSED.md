@@ -22,8 +22,8 @@ the layer draws 1:1. The channel header uses that path at 78 pt. The full-screen
 
 T5, before those two quality edits: revisit chip visible p95 66.7 ms (was ~777 ms), UI-thread gap
 p95 59.2 ms (was 400–760 ms), 0 of 13 taps with a gap ≥ 100 ms, footprint 265 MB (was ~614 MB).
-The same-frame targets were not met. The work that would chase them is parked in
-[mobile-home-switch-followups](../../active/mobile-home-switch-followups/00-EXECUTION-ORDER.md).
+The same-frame targets were not met. The follow-up that would chase them was dropped; the switch
+already felt immediate.
 
 Narrative: [MOBILE-IOS-CHIP-SWITCH.md](/docs/development/mobile/MOBILE-IOS-CHIP-SWITCH.md).
 Numbers: [MOBILE-PERF-BASELINES.md](/docs/development/mobile/MOBILE-PERF-BASELINES.md).

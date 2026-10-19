@@ -26,6 +26,7 @@ import { MenuSelectChip } from '../../components/form';
 import { FillList, ListRow } from '../../components/primitives';
 import { Button } from '../../components/primitives/Button';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
@@ -168,7 +169,6 @@ const SECTION_LABEL_KEYS: Record<AlbumTab, string> = {
   funding: 'info.funding',
   people: 'info.people.people',
   podroll: 'info.podroll',
-  settings: 'settings.settings',
   tracks: 'media.music.tracks',
 };
 
@@ -291,6 +291,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const [subscriptionNoticeKey, setSubscriptionNoticeKey] = useState<string | null>(null);
   const [isSectionHydrated, setIsSectionHydrated] = useState<boolean>(false);
   const [section, setSection] = useState<AlbumTab>(DEFAULT_ALBUM_TAB);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [sort, setSort] = useState<AlbumTrackSort>(DEFAULT_ALBUM_TRACK_SORT);
   const [range, setRange] = useState<AlbumDetailRange>(DEFAULT_ALBUM_DETAIL_RANGE);
   const [trackRows, setTrackRows] = useState<HomeFeedRowData[]>([]);
@@ -320,13 +321,6 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        channelActions: {
-          gap: tokens.spacing.sm,
-        },
-        headerActions: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
         notice: {
           color: themeStyles.textSecondary.color,
           fontSize: 13,
@@ -339,9 +333,6 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         listContent: {
           paddingHorizontal: tokens.spacing.lg,
           paddingTop: tokens.spacing.md,
-        },
-        subscribeButtonRow: {
-          alignItems: 'flex-start',
         },
       }),
     [themeStyles, tokens]
@@ -547,9 +538,6 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     const hasFunding = channel !== null ? channelHasFunding(channel) : previewHasFunding;
     const hasPeople = channel !== null ? channelHasPeople(channel) : previewHasPeople;
     return ALBUM_TABS.filter((tab) => {
-      if (tab === 'settings') {
-        return isSignedIn;
-      }
       if (tab === 'podroll') {
         return hasPodroll;
       }
@@ -561,7 +549,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       }
       return true;
     });
-  }, [channel, isSignedIn, previewHasFunding, previewHasPeople, previewHasPodroll]);
+  }, [channel, previewHasFunding, previewHasPeople, previewHasPodroll]);
 
   useEffect(() => {
     if (availableSections.includes(section)) {
@@ -602,7 +590,12 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   );
 
   const handleSectionSelect = useCallback((next: AlbumTab) => {
+    setSettingsOpen(false);
     setSection(next);
+  }, []);
+
+  const handleSettingsPress = useCallback(() => {
+    setSettingsOpen((open) => !open);
   }, []);
 
   const handleSortSelect = useCallback(
@@ -710,7 +703,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={styles.headerActions}>
+        <HeaderBarActions>
           {canShowBoost && channel !== null ? (
             <HeaderBarAction
               accessibilityLabel={t('value.boost')}
@@ -740,7 +733,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
             onPress={handleShare}
             testID="album-detail-share"
           />
-        </View>
+        </HeaderBarActions>
       ),
     });
   }, [
@@ -750,7 +743,6 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     navigation,
     notificationsEnabled,
     openBoost,
-    styles.headerActions,
     t,
     tokens.text.warning,
     toggleNotifications,
@@ -943,21 +935,23 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const channelHeader = (
     <ChannelHeader
       actions={
-        <View style={styles.channelActions}>
-          <View style={styles.subscribeButtonRow}>
-            <Button
-              label={t(isSubscribed ? 'features.unsubscribe' : 'features.subscribe')}
-              loading={isSavingSubscription}
-              onPress={handleSubscriptionTogglePress}
-              size="sm"
-              testID="album-detail-subscribe-toggle"
-              variant="outline"
-            />
-          </View>
-        </View>
+        <Button
+          label={t(isSubscribed ? 'features.unsubscribe' : 'features.subscribe')}
+          loading={isSavingSubscription}
+          onPress={handleSubscriptionTogglePress}
+          size="sm"
+          testID="album-detail-subscribe-toggle"
+          variant="outline"
+        />
       }
       artworkUri={channelArtworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      settings={{
+        accessibilityLabel: t('settings.settings'),
+        onPress: handleSettingsPress,
+        selected: settingsOpen,
+        testID: 'album-detail-header-settings',
+      }}
       testID="album-detail-header"
       title={title}
       viewerUri={channelViewerUri}
@@ -1025,7 +1019,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     />
   );
 
-  const sectionBody =
+  const sectionListBody =
     section === 'tracks'
       ? tracksBody
       : section === 'about'
@@ -1034,12 +1028,11 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
           ? podrollBody
           : section === 'funding'
             ? fundingBody
-            : section === 'people'
-              ? peopleBody
-              : settingsBody;
+            : peopleBody;
+  const sectionBody = settingsOpen ? settingsBody : sectionListBody;
 
   const chipTrailing =
-    section === 'tracks' ? (
+    settingsOpen || section !== 'tracks' ? undefined : (
       <>
         <MenuSelectChip
           heading={t('filters.screen.sort_heading')}
@@ -1058,7 +1051,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
           />
         ) : null}
       </>
-    ) : undefined;
+    );
 
   return (
     <>
@@ -1071,7 +1064,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         sectionBody={sectionBody}
         sectionChips={sectionChips}
         sectionsTestID="album-detail-sections"
-        selectedSection={section}
+        selectedSection={settingsOpen ? null : section}
         testID="album-detail-screen"
       />
       {boostSheet}

@@ -30,8 +30,11 @@ import type {
 } from '@podverse/orm';
 import {
   ChannelService,
+  CLIP_SOURCE_REMOVED_MESSAGE,
   ClipService,
+  ClipUpdateRejectedError,
   findOptionsRelationsFromPaths,
+  isClipSourceRemoved,
   ItemService,
   StatsAggregatedClipService,
 } from '@podverse/orm';
@@ -165,7 +168,8 @@ class ClipController {
               end_time: Joi.number().greater(0).allow(null, ''),
               title: Joi.string().allow(null, ''),
               description: Joi.string().allow(null, ''),
-              item_id_text: Joi.string().required(),
+              // Required unless the clip's episode was removed; the service enforces it.
+              item_id_text: Joi.string().allow(null, ''),
               sharable_status_id: Joi.number().min(1).required(),
             });
 
@@ -179,7 +183,7 @@ class ClipController {
                 description: dto.description || null,
                 start_time: dto.start_time,
                 end_time: dto.end_time || null,
-                item_id_text: dto.item_id_text,
+                item_id_text: dto.item_id_text || null,
                 sharable_status_id: dto.sharable_status_id,
               };
 
@@ -191,6 +195,10 @@ class ClipController {
                 );
                 res.status(200).json(clip);
               } catch (err) {
+                if (err instanceof ClipUpdateRejectedError) {
+                  res.status(400).json({ message: err.message });
+                  return;
+                }
                 handleGenericErrorResponse(res, err);
               }
             });
@@ -244,12 +252,19 @@ class ClipController {
                   sharable_status: true,
                 },
               });
-              if (clip) {
-                const { id: _id, ...clipWithoutId } = clip;
-                res.status(200).json(clipWithoutId);
-              } else {
+              if (!clip) {
                 res.status(404).json({ message: 'Clip not found' });
+                return;
               }
+
+              // The snapshot names what the owner clipped; nobody else learns it.
+              if (isClipSourceRemoved(clip) && req.user?.id !== clip.account.id) {
+                res.status(410).json({ message: CLIP_SOURCE_REMOVED_MESSAGE, removed: true });
+                return;
+              }
+
+              const { id: _id, ...clipWithoutId } = clip;
+              res.status(200).json(clipWithoutId);
             } catch (err) {
               handleGenericErrorResponse(res, err);
             }

@@ -1,5 +1,6 @@
 import { loggerService } from '@parser/factories/loggerService.js';
 import { timerManager } from '@parser/factories/timerManager.js';
+import type { DescriptionIngestContext } from '@parser/lib/rss/descriptionIngestContext.js';
 import type { ItemTimerAccumulator } from '@parser/lib/rss/item/item.js';
 import { createItemTimerAccumulator, handleParsedItem } from '@parser/lib/rss/item/item.js';
 import { dedupeByStableKey, getParsedItemStableKey } from '@parser/lib/rss/itemStableKey.js';
@@ -37,6 +38,7 @@ const processLiveItemBatch = async (
   liveItemObjDtosBatch: LiveItemObjDto[],
   channel: Channel,
   channelSeasonIndex: ChannelSeasonIndex,
+  descriptionContext: DescriptionIngestContext,
   existingLiveItemMap: Map<string, LiveItem>,
   updatedLiveItemIds: number[],
   pendingItemGuids: string[],
@@ -52,6 +54,7 @@ const processLiveItemBatch = async (
       parsedItem: itemDto as Episode,
       channel,
       channelSeasonIndex,
+      descriptionContext,
       transactionalEntityManager,
       timerAccumulator,
       isLiveItem: true,
@@ -100,6 +103,7 @@ export const handleParsedLiveItems = async (
   parsedLiveItems: Phase4PodcastLiveItem[],
   channel: Channel,
   channelSeasonIndex: ChannelSeasonIndex,
+  descriptionContext: DescriptionIngestContext,
   itemKeysToSkip: Set<string> = new Set()
 ): Promise<HandleParsedLiveItemsResult> => {
   const itemService = new ItemService();
@@ -130,6 +134,7 @@ export const handleParsedLiveItems = async (
         liveItemObjDtosBatch,
         channel,
         channelSeasonIndex,
+        descriptionContext,
         existingLiveItemMap,
         updatedLiveItemItemIds,
         pendingItemGuids,

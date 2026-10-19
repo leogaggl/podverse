@@ -39,7 +39,9 @@ import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindo
 import { downloadsRepository } from '../../data/repositories/downloadsRepository';
 import { playbackContentRepository } from '../../data/repositories/playbackContentRepository';
 import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChromeFlagsRepository';
+import { useItemDescription } from '../../hooks/useItemDescription';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
+import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
@@ -52,6 +54,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { ChannelBrowseStackParamList } from '../../navigation';
 import { buildPodcastDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
 import { EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -119,9 +122,9 @@ function EpisodeChapterRow({
       artworkUri={artwork.show ? artwork.uri : null}
       showArtwork={artwork.show}
       testID="episode-detail-chapter-row"
-      timeRange={t('info.time.start_end', {
-        timeEnd: formatHHMMSS(Number(chapter.end_time)),
-        timeStart: formatHHMMSS(Number(chapter.start_time)),
+      timeRange={t('features.clip.clip_time_range', {
+        hhmmssEnd: formatHHMMSS(Number(chapter.end_time)),
+        hhmmssStart: formatHHMMSS(Number(chapter.start_time)),
       })}
       title={chapter.title ?? chapter.id_text}
     />
@@ -214,6 +217,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
   const { playbackNoticeKey, runMarkAsPlayedAction, runPlayAction, runQueueAction } =
     useHomeRowPlayback();
   const { playSoundbite } = usePlaybackSession();
+  const onDescriptionClock = useItemDescriptionClock(episode, channel);
 
   const styles = useMemo(
     () =>
@@ -228,10 +232,6 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
         description: {
           ...typography.prose,
           color: themeStyles.textPrimary.color,
-        },
-        headerActions: {
-          alignItems: 'center',
-          flexDirection: 'row',
         },
         list: {
           backgroundColor: themeStyles.screen.backgroundColor,
@@ -335,6 +335,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
         async (api) => api.reqItemGetByIdOrIdText(episodeId)
       );
       void channelItemsRepository.updateStoredItem(fresh);
+      void cacheItemDescriptionFromDetail(fresh);
 
       let nextChannel = fresh.channel ?? null;
       if (nextChannel === null) {
@@ -389,17 +390,15 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={styles.headerActions}>
-          <HeaderBarAction
-            accessibilityLabel={t('features.share')}
-            icon="share-outline"
-            onPress={handleShare}
-            testID="episode-detail-share"
-          />
-        </View>
+        <HeaderBarAction
+          accessibilityLabel={t('features.share')}
+          icon="share-outline"
+          onPress={handleShare}
+          testID="episode-detail-share"
+        />
       ),
     });
-  }, [handleShare, navigation, styles.headerActions, t]);
+  }, [handleShare, navigation, t]);
 
   const {
     activeTab,
@@ -449,7 +448,8 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     [supportedTabs, t]
   );
 
-  const descriptionHtml = episode?.item_description?.value ?? null;
+  const description = useItemDescription(episode);
+  const descriptionHtml = description?.html ?? (description?.preview || null);
 
   const downloadableEpisode = useMemo((): DTOItem | null => {
     if (episode === null) {
@@ -694,11 +694,17 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
             emptyLabel={t('info.summary.no_summary')}
             html={descriptionHtml}
             linkStyle={styles.showMore}
+            onDescriptionClock={onDescriptionClock}
             resetKey={episodeId}
             showMoreStyle={styles.showMore}
             testID="episode-detail-description"
             textStyle={styles.description}
             toggleTestID="episode-detail-description-toggle"
+            truncation={
+              description?.isTruncated === true
+                ? { kind: 'item', linkUrl: description.linkUrl }
+                : undefined
+            }
           />
         </View>
       );
@@ -787,6 +793,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     chapterRows.length,
     clipHasMore,
     clipRows.length,
+    description,
     descriptionHtml,
     episode,
     episodeId,
@@ -795,6 +802,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     isLoadingMoreClips,
     isTabLoading,
     offlineModeEnabled,
+    onDescriptionClock,
     soundbiteRows.length,
     styles.description,
     styles.loadMore,
