@@ -1,7 +1,57 @@
 import { describe, expect, it } from 'vitest';
 
 import { MIGRATIONS } from './migrations';
+import type { MigrationDatabase } from './runMigrations';
+import { runMigrations } from './runMigrations';
 import { safeJsonParse } from './serialization';
+
+const createRecordingDatabase = (userVersion: number) => {
+  const executed: string[] = [];
+  const database: MigrationDatabase = {
+    execAsync: async (source) => {
+      executed.push(source);
+    },
+    getFirstAsync: async () => ({ user_version: userVersion }),
+    withTransactionAsync: async (task) => {
+      await task();
+    },
+  };
+  return { database, executed };
+};
+
+describe('migration 23 item description cache', () => {
+  it('creates the cache table on a database at version 22 and records version 23', async () => {
+    const { database, executed } = createRecordingDatabase(22);
+
+    await runMigrations(database);
+
+    const sql = executed.join('\n').toLowerCase();
+    expect(sql).toContain('create table if not exists item_description_cache');
+    for (const column of [
+      'item_id_text text primary key not null',
+      'value text',
+      'preview text',
+      'is_truncated integer not null default 0',
+      'link_url text',
+      'pinned integer not null default 0',
+      'fetched_at integer not null',
+    ]) {
+      expect(sql).toContain(column);
+    }
+    expect(sql).not.toContain('identity_remap_applied');
+    expect(executed).toContain('PRAGMA user_version = 23;');
+    expect(executed).not.toContain('PRAGMA user_version = 22;');
+  });
+
+  it('leaves stored payload tables alone', () => {
+    const migration23 = MIGRATIONS.find((migration) => migration.version === 23);
+    const sql = (migration23?.statements ?? []).join('\n').toLowerCase();
+
+    for (const table of ['channel_item', 'playable_item', 'add_by_rss_feed', 'queue_cache']) {
+      expect(sql.includes(table)).toBe(false);
+    }
+  });
+});
 
 describe('migration 20 add-by-RSS credentials', () => {
   it('adds the credential flag and index without a column for secrets', () => {

@@ -3,6 +3,15 @@ import { expect, test } from '@playwright/test';
 import { ROUTES } from './helpers/routes';
 import { capturePageLoad } from './helpers/stepScreenshots';
 
+const DESCRIPTION_TELEMETRY_DEFAULTS = {
+  description_length_tier_override: null,
+  description_length_tier_effective: 'standard',
+  description_length_tier_suggested: null,
+  description_truncated_count: 0,
+  description_longest_source_length: null,
+  description_truncated_at: null,
+};
+
 test.describe('Management-web feeds flag status', () => {
   test('dashboard shows a Feeds card linking to the feeds hub', async ({ page }, testInfo) => {
     await page.goto(ROUTES.HOME);
@@ -65,6 +74,7 @@ test.describe('Management-web feeds flag status', () => {
               primary_block_reason: null,
               policy_overrides: null,
               channel_title: 'Test Show',
+              ...DESCRIPTION_TELEMETRY_DEFAULTS,
             },
           ],
           pagination: { page: 1, limit: 25, total: 1, totalPages: 1 },
@@ -93,6 +103,7 @@ test.describe('Management-web feeds flag status', () => {
             primary_block_reason: null,
             policy_overrides: null,
             channel_title: 'Test Show',
+            ...DESCRIPTION_TELEMETRY_DEFAULTS,
           },
         }),
       });
@@ -179,6 +190,169 @@ test.describe('Management-web feeds flag status', () => {
     );
   });
 
+  test('a superuser raises a feed description length tier and a reparse is scheduled', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(45_000);
+
+    const applyBodies: Record<string, unknown>[] = [];
+    const listUrls: string[] = [];
+    let storedTierOverride: string | null = null;
+
+    const buildFeed = () => ({
+      id: 9,
+      url: 'https://example.com/feed.xml',
+      podcast_index_id: 55,
+      spam_item_limit_override: null,
+      max_response_body_bytes_override: null,
+      lifecycle_state_key: 'active',
+      lifecycle_reason: null,
+      updated_source: 'system',
+      active_condition_keys: [],
+      parse_allowed: true,
+      public_visible: true,
+      add_allowed: true,
+      primary_block_reason: null,
+      policy_overrides: null,
+      channel_title: 'Long Notes Show',
+      description_length_tier_override: storedTierOverride,
+      description_length_tier_effective: storedTierOverride ?? 'standard',
+      description_length_tier_suggested: 'extended',
+      description_truncated_count: 3,
+      description_longest_source_length: 18_500,
+      description_truncated_at: '2026-10-01T12:00:00.000Z',
+    });
+
+    await page.route('**/feeds/options', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          lifecycle_states: [{ state_key: 'active' }],
+          condition_types: [{ condition_key: 'spam_detected' }],
+          takedown_reasons: [{ reason: 'spam' }],
+        }),
+      });
+    });
+
+    await page.route('**/api/v2/feeds?**', async (route) => {
+      listUrls.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          feeds: [buildFeed()],
+          pagination: { page: 1, limit: 25, total: 1, totalPages: 1 },
+        }),
+      });
+    });
+
+    await page.route('**/feeds/lookup**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ feed: buildFeed() }),
+      });
+    });
+
+    await page.route('**/api/v2/feeds/*/policy-state', async (route) => {
+      const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+      applyBodies.push(body);
+      const nextTier = body.description_length_tier_override;
+      storedTierOverride = typeof nextTier === 'string' ? nextTier : null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ feed: buildFeed() }),
+      });
+    });
+
+    const descriptionValue = (label: string) =>
+      page.locator('dt', { hasText: label }).locator('xpath=following-sibling::dd[1]');
+
+    const lookUpFeed = async () => {
+      await page.getByRole('button', { name: 'Find a feed' }).click();
+      await page.locator('#feed-flag-lookup-mode').click();
+      await page.getByRole('menuitem', { name: 'Podcast Index ID' }).click();
+      await page.getByLabel('Value').fill('55');
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(page.locator('#feed-apply-description-tier')).toBeVisible();
+    };
+
+    await page.goto(ROUTES.HOME);
+
+    await page.locator('#email').fill('e2e-superadmin@example.com');
+    await page.locator('#password').fill('Test!1Aa');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL('**/dashboard');
+
+    await page.goto(ROUTES.FEEDS_FLAG_STATUS);
+    await expect(page.getByRole('cell', { name: 'Long Notes Show' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: '18,500' })).toBeVisible();
+
+    const truncatedOnly = page.getByRole('checkbox', { name: 'Shortened Descriptions Only' });
+    await truncatedOnly.check();
+    await expect
+      .poll(() => listUrls.some((url) => url.includes('description_truncated=true')))
+      .toBe(true);
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'The directory filters to feeds with shortened descriptions and shows the longest length.',
+      truncatedOnly
+    );
+
+    await lookUpFeed();
+
+    await expect(descriptionValue('Description Length')).toHaveText('Standard');
+    await expect(descriptionValue('Shortened Descriptions')).toHaveText('3');
+    await expect(descriptionValue('Longest Description')).toHaveText('18,500 characters');
+    await expect(descriptionValue('Suggested Tier')).toHaveText('Extended');
+    await expect(page.locator('#feed-apply-description-tier')).toContainText('Default (Standard)');
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'The feed shows its description telemetry and the suggested tier.',
+      descriptionValue('Suggested Tier')
+    );
+
+    await page.locator('#feed-apply-description-tier').click();
+    await page.getByRole('menuitem', { name: 'Extended — 25,000 Characters' }).click();
+    await page.getByRole('button', { name: 'Apply change' }).click();
+
+    const reparseMessage = page.getByText(
+      'A reparse is scheduled. Full notes appear after the next parse.'
+    );
+    await expect(reparseMessage).toBeVisible();
+    expect(applyBodies[0]).toEqual(
+      expect.objectContaining({ description_length_tier_override: 'extended' })
+    );
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'Raising the description tier reports that a reparse is scheduled.',
+      reparseMessage
+    );
+
+    await page.reload();
+    await lookUpFeed();
+
+    await expect(page.locator('#feed-apply-description-tier')).toContainText(
+      'Extended — 25,000 Characters'
+    );
+    await expect(descriptionValue('Description Length')).toHaveText('Extended');
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'After a reload the feed keeps the Extended description tier.',
+      page.locator('#feed-apply-description-tier')
+    );
+  });
+
   test('the feeds directory table stays mounted while the lifecycle filter refetches the list', async ({
     page,
   }, testInfo) => {
@@ -212,6 +386,7 @@ test.describe('Management-web feeds flag status', () => {
       primary_block_reason: null,
       policy_overrides: null,
       channel_title: 'Layout Test Show',
+      ...DESCRIPTION_TELEMETRY_DEFAULTS,
     };
 
     // Match GET …/api/v2/feeds?<query>. Branch on lifecycle vs probe (limit=1, no lifecycle)

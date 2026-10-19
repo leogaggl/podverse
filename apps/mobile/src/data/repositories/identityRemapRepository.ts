@@ -460,6 +460,22 @@ const persistSnapshot = async (
           target: schema.identityRemapApplied.fromIdText,
           set: { appliedAt: Date.now(), toIdText: move.toIdText },
         });
+
+      // Cached show notes follow the item, so a downloaded item keeps its pinned notes.
+      const notesRow = await tx
+        .select({ itemIdText: schema.itemDescriptionCache.itemIdText })
+        .from(schema.itemDescriptionCache)
+        .where(eq(schema.itemDescriptionCache.itemIdText, move.fromIdText))
+        .limit(1);
+      if (notesRow.length > 0) {
+        await tx
+          .delete(schema.itemDescriptionCache)
+          .where(eq(schema.itemDescriptionCache.itemIdText, move.toIdText));
+        await tx
+          .update(schema.itemDescriptionCache)
+          .set({ itemIdText: move.toIdText })
+          .where(eq(schema.itemDescriptionCache.itemIdText, move.fromIdText));
+      }
     }
 
     const chrome: Record<string, { channelId: number | null; notificationsEnabled: boolean | null }> =

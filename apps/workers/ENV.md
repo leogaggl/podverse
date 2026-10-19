@@ -20,7 +20,7 @@ The workers app validates environment variables **per command**. Each job only v
 
 | Command group                       | Categories validated                     | Commands (examples)                                                                                                                                                                                                                                |
 | ----------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base + ORM only                     | Base, ORM                                | archiveAll, statsUpdateAggregated, devStatsSeedSimulatedAggregated, devSeedLocalUserContent, scheduledJobsRunDue, notificationsPlatformPurge, billingImportLegacyMembershipExpiry, billingProcessorProductAdd, billingCheckoutChannelEnable, orm\* |
+| Base + ORM only                     | Base, ORM                                | archiveAll, statsUpdateAggregated, devStatsSeedSimulatedAggregated, devSeedLocalUserContent, ormDescriptionsBackfill, notificationsPlatformPurge, billingImportLegacyMembershipExpiry, billingProcessorProductAdd, billingCheckoutChannelEnable, orm\* |
 | Base + ORM + Billing                | Base, ORM, Billing                       | billingReconcile, billingStrikeEnsureWebhook                                                                                                                                                                                                       |
 | Base + Podcast Index                | Base, PodcastIndex                       | podcastIndexTrendingPodcastsGet, podcastIndexValueUpdateAll                                                                                                                                                                                        |
 | Base + ORM + Podcast Index          | Base, ORM, PodcastIndex                  | podcastIndexDeadFeedsFlagAndMerge                                                                                                                                                                                                                  |
@@ -29,7 +29,7 @@ The workers app validates environment variables **per command**. Each job only v
 | Base + ORM + MQ + Podcast Index     | Base, ORM, MQ, PodcastIndex              | mqRSSAdd                                                                                                                                                                                                                                           |
 | Base + MQ + Parser + KeyValDB       | Base, MQ, Parser, KeyValDB               | mqAddByRSSRunParser                                                                                                                                                                                                                                |
 | Base + ORM + MQ + KeyValDB + PI     | Base, ORM, MQ, KeyValDB, PodcastIndex    | mqOpmlImportRun                                                                                                                                                                                                                                    |
-| Base + ORM + MQ + Parser + PI + Web | Base, ORM, MQ, Parser, PodcastIndex, Web | parserRSSParseFeed, devParserRSSParseTrendingFeeds, devParserRSSParseMusicMediumFeeds, devParserRSSParsePodcasting20Feeds                                                                                                                          |
+| Base + ORM + MQ + Parser + PI + Web | Base, ORM, MQ, Parser, PodcastIndex, Web | parserRSSParseFeed, scheduledJobsRunDue, devParserRSSParseTrendingFeeds, devParserRSSParseMusicMediumFeeds, devParserRSSParsePodcasting20Feeds                                                                                                                          |
 | Base + ORM + MQ + Image Shrink      | Base, ORM, MQ, ImageShrink               | imageShrinkRunConsumer, imageShrinkBackfill                                                                                                                                                                                                        |
 | Base + ORM + Image Shrink           | Base, ORM, ImageShrink                   | imageShrinkCleanupOrphans, imageShrinkResetShrunken, imageShrinkResetShrunkenDryRun, imageShrinkSourcePrune                                                                                                                                        |
 | Full stack                          | Base, ORM, MQ, Parser, PodcastIndex, Web | mqRSSRunParser, mqRSSRunLiveItemListener                                                                                                                                                                                                           |
@@ -38,9 +38,10 @@ Within each category, vars are required or optional as listed in the sections be
 
 ### Notifications platform command note
 
-`scheduledJobsRunDue` and `notificationsPlatformPurge` both validate **Base + ORM** only. That means
-contributors can exercise notification scheduling and retention locally after database migration
-without requiring MQ/Parser categories.
+`notificationsPlatformPurge` validates **Base + ORM** only, so contributors can exercise retention
+locally after database migration without MQ/Parser categories. `scheduledJobsRunDue` validates the
+full parser stack, because the `feed-force-reparse` job parses a feed in the same pass that sends
+admin notification campaigns.
 
 `NOTIFICATION_RETENTION_DAYS` (Base, optional, default 30) sets how long delivered notification rows
 are kept before `notificationsPlatformPurge` deletes them. The window applies to rows already stored,

@@ -367,6 +367,12 @@
     "no_podroll_found": "Aucun podcast recommandé trouvé",
     "show_more": "Afficher plus",
     "show_less": "Afficher moins",
+    "truncation": {
+      "read_full_show_notes": "Lire les notes complètes de l’épisode",
+      "read_full_description": "Lire la description complète",
+      "show_notes_shortened": "Ces notes d’épisode ont été raccourcies.",
+      "description_shortened": "Cette description a été raccourcie."
+    },
     "transcript": {
       "transcript": "Transcription",
       "search_transcript": "Rechercher dans la transcription...",

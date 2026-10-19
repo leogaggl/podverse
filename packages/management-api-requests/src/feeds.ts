@@ -1,3 +1,5 @@
+import type { DescriptionLengthTierEnum } from '@podverse/helpers';
+
 import { ManagementApiRequestService } from './apiRequestService.js';
 
 export type FeedOperationsLookup = {
@@ -6,6 +8,14 @@ export type FeedOperationsLookup = {
   podcast_index_id: number;
   spam_item_limit_override: number | null;
   max_response_body_bytes_override: number | null;
+  description_length_tier_override: DescriptionLengthTierEnum | null;
+  description_length_tier_effective: DescriptionLengthTierEnum;
+  /** Smallest tier that fits the longest source; null when unknown or beyond every tier. */
+  description_length_tier_suggested: DescriptionLengthTierEnum | null;
+  description_truncated_count: number;
+  description_longest_source_length: number | null;
+  /** ISO timestamp of the last parse that shortened a description. */
+  description_truncated_at: string | null;
   lifecycle_state_key: string;
   lifecycle_reason: string | null;
   updated_source: string;
@@ -31,7 +41,12 @@ export type FeedOperationsOptionsResponse = {
 export type LookupResponse = { feed: FeedOperationsLookup };
 
 export type FeedOperationsListSortKey =
-  'id' | 'podcast_index_id' | 'channel_title' | 'lifecycle_state_key' | 'url';
+  | 'id'
+  | 'podcast_index_id'
+  | 'channel_title'
+  | 'lifecycle_state_key'
+  | 'url'
+  | 'description_longest_source_length';
 
 export type ListFeedOperationsParams = {
   page?: number;
@@ -40,6 +55,8 @@ export type ListFeedOperationsParams = {
   order?: 'asc' | 'desc';
   q?: string;
   lifecycle?: string;
+  /** True keeps only feeds whose last successful parse shortened a description. */
+  description_truncated?: boolean;
 };
 
 export type ListFeedOperationsResponse = {
@@ -61,6 +78,8 @@ export type ApplyFeedOperationsPolicyStateBody = {
   transition_note?: string | null;
   spam_item_limit_override?: number | null;
   max_response_body_bytes_override?: number | null;
+  /** Null resets to the default tier. A changed tier schedules a forced reparse. */
+  description_length_tier_override?: DescriptionLengthTierEnum | null;
   policy_overrides?: {
     parse_allowed_override?: boolean | null;
     public_visible_override?: boolean | null;
@@ -118,6 +137,9 @@ export async function listFeedOperations(
   if (params.lifecycle !== undefined && params.lifecycle.trim() !== '') {
     q.set('lifecycle', params.lifecycle.trim());
   }
+  if (params.description_truncated === true) {
+    q.set('description_truncated', 'true');
+  }
   const qs = q.toString();
   return service.apiRequest<ListFeedOperationsResponse>({
     path: `/feeds${qs ? `?${qs}` : ''}`,
@@ -146,12 +168,7 @@ export async function lookupFeed(params: {
 }
 
 export type FeedMergeStatus =
-  | 'detected'
-  | 'verified'
-  | 'needs_review'
-  | 'applied'
-  | 'rejected'
-  | 'reverted';
+  'detected' | 'verified' | 'needs_review' | 'applied' | 'rejected' | 'reverted';
 
 export type FeedMergeStatusFilter = FeedMergeStatus | 'all';
 

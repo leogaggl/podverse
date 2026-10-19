@@ -5,6 +5,7 @@
 
 import Joi from 'joi';
 
+import { DescriptionLengthTierEnum } from '@podverse/helpers';
 import {
   FEED_LIFECYCLE_REASON_KEY_MAX_LENGTH,
   FeedConditionTypeKeyEnum,
@@ -47,6 +48,11 @@ export const feedOperationsUpdatePolicyStateBodySchema = Joi.object({
   transition_note: Joi.string().max(FEED_OPERATIONS_REASON_NOTE_MAX).allow(null, '').optional(),
   spam_item_limit_override: Joi.number().integer().positive().allow(null).optional(),
   max_response_body_bytes_override: Joi.number().integer().positive().allow(null).optional(),
+  /** Null resets the feed to the default description length tier. */
+  description_length_tier_override: Joi.string()
+    .valid(...Object.values(DescriptionLengthTierEnum))
+    .allow(null)
+    .optional(),
   policy_overrides: feedOperationsPolicyOverridesSchema.allow(null),
   /**
    * When true, the takedown lifecycle may omit `takedown_active`.
@@ -73,6 +79,7 @@ export const feedOperationsUpdatePolicyStateBodySchema = Joi.object({
         String(value.transition_note).trim() !== '') ||
       value.spam_item_limit_override !== undefined ||
       value.max_response_body_bytes_override !== undefined ||
+      value.description_length_tier_override !== undefined ||
       value.policy_overrides !== undefined ||
       value.takedown_transitional !== undefined;
 

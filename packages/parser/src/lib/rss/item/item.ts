@@ -1,5 +1,6 @@
 import { loggerService } from '@parser/factories/loggerService.js';
 import { timerManager } from '@parser/factories/timerManager.js';
+import type { DescriptionIngestContext } from '@parser/lib/rss/descriptionIngestContext.js';
 import { handleParsedItemAbout } from '@parser/lib/rss/item/itemAbout.js';
 import { handleParsedItemChaptersFeed } from '@parser/lib/rss/item/itemChaptersFeed.js';
 import { handleParsedItemChat } from '@parser/lib/rss/item/itemChat.js';
@@ -71,6 +72,7 @@ type HandleParsedItemBatch = {
   parsedItemBatch: Episode[];
   channel: Channel;
   channelSeasonIndex: ChannelSeasonIndex;
+  descriptionContext: DescriptionIngestContext;
   transactionalEntityManager?: EntityManager;
   updatedItemIds: number[];
   timerAccumulator: ItemTimerAccumulator;
@@ -80,6 +82,7 @@ type HandleParsedItem = {
   parsedItem: Episode;
   channel: Channel;
   channelSeasonIndex: ChannelSeasonIndex;
+  descriptionContext: DescriptionIngestContext;
   transactionalEntityManager?: EntityManager;
   timerAccumulator: ItemTimerAccumulator;
   isLiveItem?: boolean;
@@ -119,7 +122,8 @@ export type HandleParsedItemsResult = {
 export const handleParsedItems = async (
   parsedItems: Episode[],
   channel: Channel,
-  channelSeasonIndex: ChannelSeasonIndex
+  channelSeasonIndex: ChannelSeasonIndex,
+  descriptionContext: DescriptionIngestContext
 ): Promise<HandleParsedItemsResult> => {
   const itemService = new ItemService();
 
@@ -156,6 +160,7 @@ export const handleParsedItems = async (
         parsedItemBatch,
         channel,
         channelSeasonIndex,
+        descriptionContext,
         updatedItemIds,
         timerAccumulator,
         newItemGuids,
@@ -169,6 +174,7 @@ export const handleParsedItems = async (
           parsedItemBatch,
           channel,
           channelSeasonIndex,
+          descriptionContext,
           transactionalEntityManager,
           updatedItemIds,
           timerAccumulator,
@@ -203,6 +209,7 @@ const handleParsedItemBatch = async ({
   parsedItemBatch,
   channel,
   channelSeasonIndex,
+  descriptionContext,
   transactionalEntityManager,
   updatedItemIds,
   timerAccumulator,
@@ -221,6 +228,7 @@ const handleParsedItemBatch = async ({
       parsedItem,
       channel,
       channelSeasonIndex,
+      descriptionContext,
       transactionalEntityManager,
       timerAccumulator,
     });
@@ -241,6 +249,7 @@ export const handleParsedItem = async ({
   parsedItem,
   channel,
   channelSeasonIndex,
+  descriptionContext,
   transactionalEntityManager,
   timerAccumulator,
   isLiveItem,
@@ -285,7 +294,12 @@ export const handleParsedItem = async ({
     timerAccumulator.handleParsedItemContentLink;
 
   timerManager.start('handleParsedItemDescription');
-  await handleParsedItemDescription(parsedItem, item, transactionalEntityManager);
+  await handleParsedItemDescription(
+    parsedItem,
+    item,
+    descriptionContext,
+    transactionalEntityManager
+  );
   timerAccumulator.handleParsedItemDescription =
     timerManager.end('handleParsedItemDescription', preventTimerLog) +
     timerAccumulator.handleParsedItemDescription;

@@ -43,7 +43,7 @@ flow_needs_e2e_api() {
   make-clip | membership-checkout | membership-gate | notifications-inbox | offline-mode | opml | perf-chip-switch | \
   perf-scroll | play-mini-player | \
   playback-multi-device-handoff | playback-offline-reconciliation | playback-resume-on-relaunch | \
-  player-screen | podcast-episode | track | \
+  player-screen | podcast-episode | show-notes | track | \
   popularity-tracking | push | queue-add | queue-screen | search | search-unparsed | settings-downloads | \
   subscriptions-anonymous | tab-switch-playback | tablet | terms-account-access | terms-popularity | v4v | \
   video-transition)
@@ -84,7 +84,7 @@ flow_needs_test_assets() {
   case "$1" in
   add-by-rss | add-by-rss-credentials | auto-queue-advance | engine-audio-spike | hls-playback | library-downloads | make-clip | \
   membership-gate | play-mini-player | playback-offline-reconciliation | playback-resume-on-relaunch | player-screen | \
-  tab-switch-playback | tablet | v4v | video-transition)
+  show-notes | tab-switch-playback | tablet | v4v | video-transition)
     return 0
     ;;
   *)

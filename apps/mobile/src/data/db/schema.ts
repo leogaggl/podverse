@@ -447,3 +447,17 @@ export const identityRemapApplied = sqliteTable('identity_remap_applied', {
 
 export type IdentityRemapAppliedRow = typeof identityRemapApplied.$inferSelect;
 export type IdentityRemapAppliedInsert = typeof identityRemapApplied.$inferInsert;
+
+/** Full show notes per item; pinned while the item is downloaded. */
+export const itemDescriptionCache = sqliteTable('item_description_cache', {
+  itemIdText: text('item_id_text').primaryKey(),
+  value: text('value'),
+  preview: text('preview'),
+  isTruncated: integer('is_truncated').notNull().default(0),
+  linkUrl: text('link_url'),
+  pinned: integer('pinned').notNull().default(0),
+  fetchedAt: integer('fetched_at').notNull(),
+});
+
+export type ItemDescriptionCacheRow = typeof itemDescriptionCache.$inferSelect;
+export type ItemDescriptionCacheInsert = typeof itemDescriptionCache.$inferInsert;

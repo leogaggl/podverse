@@ -10,6 +10,7 @@ import {
   playableItemRepository,
 } from '../data/repositories';
 import { autoDownloadRepository } from '../data/repositories/autoDownloadRepository';
+import { pinDownloadedItemDescription } from '../lib/content/itemDescriptionAccess';
 import { resolveE2eMediaUrl } from '../lib/e2e/resolveE2eMediaUrl';
 import { isEffectivelyOffline, subscribeConnectivity } from '../net/connectivity';
 import { addByRssRequestHeaderAuth } from '../playback/addByRssMediaAuth';
@@ -269,6 +270,18 @@ const addByRssFeedUrlForDownload = (record: DownloadRecord): string | null => {
   return /^https?:\/\//i.test(channelIdText) ? channelIdText : null;
 };
 
+/**
+ * Keep a finished download's show notes on the device. Add-by-RSS notes live only in the feed
+ * payload, so those rows have nothing to pin.
+ */
+const pinShowNotesForDownload = (itemIdText: string): void => {
+  const record = downloadStore.get(itemIdText);
+  if (record === null || addByRssFeedUrlForDownload(record) !== null) {
+    return;
+  }
+  void pinDownloadedItemDescription(itemIdText);
+};
+
 /** Drop a rejected payload so a retry fetches the enclosure again instead of resuming it. */
 const rejectInvalidTransfer = async (
   itemIdText: string,
@@ -458,6 +471,7 @@ const runTransfer = async (itemIdText: string): Promise<void> => {
       filePath: toStoredDownloadFileName(result.uri),
       status: 'complete',
     });
+    pinShowNotesForDownload(itemIdText);
     await maybeAutoDelete(itemIdText);
   } catch {
     inFlight.delete(itemIdText);
@@ -630,6 +644,7 @@ export const downloadManager = {
                 filePath: toStoredDownloadFileName(record.filePath),
                 status: 'complete',
               });
+              pinShowNotesForDownload(record.itemIdText);
               continue;
             }
           }

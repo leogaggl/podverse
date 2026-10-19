@@ -6,9 +6,12 @@ import type {
   DTOPlaylistResource,
   DTOQueueResource,
 } from '@podverse/helpers';
-import { primaryChannelListArtworkUrl, primaryListArtworkUrl } from '@podverse/helpers';
+import {
+  getDescriptionPreviewText,
+  primaryChannelListArtworkUrl,
+  primaryListArtworkUrl,
+} from '@podverse/helpers';
 import { getNonEmptyTrimmedStringProperty, isObjectLike } from '@podverse/helpers/guards';
-import { htmlToPlainTextPreview } from '@podverse/helpers/html';
 import { formatHHMMSS } from '@podverse/helpers/time';
 
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
@@ -43,14 +46,14 @@ export type ItemHomeRowSource = {
   channel?: Pick<DTOChannel, 'channel_images' | 'medium_id' | 'title'>;
   id_text: string;
   item_about?: { duration?: string | null };
-  item_description?: { value?: string | null };
+  item_description?: { value?: string | null; preview?: string | null; is_truncated?: boolean };
   item_images: DTOItemImage[];
   pub_date?: string | null;
   title?: string | null;
 };
 
 const itemDescriptionPlain = (item: ItemHomeRowSource): string | null => {
-  const plain = htmlToPlainTextPreview(item.item_description?.value ?? undefined);
+  const plain = getDescriptionPreviewText(item.item_description);
   return plain.length > 0 ? plain : null;
 };
 
@@ -264,7 +267,10 @@ const readClipItem = (value: unknown): ItemHomeRowSource | null => {
     item_description:
       description === null
         ? undefined
-        : { value: getNonEmptyTrimmedStringProperty(description, 'value') },
+        : {
+            preview: getNonEmptyTrimmedStringProperty(description, 'preview'),
+            value: getNonEmptyTrimmedStringProperty(description, 'value'),
+          },
     item_images: readItemImages(value.item_images),
     pub_date: getNonEmptyTrimmedStringProperty(value, 'pub_date'),
     title: getNonEmptyTrimmedStringProperty(value, 'title'),
@@ -395,10 +401,12 @@ export function playlistResourceToHomeRow(
   const pubDateRaw = resourceData.pub_date;
   const itemDescription = resourceData.item_description;
 
-  const descriptionFromItem =
-    isObjectLike(itemDescription) && typeof itemDescription.value === 'string'
-      ? htmlToPlainTextPreview(itemDescription.value)
-      : '';
+  const descriptionFromItem = isObjectLike(itemDescription)
+    ? getDescriptionPreviewText({
+        preview: getNonEmptyTrimmedStringProperty(itemDescription, 'preview'),
+        value: getNonEmptyTrimmedStringProperty(itemDescription, 'value'),
+      })
+    : '';
 
   return {
     description: descriptionRaw ?? (descriptionFromItem.length > 0 ? descriptionFromItem : null),
@@ -555,10 +563,12 @@ const addByRssToHomeRow = (
   const pubDateRaw = resourceData.pub_date;
   const itemDescription = resourceData.item_description;
 
-  const descriptionFromItem =
-    isObjectLike(itemDescription) && typeof itemDescription.value === 'string'
-      ? htmlToPlainTextPreview(itemDescription.value)
-      : '';
+  const descriptionFromItem = isObjectLike(itemDescription)
+    ? getDescriptionPreviewText({
+        preview: getNonEmptyTrimmedStringProperty(itemDescription, 'preview'),
+        value: getNonEmptyTrimmedStringProperty(itemDescription, 'value'),
+      })
+    : '';
 
   return {
     description: descriptionRaw ?? (descriptionFromItem.length > 0 ? descriptionFromItem : null),

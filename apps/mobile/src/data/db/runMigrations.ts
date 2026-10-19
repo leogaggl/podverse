@@ -1,13 +1,18 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import { MIGRATIONS } from './migrations';
 
 type UserVersionRow = {
   user_version: number;
 };
 
-const readUserVersion = async (sqlite: SQLiteDatabase): Promise<number> => {
-  const row = await sqlite.getFirstAsync<UserVersionRow>('PRAGMA user_version;');
+/** The part of an expo-sqlite handle migrations use; `SQLiteDatabase` satisfies it. */
+export type MigrationDatabase = {
+  getFirstAsync: (source: string) => Promise<UserVersionRow | null>;
+  withTransactionAsync: (task: () => Promise<void>) => Promise<void>;
+  execAsync: (source: string) => Promise<void>;
+};
+
+const readUserVersion = async (sqlite: MigrationDatabase): Promise<number> => {
+  const row = await sqlite.getFirstAsync('PRAGMA user_version;');
   return row?.user_version ?? 0;
 };
 
@@ -17,7 +22,7 @@ const readUserVersion = async (sqlite: SQLiteDatabase): Promise<number> => {
  * only run what is new. Versions come from `MIGRATIONS` (authored integers), so interpolating them
  * into the PRAGMA statement is safe — never pass external input here.
  */
-export const runMigrations = async (sqlite: SQLiteDatabase): Promise<void> => {
+export const runMigrations = async (sqlite: MigrationDatabase): Promise<void> => {
   const currentVersion = await readUserVersion(sqlite);
 
   const pending = MIGRATIONS.filter((migration) => migration.version > currentVersion).sort(

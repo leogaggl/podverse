@@ -1,4 +1,5 @@
 import type { DTOChannel, RemoteItemsResponse } from '@podverse/helpers';
+import { isDescriptionTruncated } from '@podverse/helpers';
 import { SideContent } from '@podverse/ui';
 
 import { ContentAbout } from '../../../components/Content/About/ContentAbout';
@@ -15,6 +16,8 @@ export const PodcastPageSideContent = ({ channel, podroll }: PodcastPageSideCont
     <SideContent>
       <ContentAbout
         description={channel.channel_description?.value}
+        isTruncated={isDescriptionTruncated(channel.channel_description)}
+        fullDescriptionUrl={channel.channel_about?.website_link_url}
         isAccordion={true}
         defaultOpen={true}
       />

@@ -21,6 +21,13 @@ description prose is empty. Channel screens use `channel_persons`. Item screens 
 `item_persons`. Do not hide people behind an empty-description gate, and do not render people
 inside About or Summary.
 
+## Previews and full notes
+
+List rows on web and mobile read the stored `preview` (`getDescriptionPreviewText`), and the full
+notes load on detail. Mobile Summary reads them through `useItemDescription`, which falls back to
+the on-device notes cache and then the description endpoint, so a Summary never depends on a list
+payload carrying the whole description.
+
 ## Length (mobile)
 
 Feed authors can paste unbounded HTML into channel description and item summary. On mobile,
@@ -58,6 +65,7 @@ Funding there.
 | RSS, website | Header icons | About body links |
 | Funding | Header icon | Funding chip (before People when the channel has people) |
 | Share, subscribe, notifications, boost | Header / actions | Header / actions — not About body |
+| Shortened notes | A link after the prose: the item link on Summary, the website on About | Summary: the same link after the expanded prose. About: the sentence only, because the website link is already in About |
 
 Do **not** “fix” mobile by copying web header icons for RSS or website, and do **not** drop
 those links from mobile About. Do **not** put funding links back into About.

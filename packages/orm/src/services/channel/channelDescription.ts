@@ -5,6 +5,9 @@ import type { EntityManager } from 'typeorm';
 
 type ChannelDescriptionDto = {
   value: string;
+  preview: string;
+  is_truncated: boolean;
+  source_length: number | null;
 };
 
 export class ChannelDescriptionService extends BaseOneService<ChannelDescription, 'channel'> {

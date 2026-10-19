@@ -7,9 +7,9 @@ import React from 'react';
 import type { DTOLiveItem } from '@podverse/helpers';
 import {
   dedupedTrimmedUrlCandidates,
+  getDescriptionPreviewText,
   getQueryParamFromQueueMediumId,
   LiveItemStatusEnum,
-  stripAndDecodeHtml,
   toIsoOrNull,
 } from '@podverse/helpers';
 import { ImagesPerView } from '@podverse/ui';
@@ -51,7 +51,7 @@ export const AddByRSSLivestreamRow: React.FC<AddByRSSLivestreamRowProps> = ({
   const title = item.item.title ?? tMedia('livestream.livestream');
   const description = showChannelInfo
     ? item.channelTitle
-    : stripAndDecodeHtml(item.item.description ?? '');
+    : getDescriptionPreviewText({ value: item.item.description });
   const imageCandidates = dedupedTrimmedUrlCandidates([item.item.image, item.channelImageUrl]);
   const liveStatusId = item.liveItem.live_item_status ?? LiveItemStatusEnum.Pending;
   const startTimeRaw = item.liveItem.start_time;

@@ -2697,6 +2697,37 @@ components:
     ItemDetailResponse:
       allOf:
         - $ref: "#/components/schemas/Item"
+    DTOItemDescriptionDetail:
+      type: object
+      required:
+        - item_id_text
+        - value
+        - preview
+        - is_truncated
+        - source_length
+        - link_url
+      properties:
+        item_id_text:
+          type: string
+        value:
+          type: string
+          nullable: true
+          description: Sanitized show notes HTML, null when the item has none.
+        preview:
+          type: string
+          nullable: true
+          description: Plain-text preview of the notes.
+        is_truncated:
+          type: boolean
+          description: True when the stored notes were shortened to the feed's description tier.
+        source_length:
+          type: integer
+          nullable: true
+          description: Visible length of the feed's notes before shortening, when known.
+        link_url:
+          type: string
+          nullable: true
+          description: The item's link, where the full notes live when is_truncated is true.
     LiveItemChannelResponse:
       type: array
       items:
@@ -11221,6 +11252,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /item/{id_or_id_text}/description:
+    get:
+      operationId: apiGetItemIdoridtextDescription
+      tags:
+        - item
+      summary: GET /item/{id_or_id_text}/description
+      description: >-
+        Public endpoint returning one item's full show notes, a plain preview, whether the stored
+        notes were shortened, and the item link. Loads only the description and about rows. An
+        item with no description row returns 200 with null notes and is_truncated false.
+      security: []
+      parameters:
+        - in: path
+          name: id_or_id_text
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DTOItemDescriptionDetail"
+              examples:
+                shortenedNotes:
+                  summary: Notes longer than the feed's tier were shortened
+                  value:
+                    item_id_text: e2ePodLongNt01
+                    value: "<h2>About This Episode</h2><p>This deterministic E2E episode carries long, richly formatted show notes.</p>"
+                    preview: About This Episode This deterministic E2E episode carries long, richly formatted show notes.
+                    is_truncated: true
+                    source_length: 18000
+                    link_url: https://example.com/e2e-long-show-notes
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The episode was matched onto a surviving episode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedItem:
+                  summary: Episode id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: item
+                      id_text: surviving-episode
         "500":
           description: Internal server error
           content:

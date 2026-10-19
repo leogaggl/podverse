@@ -28,6 +28,8 @@ type AddByRSSArtistPageListProps = {
   trackItems: AddByRSSItemIndexItem[];
   liveItems: AddByRSSLivestreamIndexItem[];
   description: string | null;
+  descriptionIsTruncated: boolean;
+  fullDescriptionUrl: string | null;
   viewSelected: ViewSelectedOption;
   boostsPageFetcher: BoostMessagesPageFetcher | null;
   breadcrumbLinkResolver?: BoostBreadcrumbLinkResolver;
@@ -45,6 +47,8 @@ export const AddByRSSArtistPageList: React.FC<AddByRSSArtistPageListProps> = ({
   trackItems,
   liveItems,
   description,
+  descriptionIsTruncated,
+  fullDescriptionUrl,
   viewSelected,
   boostsPageFetcher,
   breadcrumbLinkResolver,
@@ -72,7 +76,13 @@ export const AddByRSSArtistPageList: React.FC<AddByRSSArtistPageListProps> = ({
           <AddByRSSTrackNodes items={trackItems} viewSelected={viewSelected} />
         </>
       )}
-      {activeTab === 'about' && <ContentAbout description={description ?? undefined} />}
+      {activeTab === 'about' && (
+        <ContentAbout
+          description={description ?? undefined}
+          isTruncated={descriptionIsTruncated}
+          fullDescriptionUrl={fullDescriptionUrl}
+        />
+      )}
       {activeTab === 'boosts' && boostsPageFetcher !== null && (
         <BoostMessagesSection
           heading={boostsHeading}

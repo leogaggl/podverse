@@ -7,6 +7,9 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import type { DescriptionNode } from '@podverse/helpers';
 import { readDescriptionDocument } from '@podverse/helpers';
 import { splitDescriptionClocks } from '@podverse/helpers/descriptionClocks';
+import { isValidHttpUrl } from '@podverse/helpers-validation/client';
+
+import { useTheme } from '../../theme/useTheme';
 
 /**
  * Collapsed plain-text length for channel About and for item Summary outside the full player.
@@ -44,7 +47,14 @@ export type DescriptionTextProps = {
    * Text already inside a link is left alone.
    */
   onDescriptionClock?: (seconds: number) => void;
+  /**
+   * Set when Podverse shortened the stored notes. An item gets a link to its own page when it has
+   * one; a channel gets a sentence, because its website is already in About.
+   */
+  truncation?: DescriptionTruncation;
 };
+
+export type DescriptionTruncation = { kind: 'item' | 'channel'; linkUrl: string | null };
 
 type ClockRenderOptions = {
   onDescriptionClock?: (seconds: number) => void;
@@ -262,8 +272,10 @@ export function DescriptionText({
   toggleTestID,
   emptyLabel,
   onDescriptionClock,
+  truncation,
 }: DescriptionTextProps) {
   const { t } = useTranslation();
+  const { tokens } = useTheme();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -345,9 +357,48 @@ export function DescriptionText({
     );
   }
 
+  let truncationNotice: ReactNode = null;
+  if (truncation !== undefined && (!canCollapse || expanded)) {
+    const linkUrl =
+      truncation.kind === 'item' &&
+      truncation.linkUrl !== null &&
+      isValidHttpUrl(truncation.linkUrl)
+        ? truncation.linkUrl
+        : null;
+    if (linkUrl !== null) {
+      const label = t('info.truncation.read_full_show_notes');
+      truncationNotice = (
+        <Pressable
+          accessibilityLabel={label}
+          accessibilityRole="link"
+          onPress={() => {
+            void openExternalUrl(linkUrl);
+          }}
+          testID={testID === undefined ? undefined : `${testID}-truncation-link`}
+        >
+          <Text style={showMoreStyle ?? linkStyle}>{label}</Text>
+        </Pressable>
+      );
+    } else {
+      truncationNotice = (
+        <Text
+          style={[showMoreStyle, { color: tokens.text.secondary }]}
+          testID={testID === undefined ? undefined : `${testID}-truncation-notice`}
+        >
+          {t(
+            truncation.kind === 'item'
+              ? 'info.truncation.show_notes_shortened'
+              : 'info.truncation.description_shortened'
+          )}
+        </Text>
+      );
+    }
+  }
+
   return (
     <View>
       {body}
+      {truncationNotice}
       {canCollapse ? (
         <Pressable
           accessibilityRole="button"

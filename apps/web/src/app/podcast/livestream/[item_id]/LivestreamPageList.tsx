@@ -9,6 +9,7 @@ import {
   buildMusicLivestreamPath,
   buildPodcastLivestreamPath,
   buildPodcastPath,
+  isDescriptionTruncated,
 } from '@podverse/helpers';
 
 import { BoostMessagesSection } from '../../../../components/Boost/messages/BoostMessagesSection';
@@ -63,6 +64,8 @@ export const LivestreamPageList: React.FC<LivestreamPageListProps> = ({
           description={ssrItem.item_description?.value}
           descriptionClockLabel={clock.descriptionClockLabel}
           onDescriptionClock={clock.onDescriptionClock}
+          isTruncated={isDescriptionTruncated(ssrItem.item_description)}
+          fullNotesUrl={ssrItem.item_about?.website_link_url}
         />
       )}
       {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}

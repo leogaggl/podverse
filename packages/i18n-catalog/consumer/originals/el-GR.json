@@ -367,6 +367,12 @@
     "no_podroll_found": "Δεν βρέθηκαν προτεινόμενα podcast",
     "show_more": "Περισσότερα",
     "show_less": "Λιγότερα",
+    "truncation": {
+      "read_full_show_notes": "Ανάγνωση πλήρων σημειώσεων επεισοδίου",
+      "read_full_description": "Ανάγνωση πλήρους περιγραφής",
+      "show_notes_shortened": "Αυτές οι σημειώσεις επεισοδίου συντομεύτηκαν.",
+      "description_shortened": "Αυτή η περιγραφή συντομεύτηκε."
+    },
     "transcript": {
       "transcript": "Μεταγραφή",
       "search_transcript": "Αναζήτηση μεταγραφής...",

@@ -87,6 +87,20 @@ describe('tablePolicy', () => {
       expect(spamOverride?.updatable).toBe(true);
     });
 
+    it('feed table keeps the description tier and its telemetry read-only', () => {
+      const policy = getTablePolicy('feed');
+      for (const name of [
+        'description_length_tier_override',
+        'description_truncated_count',
+        'description_longest_source_length',
+        'description_truncated_at',
+      ]) {
+        const field = policy?.fields.find((f) => f.name === name);
+        expect(field).toBeDefined();
+        expect(field?.updatable).toBe(false);
+      }
+    });
+
     it('feed_takedown_reason has reason as updatable', () => {
       const policy = getTablePolicy('feed_takedown_reason');
       const reasonField = policy?.fields.find((f) => f.name === 'reason');

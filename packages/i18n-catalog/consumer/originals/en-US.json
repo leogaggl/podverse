@@ -367,6 +367,12 @@
     "no_podroll_found": "No Recommended Podcasts Found",
     "show_more": "Show More",
     "show_less": "Show Less",
+    "truncation": {
+      "read_full_show_notes": "Read Full Show Notes",
+      "read_full_description": "Read Full Description",
+      "show_notes_shortened": "These show notes were shortened.",
+      "description_shortened": "This description was shortened."
+    },
     "transcript": {
       "transcript": "Transcript",
       "search_transcript": "Search Transcript...",

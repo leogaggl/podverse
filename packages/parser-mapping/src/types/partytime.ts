@@ -144,7 +144,13 @@ export type Episode = {
     type?: string | null;
   } | null;
   chat?: Phase7Chat;
+  /** `content:encoded`, untrimmed HTML. */
+  content?: string | null;
   description?: string | null;
+  /** `<description>` text with its line breaks intact. Absent before Partytime 5.2.0. */
+  descriptionRaw?: string | null;
+  /** `itunes:summary`. */
+  summary?: string | null;
   itunesImage?: string | null;
   image?: string | null;
   podcastImages?: Phase4PodcastImage[];
@@ -217,6 +223,8 @@ export type FeedObject = {
   itunesCategory?: string[];
   chat?: Phase7Chat;
   description?: string | null;
+  /** Channel description text with its line breaks intact. Absent before Partytime 5.2.0. */
+  descriptionRaw?: string | null;
   podcastFunding?: Array<{
     url?: string | null;
     message?: string | null;

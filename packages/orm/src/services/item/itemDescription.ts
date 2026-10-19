@@ -5,6 +5,9 @@ import type { EntityManager } from 'typeorm';
 
 type ItemDescriptionDto = {
   value: string;
+  preview: string;
+  is_truncated: boolean;
+  source_length: number | null;
 };
 
 export class ItemDescriptionService extends BaseOneService<ItemDescription, 'item'> {

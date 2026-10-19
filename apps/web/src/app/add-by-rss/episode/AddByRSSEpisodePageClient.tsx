@@ -7,6 +7,7 @@ import React from 'react';
 
 import type { DTOItemChapter } from '@podverse/helpers';
 import type { TranscriptRow } from '@podverse/helpers';
+import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
 import { MainColumnStack, MainSidebarLayout, SideContent, Tabs } from '@podverse/ui';
 
@@ -413,6 +414,8 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
                   description={description}
                   descriptionClockLabel={clock.descriptionClockLabel}
                   onDescriptionClock={clock.onDescriptionClock}
+                  isTruncated={isDescriptionTruncated(episode.bundle.description)}
+                  fullNotesUrl={episode.bundle.about.website_link_url}
                 />
               ) : null)}
             {selectedTab === 'boosts' && boostsPageFetcher !== null && (

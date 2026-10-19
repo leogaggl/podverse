@@ -33,7 +33,9 @@ import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChr
 import { downloadActionLabelKey, runDownloadAction } from '../../downloads/downloadAction';
 import { useDownloadAction } from '../../downloads/useDownloads';
 import { useActionError } from '../../feedback/ActionErrorProvider';
+import { useItemDescription } from '../../hooks/useItemDescription';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
+import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLabel';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { getCachedItemSectionFlags } from '../../lib/sectionChromeFlags';
@@ -433,6 +435,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         api.reqItemGetByIdOrIdText(trackId)
       );
       void channelItemsRepository.updateStoredItem(fresh);
+      void cacheItemDescriptionFromDetail(fresh);
 
       let nextChannel = fresh.channel ?? null;
       if (nextChannel === null) {
@@ -548,7 +551,8 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     setActiveTab(tab);
   }, []);
 
-  const descriptionHtml = track?.item_description?.value ?? null;
+  const description = useItemDescription(track);
+  const descriptionHtml = description?.html ?? (description?.preview || null);
   const onDescriptionClock = useItemDescriptionClock(track, channel);
 
   const playableTrack = useMemo((): DTOItem | null => {
@@ -722,6 +726,11 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
             testID="track-detail-description"
             textStyle={styles.description}
             toggleTestID="track-detail-description-toggle"
+            truncation={
+              description?.isTruncated === true
+                ? { kind: 'item', linkUrl: description.linkUrl }
+                : undefined
+            }
           />
         </View>
       );
@@ -784,6 +793,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     );
   }, [
     activeTab,
+    description,
     descriptionHtml,
     handleRetryTranscript,
     onDescriptionClock,

@@ -232,6 +232,15 @@ describe('channel merge redirects', () => {
       id_text: survivorMatched.idText,
     });
 
+    const matchedDescription = await request(http).get(
+      `${base}/item/${matched.idText}/description`
+    );
+    expect(matchedDescription.status).toBe(410);
+    expect(mergedInto(matchedDescription.body)).toEqual({
+      kind: 'item',
+      id_text: survivorMatched.idText,
+    });
+
     const unmatchedItem = await request(http).get(`${base}/item/${unmatched.idText}`);
     expect(unmatchedItem.status).toBe(200);
     expect(textField(unmatchedItem.body, 'id_text')).toBe(unmatched.idText);

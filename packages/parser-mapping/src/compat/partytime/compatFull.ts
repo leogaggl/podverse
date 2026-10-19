@@ -1,3 +1,5 @@
+import { DEFAULT_DESCRIPTION_LENGTH_TIER } from '@podverse/helpers';
+
 import type { FeedObject } from '../../types/partytime.js';
 import {
   compatChannelAboutDto,
@@ -92,7 +94,7 @@ export const convertParsedRSSFeedToCompat = (parsedFeed: FeedObject): ParsedRSSF
     about: compatItemAboutDto(item),
     chaptersFeed: compatItemChaptersFeedDto(item),
     chat: compatItemChatDto(item),
-    description: compatItemDescriptionDto(item),
+    description: compatItemDescriptionDto(item, DEFAULT_DESCRIPTION_LENGTH_TIER),
     enclosures: compatItemEnclosureDtos(item),
     images: compatItemImageDtos(item),
     license: compatItemLicenseDto(item),
@@ -117,7 +119,7 @@ export const convertParsedRSSFeedToCompat = (parsedFeed: FeedObject): ParsedRSSF
       about: compatChannelAboutDto(parsedFeed),
       categories: compatChannelCategoryDtos(parsedFeed),
       chat: compatChannelChatDto(parsedFeed),
-      description: compatChannelDescriptionDto(parsedFeed),
+      description: compatChannelDescriptionDto(parsedFeed, DEFAULT_DESCRIPTION_LENGTH_TIER),
       funding: compatChannelFundingDtos(parsedFeed),
       images: compatChannelImageDtos(parsedFeed),
       license: compatChannelLicenseDto(parsedFeed),

@@ -6,10 +6,10 @@ import React from 'react';
 
 import type { DTOChannel, DTOItem, DTOLiveItem } from '@podverse/helpers';
 import {
+  getDescriptionPreviewText,
   getQueryParamFromQueueMediumId,
   LiveItemStatusEnum,
   mergeDTOItemThenChannelImageCandidates,
-  stripAndDecodeHtml,
 } from '@podverse/helpers';
 import { getShuffleHash } from '@podverse/helpers-requests';
 import { ImagesPerView } from '@podverse/ui';
@@ -100,7 +100,7 @@ export const ListLiveItemRow: React.FC<Props> = ({
           <div className={styles.topSection}>
             <h3>{item.title}</h3>
             <div className={styles.subtitle}>
-              {!showChannelInfo && stripAndDecodeHtml(item.item_description?.value)}
+              {!showChannelInfo && getDescriptionPreviewText(item.item_description)}
               {showChannelInfo && channel.title}
             </div>
           </div>

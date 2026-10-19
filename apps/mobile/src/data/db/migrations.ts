@@ -372,6 +372,25 @@ export const MIGRATIONS: Migration[] = [
       );`,
     ],
   },
+  {
+    version: 23,
+    statements: [
+      // Full show notes per item, read when a screen needs more than the list payload carries.
+      // A null value means the item has no notes. Pinned rows belong to downloaded items and are
+      // never evicted, so their notes stay readable offline.
+      `CREATE TABLE IF NOT EXISTS item_description_cache (
+        item_id_text TEXT PRIMARY KEY NOT NULL,
+        value TEXT,
+        preview TEXT,
+        is_truncated INTEGER NOT NULL DEFAULT 0,
+        link_url TEXT,
+        pinned INTEGER NOT NULL DEFAULT 0,
+        fetched_at INTEGER NOT NULL
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_item_description_cache_evict
+        ON item_description_cache (pinned, fetched_at);`,
+    ],
+  },
 ];
 
 export const LATEST_MIGRATION_VERSION: number = MIGRATIONS.reduce(

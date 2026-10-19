@@ -151,6 +151,7 @@ export function ChannelAboutSection({
                 testID={`${testIDPrefix}-description`}
                 textStyle={styles.prose}
                 toggleTestID={`${testIDPrefix}-description-toggle`}
+                truncation={cell.isTruncated ? { kind: 'channel', linkUrl: null } : undefined}
               />
             ) : null}
             {hasLinks ? (

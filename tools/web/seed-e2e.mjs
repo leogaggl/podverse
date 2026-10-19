@@ -87,6 +87,33 @@ const E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT = 'e2ePodResume01';
 const E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT = 'e2ePodResume02';
 const E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT = 'e2ePodResume03';
 const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
+/** Oldest episode in the podcast; its stored show notes are shortened (`is_truncated`). */
+const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
+const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
+const E2E_PODCAST_ITEM_LONG_NOTES_SOURCE_LENGTH = 18000;
+const E2E_PODCAST_ITEM_LONG_NOTES_VALUE =
+  '<h2>About This Episode</h2>' +
+  '<p>This deterministic E2E episode carries long, richly formatted show notes. The feed ' +
+  'published far more text than the Standard description tier keeps, so the stored notes were ' +
+  'shortened and the app links to the full notes on the episode website instead of showing ' +
+  'everything inline.</p>' +
+  '<p>The second paragraph exists so the preview has to cut in the middle of running text at a ' +
+  'word boundary. Every sentence here is synthetic and stable, which keeps screenshots and text ' +
+  'assertions in the web and mobile suites deterministic across seeds.</p>' +
+  '<ul>' +
+  '<li><a href="https://example.com/e2e-long-show-notes/links/1">Episode Transcript</a></li>' +
+  '<li><a href="https://example.com/e2e-long-show-notes/links/2">Guest Website</a></li>' +
+  '<li><a href="https://example.com/e2e-long-show-notes/links/3">Referenced Article</a></li>' +
+  '<li><a href="https://example.com/e2e-long-show-notes/links/4">Show Merchandise</a></li>' +
+  '<li><a href="https://example.com/e2e-long-show-notes/links/5">Support the Show</a></li>' +
+  '</ul>';
+/** The first 400 plain characters of the value, cut back to a word boundary. */
+const E2E_PODCAST_ITEM_LONG_NOTES_PREVIEW =
+  'About This Episode This deterministic E2E episode carries long, richly formatted show notes. ' +
+  'The feed published far more text than the Standard description tier keeps, so the stored ' +
+  'notes were shortened and the app links to the full notes on the episode website instead of ' +
+  'showing everything inline. The second paragraph exists so the preview has to cut in the ' +
+  'middle of running text at a word';
 
 const E2E_CLIP_ID_TEXT = 'e2eClip00000001';
 const E2E_SOUNDBITE_ID_TEXT = 'e2eSoundbite001';
@@ -912,10 +939,33 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     enclosureUrl: E2E_PODCAST_SHORT_ENCLOSURE_URL,
     pubDateOffsetSeconds: 10800,
   });
+  // Oldest in the channel so the newest-first lists and row-0 flows keep their order.
+  const longNotesItemId = await insertPodcastItem({
+    idText: E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT,
+    guidSlug: 'long-show-notes',
+    title: 'E2E Long Show Notes',
+    enclosureUrl: E2E_PODCAST_RESUME_ENCLOSURE_URL,
+    pubDateOffsetSeconds: 14400,
+  });
+  await client.query(
+    `UPDATE item_description
+     SET value = $2, preview = $3, is_truncated = true, source_length = $4
+     WHERE item_id = $1`,
+    [
+      longNotesItemId,
+      E2E_PODCAST_ITEM_LONG_NOTES_VALUE,
+      E2E_PODCAST_ITEM_LONG_NOTES_PREVIEW,
+      E2E_PODCAST_ITEM_LONG_NOTES_SOURCE_LENGTH,
+    ]
+  );
+  await client.query(`UPDATE item_about SET website_link_url = $2 WHERE item_id = $1`, [
+    longNotesItemId,
+    E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL,
+  ]);
 
   // Subscriptions, so the /podcasts subscribed list has rows to render. The podcast channel's items
-  // sit at 0, 1, 2, and 3 hours old and its timestamp lands at ninety minutes, which leaves part of
-  // the channel unseen and part of it caught up; the livestream follow is fully caught up.
+  // sit at 0, 1, 2, 3, and 4 hours old and its timestamp lands at ninety minutes, which leaves part
+  // of the channel unseen and part of it caught up; the livestream follow is fully caught up.
   await client.query(
     `INSERT INTO account_following_channel (account_id, channel_id, last_seen_at)
      VALUES
@@ -1060,7 +1110,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   );
 
   console.log(
-    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT})`
+    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT})`
   );
 
   await client.query(`DELETE FROM feed WHERE podcast_index_id = $1 OR url = $2`, [
@@ -2196,10 +2246,10 @@ async function seedMergedChannelRedirect(client) {
     );
     const channelId = channelResult.rows[0].id;
     await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
-    await client.query(
-      `INSERT INTO channel_description (channel_id, value) VALUES ($1, $2)`,
-      [channelId, `${title} description.`]
-    );
+    await client.query(`INSERT INTO channel_description (channel_id, value) VALUES ($1, $2)`, [
+      channelId,
+      `${title} description.`,
+    ]);
     await client.query(
       `INSERT INTO channel_image (channel_id, url, image_width_size) VALUES ($1, $2, 1400)`,
       [channelId, E2E_FIXTURE_CHANNEL_IMAGE_URL]

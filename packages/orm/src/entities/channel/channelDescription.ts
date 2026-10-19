@@ -2,7 +2,7 @@ import type { Channel } from '@orm/entities/channel/channel.js';
 import type { Relation } from 'typeorm';
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
-import { DATABASE_CONSTANTS } from '@podverse/helpers';
+import { DESCRIPTION_PREVIEW_MAX_LENGTH } from '@podverse/helpers';
 
 @Entity()
 @Unique(['channel'])
@@ -14,6 +14,15 @@ export class ChannelDescription {
   @JoinColumn({ name: 'channel_id' })
   channel!: Relation<Channel>;
 
-  @Column({ type: 'varchar', length: DATABASE_CONSTANTS.varchar_longer })
+  @Column({ type: 'text' })
   value!: string;
+
+  @Column({ type: 'varchar', length: DESCRIPTION_PREVIEW_MAX_LENGTH, nullable: true })
+  preview!: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_truncated!: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  source_length!: number | null;
 }

@@ -8,9 +8,16 @@ import styles from '../../../styles/components/Content/About/ContentAboutAccordi
 type ContentAboutAccordionProps = {
   defaultOpen?: boolean;
   description?: string;
+  isTruncated?: boolean;
+  fullDescriptionUrl?: string | null;
 };
 
-export const ContentAboutAccordion = ({ defaultOpen, description }: ContentAboutAccordionProps) => {
+export const ContentAboutAccordion = ({
+  defaultOpen,
+  description,
+  isTruncated,
+  fullDescriptionUrl,
+}: ContentAboutAccordionProps) => {
   const hasDescription = description !== undefined && description.length > 0;
   if (!hasDescription) {
     return null;
@@ -19,7 +26,11 @@ export const ContentAboutAccordion = ({ defaultOpen, description }: ContentAbout
   return (
     <Accordion header={<ContentAboutHeader />} open={defaultOpen} contentClassName={styles.content}>
       <div className={styles.wrapper}>
-        <ContentAboutDescription description={description} />
+        <ContentAboutDescription
+          description={description}
+          isTruncated={isTruncated}
+          fullDescriptionUrl={fullDescriptionUrl}
+        />
       </div>
     </Accordion>
   );

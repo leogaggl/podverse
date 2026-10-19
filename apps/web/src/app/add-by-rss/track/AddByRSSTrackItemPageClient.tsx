@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import type { TranscriptRow } from '@podverse/helpers';
+import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
 import { MainColumnStack, MainSidebarLayout, SideContent, Tabs } from '@podverse/ui';
 
@@ -336,6 +337,8 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
                   description={description}
                   descriptionClockLabel={clock.descriptionClockLabel}
                   onDescriptionClock={clock.onDescriptionClock}
+                  isTruncated={isDescriptionTruncated(track.bundle.description)}
+                  fullNotesUrl={track.bundle.about.website_link_url}
                 />
               ) : null)}
             {selectedTab === 'boosts' && boostsPageFetcher !== null && (

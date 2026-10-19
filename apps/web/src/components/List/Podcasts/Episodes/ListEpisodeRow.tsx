@@ -7,9 +7,9 @@ import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOChannel, DTOItem, EnclosureSelectedParams } from '@podverse/helpers';
 import {
+  getDescriptionPreviewText,
   getQueueForMedium,
   mergeDTOItemThenChannelImageCandidates,
-  stripAndDecodeHtml,
 } from '@podverse/helpers';
 import { getShuffleHash } from '@podverse/helpers-requests';
 import type { MoreButtonMenuItem } from '@podverse/ui';
@@ -364,7 +364,7 @@ export const ListEpisodeRow: React.FC<Props> = ({
               <h3>{item.title}</h3>
               {showChannelInfo && <div className={styles.channelTitle}>{channel.title}</div>}
               <div className={styles.subtitle}>
-                {stripAndDecodeHtml(item.item_description?.value)}
+                {getDescriptionPreviewText(item.item_description)}
               </div>
             </div>
           </button>
@@ -374,7 +374,7 @@ export const ListEpisodeRow: React.FC<Props> = ({
               <h3>{item.title}</h3>
               {showChannelInfo && <div className={styles.channelTitle}>{channel.title}</div>}
               <div className={styles.subtitle}>
-                {stripAndDecodeHtml(item.item_description?.value)}
+                {getDescriptionPreviewText(item.item_description)}
               </div>
             </div>
           </Link>

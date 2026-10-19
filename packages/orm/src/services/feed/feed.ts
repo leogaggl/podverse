@@ -27,6 +27,9 @@ type FeedUpdateDto = {
   parsing_priority?: number;
   last_parsed_file_hash?: string | null;
   container_id?: string | null;
+  description_truncated_count?: number;
+  description_longest_source_length?: number | null;
+  description_truncated_at?: Date;
 };
 
 /** Mutations applied inside {@link FeedService.applyFeedModerationChanges}. */

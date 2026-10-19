@@ -7,9 +7,9 @@ import { FaGripLines } from 'react-icons/fa6';
 
 import type { EnclosureSelectedParams } from '@podverse/helpers';
 import {
+  getDescriptionPreviewText,
   getQueueForMedium,
   mergeDTOItemThenChannelImageCandidates,
-  stripAndDecodeHtml,
 } from '@podverse/helpers';
 import { getShuffleHash } from '@podverse/helpers-requests';
 import type { MoreButtonMenuItem } from '@podverse/ui';
@@ -298,7 +298,7 @@ export const CommonEpisodeListRow: React.FC<EpisodeListRowProps> = ({
             <h3>{item.title}</h3>
             {showChannelInfo && <div className={styles.channelTitle}>{channel.title}</div>}
             <div className={styles.subtitle}>
-              {stripAndDecodeHtml(item.item_description?.value)}
+              {getDescriptionPreviewText(item.item_description)}
             </div>
           </div>
         </Link>

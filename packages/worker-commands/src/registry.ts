@@ -70,6 +70,16 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run scheduled_jobs_run_due -w apps/workers -- -limit 100',
   },
   {
+    name: 'ormDescriptionsBackfill',
+    label: 'Descriptions: backfill previews and reparses',
+    description:
+      'Re-prepare stored item and channel descriptions that have no preview. With -enqueueReparse, schedule throttled feed-force-reparse jobs for feeds whose descriptions were cut before their source length was recorded. Idempotent.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli:
+      'npm run orm_descriptions_backfill -w apps/workers -- -enqueueReparse -maxFeeds 200',
+  },
+  {
     name: 'notificationsPlatformPurge',
     label: 'Notifications: purge expired and terminal rows',
     description:

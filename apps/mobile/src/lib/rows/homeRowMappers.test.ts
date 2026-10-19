@@ -88,6 +88,30 @@ describe('queueResourceToHomeRow', () => {
     expect(row?.description).toBe('Example description');
   });
 
+  it('reads the stored preview, and still derives a snippet from a payload with only value', () => {
+    const withPreview = queueResourceToHomeRow(
+      buildResource({
+        item: buildItem({
+          item_description: {
+            is_truncated: true,
+            preview: 'Stored preview text',
+            value: '<h2>Heading</h2><p>Full notes body</p>',
+          },
+        }),
+      }),
+      'queue'
+    );
+    const legacyPayload = queueResourceToHomeRow(
+      buildResource({
+        item: buildItem({ item_description: { value: '<p>Notes from an older payload</p>' } }),
+      }),
+      'queue'
+    );
+
+    expect(withPreview?.description).toBe('Stored preview text');
+    expect(legacyPayload?.description).toBe('Notes from an older payload');
+  });
+
   it('maps clip resources that only carry clip.item on queue screens', () => {
     const row = queueResourceToHomeRow(
       buildResource({

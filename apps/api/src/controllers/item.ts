@@ -24,6 +24,7 @@ import Joi from 'joi';
 
 import type {
   CategoryMappingKeys,
+  DTOItemDescriptionDetail,
   QueryParamsMedium,
   StatsAggregatedRangeCountField,
 } from '@podverse/helpers';
@@ -205,6 +206,45 @@ export class ItemController {
           channelGetOneRelations
         );
         handleReturnDataOrNotFound(res, channel ? { ...data, channel } : data, 'Item');
+      } catch (error) {
+        handleGenericErrorResponse(res, error);
+      }
+    });
+  }
+
+  /**
+   * One item's full show notes. Loads only the description and about rows so clients can fetch
+   * notes on demand without paying for the detail relation set. An item without a description
+   * row answers 200 with null notes, so clients can cache the empty result.
+   */
+  static async getDescriptionByIdOrIdText(req: Request, res: Response): Promise<void> {
+    validateParamsObject(Joi.object(idOrIdTextParamSchema), req, res, async () => {
+      try {
+        const idOrIdText = getParamRequired(req, 'idOrIdText');
+        const merged = await ItemController.mergeRedirects.itemMove(idOrIdText);
+        if (merged) {
+          sendMergedInto(res, 'item', merged.to_id_text);
+          return;
+        }
+        const item = await ItemController.itemService.getByIdOrIdText(idOrIdText, {
+          item_about: true,
+          item_description: true,
+        });
+        if (!item) {
+          handleReturnDataOrNotFound(res, item, 'Item');
+          return;
+        }
+        const description: Item['item_description'] | null | undefined = item.item_description;
+        const about: Item['item_about'] | null | undefined = item.item_about;
+        const body: DTOItemDescriptionDetail = {
+          item_id_text: item.id_text,
+          value: description?.value ?? null,
+          preview: description?.preview ?? null,
+          is_truncated: description?.is_truncated === true,
+          source_length: description?.source_length ?? null,
+          link_url: about?.website_link_url ?? null,
+        };
+        res.json(body);
       } catch (error) {
         handleGenericErrorResponse(res, error);
       }

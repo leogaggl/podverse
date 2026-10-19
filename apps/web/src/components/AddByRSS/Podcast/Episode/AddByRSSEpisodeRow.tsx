@@ -11,7 +11,7 @@ import {
   buildDTOItemImageLoadCandidates,
   getQueueForMedium,
 } from '@podverse/helpers';
-import { stripAndDecodeHtml } from '@podverse/helpers';
+import { getDescriptionPreviewText } from '@podverse/helpers';
 import { buildAddByRSSResourceData, getAddByRSSHashId } from '@podverse/parser-mapping';
 import { ImagesPerView } from '@podverse/ui';
 
@@ -74,9 +74,7 @@ export const AddByRSSEpisodeRow: React.FC<AddByRSSEpisodeRowProps> = ({
   const apiRequestService = getApiRequestService();
   const { runQueueAdd } = useQueueAddWithGate();
   const title = bundle.item.title ?? tMedia('podcast.episode_image');
-  const description = bundle.description?.value
-    ? stripAndDecodeHtml(bundle.description.value)
-    : channelTitle;
+  const description = getDescriptionPreviewText(bundle.description) || channelTitle;
   const itemImageCandidates = buildDTOItemImageLoadCandidates(
     bundle.images,
     IMAGES.LIST.EPISODES.DESKTOP.SIZE_FIND_TARGET,

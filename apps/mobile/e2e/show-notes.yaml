@@ -1,0 +1,107 @@
+appId: com.podverse.app.next
+name: Show Notes Flow
+---
+# Shortened show notes. The seeded episode's stored notes were cut, so its Summary ends with a link
+# to the full notes on the episode website once the prose is fully shown. The full player's Summary
+# reads the same notes.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- openLink: podverse-next://podcast/e2ePodChnl001
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: podcast-detail-episode-list
+    timeout: ${TIMEOUT_SLOWEST}
+- scrollUntilVisible:
+    element:
+      text: "E2E Long Show Notes"
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: show-notes-podcast-episodes
+- tapOn:
+    text: "E2E Long Show Notes"
+- extendedWaitUntil:
+    visible:
+      id: episode-detail-description
+    timeout: ${TIMEOUT_SLOWER}
+- assertVisible:
+    text: ".*About This Episode.*"
+- takeScreenshot: show-notes-episode-summary
+
+# Show More appears only when the prose is longer than the collapsed preview. The link sits after
+# the fully shown prose, never inside the collapsed preview.
+- runFlow:
+    when:
+      visible:
+        id: episode-detail-description-toggle
+    commands:
+      - tapOn:
+          id: episode-detail-description-toggle
+- scrollUntilVisible:
+    element:
+      id: episode-detail-description-truncation-link
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: episode-detail-description-truncation-link
+    text: "Read Full Show Notes"
+- takeScreenshot: show-notes-episode-read-full-link
+
+- scrollUntilVisible:
+    element:
+      id: "home-row-play-.*"
+    direction: UP
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: "home-row-play-.*"
+- extendedWaitUntil:
+    visible:
+      id: playback-active-e2e
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-screen
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: full-player-section-summary
+
+# The Summary sits in the pane sheet below the fold. Outer swipes on the chip strip bring the sheet
+# on screen; playback keeps the clock moving, so each swipe settles on a bound.
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: full-player-pane-sheet
+    commands:
+      - swipe:
+          from:
+            id: full-player-sections
+          direction: UP
+          waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible:
+      id: full-player-summary-text
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    text: ".*About This Episode.*"
+- takeScreenshot: show-notes-full-player-summary
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: full-player-close
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - pressKey: Back
+- extendedWaitUntil:
+    notVisible:
+      id: full-player-screen
+    timeout: ${TIMEOUT_SLOW}

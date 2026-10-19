@@ -38,7 +38,7 @@ const BASE_ORM_COMMANDS = [
   'statsUpdateAggregatedRolling',
   'generateOnDemandParserEventReports',
   'deleteOutdatedOnDemandParserEvent',
-  'scheduledJobsRunDue',
+  'ormDescriptionsBackfill',
 ] as const;
 
 const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;
@@ -72,8 +72,10 @@ const BASE_ORM_IMAGE_SHRINK_COMMANDS = [
   'imageShrinkSourcePrune',
 ] as const;
 
+/** `scheduledJobsRunDue` is here because the feed-force-reparse job parses a feed. */
 const BASE_ORM_PARSER_PODCAST_INDEX_COMMANDS = [
   'parserRSSParseFeed',
+  'scheduledJobsRunDue',
   'devParserRSSParseArtistPublisherFeeds',
   'devParserRSSParseMusicMediumFeeds',
   'devParserRSSParsePodcasting20Feeds',

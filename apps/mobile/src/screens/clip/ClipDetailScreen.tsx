@@ -17,6 +17,8 @@ import { ListError } from '../../components/state/ListError';
 import { ListLoading } from '../../components/state/ListLoading';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
 import { clipRepository } from '../../data/repositories/clipRepository';
+import { useItemDescription } from '../../hooks/useItemDescription';
+import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { navigateToMakeClipScreen } from '../../navigation';
@@ -161,6 +163,7 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
         async (api) => api.reqItemGetByIdOrIdText(itemId)
       );
       setItem(itemResponse);
+      void cacheItemDescriptionFromDetail(itemResponse);
 
       if (itemResponse.channel) {
         setChannel(itemResponse.channel);
@@ -193,10 +196,13 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
     }, [loadClip])
   );
 
+  const itemDescription = useItemDescription(item);
+  const clipHasOwnDescription =
+    clip?.description !== undefined && clip.description !== null && clip.description.length > 0;
   const clipDescriptionHtml =
     clip?.description !== undefined && clip.description !== null && clip.description.length > 0
       ? clip.description
-      : (item?.item_description?.value ?? null);
+      : (itemDescription?.html ?? (itemDescription?.preview || null));
   const activeItemId = itemFromTarget(activeTarget)?.id_text ?? null;
   const isOwnedClip =
     clip?.account?.id_text !== undefined &&
@@ -322,16 +328,16 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
               emptyLabel={t('info.summary.no_summary')}
               html={clipDescriptionHtml}
               linkStyle={styles.cardLink}
-              onDescriptionClock={
-                clip.description !== undefined &&
-                clip.description !== null &&
-                clip.description.length > 0
-                  ? undefined
-                  : onItemDescriptionClock
-              }
+              onDescriptionClock={clipHasOwnDescription ? undefined : onItemDescriptionClock}
               resetKey={clipId}
+              showMoreStyle={styles.cardLink}
               testID="clip-detail-description"
               textStyle={styles.cardText}
+              truncation={
+                !clipHasOwnDescription && itemDescription?.isTruncated === true
+                  ? { kind: 'item', linkUrl: itemDescription.linkUrl }
+                  : undefined
+              }
             />
           </View>
 

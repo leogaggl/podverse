@@ -6,7 +6,7 @@ import React from 'react';
 
 import type { EnclosureSelectedParams } from '@podverse/helpers';
 import { addByRSSBundleEnclosuresToDTO, getQueueForMedium } from '@podverse/helpers';
-import { stripAndDecodeHtml } from '@podverse/helpers';
+import { getDescriptionPreviewText } from '@podverse/helpers';
 import { buildAddByRSSResourceData, getAddByRSSHashId } from '@podverse/parser-mapping';
 
 import { useAccount } from '../../../../../contexts/Account';
@@ -64,9 +64,7 @@ export const AddByRSSTrackRow: React.FC<AddByRSSTrackRowProps> = ({
   const apiRequestService = getApiRequestService();
   const { runQueueAdd } = useQueueAddWithGate();
   const title = bundle.item.title ?? tMedia('music.track_image');
-  const description = bundle.description?.value
-    ? stripAndDecodeHtml(bundle.description.value)
-    : channelTitle;
+  const description = getDescriptionPreviewText(bundle.description) || channelTitle;
   const imageUrl = bundle.images?.[0]?.url ?? channelImageUrl;
   const url = getAddByRSSItemPath(itemIdText, 'tracks');
 

@@ -25,7 +25,7 @@ configMapGenerator:
   - name: podverse-ops-migration-scripts
     literals:
       - MIGRATION_BUNDLE_SHA=linear-migrations-v1
-      - API_EXPECTED_MIGRATION_FILENAME=0015_channel_merge.sql
+      - API_EXPECTED_MIGRATION_FILENAME=0016_description_length_tiers.sql
       - MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME=0003_billing_permissions.sql
     files:
       - source/database/runner/run-linear-migrations.sh

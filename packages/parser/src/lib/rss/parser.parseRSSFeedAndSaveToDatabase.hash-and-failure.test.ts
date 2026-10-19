@@ -230,6 +230,8 @@ vi.mock('@podverse/orm', () => ({
     conditionMocks.shouldAttemptFeedParseFromLifecycleAndPolicy,
 }));
 
+import type { DescriptionIngestContext } from './descriptionIngestContext.js';
+import { recordPreparedDescription } from './descriptionIngestContext.js';
 import { parseRSSFeedAndSaveToDatabase } from './parser.js';
 
 const baseFeed = {
@@ -532,5 +534,78 @@ describe('parseRSSFeedAndSaveToDatabase failure timestamp and hash-on-success', 
       { id: 1, id_text: 'c1' },
       filtered
     );
+  });
+});
+
+describe('parseRSSFeedAndSaveToDatabase description telemetry', () => {
+  const recordTwoShortenedItems = async (
+    _items: unknown,
+    _channel: unknown,
+    _channelSeasonIndex: unknown,
+    context: DescriptionIngestContext
+  ) => {
+    recordPreparedDescription(context, {
+      value: '<p>a</p>',
+      preview: 'a',
+      is_truncated: true,
+      source_length: 12_000,
+    });
+    recordPreparedDescription(context, {
+      value: '<p>b</p>',
+      preview: 'b',
+      is_truncated: true,
+      source_length: 18_500,
+    });
+    recordPreparedDescription(context, {
+      value: '<p>c</p>',
+      preview: 'c',
+      is_truncated: false,
+      source_length: 300,
+    });
+    return { hadStoredItems: true, newItemGuids: [], newItemGuidEnclosureUrls: [] };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    conditionMocks.shouldAttemptFeedParseFromLifecycleAndPolicy.mockReturnValue(true);
+    conditionMocks.tryStartParsing.mockResolvedValue(true);
+    conditionMocks.recomputePolicy.mockResolvedValue({ parse_allowed: true });
+    conditionMocks.getActiveConditionKeys.mockResolvedValue([]);
+    feedLogGetMock.mockResolvedValue({ parse_errors: 0 });
+    handleGetRSSFeedMock.mockResolvedValue(baseFeed);
+    handleRequestRSSFeedMock.mockResolvedValue(parsedFeedFixture);
+    handleParsedFeedMock.mockImplementation(async (_parsed: unknown, f: { id: number }) => f);
+    handleParsedChannelSeasonsMock.mockResolvedValue(undefined);
+    handleParsedChannelMock.mockResolvedValue(undefined);
+    handleParsedItemsMock.mockImplementation(recordTwoShortenedItems);
+    handleParsedLiveItemsMock.mockResolvedValue({ pendingItemGuids: [], liveItemGuids: [] });
+    handleAllRemoteItemsFeedParsingMock.mockResolvedValue([]);
+    feedServiceUpdateMock.mockImplementation(async (_id: number, dto: unknown) => dto);
+    pendingFollowGetMock.mockResolvedValue([]);
+  });
+
+  it('records the shortened count and the longest source length on success', async () => {
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, parseOptions);
+
+    expect(feedServiceUpdateMock).toHaveBeenCalledWith(
+      baseFeed.id,
+      expect.objectContaining({
+        description_truncated_count: 2,
+        description_longest_source_length: 18_500,
+        description_truncated_at: expect.any(Date),
+      })
+    );
+  });
+
+  it('writes no description telemetry when the parse fails', async () => {
+    handleParsedLiveItemsMock.mockRejectedValueOnce(new Error('live item parse failed'));
+
+    await parseRSSFeedAndSaveToDatabase(baseFeed.url, baseFeed.podcast_index_id, parseOptions);
+
+    const telemetryCall = feedServiceUpdateMock.mock.calls.find(
+      ([, dto]: [number, { description_truncated_count?: number }]) =>
+        dto.description_truncated_count !== undefined
+    );
+    expect(telemetryCall).toBeUndefined();
   });
 });

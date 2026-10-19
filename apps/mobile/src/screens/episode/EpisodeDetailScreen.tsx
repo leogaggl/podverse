@@ -39,7 +39,9 @@ import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindo
 import { downloadsRepository } from '../../data/repositories/downloadsRepository';
 import { playbackContentRepository } from '../../data/repositories/playbackContentRepository';
 import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChromeFlagsRepository';
+import { useItemDescription } from '../../hooks/useItemDescription';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
+import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
@@ -333,6 +335,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
         async (api) => api.reqItemGetByIdOrIdText(episodeId)
       );
       void channelItemsRepository.updateStoredItem(fresh);
+      void cacheItemDescriptionFromDetail(fresh);
 
       let nextChannel = fresh.channel ?? null;
       if (nextChannel === null) {
@@ -445,7 +448,8 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     [supportedTabs, t]
   );
 
-  const descriptionHtml = episode?.item_description?.value ?? null;
+  const description = useItemDescription(episode);
+  const descriptionHtml = description?.html ?? (description?.preview || null);
 
   const downloadableEpisode = useMemo((): DTOItem | null => {
     if (episode === null) {
@@ -696,6 +700,11 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
             testID="episode-detail-description"
             textStyle={styles.description}
             toggleTestID="episode-detail-description-toggle"
+            truncation={
+              description?.isTruncated === true
+                ? { kind: 'item', linkUrl: description.linkUrl }
+                : undefined
+            }
           />
         </View>
       );
@@ -784,6 +793,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     chapterRows.length,
     clipHasMore,
     clipRows.length,
+    description,
     descriptionHtml,
     episode,
     episodeId,

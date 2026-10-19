@@ -9,6 +9,7 @@ const SORT_KEYS = [
   'channel_title',
   'lifecycle_state_key',
   'url',
+  'description_longest_source_length',
 ] as const;
 
 export const feedOperationsListQuerySchema = Joi.object({
@@ -20,6 +21,8 @@ export const feedOperationsListQuerySchema = Joi.object({
   order: Joi.string().valid('asc', 'desc').default('desc'),
   q: Joi.string().trim().allow('').optional(),
   lifecycle: Joi.string().trim().allow('').optional(),
+  /** True keeps only feeds whose last successful parse shortened a description. */
+  description_truncated: Joi.boolean().optional(),
 }).unknown(false);
 
 export type FeedOperationsListQueryValidated = {
@@ -29,4 +32,5 @@ export type FeedOperationsListQueryValidated = {
   order: 'asc' | 'desc';
   q?: string;
   lifecycle?: string;
+  description_truncated?: boolean;
 };

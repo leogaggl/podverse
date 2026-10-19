@@ -1,7 +1,10 @@
-import { articleStrippedTitle, primaryListArtworkUrl } from '@podverse/helpers';
+import {
+  articleStrippedTitle,
+  getDescriptionPreviewText,
+  primaryListArtworkUrl,
+} from '@podverse/helpers';
 import type { DTOItem } from '@podverse/helpers/dto';
 import { getNonEmptyTrimmedStringProperty, isObjectLike } from '@podverse/helpers/guards';
-import { htmlToPlainTextPreview } from '@podverse/helpers/html';
 
 import type { SubscribedChannel, SubscriptionSource } from '../../data/repositories';
 import {
@@ -325,8 +328,10 @@ export const normalizeItemRows = (
       readStringFromNestedRecord(item, 'channel', 'title') ?? readFlatItemSubtitle(item);
     const updatedAt = readUpdatedAt(item.pub_date);
     const duration = readStringFromNestedRecord(item, 'item_about', 'duration');
-    const descriptionSource = readStringFromNestedRecord(item, 'item_description', 'value');
-    const description = descriptionSource !== null ? htmlToPlainTextPreview(descriptionSource) : '';
+    const description = getDescriptionPreviewText({
+      preview: readStringFromNestedRecord(item, 'item_description', 'preview'),
+      value: readStringFromNestedRecord(item, 'item_description', 'value'),
+    });
 
     const row: HomeFeedRowData = {
       id,
@@ -412,7 +417,7 @@ export const mapItemToHomeFeedRow = (
     return mapTrackToHomeFeedRow(item);
   }
 
-  const plainDescription = htmlToPlainTextPreview(item.item_description?.value);
+  const plainDescription = getDescriptionPreviewText(item.item_description);
   const duration = item.item_about?.duration?.trim() ?? '';
 
   return {

@@ -8,6 +8,7 @@ import type { Relation } from 'typeorm';
 import { Column, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
+import type { DescriptionLengthTierEnum } from '@podverse/helpers';
 
 import type { FeedLog } from './feedLog.js';
 
@@ -51,6 +52,18 @@ export class Feed {
 
   @Column({ type: 'int', nullable: true })
   max_response_body_bytes_override!: number | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  description_length_tier_override!: DescriptionLengthTierEnum | null;
+
+  @Column({ type: 'int', default: 0 })
+  description_truncated_count!: number;
+
+  @Column({ type: 'int', nullable: true })
+  description_longest_source_length!: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  description_truncated_at!: Date | null;
 
   @Column({ type: 'varchar', length: DATABASE_CONSTANTS.varchar_md5, nullable: true })
   last_parsed_file_hash!: string | null;

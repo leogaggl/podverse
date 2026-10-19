@@ -136,6 +136,26 @@ describe('normalizeChannelRows', () => {
 });
 
 describe('normalizeItemRows', () => {
+  it('prefers the stored preview over the full notes for the row description', () => {
+    const rows = normalizeItemRows(
+      [
+        {
+          channel: { title: 'No Agenda Show' },
+          id_text: 'ep-2',
+          item_description: {
+            is_truncated: true,
+            preview: 'Stored preview text',
+            value: '<h2>Heading</h2><p>Full notes body</p>',
+          },
+          title: 'Episode 1825',
+        },
+      ],
+      'episode'
+    );
+
+    expect(rows[0]?.description).toBe('Stored preview text');
+  });
+
   it('maps nested episode fields onto subtitle, date, duration, and description', () => {
     const rows = normalizeItemRows(
       [
@@ -307,6 +327,26 @@ describe('mapItemToHomeFeedRow', () => {
     id_text: 'tr-9',
     pub_date: '2026-03-04T12:00:00.000Z',
     title: 'Track Nine',
+  });
+
+  it('reads the stored preview on a typed item', () => {
+    const item = itemFixture({
+      channel: { title: 'No Agenda Show' },
+      id_text: 'ep-10',
+      title: 'Episode 1826',
+    });
+    const row = mapItemToHomeFeedRow({
+      ...item,
+      item_description: {
+        id: 1,
+        is_truncated: true,
+        item_id: 1,
+        preview: 'Stored preview text',
+        value: '<h2>Heading</h2><p>Full notes body</p>',
+      },
+    });
+
+    expect(row.description).toBe('Stored preview text');
   });
 
   it('keeps episode rows rich', () => {

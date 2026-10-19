@@ -16,6 +16,7 @@ import {
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { DownloadRow } from '../db/schema';
 import { projectDownloadsIndexToNativeCache } from '../nativeCache';
+import { itemDescriptionCacheRepository } from './itemDescriptionCacheRepository';
 import { playableItemRepository } from './playableItemRepository';
 
 const rowToRecord = (row: DownloadRow): DownloadRecord => {
@@ -554,11 +555,15 @@ export const downloadsRepository = {
       .where(eq(schema.download.itemIdText, itemIdText));
   },
 
-  /** Remove a download row (delete-from-library). The file removal is handled by the runner. */
+  /**
+   * Remove a download row (delete-from-library). The file removal is handled by the runner. The
+   * item's cached show notes lose their pin and become evictable.
+   */
   remove: async (itemIdText: string): Promise<void> => {
     await initializeDatabase();
     await getDb().delete(schema.download).where(eq(schema.download.itemIdText, itemIdText));
     await playableItemRepository.remove('download', itemIdText);
+    await itemDescriptionCacheRepository.unpin(itemIdText);
     await refreshNativeCacheProjection();
   },
 
@@ -573,6 +578,7 @@ export const downloadsRepository = {
     await initializeDatabase();
     await getDb().delete(schema.download);
     await playableItemRepository.clearSource('download');
+    await itemDescriptionCacheRepository.unpinAll();
     await refreshNativeCacheProjection();
   },
 };

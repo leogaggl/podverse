@@ -84,6 +84,7 @@ export * from './item/itemChaptersFeedLog.js';
 export * from './item/itemChat.js';
 export * from './item/itemContentLink.js';
 export * from './item/itemDescription.js';
+export * from './item/itemDescriptionDetail.js';
 export * from './item/itemEnclosure.js';
 export * from './item/itemEnclosureIntegrity.js';
 export * from './item/itemEnclosureSource.js';

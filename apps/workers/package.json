@@ -23,6 +23,7 @@
     "billing_processor_product_add": "node ./dist/index.js billingProcessorProductAdd",
     "billing_strike_ensure_webhook": "node ./dist/index.js billingStrikeEnsureWebhook",
     "scheduled_jobs_run_due": "node ./dist/index.js scheduledJobsRunDue",
+    "orm_descriptions_backfill": "node ./dist/index.js ormDescriptionsBackfill",
     "notifications_platform_purge": "node ./dist/index.js notificationsPlatformPurge",
     "dev_pi_bulk_feeds_add_from_file": "node ./dist/index.js devPiBulkFeedsAddFromFile",
     "dev_parser_rss_parse_podcasting20_feeds": "node ./dist/index.js devParserRSSParsePodcasting20Feeds",

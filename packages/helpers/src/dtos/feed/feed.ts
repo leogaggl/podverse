@@ -22,6 +22,10 @@ export interface DTOFeed {
   parsing_priority: number;
   spam_item_limit_override?: number | null;
   max_response_body_bytes_override?: number | null;
+  description_length_tier_override?: string | null;
+  description_truncated_count?: number;
+  description_longest_source_length?: number | null;
+  description_truncated_at?: string | null;
   last_parsed_file_hash: string | null;
   container_id: string | null;
   channel_id: number;

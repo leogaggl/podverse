@@ -270,6 +270,7 @@ export * from './services/embedDemoConfig.js';
 export * from './services/imageShrinkSource.js';
 
 export * from './services/feed/feed.js';
+export * from './services/feed/feedForceReparseScheduler.js';
 export * from './services/feed/feedTakedownReason.js';
 export * from './services/feed/feedLifecycleState.js';
 export * from './services/feed/feedLog.js';

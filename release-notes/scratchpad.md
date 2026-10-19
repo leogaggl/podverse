@@ -274,3 +274,70 @@
 - Who notices: listeners on the full player, and anyone reading an episode, track, livestream, or
   clip summary
 - Operator steps: none
+
+## Description columns allow longer show notes
+
+- Surfaces: ops (app DB migration 0016), k8s base api env
+- Change: Feeds gain a description length tier override and truncation counts. Item and
+  channel descriptions gain a plain preview, a truncated flag, and the source length, and the
+  stored text may now exceed 10,000 characters (database cap 150,000).
+- Who notices: operators. Listeners notice once the parser change ships.
+- Operator steps: the API waits for 0016_description_length_tiers.sql. Changing value to text
+  may rewrite item_description; deploy in a quiet window.
+
+## Long show notes keep their formatting
+
+- Surfaces: parser, workers, k8s base cron
+- Change: Descriptions are sanitized to the supported tags and shortened at a paragraph or
+  list-item boundary within the feed's tier (default 10,000 visible characters), so lists,
+  headings, and links survive. Items prefer content:encoded. Plain-text notes keep their line
+  breaks. Each feed records how many descriptions were shortened and the longest source.
+  A feed-force-reparse scheduled job reparses one feed without sending new-episode
+  notifications for items older than the job. ormDescriptionsBackfill repairs rows cut by the
+  old 2,500-character limit and schedules throttled reparses.
+- Who notices: listeners see full, formatted show notes. Operators get a backfill job.
+- Operator steps: scheduledJobsRunDue now validates the full parser env, so the
+  worker-scheduled-jobs CronJob mounts the MQ, Podcast Index, Add-by-RSS, and web push secrets
+  like worker-recent-feeds. After deploy, run the suspended worker-descriptions-backfill
+  CronJob by hand until it reports no feeds remaining.
+
+## Admins can raise a feed's description length
+
+- Surfaces: management-api, management-web
+- Change: Flag Status shows how many of a feed's descriptions were shortened, the longest
+  source, and the smallest tier that fits. Admins choose Standard (10,000), Extended (25,000),
+  or Maximum (50,000). A change schedules a forced reparse. The directory can filter to feeds
+  with shortened descriptions, sorted by longest source. `GET /feeds` accepts
+  `description_truncated` and the `description_longest_source_length` sort; the PATCH
+  `/feeds/:id/policy-state` body accepts `description_length_tier_override`; the lookup row
+  carries the tier and truncation telemetry. The database table browser cannot change the tier.
+- Who notices: operators
+
+## Item show notes endpoint
+
+- Surfaces: api
+- Change: GET /item/:idOrIdText/description returns one item's full show notes, a plain
+  preview, whether the notes were shortened, and the item link. List responses now include
+  preview and is_truncated on item_description. A merged episode answers 410 with
+  `merged_into`, like the detail route; an item with no notes answers 200 with null fields.
+- Who notices: API clients; the apps use it to load notes on demand
+
+## Web shows when show notes were shortened
+
+- Surfaces: web
+- Change: Episode, track, and livestream Summary and channel About show "Read Full Show Notes"
+  or "Read Full Description" linking to the episode or show website when Podverse shortened the
+  notes, or a short sentence when there is no link. List rows use the stored preview. Add-by-RSS
+  episode, track, podcast, album, and artist pages show the same notice from the parsed feed.
+- Who notices: web listeners on episodes with very long notes
+
+## Mobile loads full show notes on demand and keeps them offline
+
+- Surfaces: mobile
+- Change: List rows use a short stored preview. The full player loads show notes from a small
+  on-device cache that warms when an episode starts playing and is kept for downloaded
+  episodes, so notes are available offline. Summary shows "Read Full Show Notes" when Podverse
+  shortened the notes, and channel About says the description was shortened. New SQLite table
+  item_description_cache (migration 23). The notes read is the public
+  `GET /item/:id/description`, sent without a bearer so download completion can use it too.
+- Who notices: mobile listeners, especially offline with downloads

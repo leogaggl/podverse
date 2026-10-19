@@ -442,3 +442,17 @@ export const requestWithMobileAuthRefreshIfSignedIn = async <T>(
   }
   return requestWithMobileAuthRefresh(deps, runRequest);
 };
+
+/**
+ * A public endpoint read with no bearer, for work that runs outside a signed-in screen (download
+ * completion, background passes). Offline Mode still refuses it, and its outcome still feeds the
+ * connectivity machine. It never refreshes or clears a session.
+ */
+export const requestWithoutMobileAuth = async <T>(
+  runRequest: (apiRequestService: ApiRequestService) => Promise<T>
+): Promise<T> => {
+  if (isOfflineModeEnabled()) {
+    throw new OfflineModeEnabledError();
+  }
+  return sendWithAccessToken(null, runRequest);
+};

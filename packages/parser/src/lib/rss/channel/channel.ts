@@ -17,6 +17,7 @@ import { handleParsedChannelSocialInteract } from '@parser/lib/rss/channel/chann
 import { handleParsedChannelTrailer } from '@parser/lib/rss/channel/channelTrailer.js';
 import { handleParsedChannelTxt } from '@parser/lib/rss/channel/channelTxt.js';
 import { handleParsedChannelValue } from '@parser/lib/rss/channel/channelValue.js';
+import type { DescriptionIngestContext } from '@parser/lib/rss/descriptionIngestContext.js';
 import type { FeedObject } from 'podverse-partytime';
 
 import type { RemoteItemDto } from '@podverse/helpers';
@@ -37,19 +38,21 @@ export type ParsedChannelResult = {
 export const handleParsedChannel = async (
   parsedFeed: FeedObject,
   channel: Channel,
-  channelSeasonIndex: ChannelSeasonIndex
+  channelSeasonIndex: ChannelSeasonIndex,
+  descriptionContext: DescriptionIngestContext
 ): Promise<ParsedChannelResult> => {
   timerManager.start('handleParsedChannel');
 
   await updateParsedChannel(channel, parsedFeed);
 
   const newRemoteItems = timerManager.shouldLogTimer
-    ? await handleParsingTables(parsedFeed, channel, channelSeasonIndex)
+    ? await handleParsingTables(parsedFeed, channel, channelSeasonIndex, descriptionContext)
     : await AppDataSourceReadWrite.manager.transaction(async (transactionalEntityManager) => {
         return handleParsingTables(
           parsedFeed,
           channel,
           channelSeasonIndex,
+          descriptionContext,
           transactionalEntityManager
         );
       });
@@ -119,12 +122,18 @@ const handleParsingTables = async (
   parsedFeed: FeedObject,
   channel: Channel,
   channelSeasonIndex: ChannelSeasonIndex,
+  descriptionContext: DescriptionIngestContext,
   transactionalEntityManager?: EntityManager
 ): Promise<RemoteItemDto[]> => {
   await handleParsedChannelAbout(parsedFeed, channel, transactionalEntityManager);
   await handleParsedChannelCategory(parsedFeed, channel, transactionalEntityManager);
   await handleParsedChannelChat(parsedFeed, channel, transactionalEntityManager);
-  await handleParsedChannelDescription(parsedFeed, channel, transactionalEntityManager);
+  await handleParsedChannelDescription(
+    parsedFeed,
+    channel,
+    descriptionContext,
+    transactionalEntityManager
+  );
   await handleParsedChannelFunding(parsedFeed, channel, transactionalEntityManager);
   await handleParsedChannelImage(parsedFeed, channel, transactionalEntityManager);
   await handleParsedChannelLicense(parsedFeed, channel, transactionalEntityManager);

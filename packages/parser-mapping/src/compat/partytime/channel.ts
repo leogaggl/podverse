@@ -5,7 +5,10 @@ import {
   getCategoryEnumValue,
   getChannelItunesTypeItunesTypeEnumValue,
   getMediumEnumValue,
+  pickChannelDescriptionSource,
+  prepareDescriptionForStorage,
 } from '@podverse/helpers';
+import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
 import { isValidHttpUrl } from '@podverse/helpers-validation';
 
 import type { Episode, FeedObject, Phase4PodcastImage } from '../../types/partytime.js';
@@ -108,13 +111,15 @@ export const compatChannelChatDto = (parsedFeed: FeedObject) => {
   };
 };
 
-export const compatChannelDescriptionDto = (parsedFeed: FeedObject) => {
-  if (!parsedFeed.description) {
-    return null;
-  }
-  return {
-    value: parsedFeed.description.slice(0, DATABASE_CONSTANTS.varchar_long),
-  };
+export const compatChannelDescriptionDto = (
+  parsedFeed: FeedObject,
+  tier: DescriptionLengthTierEnum
+): PreparedDescription | null => {
+  const source = pickChannelDescriptionSource({
+    descriptionRaw: parsedFeed.descriptionRaw ?? undefined,
+    description: parsedFeed.description ?? undefined,
+  });
+  return prepareDescriptionForStorage(source, tier);
 };
 
 export const compatChannelFundingDtos = (parsedFeed: FeedObject) => {

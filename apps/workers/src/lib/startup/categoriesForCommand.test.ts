@@ -16,8 +16,23 @@ function sortCategories(set: ReadonlySet<string>): string[] {
 }
 
 describe('getCategoriesForCommand', () => {
-  it('maps scheduledJobsRunDue to Base and ORM', () => {
+  it('maps scheduledJobsRunDue to full parser stack categories', () => {
     expect(sortCategories(getCategoriesForCommand('scheduledJobsRunDue'))).toEqual(
+      sortCategories(
+        new Set([
+          CATEGORY_BASE,
+          CATEGORY_ORM,
+          CATEGORY_MQ,
+          CATEGORY_PARSER,
+          CATEGORY_PODCAST_INDEX,
+          CATEGORY_WEB_NOTIFICATIONS,
+        ])
+      )
+    );
+  });
+
+  it('maps ormDescriptionsBackfill to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('ormDescriptionsBackfill'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });

@@ -175,6 +175,7 @@ import { reqFeedGetByPodcastIndexId } from './feed/feed.js';
 import type { IdentityResolveRequest } from './identity/identity.js';
 import { reqIdentityResolve } from './identity/identity.js';
 import {
+  reqItemDescriptionGetByIdOrIdText,
   reqItemGetByIdOrIdText,
   reqItemGetMany,
   reqItemGetManyByChannel,
@@ -1015,6 +1016,10 @@ export class ApiRequestService {
 
   reqItemGetByIdOrIdText(idOrIdText: string) {
     return reqItemGetByIdOrIdText(this, idOrIdText);
+  }
+
+  reqItemDescriptionGetByIdOrIdText(idOrIdText: string) {
+    return reqItemDescriptionGetByIdOrIdText(this, idOrIdText);
   }
 
   reqItemGetMany(params: QueryParamsGetManyPartial) {

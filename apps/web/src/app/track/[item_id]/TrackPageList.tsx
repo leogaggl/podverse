@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import type { DTOChannel, DTOItem } from '@podverse/helpers';
-import { buildAlbumPath, buildTrackPath } from '@podverse/helpers';
+import { buildAlbumPath, buildTrackPath, isDescriptionTruncated } from '@podverse/helpers';
 
 import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMessagesSection';
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
@@ -63,6 +63,8 @@ export const TrackPageList: React.FC<TrackPageListProps> = ({
           description={ssrItem.item_description?.value}
           descriptionClockLabel={clock.descriptionClockLabel}
           onDescriptionClock={clock.onDescriptionClock}
+          isTruncated={isDescriptionTruncated(ssrItem.item_description)}
+          fullNotesUrl={ssrItem.item_about?.website_link_url}
         />
       )}
       {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}

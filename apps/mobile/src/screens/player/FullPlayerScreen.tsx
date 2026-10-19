@@ -84,6 +84,7 @@ import { subscriptionsRepository } from '../../data/repositories/subscriptionsRe
 import { useActionError } from '../../feedback/ActionErrorProvider';
 import type { AutoQueueSeed } from '../../hooks/useAutoQueueLoadResources';
 import { useAutoQueueLoadResources } from '../../hooks/useAutoQueueLoadResources';
+import { useItemDescription } from '../../hooks/useItemDescription';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueMutations } from '../../hooks/useQueueMutations';
 import { useQueueResources } from '../../hooks/useQueueResources';
@@ -376,7 +377,8 @@ export function FullPlayerScreen({
     item: currentItem,
   }).canShowBoostAction;
   const activePaneNoticeKey = actionNoticeKey ?? playbackNoticeKey;
-  const summaryHtml = currentItem?.item_description?.value ?? null;
+  const summaryDescription = useItemDescription(currentItem);
+  const summaryHtml = summaryDescription?.html ?? (summaryDescription?.preview || null);
   const visibleTitle = nowPlaying?.title ?? null;
   const visibleChannelTitle = nowPlaying?.channelTitle ?? null;
   const titleLink = useMemo(
@@ -1116,6 +1118,11 @@ export function FullPlayerScreen({
               testID="full-player-summary-text"
               textStyle={styles.paneText}
               toggleTestID="full-player-summary-toggle"
+              truncation={
+                summaryDescription?.isTruncated === true
+                  ? { kind: 'item', linkUrl: summaryDescription.linkUrl }
+                  : undefined
+              }
             />
             {activePaneNoticeKey !== null ? (
               <Text style={styles.actionNotice} testID="full-player-action-notice">
@@ -1239,6 +1246,7 @@ export function FullPlayerScreen({
     styles.paneProse,
     styles.paneText,
     styles.showMore,
+    summaryDescription,
     summaryHtml,
     summaryPreview,
     t,
