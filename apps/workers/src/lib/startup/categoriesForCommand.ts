@@ -39,6 +39,7 @@ const BASE_ORM_COMMANDS = [
   'generateOnDemandParserEventReports',
   'deleteOutdatedOnDemandParserEvent',
   'ormDescriptionsBackfill',
+  'ormArchivedSlimReport',
 ] as const;
 
 const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;

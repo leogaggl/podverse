@@ -116,6 +116,16 @@ const E2E_PODCAST_ITEM_LONG_NOTES_PREVIEW =
   'middle of running text at a word';
 
 const E2E_CLIP_ID_TEXT = 'e2eClip00000001';
+/** Archived episode (`e2ePodArchEp01` = 14). Lists omit it; pages open it by id. */
+const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
+const E2E_ARCHIVED_CLIP_EPISODE_TITLE = 'E2E Archived Clip Episode';
+/** Public clip on that episode (`e2eArchClip01` = 13). */
+const E2E_ARCHIVED_CLIP_ID_TEXT = 'e2eArchClip01';
+const E2E_ARCHIVED_CLIP_TITLE = 'E2E Archived Clip';
+const E2E_ARCHIVED_CLIP_PREVIEW = 'This archived episode keeps a short preview.';
+const E2E_ARCHIVED_CLIP_LINK_URL = 'https://example.com/e2e-archived-clip-episode';
+const E2E_ARCHIVED_CLIP_SOURCE_LENGTH = 9000;
+const E2E_ARCHIVED_CLIP_DESCRIPTION_VALUE = `<p>${E2E_ARCHIVED_CLIP_PREVIEW}</p>`;
 const E2E_SOUNDBITE_ID_TEXT = 'e2eSoundbite001';
 
 const E2E_MUSIC_ALBUM_ID_TEXT = 'e2eMusicAlbm01';
@@ -156,6 +166,8 @@ const E2E_PODCAST_ITEM_RESUME_NEAR_END_P_SECONDS = 57;
 
 const E2E_CLIP_START_SECONDS = 5;
 const E2E_CLIP_END_SECONDS = 12;
+const E2E_ARCHIVED_CLIP_START_SECONDS = 30;
+const E2E_ARCHIVED_CLIP_END_SECONDS = 60;
 const E2E_SOUNDBITE_START_SECONDS = 14;
 const E2E_SOUNDBITE_DURATION_SECONDS = 6;
 
@@ -963,6 +975,88 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL,
   ]);
 
+  // Older than the other seeded episodes, and flagged archived, so channel lists leave it out.
+  const archivedClipItemResult = await client.query(
+    `INSERT INTO item (
+       id_text,
+       channel_id,
+       guid,
+       pub_date,
+       title,
+       item_flag_status_id,
+       archived_slimmed_at
+     )
+     VALUES (
+       $1,
+       $2,
+       $3,
+       NOW() - ($4::int * INTERVAL '1 second'),
+       $5,
+       (SELECT id FROM item_flag_status WHERE status = 'archived' LIMIT 1),
+       NOW()
+     )
+     RETURNING id`,
+    [
+      E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT,
+      podcastChannelId,
+      `${E2E_PODCAST_FEED_URL}#archived-clip`,
+      18000,
+      E2E_ARCHIVED_CLIP_EPISODE_TITLE,
+    ]
+  );
+  const archivedClipItemId = archivedClipItemResult.rows[0].id;
+  await client.query(
+    `INSERT INTO item_about (item_id, duration, website_link_url)
+     VALUES ($1, $2, $3)`,
+    [archivedClipItemId, E2E_PODCAST_ITEM_RESUME_DURATION_SECONDS, E2E_ARCHIVED_CLIP_LINK_URL]
+  );
+  await client.query(
+    `INSERT INTO item_description (item_id, value, preview, is_truncated, source_length)
+     VALUES ($1, $2, $3, true, $4)`,
+    [
+      archivedClipItemId,
+      E2E_ARCHIVED_CLIP_DESCRIPTION_VALUE,
+      E2E_ARCHIVED_CLIP_PREVIEW,
+      E2E_ARCHIVED_CLIP_SOURCE_LENGTH,
+    ]
+  );
+  await client.query(
+    `INSERT INTO item_image (item_id, url, image_width_size)
+     VALUES ($1, $2, 1400)`,
+    [archivedClipItemId, E2E_FIXTURE_ITEM_IMAGE_URL]
+  );
+  const archivedEnclosureResult = await client.query(
+    `INSERT INTO item_enclosure (item_id, type, length, bitrate, item_enclosure_default)
+     VALUES ($1, 'audio/mpeg', 0, 24, true)
+     RETURNING id`,
+    [archivedClipItemId]
+  );
+  await client.query(
+    `INSERT INTO item_enclosure_source (item_enclosure_id, uri, content_type)
+     VALUES ($1, $2, 'audio/mpeg')`,
+    [archivedEnclosureResult.rows[0].id, E2E_PODCAST_RESUME_ENCLOSURE_URL]
+  );
+  await client.query(
+    `INSERT INTO clip (
+       id_text,
+       account_id,
+       item_id,
+       start_time,
+       end_time,
+       title,
+       sharable_status_id
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, 1)`,
+    [
+      E2E_ARCHIVED_CLIP_ID_TEXT,
+      accountId,
+      archivedClipItemId,
+      E2E_ARCHIVED_CLIP_START_SECONDS,
+      E2E_ARCHIVED_CLIP_END_SECONDS,
+      E2E_ARCHIVED_CLIP_TITLE,
+    ]
+  );
+
   // Subscriptions, so the /podcasts subscribed list has rows to render. The podcast channel's items
   // sit at 0, 1, 2, 3, and 4 hours old and its timestamp lands at ninety minutes, which leaves part
   // of the channel unseen and part of it caught up; the livestream follow is fully caught up.
@@ -1110,7 +1204,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   );
 
   console.log(
-    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT})`
+    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}, ${E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT})`
   );
 
   await client.query(`DELETE FROM feed WHERE podcast_index_id = $1 OR url = $2`, [

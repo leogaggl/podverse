@@ -256,7 +256,7 @@ required for the switch to feel immediate.
 ## Related
 
 - [MOBILE-CHIP-TAP.md](./MOBILE-CHIP-TAP.md) — why chip taps stalled and what the urgent clear fixed
-- [MOBILE-IOS-CHIP-SWITCH.md](./MOBILE-IOS-CHIP-SWITCH.md) — iOS UI-thread cover resize, thumbnails, and parked follow-ups
+- [MOBILE-IOS-CHIP-SWITCH.md](./MOBILE-IOS-CHIP-SWITCH.md) — iOS UI-thread cover resize and thumbnails
 - [mobile-perf-measured-claims](/.cursor/rules/mobile-perf-measured-claims.mdc) — when a perf claim
   needs a number, and where the number goes
 - [mobile-row-render-cost](/.cursor/rules/mobile-row-render-cost.mdc) — per-row cost, paid once per

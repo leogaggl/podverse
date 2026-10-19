@@ -954,6 +954,13 @@ export class ItemService {
     }
 
     item.item_flag_status = item_flag_status;
+    if (
+      item_flag_status_id === ItemFlagStatusStatusEnum.Active &&
+      item.archived_slimmed_at !== null &&
+      item.archived_slimmed_at !== undefined
+    ) {
+      item.archived_slimmed_at = null;
+    }
 
     item = applyProperties(item, dto);
 

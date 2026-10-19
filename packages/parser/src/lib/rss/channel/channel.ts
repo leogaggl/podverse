@@ -61,11 +61,25 @@ export const handleParsedChannel = async (
   return { newRemoteItems };
 };
 
+async function clearArchivedSlimmedAt(channel: Channel): Promise<void> {
+  if (channel.archived_slimmed_at === null || channel.archived_slimmed_at === undefined) {
+    return;
+  }
+  await AppDataSourceReadWrite.manager.query(
+    `UPDATE channel
+     SET archived_slimmed_at = NULL
+     WHERE id = $1 AND archived_slimmed_at IS NOT NULL`,
+    [channel.id]
+  );
+  channel.archived_slimmed_at = null;
+}
+
 async function updateParsedChannel(channel: Channel, parsedFeed: FeedObject): Promise<void> {
   const channelService = new ChannelService();
   const channelDto = compatChannelDto(parsedFeed);
   try {
     await channelService.update(channel.id, channelDto);
+    await clearArchivedSlimmedAt(channel);
     return;
   } catch (error) {
     const collidingGuid = channelDto.podcast_guid;
@@ -82,6 +96,7 @@ async function updateParsedChannel(channel: Channel, parsedFeed: FeedObject): Pr
       sortable_title: channelDto.sortable_title,
       medium_id: channelDto.medium_id,
     });
+    await clearArchivedSlimmedAt(channel);
     await recordPodcastGuidCollision(channel, collidingGuid);
   }
 }

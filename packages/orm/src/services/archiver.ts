@@ -8,13 +8,127 @@ import { Item } from '@orm/entities/item/item.js';
 import type { ItemFlagStatus } from '@orm/entities/item/itemFlagStatus.js';
 import { ItemFlagStatusStatusEnum } from '@orm/entities/item/itemFlagStatus.js';
 import { PlaylistResource } from '@orm/entities/playlist/playlistResource.js';
+import { loggerService } from '@orm/factories/loggerService.js';
 import type { FindOptionsRelations } from 'typeorm';
 
+import { slimArchivedChannels, slimArchivedItems } from './archivedSlimming.js';
 import { FeedService } from './feed/feed.js';
 import { ItemFlagStatusService } from './item/itemFlagStatus.js';
 import { pruneNonActiveItemBackedQueueResourceRows } from './queue/queueResourceActiveItemFilter.js';
 
 const ARCHIVED_ITEM_ORPHAN_DELETE_BATCH_SIZE = 1000;
+
+export type ChannelDeleteQuery = {
+  sql: string;
+  params: (channelId: number) => unknown[];
+};
+
+export type ChannelDetailDeleteQuery = ChannelDeleteQuery & {
+  table: string;
+  byteFrom: string;
+};
+
+const CHANNEL_OWNED_DETAIL_TABLES = [
+  'channel_trailer',
+  'channel_season',
+  'channel_category',
+  'channel_chat',
+  'channel_funding',
+  'channel_internal_settings',
+  'channel_license',
+  'channel_location',
+  'channel_meta_boost',
+  'channel_person',
+  'channel_podroll',
+  'channel_publisher',
+  'channel_remote_item',
+  'channel_social_interact',
+  'channel_txt',
+  'channel_value',
+] as const;
+
+type ChannelOwnedDetailTable = (typeof CHANNEL_OWNED_DETAIL_TABLES)[number];
+
+function deleteOwnedChannelRows(table: ChannelOwnedDetailTable): ChannelDetailDeleteQuery {
+  return {
+    table,
+    sql: `DELETE FROM ${table} WHERE channel_id = $1`,
+    params: (channelId) => [channelId],
+    byteFrom: `${table} t INNER JOIN channel c ON c.id = t.channel_id`,
+  };
+}
+
+function deleteChannelIdentityRows(
+  table: 'channel_about' | 'channel_description' | 'channel_image'
+): ChannelDeleteQuery {
+  return {
+    sql: `DELETE FROM ${table} WHERE channel_id = $1`,
+    params: (channelId) => [channelId],
+  };
+}
+
+/**
+ * Related channel rows removed from an archived show. Trailers precede seasons because
+ * channel_trailer.channel_season_id has no ON DELETE.
+ */
+export const CHANNEL_DETAIL_DELETE_QUERIES: ChannelDetailDeleteQuery[] = [
+  {
+    table: 'channel_value_recipient',
+    sql: `DELETE FROM channel_value_recipient
+            WHERE channel_value_id IN (
+              SELECT id FROM channel_value WHERE channel_id = $1
+            )`,
+    params: (channelId) => [channelId],
+    byteFrom: `channel_value_recipient t
+            INNER JOIN channel_value parent ON parent.id = t.channel_value_id
+            INNER JOIN channel c ON c.id = parent.channel_id`,
+  },
+  {
+    table: 'channel_podroll_remote_item',
+    sql: `DELETE FROM channel_podroll_remote_item
+            WHERE channel_podroll_id IN (
+              SELECT id FROM channel_podroll WHERE channel_id = $1
+            )`,
+    params: (channelId) => [channelId],
+    byteFrom: `channel_podroll_remote_item t
+            INNER JOIN channel_podroll parent ON parent.id = t.channel_podroll_id
+            INNER JOIN channel c ON c.id = parent.channel_id`,
+  },
+  {
+    table: 'channel_publisher_remote_item',
+    sql: `DELETE FROM channel_publisher_remote_item
+            WHERE channel_publisher_id IN (
+              SELECT id FROM channel_publisher WHERE channel_id = $1
+            )`,
+    params: (channelId) => [channelId],
+    byteFrom: `channel_publisher_remote_item t
+            INNER JOIN channel_publisher parent ON parent.id = t.channel_publisher_id
+            INNER JOIN channel c ON c.id = parent.channel_id`,
+  },
+  deleteOwnedChannelRows('channel_trailer'),
+  deleteOwnedChannelRows('channel_season'),
+  deleteOwnedChannelRows('channel_category'),
+  deleteOwnedChannelRows('channel_chat'),
+  deleteOwnedChannelRows('channel_funding'),
+  deleteOwnedChannelRows('channel_internal_settings'),
+  deleteOwnedChannelRows('channel_license'),
+  deleteOwnedChannelRows('channel_location'),
+  deleteOwnedChannelRows('channel_meta_boost'),
+  deleteOwnedChannelRows('channel_person'),
+  deleteOwnedChannelRows('channel_podroll'),
+  deleteOwnedChannelRows('channel_publisher'),
+  deleteOwnedChannelRows('channel_remote_item'),
+  deleteOwnedChannelRows('channel_social_interact'),
+  deleteOwnedChannelRows('channel_txt'),
+  deleteOwnedChannelRows('channel_value'),
+];
+
+/** Channel rows a takedown removes and an archived show keeps. */
+export const CHANNEL_IDENTITY_DELETE_QUERIES: ChannelDeleteQuery[] = [
+  deleteChannelIdentityRows('channel_about'),
+  deleteChannelIdentityRows('channel_description'),
+  deleteChannelIdentityRows('channel_image'),
+];
 
 export const FEED_RELATIONS_PENDING_OR_SPAM: FindOptionsRelations<Feed> = {
   feed_lifecycle_state: { feed_lifecycle_state_type: true },
@@ -28,88 +142,6 @@ export class ArchiverService {
   private feedRepositoryReadWrite = AppDataSourceReadWrite.getRepository(Feed);
   private playlistResourceRepository = AppDataSourceRead.getRepository(PlaylistResource);
   private clipRepository = AppDataSourceRead.getRepository(Clip);
-
-  private optionalChannelDeleteQueries: {
-    sql: string;
-    params: (channelId: number) => unknown[];
-  }[] = [
-    {
-      sql: `DELETE FROM channel_value_recipient
-            WHERE channel_value_id IN (
-              SELECT id FROM channel_value WHERE channel_id = $1
-            )`,
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: `DELETE FROM channel_podroll_remote_item
-            WHERE channel_podroll_id IN (
-              SELECT id FROM channel_podroll WHERE channel_id = $1
-            )`,
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: `DELETE FROM channel_publisher_remote_item
-            WHERE channel_publisher_id IN (
-              SELECT id FROM channel_publisher WHERE channel_id = $1
-            )`,
-      params: (channelId) => [channelId],
-    },
-    { sql: 'DELETE FROM channel_about WHERE channel_id = $1', params: (channelId) => [channelId] },
-    {
-      sql: 'DELETE FROM channel_category WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    { sql: 'DELETE FROM channel_chat WHERE channel_id = $1', params: (channelId) => [channelId] },
-    {
-      sql: 'DELETE FROM channel_description WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_funding WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    { sql: 'DELETE FROM channel_image WHERE channel_id = $1', params: (channelId) => [channelId] },
-    {
-      sql: 'DELETE FROM channel_internal_settings WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_license WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_location WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_meta_boost WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    { sql: 'DELETE FROM channel_person WHERE channel_id = $1', params: (channelId) => [channelId] },
-    {
-      sql: 'DELETE FROM channel_podroll WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_publisher WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_remote_item WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    { sql: 'DELETE FROM channel_season WHERE channel_id = $1', params: (channelId) => [channelId] },
-    {
-      sql: 'DELETE FROM channel_social_interact WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    {
-      sql: 'DELETE FROM channel_trailer WHERE channel_id = $1',
-      params: (channelId) => [channelId],
-    },
-    { sql: 'DELETE FROM channel_txt WHERE channel_id = $1', params: (channelId) => [channelId] },
-    { sql: 'DELETE FROM channel_value WHERE channel_id = $1', params: (channelId) => [channelId] },
-  ];
 
   async getItemsPendingArchive(): Promise<Item[]> {
     return this.itemRepositoryRead.find({
@@ -355,7 +387,8 @@ export class ArchiverService {
   }
 
   private async removeOptionalChannelRows(channelId: number): Promise<void> {
-    for (const query of this.optionalChannelDeleteQueries) {
+    const queries = [...CHANNEL_DETAIL_DELETE_QUERIES, ...CHANNEL_IDENTITY_DELETE_QUERIES];
+    for (const query of queries) {
       await this.feedRepositoryReadWrite.query(query.sql, query.params(channelId));
     }
   }
@@ -382,6 +415,11 @@ export class ArchiverService {
     await this.processSpamFeeds();
     await this.processPendingArchiveItems();
     await this.deleteArchivedItemsWithoutClipOrPlaylist();
+    const items = await slimArchivedItems();
+    const channels = await slimArchivedChannels();
+    loggerService.info(
+      `Archived content slimmed: items=${items.slimmed} channels=${channels.slimmed}`
+    );
     await this.removeAllItemsForTakedownFeeds();
     await pruneNonActiveItemBackedQueueResourceRows();
   }

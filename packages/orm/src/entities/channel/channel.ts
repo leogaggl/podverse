@@ -82,6 +82,9 @@ export class Channel {
   @Column({ type: 'boolean', default: false })
   has_value_time_splits!: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  archived_slimmed_at?: Date | null;
+
   @OneToOne('ChannelAbout', (channel_about: ChannelAbout) => channel_about.channel)
   channel_about!: ChannelAbout;
 

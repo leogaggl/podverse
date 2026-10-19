@@ -233,6 +233,7 @@ export * from './services/account/accountSettings/accountSettingsPlayback.js';
 export * from './services/account/accountUPDevice.js';
 export * from './services/account/accountVerification.js';
 export * from './services/account/accountWebPushDevice.js';
+export * from './services/archivedSlimming.js';
 export * from './services/archiver.js';
 
 export * from './services/channel/channel.js';

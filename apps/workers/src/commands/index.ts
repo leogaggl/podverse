@@ -37,6 +37,7 @@ import {
 import { imageShrinkRunConsumer } from './imageShrink/runConsumer.js';
 import { mqRSSRunDlqConsumer } from './mq/rss/dlqHandling.js';
 import { mqRSSRunLiveItemListener } from './mq/rss/runLiveItemListener.js';
+import { ormArchivedSlimReport } from './orm/archivedSlimming/report.js';
 import { ormDescriptionsBackfill } from './orm/descriptions/backfill.js';
 import { notificationsPlatformPurge } from './orm/notifications/platformPurge.js';
 import { deleteOutdatedOnDemandParserEvent } from './orm/onDemandParserEvent/deleteOutdatedOnDemandParserEvent.js';
@@ -77,6 +78,7 @@ export default {
   billingReconcile,
   billingStrikeEnsureWebhook,
   scheduledJobsRunDue,
+  ormArchivedSlimReport,
   ormDescriptionsBackfill,
   notificationsPlatformPurge,
   generateOnDemandParserEventReports,

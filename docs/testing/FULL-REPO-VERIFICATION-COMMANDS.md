@@ -170,6 +170,7 @@ These commands run the selected phone flow on both phone platforms:
 npm run mobile:e2e:test -- add-by-rss
 npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
+npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout

@@ -70,6 +70,15 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run scheduled_jobs_run_due -w apps/workers -- -limit 100',
   },
   {
+    name: 'ormArchivedSlimReport',
+    label: 'Archived content: slim report',
+    description:
+      'Counts and removable-row sizes for archived episodes and shows that are not slimmed.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli: 'npm run orm_archived_slim_report -w apps/workers',
+  },
+  {
     name: 'ormDescriptionsBackfill',
     label: 'Descriptions: backfill previews and reparses',
     description:

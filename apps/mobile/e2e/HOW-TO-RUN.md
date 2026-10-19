@@ -227,6 +227,7 @@ npm run mobile:e2e:test -- --platform ios about
 npm run mobile:e2e:test -- --platform ios album
 npm run mobile:e2e:test -- --platform ios alternate-enclosure
 npm run mobile:e2e:test -- --platform ios api-health
+npm run mobile:e2e:test -- --platform ios archived-clip
 npm run mobile:e2e:test -- --platform ios artist
 npm run mobile:e2e:test -- --platform ios auth-login
 npm run mobile:e2e:test -- --platform ios auth-logout
@@ -284,6 +285,7 @@ npm run mobile:e2e:test -- --platform android about
 npm run mobile:e2e:test -- --platform android album
 npm run mobile:e2e:test -- --platform android alternate-enclosure
 npm run mobile:e2e:test -- --platform android api-health
+npm run mobile:e2e:test -- --platform android archived-clip
 npm run mobile:e2e:test -- --platform android artist
 npm run mobile:e2e:test -- --platform android auth-login
 npm run mobile:e2e:test -- --platform android auth-logout
@@ -422,6 +424,7 @@ that still walks the form (`shared/login-seeded-user-ui.yaml`).
 npm run mobile:e2e:test -- about
 npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
+npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout

@@ -78,6 +78,9 @@ export class Item {
   })
   title?: string | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  archived_slimmed_at?: Date | null;
+
   @OneToOne('LiveItem', (liveItem: LiveItem) => liveItem.item, { nullable: true })
   live_item!: Relation<LiveItem> | null;
 

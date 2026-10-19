@@ -37,6 +37,12 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps ormArchivedSlimReport to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('ormArchivedSlimReport'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
   it('maps billingReconcile to Base, ORM, and Billing', () => {
     expect(sortCategories(getCategoriesForCommand('billingReconcile'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM, CATEGORY_BILLING]))

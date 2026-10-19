@@ -35,6 +35,14 @@ export const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
 export const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
 export const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
 
+/** Archived, slimmed episode. Channel lists omit it; open `/episode/` and `/clip/` by these ids. */
+export const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
+export const E2E_ARCHIVED_CLIP_EPISODE_TITLE = 'E2E Archived Clip Episode';
+export const E2E_ARCHIVED_CLIP_ID_TEXT = 'e2eArchClip01';
+export const E2E_ARCHIVED_CLIP_TITLE = 'E2E Archived Clip';
+export const E2E_ARCHIVED_CLIP_PREVIEW = 'This archived episode keeps a short preview.';
+export const E2E_ARCHIVED_CLIP_LINK_URL = 'https://example.com/e2e-archived-clip-episode';
+
 export const E2E_ITEM_CHAPTER_INTRO_ID_TEXT = 'e2eChapIntro01';
 export const E2E_ITEM_CHAPTER_TOPIC_ID_TEXT = 'e2eChapTopic01';
 /** First of `e2eChapFil01`–`e2eChapFil12` on the chaptered episode — tall Chapters pane only. */

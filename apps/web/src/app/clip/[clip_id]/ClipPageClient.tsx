@@ -1,7 +1,9 @@
 import type { DTOChannel, DTOClip, DTOItem } from '@podverse/helpers';
+import { isDescriptionTruncated } from '@podverse/helpers';
 import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
 
 import { CorePodcastHeader } from '../../../components/Core/Podcast/CorePodcastHeader';
+import { CoreEpisodeSummary } from '../../../components/Core/Podcast/Episodes/CoreEpisodeSummary';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { ClipHeader } from '../../../components/Media/Clip/ClipHeader';
 
@@ -33,6 +35,11 @@ export function ClipPageClient(props: ClipPageClientProps) {
         <SideContent />
         <MainColumnStack>
           <ClipHeader channel={ssrChannel} item={ssrItem} clip={ssrClip} />
+          <CoreEpisodeSummary
+            description={ssrItem.item_description?.value}
+            fullNotesUrl={ssrItem.item_about?.website_link_url}
+            isTruncated={isDescriptionTruncated(ssrItem.item_description)}
+          />
         </MainColumnStack>
       </MainSidebarLayout>
     </MainWrapper>

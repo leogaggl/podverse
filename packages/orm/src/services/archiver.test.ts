@@ -113,6 +113,25 @@ vi.mock('./queue/queueResourceActiveItemFilter.js', () => ({
   pruneNonActiveItemBackedQueueResourceRows: pruneQueueResourcesMock,
 }));
 
+const { slimArchivedItemsMock, slimArchivedChannelsMock } = vi.hoisted(() => ({
+  slimArchivedItemsMock: vi.fn(async () => ({ slimmed: 0 })),
+  slimArchivedChannelsMock: vi.fn(async () => ({ slimmed: 0 })),
+}));
+
+vi.mock('./archivedSlimming.js', () => ({
+  slimArchivedItems: slimArchivedItemsMock,
+  slimArchivedChannels: slimArchivedChannelsMock,
+}));
+
+vi.mock('@orm/factories/loggerService.js', () => ({
+  loggerService: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 vi.mock('./feed/feed.js', () => ({
   FeedService: class FeedService {
     setFeedLifecycleState = feedServiceSetLifecycleMock;
@@ -123,7 +142,19 @@ vi.mock('./feed/feed.js', () => ({
 import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleStateType.js';
 import { ItemFlagStatusStatusEnum } from '@orm/entities/item/itemFlagStatus.js';
 
-import { ArchiverService, FEED_RELATIONS_PENDING_OR_SPAM } from './archiver.js';
+import {
+  ArchiverService,
+  CHANNEL_DETAIL_DELETE_QUERIES,
+  CHANNEL_IDENTITY_DELETE_QUERIES,
+  FEED_RELATIONS_PENDING_OR_SPAM,
+} from './archiver.js';
+
+function resetSlimMocks(): void {
+  slimArchivedItemsMock.mockReset();
+  slimArchivedItemsMock.mockResolvedValue({ slimmed: 0 });
+  slimArchivedChannelsMock.mockReset();
+  slimArchivedChannelsMock.mockResolvedValue({ slimmed: 0 });
+}
 
 describe('ArchiverService takedown hard-delete handling', () => {
   beforeEach(() => {
@@ -142,6 +173,18 @@ describe('ArchiverService takedown hard-delete handling', () => {
     itemSaveMock.mockReset();
     playlistFindOneMock.mockReset();
     pruneQueueResourcesMock.mockReset();
+    resetSlimMocks();
+  });
+
+  it('deletes channel_trailer before channel_season', () => {
+    const trailer = CHANNEL_DETAIL_DELETE_QUERIES.findIndex(
+      (query) => query.table === 'channel_trailer'
+    );
+    const season = CHANNEL_DETAIL_DELETE_QUERIES.findIndex(
+      (query) => query.table === 'channel_season'
+    );
+    expect(trailer).toBeGreaterThanOrEqual(0);
+    expect(season).toBeGreaterThan(trailer);
   });
 
   it('queries only Takedown feeds for hard-delete processing', async () => {
@@ -203,6 +246,19 @@ describe('ArchiverService takedown hard-delete handling', () => {
       [1004]
     );
   });
+
+  it('runs detail cleanup and then identity cleanup for a takedown channel', async () => {
+    feedReadFindMock.mockResolvedValue([{ id: 10, channel: { id: 1001, items: [] } }]);
+
+    const service = new ArchiverService();
+    await service.removeAllItemsForTakedownFeeds();
+
+    const sqls = feedQueryMock.mock.calls.map((call) => call[0]);
+    expect(sqls).toEqual([
+      ...CHANNEL_DETAIL_DELETE_QUERIES.map((query) => query.sql),
+      ...CHANNEL_IDENTITY_DELETE_QUERIES.map((query) => query.sql),
+    ]);
+  });
 });
 
 describe('ArchiverService deleteArchivedItemsWithoutClipOrPlaylist', () => {
@@ -222,6 +278,7 @@ describe('ArchiverService deleteArchivedItemsWithoutClipOrPlaylist', () => {
     itemSaveMock.mockReset();
     playlistFindOneMock.mockReset();
     pruneQueueResourcesMock.mockReset();
+    resetSlimMocks();
   });
 
   it('does nothing when no archived orphan rows match', async () => {
@@ -292,6 +349,7 @@ describe('ArchiverService spam feed item cleanup', () => {
     itemSaveMock.mockReset();
     playlistFindOneMock.mockReset();
     pruneQueueResourcesMock.mockReset();
+    resetSlimMocks();
   });
 
   it('runs processSpamFeeds after processPendingArchiveFeeds in archiveAll', async () => {
@@ -309,6 +367,14 @@ describe('ArchiverService spam feed item cleanup', () => {
     vi.spyOn(service, 'deleteArchivedItemsWithoutClipOrPlaylist').mockImplementation(async () => {
       order.push('deleteArchivedOrphans');
     });
+    slimArchivedItemsMock.mockImplementation(async () => {
+      order.push('slimItems');
+      return { slimmed: 3 };
+    });
+    slimArchivedChannelsMock.mockImplementation(async () => {
+      order.push('slimChannels');
+      return { slimmed: 1 };
+    });
     vi.spyOn(service, 'removeAllItemsForTakedownFeeds').mockImplementation(async () => {
       order.push('takedown');
     });
@@ -318,6 +384,8 @@ describe('ArchiverService spam feed item cleanup', () => {
       'spamFeeds',
       'pendingArchiveItems',
       'deleteArchivedOrphans',
+      'slimItems',
+      'slimChannels',
       'takedown',
     ]);
     expect(pruneQueueResourcesMock).toHaveBeenCalledTimes(1);

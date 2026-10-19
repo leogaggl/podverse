@@ -341,3 +341,30 @@
   item_description_cache (migration 23). The notes read is the public
   `GET /item/:id/description`, sent without a bearer so download completion can use it too.
 - Who notices: mobile listeners, especially offline with downloads
+
+## Archived episodes and shows record when they were slimmed
+
+- Surfaces: ops (migration)
+- Change: New nullable item.archived_slimmed_at and channel.archived_slimmed_at, plus a partial
+  index on unslimmed archived items. No behavior change on its own.
+- Who notices: operators (one migration)
+- Operator steps: deploy; the API waits for the new marker
+
+## Archived episodes and shows keep only what clips and playlists need
+
+- Surfaces: workers (archiveAll), orm, parser
+- Change: archiveAll now deletes transcripts, chapters, people, value, funding, soundbites not
+  in a playlist, and the other detail rows from archived episodes, and reduces their notes to
+  the 400-character preview. Archived shows keep only title, image, About, and a preview. The
+  data returns on the next parse if the episode or feed comes back. Fixes a takedown cleanup
+  failure for shows whose trailers belong to a season. New ormArchivedSlimReport command.
+- Who notices: operators (database size); users see shorter notes on archived episodes, with a
+  link to the full notes
+- Operator steps: run ormArchivedSlimReport before and after the next archiveAll runs
+
+## Clip pages show the episode summary
+
+- Surfaces: web
+- Change: A clip page shows the episode Summary under the clip header, including the shortened-notes
+  link when the stored description was cut.
+- Who notices: listeners opening a clip, including a clip of an archived episode

@@ -42,3 +42,9 @@ export const E2E_MERGED_SURVIVOR_ITEM_ID_TEXT = 'e2eMrgSurIt01';
 
 /** Finished download path the remap must leave in place. */
 export const E2E_IDENTITY_REMAP_FILE_PATH = 'file:///e2e/identity-remap-kept.mp3';
+
+/** Archived episode (`e2ePodArchEp01` = 14). `archived-clip.yaml` opens it by deep link. */
+export const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
+
+/** Public clip on that episode (`e2eArchClip01` = 13). */
+export const E2E_ARCHIVED_CLIP_ID_TEXT = 'e2eArchClip01';

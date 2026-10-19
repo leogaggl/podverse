@@ -70,14 +70,12 @@ sequenceDiagram
   Note over Layer: drawn 1:1, no main-queue resize
 ```
 
-## Still open
+## Left as-is
 
 The written same-frame targets were not met (revisit chip visible around 67 ms, list about 100 ms
-behind the chip). Keeping up to three Home lists mounted, so a tap never unmounts the previous
-one, is parked in `.llm/plans/active/mobile-home-switch-followups/`. So is the playback-row store
-(a play tap re-renders every row) and stable row objects across refresh. None of that is required
-for the switch to feel immediate. Do not start it unless a new capture shows the chip numbers
-have regressed, or play or refresh itself feels heavy.
+behind the chip). Kept lists, a playback-row store, and stable row objects across refresh were
+dropped. None of that is required for the switch to feel immediate. Do not start that work unless
+a new capture shows the chip numbers have regressed, or play or refresh itself feels heavy.
 
 Scrolling an Episodes list is a separate question. Measure it with `--gesture scroll` and
 `scroll.uiframes` before claiming a cause. See the open questions in the baselines doc.
