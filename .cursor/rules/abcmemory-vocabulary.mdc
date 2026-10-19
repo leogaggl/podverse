@@ -52,8 +52,9 @@ and Podverse Next.
 
 When the operator says **abcaicast**, write a two-voice training conversation (Claire and Tom)
 about a feature, for an AI audio service. If no subject came with the command, ask for a short
-description of what the cast should cover first. Casts go in `temp/aicasts/` and are never
-committed. Follow `.cursor/skills/abcaicast/SKILL.md`.
+description of what the cast should cover first. Casts go in `misc/aicasts/` and are committed,
+so past casts stay in the repo. Check that folder before writing, and read it when the operator
+asks about an earlier cast. Follow `.cursor/skills/abcaicast/SKILL.md`.
 
 ## legacy app
 

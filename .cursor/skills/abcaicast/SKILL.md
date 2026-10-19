@@ -13,25 +13,33 @@ can learn it by listening. It is training material, not a show.
 1. **Get the subject.** If the command came without one, ask for a short description of what
    the cast should cover: the feature, plan set, or branch work, and anything to stress. Do not
    write until you have it.
-2. **Read the sources.** The plan set (`00-SUMMARY.md`, `00-EXECUTION-ORDER.md`, the numbered
+2. **Check past casts.** List `misc/aicasts/` and read the header blocks. When a cast already
+   covers the subject, update that file or add the next part of its series, and tell the
+   operator which. Do not write a second cast on the same feature.
+3. **Read the sources.** The plan set (`00-SUMMARY.md`, `00-EXECUTION-ORDER.md`, the numbered
    prompts) under `.llm/plans/active/` or `.llm/plans/completed/`, and the code when the work is
    built. For built work, check every number in the script against the code. Plans drift.
-3. **Settle the scope.** One cast per feature or plan set. When a subject needs more than about
+4. **Settle the scope.** One cast per feature or plan set. When a subject needs more than about
    1,500 words, split it into a series. If the scope is unclear or grows past what the operator
    described, ask before writing.
-4. **Write** under `temp/aicasts/` (create the directory if needed; `temp/` is gitignored).
-5. **Check** the script's word count, the vocabulary search below, and the format template.
-6. **Report** each path, its word count and minutes, and whether it describes built or planned
-   work. There is nothing to commit and no release-notes scratchpad entry.
+5. **Write** under `misc/aicasts/`.
+6. **Check** the script's word count, the vocabulary search below, and the format template.
+7. **Report** each path, its word count and minutes, and whether it describes built or planned
+   work. Casts are committed, so include the paths in the operator's `git add`
+   (**operator-only-git-operations**). A cast gets no release-notes scratchpad entry.
 
 ## Files
 
-- Standalone: `temp/aicasts/<slug>.md`. Series: `temp/aicasts/<series-slug>-<n>-<slug>.md`,
+- Standalone: `misc/aicasts/<slug>.md`. Series: `misc/aicasts/<series-slug>-<n>-<slug>.md`,
   numbered from 1.
 - Kebab-case slugs named for the feature, not a plan number.
-- Never commit a cast. Never save one under `.llm/`, `docs/`, or `.artifacts/`, and never link
-  to `temp/aicasts/` from a committed file.
-- When a cast changes, overwrite the file. Do not keep versions.
+- Casts are committed and kept, so later sessions can see what has been covered and answer
+  questions about a past cast. Never save one under `docs/`, `.artifacts/`, or `temp/`.
+- `misc/aicasts/MISC-AICASTS.md` describes the folder. Do not add a list of casts to it; the
+  directory listing and each file's header block are the index.
+- When a cast changes, overwrite the file. Git keeps the history.
+- Plan sets are deleted after their work lands, so a plan path in **Sources** stops resolving.
+  For built work, always list the key code paths too. They keep the cast traceable.
 
 ## Template
 
@@ -106,16 +114,16 @@ Add it only when it teaches.
 ## Accuracy and safety
 
 - Say only what the plans or code say. Do not fill a gap with a guess; ask.
-- The file goes to a third-party service. No secrets, credentials, account ids, customer data,
-  or private hostnames (**public-repo-no-secrets**).
+- The file goes to a third-party service and is committed to the repo. No secrets, credentials,
+  account ids, customer data, or private hostnames (**public-repo-no-secrets**).
 - Follow **llm-safe-plan-vocabulary** and **no-third-party-media-player-style**. Run:
 
 ```bash
-rg -n -i '\bcandidate|\bdead\b|\bchild' temp/aicasts
+rg -n -i '\bcandidate|\bdead\b|\bchild' misc/aicasts
 ```
 
 Word count of a script section:
 
 ```bash
-sed -n '/^## Script/,$p' temp/aicasts/<file>.md | rg -v '^\(pause\)$|^## ' | sed 's/^[A-Z]*: //' | wc -w
+sed -n '/^## Script/,$p' misc/aicasts/<file>.md | rg -v '^\(pause\)$|^## ' | sed 's/^[A-Z]*: //' | wc -w
 ```
