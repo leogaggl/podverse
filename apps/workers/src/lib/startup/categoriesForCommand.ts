@@ -31,6 +31,7 @@ const BASE_ORM_COMMANDS = [
   'billingImportLegacyMembershipExpiry',
   'billingProcessorProductAdd',
   'notificationsPlatformPurge',
+  'accountContentLogPurge',
   'archiveAll',
   'devSeedLocalUserContent',
   'devStatsSeedSimulatedAggregated',

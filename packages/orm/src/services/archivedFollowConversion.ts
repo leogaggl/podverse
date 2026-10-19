@@ -4,6 +4,9 @@ import type { FollowConversionStatus } from '@orm/entities/channel/channel.js';
 import { deriveMembershipState, evaluateFeatureAccess } from '@podverse/helpers';
 import { resolveAddByRSSFeedUrlCredentials } from '@podverse/helpers-validation';
 
+import type { AccountContentLogWrite } from './accountContentLog.js';
+import { upsertAccountContentLogs } from './accountContentLog.js';
+
 export const FOLLOW_CONVERSION_MAX_CHANNELS_PER_RUN = 100;
 export const FOLLOW_CONVERSION_MAX_ATTEMPTS = 3;
 export const FOLLOW_CONVERSION_RETRY_HOURS = 24;
@@ -18,7 +21,7 @@ export type FollowConversionResult = {
 };
 
 const ARCHIVED_CHANNELS_SQL = `
-SELECT c.id, c.title, f.url AS feed_url
+SELECT c.id, c.id_text, c.title, f.url AS feed_url
 FROM channel c
 INNER JOIN feed f ON f.id = c.feed_id
 INNER JOIN feed_lifecycle_state fls ON fls.feed_id = f.id
@@ -35,6 +38,7 @@ LIMIT $2
 
 type ChannelCandidate = {
   id: number;
+  idText: string;
   title: string | null;
   feedUrl: string;
 };
@@ -59,7 +63,7 @@ function integerFrom(value: unknown): number | null {
 }
 
 async function queryRows(sql: string, params: unknown[]): Promise<unknown[]> {
-  const result: unknown = await AppDataSourceReadWrite.query(sql, params);
+  const result: unknown = await AppDataSourceReadWrite.manager.query(sql, params);
   return Array.isArray(result) ? result : [];
 }
 
@@ -68,12 +72,13 @@ function readChannelCandidate(value: unknown): ChannelCandidate | null {
     return null;
   }
   const id = integerFrom(Reflect.get(value, 'id'));
+  const idText = Reflect.get(value, 'id_text');
   const feedUrl = Reflect.get(value, 'feed_url');
   const title = Reflect.get(value, 'title');
-  if (id === null || typeof feedUrl !== 'string') {
+  if (id === null || typeof idText !== 'string' || idText === '' || typeof feedUrl !== 'string') {
     return null;
   }
-  return { id, feedUrl, title: typeof title === 'string' ? title : null };
+  return { id, idText, feedUrl, title: typeof title === 'string' ? title : null };
 }
 
 function readFollower(value: unknown): Follower | null {
@@ -93,7 +98,7 @@ function readFollower(value: unknown): Follower | null {
 }
 
 async function setStatus(channelId: number, status: FollowConversionStatus): Promise<void> {
-  await AppDataSourceReadWrite.query(
+  await AppDataSourceReadWrite.manager.query(
     `UPDATE channel SET follow_conversion_status = $2 WHERE id = $1`,
     [channelId, status]
   );
@@ -156,6 +161,7 @@ function followerMayAddByRss(follower: Follower): boolean {
 async function moveFollower(input: {
   accountId: number;
   channelId: number;
+  channelIdText: string;
   feedUrl: string;
   title: string | null;
   imageUrl: string | null;
@@ -171,6 +177,20 @@ async function moveFollower(input: {
     await manager.query(
       `DELETE FROM account_following_channel WHERE account_id = $1 AND channel_id = $2`,
       [input.accountId, input.channelId]
+    );
+    await upsertAccountContentLogs(
+      [
+        {
+          accountId: input.accountId,
+          channelIdText: input.channelIdText,
+          channelTitle: input.title,
+          reason: 'left_directory',
+          followOutcome: 'moved_to_add_by_rss',
+          clipCount: 0,
+          playlistEntryCount: 0,
+        },
+      ],
+      manager
     );
   });
 }
@@ -272,6 +292,7 @@ export async function convertArchivedShowFollows(
       await moveFollower({
         accountId: follower.accountId,
         channelId: channel.id,
+        channelIdText: channel.idText,
         feedUrl: canonical.feedUrl,
         title: channel.title,
         imageUrl,
@@ -284,4 +305,115 @@ export async function convertArchivedShowFollows(
   }
 
   return counts;
+}
+
+const SETTLED_DIRECTORY_FOLLOWS_SQL = `
+SELECT c.id, c.id_text, c.title
+FROM channel c
+INNER JOIN feed f ON f.id = c.feed_id
+INNER JOIN feed_lifecycle_state fls ON fls.feed_id = f.id
+INNER JOIN feed_lifecycle_state_type flst ON flst.id = fls.feed_lifecycle_state_type_id
+WHERE flst.state_key = 'archived'
+  AND c.follow_conversion_status IN ('converted', 'unreachable', 'no_followers')
+  AND EXISTS (
+    SELECT 1 FROM account_following_channel afc WHERE afc.channel_id = c.id
+  )
+ORDER BY c.id
+LIMIT $1
+`;
+
+/**
+ * Deletes directory follows that remain after conversion has settled. Each ended follow
+ * gets a left_directory row. A show with no remaining follows is skipped. The channel
+ * scan stops at FOLLOW_CONVERSION_MAX_CHANNELS_PER_RUN.
+ */
+export async function endSettledDirectoryFollows(): Promise<{ ended: number }> {
+  const selected = await queryRows(SETTLED_DIRECTORY_FOLLOWS_SQL, [
+    FOLLOW_CONVERSION_MAX_CHANNELS_PER_RUN,
+  ]);
+  let ended = 0;
+
+  for (const raw of selected) {
+    const channel = readSettledChannel(raw);
+    if (!channel) {
+      continue;
+    }
+
+    const followers = await loadFollowerAccountIds(channel.id);
+    if (followers.length === 0) {
+      continue;
+    }
+
+    const removed = await AppDataSourceReadWrite.transaction(async (manager) => {
+      const deleted: unknown = await manager.query(
+        `DELETE FROM account_following_channel WHERE channel_id = $1`,
+        [channel.id]
+      );
+      await upsertAccountContentLogs(
+        followers.map((accountId): AccountContentLogWrite => ({
+          accountId,
+          channelIdText: channel.idText,
+          channelTitle: channel.title,
+          reason: 'left_directory',
+          followOutcome: 'ended',
+          clipCount: 0,
+          playlistEntryCount: 0,
+        })),
+        manager
+      );
+      return statementRowCount(deleted);
+    });
+    ended += removed;
+  }
+
+  return { ended };
+}
+
+function readSettledChannel(
+  value: unknown
+): { id: number; idText: string; title: string | null } | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const id = integerFrom(Reflect.get(value, 'id'));
+  const idText = Reflect.get(value, 'id_text');
+  const title = Reflect.get(value, 'title');
+  if (id === null || typeof idText !== 'string' || idText === '') {
+    return null;
+  }
+  return { id, idText, title: typeof title === 'string' ? title : null };
+}
+
+async function loadFollowerAccountIds(channelId: number): Promise<number[]> {
+  const rows = await queryRows(
+    `SELECT account_id FROM account_following_channel WHERE channel_id = $1 ORDER BY account_id`,
+    [channelId]
+  );
+  const accountIds: number[] = [];
+  for (const row of rows) {
+    if (typeof row !== 'object' || row === null) {
+      continue;
+    }
+    const accountId = integerFrom(Reflect.get(row, 'account_id'));
+    if (accountId !== null) {
+      accountIds.push(accountId);
+    }
+  }
+  return accountIds;
+}
+
+function statementRowCount(result: unknown): number {
+  if (Array.isArray(result)) {
+    const count = result[1];
+    if (typeof count === 'number' && Number.isFinite(count)) {
+      return count;
+    }
+  }
+  if (typeof result === 'object' && result !== null) {
+    const rowCount = Reflect.get(result, 'rowCount');
+    if (typeof rowCount === 'number' && Number.isFinite(rowCount)) {
+      return rowCount;
+    }
+  }
+  return 0;
 }

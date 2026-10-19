@@ -69,7 +69,7 @@ should get a cast. That checkbox does not start one. Write a cast when the opera
   offset. Any change to the file sets a new version.
 - **Changed** says what this version changed, in one sentence, and whether the audio changed:
   `Script and title updated; regenerate the audio.` or `Title and description only; the audio is
-  unchanged.` The first version says `First version.` When the title changed, name the previous
+unchanged.` The first version says `First version.` When the title changed, name the previous
   title so the publisher can match an episode it published before Episode IDs existed.
 
 ## Files
@@ -86,7 +86,7 @@ should get a cast. That checkbox does not start one. Write a cast when the opera
 
 ## Template
 
-````markdown
+```markdown
 # <Group Title> <n>: <Episode Title>
 
 - **Version:** <YYYY-MM-DDTHH:MM-05:00>
@@ -116,7 +116,7 @@ should get a cast. That checkbox does not start one. Write a cast when the opera
 CLAIRE: ...
 
 TOM: ...
-````
+```
 
 ## Hosts
 

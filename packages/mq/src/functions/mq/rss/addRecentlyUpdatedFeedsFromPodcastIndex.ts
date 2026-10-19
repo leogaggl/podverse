@@ -4,7 +4,7 @@ import type { MQFeedMessage } from '@queue/types/mq.js';
 import type { PodcastIndexService } from '@podverse/external-services-podcast-index';
 import type { MQQueueConfigFunctionParams } from '@podverse/helpers';
 import type { ILoggerLike } from '@podverse/helpers-backend';
-import { FeedLifecycleStateKeyEnum, FeedService } from '@podverse/orm';
+import { FeedService, lifecycleStateBlocksParseAndVisibility } from '@podverse/orm';
 import type { ParseRSSFeedAndSaveToDatabaseOptions } from '@podverse/parser';
 
 type MQRSSAddAllRecentlyUpdatedFeedsOptions = MQQueueConfigFunctionParams & {
@@ -26,7 +26,7 @@ export const mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex = async (
   let enqueued = 0;
   let failed = 0;
   let skipped = 0;
-  let skippedMerged = 0;
+  let skippedBlockingLifecycle = 0;
 
   try {
     for (const feed of recentlyUpdatedFeeds) {
@@ -41,11 +41,9 @@ export const mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex = async (
           continue;
         }
 
-        if (
-          dbFeed.feed_lifecycle_state?.feed_lifecycle_state_type?.state_key ===
-          FeedLifecycleStateKeyEnum.Merged
-        ) {
-          skippedMerged += 1;
+        const stateKey = dbFeed.feed_lifecycle_state?.feed_lifecycle_state_type?.state_key;
+        if (stateKey !== undefined && lifecycleStateBlocksParseAndVisibility(stateKey)) {
+          skippedBlockingLifecycle += 1;
           continue;
         }
 
@@ -81,6 +79,8 @@ export const mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex = async (
   }
 
   loggerService.info(
-    `[mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex] Done. Enqueued: ${enqueued}, failed: ${failed}, skipped (not in db): ${skipped}, skipped (merged): ${skippedMerged}, total feeds: ${recentlyUpdatedFeeds.length}.`
+    `[mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex] Done. Enqueued: ${enqueued}, failed: ${failed}, ` +
+      `skipped (not in db): ${skipped}, skipped (lifecycle blocks parse): ${skippedBlockingLifecycle}, ` +
+      `total feeds: ${recentlyUpdatedFeeds.length}.`
   );
 };

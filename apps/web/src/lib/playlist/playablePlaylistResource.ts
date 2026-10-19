@@ -7,10 +7,14 @@ export function isPlayablePlaylistResource(resource: DTOPlaylistResource): boole
     return false;
   }
   if (resource.clip) {
-    return !isRemovedSource(resource.clip) && resource.clip.item != null;
+    return (
+      !isRemovedSource(resource.clip) &&
+      resource.clip.item !== null &&
+      resource.clip.item !== undefined
+    );
   }
   if (resource.item_soundbite) {
-    return resource.item_soundbite.item != null;
+    return resource.item_soundbite.item !== null && resource.item_soundbite.item !== undefined;
   }
-  return resource.item != null;
+  return resource.item !== null && resource.item !== undefined;
 }

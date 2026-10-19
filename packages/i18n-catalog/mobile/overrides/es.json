@@ -204,6 +204,21 @@
     },
     "progress": ""
   },
+  "removed_content": {
+    "title": "",
+    "menu_subtitle": "",
+    "empty": "",
+    "load_error": "",
+    "left_directory": "",
+    "taken_down": "",
+    "moved_to_add_by_rss": "",
+    "follow_ended": "",
+    "clips_one": "",
+    "clips_other": "",
+    "playlist_entries_one": "",
+    "playlist_entries_other": "",
+    "unknown_show": ""
+  },
   "error_log": {
     "intro": "",
     "detail": {

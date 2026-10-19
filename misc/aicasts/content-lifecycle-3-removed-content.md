@@ -1,10 +1,9 @@
 # Content Lifecycle 3: When Content Is Removed, What You Made Stays
 
-- **Version:** 2026-10-19T01:42-05:00
+- **Version:** 2026-10-19T08:55-05:00
 - **Episode ID:** content-lifecycle-removed-content
-- **Changed:** The work is built, so the script describes removal as it ships, including the
-  web and phone screens. Leftover directory follows stay until the show is deleted. Regenerate
-  the audio.
+- **Changed:** Queue and history entries are dropped on removal and are not carried to Add by
+  RSS. Regenerate the audio.
 - **Description:** How clips and playlist entries survive removal as small snapshots, how
   members following an archived show move to Add by RSS, and how empty shows are deleted.
 - **Status:** Built
@@ -13,8 +12,8 @@
   `packages/orm/src/services/removedReferences.ts`,
   `packages/orm/src/services/archivedFollowConversion.ts`,
   `packages/orm/src/services/archivedChannelCleanup.ts`,
-  `packages/orm/src/services/archiver.ts`
-- **Length:** about 8 minutes (1,205 words)
+  `packages/orm/src/services/archiver.ts`, `packages/orm/src/services/accountContentLog.ts`
+- **Length:** about 9 minutes (1,275 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -74,7 +73,11 @@ CLAIRE: Only the owner. If you made the clip, you get it back with the titles. A
 
 TOM: Queues?
 
-CLAIRE: Queue entries pointing at a removed clip are pruned, alongside the existing pruning of inactive episodes. And takedown runs in one transaction per feed: capture the snapshots, clear merge records that point at those episodes, delete the episodes, then strip the show's related records. Follows of that show end when the empty show is deleted, later in the same archive run.
+CLAIRE: Queue and history are stored together. Deleting an episode deletes its queue and history entries. A kept archived episode has those entries removed by the archive run. Queue entries for a removed clip go the same way. Unlike a playlist entry, they keep no place, and nothing shows as removed. And takedown runs in one transaction per feed: capture the snapshots, end the show's follows and leave each affected person a short record, clear merge records that point at those episodes, delete the episodes, then strip the show's related records. Part five covers that record.
+
+TOM: Does a member who moved to Add by RSS get their queue back?
+
+CLAIRE: Only the follow moves. Queue, history, and downloads stay behind, and the episodes in them are deleted before the feed is checked.
 
 (pause)
 
@@ -88,7 +91,7 @@ CLAIRE: Every follower whose membership includes Add by RSS gets an Add by RSS f
 
 TOM: Followers without that membership?
 
-CLAIRE: They keep the directory follow until the show itself is deleted. Part five is the planned change that ends those follows sooner, and leaves each of them a short record they can read.
+CLAIRE: Their directory follow ends once the move is settled, in the same archive run, and each of them gets a short record they can read. Part five covers that too.
 
 TOM: When is the move settled?
 
@@ -120,6 +123,6 @@ CLAIRE: It stays. It's small, and it does two jobs. It remembers the feed's stat
 
 (pause)
 
-TOM: To remember. One: a removed clip or playlist entry stays as Content Removed, with titles only its owner sees, and it does not play. Two: snapshots are captured in the same transaction as the delete, and a missed capture fails loudly for playlists. Three: members following an archived show whose feed still works move to Add by RSS. Everyone else keeps the directory follow until the show is deleted. Four: empty removed shows are deleted, and the feed record stays to remember the feed's status.
+TOM: To remember. One: a removed clip or playlist entry stays as Content Removed, with titles only its owner sees, and it does not play. Queue and history entries drop. Two: snapshots are captured in the same transaction as the delete, and a missed capture fails loudly for playlists. Three: members following an archived show whose feed still works move to Add by RSS. Everyone else's directory follow ends once that move is settled. Four: empty removed shows are deleted, and the feed record stays to remember the feed's status.
 
 CLAIRE: Removal keeps what people made and clears what nobody can use. Next part: duplicate feeds, and how two copies of one show become one.

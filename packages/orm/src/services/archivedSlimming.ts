@@ -248,10 +248,9 @@ export async function slimArchivedItems(): Promise<{ slimmed: number }> {
       await deleteItemDetailRows(manager, ids);
       await manager.query(DELETE_UNREFERENCED_SOUNDBITES_SQL, [ids]);
       await reduceDescriptions(manager, 'item_description', 'item_id', ids);
-      await manager.query(
-        `UPDATE item SET archived_slimmed_at = now() WHERE id = ANY($1::int[])`,
-        [ids]
-      );
+      await manager.query(`UPDATE item SET archived_slimmed_at = now() WHERE id = ANY($1::int[])`, [
+        ids,
+      ]);
       return ids.length;
     });
     slimmed += count;

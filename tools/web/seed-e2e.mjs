@@ -922,7 +922,11 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
        VALUES ($1, $2)`,
       [itemId, E2E_PODCAST_ITEM_RESUME_DURATION_SECONDS]
     );
-    await insertSeedItemDescription(client, itemId, `${title} deterministic E2E media-player fixture.`);
+    await insertSeedItemDescription(
+      client,
+      itemId,
+      `${title} deterministic E2E media-player fixture.`
+    );
     await client.query(
       `INSERT INTO item_image (item_id, url, image_width_size)
        VALUES ($1, $2, 1400)`,
@@ -1943,7 +1947,11 @@ async function seedLiveAvFixtures(client) {
     );
     const itemId = itemResult.rows[0].id;
 
-    await insertSeedItemDescription(client, itemId, `${title} deterministic E2E live-stream fixture.`);
+    await insertSeedItemDescription(
+      client,
+      itemId,
+      `${title} deterministic E2E live-stream fixture.`
+    );
     await client.query(
       `INSERT INTO item_image (item_id, url, image_width_size)
        VALUES ($1, $2, 1400)`,
@@ -2469,7 +2477,9 @@ async function seedMergedChannelRedirect(client) {
 async function seedRemovedContentFixtures(client, accountId) {
   await client.query(`DELETE FROM clip WHERE id_text = $1`, [E2E_REMOVED_CLIP_ID_TEXT]);
   await client.query(`DELETE FROM playlist WHERE id_text = $1`, [E2E_REMOVED_PLAYLIST_ID_TEXT]);
-  await client.query(`DELETE FROM feed WHERE podcast_index_id = $1`, [E2E_ARCHIVED_SHOW_FEED_PI_ID]);
+  await client.query(`DELETE FROM feed WHERE podcast_index_id = $1`, [
+    E2E_ARCHIVED_SHOW_FEED_PI_ID,
+  ]);
 
   const removedSource = {
     kind: 'item',
@@ -2566,6 +2576,22 @@ async function seedRemovedContentFixtures(client, accountId) {
      VALUES ($1, $2)
      ON CONFLICT (account_id, channel_id) DO NOTHING`,
     [accountId, channelId]
+  );
+  await client.query(
+    `INSERT INTO account_content_log (
+       account_id,
+       log_type,
+       channel_id_text,
+       channel_title,
+       reason,
+       follow_outcome,
+       clip_count,
+       playlist_entry_count,
+       updated_at
+     )
+     VALUES ($1, 'removed_content', $2, $3, 'left_directory', 'ended', 0, 0, NOW())
+     ON CONFLICT (account_id, log_type, channel_id_text) DO NOTHING`,
+    [accountId, E2E_ARCHIVED_SHOW_ID_TEXT, E2E_ARCHIVED_SHOW_TITLE]
   );
 }
 

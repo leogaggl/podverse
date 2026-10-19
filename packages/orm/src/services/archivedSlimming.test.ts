@@ -75,10 +75,9 @@ describe('slimArchivedItems', () => {
     expect(result).toEqual({ slimmed: 2 });
     expect(transactionMock).toHaveBeenCalledTimes(1);
     for (const table of ARCHIVED_ITEM_DETAIL_DELETE_TABLES) {
-      expect(queryMock).toHaveBeenCalledWith(
-        expect.stringContaining(`DELETE FROM ${table}`),
-        [[11, 12]]
-      );
+      expect(queryMock).toHaveBeenCalledWith(expect.stringContaining(`DELETE FROM ${table}`), [
+        [11, 12],
+      ]);
     }
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE item SET archived_slimmed_at'),

@@ -25,7 +25,10 @@ import type {
   IdentitySortKey,
 } from '../identityRemap';
 import { collectIdTexts, IDENTITY_RESOLVE_CHUNK_SIZE, remapIdentity } from '../identityRemap';
-import { reprojectLibraryChildrenForChannel, reprojectLibraryIndex } from '../nativeCache/carCacheReproject';
+import {
+  reprojectLibraryChildrenForChannel,
+  reprojectLibraryIndex,
+} from '../nativeCache/carCacheReproject';
 import { isWatermarkStale, writeSyncWatermark } from '../sync/syncMetadata';
 import { downloadsRepository } from './downloadsRepository';
 import { subscriptionsRepository } from './subscriptionsRepository';
@@ -95,7 +98,9 @@ const loadSnapshot = async (): Promise<IdentityRemapSnapshot> => {
     db.select().from(schema.channelAutoDownload),
     db.select().from(schema.autoDownloadCandidate),
     db.select({ channelIdText: schema.channelItem.channelIdText }).from(schema.channelItem),
-    db.select({ idText: schema.playlist.idText, payloadJson: schema.playlist.payloadJson }).from(schema.playlist),
+    db
+      .select({ idText: schema.playlist.idText, payloadJson: schema.playlist.payloadJson })
+      .from(schema.playlist),
     db
       .select({ id: schema.playlistResource.id, payloadJson: schema.playlistResource.payloadJson })
       .from(schema.playlistResource),
@@ -287,7 +292,9 @@ const persistSnapshot = async (
       });
     }
     if (removedDownloadIds.length > 0) {
-      await tx.delete(schema.download).where(inArray(schema.download.itemIdText, removedDownloadIds));
+      await tx
+        .delete(schema.download)
+        .where(inArray(schema.download.itemIdText, removedDownloadIds));
     }
 
     await tx.delete(schema.playbackLocalState);
@@ -331,7 +338,9 @@ const persistSnapshot = async (
       .filter((row) => !keptOutboxIds.has(row.id))
       .map((row) => row.id);
     if (removedOutboxIds.length > 0) {
-      await tx.delete(schema.playbackOutbox).where(inArray(schema.playbackOutbox.id, removedOutboxIds));
+      await tx
+        .delete(schema.playbackOutbox)
+        .where(inArray(schema.playbackOutbox.id, removedOutboxIds));
     }
 
     await tx.delete(schema.channelSeen);
@@ -436,7 +445,9 @@ const persistSnapshot = async (
       (idText) => !after.channelItemChannelIds.includes(idText)
     );
     if (removedChannels.length > 0) {
-      await tx.delete(schema.channelItem).where(inArray(schema.channelItem.channelIdText, removedChannels));
+      await tx
+        .delete(schema.channelItem)
+        .where(inArray(schema.channelItem.channelIdText, removedChannels));
       await tx
         .delete(schema.channelItemWindow)
         .where(inArray(schema.channelItemWindow.channelIdText, removedChannels));
@@ -478,8 +489,10 @@ const persistSnapshot = async (
       }
     }
 
-    const chrome: Record<string, { channelId: number | null; notificationsEnabled: boolean | null }> =
-      {};
+    const chrome: Record<
+      string,
+      { channelId: number | null; notificationsEnabled: boolean | null }
+    > = {};
     for (const row of after.chrome) {
       chrome[row.idText] = {
         channelId: row.channelId,
@@ -512,7 +525,8 @@ const persistDeviceKeys = async (
   after: IdentityRemapSnapshot
 ): Promise<void> => {
   const removedSortKeys = before.sortKeys.filter(
-    (row) => !after.sortKeys.some((next) => next.scopeKind === row.scopeKind && next.idText === row.idText)
+    (row) =>
+      !after.sortKeys.some((next) => next.scopeKind === row.scopeKind && next.idText === row.idText)
   );
   for (const key of after.sortKeys) {
     const already = before.sortKeys.some(
@@ -654,14 +668,20 @@ const resolveMoves = async (
 const collectLibraryIds = async (): Promise<{ channels: string[]; items: string[] }> => {
   await initializeDatabase();
   const db = getDb();
-  const [subscribed, downloads, playback, outbox, playlists, playlistResources] = await Promise.all([
-    db.select({ idText: schema.subscribedChannel.idText }).from(schema.subscribedChannel),
-    db.select({ itemIdText: schema.download.itemIdText }).from(schema.download),
-    db.select({ resourceIdText: schema.playbackLocalState.resourceIdText }).from(schema.playbackLocalState),
-    db.select({ resourceIdText: schema.playbackOutbox.resourceIdText }).from(schema.playbackOutbox),
-    db.select({ payloadJson: schema.playlist.payloadJson }).from(schema.playlist),
-    db.select({ payloadJson: schema.playlistResource.payloadJson }).from(schema.playlistResource),
-  ]);
+  const [subscribed, downloads, playback, outbox, playlists, playlistResources] = await Promise.all(
+    [
+      db.select({ idText: schema.subscribedChannel.idText }).from(schema.subscribedChannel),
+      db.select({ itemIdText: schema.download.itemIdText }).from(schema.download),
+      db
+        .select({ resourceIdText: schema.playbackLocalState.resourceIdText })
+        .from(schema.playbackLocalState),
+      db
+        .select({ resourceIdText: schema.playbackOutbox.resourceIdText })
+        .from(schema.playbackOutbox),
+      db.select({ payloadJson: schema.playlist.payloadJson }).from(schema.playlist),
+      db.select({ payloadJson: schema.playlistResource.payloadJson }).from(schema.playlistResource),
+    ]
+  );
 
   const itemIds = new Set<string>();
   for (const row of downloads) {
@@ -702,7 +722,9 @@ const collectChannelItemIds = async (channelIdText: string): Promise<string[]> =
       .select({ itemIdText: schema.autoDownloadCandidate.itemIdText })
       .from(schema.autoDownloadCandidate)
       .where(eq(schema.autoDownloadCandidate.channelIdText, channelIdText)),
-    db.select({ resourceIdText: schema.playbackLocalState.resourceIdText }).from(schema.playbackLocalState),
+    db
+      .select({ resourceIdText: schema.playbackLocalState.resourceIdText })
+      .from(schema.playbackLocalState),
     db.select({ resourceIdText: schema.playbackOutbox.resourceIdText }).from(schema.playbackOutbox),
   ]);
   return uniqueIds([
@@ -721,7 +743,10 @@ export const identityRemapRepository = {
    * watermark is someone asking now.
    */
   runScheduled: async (params: { ignoreWatermark: boolean }): Promise<{ moved: boolean }> => {
-    if (!params.ignoreWatermark && !(await isWatermarkStale(IDENTITY_REMAP_CHECKED_AT_KEY, IDENTITY_REMAP_TTL_MS))) {
+    if (
+      !params.ignoreWatermark &&
+      !(await isWatermarkStale(IDENTITY_REMAP_CHECKED_AT_KEY, IDENTITY_REMAP_TTL_MS))
+    ) {
       return { moved: false };
     }
 

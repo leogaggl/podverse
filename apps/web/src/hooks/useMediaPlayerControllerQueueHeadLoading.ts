@@ -424,7 +424,11 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     if (nextResource?.clip && nextResource?.clip?.id_text !== mpClipRef.current?.id_text) {
       const fullClip = await apiRequestService.reqClipGet(nextResource.clip.id_text);
       if (fullClip) {
-        const fullItem = await apiRequestService.reqItemGetByIdOrIdText(fullClip.item.id_text);
+        const clipItem = fullClip.item;
+        if (clipItem === null || clipItem === undefined) {
+          return;
+        }
+        const fullItem = await apiRequestService.reqItemGetByIdOrIdText(clipItem.id_text);
         if (fullItem) {
           const fullChannel = await apiRequestService.reqChannelGetByIdOrIdText(
             fullItem.channel_id

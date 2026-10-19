@@ -17,4 +17,8 @@ export class PodcastIndexDeadFeedSync {
 
   @Column({ type: 'timestamptz', nullable: true })
   synced_at!: Date | null;
+
+  /** Eligible retire count from the last accepted run. Null until a dry run stores one. */
+  @Column({ type: 'integer', nullable: true })
+  last_retire_eligible_count!: number | null;
 }

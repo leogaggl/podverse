@@ -46,9 +46,10 @@ function readId(value: unknown): number | null {
  * and that have no episodes and no merge row. The feed row stays.
  */
 export async function deleteEmptyRemovedShows(): Promise<{ deleted: number }> {
-  const selected: unknown = await AppDataSourceReadWrite.query(EMPTY_REMOVED_CHANNEL_IDS_SQL, [
-    EMPTY_SHOW_DELETE_MAX_PER_RUN,
-  ]);
+  const selected: unknown = await AppDataSourceReadWrite.manager.query(
+    EMPTY_REMOVED_CHANNEL_IDS_SQL,
+    [EMPTY_SHOW_DELETE_MAX_PER_RUN]
+  );
   const ids: number[] = [];
   if (Array.isArray(selected)) {
     for (const row of selected) {
@@ -62,7 +63,7 @@ export async function deleteEmptyRemovedShows(): Promise<{ deleted: number }> {
     return { deleted: 0 };
   }
 
-  const deleted: unknown = await AppDataSourceReadWrite.query(
+  const deleted: unknown = await AppDataSourceReadWrite.manager.query(
     `DELETE FROM channel
      WHERE id = ANY($1::int[])
        AND NOT EXISTS (SELECT 1 FROM item i WHERE i.channel_id = channel.id)

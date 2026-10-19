@@ -204,12 +204,8 @@ async function seedFixture(ormContext: ORMContext): Promise<Fixture> {
 }
 
 async function takeDownFeedOfItem(itemId: number, manager: EntityManager): Promise<void> {
-  const {
-    ArchiverService,
-    FeedLifecycleStateKeyEnum,
-    FeedLifecycleUpdateSourceEnum,
-    FeedService,
-  } = await import('@podverse/orm');
+  const { ArchiverService, FeedLifecycleStateKeyEnum, FeedLifecycleUpdateSourceEnum, FeedService } =
+    await import('@podverse/orm');
   const rows = await queryRows(
     manager,
     `SELECT ch.feed_id FROM item i INNER JOIN channel ch ON ch.id = i.channel_id WHERE i.id = $1`,
@@ -311,10 +307,11 @@ describe('clips and playlist entries survive a takedown', () => {
     const { pruneNonActiveItemBackedQueueResourceRows } = await import('@podverse/orm');
     await pruneNonActiveItemBackedQueueResourceRows();
     expect(
-      await queryRows(manager, `SELECT id FROM queue_resource WHERE queue_id = $1 AND clip_id = $2`, [
-        fixture.queueId,
-        fixture.clipId,
-      ])
+      await queryRows(
+        manager,
+        `SELECT id FROM queue_resource WHERE queue_id = $1 AND clip_id = $2`,
+        [fixture.queueId, fixture.clipId]
+      )
     ).toEqual([]);
   });
 

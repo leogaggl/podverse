@@ -1229,6 +1229,19 @@
       "import_rate_limited": "",
       "import_rate_limited_time": ""
     },
+    "advanced": {
+      "advanced": "",
+      "removed_content": "",
+      "empty": "",
+      "load_error": "",
+      "left_directory": "",
+      "taken_down": "",
+      "moved_to_add_by_rss": "",
+      "follow_ended": "",
+      "clips": "",
+      "playlist_entries": "",
+      "unknown_show": ""
+    },
     "keyboard": {
       "keyboard": "",
       "intro": "",

@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import { DescriptionLengthTierEnum } from '@podverse/helpers';
 
-import { LEGACY_DESCRIPTION_CUT_LENGTH, planDescriptionBackfill } from './planDescriptionBackfill.js';
+import {
+  LEGACY_DESCRIPTION_CUT_LENGTH,
+  planDescriptionBackfill,
+} from './planDescriptionBackfill.js';
 
 const tier = DescriptionLengthTierEnum.Standard;
 
 describe('planDescriptionBackfill', () => {
   it('marks a row cut at the legacy length as truncated with an unknown source length', () => {
-    const legacy = 'word '.repeat(LEGACY_DESCRIPTION_CUT_LENGTH).slice(0, LEGACY_DESCRIPTION_CUT_LENGTH);
+    const legacy = 'word '
+      .repeat(LEGACY_DESCRIPTION_CUT_LENGTH)
+      .slice(0, LEGACY_DESCRIPTION_CUT_LENGTH);
 
     const plan = planDescriptionBackfill(legacy, tier);
 

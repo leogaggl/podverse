@@ -1,6 +1,7 @@
 import { AppDataSourceRead, AppDataSourceReadWrite } from '@orm/db/index.js';
 import { ChannelMerge, ChannelMergeStatus } from '@orm/entities/channel/channelMerge.js';
 import type { Repository } from 'typeorm';
+import { In } from 'typeorm';
 
 export type UpsertDetectedChannelMergeInput = {
   fromPodcastIndexId: number;
@@ -32,6 +33,23 @@ export class ChannelMergeService {
     return this.repositoryRead.findOne({
       where: { from_podcast_index_id: fromPodcastIndexId },
     });
+  }
+
+  /** Rows whose `from_podcast_index_id` is in `podcastIndexIds`. Empty input reads nothing. */
+  async listByFromPodcastIndexIds(podcastIndexIds: readonly number[]): Promise<ChannelMerge[]> {
+    const rows: ChannelMerge[] = [];
+    const chunkSize = 2000;
+    for (let index = 0; index < podcastIndexIds.length; index += chunkSize) {
+      const chunk = podcastIndexIds.slice(index, index + chunkSize);
+      if (chunk.length === 0) {
+        continue;
+      }
+      const found = await this.repositoryRead.find({
+        where: { from_podcast_index_id: In(chunk) },
+      });
+      rows.push(...found);
+    }
+    return rows;
   }
 
   async listByStatus(status: ChannelMergeStatus): Promise<ChannelMerge[]> {

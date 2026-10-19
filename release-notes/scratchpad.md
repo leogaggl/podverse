@@ -452,3 +452,74 @@
   refreshes so the show reappears there.
 - Who notices: mobile users with clips or playlists of removed shows; members following shows
   that leave the directory
+
+## Account content log and retire baseline
+
+- Surfaces: ops (migration), helpers DTO, consumer and mobile catalogs
+- Change: App migration `0019_account_content_log.sql` adds `account_content_log`, which stores
+  one removed-content row per account per show (unique on account, log type, and channel id
+  text; rows cascade with the account). `podcast_index_dead_feed_sync` gains
+  `last_retire_eligible_count`. New `DTOAccountContentLog` in `@podverse/helpers`. Copy for
+  Settings Advanced (consumer `settings.advanced.*`) and More Advanced (mobile
+  `removed_content.*`) is in all four locales, with plural forms for the clip and playlist
+  entry counts.
+- Who notices: operators (one migration). Users see nothing until later prompts ship the screens.
+- Operator steps: deploy; the API waits for the new marker `0019_account_content_log.sql`
+
+## Retire feeds the Podcast Index dead list marks
+
+- Surfaces: workers, mq, k8s workers env
+- Change: `PODCAST_INDEX_DEAD_FEED_RETIRE_MODE` is `off`, `dry_run`, or `apply`. The dead-feed job
+  downloads the CSV when either this or the merge mode is not `off`. `dry_run` stores
+  `last_retire_eligible_count` and changes no lifecycle. `apply` sets `pending_archive` with
+  reason `podcast_index_dead`, at most 200 feeds a run, and refuses a jump above max(2000, 1%
+  of held feeds) until a `dry_run` stores the new count. A null stored count never retires. The
+  recent-feeds cron skips every lifecycle that blocks parsing.
+- Who notices: operators. Listeners see nothing until archiveAll runs.
+- Operator steps: base stays off. Alpha rollout is dry_run, read the count, then apply. Add
+  `PODCAST_INDEX_DEAD_FEED_RETIRE_MODE=off` to an existing local workers env if startup
+  validation asks for it.
+
+## Pending archive runs in capped batches
+
+- Surfaces: orm archiver
+- Change: one archiveAll run archives at most 1000 pending feeds. Items with a clip or
+  playlist entry become Archived. Other active or pending items are deleted in chunks.
+- Who notices: operators, on the worker log counts. Listeners lose directory episodes for
+  those shows; clips and playlist entries stay.
+- Operator steps: none. The next archiveAll uses the new path.
+
+## Removed Content log and follow end
+
+- Surfaces: orm, workers, k8s cron, workers env
+- Change: archiveAll ends directory follows after conversion settles and writes one
+  account_content_log row per account per show. Takedown does the same and records clip and
+  playlist counts. accountContentLogPurge deletes rows whose updated_at is older than
+  ACCOUNT_CONTENT_LOG_RETENTION_DAYS (default 30). No push or email.
+- Who notices: signed-in users, once the API and screens ship. Operators get a daily purge cron.
+- Operator steps: deploy the cron with the migration. Base retention is 30.
+
+## Removed Content log API
+
+- Surfaces: api, helpers-requests, e2e seed
+- Change: GET /account/content-log?type=removed_content returns the signed-in account's rows,
+  newest first, at most 100. The E2E seed includes one left_directory row.
+- Who notices: signed-in clients. The screens that call it ship in later prompts.
+- Operator steps: none beyond the migration from 01
+
+## Settings Advanced lists removed content
+
+- Surfaces: web
+- Change: signed-in Settings gains an Advanced tab at /settings?tab=advanced. It lists
+  Removed Content from GET /account/content-log. Signed-out visitors do not see the tab.
+- Who notices: signed-in web users who open Settings and choose Advanced
+- Operator steps: none
+
+## Mobile Removed Content screen
+
+- Surfaces: mobile
+- Change: More, Advanced, Removed Content lists the signed-in account's removed shows.
+  A signed-in archived-show drop no longer writes directory_channel_gone to the local
+  Error Log. Signed-out drops still do.
+- Who notices: signed-in mobile users who open More, Advanced
+- Operator steps: none

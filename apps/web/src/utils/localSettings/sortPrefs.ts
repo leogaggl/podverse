@@ -196,7 +196,8 @@ export const carrySortPrefStore = (
   if (withoutFrom.some(([key]) => key === toKey)) {
     return withoutFrom;
   }
-  return [[toKey, fromEntry[1]], ...withoutFrom].slice(0, SORT_PREF_MAX_ENTRIES);
+  const carried: SortPrefStoreEntry = [toKey, fromEntry[1]];
+  return [carried, ...withoutFrom].slice(0, SORT_PREF_MAX_ENTRIES);
 };
 
 export const touchSortPrefInStore = (store: SortPrefStore, scope: SortPrefScope): SortPrefStore => {

@@ -196,10 +196,11 @@ describe('archived content slimming', () => {
       item.id,
       'https://archived-slim.example.com/cover.jpg',
     ]);
-    await manager.query(
-      `INSERT INTO item_transcript (item_id, url, type) VALUES ($1, $2, $3)`,
-      [item.id, 'https://archived-slim.example.com/transcript.vtt', 'text/vtt']
-    );
+    await manager.query(`INSERT INTO item_transcript (item_id, url, type) VALUES ($1, $2, $3)`, [
+      item.id,
+      'https://archived-slim.example.com/transcript.vtt',
+      'text/vtt',
+    ]);
     await manager.query(`INSERT INTO item_person (item_id, name) VALUES ($1, $2)`, [
       item.id,
       'Host',
@@ -214,10 +215,11 @@ describe('archived content slimming', () => {
        VALUES ($1, $2, $3, $4)`,
       [valueId, 'node', '03abc', 100]
     );
-    await manager.query(
-      `INSERT INTO item_chapters_feed (item_id, url, type) VALUES ($1, $2, $3)`,
-      [item.id, 'https://archived-slim.example.com/chapters.json', 'application/json']
-    );
+    await manager.query(`INSERT INTO item_chapters_feed (item_id, url, type) VALUES ($1, $2, $3)`, [
+      item.id,
+      'https://archived-slim.example.com/chapters.json',
+      'application/json',
+    ]);
     await manager.query(
       `INSERT INTO item_description (item_id, value, preview, is_truncated, source_length)
        VALUES ($1, $2, NULL, false, NULL)`,

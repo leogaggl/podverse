@@ -59,6 +59,7 @@ vi.mock('../../sync/requestAddByRssRefresh', () => ({
 import {
   DIRECTORY_CHANNEL_CONVERTED_CODE,
   DIRECTORY_CHANNEL_GONE_CODE,
+  dropGoneDirectoryChannel,
   formatDirectoryChannelGoneDetail,
   isDirectoryChannelGoneError,
   syncDirectoryChannelOrDropGone,
@@ -159,15 +160,13 @@ describe('syncDirectoryChannelOrDropGone', () => {
     expect(requestAddByRssRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('logs a gone follow and enqueues nothing when the archived response has no URL', async () => {
+  it('unsubscribes a gone follow and skips the local line when the account is signed in', async () => {
     syncChannel.mockRejectedValue(httpError(410, archivedBody(null)));
 
     await syncDirectoryChannelOrDropGone(context, 'show-1');
 
-    expect(append.mock.calls[0]?.[0]).toMatchObject({
-      errorCode: DIRECTORY_CHANNEL_GONE_CODE,
-      outcome: 'reconciled',
-    });
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(append).not.toHaveBeenCalled();
     expect(requestAddByRssRefresh).not.toHaveBeenCalled();
   });
 
@@ -195,5 +194,26 @@ describe('syncDirectoryChannelOrDropGone', () => {
     expect(unsubscribe).not.toHaveBeenCalled();
     expect(append).not.toHaveBeenCalled();
     expect(requestAddByRssRefresh).not.toHaveBeenCalled();
+  });
+
+  it('skips the local gone line when accessToken is set', async () => {
+    await dropGoneDirectoryChannel({ channelIdText: 'show-1', context });
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(append).not.toHaveBeenCalled();
+  });
+
+  it('records the local gone line when accessToken is null', async () => {
+    await dropGoneDirectoryChannel({
+      channelIdText: 'show-1',
+      context: { ...context, accessToken: null },
+    });
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(append).toHaveBeenCalledTimes(1);
+    expect(append.mock.calls[0]?.[0]).toMatchObject({
+      errorCode: DIRECTORY_CHANNEL_GONE_CODE,
+      outcome: 'reconciled',
+    });
   });
 });

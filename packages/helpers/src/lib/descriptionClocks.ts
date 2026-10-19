@@ -1,6 +1,5 @@
 export type DescriptionTextPart =
-  | { kind: 'text'; text: string }
-  | { kind: 'clock'; text: string; seconds: number };
+  { kind: 'text'; text: string } | { kind: 'clock'; text: string; seconds: number };
 
 const CLOCK_SOURCE = '(?:(\\d+):([0-5]\\d):([0-5]\\d)|(\\d+):([0-5]\\d))';
 const MERIDIEM = /^\s*(?:a\.?m\.?|p\.?m\.?)(?![a-z])/i;

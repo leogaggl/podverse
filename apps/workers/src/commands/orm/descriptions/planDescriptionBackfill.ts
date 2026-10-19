@@ -1,5 +1,5 @@
-import { DATABASE_CONSTANTS, prepareDescriptionForStorage } from '@podverse/helpers';
 import type { DescriptionLengthTierEnum } from '@podverse/helpers';
+import { DATABASE_CONSTANTS, prepareDescriptionForStorage } from '@podverse/helpers';
 
 /** Rows written before descriptions were prepared were cut raw at exactly this length. */
 export const LEGACY_DESCRIPTION_CUT_LENGTH = DATABASE_CONSTANTS.varchar_long;

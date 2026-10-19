@@ -28,6 +28,7 @@ import { playlistResourceToHomeRow } from '../../lib/rows/homeRowMappers';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
+import type { LibraryStackParamList } from '../../navigation';
 import { LIBRARY_STACK_ROUTES } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { useTheme } from '../../theme/useTheme';
@@ -72,12 +73,7 @@ const isAddByRssResourceData = (value: unknown): value is AddByRSSResourceData =
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
-type PlaylistDetailParams = {
-  PlaylistDetail: { playlistId: string };
-  PlaylistEdit: { playlistId: string };
-};
-
-type PlaylistDetailScreenProps = NativeStackScreenProps<PlaylistDetailParams, 'PlaylistDetail'>;
+type PlaylistDetailScreenProps = NativeStackScreenProps<LibraryStackParamList, 'PlaylistDetail'>;
 
 type PlaylistResourceRow = HomeFeedRowData & {
   mediaType: 'clips' | 'episodes' | 'tracks';
@@ -673,9 +669,7 @@ export function PlaylistDetailScreen({ navigation, route }: PlaylistDetailScreen
       }
       const clip = resource.clip;
       const clipRemoved =
-        clip !== null &&
-        clip !== undefined &&
-        (isRemovedSource(resource) || isRemovedSource(clip));
+        clip !== null && clip !== undefined && (isRemovedSource(resource) || isRemovedSource(clip));
       if (isRemovedSource(resource) || clipRemoved) {
         if (clipRemoved && clip.id_text.length > 0) {
           navigation.navigate(LIBRARY_STACK_ROUTES.LibraryClipDetail, { clipId: clip.id_text });

@@ -151,7 +151,10 @@ const createChannelItemsJob = (
     priority,
     `channel-items:${window.channelIdText}`,
     async (context) => {
-      const outcome = await syncDirectoryChannelOrDropGone(deps.getAuthContext(), window.channelIdText);
+      const outcome = await syncDirectoryChannelOrDropGone(
+        deps.getAuthContext(),
+        window.channelIdText
+      );
       if (outcome.kind === 'remapped') {
         context.enqueue(
           createChannelItemsJob(deps, priority, {

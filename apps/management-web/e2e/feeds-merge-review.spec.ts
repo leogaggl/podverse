@@ -34,12 +34,7 @@ test.describe('Management-web merge review', () => {
 
     const approveRow = page.getByRole('row', { name: /E2E Review Approve/ });
     await expect(approveRow).toBeVisible();
-    await capturePageLoad(
-      page,
-      testInfo,
-      'A needs-review pair is waiting.',
-      approveRow
-    );
+    await capturePageLoad(page, testInfo, 'A needs-review pair is waiting.', approveRow);
 
     await approveRow.getByRole('button', { name: 'Review E2E Review Approve' }).click();
     const dialog = page.getByRole('dialog', { name: 'Merge Pair' });

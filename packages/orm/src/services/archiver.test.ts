@@ -5,6 +5,10 @@ const {
   clipFindOneMock,
   feedCreateQueryBuilderMock,
   feedQbGetManyMock,
+  feedQbGetRawManyMock,
+  feedQbInnerJoinMock,
+  feedQbLimitMock,
+  feedQbOrderByMock,
   feedReadFindMock,
   feedSaveMock,
   feedQueryMock,
@@ -21,14 +25,32 @@ const {
   pruneQueueResourcesMock,
 } = vi.hoisted(() => {
   const feedQbGetManyMock = vi.fn();
+  const feedQbGetRawManyMock = vi.fn();
+  const feedQbInnerJoinMock = vi.fn();
+  const feedQbLimitMock = vi.fn();
+  const feedQbOrderByMock = vi.fn();
   const makeFeedQueryBuilder = () => {
     const qb = {
       distinct: vi.fn(() => qb),
       innerJoinAndSelect: vi.fn(() => qb),
-      innerJoin: vi.fn(() => qb),
+      innerJoin: (...args: unknown[]) => {
+        feedQbInnerJoinMock(...args);
+        return qb;
+      },
       where: vi.fn(() => qb),
       andWhere: vi.fn(() => qb),
+      select: vi.fn(() => qb),
+      addSelect: vi.fn(() => qb),
+      orderBy: (...args: unknown[]) => {
+        feedQbOrderByMock(...args);
+        return qb;
+      },
+      limit: (value: unknown) => {
+        feedQbLimitMock(value);
+        return qb;
+      },
       getMany: feedQbGetManyMock,
+      getRawMany: feedQbGetRawManyMock,
     };
     return qb;
   };
@@ -38,6 +60,10 @@ const {
     clipFindOneMock: vi.fn(),
     feedCreateQueryBuilderMock: vi.fn(makeFeedQueryBuilder),
     feedQbGetManyMock,
+    feedQbGetRawManyMock,
+    feedQbInnerJoinMock,
+    feedQbLimitMock,
+    feedQbOrderByMock,
     feedReadFindMock: vi.fn(),
     feedSaveMock: vi.fn(),
     feedQueryMock: vi.fn(),
@@ -136,18 +162,28 @@ vi.mock('./archivedSlimming.js', () => ({
   slimArchivedChannels: slimArchivedChannelsMock,
 }));
 
-const { convertFollowsMock, deleteEmptyShowsMock } = vi.hoisted(() => ({
+const { convertFollowsMock, endSettledFollowsMock, deleteEmptyShowsMock } = vi.hoisted(() => ({
   convertFollowsMock: vi.fn(async () => ({
     converted: 0,
     followsMoved: 0,
     unreachable: 0,
     skipped: 0,
   })),
+  endSettledFollowsMock: vi.fn(async () => ({ ended: 0 })),
   deleteEmptyShowsMock: vi.fn(async () => ({ deleted: 0 })),
 }));
 
 vi.mock('./archivedFollowConversion.js', () => ({
   convertArchivedShowFollows: convertFollowsMock,
+  endSettledDirectoryFollows: endSettledFollowsMock,
+}));
+
+const { recordTakenDownContentLogMock } = vi.hoisted(() => ({
+  recordTakenDownContentLogMock: vi.fn(async () => undefined),
+}));
+
+vi.mock('./accountContentLog.js', () => ({
+  recordTakenDownContentLog: recordTakenDownContentLogMock,
 }));
 
 vi.mock('./archivedChannelCleanup.js', () => ({
@@ -171,6 +207,7 @@ vi.mock('./feed/feed.js', () => ({
 }));
 
 import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleStateType.js';
+import { FeedLifecycleUpdateSourceEnum } from '@orm/entities/feed/feedLifecycleUpdateSource.js';
 import { ItemFlagStatusStatusEnum } from '@orm/entities/item/itemFlagStatus.js';
 
 import {
@@ -192,6 +229,10 @@ describe('ArchiverService takedown hard-delete handling', () => {
     clipFindOneMock.mockReset();
     feedCreateQueryBuilderMock.mockClear();
     feedQbGetManyMock.mockReset();
+    feedQbGetRawManyMock.mockReset();
+    feedQbInnerJoinMock.mockReset();
+    feedQbLimitMock.mockReset();
+    feedQbOrderByMock.mockReset();
     feedReadFindMock.mockReset();
     feedSaveMock.mockReset();
     feedQueryMock.mockReset();
@@ -205,6 +246,7 @@ describe('ArchiverService takedown hard-delete handling', () => {
     managerDeleteMock.mockReset();
     managerQueryMock.mockReset();
     captureRemovedReferencesMock.mockClear();
+    recordTakenDownContentLogMock.mockReset();
     playlistFindOneMock.mockReset();
     pruneQueueResourcesMock.mockReset();
     resetSlimMocks();
@@ -275,10 +317,16 @@ describe('ArchiverService takedown hard-delete handling', () => {
       [[101, 102]]
     );
 
+    expect(recordTakenDownContentLogMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ channelId: 1001, itemIds: [101, 102] })
+    );
     const captureOrder = captureRemovedReferencesMock.mock.invocationCallOrder[0] ?? 0;
+    const logOrder = recordTakenDownContentLogMock.mock.invocationCallOrder[0] ?? 0;
     const mergeMapOrder = managerQueryMock.mock.invocationCallOrder[0] ?? 0;
     const deleteOrder = managerDeleteMock.mock.invocationCallOrder[0] ?? 0;
-    expect(captureOrder).toBeLessThan(mergeMapOrder);
+    expect(captureOrder).toBeLessThan(logOrder);
+    expect(logOrder).toBeLessThan(mergeMapOrder);
     expect(mergeMapOrder).toBeLessThan(deleteOrder);
   });
 
@@ -294,6 +342,7 @@ describe('ArchiverService takedown hard-delete handling', () => {
 
     expect(managerDeleteMock).not.toHaveBeenCalled();
     expect(feedSaveMock).not.toHaveBeenCalled();
+    expect(recordTakenDownContentLogMock).toHaveBeenCalledTimes(2);
     const channelQueryCount =
       CHANNEL_DETAIL_DELETE_QUERIES.length + CHANNEL_IDENTITY_DELETE_QUERIES.length;
     expect(managerQueryMock).toHaveBeenCalledTimes(2 * channelQueryCount);
@@ -328,6 +377,10 @@ describe('ArchiverService deleteArchivedItemsWithoutClipOrPlaylist', () => {
     clipFindOneMock.mockReset();
     feedCreateQueryBuilderMock.mockClear();
     feedQbGetManyMock.mockReset();
+    feedQbGetRawManyMock.mockReset();
+    feedQbInnerJoinMock.mockReset();
+    feedQbLimitMock.mockReset();
+    feedQbOrderByMock.mockReset();
     feedReadFindMock.mockReset();
     feedSaveMock.mockReset();
     feedQueryMock.mockReset();
@@ -397,6 +450,10 @@ describe('ArchiverService spam feed item cleanup', () => {
     clipFindOneMock.mockReset();
     feedCreateQueryBuilderMock.mockClear();
     feedQbGetManyMock.mockReset();
+    feedQbGetRawManyMock.mockReset();
+    feedQbInnerJoinMock.mockReset();
+    feedQbLimitMock.mockReset();
+    feedQbOrderByMock.mockReset();
     feedQbGetManyMock.mockResolvedValue([]);
     feedReadFindMock.mockReset();
     feedSaveMock.mockReset();
@@ -418,6 +475,8 @@ describe('ArchiverService spam feed item cleanup', () => {
       unreachable: 0,
       skipped: 0,
     });
+    endSettledFollowsMock.mockReset();
+    endSettledFollowsMock.mockResolvedValue({ ended: 0 });
     deleteEmptyShowsMock.mockReset();
     deleteEmptyShowsMock.mockResolvedValue({ deleted: 0 });
     resetSlimMocks();
@@ -453,6 +512,10 @@ describe('ArchiverService spam feed item cleanup', () => {
       order.push('convertFollows');
       return { converted: 0, followsMoved: 0, unreachable: 0, skipped: 0 };
     });
+    endSettledFollowsMock.mockImplementation(async () => {
+      order.push('endSettledFollows');
+      return { ended: 0 };
+    });
     deleteEmptyShowsMock.mockImplementation(async () => {
       order.push('deleteEmptyShows');
       return { deleted: 0 };
@@ -467,6 +530,7 @@ describe('ArchiverService spam feed item cleanup', () => {
       'slimItems',
       'slimChannels',
       'convertFollows',
+      'endSettledFollows',
       'takedown',
       'deleteEmptyShows',
     ]);
@@ -516,5 +580,129 @@ describe('ArchiverService spam feed item cleanup', () => {
     );
     expect(itemDeleteMock).not.toHaveBeenCalled();
     expect(feedSaveMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('ArchiverService processPendingArchiveFeeds', () => {
+  const archivedLifecycle = {
+    toStateKey: FeedLifecycleStateKeyEnum.Archived,
+    source: FeedLifecycleUpdateSourceEnum.Archiver,
+  };
+
+  beforeEach(() => {
+    clipFindOneMock.mockReset();
+    feedCreateQueryBuilderMock.mockClear();
+    feedQbGetManyMock.mockReset();
+    feedQbGetRawManyMock.mockReset();
+    feedQbInnerJoinMock.mockReset();
+    feedQbLimitMock.mockReset();
+    feedQbOrderByMock.mockReset();
+    feedReadFindMock.mockReset();
+    feedSaveMock.mockReset();
+    feedQueryMock.mockReset();
+    feedServiceSetLifecycleMock.mockReset();
+    feedServiceUpdateMock.mockReset();
+    itemDeleteMock.mockReset();
+    itemFlagStatusGetMock.mockReset();
+    itemFlagStatusGetMock.mockResolvedValue({ id: ItemFlagStatusStatusEnum.Archived });
+    itemQueryMock.mockReset();
+    itemReadFindMock.mockReset();
+    itemSaveMock.mockReset();
+    playlistFindOneMock.mockReset();
+    pruneQueueResourcesMock.mockReset();
+  });
+
+  it('selects at most 1000 pending feeds ordered by feed id', async () => {
+    const rows = Array.from({ length: 1001 }, (_, index) => ({
+      feed_id: index + 1,
+      channel_id: index + 100,
+    }));
+    feedQbGetRawManyMock.mockResolvedValue(rows);
+    itemQueryMock.mockResolvedValue([]);
+
+    const service = new ArchiverService();
+    await service.processPendingArchiveFeeds();
+
+    expect(feedQbLimitMock).toHaveBeenCalledWith(1000);
+    expect(feedQbOrderByMock).toHaveBeenCalledWith('feed.id', 'ASC');
+    expect(feedQbInnerJoinMock.mock.calls.some((call) => String(call[0]).includes('items'))).toBe(
+      false
+    );
+    expect(itemReadFindMock).not.toHaveBeenCalled();
+    expect(feedServiceSetLifecycleMock).toHaveBeenCalledTimes(1000);
+    expect(feedServiceSetLifecycleMock).toHaveBeenNthCalledWith(1, 1, archivedLifecycle);
+    expect(feedServiceSetLifecycleMock).toHaveBeenNthCalledWith(1000, 1000, archivedLifecycle);
+    expect(feedServiceSetLifecycleMock).not.toHaveBeenCalledWith(1001, archivedLifecycle);
+    expect(feedServiceUpdateMock).toHaveBeenNthCalledWith(1000, 1000, {
+      last_parsed_file_hash: null,
+    });
+  });
+
+  it('updates an item with a clip to Archived and does not delete it', async () => {
+    feedQbGetRawManyMock.mockResolvedValue([{ feed_id: 4, channel_id: 40 }]);
+    itemQueryMock.mockImplementation(async (sql: string) => {
+      if (sql.includes('UPDATE item')) {
+        return [[], 1];
+      }
+      return [];
+    });
+
+    const service = new ArchiverService();
+    await service.processPendingArchiveFeeds();
+
+    const updateCall = itemQueryMock.mock.calls.find((call) =>
+      String(call[0]).includes('UPDATE item')
+    );
+    expect(updateCall?.[1]).toEqual([
+      ItemFlagStatusStatusEnum.Archived,
+      [40],
+      [ItemFlagStatusStatusEnum.Active, ItemFlagStatusStatusEnum.PendingArchive],
+    ]);
+    expect(String(updateCall?.[0])).toContain('clip.item_id');
+    expect(String(updateCall?.[0])).toContain('playlist_resource.item_id');
+    expect(itemDeleteMock).not.toHaveBeenCalled();
+    expect(itemSaveMock).not.toHaveBeenCalled();
+    expect(itemReadFindMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes an active or pending item with neither a clip nor a playlist row', async () => {
+    feedQbGetRawManyMock.mockResolvedValue([{ feed_id: 4, channel_id: 40 }]);
+    itemQueryMock.mockImplementation(async (sql: string) => {
+      if (sql.includes('UPDATE item')) {
+        return [[], 0];
+      }
+      return [{ id: 77 }];
+    });
+
+    const service = new ArchiverService();
+    await service.processPendingArchiveFeeds();
+
+    const selectCall = itemQueryMock.mock.calls.find((call) =>
+      String(call[0]).includes('SELECT i.id')
+    );
+    expect(String(selectCall?.[0])).toContain('NOT EXISTS');
+    expect(String(selectCall?.[0])).toContain('clip.item_id');
+    expect(String(selectCall?.[0])).toContain('playlist_resource.item_id');
+    expect(selectCall?.[1]).toEqual([
+      [40],
+      [ItemFlagStatusStatusEnum.Active, ItemFlagStatusStatusEnum.PendingArchive],
+      1000,
+    ]);
+    expect(itemDeleteMock).toHaveBeenCalledTimes(1);
+    expect(itemDeleteMock).toHaveBeenCalledWith([77]);
+    expect(itemSaveMock).not.toHaveBeenCalled();
+  });
+
+  it('archives the feed when the channel has no matching items', async () => {
+    feedQbGetRawManyMock.mockResolvedValue([{ feed_id: 4, channel_id: 40 }]);
+    itemQueryMock.mockResolvedValue([]);
+
+    const service = new ArchiverService();
+    await service.processPendingArchiveFeeds();
+
+    expect(itemDeleteMock).not.toHaveBeenCalled();
+    expect(feedServiceSetLifecycleMock).toHaveBeenCalledTimes(1);
+    expect(feedServiceSetLifecycleMock).toHaveBeenCalledWith(4, archivedLifecycle);
+    expect(feedServiceUpdateMock).toHaveBeenCalledWith(4, { last_parsed_file_hash: null });
   });
 });

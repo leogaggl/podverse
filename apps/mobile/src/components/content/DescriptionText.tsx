@@ -185,7 +185,10 @@ const renderInlineNodes = (
   });
 };
 
-const renderBlockNodes = (nodes: DescriptionNode[], options: ClockRenderOptions): ReactElement[] => {
+const renderBlockNodes = (
+  nodes: DescriptionNode[],
+  options: ClockRenderOptions
+): ReactElement[] => {
   const blocks: ReactElement[] = [];
   let inlineRun: DescriptionNode[] = [];
 

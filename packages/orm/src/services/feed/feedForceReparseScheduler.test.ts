@@ -24,9 +24,13 @@ describe('parseFeedForceReparsePayload', () => {
 
   it('rejects a missing, string, or non-positive feed id', () => {
     expect(parseFeedForceReparsePayload({ reason: 'description_backfill' })).toBeNull();
-    expect(parseFeedForceReparsePayload({ feedId: '42', reason: 'description_backfill' })).toBeNull();
+    expect(
+      parseFeedForceReparsePayload({ feedId: '42', reason: 'description_backfill' })
+    ).toBeNull();
     expect(parseFeedForceReparsePayload({ feedId: 0, reason: 'description_backfill' })).toBeNull();
-    expect(parseFeedForceReparsePayload({ feedId: 1.5, reason: 'description_backfill' })).toBeNull();
+    expect(
+      parseFeedForceReparsePayload({ feedId: 1.5, reason: 'description_backfill' })
+    ).toBeNull();
     expect(parseFeedForceReparsePayload(null)).toBeNull();
   });
 

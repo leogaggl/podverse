@@ -168,7 +168,8 @@ One-off commands typically run via cron:
   loop required for day-to-day development).
 - **K8s flow:** use CronJobs in `infra/k8s/base/cron` with the same worker commands:
   `worker-scheduled-jobs` (`scheduledJobsRunDue`, every 5 minutes) and
-  `worker-notifications-purge` (`notificationsPlatformPurge`, daily at 04:00).
+  `worker-notifications-purge` (`notificationsPlatformPurge`, daily at 04:00) and
+  `worker-account-content-log-purge` (`accountContentLogPurge`, daily at 04:15).
 
 ### Local smoke checklist
 

@@ -34,6 +34,7 @@ import {
   PODCAST_INDEX_DEFAULT_RETRY_BASE_DELAY_MS,
 } from '@podverse/external-services-podcast-index';
 import {
+  DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -165,6 +166,13 @@ function validateBase(): ValidationResult[] {
       'NOTIFICATION_RETENTION_DAYS',
       'Notifications',
       DEFAULT_NOTIFICATION_RETENTION_DAYS
+    )
+  );
+  results.push(
+    validateRetentionDays(
+      'ACCOUNT_CONTENT_LOG_RETENTION_DAYS',
+      'Removed Content',
+      DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS
     )
   );
   results.push(
@@ -459,10 +467,9 @@ function validateParser(): ValidationResult[] {
   return results;
 }
 
-function validateDuplicateMergeMode(): ValidationResult {
-  const name = 'PODCAST_INDEX_DUPLICATE_MERGE_MODE';
+function validatePodcastIndexMode(name: string): ValidationResult {
   const category = 'Podcast Index';
-  const value = process.env.PODCAST_INDEX_DUPLICATE_MERGE_MODE;
+  const value = process.env[name];
   if (value === undefined || value.trim() === '') {
     return {
       name,
@@ -497,7 +504,8 @@ function validateDuplicateMergeMode(): ValidationResult {
 function validatePodcastIndex(): ValidationResult[] {
   const results: ValidationResult[] = [];
   results.push(validateRequired('PODCAST_INDEX_BASE_URL', 'Podcast Index'));
-  results.push(validateDuplicateMergeMode());
+  results.push(validatePodcastIndexMode('PODCAST_INDEX_DUPLICATE_MERGE_MODE'));
+  results.push(validatePodcastIndexMode('PODCAST_INDEX_DEAD_FEED_RETIRE_MODE'));
   results.push(validateRequired('PODCAST_INDEX_AUTH_KEY', 'Podcast Index'));
   results.push(validateRequired('PODCAST_INDEX_SECRET_KEY', 'Podcast Index'));
   results.push(

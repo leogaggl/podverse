@@ -1,3 +1,4 @@
+import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
 import {
   createSortableTitle,
   DATABASE_CONSTANTS,
@@ -8,7 +9,6 @@ import {
   pickChannelDescriptionSource,
   prepareDescriptionForStorage,
 } from '@podverse/helpers';
-import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
 import { isValidHttpUrl } from '@podverse/helpers-validation';
 
 import type { Episode, FeedObject, Phase4PodcastImage } from '../../types/partytime.js';

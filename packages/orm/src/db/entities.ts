@@ -1,4 +1,5 @@
 import { Account } from '@orm/entities/account/account.js';
+import { AccountContentLog } from '@orm/entities/account/accountContentLog.js';
 import { AccountCredentials } from '@orm/entities/account/accountCredentials.js';
 import { AccountDeviceAutoDownloadChannel } from '@orm/entities/account/accountDeviceAutoDownloadChannel.js';
 import { AccountEmailChangeVerification } from '@orm/entities/account/accountEmailChangeVerification.js';
@@ -138,6 +139,7 @@ import { ImageShrinkSource } from '../entities/imageShrinkSource.js';
 
 export const entities = [
   Account,
+  AccountContentLog,
   AccountCredentials,
   AccountEmailChangeVerification,
   AccountDeviceAutoDownloadChannel,

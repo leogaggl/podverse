@@ -1,3 +1,4 @@
+import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
 import {
   DATABASE_CONSTANTS,
   formatGuidEnclosureUrl,
@@ -5,7 +6,6 @@ import {
   pickItemDescriptionSource,
   prepareDescriptionForStorage,
 } from '@podverse/helpers';
-import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
 import { isValidHttpUrl } from '@podverse/helpers-validation';
 
 import type {

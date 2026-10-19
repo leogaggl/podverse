@@ -34,6 +34,11 @@ export const ClipEditPageForm: React.FC<ClipEditPageFormProps> = ({ ssrClip }) =
 
   const { setAutoQueueConfig, autoQueueConfig } = useAutoQueue();
 
+  const clipItem = ssrClip.item ?? null;
+  if (clipItem === null) {
+    return null;
+  }
+
   const onCancel = () => {
     setAutoQueueConfig({
       playlist_id_text: autoQueueConfig.playlist_id_text,
@@ -56,7 +61,7 @@ export const ClipEditPageForm: React.FC<ClipEditPageFormProps> = ({ ssrClip }) =
 
     try {
       const clip = await getApiRequestService().reqClipUpdate(ssrClip.id_text, {
-        item_id_text: ssrClip.item.id_text,
+        item_id_text: clipItem.id_text,
         sharable_status_id: finalSharableStatusId,
         title: finalTitle,
         description: '',
@@ -83,15 +88,15 @@ export const ClipEditPageForm: React.FC<ClipEditPageFormProps> = ({ ssrClip }) =
     }
   };
 
-  const channel = ssrClip.item.channel;
-  if (!channel) {
+  const channel = clipItem.channel;
+  if (channel === null || channel === undefined) {
     return null;
   }
 
   return (
     <ClipForm
       channel={channel}
-      item={ssrClip.item}
+      item={clipItem}
       sharableStatus={sharableStatus}
       setSharableStatus={setSharableStatus}
       title={title}

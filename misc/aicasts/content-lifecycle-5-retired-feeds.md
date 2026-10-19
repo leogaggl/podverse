@@ -1,16 +1,27 @@
 # Content Lifecycle 5: Retired Feeds and the Removed Content Log
 
-- **Version:** 2026-10-19T00:13-05:00
+- **Version:** 2026-10-19T08:48-05:00
 - **Episode ID:** content-lifecycle-retired-feeds
-- **Changed:** First version.
+- **Changed:** The work is built, so the script describes it as it ships: apply runs also store
+  the count, resolvable pairs always wait for the merge process, stub deletes happen only on
+  apply, and the phone keeps its Add by RSS line. Regenerate the audio.
 - **Description:** How Podverse retires shows that Podcast Index has retired with no
   replacement, with a brake against a bad list, and how a signed-in listener can see why a
   followed show disappeared, without being notified.
-- **Status:** Planned
+- **Status:** Built. Ships with the retire mode off.
 - **Group:** Content Lifecycle, part 5
-- **Sources:** `.llm/plans/active/podcast-index-retired-feeds/`;
-  `apps/workers/src/commands/podcastIndex/deadFeeds/` (the hourly sync it extends)
-- **Length:** about 10 minutes (1,503 words)
+- **Sources:** `.llm/plans/completed/podcast-index-retired-feeds/`;
+  `apps/workers/src/commands/podcastIndex/deadFeeds/flagAndMerge.ts`,
+  `packages/external-services-podcast-index/src/deadFeedDuplicateChains.ts`,
+  `packages/orm/src/services/archiver.ts`,
+  `packages/orm/src/services/archivedFollowConversion.ts`,
+  `packages/orm/src/services/accountContentLog.ts`,
+  `apps/workers/src/commands/orm/accountContentLog/purge.ts`,
+  `apps/api/src/controllers/account/accountContentLog.ts`,
+  `apps/web/src/components/Settings/Panels/SettingsAdvanced/SettingsRemovedContent.tsx`,
+  `apps/mobile/src/screens/more/MoreRemovedContentScreen.tsx`,
+  `apps/mobile/src/data/repositories/directoryChannelGone.ts`
+- **Length:** about 10 minutes (1,502 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -22,21 +33,21 @@
 - A line that says `(pause)` is about one and a half seconds of silence. Never say "pause".
 - No music, sound effects, intro, or outro.
 - Pronunciation: **Podverse** "POD-verse". Spell out **RSS**, **API**, and **OPML** letter by
-  letter. Say "four-ten" for 410.
+  letter.
 - If your service writes its own script from this one, keep every number and every claim
   exactly, keep both voices, and add nothing the text does not say.
 
 ## Script
 
-CLAIRE: This is part five of Content Lifecycle. Part four covered feeds that Podcast Index retired in favor of another copy. This part covers the rest: feeds it retired with no replacement. And a quiet record, so a signed-in listener can find out why a show they followed went away. It's planned, not built yet.
+CLAIRE: This is part five of Content Lifecycle. Part four covered feeds that Podcast Index retired in favor of another copy. This part covers the rest: feeds it retired with no replacement. And a quiet record, so a signed-in listener can find out why a show they followed went away. It's built, and it ships with the retire mode off.
 
-TOM: So what happens to those feeds today?
+TOM: So what happened to those feeds before this?
 
-CLAIRE: Nothing. The hourly sync reads the Podcast Index retired-feeds list, records the pairs that name a replacement, and skips every other row. The feed stays active. It keeps every episode. On-demand refresh, trending, and OPML import can all parse it again. The recent-feeds job only skips feeds that were merged.
+CLAIRE: Nothing. The hourly sync read the Podcast Index retired-feeds list, recorded the pairs that name a replacement, and skipped every other row. The feed stayed active and kept every episode. On-demand refresh, trending, and OPML import could all parse it again.
 
-TOM: So we keep paying to store and parse shows the directory itself has given up on.
+TOM: So we kept paying to store and parse shows the directory itself had given up on.
 
-CLAIRE: Yes. And when a followed show does disappear for some other reason, a signed-in listener has nowhere lasting to see why. The phone's Error Log is a local sync log, and the web has nothing like it.
+CLAIRE: Yes. And when a followed show disappeared for some other reason, a signed-in listener had nowhere lasting to see why. The phone's Error Log is a local sync log, and the web had nothing like it.
 
 (pause)
 
@@ -46,29 +57,29 @@ CLAIRE: Four. Podcast Index is the authority on which directory feeds are no lon
 
 TOM: Which rows count?
 
-CLAIRE: A feed we hold whose Podcast Index id is on the list, when one of three things is true. The replacement column is empty. Or the replacement chain can't be resolved, meaning it loops, or the named replacement is itself retired. Or Podverse already found a pair for that feed, and the merge was rejected or reverted.
+CLAIRE: A feed we hold whose Podcast Index id is on the list, with no usable replacement. The replacement column is empty, or the replacement chain loops, or it ends on a feed that's retired too. Unless a merge for that feed is still in progress: detected, verified, waiting for review, or applied. Those wait.
 
-TOM: And a pair still being checked?
+TOM: And a feed whose replacement does resolve?
 
-CLAIRE: Waits. While the merge is detected, verified, waiting for review, or applied, it isn't retired. The sync records new pairs before it looks for feeds to retire, so a pair first seen this hour is still detected and waits too. Feeds already blocked from parsing are skipped.
+CLAIRE: That one belongs to the merge process from part four, so it waits too. It's retired only if its merge was rejected or reverted. Feeds already blocked from parsing are counted, but skipped.
 
 TOM: Is there a grace period? Wait a week in case it comes back?
 
-CLAIRE: No. The first run that lists a feed retires it. A week of waiting would only mean a week more of parsing a show the directory dropped. If it ever comes back, it starts clean, which we'll get to.
+CLAIRE: No. The first run that lists a feed retires it. A week of waiting would only mean a week more of parsing a show the directory dropped.
 
 (pause)
 
 TOM: Retiring thousands of shows off one downloaded file sounds risky. What if Podcast Index publishes a bad list?
 
-CLAIRE: That's the brake. Every run counts the feeds that qualify, including ones already retired, and the sync remembers the last count. Growth is this run's count minus the stored one.
+CLAIRE: That's the brake. Every run counts the feeds that qualify, including ones already retired, and compares that count with the one the sync stored last time. Growth is the difference.
 
 TOM: And if it jumps?
 
-CLAIRE: If growth is more than two thousand, or more than one percent of the feeds we hold, whichever is larger, nothing is retired. The run logs a warning and leaves the stored count alone. An operator looks at the list. If it's real, they run one dry run, which accepts the new count, then switch back to apply.
+CLAIRE: If growth is more than two thousand, or more than one percent of the feeds we hold, whichever is larger, an apply run retires nothing. It logs a warning and leaves the stored count alone. An operator looks at the list. If it's real, one dry run accepts the new count, then they switch back to apply. A count that goes down never trips the brake.
 
 TOM: And with no stored count at all?
 
-CLAIRE: Then nothing is retired either. Only a dry run stores the count, so the first apply on any environment needs a dry run before it. Inside those limits, apply retires at most two hundred feeds per hourly run, oldest Podcast Index ids first.
+CLAIRE: Then apply retires nothing either. A dry run always stores the count, so the first apply on any environment needs a dry run before it. After that, every apply run the brake lets through stores its own count. Inside those limits, apply retires at most two hundred feeds per hourly run, lowest Podcast Index ids first.
 
 TOM: Who turns this on?
 
@@ -76,35 +87,35 @@ CLAIRE: An operator. The retire mode is its own setting, separate from the merge
 
 TOM: Does that change how the file is downloaded?
 
-CLAIRE: Yes. The sync normally asks Podcast Index whether the file changed, and skips it when it hasn't. With retiring on, it downloads the whole file every run. The two-hundred cap means later hours have to keep walking the same list. A skipped download would stop the drain.
+CLAIRE: Yes. With retiring off, the sync asks Podcast Index whether the file changed, and skips it when it hasn't. With retiring on, it downloads the whole file every run. The two-hundred cap means later hours keep working through the same list. And if the file comes back empty, nothing is retired.
 
 (pause)
 
 TOM: So what does retiring a feed actually do?
 
-CLAIRE: It moves the feed to pending archive, with a reason that says Podcast Index retired it, recorded as a system change. From there, everything is the machinery of earlier parts. The archive job, twice a day, archives the show. Episodes nobody clipped or added to a playlist are deleted. The rest are slimmed, as in part two. Members with Add by RSS move to a direct follow of the feed, as in part three.
+CLAIRE: It moves the feed to pending archive, with a reason that says Podcast Index retired it, recorded as a system change. From there, everything is the machinery of earlier parts. The archive job, twice a day, archives the show. Episodes nobody clipped or added to a playlist are deleted. The rest are archived and slimmed, as in part two. Members with Add by RSS move to a direct follow of the feed, as in part three.
 
 TOM: Can the archive job handle a big batch?
 
-CLAIRE: Not as it stands. It loads every pending feed and all of its episodes at once. This work bounds it to one thousand pending feeds per run, and the episode deletes run as set-based queries in chunks of one thousand. A backlog drains across runs.
+CLAIRE: It's bounded. One run archives at most one thousand pending feeds, and the episode updates and deletes run as set-based queries in chunks of one thousand. A backlog drains across runs.
 
 TOM: And the listeners who couldn't move to Add by RSS?
 
-CLAIRE: Their follow ends. Once the move is settled, whether members moved, the feed never answered, or nobody had the membership, every remaining directory follow is deleted. A takedown deletes them too. Nobody stays stuck following a show that can't come back. Their clips stay, with the snapshots from part three.
+CLAIRE: Their follow ends. Once the move is settled, whether members moved, the feed never answered, or nobody had the membership, every remaining directory follow is deleted, in the same archive run. A takedown deletes them too. Their clips stay, with the snapshots from part three.
 
 TOM: And the recent-feeds job?
 
-CLAIRE: It now skips every state that blocks parsing, not just merged.
+CLAIRE: It skips every state that blocks parsing: pending archive, archived, merged, and taken down.
 
 TOM: What if a feed shows up on the list, gets retired, and then leaves the list?
 
-CLAIRE: If its show record is already gone, the feed record is deleted, up to two hundred per run. If Podcast Index ever lists that address again, Podverse adds it as new. There's no automatic revival. If the show record still exists, because clips still need its episodes, it stays archived.
+CLAIRE: On an apply run, if its show record is already gone, the feed record is deleted, up to two hundred per run. A dry run only logs how many it would delete. If Podcast Index ever lists that address again, Podverse adds it as new. There's no automatic revival. If the show record still exists, because clips still need its episodes, it stays archived.
 
 (pause)
 
 TOM: Now the record for listeners. Where does it live?
 
-CLAIRE: In a new table, the account content log. Every row has a log type. Right now there's one type, removed content. The type leaves room for other kinds of account records later, without another table.
+CLAIRE: In a table called the account content log. Every row has a log type. Right now there's one type, removed content.
 
 TOM: What's in a row?
 
@@ -124,25 +135,25 @@ CLAIRE: Merges, because the show didn't go anywhere. Queue pruning. And episodes
 
 TOM: Could a big show write a flood of rows?
 
-CLAIRE: There are guards. At most one hundred rows per account, with older rows trimmed on insert. At most five thousand new rows for any one show. Past that, follows still end, and the run logs a warning. Writes go in chunks of five hundred accounts.
+CLAIRE: There are guards. At most one hundred rows per account, with older rows trimmed on each write. At most five thousand rows for any one show in one write. Past that, follows still end, and the run logs a warning.
 
 TOM: How long do rows last?
 
-CLAIRE: Thirty days from the last update, set by the account content log retention days setting. A daily worker at four fifteen in the morning deletes older rows. Counting from the last update keeps a row that was just updated by a takedown.
+CLAIRE: Thirty days from the last update, set by the account content log retention days setting. A daily worker at four fifteen in the morning deletes older rows.
 
 (pause)
 
 TOM: What does the listener actually see?
 
-CLAIRE: Only signed-in listeners see it. On the web, Settings gets a new tab, Advanced, with a Removed Content list. On the phone, it's More, then Advanced, then Removed Content, next to Error Log. Both read one endpoint, the account content log, newest first.
+CLAIRE: Any signed-in listener can see it. No membership needed. On the web, Settings has a tab called Advanced, with a Removed Content list. On the phone, it's More, then Advanced, then Removed Content, just below Error Log. Both read one endpoint, newest first, at most one hundred entries.
 
 TOM: What does an entry say?
 
-CLAIRE: Short sentences. The show is no longer in the directory, or was taken down. Your follow was moved to Add by RSS, or your follow ended. Then a count when it's above zero, like three of your clips now show Content Removed. With no entries, it says nothing in your library was removed in the last thirty days.
+CLAIRE: Short sentences. The show's title, or "A show" when there isn't one, is no longer in the directory, or was taken down. Your follow was moved to Add by RSS, or your follow ended. Then a count when it's above zero, like three of your clips now show Content Removed. Entries are text, not links. With no entries, it says nothing in your library was removed in the last thirty days.
 
 TOM: Does the phone still write its own Error Log line when a show drops?
 
-CLAIRE: Not when you're signed in. Removed Content already explains it, so a signed-in request skips that local line. Signed-out listeners still get it, because they have no server record.
+CLAIRE: Not when you're signed in. The phone still unfollows, but it skips the line that says the show was removed, because Removed Content explains it. Signed-out listeners still get that line, because they can't open Removed Content. The line that says a show moved to Add by RSS stays for everyone.
 
 (pause)
 

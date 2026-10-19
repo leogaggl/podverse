@@ -56,11 +56,7 @@ const STATUS_FILTERS: FeedMergeStatusFilter[] = [
   'all',
 ];
 
-const REJECT_FROM: ReadonlySet<FeedMergeStatus> = new Set([
-  'detected',
-  'verified',
-  'needs_review',
-]);
+const REJECT_FROM: ReadonlySet<FeedMergeStatus> = new Set(['detected', 'verified', 'needs_review']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -265,16 +261,13 @@ export function MergeReviewPageClient({ user }: MergeReviewPageClientProps) {
 
   const fromLabel =
     detail === null ? '' : (detail.from_channel_title ?? String(detail.from_podcast_index_id));
-  const approveEnabled = canUpdate && detail !== null && detail.status === 'needs_review' && !pending;
-  const rejectEnabled =
-    canUpdate && detail !== null && REJECT_FROM.has(detail.status) && !pending;
+  const approveEnabled =
+    canUpdate && detail !== null && detail.status === 'needs_review' && !pending;
+  const rejectEnabled = canUpdate && detail !== null && REJECT_FROM.has(detail.status) && !pending;
   const revertEnabled = canUpdate && detail !== null && detail.status === 'applied' && !pending;
-  const matched =
-    detail === null ? null : readStatCount(detail.match_stats, 'matched');
-  const oldCount =
-    detail === null ? null : readStatCount(detail.match_stats, 'oldCount');
-  const survivorCount =
-    detail === null ? null : readStatCount(detail.match_stats, 'survivorCount');
+  const matched = detail === null ? null : readStatCount(detail.match_stats, 'matched');
+  const oldCount = detail === null ? null : readStatCount(detail.match_stats, 'oldCount');
+  const survivorCount = detail === null ? null : readStatCount(detail.match_stats, 'survivorCount');
 
   return (
     <ManagementPageShell
@@ -418,7 +411,9 @@ export function MergeReviewPageClient({ user }: MergeReviewPageClientProps) {
                       </Table.Head>
                       <Table.Body>
                         {detail.item_pairs.map((pair, index) => (
-                          <Table.Row key={`${pair.from_title ?? ''}-${pair.to_title ?? ''}-${index}`}>
+                          <Table.Row
+                            key={`${pair.from_title ?? ''}-${pair.to_title ?? ''}-${index}`}
+                          >
                             <Table.Cell>{pair.from_title ?? t('emptyValue')}</Table.Cell>
                             <Table.Cell>{pair.to_title ?? t('emptyValue')}</Table.Cell>
                             <Table.Cell>{tierLabel(pair.match_tier)}</Table.Cell>

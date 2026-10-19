@@ -1241,6 +1241,19 @@
       "import_rate_limited": "You can add up to {limit} feeds per hour. To finish importing the rest, try again after {time}.",
       "import_rate_limited_time": "{minutes, plural, one {# minute} other {# minutes}}"
     },
+    "advanced": {
+      "advanced": "Advanced",
+      "removed_content": "Removed Content",
+      "empty": "Nothing in your library was removed in the last 30 days.",
+      "load_error": "Could not load removed content.",
+      "left_directory": "{title} is no longer in the directory.",
+      "taken_down": "{title} was taken down.",
+      "moved_to_add_by_rss": "Your follow was moved to Add by RSS.",
+      "follow_ended": "Your follow ended.",
+      "clips": "{count, plural, one {# of your clips now shows Content Removed.} other {# of your clips now show Content Removed.}}",
+      "playlist_entries": "{count, plural, one {# of your playlist entries now shows Content Removed.} other {# of your playlist entries now show Content Removed.}}",
+      "unknown_show": "A show"
+    },
     "keyboard": {
       "keyboard": "Keyboard",
       "intro": "These shortcuts work across the site when focus is not inside a text field, search box, or other editable control.",

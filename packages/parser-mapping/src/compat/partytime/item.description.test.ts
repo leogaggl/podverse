@@ -20,9 +20,7 @@ function episode(overrides: Partial<Episode> = {}): Episode {
 }
 
 const longParagraphs = (count: number): string =>
-  Array.from({ length: count }, (_, index) => `<p>${String(index).padEnd(1000, 'x')}</p>`).join(
-    ''
-  );
+  Array.from({ length: count }, (_, index) => `<p>${String(index).padEnd(1000, 'x')}</p>`).join('');
 
 describe('compatItemDescriptionDto', () => {
   it('prefers content:encoded over the description', () => {

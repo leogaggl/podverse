@@ -53,15 +53,7 @@ describe('resolvePodcastSections', () => {
         },
         hasSoundbites: true,
       })
-    ).toEqual([
-      'episodes',
-      'downloaded',
-      'about',
-      'clips',
-      'soundbites',
-      'podroll',
-      'funding',
-    ]);
+    ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'soundbites', 'podroll', 'funding']);
   });
 
   it('puts People after Funding when the channel has people', () => {

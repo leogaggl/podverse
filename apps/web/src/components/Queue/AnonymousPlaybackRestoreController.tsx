@@ -96,7 +96,11 @@ export function AnonymousPlaybackRestoreController() {
           if (!fullClip || loggedInAccountRef.current) {
             return;
           }
-          const fullItem = await api.reqItemGetByIdOrIdText(fullClip.item.id_text);
+          const clipItem = fullClip.item;
+          if (clipItem === null || clipItem === undefined) {
+            return;
+          }
+          const fullItem = await api.reqItemGetByIdOrIdText(clipItem.id_text);
           if (!fullItem || loggedInAccountRef.current) {
             return;
           }

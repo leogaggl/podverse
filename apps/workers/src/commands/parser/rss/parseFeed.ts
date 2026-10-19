@@ -4,8 +4,8 @@ import { getPodcastIndexService } from '@workers/factories/podcastIndexService.j
 
 import { hasImageHints, MQ_IMAGE_SHRINK_HINTS_CONFIG, MQ_QUEUES } from '@podverse/helpers';
 import { mqImageShrinkHintAdd, mqRSSAdd as mqRSSAddFunction } from '@podverse/mq';
-import { parseRSSFeedAndSaveToDatabase } from '@podverse/parser';
 import type { ParseRSSFeedAndSaveToDatabaseOptions } from '@podverse/parser';
+import { parseRSSFeedAndSaveToDatabase } from '@podverse/parser';
 
 /**
  * Fetches the feed URL from the Podcast Index, parses the RSS, persists to the DB, and

@@ -7,8 +7,8 @@ import { FEED_CONTAINER_ID_MAX_LENGTH } from '@orm/lib/feedTableLimits.js';
 import type { Relation } from 'typeorm';
 import { Column, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
-import { DATABASE_CONSTANTS } from '@podverse/helpers';
 import type { DescriptionLengthTierEnum } from '@podverse/helpers';
+import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
 import type { FeedLog } from './feedLog.js';
 

@@ -13,7 +13,7 @@ Decisions: [00-SUMMARY.md](./00-SUMMARY.md). Order:
 Phases are sequential. Wait for every prompt in a phase before the next phase. Prompts in the
 same phase may run at the same time.
 
-Before phase 1, finish and commit the `pi-duplicate-feed-merge` set. See the first section of
+`pi-duplicate-feed-merge` is already finished. See the first section of
 [00-EXECUTION-ORDER.md](./00-EXECUTION-ORDER.md).
 
 ## Model per prompt
@@ -37,7 +37,7 @@ Escalate to **Opus 5.5** only when the failure is a design question.
 
 Run both. Wait for both.
 
-- [ ] **01 — Description ingest helpers**
+- [x] **01 — Description ingest helpers**
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
@@ -51,7 +51,7 @@ When the plan is done, move 01-description-ingest-helpers.md to
 .llm/plans/completed/feed-description-tiers/ and leave the rest of the set in active/.
 ```
 
-- [ ] **02 — Partytime raw description**
+- [x] **02 — Partytime raw description**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -71,7 +71,7 @@ When the plan is done, move 02-partytime-raw-description.md (in the Podverse rep
 
 Start only after 01 and 02 are done. The Partytime release may still be pending.
 
-- [ ] **03 — Schema, ORM, and DTO fields**
+- [x] **03 — Schema, ORM, and DTO fields**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -89,7 +89,7 @@ When the plan is done, move 03-description-schema.md to
 
 Start only after 03 is done. Run all three. Wait for all three.
 
-- [ ] **04 — Parser tier wiring, reparse job, backfill**
+- [x] **04 — Parser tier wiring, reparse job, backfill**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -103,7 +103,7 @@ When the plan is done, move 04-parser-tier-wiring.md to
 .llm/plans/completed/feed-description-tiers/.
 ```
 
-- [ ] **05 — Management tier controls**
+- [x] **05 — Management tier controls**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -117,7 +117,7 @@ When the plan is done, move 05-management-tier-controls.md to
 .llm/plans/completed/feed-description-tiers/.
 ```
 
-- [ ] **06 — API description contract**
+- [x] **06 — API description contract**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -136,7 +136,7 @@ When the plan is done, move 06-api-description-contract.md to
 Start only after 04, 05, and 06 are done. Run both. Wait for both before the cumulative
 commands.
 
-- [ ] **07 — Web previews and truncation notice**
+- [x] **07 — Web previews and truncation notice**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -149,7 +149,7 @@ When the plan is done, move 07-web-description-preview.md to
 .llm/plans/completed/feed-description-tiers/.
 ```
 
-- [ ] **08 — Mobile previews, show notes cache, offline notes**
+- [x] **08 — Mobile previews, show notes cache, offline notes**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -194,27 +194,23 @@ open .artifacts/mobile-e2e-reports/latest/ios-phone/index.html
 open .artifacts/mobile-e2e-reports/latest/android-phone/index.html
 ```
 
-## Between phase 4 and phase 5
-
-Roll out phases 1 to 4 to alpha, run the backfill, and set the Podcasting 2.0 feed's tier. The
-steps are in the Rollout section of [00-EXECUTION-ORDER.md](./00-EXECUTION-ORDER.md). Then ship
-a mobile store build that contains 08.
-
 ## Phase 5
 
-Start only when the mobile store build with 08 is the oldest build testers run. This can be
-weeks after phase 4. Do not run it in the same session.
+01–08 are done. Run 09 now. It ships in the same alpha deploy as the rest of this set.
+Nobody is testing alpha, and the app database can be wiped, so there is no store-build wait.
+Alpha rollout steps are in [00-EXECUTION-ORDER.md](./00-EXECUTION-ORDER.md). Run them after 09
+is in the tree, as one deploy.
 
-- [ ] **09 — Narrow list payloads**
+- [x] **09 — Narrow list payloads**
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
 ```
 Read and execute .llm/plans/active/feed-description-tiers/09-narrow-list-payloads.md
-Follow 00-EXECUTION-ORDER.md. The operator confirmed that the mobile build with the show
-notes cache is the oldest build testers run. Every server reader of value either goes
-through a detail path or selects the column explicitly. Do not hide missing values with
-empty-string fallbacks. Update apps/api/openapi.yml.
+Follow 00-EXECUTION-ORDER.md. No installed client depends on list responses still
+including value. Every server reader of value either goes through a detail path or
+selects the column explicitly. Do not hide missing values with empty-string fallbacks.
+Update apps/api/openapi.yml.
 Do not run the test suite. End with the whole-set verification commands from the plan.
 When the plan is done, move 09-narrow-list-payloads.md to
 .llm/plans/completed/feed-description-tiers/.

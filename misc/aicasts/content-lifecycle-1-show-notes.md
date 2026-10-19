@@ -9,8 +9,8 @@
   player and for offline listening.
 - **Status:** Built
 - **Group:** Content Lifecycle, part 1
-- **Sources:** `.llm/plans/active/feed-description-tiers/` (finished prompts under
-  `.llm/plans/completed/feed-description-tiers/`); `packages/helpers/src/lib/descriptionIngest.ts`,
+- **Sources:** `.llm/plans/completed/feed-description-tiers/`;
+  `packages/helpers/src/lib/descriptionIngest.ts`,
   `packages/helpers/src/lib/descriptionLimits.ts`, `packages/helpers/src/lib/descriptionPreview.ts`,
   `infra/k8s/base/ops/source/database/linear-migrations/app/0016_description_length_tiers.sql`,
   `apps/workers/src/commands/orm/descriptions/`,

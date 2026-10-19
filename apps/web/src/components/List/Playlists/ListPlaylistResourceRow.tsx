@@ -356,9 +356,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
   }
 
   if (isRemovedSource(playlistResource)) {
-    return (
-      <RemovedPlaylistEntryRow playlistResource={playlistResource} />
-    );
+    return <RemovedPlaylistEntryRow playlistResource={playlistResource} />;
   }
 
   if (item) {
@@ -437,11 +435,7 @@ function nonEmptyTitle(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
-function RemovedPlaylistEntryRow({
-  playlistResource,
-}: {
-  playlistResource: DTOPlaylistResource;
-}) {
+function RemovedPlaylistEntryRow({ playlistResource }: { playlistResource: DTOPlaylistResource }) {
   const tInfo = useTranslations('info');
   const config = useConfig();
   const source = playlistResource.removed_source;

@@ -88,9 +88,10 @@ export const ListClipRow: React.FC<Props> = ({
   const tMisc = useTranslations('misc');
   const tInstructions = useTranslations('instructions');
   const sourceRemoved = isRemovedSource(clip);
-  const snapshotTitles = [clip.removed_source?.item_title, clip.removed_source?.channel_title].filter(
-    (part): part is string => typeof part === 'string' && part.length > 0
-  );
+  const snapshotTitles = [
+    clip.removed_source?.item_title,
+    clip.removed_source?.channel_title,
+  ].filter((part): part is string => typeof part === 'string' && part.length > 0);
   const { mpClip, mpIsPlaying, setMPIsPlaying } = useMediaPlayer();
   const { loggedInAccount } = useAccount();
   const { setModalPlaylistAddTo, setModalLoginRequired } = useModals();
@@ -202,7 +203,7 @@ export const ListClipRow: React.FC<Props> = ({
 
     setModalPlaylistAddTo({
       channel: channel || clip.item?.channel || null,
-      item: item || clip.item,
+      item: item ?? null,
       clip: clip,
       item_soundbite: null,
     });
@@ -360,14 +361,12 @@ export const ListClipRow: React.FC<Props> = ({
         <div className={styles.bottomSection}>
           <div className={styles.bottomSectionStart}>
             {sourceRemoved ? (
-              <div className={styles.timeSection}>
-                {tInfo('removed.content_removed')}
-              </div>
+              <div className={styles.timeSection}>{tInfo('removed.content_removed')}</div>
             ) : (
               <>
                 <PlayButtonRow
                   clip={clip}
-                  item={item || clip.item}
+                  item={item ?? null}
                   onClick={onPlayAndRemove ?? playButtonOnClick}
                 />
                 <div className={styles.timeSection}>

@@ -229,6 +229,21 @@
     "notice_label": "Custom API",
     "notice_body": "Sign-in, sign-up, feed passwords, and store purchases in this app go to this server. A page opened in the browser uses the public website, which does not."
   },
+  "removed_content": {
+    "title": "Removed Content",
+    "menu_subtitle": "Shows and items removed from your library",
+    "empty": "Nothing in your library was removed in the last 30 days.",
+    "load_error": "Could not load removed content.",
+    "left_directory": "{title} is no longer in the directory.",
+    "taken_down": "{title} was taken down.",
+    "moved_to_add_by_rss": "Your follow was moved to Add by RSS.",
+    "follow_ended": "Your follow ended.",
+    "clips_one": "{count} of your clips now shows Content Removed.",
+    "clips_other": "{count} of your clips now show Content Removed.",
+    "playlist_entries_one": "{count} of your playlist entries now shows Content Removed.",
+    "playlist_entries_other": "{count} of your playlist entries now show Content Removed.",
+    "unknown_show": "A show"
+  },
   "error_log": {
     "title": "Error Log",
     "menu_subtitle": "Playback, RSS feed, and sync problems recorded on this device",

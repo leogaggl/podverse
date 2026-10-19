@@ -76,6 +76,7 @@ import { MoreIdentityRemapScreen } from '../screens/more/MoreIdentityRemapScreen
 import { MoreMembershipExtendScreen } from '../screens/more/MoreMembershipExtendScreen';
 import { MoreMembershipScreen } from '../screens/more/MoreMembershipScreen';
 import { MoreOpmlScreen } from '../screens/more/MoreOpmlScreen';
+import { MoreRemovedContentScreen } from '../screens/more/MoreRemovedContentScreen';
 import { MoreSettingsAppearanceScreen } from '../screens/more/MoreSettingsAppearanceScreen';
 import { MoreSettingsAutoDownloadCatchUpScreen } from '../screens/more/MoreSettingsAutoDownloadCatchUpScreen';
 import { MoreSettingsDownloadLimitScreen } from '../screens/more/MoreSettingsDownloadLimitScreen';
@@ -241,6 +242,7 @@ export const MORE_STACK_ROUTES = {
   MoreCustomApi: 'MoreCustomApi',
   MoreErrorLog: 'MoreErrorLog',
   MoreErrorLogDetail: 'MoreErrorLogDetail',
+  MoreRemovedContent: 'MoreRemovedContent',
 } as const;
 
 export const ROOT_STACK_ROUTES = {
@@ -288,6 +290,7 @@ const moreTabLinkScreens = {
   MoreE2ePlayback: 'more/e2e/playback',
   MoreIdentityRemap: 'more/e2e/identity-remap',
   MoreErrorLog: 'more/advanced/error-log',
+  MoreRemovedContent: 'more/advanced/removed-content',
   MoreFaq: 'more/faq',
   MoreMembership: `more${APP_ROUTES.MEMBERSHIP}`,
   MoreMembershipExtend: `more${APP_ROUTES.MEMBERSHIP_RENEW}`,
@@ -555,6 +558,7 @@ export type MoreStackParamList = {
   MoreCustomApi: undefined;
   MoreErrorLog: undefined;
   MoreErrorLogDetail: { entryId: number };
+  MoreRemovedContent: undefined;
 };
 
 /** Slide-up image viewer. `addByRssFeedUrl` is a feed URL, never a request header. */
@@ -1317,6 +1321,11 @@ function MoreStackNavigator({
         component={MoreErrorLogScreen}
         name={MORE_STACK_ROUTES.MoreErrorLog}
         options={{ title: t('error_log.title') }}
+      />
+      <MoreStack.Screen
+        component={MoreRemovedContentScreen}
+        name={MORE_STACK_ROUTES.MoreRemovedContent}
+        options={{ title: t('removed_content.title') }}
       />
       <MoreStack.Screen
         component={MoreErrorLogDetailScreen}

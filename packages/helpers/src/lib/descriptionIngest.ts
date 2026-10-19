@@ -1,14 +1,11 @@
+import type { DescriptionNode } from './descriptionDocument.js';
 import {
   buildDescriptionTree,
   descriptionNodesToPlainText,
   serializeDescriptionNodes,
 } from './descriptionDocument.js';
-import type { DescriptionNode } from './descriptionDocument.js';
-import {
-  DESCRIPTION_LENGTH_TIERS,
-  DESCRIPTION_PREVIEW_MAX_LENGTH,
-} from './descriptionLimits.js';
 import type { DescriptionLengthTierEnum } from './descriptionLimits.js';
+import { DESCRIPTION_LENGTH_TIERS, DESCRIPTION_PREVIEW_MAX_LENGTH } from './descriptionLimits.js';
 import { htmlToPlainText } from './html.js';
 
 export type PreparedDescription = {
@@ -25,10 +22,7 @@ const HEADING_KINDS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 const collapseWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
 const escapePlainText = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+  value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
 const asParagraphHtml = (input: string): string => {
   const normalized = input.replace(/\r\n?/g, '\n');
@@ -47,7 +41,8 @@ const asParagraphHtml = (input: string): string => {
 const isVisible = (value: string | undefined): boolean =>
   value !== undefined && htmlToPlainText(value).trim().length > 0;
 
-const visibleLength = (node: DescriptionNode): number => descriptionNodesToPlainText([node], '\n').length;
+const visibleLength = (node: DescriptionNode): number =>
+  descriptionNodesToPlainText([node], '\n').length;
 
 const withTextNode = (node: DescriptionNode, text: string): DescriptionNode => {
   if (node.kind === 'text') {
@@ -72,7 +67,10 @@ const withTextNode = (node: DescriptionNode, text: string): DescriptionNode => {
   return { kind: node.kind, children: [{ kind: 'text', text }] };
 };
 
-const truncateFirstBlockText = (node: DescriptionNode, maxLength: number): DescriptionNode | null => {
+const truncateFirstBlockText = (
+  node: DescriptionNode,
+  maxLength: number
+): DescriptionNode | null => {
   if (maxLength <= 0) {
     return null;
   }
@@ -100,12 +98,16 @@ const truncateFirstBlockText = (node: DescriptionNode, maxLength: number): Descr
 };
 
 const truncateListNode = (
-  node: Extract<DescriptionNode, { kind: 'ul' | 'ol' }>,
+  node: DescriptionNode,
   maxLength: number,
   allowFirstBlockTextCut: boolean
 ): DescriptionNode | null => {
+  if (node.kind !== 'ul' && node.kind !== 'ol') {
+    return null;
+  }
+
   let remaining = maxLength;
-  const keptItems: Extract<DescriptionNode, { kind: 'li' }>[] = [];
+  const keptItems: DescriptionNode[] = [];
 
   for (const child of node.children) {
     if (child.kind !== 'li') {

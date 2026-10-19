@@ -31,6 +31,14 @@ export function MoreAdvancedScreen() {
         testID: 'more-advanced-error-log',
         title: t('error_log.title'),
       },
+      {
+        onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreRemovedContent);
+        },
+        subtitle: t('removed_content.menu_subtitle'),
+        testID: 'more-advanced-removed-content',
+        title: t('removed_content.title'),
+      },
     ],
     [navigation, t]
   );

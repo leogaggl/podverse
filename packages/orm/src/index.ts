@@ -31,6 +31,7 @@ export {
 export * from './db/index.js';
 
 export * from './entities/account/account.js';
+export * from './entities/account/accountContentLog.js';
 export * from './entities/account/accountCredentials.js';
 export * from './entities/account/accountEmailChangeVerification.js';
 export * from './entities/account/accountDeviceAutoDownloadChannel.js';
@@ -233,6 +234,7 @@ export * from './services/account/accountSettings/accountSettingsPlayback.js';
 export * from './services/account/accountUPDevice.js';
 export * from './services/account/accountVerification.js';
 export * from './services/account/accountWebPushDevice.js';
+export * from './services/accountContentLog.js';
 export * from './services/archivedChannelCleanup.js';
 export * from './services/archivedFollowConversion.js';
 export * from './services/archivedSlimming.js';

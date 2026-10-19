@@ -234,7 +234,10 @@ describe('scheduledJobsRunDue', () => {
 
       await scheduledJobsRunDue({ _: [] });
 
-      expect(markCancelledMock).toHaveBeenCalledWith(31, 'Feed may not be parsed (lifecycle=merged)');
+      expect(markCancelledMock).toHaveBeenCalledWith(
+        31,
+        'Feed may not be parsed (lifecycle=merged)'
+      );
       expect(parsePodcastIndexFeedDirectlyMock).not.toHaveBeenCalled();
     });
 

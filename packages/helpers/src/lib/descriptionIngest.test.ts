@@ -2,14 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { readDescriptionDocument } from './descriptionDocument.js';
 import {
-  prepareDescriptionForStorage,
   pickChannelDescriptionSource,
   pickItemDescriptionSource,
+  prepareDescriptionForStorage,
 } from './descriptionIngest.js';
-import {
-  DescriptionLengthTierEnum,
-  suggestDescriptionLengthTier,
-} from './descriptionLimits.js';
+import { DescriptionLengthTierEnum, suggestDescriptionLengthTier } from './descriptionLimits.js';
 import { getDescriptionPreviewText, isDescriptionTruncated } from './descriptionPreview.js';
 
 const buildLongShowNotes = (): string => {
@@ -24,7 +21,10 @@ const buildLongShowNotes = (): string => {
 
 describe('prepareDescriptionForStorage', () => {
   it('keeps rich markup and truncates long list notes at list-item boundaries', () => {
-    const prepared = prepareDescriptionForStorage(buildLongShowNotes(), DescriptionLengthTierEnum.Standard);
+    const prepared = prepareDescriptionForStorage(
+      buildLongShowNotes(),
+      DescriptionLengthTierEnum.Standard
+    );
 
     expect(prepared).not.toBeNull();
     expect(prepared?.is_truncated).toBe(true);
@@ -37,7 +37,10 @@ describe('prepareDescriptionForStorage', () => {
   it('repairs old raw truncation that lands inside href markup', () => {
     const source = `<p>Start</p><a href="https://example.com/${'x'.repeat(2900)}">Read</a>`;
     const legacyTruncated = source.slice(0, 2500);
-    const prepared = prepareDescriptionForStorage(legacyTruncated, DescriptionLengthTierEnum.Standard);
+    const prepared = prepareDescriptionForStorage(
+      legacyTruncated,
+      DescriptionLengthTierEnum.Standard
+    );
 
     expect(prepared).not.toBeNull();
     expect(readDescriptionDocument(prepared?.value).rich).not.toBeNull();
@@ -91,12 +94,15 @@ describe('prepareDescriptionForStorage', () => {
     );
 
     expect(prepared).not.toBeNull();
-    expect(prepared?.preview).toBe("A & B ’ C");
+    expect(prepared?.preview).toBe('A & B ’ C');
     expect(prepared?.value.includes('&amp;')).toBe(true);
     expect(prepared?.value.includes('&nbsp;')).toBe(false);
     expect(prepared?.value.includes('&amp;amp;')).toBe(false);
 
-    const reparsed = prepareDescriptionForStorage(prepared?.value ?? '', DescriptionLengthTierEnum.Standard);
+    const reparsed = prepareDescriptionForStorage(
+      prepared?.value ?? '',
+      DescriptionLengthTierEnum.Standard
+    );
     expect(reparsed?.value).toBe(prepared?.value);
     expect(reparsed?.preview).toBe(prepared?.preview);
     expect(reparsed?.is_truncated).toBe(false);
@@ -104,7 +110,10 @@ describe('prepareDescriptionForStorage', () => {
 
   it('cuts a too-long first block at a word boundary with an ellipsis', () => {
     const giantParagraph = `<p>${'word '.repeat(2_400)}</p>`;
-    const prepared = prepareDescriptionForStorage(giantParagraph, DescriptionLengthTierEnum.Standard);
+    const prepared = prepareDescriptionForStorage(
+      giantParagraph,
+      DescriptionLengthTierEnum.Standard
+    );
 
     expect(prepared).not.toBeNull();
     expect(prepared?.is_truncated).toBe(true);

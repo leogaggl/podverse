@@ -9,6 +9,7 @@ import { ItemMergeMap, ItemMergeMatchTier } from '@orm/entities/channel/itemMerg
 import { Feed } from '@orm/entities/feed/feed.js';
 import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleStateType.js';
 import { FeedLifecycleUpdateSourceEnum } from '@orm/entities/feed/feedLifecycleUpdateSource.js';
+import { loggerService } from '@orm/factories/loggerService.js';
 import type {
   DuplicateMatchTier,
   MatchFeed,
@@ -18,8 +19,6 @@ import type {
 import { assessDuplicatePair } from '@orm/lib/duplicateFeedMatch.js';
 import { isPodcastGuidUniqueViolation } from '@orm/lib/postgresUniqueViolation.js';
 import type { EntityManager } from 'typeorm';
-
-import { logger } from '@podverse/helpers';
 
 import { FeedService } from '../feed/feed.js';
 import type { SqlKey } from './channelMergeRowJournal.js';
@@ -1040,7 +1039,7 @@ async function applyMerge(
 }
 
 function warnMerge(channelMergeId: number, error: unknown): void {
-  logger.warn('Duplicate merge failed', { channelMergeId, error });
+  loggerService.warn('Duplicate merge failed', { channelMergeId, error });
 }
 
 export async function verifyAndApplyDuplicateMerges(

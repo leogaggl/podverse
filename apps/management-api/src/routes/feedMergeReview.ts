@@ -172,29 +172,24 @@ export function registerFeedMergeReviewRoutes(router: Router): void {
     }
   });
 
-  router.get(
-    '/merges/:id',
-    ensureAuthenticated,
-    requireCrud('feeds', 'read'),
-    async (req, res) => {
-      const id = parseIdParam(req.params.id);
-      if (id === null || id <= 0) {
-        res.status(400).json({ message: 'Invalid id' });
+  router.get('/merges/:id', ensureAuthenticated, requireCrud('feeds', 'read'), async (req, res) => {
+    const id = parseIdParam(req.params.id);
+    if (id === null || id <= 0) {
+      res.status(400).json({ message: 'Invalid id' });
+      return;
+    }
+    try {
+      const merge = await getFeedMerge(id);
+      if (merge === null) {
+        res.status(404).json({ message: 'Merge not found' });
         return;
       }
-      try {
-        const merge = await getFeedMerge(id);
-        if (merge === null) {
-          res.status(404).json({ message: 'Merge not found' });
-          return;
-        }
-        res.json({ merge });
-      } catch (err) {
-        console.error('[feeds/merges/:id]', err);
-        res.status(500).json({ message: 'Internal server error' });
-      }
+      res.json({ merge });
+    } catch (err) {
+      console.error('[feeds/merges/:id]', err);
+      res.status(500).json({ message: 'Internal server error' });
     }
-  );
+  });
 
   router.post(
     '/merges/:id/approve',

@@ -2,7 +2,6 @@ import type { Account } from '@orm/entities/account/account.js';
 import type { Item } from '@orm/entities/item/item.js';
 import type { SharableStatus } from '@orm/entities/sharableStatus.js';
 import { generateRandomIdText, NANO_ID_V2_MAX_LENGTH } from '@orm/lib/nanoid.js';
-import type { DTORemovedSource } from '@podverse/helpers';
 import type { Relation } from 'typeorm';
 import {
   BeforeInsert,
@@ -13,6 +12,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+import type { DTORemovedSource } from '@podverse/helpers';
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
 @Entity('clip')

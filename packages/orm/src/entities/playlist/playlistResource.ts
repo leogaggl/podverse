@@ -1,7 +1,8 @@
 import type { Playlist } from '@orm/entities/playlist/playlist.js';
-import type { DTORemovedSource } from '@podverse/helpers';
 import type { Relation } from 'typeorm';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+
+import type { DTORemovedSource } from '@podverse/helpers';
 
 import type { Clip } from '../clip.js';
 import type { Item } from '../item/item.js';

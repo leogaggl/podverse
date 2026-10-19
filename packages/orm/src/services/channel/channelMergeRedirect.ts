@@ -184,7 +184,9 @@ export class ChannelMergeRedirectService {
     if (unique.length === 0) {
       return [];
     }
-    const value: unknown = await AppDataSourceRead.manager.query(APPLIED_PODCAST_INDEX_SQL, [unique]);
+    const value: unknown = await AppDataSourceRead.manager.query(APPLIED_PODCAST_INDEX_SQL, [
+      unique,
+    ]);
     const moves: ChannelMergePodcastIndexMove[] = [];
     const seen = new Set<number>();
     for (const row of rowsOf(value)) {

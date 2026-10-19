@@ -51,7 +51,11 @@ const mergedChannelIdText = (error: unknown): string | null => {
   if (!('kind' in merged) || !('id_text' in merged)) {
     return null;
   }
-  if (merged.kind !== 'channel' || typeof merged.id_text !== 'string' || merged.id_text.length === 0) {
+  if (
+    merged.kind !== 'channel' ||
+    typeof merged.id_text !== 'string' ||
+    merged.id_text.length === 0
+  ) {
     return null;
   }
   return merged.id_text;
@@ -128,13 +132,16 @@ const dropDirectoryFollow = async (
     source: 'directory',
   });
 
-  await syncEventLogRepository.append({
-    errorCode,
-    jobKind: 'channel-items',
-    message: formatDirectoryChannelGoneDetail(params.channelIdText, title),
-    occurredAt: Date.now(),
-    outcome: 'reconciled',
-  });
+  // Signed-in gone drops are on Removed Content. Signed-out users only have this device log.
+  if (errorCode !== DIRECTORY_CHANNEL_GONE_CODE || params.context.accessToken === null) {
+    await syncEventLogRepository.append({
+      errorCode,
+      jobKind: 'channel-items',
+      message: formatDirectoryChannelGoneDetail(params.channelIdText, title),
+      occurredAt: Date.now(),
+      outcome: 'reconciled',
+    });
+  }
 
   homeFeedRefresh.notify();
 };

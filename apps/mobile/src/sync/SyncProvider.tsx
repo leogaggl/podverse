@@ -42,8 +42,8 @@ import {
 } from '../prefs/offlineMode';
 import { subscribeTermsBlocksAccountSync, termsBlocksAccountSync } from '../terms/termsSyncGate';
 import { publishPlaybackPositionAdoptions } from './playbackPositionAdoption';
-import { registerAddByRssRefreshRequest } from './requestAddByRssRefresh';
 import { publishPlaybackReconcileConflicts } from './playbackReconcileConflict';
+import { registerAddByRssRefreshRequest } from './requestAddByRssRefresh';
 import { attachSyncEventLogSink } from './syncEventLogSink';
 import type { SyncTrigger } from './syncJobPlan';
 import { planSyncRun } from './syncJobPlan';

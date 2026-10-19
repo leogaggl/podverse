@@ -11,6 +11,7 @@ import {
   readBucketStorageConfig,
 } from '@podverse/external-services-object-storage';
 import {
+  DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -263,11 +264,20 @@ function readPodcastIndexDuplicateMergeMode(): PodcastIndexDuplicateMergeMode {
   throw new Error('PODCAST_INDEX_DUPLICATE_MERGE_MODE must be off, dry_run, or apply');
 }
 
+function readPodcastIndexDeadFeedRetireMode(): PodcastIndexDuplicateMergeMode {
+  const value = process.env.PODCAST_INDEX_DEAD_FEED_RETIRE_MODE!;
+  if (isPodcastIndexDuplicateMergeMode(value)) {
+    return value;
+  }
+  throw new Error('PODCAST_INDEX_DEAD_FEED_RETIRE_MODE must be off, dry_run, or apply');
+}
+
 export type PodcastIndexConfig = {
   authKey: string;
   baseUrl: string;
   secretKey: string;
   duplicateMergeMode: PodcastIndexDuplicateMergeMode;
+  deadFeedRetireMode: PodcastIndexDuplicateMergeMode;
   rateLimitDelay?: number;
   maxRetries?: number;
   retryBaseDelayMs?: number;
@@ -288,6 +298,7 @@ export function getPodcastIndexConfig(): PodcastIndexConfig {
     baseUrl: process.env.PODCAST_INDEX_BASE_URL!,
     secretKey: process.env.PODCAST_INDEX_SECRET_KEY!,
     duplicateMergeMode: readPodcastIndexDuplicateMergeMode(),
+    deadFeedRetireMode: readPodcastIndexDeadFeedRetireMode(),
     ...(rateLimitDelay > 0 && { rateLimitDelay }),
     ...(maxRetries !== undefined && Number.isFinite(maxRetries) && { maxRetries }),
     ...(retryBaseDelayMs !== undefined &&
@@ -419,6 +430,19 @@ export function getNotificationsRetentionConfig(): NotificationsRetentionConfig 
     retentionDays: resolveRetentionDays(
       process.env.NOTIFICATION_RETENTION_DAYS,
       DEFAULT_NOTIFICATION_RETENTION_DAYS
+    ),
+  };
+}
+
+export type AccountContentLogRetentionConfig = {
+  retentionDays: number;
+};
+
+export function getAccountContentLogRetentionConfig(): AccountContentLogRetentionConfig {
+  return {
+    retentionDays: resolveRetentionDays(
+      process.env.ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
+      DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS
     ),
   };
 }

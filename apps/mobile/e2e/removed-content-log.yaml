@@ -1,0 +1,41 @@
+appId: com.podverse.app.next
+name: Removed Content
+---
+# More → Advanced → Removed Content. Needs the E2E API and the seeded log row
+# (E2E_CONTENT_LOG_CHANNEL_TITLE in apps/mobile/src/lib/e2e/e2eSeedConstants.ts).
+# More is two pages on phone; iOS XCUITest omits off-screen testIDs until the row is scrolled in.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- tapOn:
+    id: tab-more
+- assertVisible:
+    id: more-screen
+- scrollUntilVisible:
+    element:
+      id: more-nav-advanced
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    centerElement: true
+- tapOn:
+    id: more-nav-advanced
+- assertVisible:
+    id: more-advanced-screen
+- scrollUntilVisible:
+    element:
+      id: more-advanced-removed-content
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    centerElement: true
+- tapOn:
+    id: more-advanced-removed-content
+- assertVisible:
+    id: removed-content-screen
+- extendedWaitUntil:
+    visible:
+      id: removed-content-row
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    text: "E2E Archived Show"
+- takeScreenshot: removed-content-row

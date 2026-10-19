@@ -83,6 +83,52 @@ function walkToLiveSurvivor(
   return null;
 }
 
+/**
+ * Held Podcast Index ids that are on the dead list and do not resolve to a live survivor.
+ * That is an empty `duplicateOf`, a cycle, or a chain that ends on another dead id.
+ */
+export function podcastIndexIdsToRetire(
+  targets: ReadonlyMap<number, number | null>,
+  heldPodcastIndexIds: ReadonlySet<number>
+): number[] {
+  const resolved = resolveDeadFeedDuplicateChains(targets);
+  const ids: number[] = [];
+  for (const podcastIndexId of heldPodcastIndexIds) {
+    if (!targets.has(podcastIndexId) || resolved.has(podcastIndexId)) {
+      continue;
+    }
+    ids.push(podcastIndexId);
+  }
+  ids.sort((left, right) => left - right);
+  return ids;
+}
+
+/** Growth above this, and above 1% of held feeds, refuses a retire run. */
+export const RETIRE_BRAKE_MIN_GROWTH = 2000;
+
+/** How many feeds one apply run may move to pending archive. */
+export const RETIRE_MAX_PER_RUN = 200;
+
+/**
+ * True when there is no stored count, or when eligible growth is above
+ * max(2000, 1% of held feeds). A drop in the eligible count is false.
+ */
+export function retireGrowthExceedsBrake(params: {
+  eligibleCount: number;
+  previousEligibleCount: number | null;
+  heldCount: number;
+}): boolean {
+  if (params.previousEligibleCount === null) {
+    return true;
+  }
+  const growth = params.eligibleCount - params.previousEligibleCount;
+  if (growth < 0) {
+    return false;
+  }
+  const limit = Math.max(RETIRE_BRAKE_MIN_GROWTH, Math.ceil(params.heldCount * 0.01));
+  return growth > limit;
+}
+
 /** Keep pairs whose dead id is a Podcast Index id we already store. */
 export function deadFeedPairsWeHold(
   resolved: ReadonlyMap<number, number>,

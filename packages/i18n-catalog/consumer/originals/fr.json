@@ -1229,6 +1229,19 @@
       "import_rate_limited": "Vous pouvez ajouter jusqu'à {limit} flux par heure. Pour terminer l'importation du reste, réessayez après {time}.",
       "import_rate_limited_time": "{minutes, plural, one {# minute} other {# minutes}}"
     },
+    "advanced": {
+      "advanced": "Avancé",
+      "removed_content": "Contenu supprimé",
+      "empty": "Rien n'a été supprimé de votre bibliothèque au cours des 30 derniers jours.",
+      "load_error": "Impossible de charger le contenu supprimé.",
+      "left_directory": "{title} n'est plus dans le répertoire.",
+      "taken_down": "{title} a été retiré.",
+      "moved_to_add_by_rss": "Votre abonnement a été déplacé vers Ajouter par RSS.",
+      "follow_ended": "Votre abonnement a pris fin.",
+      "clips": "{count, plural, one {# de vos clips affiche désormais « Contenu supprimé ».} other {# de vos clips affichent désormais « Contenu supprimé ».}}",
+      "playlist_entries": "{count, plural, one {# élément de vos playlists affiche désormais « Contenu supprimé ».} other {# éléments de vos playlists affichent désormais « Contenu supprimé ».}}",
+      "unknown_show": "Un programme"
+    },
     "keyboard": {
       "keyboard": "Clavier",
       "intro": "Ces raccourcis fonctionnent sur tout le site lorsque le focus n'est pas dans un champ de texte, une zone de recherche ou un autre contrôle éditable.",

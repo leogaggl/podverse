@@ -2,9 +2,7 @@ import type { DTOItem } from '@podverse/helpers';
 import type { ApiListResponse } from '@podverse/helpers-requests';
 
 export type ChannelItemListResult =
-  | { kind: 'ok'; response: ApiListResponse<DTOItem> }
-  | { kind: 'archived' }
-  | { kind: 'missing' };
+  { kind: 'ok'; response: ApiListResponse<DTOItem> } | { kind: 'archived' } | { kind: 'missing' };
 
 function responseOf(error: unknown): { status: number; data: unknown } | null {
   if (typeof error !== 'object' || error === null) {

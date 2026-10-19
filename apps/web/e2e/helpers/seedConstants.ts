@@ -58,6 +58,10 @@ export const E2E_ARCHIVED_SHOW_ID_TEXT = 'e2eArchShow01';
 export const E2E_ARCHIVED_SHOW_TITLE = 'E2E Archived Show';
 export const E2E_ARCHIVED_SHOW_FEED_URL = 'https://e2e-seed-archived-show.example/podcast.xml';
 
+/** Removed Content log row for the seeded E2E user. The show is the archived follow. */
+export const E2E_CONTENT_LOG_CHANNEL_ID_TEXT = E2E_ARCHIVED_SHOW_ID_TEXT;
+export const E2E_CONTENT_LOG_CHANNEL_TITLE = E2E_ARCHIVED_SHOW_TITLE;
+
 export const E2E_ITEM_CHAPTER_INTRO_ID_TEXT = 'e2eChapIntro01';
 export const E2E_ITEM_CHAPTER_TOPIC_ID_TEXT = 'e2eChapTopic01';
 /** First of `e2eChapFil01`–`e2eChapFil12` on the chaptered episode — tall Chapters pane only. */

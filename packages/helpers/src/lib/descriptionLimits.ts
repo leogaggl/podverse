@@ -45,15 +45,21 @@ export const suggestDescriptionLengthTier = (
     return null;
   }
 
-  if (longestSourceLength <= DESCRIPTION_LENGTH_TIERS[DescriptionLengthTierEnum.Standard].visibleMax) {
+  if (
+    longestSourceLength <= DESCRIPTION_LENGTH_TIERS[DescriptionLengthTierEnum.Standard].visibleMax
+  ) {
     return DescriptionLengthTierEnum.Standard;
   }
 
-  if (longestSourceLength <= DESCRIPTION_LENGTH_TIERS[DescriptionLengthTierEnum.Extended].visibleMax) {
+  if (
+    longestSourceLength <= DESCRIPTION_LENGTH_TIERS[DescriptionLengthTierEnum.Extended].visibleMax
+  ) {
     return DescriptionLengthTierEnum.Extended;
   }
 
-  if (longestSourceLength <= DESCRIPTION_LENGTH_TIERS[DescriptionLengthTierEnum.Maximum].visibleMax) {
+  if (
+    longestSourceLength <= DESCRIPTION_LENGTH_TIERS[DescriptionLengthTierEnum.Maximum].visibleMax
+  ) {
     return DescriptionLengthTierEnum.Maximum;
   }
 

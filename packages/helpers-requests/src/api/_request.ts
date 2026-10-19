@@ -56,6 +56,7 @@ import {
   reqAccountChannelSeenMarkAddByRss,
   reqAccountChannelSeenMarkAll,
 } from './account/channelSeen.js';
+import { reqAccountContentLog } from './account/contentLog.js';
 import {
   reqAccountFCMDeviceCreate,
   reqAccountFCMDeviceDelete,
@@ -798,6 +799,12 @@ export class ApiRequestService {
 
   reqAccountUnfollowPlaylist(params: { playlist_id_text: string }) {
     return reqAccountUnfollowPlaylist(this, params);
+  }
+
+  /* ACCOUNT > CONTENT LOG */
+
+  reqAccountContentLog(params: { type: 'removed_content' }) {
+    return reqAccountContentLog(this, params);
   }
 
   /* ACCOUNT > NOTIFICATION > CHANNEL */

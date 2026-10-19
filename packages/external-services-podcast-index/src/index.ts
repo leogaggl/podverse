@@ -752,7 +752,11 @@ export {
   deadFeedTargetMap,
   extractDeadFeedCsvRow,
   forEachDeadFeedCsvRow,
+  podcastIndexIdsToRetire,
   resolveDeadFeedDuplicateChains,
+  RETIRE_BRAKE_MIN_GROWTH,
+  RETIRE_MAX_PER_RUN,
+  retireGrowthExceedsBrake,
 } from './deadFeedDuplicateChains.js';
 export type { DeadFeedCsvRow, DeadFeedDuplicatePair } from './deadFeedDuplicateChains.js';
 export { iterateFeedsFromDb, type FeedRow } from './publicFeedsDb.js';

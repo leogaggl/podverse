@@ -204,6 +204,21 @@
     },
     "progress": "{completed} de {total}"
   },
+  "removed_content": {
+    "title": "Contenido eliminado",
+    "menu_subtitle": "Programas y elementos eliminados de tu biblioteca",
+    "empty": "No se eliminó nada de tu biblioteca en los últimos 30 días.",
+    "load_error": "No se pudo cargar el contenido eliminado.",
+    "left_directory": "{title} ya no está en el directorio.",
+    "taken_down": "{title} fue retirado.",
+    "moved_to_add_by_rss": "Tu suscripción se movió a Añadir por RSS.",
+    "follow_ended": "Tu suscripción terminó.",
+    "clips_one": "{count} de tus clips ahora muestra «Contenido eliminado».",
+    "clips_other": "{count} de tus clips ahora muestran «Contenido eliminado».",
+    "playlist_entries_one": "{count} elemento de tus listas de reproducción ahora muestra «Contenido eliminado».",
+    "playlist_entries_other": "{count} elementos de tus listas de reproducción ahora muestran «Contenido eliminado».",
+    "unknown_show": "Un programa"
+  },
   "error_log": {
     "intro": "Abre una entrada y toca Enviar detalles por correo para enviar el informe a {email}. Copiar detalles copia el mismo informe.",
     "detail": {

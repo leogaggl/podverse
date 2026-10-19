@@ -203,7 +203,12 @@ describe('feed merge review routes', () => {
         from_podcast_index_id: 11,
         to_podcast_index_id: 22,
       },
-      merge: { ...sampleMerge, status: 'verified', note: 'Same show', from_feed_lifecycle_state_key: 'active' },
+      merge: {
+        ...sampleMerge,
+        status: 'verified',
+        note: 'Same show',
+        from_feed_lifecycle_state_key: 'active',
+      },
     });
     const res = await request(app)
       .post(`${mergesBase}/7/approve`)
@@ -229,13 +234,19 @@ describe('feed merge review routes', () => {
     approveMerge.mockRejectedValue(
       new MergeStatusConflictError('Approve is allowed only when the merge needs review')
     );
-    const res = await request(app).post(`${mergesBase}/7/approve`).set(adminAuthHeaders(1)).send({});
+    const res = await request(app)
+      .post(`${mergesBase}/7/approve`)
+      .set(adminAuthHeaders(1))
+      .send({});
     expect(res.status).toBe(409);
     expect(revertMerge).not.toHaveBeenCalled();
   });
 
   it('POST approve returns 403 without feed update', async () => {
-    const res = await request(app).post(`${mergesBase}/7/approve`).set(adminAuthHeaders(2)).send({});
+    const res = await request(app)
+      .post(`${mergesBase}/7/approve`)
+      .set(adminAuthHeaders(2))
+      .send({});
     expect(res.status).toBe(403);
     expect(approveMerge).not.toHaveBeenCalled();
   });

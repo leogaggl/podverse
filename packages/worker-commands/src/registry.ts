@@ -98,6 +98,15 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run notifications_platform_purge -w apps/workers',
   },
   {
+    name: 'accountContentLogPurge',
+    label: 'Removed Content: purge old rows',
+    description:
+      'Delete account_content_log rows whose updated_at is older than ACCOUNT_CONTENT_LOG_RETENTION_DAYS.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli: 'npm run account_content_log_purge -w apps/workers',
+  },
+  {
     name: 'deleteOutdatedOnDemandParserEvent',
     label: 'Delete outdated on-demand parser events',
     description: 'ORM job: remove outdated on_demand_parser_event rows.',
@@ -310,7 +319,7 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     name: 'podcastIndexDeadFeedsFlagAndMerge',
     label: 'Podcast Index: dead feeds flag and merge',
     description:
-      'Download the Podcast Index dead-feed list and record duplicateOf pairs for feeds we already store. Does not merge feeds or change lifecycle.',
+      'Download the Podcast Index dead-feed list, record duplicateOf pairs for feeds we store, and retire feeds that list marks when PODCAST_INDEX_DEAD_FEED_RETIRE_MODE is apply.',
     category: 'podcast_index',
     risk: 'normal',
     example_cli: 'npm run podcast_index_dead_feeds_flag_and_merge -w apps/workers',

@@ -63,3 +63,7 @@ export const E2E_REMOVED_PLAYLIST_TITLE = 'E2E Removed Playlist';
 export const E2E_ARCHIVED_SHOW_ID_TEXT = 'e2eArchShow01';
 export const E2E_ARCHIVED_SHOW_TITLE = 'E2E Archived Show';
 export const E2E_ARCHIVED_SHOW_FEED_URL = 'https://e2e-seed-archived-show.example/podcast.xml';
+
+/** Removed Content log row for the seeded E2E user. The show is the archived follow. */
+export const E2E_CONTENT_LOG_CHANNEL_ID_TEXT = E2E_ARCHIVED_SHOW_ID_TEXT;
+export const E2E_CONTENT_LOG_CHANNEL_TITLE = E2E_ARCHIVED_SHOW_TITLE;

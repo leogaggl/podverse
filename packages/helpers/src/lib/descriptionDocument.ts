@@ -403,7 +403,10 @@ const EMPTY_IF_NO_VISIBLE_TEXT = new Set([
 
 const BLOCKS_DROP_EDGE_BR = new Set(['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
-const normalizeLenientNodes = (nodes: DescriptionNode[], dropEdgeBr: boolean): DescriptionNode[] => {
+const normalizeLenientNodes = (
+  nodes: DescriptionNode[],
+  dropEdgeBr: boolean
+): DescriptionNode[] => {
   const cleaned: DescriptionNode[] = [];
 
   for (const node of nodes) {
@@ -571,12 +574,10 @@ const parseTokensToRich = (tokens: Token[], mode: DescriptionTreeBuildMode): Des
 };
 
 const escapeText = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+  value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
-const escapeAttribute = (value: string): string => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+const escapeAttribute = (value: string): string =>
+  value.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
 
 const serializeDescriptionNode = (node: DescriptionNode): string => {
   if (node.kind === 'text') {
@@ -596,7 +597,11 @@ const serializeDescriptionNode = (node: DescriptionNode): string => {
 
 const PLAIN_TEXT_BLOCK_KINDS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li']);
 
-const blocksFromList = (node: Extract<DescriptionNode, { kind: 'ul' | 'ol' }>): DescriptionNode[][] => {
+const blocksFromList = (node: DescriptionNode): DescriptionNode[][] => {
+  if (node.kind !== 'ul' && node.kind !== 'ol') {
+    return [];
+  }
+
   const blocks: DescriptionNode[][] = [];
   let inlineBuffer: DescriptionNode[] = [];
 
@@ -673,9 +678,14 @@ export function serializeDescriptionNodes(nodes: DescriptionNode[]): string {
   return nodes.map((node) => serializeDescriptionNode(node)).join('');
 }
 
-export function descriptionNodesToPlainText(nodes: DescriptionNode[], blockSeparator: string): string {
+export function descriptionNodesToPlainText(
+  nodes: DescriptionNode[],
+  blockSeparator: string
+): string {
   const blocks = nodesToBlocks(nodes);
-  const plainBlocks = blocks.map((block) => htmlToPlainText(serializeDescriptionNodes(block))).filter(Boolean);
+  const plainBlocks = blocks
+    .map((block) => htmlToPlainText(serializeDescriptionNodes(block)))
+    .filter(Boolean);
   return plainBlocks.join(blockSeparator);
 }
 

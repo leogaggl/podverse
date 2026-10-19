@@ -155,9 +155,7 @@ const moveMap = (
   incoming: readonly IdentityIdMove[],
   alreadyApplied: readonly IdentityIdMove[]
 ): Map<string, string> => {
-  const appliedSame = new Set(
-    alreadyApplied.map((move) => `${move.fromIdText}\0${move.toIdText}`)
-  );
+  const appliedSame = new Set(alreadyApplied.map((move) => `${move.fromIdText}\0${move.toIdText}`));
   const direct = new Map<string, string>();
   for (const move of incoming) {
     if (move.fromIdText.length === 0 || move.toIdText.length === 0) {
@@ -241,8 +239,7 @@ const moveDownloads = (
   itemMoves: ReadonlyMap<string, string>
 ): IdentityDownload[] => {
   const tagged = downloads.map((row) => ({
-    channelIdText:
-      row.channelIdText === null ? null : mapId(row.channelIdText, channelMoves),
+    channelIdText: row.channelIdText === null ? null : mapId(row.channelIdText, channelMoves),
     filePath: row.filePath,
     itemIdText: mapId(row.itemIdText, itemMoves),
     originalItemIdText: row.itemIdText,
@@ -368,7 +365,10 @@ const laterRow = <T extends { at: number }>(group: readonly T[]): T => {
   return group.reduce((best, row) => (row.at > best.at ? row : best));
 };
 
-const moveSeen = (rows: readonly IdentitySeen[], channelMoves: ReadonlyMap<string, string>): IdentitySeen[] => {
+const moveSeen = (
+  rows: readonly IdentitySeen[],
+  channelMoves: ReadonlyMap<string, string>
+): IdentitySeen[] => {
   const groups = new Map<string, IdentitySeen[]>();
   for (const row of rows) {
     const key = mapId(row.key, channelMoves);
@@ -550,8 +550,7 @@ const movePlayableItems = (
   }
   const result: IdentityPlayableItem[] = [];
   for (const group of groups.values()) {
-    const preferred =
-      group.find((row) => row.originalItemIdText === row.itemIdText) ?? group[0];
+    const preferred = group.find((row) => row.originalItemIdText === row.itemIdText) ?? group[0];
     if (preferred === undefined) {
       continue;
     }
@@ -608,9 +607,7 @@ export const remapIdentity = (
   applied.sort((left, right) => left.fromIdText.localeCompare(right.fromIdText));
 
   const lastPlaybackIdText =
-    snapshot.lastPlaybackIdText === null
-      ? null
-      : mapId(snapshot.lastPlaybackIdText, itemMoves);
+    snapshot.lastPlaybackIdText === null ? null : mapId(snapshot.lastPlaybackIdText, itemMoves);
 
   return {
     newMoves: {
@@ -620,12 +617,10 @@ export const remapIdentity = (
     snapshot: {
       applied,
       autoDownloadChannels: moveAutoDownload(snapshot.autoDownloadChannels, channelMoves),
-      autoDownloadItems: moveAutoDownloadItems(
-        snapshot.autoDownloadItems,
-        channelMoves,
-        itemMoves
+      autoDownloadItems: moveAutoDownloadItems(snapshot.autoDownloadItems, channelMoves, itemMoves),
+      channelItemChannelIds: snapshot.channelItemChannelIds.filter(
+        (idText) => !channelMoves.has(idText)
       ),
-      channelItemChannelIds: snapshot.channelItemChannelIds.filter((idText) => !channelMoves.has(idText)),
       channelLive: moveLive(snapshot.channelLive, channelMoves),
       channelSeen: moveSeen(snapshot.channelSeen, channelMoves),
       chrome: claimStableThenMoved(

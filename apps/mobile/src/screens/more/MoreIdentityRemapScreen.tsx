@@ -53,7 +53,9 @@ export function MoreIdentityRemapScreen() {
 
   const readStatus = useCallback(async () => {
     const subscriptions = await subscriptionsRepository.list();
-    const survivor = subscriptions.find((row) => row.idText === E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT);
+    const survivor = subscriptions.find(
+      (row) => row.idText === E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT
+    );
     const download = await downloadsRepository.getByItemIdText(E2E_MERGED_SURVIVOR_ITEM_ID_TEXT);
     const kept = download?.filePath === E2E_IDENTITY_REMAP_FILE_PATH ? download : null;
     setStatus({

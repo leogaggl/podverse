@@ -376,7 +376,9 @@ export class PlaylistService extends BaseManyService<Playlist, 'account'> {
         });
 
         const byItemId = new Set(
-          matchingResources.map((resource) => `${resource.item.id}:${resource.playlist.id}`)
+          matchingResources.flatMap((resource) =>
+            resource.item === null ? [] : [`${resource.item.id}:${resource.playlist.id}`]
+          )
         );
 
         for (const [itemIdText, value] of itemLookup.entries()) {

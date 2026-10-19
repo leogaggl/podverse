@@ -387,9 +387,7 @@ export async function rejectChannelMerge(
 /**
  * Restores an applied merge. Any other status is refused before the restore runs.
  */
-export async function revertAppliedChannelMerge(
-  id: number
-): Promise<FeedMergeReviewUpdate | null> {
+export async function revertAppliedChannelMerge(id: number): Promise<FeedMergeReviewUpdate | null> {
   const existing = await loadDetail(AppDbDataSourceRead, id);
   if (existing === null) {
     return null;

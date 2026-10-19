@@ -114,9 +114,7 @@ describe('remapIdentity', () => {
         zone: 'history',
       },
     ]);
-    expect(first.snapshot.sortKeys).toEqual([
-      { idText: 'survivor-channel', scopeKind: 'channel' },
-    ]);
+    expect(first.snapshot.sortKeys).toEqual([{ idText: 'survivor-channel', scopeKind: 'channel' }]);
     expect(first.snapshot.channelSeen).toEqual([
       { at: 5, key: 'https://example.com/feed.xml', kind: 'add-by-rss' },
     ]);

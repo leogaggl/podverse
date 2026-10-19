@@ -1292,6 +1292,60 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/AccountNotificationChannel"
+    AccountContentLog:
+      type: object
+      required:
+        - id
+        - log_type
+        - channel_id_text
+        - channel_title
+        - reason
+        - follow_outcome
+        - clip_count
+        - playlist_entry_count
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Row id. A bigint rendered as a string.
+        log_type:
+          type: string
+          enum:
+            - removed_content
+        channel_id_text:
+          type: string
+        channel_title:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          enum:
+            - left_directory
+            - taken_down
+        follow_outcome:
+          type: string
+          nullable: true
+          enum:
+            - ended
+            - moved_to_add_by_rss
+        clip_count:
+          type: integer
+          minimum: 0
+        playlist_entry_count:
+          type: integer
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+    ApiGetAccountContentLogResponse200:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountContentLog"
     ApiGetAccountNotificationsResponse200:
       type: object
       properties:
@@ -6395,6 +6449,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/content-log:
+    get:
+      operationId: apiGetAccountContentLog
+      tags:
+        - account
+      summary: GET /account/content-log
+      description: Returns that account's content log, newest first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - removed_content
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAccountContentLogResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
         "500":
           description: Internal server error
           content:

@@ -189,6 +189,9 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
   const prepareClipForEdit = useCallback(
     async (clip: DTOClip): Promise<void> => {
       const clipItem = clip.item;
+      if (clipItem === null || clipItem === undefined) {
+        return;
+      }
       const clipChannel = clipItem.channel;
       if (clipChannel !== null && clipChannel !== undefined && activeItemId !== clipItem.id_text) {
         await loadItemPausedAt(clipItem, clipChannel, parseSeconds(clip.start_time));

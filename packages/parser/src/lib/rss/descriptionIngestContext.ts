@@ -1,5 +1,5 @@
-import { resolveDescriptionLengthTier } from '@podverse/helpers';
 import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
+import { resolveDescriptionLengthTier } from '@podverse/helpers';
 
 /**
  * One per feed parse. The tier is resolved once from the feed, and every description handler

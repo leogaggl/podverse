@@ -60,15 +60,6 @@ function asId(value: unknown): number {
   throw new Error('expected an integer id');
 }
 
-async function insertReturningId(
-  manager: EntityManager,
-  sql: string,
-  params: unknown[]
-): Promise<number> {
-  const result: unknown = await manager.query(sql, params);
-  return asId(rowsOf(result)[0]?.id);
-}
-
 async function queryRows(
   manager: EntityManager,
   sql: string,
@@ -260,10 +251,7 @@ describe('archived follow conversion and empty show deletion', () => {
       title: `Archived member show ${runId}`,
     });
     const imageUrl = `https://${host}/cover.jpg`;
-    await manager.query(
-      `INSERT INTO channel_about (channel_id) VALUES ($1)`,
-      [show.channelId]
-    );
+    await manager.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [show.channelId]);
     await manager.query(
       `INSERT INTO channel_image (channel_id, url, image_width_size) VALUES ($1, $2, 1400)`,
       [show.channelId, imageUrl]
@@ -504,10 +492,9 @@ describe('archived follow conversion and empty show deletion', () => {
       title: `Archived episode show ${runId}`,
     });
     await markArchived(withEpisode.feedId);
-    await manager.query(
-      `UPDATE channel SET follow_conversion_status = 'converted' WHERE id = $1`,
-      [withEpisode.channelId]
-    );
+    await manager.query(`UPDATE channel SET follow_conversion_status = 'converted' WHERE id = $1`, [
+      withEpisode.channelId,
+    ]);
     const itemRepo = manager.getRepository(Item);
     await itemRepo.save(
       itemRepo.create({

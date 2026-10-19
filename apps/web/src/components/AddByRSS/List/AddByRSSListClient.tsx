@@ -97,7 +97,11 @@ const upsertFeedInState = (
 const uncachedFollowParses = new Set<string>();
 
 function feedNeedsFirstParse(feed: AddByRSSFeedRecord): boolean {
-  return feed.cache === undefined && feed.lastParsedAt == null && feed.status == null;
+  return (
+    feed.cache === undefined &&
+    (feed.lastParsedAt === undefined || feed.lastParsedAt === null) &&
+    feed.status === undefined
+  );
 }
 
 /** One parse per followed URL that has no local cache yet, shared across list mounts. */

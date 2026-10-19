@@ -103,14 +103,7 @@ export type AlbumDetailRange = QueryParamsStatsRange;
 
 export const DEFAULT_ALBUM_DETAIL_RANGE: AlbumDetailRange = 'week';
 
-export const ARTIST_TABS = [
-  'albums',
-  'tracks',
-  'about',
-  'podroll',
-  'funding',
-  'people',
-] as const;
+export const ARTIST_TABS = ['albums', 'tracks', 'about', 'podroll', 'funding', 'people'] as const;
 
 export type ArtistTab = (typeof ARTIST_TABS)[number];
 

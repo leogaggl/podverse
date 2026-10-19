@@ -40,7 +40,7 @@ export const useMarqueeTurn = ({
   }, [group, id, scrolls]);
 
   const turn = useSyncExternalStore(marqueeTurns.subscribe, () =>
-    group === undefined ? UNGROUPED_TURN : marqueeTurns.getTurn(group, id),
+    group === undefined ? UNGROUPED_TURN : marqueeTurns.getTurn(group, id)
   );
 
   const finish = useCallback(() => {
