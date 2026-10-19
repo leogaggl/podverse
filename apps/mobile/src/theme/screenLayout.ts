@@ -9,6 +9,13 @@ import type { ThemeTokens } from '@podverse/design-tokens';
 export const LIST_ROW_ARTWORK_SIZE = 78;
 
 /**
+ * Inset above and below the artwork on a podcast, album, or artist row. With
+ * `LIST_ROW_ARTWORK_SIZE` the row is 98pt: the date, title, and footer sit inside the artwork,
+ * and each hairline sits this far from the art.
+ */
+export const LIST_ROW_SHOW_VERTICAL_INSET = 10;
+
+/**
  * Square edge of a stacked preview cover. The view size and `CoverImage` `decodeEdge` both read
  * this.
  */

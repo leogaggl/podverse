@@ -28,6 +28,7 @@ import { clipListTimeRangeLabel } from '../../lib/rows/homeRowMappers';
 import { usePlaybackRow } from '../../playback/PlaybackProvider';
 import {
   LIST_ROW_ARTWORK_SIZE,
+  LIST_ROW_SHOW_VERTICAL_INSET,
   listRowArtworkGap,
   listRowVerticalPadding,
 } from '../../theme/screenLayout';
@@ -127,6 +128,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       justifyContent: 'center',
       minWidth: 0,
     },
+    showIdentityText: {
+      gap: tokens.spacing.xs,
+    },
     liveBadge: {
       alignSelf: 'center',
     },
@@ -152,6 +156,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       minWidth: 0,
       ...listRowVerticalPadding(tokens.spacing.lg),
     },
+    showRowBody: {
+      ...listRowVerticalPadding(LIST_ROW_SHOW_VERTICAL_INSET),
+    },
     unseenRail: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -171,6 +178,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     },
     showFooterReserve: {
       height: 20,
+    },
+    showTitle: {
+      fontWeight: '400',
     },
     title: {
       ...typography.subheading,
@@ -513,7 +523,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       style={[styles.row, style]}
       testID={testID ?? `home-feed-row-${row.id}`}
     >
-      <View style={styles.rowBody}>
+      <View style={[styles.rowBody, isChannelList ? styles.showRowBody : null]}>
         <View style={styles.identityRow}>
           {showArtwork ? (
             <View style={styles.artworkWrap}>
@@ -535,7 +545,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
               ) : null}
             </View>
           ) : null}
-          <View style={styles.identityText}>
+          <View style={[styles.identityText, isChannelList ? styles.showIdentityText : null]}>
             {isChannelList ? dateLine(styles.showDate) : null}
             {channelLabel !== null ? (
               <Text
@@ -546,7 +556,11 @@ export const HomeFeedRow = memo(function HomeFeedRow({
                 {channelLabel}
               </Text>
             ) : null}
-            <Text numberOfLines={2} style={styles.title} testID={`home-feed-row-title-${row.id}`}>
+            <Text
+              numberOfLines={2}
+              style={[styles.title, isChannelList ? styles.showTitle : null]}
+              testID={`home-feed-row-title-${row.id}`}
+            >
               {row.title}
             </Text>
             {isChannelList ? null : dateLine(styles.date)}
