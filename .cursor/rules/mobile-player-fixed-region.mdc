@@ -95,7 +95,8 @@ with scroll. The mini player on other screens is a separate surface.
 - Playhead UI lives in leaf components that read `playbackProgressStore`; the region shell
   uses `usePlaybackSession()` only.
 - Pull-to-dismiss is the native-stack top-edge gesture only (`fullScreenGestureEnabled: false`).
-- The outer and inner scrollers do not bounce or over-scroll — this screen has no pull-to-refresh.
+- The outer and inner scrollers do not bounce, over-scroll, or draw a vertical scroll indicator —
+  this screen has no pull-to-refresh. Both set `showsVerticalScrollIndicator={false}`.
 - The full player has no empty-session body. When the item completes and nothing is ahead,
   now-playing clears and the **focused** full player dismisses (`onClose`). Do not dismiss while
   Make clip is authoring (`isAuthoringHold`) or while this screen is unfocused — `goBack()` would

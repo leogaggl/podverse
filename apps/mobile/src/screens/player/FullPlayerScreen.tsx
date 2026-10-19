@@ -1378,6 +1378,7 @@ export function FullPlayerScreen({
           ref={outerScrollRef}
           scrollEnabled={canOuterScroll}
           scrollsToTop
+          showsVerticalScrollIndicator={false}
           style={styles.outerScroll}
           testID="full-player-outer-scroll"
         >
@@ -1472,6 +1473,7 @@ export function FullPlayerScreen({
                 }}
                 scrollEnabled={canOuterScroll}
                 scrollsToTop={false}
+                showsVerticalScrollIndicator={false}
                 style={styles.list}
                 testID="full-player-section-list"
               />
