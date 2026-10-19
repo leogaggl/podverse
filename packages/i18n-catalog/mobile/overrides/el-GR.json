@@ -176,7 +176,10 @@
     "quick_login_popularity": "",
     "quick_login_stale_terms": "",
     "quick_login_perf": "",
-    "session_ready": ""
+    "session_ready": "",
+    "identity_remap": "",
+    "identity_remap_prepare": "",
+    "identity_remap_intro": ""
   },
   "subscriptions": {
     "downloaded_only": ""
@@ -196,7 +199,8 @@
       "live_status": "",
       "clips": "",
       "home_feed": "",
-      "auto_download": ""
+      "auto_download": "",
+      "identity_remap": ""
     },
     "progress": ""
   },

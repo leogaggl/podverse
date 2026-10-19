@@ -66,6 +66,13 @@ const E2E_LIVESTREAM_FEED_PI_ID = 876543210;
 const E2E_LIVESTREAM_CHANNEL_ID_TEXT = 'v5fCrIj9Io';
 const E2E_LIVESTREAM_ITEM_ID_TEXT = 'e2eLiveStrm01';
 const E2E_PODCAST_FEED_PI_ID = 876543211;
+const E2E_MERGED_OLD_FEED_PI_ID = 876543230;
+const E2E_MERGED_SURVIVOR_FEED_PI_ID = 876543231;
+const E2E_MERGED_OLD_CHANNEL_ID_TEXT = 'e2eMrgOldCh01';
+const E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT = 'e2eMrgSurCh01';
+const E2E_MERGED_OLD_ITEM_ID_TEXT = 'e2eMrgOldIt01';
+const E2E_MERGED_SURVIVOR_ITEM_ID_TEXT = 'e2eMrgSurIt01';
+const E2E_MERGED_UNMATCHED_ITEM_ID_TEXT = 'e2eMrgUnmIt01';
 const E2E_PODCAST_FEED_URL = 'https://e2e-seed-podcast.example/podcast.xml';
 const E2E_MUSIC_FEED_PI_ID = 876543212;
 const E2E_MUSIC_FEED_URL = 'https://e2e-seed-music.example/album.xml';
@@ -2157,6 +2164,129 @@ async function seedBillingTestCheckout(client) {
   );
 }
 
+async function seedMergedChannelRedirect(client) {
+  await client.query(`DELETE FROM channel_merge WHERE from_podcast_index_id = ANY($1::int[])`, [
+    [E2E_MERGED_OLD_FEED_PI_ID, E2E_MERGED_SURVIVOR_FEED_PI_ID],
+  ]);
+  await client.query(`DELETE FROM feed WHERE podcast_index_id = ANY($1::int[])`, [
+    [E2E_MERGED_OLD_FEED_PI_ID, E2E_MERGED_SURVIVOR_FEED_PI_ID],
+  ]);
+
+  async function insertShow({ podcastIndexId, idText, title, url, publicVisible }) {
+    const feedResult = await client.query(
+      `INSERT INTO feed (url, podcast_index_id) VALUES ($1, $2) RETURNING id`,
+      [url, podcastIndexId]
+    );
+    const feedId = feedResult.rows[0].id;
+    await client.query(
+      `INSERT INTO feed_policy (feed_id, parse_allowed, public_visible, add_allowed)
+       VALUES ($1, true, $2, true)`,
+      [feedId, publicVisible]
+    );
+    const channelResult = await client.query(
+      `INSERT INTO channel (id_text, feed_id, medium_id, title)
+       VALUES (
+         $1,
+         $2,
+         (SELECT id FROM medium WHERE value = 'podcast' LIMIT 1),
+         $3
+       )
+       RETURNING id`,
+      [idText, feedId, title]
+    );
+    const channelId = channelResult.rows[0].id;
+    await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
+    await client.query(
+      `INSERT INTO channel_description (channel_id, value) VALUES ($1, $2)`,
+      [channelId, `${title} description.`]
+    );
+    await client.query(
+      `INSERT INTO channel_image (channel_id, url, image_width_size) VALUES ($1, $2, 1400)`,
+      [channelId, E2E_FIXTURE_CHANNEL_IMAGE_URL]
+    );
+    return { feedId, channelId };
+  }
+
+  const oldShow = await insertShow({
+    podcastIndexId: E2E_MERGED_OLD_FEED_PI_ID,
+    idText: E2E_MERGED_OLD_CHANNEL_ID_TEXT,
+    title: 'E2E Merged Podcast',
+    url: 'https://e2e-seed-merge-old.example/podcast.xml',
+    publicVisible: false,
+  });
+  const survivor = await insertShow({
+    podcastIndexId: E2E_MERGED_SURVIVOR_FEED_PI_ID,
+    idText: E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT,
+    title: 'E2E Merge Survivor',
+    url: 'https://e2e-seed-merge-survivor.example/podcast.xml',
+    publicVisible: true,
+  });
+
+  await client.query(
+    `UPDATE feed_lifecycle_state
+     SET feed_lifecycle_state_type_id = (
+       SELECT id FROM feed_lifecycle_state_type WHERE state_key = 'merged'
+     ),
+     updated_by_source = 'system'
+     WHERE feed_id = $1`,
+    [oldShow.feedId]
+  );
+
+  const sharedGuid = 'https://e2e-seed-merge.example/item-guid/shared';
+  const oldItem = await client.query(
+    `INSERT INTO item (id_text, channel_id, guid, pub_date, title, item_flag_status_id)
+     VALUES ($1, $2, $3, NOW(), 'E2E Merged Episode', 1)
+     RETURNING id`,
+    [E2E_MERGED_OLD_ITEM_ID_TEXT, oldShow.channelId, sharedGuid]
+  );
+  const survivorItem = await client.query(
+    `INSERT INTO item (id_text, channel_id, guid, pub_date, title, item_flag_status_id)
+     VALUES ($1, $2, $3, NOW(), 'E2E Survivor Episode', 1)
+     RETURNING id`,
+    [E2E_MERGED_SURVIVOR_ITEM_ID_TEXT, survivor.channelId, sharedGuid]
+  );
+  await client.query(
+    `INSERT INTO item (id_text, channel_id, guid, pub_date, title, item_flag_status_id)
+     VALUES ($1, $2, $3, NOW(), 'E2E Unmatched Episode', 1)`,
+    [
+      E2E_MERGED_UNMATCHED_ITEM_ID_TEXT,
+      oldShow.channelId,
+      'https://e2e-seed-merge.example/item-guid/unmatched',
+    ]
+  );
+
+  const merge = await client.query(
+    `INSERT INTO channel_merge (
+       from_podcast_index_id,
+       to_podcast_index_id,
+       from_channel_id,
+       to_channel_id,
+       mode,
+       status,
+       confidence,
+       match_stats,
+       applied_at
+     )
+     VALUES ($1, $2, $3, $4, 'absorb', 'applied', 1, '{}'::jsonb, NOW())
+     RETURNING id`,
+    [
+      E2E_MERGED_OLD_FEED_PI_ID,
+      E2E_MERGED_SURVIVOR_FEED_PI_ID,
+      oldShow.channelId,
+      survivor.channelId,
+    ]
+  );
+  await client.query(
+    `INSERT INTO item_merge_map (channel_merge_id, from_item_id, to_item_id, match_tier)
+     VALUES ($1, $2, $3, 'guid')`,
+    [merge.rows[0].id, oldItem.rows[0].id, survivorItem.rows[0].id]
+  );
+
+  console.log(
+    `Seeded merged channel redirect ${E2E_MERGED_OLD_CHANNEL_ID_TEXT} -> ${E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT}`
+  );
+}
+
 async function main() {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
   const invitePlaceholderPasswordHash = await bcrypt.hash(crypto.randomUUID(), 10);
@@ -2176,6 +2306,7 @@ async function main() {
   const accountId = await resolveSeedAccountId(client, passwordHash, invitePlaceholderPasswordHash);
   await clearOpmlImportKeyvalState(accountId);
   await seedMediaPlayerAndEmbedFixtures(client, accountId);
+  await seedMergedChannelRedirect(client);
   await seedPerfVolumeFixtures(client);
 
   await client.end();

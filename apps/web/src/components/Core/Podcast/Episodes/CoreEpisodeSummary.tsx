@@ -13,12 +13,18 @@ const DescriptionRenderer = dynamic(
 
 type CoreEpisodeSummaryProps = {
   description?: string;
+  onDescriptionClock?: (seconds: number) => void;
+  descriptionClockLabel?: (clockText: string) => string;
 };
 
 /**
  * Item Summary: description prose. People are a separate chip.
  */
-export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({ description }) => {
+export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({
+  description,
+  descriptionClockLabel,
+  onDescriptionClock,
+}) => {
   const hasDescription = description !== undefined && description.length > 0;
   if (!hasDescription) {
     return null;
@@ -26,7 +32,11 @@ export const CoreEpisodeSummary: React.FC<CoreEpisodeSummaryProps> = ({ descript
 
   return (
     <div>
-      <DescriptionRenderer description={description || ''} />
+      <DescriptionRenderer
+        description={description || ''}
+        descriptionClockLabel={descriptionClockLabel}
+        onDescriptionClock={onDescriptionClock}
+      />
     </div>
   );
 };

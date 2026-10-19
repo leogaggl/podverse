@@ -29,6 +29,7 @@ import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerControls } from '../../../contexts/MediaPlayerControls';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
 import { getApiRequestService } from '../../../factories/apiRequestService';
+import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
 import {
   getAddByRSSChaptersTranscriptCredentials,
   getCachedChaptersTranscript,
@@ -368,6 +369,10 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
     ]
   );
 
+  const clock = useDescriptionClockPlayback(
+    episode === null ? null : { indexItem: episode, kind: 'add-by-rss' }
+  );
+
   if (isLoading) {
     return <WebLoadingYourContentSpinnerOverlay isLoading />;
   }
@@ -403,7 +408,13 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
           <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
           <DetailListWrapper>
             {selectedTab === 'summary' &&
-              (description ? <CoreEpisodeSummary description={description} /> : null)}
+              (description ? (
+                <CoreEpisodeSummary
+                  description={description}
+                  descriptionClockLabel={clock.descriptionClockLabel}
+                  onDescriptionClock={clock.onDescriptionClock}
+                />
+              ) : null)}
             {selectedTab === 'boosts' && boostsPageFetcher !== null && (
               <BoostMessagesSection
                 heading={tV4VBoostMessages('title')}

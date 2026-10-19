@@ -459,11 +459,46 @@ function validateParser(): ValidationResult[] {
   return results;
 }
 
+function validateDuplicateMergeMode(): ValidationResult {
+  const name = 'PODCAST_INDEX_DUPLICATE_MERGE_MODE';
+  const category = 'Podcast Index';
+  const value = process.env.PODCAST_INDEX_DUPLICATE_MERGE_MODE;
+  if (value === undefined || value.trim() === '') {
+    return {
+      name,
+      isSet: false,
+      isValid: false,
+      isRequired: true,
+      message: 'Missing or empty',
+      category,
+    };
+  }
+  if (value === 'off' || value === 'dry_run' || value === 'apply') {
+    return {
+      name,
+      isSet: true,
+      isValid: true,
+      isRequired: true,
+      message: 'Set',
+      category,
+    };
+  }
+  return {
+    name,
+    isSet: true,
+    isValid: false,
+    isRequired: true,
+    message: 'Must be off, dry_run, or apply',
+    category,
+  };
+}
+
 /** Category: Podcast Index */
 function validatePodcastIndex(): ValidationResult[] {
   const results: ValidationResult[] = [];
-  results.push(validateRequired('PODCAST_INDEX_AUTH_KEY', 'Podcast Index'));
   results.push(validateRequired('PODCAST_INDEX_BASE_URL', 'Podcast Index'));
+  results.push(validateDuplicateMergeMode());
+  results.push(validateRequired('PODCAST_INDEX_AUTH_KEY', 'Podcast Index'));
   results.push(validateRequired('PODCAST_INDEX_SECRET_KEY', 'Podcast Index'));
   results.push(
     validateOptional('PODCAST_INDEX_API_RATE_LIMIT_DELAY', 'Podcast Index', 'Use Default (200)')

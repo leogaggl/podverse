@@ -182,6 +182,7 @@ npm run mobile:e2e:test -- hello-world
 npm run mobile:e2e:test -- history-screen
 npm run mobile:e2e:test -- hls-playback
 npm run mobile:e2e:test -- home
+npm run mobile:e2e:test -- identity-remap
 npm run mobile:e2e:test -- library-downloads
 npm run mobile:e2e:test -- library-playlists
 npm run mobile:e2e:test -- locale-switch-home-smoke

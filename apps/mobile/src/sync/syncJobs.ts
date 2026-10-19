@@ -13,10 +13,12 @@ import { addByRssRepository } from '../data/repositories/addByRssRepository';
 import { autoDownloadRepository } from '../data/repositories/autoDownloadRepository';
 import { channelItemsRepository } from '../data/repositories/channelItemsRepository';
 import type { ChannelItemWindow } from '../data/repositories/channelItemWindow';
+import { CHANNEL_ITEM_WINDOW_DEFAULT_DEPTH } from '../data/repositories/channelItemWindow';
 import { channelLiveStatusRepository } from '../data/repositories/channelLiveStatusRepository';
 import { channelSeenRepository } from '../data/repositories/channelSeenRepository';
 import { syncDirectoryChannelOrDropGone } from '../data/repositories/directoryChannelGone';
 import { homeClipsCacheRepository } from '../data/repositories/homeClipsCacheRepository';
+import { identityRemapRepository } from '../data/repositories/identityRemapRepository';
 import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import { queueRepository } from '../data/repositories/queueRepository';
 import type { SubscribedChannel } from '../data/repositories/subscriptionsRepository';
@@ -149,7 +151,20 @@ const createChannelItemsJob = (
     priority,
     `channel-items:${window.channelIdText}`,
     async (context) => {
-      await syncDirectoryChannelOrDropGone(deps.getAuthContext(), window.channelIdText);
+      const outcome = await syncDirectoryChannelOrDropGone(deps.getAuthContext(), window.channelIdText);
+      if (outcome.kind === 'remapped') {
+        context.enqueue(
+          createChannelItemsJob(deps, priority, {
+            channelIdText: outcome.toIdText,
+            depth: CHANNEL_ITEM_WINDOW_DEFAULT_DEPTH,
+            syncedAtMs: null,
+          })
+        );
+        if (deps.getAuthContext().accessToken !== null) {
+          context.enqueue(createAccountRefreshJob(deps, priority));
+        }
+        return;
+      }
       const settings = await autoDownloadRepository.getByChannelIdText(window.channelIdText);
       if (settings?.enabled === true) {
         enqueueAutoDownloadEvaluateIfReady(context, priority, [window.channelIdText]);
@@ -485,6 +500,17 @@ const createPushRegistrationJob = (deps: SyncJobDeps, priority: SyncJobPriority)
   });
 };
 
+const createIdentityRemapJob = (deps: SyncJobDeps, priority: SyncJobPriority): SyncJob => {
+  return buildJob('identity-remap', priority, 'identity-remap', async (context) => {
+    const result = await identityRemapRepository.runScheduled({
+      ignoreWatermark: priority === 'user',
+    });
+    if (result.moved && deps.getAuthContext().accessToken !== null) {
+      context.enqueue(createAccountRefreshJob(deps, priority));
+    }
+  });
+};
+
 /** Turn the planned roots into runnable jobs. Discovered work is queued by the job that finds it. */
 export const buildSyncJobs = (planned: PlannedSyncJob[], deps: SyncJobDeps): SyncJob[] => {
   return planned.map(({ kind, priority }) => {
@@ -501,6 +527,8 @@ export const buildSyncJobs = (planned: PlannedSyncJob[], deps: SyncJobDeps): Syn
         return createAutoDownloadRegistrationJob(deps, priority);
       case 'channel-items-scan':
         return createChannelItemsScanJob(deps, priority);
+      case 'identity-remap':
+        return createIdentityRemapJob(deps, priority);
       case 'add-by-rss-refresh':
         return createAddByRssRefreshJob(deps, priority);
       case 'home-clips':

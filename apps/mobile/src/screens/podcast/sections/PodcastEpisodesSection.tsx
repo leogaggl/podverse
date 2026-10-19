@@ -218,7 +218,7 @@ export function PodcastEpisodesSection({
           const outcome = await syncDirectoryChannelOrDropGone(authContext, channelIdText, {
             channelTitle: channelTitleRef.current,
           });
-          if (outcome.kind === 'gone') {
+          if (outcome.kind === 'gone' || outcome.kind === 'remapped') {
             setHasMorePages(false);
             setLiveItems([]);
             await readStoredEpisodes();
@@ -260,7 +260,7 @@ export function PodcastEpisodesSection({
       const outcome = await extendDirectoryChannelOrDropGone(authContext, channelIdText, {
         channelTitle: channelTitleRef.current,
       });
-      if (outcome.kind === 'gone') {
+      if (outcome.kind === 'gone' || outcome.kind === 'remapped') {
         setHasMorePages(false);
         await readStoredEpisodes();
         return;

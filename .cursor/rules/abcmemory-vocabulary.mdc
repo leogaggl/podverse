@@ -48,6 +48,13 @@ repo's skill applies only when the repo word is `podverse`. Follow
 `.cursor/skills/abcdeploysteps/SKILL.md`. Only alpha is in use. Alpha means `alpha.podcastdj.com`
 and Podverse Next.
 
+## abcaicast
+
+When the operator says **abcaicast**, write a two-voice training conversation (Claire and Tom)
+about a feature, for an AI audio service. If no subject came with the command, ask for a short
+description of what the cast should cover first. Casts go in `temp/aicasts/` and are never
+committed. Follow `.cursor/skills/abcaicast/SKILL.md`.
+
 ## legacy app
 
 **legacy app** (also **podverse-rn**, **v4 mobile**) means the React Native app in the sibling

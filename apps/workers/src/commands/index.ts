@@ -15,10 +15,7 @@ import { parserRSSParseFeed } from '@workers/commands/parser/rss/parseFeed.js';
 import { devParserRSSParseMusicMediumFeeds } from '@workers/commands/parser/rss/parseMusicMediumFeeds.js';
 import { devParserRSSParsePodcasting20Feeds } from '@workers/commands/parser/rss/parsePodcasting20Feeds.js';
 import { devParserRSSParseTrendingFeeds } from '@workers/commands/parser/rss/parseTrendingFeeds.js';
-import {
-  podcastIndexDeadFeedsDeleteCache,
-  podcastIndexDeadFeedsFlagAndMerge,
-} from '@workers/commands/podcastIndex/deadFeeds/flagAndMerge.js';
+import { podcastIndexDeadFeedsFlagAndMerge } from '@workers/commands/podcastIndex/deadFeeds/flagAndMerge.js';
 import podcastIndexTrendingPodcastsGet from '@workers/commands/podcastIndex/trending/podcastsGet.js';
 import { podcastIndexValueUpdateAll } from '@workers/commands/podcastIndex/value/updateAll.js';
 import { devStatsSeedSimulatedAggregated } from '@workers/commands/stats/devStatsSeedSimulatedAggregated.js';
@@ -56,7 +53,6 @@ export default {
   devParserRSSParsePodcasting20Feeds,
   devParserRSSParseTrendingFeeds,
   seedEmbedDemoShowcaseFeeds,
-  podcastIndexDeadFeedsDeleteCache,
   podcastIndexDeadFeedsFlagAndMerge,
   podcastIndexTrendingPodcastsGet,
   podcastIndexValueUpdateAll,

@@ -5,7 +5,7 @@ import type { FeedConditionTypeKeyEnum } from '@orm/entities/feed/feedConditionT
 import type { FeedPolicy } from '@orm/entities/feed/feedPolicy.js';
 import { applyProperties } from '@orm/lib/applyProperties.js';
 import { isPostgresUniqueViolation } from '@orm/lib/postgresUniqueViolation.js';
-import type { FindOptionsRelations } from 'typeorm';
+import type { EntityManager, FindOptionsRelations } from 'typeorm';
 
 import { canonicalHttpOrHttpsUrl } from '@podverse/helpers-validation';
 
@@ -41,6 +41,8 @@ export type ApplyFeedModerationChangesParams = {
   conditionMutations?: FeedConditionMutation[];
   lifecycle?: SetFeedLifecycleStateParams;
   refreshPolicy?: boolean;
+  /** When set, lifecycle and policy writes join this transaction instead of opening one. */
+  manager?: EntityManager;
 };
 
 const FEED_RELATIONS: FindOptionsRelations<Feed> = {
@@ -127,6 +129,25 @@ export class FeedService {
       },
       relations: FEED_RELATIONS,
     });
+  }
+
+  async listPodcastIndexIds(): Promise<number[]> {
+    const rows = await this.repositoryRead
+      .createQueryBuilder('feed')
+      .select('feed.podcast_index_id', 'podcast_index_id')
+      .where('feed.podcast_index_id IS NOT NULL')
+      .getRawMany<{ podcast_index_id: number | string }>();
+    const ids: number[] = [];
+    for (const row of rows) {
+      const id =
+        typeof row.podcast_index_id === 'number'
+          ? row.podcast_index_id
+          : Number(row.podcast_index_id);
+      if (Number.isFinite(id)) {
+        ids.push(id);
+      }
+    }
+    return ids;
   }
 
   /** Returns the maximum podcast_index_id in the feeds table, or null if empty. Used in test-assets mode for auto-increment. */
@@ -220,7 +241,7 @@ export class FeedService {
     feedId: number,
     params: ApplyFeedModerationChangesParams
   ): Promise<Feed> {
-    await AppDataSourceReadWrite.transaction(async (manager) => {
+    const apply = async (manager: EntityManager) => {
       const fp = new FeedPolicyService(manager);
       const lifecycleSvc = new FeedLifecycleStateService(manager);
 
@@ -243,9 +264,17 @@ export class FeedService {
       if (params.refreshPolicy !== false) {
         await fp.recomputePolicy(feedId);
       }
-    });
+    };
 
-    const fed = await this.get(feedId);
+    if (params.manager) {
+      await apply(params.manager);
+    } else {
+      await AppDataSourceReadWrite.transaction(apply);
+    }
+
+    const fed = params.manager
+      ? await params.manager.findOne(Feed, { where: { id: feedId }, relations: FEED_RELATIONS })
+      : await this.get(feedId);
     if (!fed) {
       throw new Error(
         `FeedService.applyFeedModerationChanges: feed ${feedId} not found after update`
@@ -268,11 +297,12 @@ export class FeedService {
   async setFeedLifecycleState(
     feedId: number,
     lifecycle: SetFeedLifecycleStateParams,
-    options?: { refreshPolicy?: boolean }
+    options?: { refreshPolicy?: boolean; manager?: EntityManager }
   ): Promise<Feed> {
     return this.applyFeedModerationChanges(feedId, {
       lifecycle,
       refreshPolicy: options?.refreshPolicy !== false,
+      ...(options?.manager ? { manager: options.manager } : {}),
     });
   }
 

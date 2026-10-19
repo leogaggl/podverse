@@ -20,6 +20,7 @@ import { WebLoadingYourContentSpinnerOverlay } from '../../../components/Loading
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { useAccount } from '../../../contexts/Account';
+import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
 import {
   getAddByRSSFeedByIdText,
   getAddByRSSItemByGuid,
@@ -173,6 +174,10 @@ export const AddByRSSLivestreamItemPageClient: React.FC<AddByRSSLivestreamItemPa
     };
   }, [itemIdText, loggedInAccount]);
 
+  const clock = useDescriptionClockPlayback(
+    livestream === null ? null : { indexItem: livestream, kind: 'add-by-rss' }
+  );
+
   if (isLoading) {
     return <WebLoadingYourContentSpinnerOverlay isLoading />;
   }
@@ -234,7 +239,13 @@ export const AddByRSSLivestreamItemPageClient: React.FC<AddByRSSLivestreamItemPa
           <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
           <DetailListWrapper>
             {selectedTab === 'summary' &&
-              (description ? <CoreEpisodeSummary description={description} /> : null)}
+              (description ? (
+                <CoreEpisodeSummary
+                  description={description}
+                  descriptionClockLabel={clock.descriptionClockLabel}
+                  onDescriptionClock={clock.onDescriptionClock}
+                />
+              ) : null)}
             {selectedTab === 'boosts' && boostsPageFetcher !== null && (
               <BoostMessagesSection
                 heading={tV4VBoostMessages('title')}

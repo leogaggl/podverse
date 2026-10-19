@@ -70,10 +70,10 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
-  it('maps podcastIndexDeadFeedsDeleteCache to Base only', () => {
-    expect(sortCategories(getCategoriesForCommand('podcastIndexDeadFeedsDeleteCache'))).toEqual([
-      CATEGORY_BASE,
-    ]);
+  it('maps podcastIndexDeadFeedsFlagAndMerge to Base, ORM, and Podcast Index', () => {
+    expect(sortCategories(getCategoriesForCommand('podcastIndexDeadFeedsFlagAndMerge'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM, CATEGORY_PODCAST_INDEX]))
+    );
   });
 
   it('maps mqRSSRunParser to full parser stack categories', () => {

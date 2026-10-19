@@ -7,13 +7,14 @@ import { QUERY_PARAMS_ITEM_MUSIC_TYPE_VALUES } from '@podverse/helpers-requests'
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import { buildNoindexMetadata } from '../../../lib/seo/buildNoindexMetadata';
 import {
-  getChannelForSeoPage,
+  getChannelForItemPage,
   getItemForSeoPage,
   getItemThenChannelHeroImageUrl,
 } from '../../../lib/seo/fetchers';
 import { toSeoPlainText } from '../../../lib/seo/toSeoPlainText';
 import { truncateMetaDescription } from '../../../lib/seo/truncateMetaDescription';
 import { enforceCanonicalItemRoute } from '../../../utils/redirect/enforceCanonicalMediumRoute';
+import { permanentRedirectIfMerged } from '../../../utils/redirect/permanentRedirectIfMerged';
 import { TrackPageClient } from './TrackPageClient';
 import type { TrackPageDropdownConfigCurrentParams } from './TrackPageDropdownConfig';
 import { getTrackPageFilterParams } from './TrackPageDropdownConfig';
@@ -29,11 +30,20 @@ export type TrackPageProps = {
   params: Promise<{ item_id: string }>;
 };
 
-export async function generateMetadata({ params }: TrackPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: TrackPageProps): Promise<Metadata> {
+  const { item_id } = await params;
+  await permanentRedirectIfMerged({
+    kind: 'item',
+    id: item_id,
+    routeKind: 'track',
+    searchParams: await searchParams,
+  });
   try {
-    const { item_id } = await params;
     const item = await getItemForSeoPage(item_id);
-    const channel = await getChannelForSeoPage(item.channel_id);
+    const channel = await getChannelForItemPage(item);
     const descriptionPlain = truncateMetaDescription(
       toSeoPlainText(item.item_description?.value || item.title)
     );
@@ -53,11 +63,17 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
 export default async function TrackPage({ params, searchParams }: TrackPageProps) {
   const { item_id } = await params;
   const queryParams = await searchParams;
+  await permanentRedirectIfMerged({
+    kind: 'item',
+    id: item_id,
+    routeKind: 'track',
+    searchParams: queryParams,
+  });
 
   const { currentType } = parseSearchParams(queryParams);
 
   const ssrItem = await getItemForSeoPage(item_id);
-  const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
+  const ssrChannel = await getChannelForItemPage(ssrItem);
   enforceCanonicalItemRoute(ssrChannel.medium_id, ssrItem.id_text, 'track');
 
   const ssrHasTranscripts = ssrItem.item_transcripts && ssrItem.item_transcripts.length > 0;

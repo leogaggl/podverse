@@ -1,0 +1,50 @@
+appId: com.podverse.app.next
+name: Identity Remap
+---
+# A signed-out follow of an absorbed show moves onto the survivor. The finished download
+# stays on the same file and is not fetched again.
+# Needs Mobile E2E API (:4230).
+
+- runFlow: shared/launch-and-connect.yaml
+- tapOn:
+    id: tab-more
+- assertVisible:
+    id: more-screen
+- scrollUntilVisible:
+    element:
+      id: more-nav-identity-remap
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOWEST}
+- tapOn:
+    id: more-nav-identity-remap
+- assertVisible:
+    id: identity-remap-screen
+- takeScreenshot: identity-remap-before
+- tapOn:
+    id: identity-remap-prepare
+- extendedWaitUntil:
+    visible:
+      id: identity-remap-subscribed
+      text: e2eMrgSurCh01
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    id: identity-remap-download-item
+    text: e2eMrgSurIt01
+- assertVisible:
+    id: identity-remap-download-path
+    text: file:///e2e/identity-remap-kept.mp3
+- assertVisible:
+    id: identity-remap-download-status
+    text: complete
+- assertNotVisible:
+    id: download-activity-bar
+- takeScreenshot: identity-remap-kept
+- tapOn:
+    id: tab-home
+- extendedWaitUntil:
+    visible:
+      id: home-feed-row-e2eMrgSurCh01
+    timeout: ${TIMEOUT_SLOWEST}
+- assertNotVisible:
+    id: home-feed-row-e2eMrgOldCh01
+- takeScreenshot: identity-remap-home

@@ -176,7 +176,10 @@
     "quick_login_popularity": "Iniciar sesión como usuario E2E indeciso",
     "quick_login_stale_terms": "Iniciar sesión como usuario E2E con términos desactualizados",
     "quick_login_perf": "Iniciar sesión como usuario E2E perf",
-    "session_ready": "Sesión E2E lista"
+    "session_ready": "Sesión E2E lista",
+    "identity_remap": "Programa fusionado",
+    "identity_remap_prepare": "Preparar programa fusionado",
+    "identity_remap_intro": "Guarda una suscripción local y una descarga terminada de un programa fusionado, y luego actualiza."
   },
   "subscriptions": {
     "downloaded_only": "Solo descargados"
@@ -196,7 +199,8 @@
       "live_status": "Comprobando qué está en directo",
       "clips": "Actualizando tus clips",
       "home_feed": "Lectura de Inicio en este dispositivo",
-      "auto_download": "Descargando episodios nuevos"
+      "auto_download": "Descargando episodios nuevos",
+      "identity_remap": "Actualizando tus programas"
     },
     "progress": "{completed} de {total}"
   },

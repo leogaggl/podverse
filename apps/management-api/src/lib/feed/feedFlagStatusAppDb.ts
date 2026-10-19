@@ -275,7 +275,11 @@ export type TakedownReasonOption = { reason: string };
 
 export async function listLifecycleStateOptions(): Promise<LifecycleStateOption[]> {
   return (await AppDbDataSourceRead.query(
-    `SELECT state_key::text AS state_key FROM feed_lifecycle_state_type ORDER BY id ASC`
+    `SELECT state_key::text AS state_key
+     FROM feed_lifecycle_state_type
+     WHERE state_key::text <> $1
+     ORDER BY id ASC`,
+    [FeedLifecycleStateKeyEnum.Merged]
   )) as LifecycleStateOption[];
 }
 
@@ -347,6 +351,7 @@ async function readCurrentLifecycleKey(
     key === FeedLifecycleStateKeyEnum.Active ||
     key === FeedLifecycleStateKeyEnum.PendingArchive ||
     key === FeedLifecycleStateKeyEnum.Archived ||
+    key === FeedLifecycleStateKeyEnum.Merged ||
     key === FeedLifecycleStateKeyEnum.Takedown
   ) {
     return key;
@@ -580,6 +585,13 @@ export async function updateFeedOperationsPolicyState(
     const currentLifecycle = await readCurrentLifecycleKey(manager, feedId);
 
     if (params.lifecycleStateKey !== undefined) {
+      if (
+        params.lifecycleStateKey !== currentLifecycle &&
+        (params.lifecycleStateKey === FeedLifecycleStateKeyEnum.Merged ||
+          currentLifecycle === FeedLifecycleStateKeyEnum.Merged)
+      ) {
+        throw new Error('Disallowed lifecycle transition: merged is not changed from this form');
+      }
       assertLifecycleTransitionAllowed(currentLifecycle, params.lifecycleStateKey, {
         explicitManagementOverride: true,
       });

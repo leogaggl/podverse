@@ -13,6 +13,11 @@
 export const E2E_PODCAST_CHANNEL_ID_TEXT = 'e2ePodChnl001';
 export const E2E_PODCAST_CHANNEL_TITLE = 'E2E Podcast Seed Channel';
 
+/** Applied absorb pair for the merged-channel redirect spec. */
+export const E2E_MERGED_OLD_CHANNEL_ID_TEXT = 'e2eMrgOldCh01';
+export const E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT = 'e2eMrgSurCh01';
+export const E2E_MERGED_UNMATCHED_ITEM_ID_TEXT = 'e2eMrgUnmIt01';
+
 export const E2E_LIVESTREAM_CHANNEL_ID_TEXT = 'v5fCrIj9Io';
 export const E2E_LIVESTREAM_CHANNEL_TITLE = 'E2E Livestream Channel';
 export const E2E_LIVESTREAM_ITEM_ID_TEXT = 'e2eLiveStrm01';

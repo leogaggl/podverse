@@ -1,76 +1,85 @@
+import { getPodcastIndexConfig } from '@workers/config/index.js';
 import { getPodcastIndexService } from '@workers/factories/podcastIndexService.js';
-import { DeduplicatorService } from '@workers/lib/deduplicator.js';
-import fs from 'fs';
 
-const CACHE_FILE_PATH = '/data/dead_feeds_cache.json';
+import {
+  deadFeedPairsWeHold,
+  extractDeadFeedCsvRow,
+  resolveDeadFeedDuplicateChains,
+} from '@podverse/external-services-podcast-index';
+import {
+  ChannelMergeService,
+  FeedService,
+  PODCAST_INDEX_DEAD_FEED_SYNC_ID,
+  PodcastIndexDeadFeedSync,
+  PodcastIndexDeadFeedSyncService,
+  verifyAndApplyDuplicateMerges,
+} from '@podverse/orm';
 
-function loadCache(): Set<number> {
-  try {
-    if (fs.existsSync(CACHE_FILE_PATH)) {
-      const raw = fs.readFileSync(CACHE_FILE_PATH, 'utf-8');
-      const arr = JSON.parse(raw);
-      return new Set<number>(arr);
-    }
-  } catch (err) {
-    console.error('Failed to load cache:', err);
-  }
-  return new Set<number>();
-}
+import { enqueueRepointParse, fetchSurvivorFeed } from './applyDuplicateMerges.js';
 
-function saveCache(cache: Set<number>) {
-  try {
-    fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(Array.from(cache)), 'utf-8');
-  } catch (err) {
-    console.error('Failed to save cache:', err);
-  }
-}
-
-export function podcastIndexDeadFeedsDeleteCache() {
-  try {
-    if (fs.existsSync(CACHE_FILE_PATH)) {
-      fs.unlinkSync(CACHE_FILE_PATH);
-      console.warn('Cache file deleted.');
-    } else {
-      console.warn('Cache file does not exist.');
-    }
-  } catch (err) {
-    console.error('Failed to delete cache file:', err);
-  }
-}
-
+/**
+ * Record Podcast Index duplicate pairs for feeds we already store, then assess them.
+ * `off` returns before any download. `dry_run` writes `verified` or `needs_review` and
+ * does not move account rows. `apply` also re-points or absorbs each verified pair.
+ */
 export const podcastIndexDeadFeedsFlagAndMerge = async () => {
-  const deduplicatorService = new DeduplicatorService();
-  let itemCount = 0;
-  const cache = loadCache();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async function resolveHandler(data: any) {
-    itemCount++;
-    const parsedData = getPodcastIndexService().deadFeedsExtractRow(data);
-    const { id_to_archive, duplicate_id_to_keep } = parsedData;
-
-    if (cache.has(id_to_archive)) {
-      if (itemCount % 100000 === 0) {
-        console.warn(`Skipped ${itemCount} feeds. Already handled id_to_archive: ${id_to_archive}`);
-      }
-      return;
-    }
-
-    if (itemCount % 100000 === 0) {
-      console.warn(`Processed ${itemCount} feeds. Current parsedData:`, parsedData);
-    }
-    try {
-      await deduplicatorService.handleDuplicatePodcastIndexId(id_to_archive, duplicate_id_to_keep);
-      cache.add(id_to_archive);
-      if (itemCount % 1000 === 0) {
-        saveCache(cache);
-      }
-    } catch (error) {
-      console.error('Error processing dead feed:', error);
-      console.error('Data that caused the error:', parsedData);
-    }
+  const mode = getPodcastIndexConfig().duplicateMergeMode;
+  if (mode === 'off') {
+    console.warn('PODCAST_INDEX_DUPLICATE_MERGE_MODE is off. Skipping dead-feed download.');
+    return;
   }
 
-  await getPodcastIndexService().deadFeedsDownloadAndExtractCSV(resolveHandler);
-  saveCache(cache);
+  const syncService = new PodcastIndexDeadFeedSyncService();
+  const existing = await syncService.get();
+  const targets = new Map<number, number | null>();
+  let rowCount = 0;
+
+  const download = await getPodcastIndexService().deadFeedsDownloadAndExtractCSV(
+    (row) => {
+      rowCount += 1;
+      const parsed = extractDeadFeedCsvRow(row);
+      if (parsed === null) {
+        return;
+      }
+      targets.set(parsed.id_to_archive, parsed.duplicate_id_to_keep);
+      if (rowCount % 500000 === 0) {
+        console.warn(`Dead-feed CSV: read ${rowCount} rows.`);
+      }
+    },
+    {
+      ifModifiedSince: existing?.last_modified,
+      ifNoneMatch: existing?.etag,
+    }
+  );
+
+  if (download.notModified) {
+    console.warn('Dead-feed CSV was not modified.');
+  } else {
+    const held = new Set(await new FeedService().listPodcastIndexIds());
+    const pairs = deadFeedPairsWeHold(resolveDeadFeedDuplicateChains(targets), held);
+    const mergeService = new ChannelMergeService();
+    for (const pair of pairs) {
+      await mergeService.upsertDetected({
+        fromPodcastIndexId: pair.fromPodcastIndexId,
+        toPodcastIndexId: pair.toPodcastIndexId,
+      });
+    }
+
+    const syncRow = new PodcastIndexDeadFeedSync();
+    syncRow.id = PODCAST_INDEX_DEAD_FEED_SYNC_ID;
+    syncRow.last_modified = download.lastModified;
+    syncRow.etag = download.etag;
+    syncRow.synced_at = new Date();
+    await syncService.save(syncRow);
+
+    console.warn(
+      `Dead-feed CSV: ${rowCount} rows, ${pairs.length} pairs recorded for feeds we have (mode ${mode}).`
+    );
+  }
+
+  await verifyAndApplyDuplicateMerges({
+    mode,
+    fetchSurvivorFeed,
+    enqueueRepointParse,
+  });
 };

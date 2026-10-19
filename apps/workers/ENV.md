@@ -20,7 +20,6 @@ The workers app validates environment variables **per command**. Each job only v
 
 | Command group                       | Categories validated                     | Commands (examples)                                                                                                                                                                                                                                |
 | ----------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base only                           | Base                                     | podcastIndexDeadFeedsDeleteCache                                                                                                                                                                                                                   |
 | Base + ORM only                     | Base, ORM                                | archiveAll, statsUpdateAggregated, devStatsSeedSimulatedAggregated, devSeedLocalUserContent, scheduledJobsRunDue, notificationsPlatformPurge, billingImportLegacyMembershipExpiry, billingProcessorProductAdd, billingCheckoutChannelEnable, orm\* |
 | Base + ORM + Billing                | Base, ORM, Billing                       | billingReconcile, billingStrikeEnsureWebhook                                                                                                                                                                                                       |
 | Base + Podcast Index                | Base, PodcastIndex                       | podcastIndexTrendingPodcastsGet, podcastIndexValueUpdateAll                                                                                                                                                                                        |
@@ -185,8 +184,11 @@ Apple ids are in [BILLING-APPLE-SANDBOX.md](/docs/billing/BILLING-APPLE-SANDBOX.
 These variables are required only for commands that include the Podcast Index category
 (see "Command groups and env categories" above).
 
-- **`PODCAST_INDEX_AUTH_KEY`** (Required) - Podcast Index API authentication key
 - **`PODCAST_INDEX_BASE_URL`** (Required) - Podcast Index API base URL
+- **`PODCAST_INDEX_DUPLICATE_MERGE_MODE`** (Required) - `off`, `dry_run`, or `apply`. `off` exits the
+  dead-feed job before the CSV download. `dry_run` and `apply` record detected duplicate
+  pairs and do not merge feeds or change lifecycle.
+- **`PODCAST_INDEX_AUTH_KEY`** (Required) - Podcast Index API authentication key
 - **`PODCAST_INDEX_SECRET_KEY`** (Required) - Podcast Index API secret key
 - **`PODCAST_INDEX_API_RATE_LIMIT_DELAY`** (Optional) - Rate limit delay in milliseconds for
   Podcast Index API requests. Default is `200`. Set to `0` to disable. For

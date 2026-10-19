@@ -6,6 +6,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   FEEDS: '/feeds',
   FEEDS_FLAG_STATUS: '/feeds/flag-status',
+  FEEDS_MERGE_REVIEW: '/feeds/merge-review',
   STATS: '/stats',
   DATABASE: '/database',
   PRODUCTS: '/products',

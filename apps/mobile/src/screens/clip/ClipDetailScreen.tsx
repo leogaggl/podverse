@@ -21,6 +21,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { navigateToMakeClipScreen } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import {
   BottomChromeScrollSpacer,
   useBottomChromeScrollIndicatorInsets,
@@ -66,6 +67,7 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const onItemDescriptionClock = useItemDescriptionClock(item, channel);
   const { clipId } = route.params;
 
   const styles = useMemo(
@@ -268,9 +270,9 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
               {channel?.title ?? t('media.podcast.podcast')}
             </Text>
             <Text style={styles.cardText}>
-              {t('info.time.start_end', {
-                timeEnd: formatHHMMSS(Number(clip.end_time)),
-                timeStart: formatHHMMSS(Number(clip.start_time)),
+              {t('features.clip.clip_time_range', {
+                hhmmssEnd: formatHHMMSS(Number(clip.end_time)),
+                hhmmssStart: formatHHMMSS(Number(clip.start_time)),
               })}
             </Text>
             <Pressable
@@ -320,6 +322,13 @@ export function ClipDetailScreen({ navigation, route }: ClipDetailScreenProps) {
               emptyLabel={t('info.summary.no_summary')}
               html={clipDescriptionHtml}
               linkStyle={styles.cardLink}
+              onDescriptionClock={
+                clip.description !== undefined &&
+                clip.description !== null &&
+                clip.description.length > 0
+                  ? undefined
+                  : onItemDescriptionClock
+              }
               resetKey={clipId}
               testID="clip-detail-description"
               textStyle={styles.cardText}

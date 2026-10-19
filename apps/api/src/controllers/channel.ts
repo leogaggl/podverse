@@ -1,5 +1,6 @@
 import { handleReturnDataOrNotFound } from '@api/controllers/helpers/data.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
+import { sendMergedInto } from '@api/controllers/helpers/mergedInto.js';
 import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
 import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { getFollowedChannelIds } from '@api/lib/followed.js';
@@ -34,6 +35,7 @@ import {
   AccountFollowingChannelService,
   channelGetManyRelations,
   channelGetOneRelations,
+  ChannelMergeRedirectService,
   ChannelService,
   StatsAggregatedChannelService,
   subChannelGetManyRelations,
@@ -41,6 +43,7 @@ import {
 
 export class ChannelController {
   private static channelService = new ChannelService();
+  private static mergeRedirects = new ChannelMergeRedirectService();
   private static statsAggregatedChannelService = new StatsAggregatedChannelService();
 
   private static isParsedReadyChannel(channel: Channel | null): channel is Channel {
@@ -109,6 +112,11 @@ export class ChannelController {
     validateParamsObject(Joi.object(idOrIdTextParamSchema), req, res, async () => {
       try {
         const idOrIdText = getParamRequired(req, 'idOrIdText');
+        const merged = await ChannelController.mergeRedirects.channelMove(idOrIdText);
+        if (merged) {
+          sendMergedInto(res, 'channel', merged.to_id_text);
+          return;
+        }
         const data: Channel | null = await ChannelController.channelService.getByIdOrIdText(
           idOrIdText,
           channelGetOneRelations
@@ -134,10 +142,17 @@ export class ChannelController {
           res.status(400).json({ error: 'Invalid podcast_index_id' });
           return;
         }
-        const data: Channel | null = await ChannelController.channelService.getByPodcastIndexId(
-          podcastIndexId,
-          channelGetOneRelations
-        );
+        const survivorIdText =
+          await ChannelController.mergeRedirects.survivorIdTextForPodcastIndexId(podcastIndexId);
+        const data: Channel | null = survivorIdText
+          ? await ChannelController.channelService.getByIdText(
+              survivorIdText,
+              channelGetOneRelations
+            )
+          : await ChannelController.channelService.getByPodcastIndexId(
+              podcastIndexId,
+              channelGetOneRelations
+            );
         const parsedReadyChannel = ChannelController.isParsedReadyChannel(data) ? data : null;
         res.json(parsedReadyChannel || null);
       } catch (error) {

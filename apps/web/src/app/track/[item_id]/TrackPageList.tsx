@@ -13,6 +13,7 @@ import { ContentPeopleRows } from '../../../components/Content/About/ContentPeop
 import { CoreEpisodeSummary } from '../../../components/Core/Podcast/Episodes/CoreEpisodeSummary';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
+import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
 import { useTrackPageContext } from './TrackPageContext';
 
 const ItemTranscript = dynamic(
@@ -40,6 +41,11 @@ export const TrackPageList: React.FC<TrackPageListProps> = ({
   const tV4VBoostMessages = useTranslations('v4v.boost_messages');
   const { filterParams, isLoading, transcriptRows, autoScrollOn } = useTrackPageContext();
   const { type } = filterParams;
+  const clock = useDescriptionClockPlayback({
+    channel: ssrChannel,
+    item: ssrItem,
+    kind: 'item',
+  });
   const { boostsPageFetcher, breadcrumbLinkResolver, refreshTrigger } = useBoostMessagesView({
     channel: ssrChannel,
     itemGuid: ssrItem.guid ?? null,
@@ -52,7 +58,13 @@ export const TrackPageList: React.FC<TrackPageListProps> = ({
 
   return (
     <DetailListWrapper>
-      {type === 'summary' && <CoreEpisodeSummary description={ssrItem.item_description?.value} />}
+      {type === 'summary' && (
+        <CoreEpisodeSummary
+          description={ssrItem.item_description?.value}
+          descriptionClockLabel={clock.descriptionClockLabel}
+          onDescriptionClock={clock.onDescriptionClock}
+        />
+      )}
       {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}
       {type === 'boosts' && boostsPageFetcher !== null && (
         <BoostMessagesSection

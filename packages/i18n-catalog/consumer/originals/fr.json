@@ -192,7 +192,7 @@
       "end_time": "Heure de fin",
       "end_time_aria": "Heure de fin en heures, minutes et secondes (hh:mm:ss)",
       "end_time_play_aria": "Jouer depuis l'heure de fin du clip",
-      "clip_time_range": "{hhmmssStart} à {hhmmssEnd}",
+      "clip_time_range": "{hhmmssStart} - {hhmmssEnd}",
       "login_prompt": "Connectez-vous pour utiliser cette fonctionnalité."
     },
     "my_clips": "Mes clips",
@@ -360,7 +360,8 @@
     "about": "À propos",
     "summary": {
       "summary": "Résumé",
-      "no_summary": "Aucun résumé disponible"
+      "no_summary": "Aucun résumé disponible",
+      "play_from": "Lire à partir de {time}"
     },
     "podroll": "Podroll",
     "no_podroll_found": "Aucun podcast recommandé trouvé",

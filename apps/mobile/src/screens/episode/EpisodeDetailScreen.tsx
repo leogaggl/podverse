@@ -52,6 +52,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { ChannelBrowseStackParamList } from '../../navigation';
 import { buildPodcastDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
 import { EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -119,9 +120,9 @@ function EpisodeChapterRow({
       artworkUri={artwork.show ? artwork.uri : null}
       showArtwork={artwork.show}
       testID="episode-detail-chapter-row"
-      timeRange={t('info.time.start_end', {
-        timeEnd: formatHHMMSS(Number(chapter.end_time)),
-        timeStart: formatHHMMSS(Number(chapter.start_time)),
+      timeRange={t('features.clip.clip_time_range', {
+        hhmmssEnd: formatHHMMSS(Number(chapter.end_time)),
+        hhmmssStart: formatHHMMSS(Number(chapter.start_time)),
       })}
       title={chapter.title ?? chapter.id_text}
     />
@@ -214,6 +215,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
   const { playbackNoticeKey, runMarkAsPlayedAction, runPlayAction, runQueueAction } =
     useHomeRowPlayback();
   const { playSoundbite } = usePlaybackSession();
+  const onDescriptionClock = useItemDescriptionClock(episode, channel);
 
   const styles = useMemo(
     () =>
@@ -688,6 +690,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
             emptyLabel={t('info.summary.no_summary')}
             html={descriptionHtml}
             linkStyle={styles.showMore}
+            onDescriptionClock={onDescriptionClock}
             resetKey={episodeId}
             showMoreStyle={styles.showMore}
             testID="episode-detail-description"
@@ -789,6 +792,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     isLoadingMoreClips,
     isTabLoading,
     offlineModeEnabled,
+    onDescriptionClock,
     soundbiteRows.length,
     styles.description,
     styles.loadMore,

@@ -176,7 +176,10 @@
     "quick_login_popularity": "Σύνδεση ως αναποφάσιστος χρήστης E2E",
     "quick_login_stale_terms": "Σύνδεση ως χρήστης E2E με παλιούς όρους",
     "quick_login_perf": "Σύνδεση ως χρήστης E2E perf",
-    "session_ready": "Συνεδρία E2E έτοιμη"
+    "session_ready": "Συνεδρία E2E έτοιμη",
+    "identity_remap": "Συγχωνευμένη εκπομπή",
+    "identity_remap_prepare": "Προετοιμασία συγχωνευμένης εκπομπής",
+    "identity_remap_intro": "Αποθηκεύει μια τοπική συνδρομή και μια ολοκληρωμένη λήψη για μια συγχωνευμένη εκπομπή και έπειτα ανανεώνει."
   },
   "subscriptions": {
     "downloaded_only": "Μόνο ληφθέντα"
@@ -196,7 +199,8 @@
       "live_status": "Έλεγχος για ζωντανές μεταδόσεις",
       "clips": "Ενημέρωση των αποσπασμάτων σας",
       "home_feed": "Ανάγνωση της αρχικής από αυτή τη συσκευή",
-      "auto_download": "Λήψη νέων επεισοδίων"
+      "auto_download": "Λήψη νέων επεισοδίων",
+      "identity_remap": "Ενημέρωση των εκπομπών σας"
     },
     "progress": "{completed} από {total}"
   },

@@ -27,6 +27,7 @@ import {
   getStoredSortPref,
 } from '../../../utils/localSettings/localSettings';
 import { enforceCanonicalChannelRoute } from '../../../utils/redirect/enforceCanonicalMediumRoute';
+import { permanentRedirectIfMerged } from '../../../utils/redirect/permanentRedirectIfMerged';
 import { AlbumPageClient } from './AlbumPageClient';
 import type { AlbumPageDropdownConfigCurrentParams } from './AlbumPageDropdownConfig';
 import { getAlbumPageFilterParams } from './AlbumPageDropdownConfig';
@@ -54,9 +55,18 @@ export type AlbumPageProps = {
   params: Promise<{ channel_id: string }>;
 };
 
-export async function generateMetadata({ params }: AlbumPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: AlbumPageProps): Promise<Metadata> {
+  const { channel_id } = await params;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'album',
+    searchParams: await searchParams,
+  });
   try {
-    const { channel_id } = await params;
     const channel = await getChannelForSeoPage(channel_id);
     const descriptionPlain = truncateMetaDescription(
       toSeoPlainText(channel.channel_description?.value || channel.title)
@@ -86,6 +96,12 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
 export default async function AlbumPage({ params, searchParams }: AlbumPageProps) {
   const { channel_id } = await params;
   const queryParams = await searchParams;
+  await permanentRedirectIfMerged({
+    kind: 'channel',
+    id: channel_id,
+    routeKind: 'album',
+    searchParams: queryParams,
+  });
 
   const { ssrApiRequestService } = await getSSRAuthService();
 

@@ -172,6 +172,8 @@ import {
   reqPodcastIndexSearchPodcasts,
 } from './externalServices/podcastIndex/index.js';
 import { reqFeedGetByPodcastIndexId } from './feed/feed.js';
+import type { IdentityResolveRequest } from './identity/identity.js';
+import { reqIdentityResolve } from './identity/identity.js';
 import {
   reqItemGetByIdOrIdText,
   reqItemGetMany,
@@ -1001,6 +1003,12 @@ export class ApiRequestService {
 
   reqFeedGetByPodcastIndexId(podcast_index_id: number | string) {
     return reqFeedGetByPodcastIndexId(this, podcast_index_id);
+  }
+
+  /* IDENTITY */
+
+  reqIdentityResolve(body: IdentityResolveRequest) {
+    return reqIdentityResolve(this, body);
   }
 
   /* ITEM */

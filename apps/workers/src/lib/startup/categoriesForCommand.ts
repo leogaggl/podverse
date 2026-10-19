@@ -43,8 +43,6 @@ const BASE_ORM_COMMANDS = [
 
 const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;
 
-const BASE_ONLY_COMMANDS = ['podcastIndexDeadFeedsDeleteCache'] as const;
-
 const BASE_PODCAST_INDEX_COMMANDS = [
   'podcastIndexTrendingPodcastsGet',
   'podcastIndexValueUpdateAll',
@@ -112,10 +110,6 @@ export function getCategoriesForCommand(commandName: string): Set<ConfigCategory
   ) {
     categories.add(CATEGORY_ORM);
     categories.add(CATEGORY_BILLING);
-    return categories;
-  }
-
-  if (BASE_ONLY_COMMANDS.includes(commandName as (typeof BASE_ONLY_COMMANDS)[number])) {
     return categories;
   }
 

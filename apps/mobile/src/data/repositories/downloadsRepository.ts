@@ -562,6 +562,12 @@ export const downloadsRepository = {
     await refreshNativeCacheProjection();
   },
 
+  /** Rebuild the car download index from the completed rows. */
+  reprojectNativeCache: async (): Promise<void> => {
+    await initializeDatabase();
+    await refreshNativeCacheProjection();
+  },
+
   /** Clear all downloads (session reset / logout). Projects an empty set. */
   clear: async (): Promise<void> => {
     await initializeDatabase();

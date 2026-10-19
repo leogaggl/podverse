@@ -13,6 +13,9 @@
  * Also seeds one app user in podverse_app_test (user podverse_app_read_write) whose membership
  * the billing admin E2E edits. That user is replaced on every run, so this seed can follow the
  * web seed, which truncates app accounts, or run on its own.
+ *
+ * Two duplicate-feed pairs are seeded in the app database for Merge Review. Both stay
+ * needs_review and the old feeds stay active.
  */
 
 import crypto from 'node:crypto';
@@ -28,6 +31,8 @@ const DB_NAME = process.env.DB_MANAGEMENT_NAME ?? 'podverse_management_test';
 const APP_DB_USER = process.env.SEED_APP_DB_USER ?? 'podverse_app_read_write';
 const APP_DB_PASSWORD = process.env.SEED_APP_DB_PASSWORD ?? 'test';
 const APP_DB_NAME = process.env.DB_APP_NAME ?? 'podverse_app_test';
+
+const MERGE_REVIEW_PI_IDS = [876543240, 876543241, 876543242, 876543243];
 
 const BILLING_MEMBER_EMAIL = 'e2e-billing-member@example.com';
 const BILLING_MEMBER_TRIAL_DAYS = 3;
@@ -89,6 +94,167 @@ async function seedBillingMember(passwordHash) {
     console.log(
       `Seeded app user (Trial, ${BILLING_MEMBER_TRIAL_DAYS} days): ${BILLING_MEMBER_EMAIL}`
     );
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Two needs-review pairs. Approving one must leave the old feed active. Rejecting the other
+ * removes it from the default list. Re-running replaces these Podcast Index ids only.
+ */
+async function seedMergeReview() {
+  const client = new pg.Client({
+    host: DB_HOST,
+    port: DB_PORT,
+    user: APP_DB_USER,
+    password: APP_DB_PASSWORD,
+    database: APP_DB_NAME,
+  });
+  await client.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `DELETE FROM channel_merge
+       WHERE from_podcast_index_id = ANY($1::int[])
+          OR to_podcast_index_id = ANY($1::int[])`,
+      [MERGE_REVIEW_PI_IDS]
+    );
+    await client.query(`DELETE FROM feed WHERE podcast_index_id = ANY($1::int[])`, [
+      MERGE_REVIEW_PI_IDS,
+    ]);
+
+    async function insertShow({ podcastIndexId, idText, title, url }) {
+      const feedResult = await client.query(
+        `INSERT INTO feed (url, podcast_index_id) VALUES ($1, $2) RETURNING id`,
+        [url, podcastIndexId]
+      );
+      const feedId = feedResult.rows[0].id;
+      await client.query(
+        `INSERT INTO feed_policy (feed_id, parse_allowed, public_visible, add_allowed)
+         VALUES ($1, true, true, true)`,
+        [feedId]
+      );
+      const channelResult = await client.query(
+        `INSERT INTO channel (id_text, feed_id, medium_id, title)
+         VALUES (
+           $1,
+           $2,
+           (SELECT id FROM medium WHERE value = 'podcast' LIMIT 1),
+           $3
+         )
+         RETURNING id`,
+        [idText, feedId, title]
+      );
+      const channelId = channelResult.rows[0].id;
+      await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
+      await client.query(`INSERT INTO channel_description (channel_id, value) VALUES ($1, $2)`, [
+        channelId,
+        `${title} description.`,
+      ]);
+      await client.query(
+        `INSERT INTO channel_image (channel_id, url, image_width_size) VALUES ($1, $2, 1400)`,
+        [channelId, 'https://e2e-seed-merge-review.example/art.png']
+      );
+      return channelId;
+    }
+
+    async function insertPair({
+      fromPodcastIndexId,
+      toPodcastIndexId,
+      fromIdText,
+      toIdText,
+      fromTitle,
+      toTitle,
+      fromUrl,
+      toUrl,
+      fromItemIdText,
+      toItemIdText,
+      guid,
+    }) {
+      const fromChannelId = await insertShow({
+        podcastIndexId: fromPodcastIndexId,
+        idText: fromIdText,
+        title: fromTitle,
+        url: fromUrl,
+      });
+      const toChannelId = await insertShow({
+        podcastIndexId: toPodcastIndexId,
+        idText: toIdText,
+        title: toTitle,
+        url: toUrl,
+      });
+      const fromItem = await client.query(
+        `INSERT INTO item (id_text, channel_id, guid, pub_date, title, item_flag_status_id)
+         VALUES ($1, $2, $3, NOW(), $4, 1)
+         RETURNING id`,
+        [fromItemIdText, fromChannelId, guid, `${fromTitle} Episode`]
+      );
+      const toItem = await client.query(
+        `INSERT INTO item (id_text, channel_id, guid, pub_date, title, item_flag_status_id)
+         VALUES ($1, $2, $3, NOW(), $4, 1)
+         RETURNING id`,
+        [toItemIdText, toChannelId, guid, `${toTitle} Episode`]
+      );
+      const merge = await client.query(
+        `INSERT INTO channel_merge (
+           from_podcast_index_id,
+           to_podcast_index_id,
+           from_channel_id,
+           to_channel_id,
+           mode,
+           status,
+           confidence,
+           match_stats
+         )
+         VALUES ($1, $2, $3, $4, 'absorb', 'needs_review', 0.4200, $5::jsonb)
+         RETURNING id`,
+        [
+          fromPodcastIndexId,
+          toPodcastIndexId,
+          fromChannelId,
+          toChannelId,
+          JSON.stringify({ oldCount: 1, survivorCount: 1, matched: 1, byTier: { guid: 1 } }),
+        ]
+      );
+      await client.query(
+        `INSERT INTO item_merge_map (channel_merge_id, from_item_id, to_item_id, match_tier)
+         VALUES ($1, $2, $3, 'guid')`,
+        [merge.rows[0].id, fromItem.rows[0].id, toItem.rows[0].id]
+      );
+    }
+
+    await insertPair({
+      fromPodcastIndexId: 876543240,
+      toPodcastIndexId: 876543241,
+      fromIdText: 'e2eMrgRvApO1',
+      toIdText: 'e2eMrgRvApS1',
+      fromTitle: 'E2E Review Approve',
+      toTitle: 'E2E Review Approve Survivor',
+      fromUrl: 'https://e2e-seed-merge-review.example/approve-old.xml',
+      toUrl: 'https://e2e-seed-merge-review.example/approve-survivor.xml',
+      fromItemIdText: 'e2eMrgRvApI1',
+      toItemIdText: 'e2eMrgRvApI2',
+      guid: 'https://e2e-seed-merge-review.example/guid/approve',
+    });
+    await insertPair({
+      fromPodcastIndexId: 876543242,
+      toPodcastIndexId: 876543243,
+      fromIdText: 'e2eMrgRvRjO1',
+      toIdText: 'e2eMrgRvRjS1',
+      fromTitle: 'E2E Review Reject',
+      toTitle: 'E2E Review Reject Survivor',
+      fromUrl: 'https://e2e-seed-merge-review.example/reject-old.xml',
+      toUrl: 'https://e2e-seed-merge-review.example/reject-survivor.xml',
+      fromItemIdText: 'e2eMrgRvRjI1',
+      toItemIdText: 'e2eMrgRvRjI2',
+      guid: 'https://e2e-seed-merge-review.example/guid/reject',
+    });
+    await client.query('COMMIT');
+    console.log('Seeded merge review pairs (needs review, old feeds still active).');
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -162,6 +328,7 @@ async function main() {
   await client.end();
 
   await seedBillingMember(passwordHash);
+  await seedMergeReview();
   console.log('Management-web E2E seed complete.');
 }
 

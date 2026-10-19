@@ -361,6 +361,17 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_playable_item_source ON playable_item (source);`,
     ],
   },
+  {
+    version: 22,
+    statements: [
+      // Ids already rewritten onto a survivor. The same pair is not written again.
+      `CREATE TABLE IF NOT EXISTS identity_remap_applied (
+        from_id_text TEXT PRIMARY KEY NOT NULL,
+        to_id_text TEXT NOT NULL,
+        applied_at INTEGER NOT NULL
+      );`,
+    ],
+  },
 ];
 
 export const LATEST_MIGRATION_VERSION: number = MIGRATIONS.reduce(

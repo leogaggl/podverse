@@ -29,6 +29,8 @@ import express from 'express';
 
 import { FeedLifecycleStateKeyEnum } from '@podverse/orm';
 
+import { registerFeedMergeReviewRoutes } from './feedMergeReview.js';
+
 const router = express.Router();
 const auditLog = new AuditLogService();
 
@@ -155,6 +157,9 @@ router.get('/lookup', ensureAuthenticated, requireCrud('feeds', 'read'), async (
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+// Static /merges paths stay ahead of /:id so "merges" is not parsed as a feed id.
+registerFeedMergeReviewRoutes(router);
 
 router.patch(
   '/:id/policy-state',

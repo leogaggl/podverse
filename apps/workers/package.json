@@ -51,7 +51,6 @@
     "orm_on_demand_parser_event_delete_outdated": "node ./dist/index.js deleteOutdatedOnDemandParserEvent",
     "orm_on_demand_parser_event_generate_reports": "node ./dist/index.js generateOnDemandParserEventReports",
     "parser_rss_parse_feed": "node ./dist/index.js parserRSSParseFeed",
-    "podcast_index_dead_feeds_delete_cache": "node ./dist/index.js podcastIndexDeadFeedsDeleteCache",
     "podcast_index_dead_feeds_flag_and_merge": "node ./dist/index.js podcastIndexDeadFeedsFlagAndMerge",
     "podcast_index_trending_podcasts_get": "node ./dist/index.js podcastIndexTrendingPodcastsGet",
     "podcast_index_value_update_all": "node ./dist/index.js podcastIndexValueUpdateAll",

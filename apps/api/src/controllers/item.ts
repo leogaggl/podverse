@@ -1,5 +1,6 @@
 import { handleReturnDataOrNotFound } from '@api/controllers/helpers/data.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
+import { sendMergedInto } from '@api/controllers/helpers/mergedInto.js';
 import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
 import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { assignChapterEndTimes } from '@api/lib/chapters.js';
@@ -47,6 +48,8 @@ import type {
   StatsAggregatedItem,
 } from '@podverse/orm';
 import {
+  channelGetOneRelations,
+  ChannelMergeRedirectService,
   ChannelService,
   ItemChapterService,
   itemGetManyRelations,
@@ -70,6 +73,7 @@ export class ItemController {
   private static itemService: ItemService = new ItemService();
   private static itemChapterService: ItemChapterService = new ItemChapterService();
   private static channelService: ChannelService = new ChannelService();
+  private static mergeRedirects = new ChannelMergeRedirectService();
   private static statsAggregatedItemService: StatsAggregatedItemService =
     new StatsAggregatedItemService();
 
@@ -176,11 +180,31 @@ export class ItemController {
     validateParamsObject(Joi.object(idOrIdTextParamSchema), req, res, async () => {
       try {
         const idOrIdText = getParamRequired(req, 'idOrIdText');
+        const merged = await ItemController.mergeRedirects.itemMove(idOrIdText);
+        if (merged) {
+          sendMergedInto(res, 'item', merged.to_id_text);
+          return;
+        }
         const data = await ItemController.itemService.getByIdOrIdText(
           idOrIdText,
           itemGetOneRelations
         );
-        handleReturnDataOrNotFound(res, data, 'Item');
+        if (!data) {
+          handleReturnDataOrNotFound(res, data, 'Item');
+          return;
+        }
+        const channelMerged = await ItemController.mergeRedirects.channelMove(
+          String(data.channel_id)
+        );
+        if (!channelMerged) {
+          handleReturnDataOrNotFound(res, data, 'Item');
+          return;
+        }
+        const channel = await ItemController.channelService.getByIdOrIdText(
+          String(data.channel_id),
+          channelGetOneRelations
+        );
+        handleReturnDataOrNotFound(res, channel ? { ...data, channel } : data, 'Item');
       } catch (error) {
         handleGenericErrorResponse(res, error);
       }

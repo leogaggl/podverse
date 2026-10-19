@@ -176,7 +176,10 @@
     "quick_login_popularity": "Sign in as Undecided E2E User",
     "quick_login_stale_terms": "Sign in as Stale Terms E2E User",
     "quick_login_perf": "Sign in as Perf E2E User",
-    "session_ready": "E2E Session Ready"
+    "session_ready": "E2E Session Ready",
+    "identity_remap": "Merged Show",
+    "identity_remap_prepare": "Prepare Merged Show",
+    "identity_remap_intro": "Stores a local subscription and a finished download for a merged show, then refreshes."
   },
   "subscriptions": {
     "downloaded_only": "Downloaded Only"
@@ -196,7 +199,8 @@
       "seen_state": "Updating What's New",
       "live_status": "Checking What's Live",
       "clips": "Updating Your Clips",
-      "home_feed": "Reading Home from This Device"
+      "home_feed": "Reading Home from This Device",
+      "identity_remap": "Updating Your Shows"
     },
     "progress": "{completed} of {total}"
   },

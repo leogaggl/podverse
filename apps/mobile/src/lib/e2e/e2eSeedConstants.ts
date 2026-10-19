@@ -27,3 +27,18 @@ export const E2E_PERF_EMAIL = 'e2e-perf@example.com';
 
 /** Shared password for seeded E2E accounts (`tools/web/seed-e2e.mjs`). */
 export const E2E_USER_PASSWORD = 'Test!1Aa';
+
+/** Directory channel whose feed was absorbed into the survivor. */
+export const E2E_MERGED_OLD_CHANNEL_ID_TEXT = 'e2eMrgOldCh01';
+
+/** Directory channel that remains after the absorb. */
+export const E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT = 'e2eMrgSurCh01';
+
+/** Episode on the absorbed channel that has a match on the survivor. */
+export const E2E_MERGED_OLD_ITEM_ID_TEXT = 'e2eMrgOldIt01';
+
+/** Episode on the survivor that the absorbed episode maps to. */
+export const E2E_MERGED_SURVIVOR_ITEM_ID_TEXT = 'e2eMrgSurIt01';
+
+/** Finished download path the remap must leave in place. */
+export const E2E_IDENTITY_REMAP_FILE_PATH = 'file:///e2e/identity-remap-kept.mp3';

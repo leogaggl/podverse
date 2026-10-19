@@ -7,7 +7,7 @@ export type { ParserContext } from './factory.js';
 
 // Parser exports
 export { parseChapters } from './lib/chapters/chapters.js';
-export { parseRSSFeedAndSaveToDatabase } from './lib/rss/parser.js';
+export { getAndParseRSSFeed, parseRSSFeedAndSaveToDatabase } from './lib/rss/parser.js';
 export type {
   ParseRSSFeedAndSaveToDatabaseOptions,
   ParseRSSFeedAndSaveToDatabaseResult,

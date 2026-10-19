@@ -122,8 +122,8 @@ const clipTimeString = (value: string | number | null | undefined): string | nul
 };
 
 /**
- * Clip start–end label. `formatRange` supplies the localized join (`info.time.start_end`) so this
- * stays free of catalog strings.
+ * Clip start–end label. `formatRange` supplies the localized playback-range join so this stays
+ * free of catalog strings.
  */
 export function clipListTimeRangeLabel(
   startTime: string | number | null | undefined,

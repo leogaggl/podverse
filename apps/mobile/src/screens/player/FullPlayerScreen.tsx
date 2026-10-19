@@ -101,6 +101,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { ROOT_SLIDE_UP_ANIMATION_MS } from '../../navigation/slideUpScreen';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import { hasEpisodeChaptersForTrackButtons } from '../../playback/previousAction';
 import { useNowPlayingChapters } from '../../playback/useNowPlayingChapters';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
@@ -364,6 +365,7 @@ export function FullPlayerScreen({
   }, [chapters.length, currentItem]);
   const previewFlags = episodeForPanes === null ? null : itemSectionFlagsFromDto(episodeForPanes);
   const channel = channelFromTarget(activeTarget);
+  const onDescriptionClock = useItemDescriptionClock(currentItem, channel);
   const hasSections = hasSectionsForTarget(activeTarget);
   const isPlaybackActive = activeTarget !== null && nowPlaying !== null;
   const shareUrl = activeTarget !== null ? buildNowPlayingShareUrl(activeTarget) : null;
@@ -730,9 +732,9 @@ export function FullPlayerScreen({
         },
         title: {
           color: themeStyles.textPrimary.color,
-          fontSize: 28,
+          fontSize: 24,
           fontWeight: '600',
-          lineHeight: 34,
+          lineHeight: 30,
           minWidth: 0,
         },
         titleBlock: {
@@ -1108,6 +1110,7 @@ export function FullPlayerScreen({
               emptyLabel={t('info.summary.no_summary')}
               html={summaryHtml}
               linkStyle={styles.showMore}
+              onDescriptionClock={onDescriptionClock}
               resetKey={currentItemIdText}
               showMoreStyle={styles.showMore}
               testID="full-player-summary-text"
@@ -1225,6 +1228,7 @@ export function FullPlayerScreen({
     loadMoreClips,
     loadTab,
     offlineModeEnabled,
+    onDescriptionClock,
     soundbiteRows.length,
     styles.actionNotice,
     styles.column,
@@ -1484,9 +1488,9 @@ export function FullPlayerScreen({
                           paddingHorizontal={tokens.spacing.lg}
                           showArtwork={artwork.show}
                           testID={`full-player-chapter-row-${row.chapter.id_text}`}
-                          timeRange={t('info.time.start_end', {
-                            timeEnd: formatHHMMSS(Number(row.chapter.end_time)),
-                            timeStart: formatHHMMSS(Number(row.chapter.start_time)),
+                          timeRange={t('features.clip.clip_time_range', {
+                            hhmmssEnd: formatHHMMSS(Number(row.chapter.end_time)),
+                            hhmmssStart: formatHHMMSS(Number(row.chapter.start_time)),
                           })}
                           title={row.chapter.title ?? row.chapter.id_text}
                         />

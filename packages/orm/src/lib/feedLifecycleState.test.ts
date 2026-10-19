@@ -36,6 +36,13 @@ describe('feedLifecycleState', () => {
 
     expect(
       shouldAttemptFeedParseFromLifecycleAndPolicy({
+        lifecycleStateKey: FeedLifecycleStateKeyEnum.Merged,
+        feedPolicy: mkFeedPolicy(true),
+      })
+    ).toBe(false);
+
+    expect(
+      shouldAttemptFeedParseFromLifecycleAndPolicy({
         lifecycleStateKey: FeedLifecycleStateKeyEnum.Active,
         feedPolicy: mkFeedPolicy(false),
       })

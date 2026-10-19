@@ -114,6 +114,7 @@ export default defineConfig({
       'src/config/customApiUrl.test.ts',
       'src/config/deepLinkSchemes.test.ts',
       'src/data/db/migrations.test.ts',
+      'src/data/identityRemap.test.ts',
       'src/data/repositories/channelItemWindow.test.ts',
       'src/data/repositories/channelLiveStatus.test.ts',
       'src/data/repositories/channelSeenSync.test.ts',

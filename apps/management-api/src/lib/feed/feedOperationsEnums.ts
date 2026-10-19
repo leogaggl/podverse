@@ -19,6 +19,9 @@ export function toLifecycleStateEnum(
   if (key === FeedLifecycleEnum.Archived) {
     return FeedLifecycleEnum.Archived;
   }
+  if (key === FeedLifecycleEnum.Merged) {
+    return FeedLifecycleEnum.Merged;
+  }
   if (key === FeedLifecycleEnum.Takedown) {
     return FeedLifecycleEnum.Takedown;
   }

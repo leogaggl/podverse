@@ -454,7 +454,7 @@ export type PlaybackContextValue = {
   playItem: (
     item: DTOItem,
     channel: DTOChannel,
-    options?: { intent?: MusicItemPlaybackIntent }
+    options?: { intent?: MusicItemPlaybackIntent; explicitPlaybackSeconds?: number }
   ) => Promise<void>;
   playClip: (clip: DTOClip, item: DTOItem, channel: DTOChannel) => Promise<void>;
   playSoundbite: (soundbite: DTOItemSoundbite, item: DTOItem, channel: DTOChannel) => Promise<void>;
@@ -1426,10 +1426,11 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     async (
       item: DTOItem,
       channel: DTOChannel,
-      options?: { intent?: MusicItemPlaybackIntent }
+      options?: { intent?: MusicItemPlaybackIntent; explicitPlaybackSeconds?: number }
     ): Promise<void> => {
       await startItemPlayback(item, channel, {
         autoQueue: { mode: 'clear' },
+        explicitPlaybackSeconds: options?.explicitPlaybackSeconds,
         intent: options?.intent ?? 'explicit_play',
       });
     },

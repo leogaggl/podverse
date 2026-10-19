@@ -1826,6 +1826,87 @@ components:
     ApiGetChannelIdoridtextResponse200:
       allOf:
         - $ref: "#/components/schemas/ChannelDetailResponse"
+    MergedIntoResponse:
+      type: object
+      required:
+        - merged_into
+      properties:
+        merged_into:
+          type: object
+          required:
+            - kind
+            - id_text
+          properties:
+            kind:
+              type: string
+              enum:
+                - channel
+                - item
+            id_text:
+              type: string
+    IdentityResolveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        channel_id_texts:
+          type: array
+          maxItems: 500
+          items:
+            type: string
+        item_id_texts:
+          type: array
+          maxItems: 500
+          items:
+            type: string
+        podcast_index_ids:
+          type: array
+          maxItems: 500
+          items:
+            type: integer
+            minimum: 1
+    IdentityResolveResponse:
+      type: object
+      required:
+        - channels
+        - items
+        - podcast_index_ids
+      properties:
+        channels:
+          type: array
+          items:
+            type: object
+            required:
+              - from_id_text
+              - to_id_text
+            properties:
+              from_id_text:
+                type: string
+              to_id_text:
+                type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - from_id_text
+              - to_id_text
+            properties:
+              from_id_text:
+                type: string
+              to_id_text:
+                type: string
+        podcast_index_ids:
+          type: array
+          items:
+            type: object
+            required:
+              - from
+              - to_channel_id_text
+            properties:
+              from:
+                type: integer
+              to_channel_id_text:
+                type: string
     ApiGetChannelCategoryRecentResponse200:
       allOf:
         - $ref: "#/components/schemas/ChannelListResponse"
@@ -9078,6 +9159,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /identity/resolve:
+    post:
+      operationId: apiPostIdentityResolve
+      tags:
+        - identity
+      summary: POST /identity/resolve
+      description: >
+        Public lookup of show, episode, and Podcast Index ids that moved in an applied absorb.
+        Ids that did not move are omitted. Each array is optional, at least one id is required,
+        and each array is capped at 500.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentityResolveRequest"
+            examples:
+              movedIds:
+                summary: One show id, one episode id, and one Podcast Index id
+                value:
+                  channel_id_texts:
+                    - old-show
+                  item_id_texts:
+                    - old-episode
+                  podcast_index_ids:
+                    - 1001
+      responses:
+        "200":
+          description: Only the ids that moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityResolveResponse"
+              examples:
+                moved:
+                  summary: The show and episode that moved, and the old Podcast Index id
+                  value:
+                    channels:
+                      - from_id_text: old-show
+                        to_id_text: surviving-show
+                    items:
+                      - from_id_text: old-episode
+                        to_id_text: surviving-episode
+                    podcast_index_ids:
+                      - from: 1001
+                        to_channel_id_text: surviving-show
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /channel/{id_or_id_text}:
     get:
       operationId: apiGetChannelIdoridtext
@@ -9143,6 +9283,19 @@ paths:
                       - field: id_or_id_text
                         message: No channel matched the provided identifier
                         code: missing_channel
+        "410":
+          description: The channel was absorbed into a surviving show
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedChannel:
+                  summary: Channel id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: channel
+                      id_text: syntax-fm
         "500":
           description: Internal server error
           content:
@@ -11119,6 +11272,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The episode was matched onto a surviving episode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedItem:
+                  summary: Episode id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: item
+                      id_text: surviving-episode
         "500":
           description: Internal server error
           content:

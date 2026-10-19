@@ -240,6 +240,7 @@ npm run mobile:e2e:test -- --platform ios hello-world
 npm run mobile:e2e:test -- --platform ios history-screen
 npm run mobile:e2e:test -- --platform ios hls-playback
 npm run mobile:e2e:test -- --platform ios home
+npm run mobile:e2e:test -- --platform ios identity-remap
 npm run mobile:e2e:test -- --platform ios library-downloads
 npm run mobile:e2e:test -- --platform ios library-playlists
 npm run mobile:e2e:test -- --platform ios locale-switch-home-smoke
@@ -296,6 +297,7 @@ npm run mobile:e2e:test -- --platform android hello-world
 npm run mobile:e2e:test -- --platform android history-screen
 npm run mobile:e2e:test -- --platform android hls-playback
 npm run mobile:e2e:test -- --platform android home
+npm run mobile:e2e:test -- --platform android identity-remap
 npm run mobile:e2e:test -- --platform android library-downloads
 npm run mobile:e2e:test -- --platform android library-playlists
 npm run mobile:e2e:test -- --platform android locale-switch-home-smoke
@@ -427,6 +429,7 @@ npm run mobile:e2e:test -- browse
 npm run mobile:e2e:test -- deep-link
 npm run mobile:e2e:test -- detail-sort-prefs
 npm run mobile:e2e:test -- home
+npm run mobile:e2e:test -- identity-remap
 npm run mobile:e2e:test -- history-screen
 npm run mobile:e2e:test -- library-playlists
 npm run mobile:e2e:test -- membership-checkout

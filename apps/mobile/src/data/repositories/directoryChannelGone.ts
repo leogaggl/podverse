@@ -1,15 +1,17 @@
-import { getErrorResponseStatus } from '@podverse/helpers/error';
+import { getErrorResponseBody, getErrorResponseStatus } from '@podverse/helpers/error';
 
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import type { ChannelWindowSyncResult } from './channelItemsRepository';
 import { channelItemsRepository } from './channelItemsRepository';
+import { identityRemapRepository } from './identityRemapRepository';
 import { subscriptionsRepository } from './subscriptionsRepository';
 import { syncEventLogRepository } from './syncEventLogRepository';
 import type { MobileAuthRequestContext } from './types';
 
 /**
- * Directory episode list 404: the channel is missing or not parsed-ready. Add-by-RSS never uses
- * this path. The follow is dropped so the next launch does not ask again.
+ * Directory episode list 404, or 410 that names the show this one was merged into. Add-by-RSS
+ * never uses this path. A merge target rewrites local keys. Anything else drops the follow so
+ * the next launch does not ask again.
  */
 export const DIRECTORY_CHANNEL_GONE_CODE = 'directory_channel_gone';
 
@@ -28,7 +30,35 @@ export const formatDirectoryChannelGoneDetail = (
 };
 
 export type DirectoryChannelSyncOutcome =
-  { kind: 'gone' } | { kind: 'synced'; result: ChannelWindowSyncResult };
+  | { kind: 'gone' }
+  | { kind: 'remapped'; toIdText: string }
+  | { kind: 'synced'; result: ChannelWindowSyncResult };
+
+const mergedChannelIdText = (error: unknown): string | null => {
+  const body = getErrorResponseBody(error);
+  if (body === undefined) {
+    return null;
+  }
+  const merged = body.merged_into;
+  if (merged === null || typeof merged !== 'object' || Array.isArray(merged)) {
+    return null;
+  }
+  if (!('kind' in merged) || !('id_text' in merged)) {
+    return null;
+  }
+  if (merged.kind !== 'channel' || typeof merged.id_text !== 'string' || merged.id_text.length === 0) {
+    return null;
+  }
+  return merged.id_text;
+};
+
+const shouldResolveBeforeDrop = (error: unknown): boolean => {
+  const status = getErrorResponseStatus(error);
+  if (status === 404) {
+    return true;
+  }
+  return status === 410 && mergedChannelIdText(error) !== null;
+};
 
 export const dropGoneDirectoryChannel = async (params: {
   channelIdText: string;
@@ -71,8 +101,12 @@ const runOrDropGone = async (
   try {
     return { kind: 'synced', result: await work() };
   } catch (error) {
-    if (!isDirectoryChannelGoneError(error)) {
+    if (!shouldResolveBeforeDrop(error)) {
       throw error;
+    }
+    const toIdText = await identityRemapRepository.remapChannel(params.channelIdText);
+    if (toIdText !== null) {
+      return { kind: 'remapped', toIdText };
     }
     await dropGoneDirectoryChannel(params);
     return { kind: 'gone' };

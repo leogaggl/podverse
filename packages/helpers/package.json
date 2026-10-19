@@ -47,6 +47,10 @@
       "types": "./dist/lib/opml/opmlImportErrors.d.ts",
       "default": "./dist/lib/opml/opmlImportErrors.js"
     },
+    "./descriptionClocks": {
+      "types": "./dist/lib/descriptionClocks.d.ts",
+      "default": "./dist/lib/descriptionClocks.js"
+    },
     "./time": {
       "types": "./dist/lib/time.d.ts",
       "default": "./dist/lib/time.js"

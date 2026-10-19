@@ -72,6 +72,7 @@ import { MoreE2ePlaybackScreen } from '../screens/more/MoreE2ePlaybackScreen';
 import { MoreErrorLogDetailScreen } from '../screens/more/MoreErrorLogDetailScreen';
 import { MoreErrorLogScreen } from '../screens/more/MoreErrorLogScreen';
 import { MoreFaqScreen } from '../screens/more/MoreFaqScreen';
+import { MoreIdentityRemapScreen } from '../screens/more/MoreIdentityRemapScreen';
 import { MoreMembershipExtendScreen } from '../screens/more/MoreMembershipExtendScreen';
 import { MoreMembershipScreen } from '../screens/more/MoreMembershipScreen';
 import { MoreOpmlScreen } from '../screens/more/MoreOpmlScreen';
@@ -208,6 +209,7 @@ export const NOTIFICATIONS_STACK_ROUTES = {
 export const MORE_STACK_ROUTES = {
   MoreAbout: 'MoreAbout',
   MoreE2ePlayback: 'MoreE2ePlayback',
+  MoreIdentityRemap: 'MoreIdentityRemap',
   MoreFaq: 'MoreFaq',
   MoreMembership: 'MoreMembership',
   MoreMembershipExtend: 'MoreMembershipExtend',
@@ -284,6 +286,7 @@ const moreTabLinkScreens = {
   MoreAdvanced: 'more/advanced',
   MoreCustomApi: 'more/advanced/custom-api',
   MoreE2ePlayback: 'more/e2e/playback',
+  MoreIdentityRemap: 'more/e2e/identity-remap',
   MoreErrorLog: 'more/advanced/error-log',
   MoreFaq: 'more/faq',
   MoreMembership: `more${APP_ROUTES.MEMBERSHIP}`,
@@ -520,6 +523,7 @@ export type NotificationsStackParamList = {
 export type MoreStackParamList = {
   MoreAbout: undefined;
   MoreE2ePlayback: undefined;
+  MoreIdentityRemap: undefined;
   MoreFaq: undefined;
   MoreMembership: undefined;
   MoreMembershipExtend: undefined;
@@ -1337,6 +1341,13 @@ function MoreStackNavigator({
           options={{ title: t('e2e.playback') }}
         />
       ) : null}
+      {isMobileE2eFromEnv() ? (
+        <MoreStack.Screen
+          component={MoreIdentityRemapScreen}
+          name={MORE_STACK_ROUTES.MoreIdentityRemap}
+          options={{ title: t('e2e.identity_remap') }}
+        />
+      ) : null}
     </MoreStack.Navigator>
   );
 }
@@ -1590,6 +1601,13 @@ function MoreRootScreen({
         },
         testID: 'more-nav-e2e-playback',
         title: t('e2e.playback'),
+      });
+      e2eItems.push({
+        onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreIdentityRemap);
+        },
+        testID: 'more-nav-identity-remap',
+        title: t('e2e.identity_remap'),
       });
     }
     sections.push({

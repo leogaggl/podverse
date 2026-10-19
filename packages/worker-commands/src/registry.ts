@@ -288,17 +288,10 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run seed_embed_demo_showcase_feeds -w apps/workers',
   },
   {
-    name: 'podcastIndexDeadFeedsDeleteCache',
-    label: 'Podcast Index: dead feeds cache delete',
-    description: 'Delete cached data used for “dead feed” processing.',
-    category: 'podcast_index',
-    risk: 'normal',
-    example_cli: 'npm run podcast_index_dead_feeds_delete_cache -w apps/workers',
-  },
-  {
     name: 'podcastIndexDeadFeedsFlagAndMerge',
     label: 'Podcast Index: dead feeds flag and merge',
-    description: 'Flag/merge dead feeds in Podcast Index–related processing.',
+    description:
+      'Download the Podcast Index dead-feed list and record duplicateOf pairs for feeds we already store. Does not merge feeds or change lifecycle.',
     category: 'podcast_index',
     risk: 'normal',
     example_cli: 'npm run podcast_index_dead_feeds_flag_and_merge -w apps/workers',

@@ -6,8 +6,8 @@ metadata:
     app: podverse-workers
     task: dead-feeds
 spec:
-  suspend: true
-  schedule: "0 2 * * *"
+  suspend: false
+  schedule: "15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 5
   failedJobsHistoryLimit: 5
@@ -63,7 +63,7 @@ spec:
                 - name: logs-volume
                   mountPath: /opt/logs
                 - name: tmp-volume
-                  mountPath: /opt/node_modules/podverse-external-services/dist/services/podcast-index/tmp
+                  mountPath: /tmp
                 - name: firebase-key
                   mountPath: /var/secrets/firebase
                   readOnly: true

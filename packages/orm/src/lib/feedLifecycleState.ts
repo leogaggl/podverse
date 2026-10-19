@@ -8,18 +8,26 @@ function isFeedPolicyParseAllowed(feedPolicy: FeedPolicy | null | undefined): bo
   return feedPolicy.parse_allowed;
 }
 
+/** Pending archive, archived, merged, and takedown feeds are not parsed and are not public. */
+export function lifecycleStateBlocksParseAndVisibility(
+  lifecycleStateKey: FeedLifecycleStateKeyEnum
+): boolean {
+  return (
+    lifecycleStateKey === FeedLifecycleStateKeyEnum.PendingArchive ||
+    lifecycleStateKey === FeedLifecycleStateKeyEnum.Archived ||
+    lifecycleStateKey === FeedLifecycleStateKeyEnum.Merged ||
+    lifecycleStateKey === FeedLifecycleStateKeyEnum.Takedown
+  );
+}
+
 /**
- * Parser/archiver gate: workflow lifecycle states block parsing; otherwise **`feed_policy.parse_allowed`** decides.
+ * Parser/archiver gate: blocked lifecycle states skip parsing; otherwise `feed_policy.parse_allowed` decides.
  */
 export function shouldAttemptFeedParseFromLifecycleAndPolicy(params: {
   lifecycleStateKey: FeedLifecycleStateKeyEnum;
   feedPolicy: FeedPolicy | null | undefined;
 }): boolean {
-  if (
-    params.lifecycleStateKey === FeedLifecycleStateKeyEnum.PendingArchive ||
-    params.lifecycleStateKey === FeedLifecycleStateKeyEnum.Archived ||
-    params.lifecycleStateKey === FeedLifecycleStateKeyEnum.Takedown
-  ) {
+  if (lifecycleStateBlocksParseAndVisibility(params.lifecycleStateKey)) {
     return false;
   }
 

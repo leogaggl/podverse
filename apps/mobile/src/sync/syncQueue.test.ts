@@ -279,7 +279,7 @@ describe('planSyncRun', () => {
       (planned) => planned.kind
     );
 
-    expect(kinds).toEqual(['channel-items-scan']);
+    expect(kinds).toEqual(['identity-remap', 'channel-items-scan']);
   });
 
   it('adds the account-backed work once signed in', () => {

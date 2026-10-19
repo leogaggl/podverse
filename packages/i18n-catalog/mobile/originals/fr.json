@@ -176,7 +176,10 @@
     "quick_login_popularity": "Se connecter en tant qu'utilisateur E2E indécis",
     "quick_login_stale_terms": "Se connecter en tant qu'utilisateur E2E avec des conditions obsolètes",
     "quick_login_perf": "Se connecter en tant qu'utilisateur E2E perf",
-    "session_ready": "Session E2E prête"
+    "session_ready": "Session E2E prête",
+    "identity_remap": "Émission fusionnée",
+    "identity_remap_prepare": "Préparer l'émission fusionnée",
+    "identity_remap_intro": "Enregistre un abonnement local et un téléchargement terminé pour une émission fusionnée, puis actualise."
   },
   "subscriptions": {
     "downloaded_only": "Téléchargés uniquement"
@@ -196,7 +199,8 @@
       "live_status": "Vérification des directs",
       "clips": "Mise à jour de vos extraits",
       "home_feed": "Lecture de l'accueil depuis cet appareil",
-      "auto_download": "Téléchargement des nouveaux épisodes"
+      "auto_download": "Téléchargement des nouveaux épisodes",
+      "identity_remap": "Mise à jour de vos émissions"
     },
     "progress": "{completed} sur {total}"
   },

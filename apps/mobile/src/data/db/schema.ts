@@ -434,3 +434,16 @@ export const playableItem = sqliteTable(
 
 export type PlayableItemRow = typeof playableItem.$inferSelect;
 export type PlayableItemInsert = typeof playableItem.$inferInsert;
+
+/**
+ * Ids this device has already rewritten onto a survivor. A later pass that names the same pair
+ * does not write those rows again.
+ */
+export const identityRemapApplied = sqliteTable('identity_remap_applied', {
+  fromIdText: text('from_id_text').primaryKey(),
+  toIdText: text('to_id_text').notNull(),
+  appliedAt: integer('applied_at').notNull(),
+});
+
+export type IdentityRemapAppliedRow = typeof identityRemapApplied.$inferSelect;
+export type IdentityRemapAppliedInsert = typeof identityRemapApplied.$inferInsert;

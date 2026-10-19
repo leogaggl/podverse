@@ -145,6 +145,127 @@ export async function lookupFeed(params: {
   });
 }
 
+export type FeedMergeStatus =
+  | 'detected'
+  | 'verified'
+  | 'needs_review'
+  | 'applied'
+  | 'rejected'
+  | 'reverted';
+
+export type FeedMergeStatusFilter = FeedMergeStatus | 'all';
+
+export type FeedMergeMode = 'repoint' | 'absorb';
+
+export type FeedMergeItemTier = 'guid' | 'enclosure' | 'fuzzy';
+
+export type FeedMergeListRow = {
+  id: number;
+  from_podcast_index_id: number;
+  to_podcast_index_id: number;
+  from_channel_title: string | null;
+  to_channel_title: string | null;
+  confidence: string | null;
+  mode: FeedMergeMode | null;
+  status: FeedMergeStatus;
+};
+
+export type FeedMergeItemPair = {
+  from_title: string | null;
+  to_title: string | null;
+  match_tier: FeedMergeItemTier | null;
+};
+
+export type FeedMergeDetail = FeedMergeListRow & {
+  note: string | null;
+  from_feed_lifecycle_state_key: string | null;
+  match_stats: Record<string, unknown>;
+  item_pairs: FeedMergeItemPair[];
+};
+
+export type FeedMergeListResponse = {
+  merges: FeedMergeListRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type FeedMergeDetailResponse = {
+  merge: FeedMergeDetail;
+};
+
+export type FeedMergeNoteBody = {
+  note?: string | null;
+};
+
+export async function listFeedMerges(params: {
+  page?: number;
+  limit?: number;
+  status?: FeedMergeStatusFilter;
+}): Promise<FeedMergeListResponse> {
+  const service = new ManagementApiRequestService();
+  const q = new URLSearchParams();
+  if (params.page !== undefined) {
+    q.set('page', String(params.page));
+  }
+  if (params.limit !== undefined) {
+    q.set('limit', String(params.limit));
+  }
+  if (params.status !== undefined) {
+    q.set('status', params.status);
+  }
+  const qs = q.toString();
+  return service.apiRequest<FeedMergeListResponse>({
+    path: `/feeds/merges${qs !== '' ? `?${qs}` : ''}`,
+    method: 'GET',
+  });
+}
+
+export async function getFeedMerge(id: number): Promise<FeedMergeDetailResponse> {
+  const service = new ManagementApiRequestService();
+  return service.apiRequest<FeedMergeDetailResponse>({
+    path: `/feeds/merges/${id}`,
+    method: 'GET',
+  });
+}
+
+async function postFeedMerge(
+  id: number,
+  action: 'approve' | 'reject' | 'revert',
+  body: FeedMergeNoteBody
+): Promise<FeedMergeDetailResponse> {
+  const service = new ManagementApiRequestService();
+  return service.apiRequest<FeedMergeDetailResponse>({
+    path: `/feeds/merges/${id}/${action}`,
+    method: 'POST',
+    data: body,
+  });
+}
+
+export async function approveFeedMerge(
+  id: number,
+  body: FeedMergeNoteBody
+): Promise<FeedMergeDetailResponse> {
+  return postFeedMerge(id, 'approve', body);
+}
+
+export async function rejectFeedMerge(
+  id: number,
+  body: FeedMergeNoteBody
+): Promise<FeedMergeDetailResponse> {
+  return postFeedMerge(id, 'reject', body);
+}
+
+export async function revertFeedMerge(
+  id: number,
+  body: FeedMergeNoteBody
+): Promise<FeedMergeDetailResponse> {
+  return postFeedMerge(id, 'revert', body);
+}
+
 export async function applyFeedPolicyState(
   body: ApplyFeedOperationsPolicyStateBody
 ): Promise<ApplyFeedOperationsPolicyStateResponse> {

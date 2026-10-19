@@ -15,6 +15,7 @@ import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { ListItemChapters } from '../../../components/List/ItemChapters/ListItemChapters';
 import { ListItemSoundbites } from '../../../components/List/ItemSoundbites/ListItemSoundbites';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
+import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
 import { useEpisodePageContext } from './EpisodePageContext';
 
 const ItemTranscript = dynamic(
@@ -52,6 +53,11 @@ export const EpisodePageList: React.FC<EpisodePageListProps> = ({
     autoScrollOn,
   } = useEpisodePageContext();
   const { page, type } = filterParams;
+  const clock = useDescriptionClockPlayback({
+    channel: ssrChannel,
+    item: ssrItem,
+    kind: 'item',
+  });
   const { boostsPageFetcher, breadcrumbLinkResolver, refreshTrigger } = useBoostMessagesView({
     channel: ssrChannel,
     itemGuid: ssrItem.guid ?? null,
@@ -62,7 +68,13 @@ export const EpisodePageList: React.FC<EpisodePageListProps> = ({
 
   return (
     <DetailListWrapper>
-      {type === 'summary' && <CoreEpisodeSummary description={ssrItem.item_description?.value} />}
+      {type === 'summary' && (
+        <CoreEpisodeSummary
+          description={ssrItem.item_description?.value}
+          descriptionClockLabel={clock.descriptionClockLabel}
+          onDescriptionClock={clock.onDescriptionClock}
+        />
+      )}
       {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}
       {type === 'chapters' && (
         <ListItemChapters

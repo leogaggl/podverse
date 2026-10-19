@@ -84,8 +84,12 @@ export * from './entities/channel/channelSocialInteract.js';
 export * from './entities/channel/channelTrailer.js';
 export * from './entities/channel/channelTxt.js';
 export * from './entities/channel/channelValue.js';
+export * from './entities/channel/channelMerge.js';
+export * from './entities/channel/channelMergeJournal.js';
 export * from './entities/channel/channelMetaBoost.js';
 export * from './entities/channel/channelValueRecipient.js';
+export * from './entities/channel/itemMergeMap.js';
+export * from './entities/channel/podcastIndexDeadFeedSync.js';
 
 export * from './entities/feed/feed.js';
 export * from './entities/feed/feedCondition.js';
@@ -179,6 +183,8 @@ export * from './lib/feedTableLimits.js';
 export * from './lib/feedLifecycleState.js';
 export * from './lib/feedLifecycleTransitionValidation.js';
 export * from './lib/feedSpamThresholds.js';
+export * from './lib/duplicateFeedMatch.js';
+export * from './lib/postgresUniqueViolation.js';
 export { hashPassword } from './lib/password.js';
 
 export * from './services/category.js';
@@ -249,12 +255,17 @@ export * from './services/channel/channelSocialInteract.js';
 export * from './services/channel/channelTrailer.js';
 export * from './services/channel/channelTxt.js';
 export * from './services/channel/channelValue.js';
+export * from './services/channel/channelMerge.js';
+export * from './services/channel/channelMergeRedirect.js';
+export * from './services/channel/channelMergeJournal.js';
 export * from './services/channel/channelMetaBoost.js';
 export * from './services/channel/channelValueRecipient.js';
+export * from './services/channel/itemMergeMap.js';
+export * from './services/channel/podcastIndexDeadFeedSync.js';
 
 export * from './services/clip.js';
 
-export * from './services/deduplicator.js';
+export * from './services/channel/applyChannelMerge.js';
 export * from './services/embedDemoConfig.js';
 export * from './services/imageShrinkSource.js';
 

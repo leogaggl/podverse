@@ -49,7 +49,10 @@ export const planSyncRun = ({ isAuthenticated, trigger }: SyncPlanInput): Planne
 
   // Runs on every device. Signed in, the scan the account walk enqueues afterwards picks up
   // anything this one could not have known about yet.
-  const planned: PlannedSyncJob[] = [{ kind: 'channel-items-scan', priority }];
+  const planned: PlannedSyncJob[] = [
+    { kind: 'identity-remap', priority },
+    { kind: 'channel-items-scan', priority },
+  ];
 
   if (!isAuthenticated) {
     return planned;

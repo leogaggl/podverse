@@ -87,14 +87,15 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
         },
         segmentText: {
           color: themeStyles.textPrimary.color,
-          fontSize: 22,
-          fontWeight: '600',
-          lineHeight: 28,
+          fontSize: 20,
+          fontWeight: '400',
+          lineHeight: 26,
         },
         segmentTime: {
           color: tokens.text.link,
-          fontSize: 15,
-          lineHeight: 20,
+          fontSize: 16,
+          fontWeight: '400',
+          lineHeight: 21,
           textAlign: 'center',
         },
         segmentTitle: {
@@ -131,7 +132,7 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
     segment === null
       ? null
       : formatSegmentTimeLabel(segment, (timeStart, timeEnd) =>
-          t('info.time.start_end', { timeEnd, timeStart })
+          t('features.clip.clip_time_range', { hhmmssEnd: timeEnd, hhmmssStart: timeStart })
         );
   const accessibilityLabel =
     segment === null

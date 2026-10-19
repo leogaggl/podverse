@@ -6,6 +6,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 
 import type { DescriptionNode } from '@podverse/helpers';
 import { readDescriptionDocument } from '@podverse/helpers';
+import { splitDescriptionClocks } from '@podverse/helpers/descriptionClocks';
 
 /**
  * Collapsed plain-text length for channel About and for item Summary outside the full player.
@@ -38,6 +39,19 @@ export type DescriptionTextProps = {
   toggleTestID?: string;
   /** Shown when the description is empty after stripping. */
   emptyLabel?: string;
+  /**
+   * When set, a clock in this item's prose seeks that item. Channel About omits it.
+   * Text already inside a link is left alone.
+   */
+  onDescriptionClock?: (seconds: number) => void;
+};
+
+type ClockRenderOptions = {
+  onDescriptionClock?: (seconds: number) => void;
+  clockLabel: (clockText: string) => string;
+  textStyle?: StyleProp<TextStyle>;
+  linkStyle?: StyleProp<TextStyle>;
+  insideLink: boolean;
 };
 
 const openExternalUrl = async (href: string): Promise<void> => {
@@ -48,26 +62,62 @@ const openExternalUrl = async (href: string): Promise<void> => {
   }
 };
 
+const renderClockText = (
+  text: string,
+  keyPrefix: string,
+  options: ClockRenderOptions
+): ReactNode => {
+  if (options.insideLink || options.onDescriptionClock === undefined) {
+    return text;
+  }
+
+  const parts = splitDescriptionClocks(text);
+  const hasClock = parts.some((part) => part.kind === 'clock');
+  if (!hasClock) {
+    return text;
+  }
+
+  const onDescriptionClock = options.onDescriptionClock;
+  return parts.map((part, index) => {
+    if (part.kind === 'text') {
+      return part.text;
+    }
+
+    return (
+      <Text
+        key={`${keyPrefix}-c-${index}`}
+        accessibilityLabel={options.clockLabel(part.text)}
+        accessibilityRole="link"
+        onPress={() => {
+          onDescriptionClock(part.seconds);
+        }}
+        style={options.linkStyle ?? options.textStyle}
+      >
+        {part.text}
+      </Text>
+    );
+  });
+};
+
 const renderInlineNodes = (
   nodes: DescriptionNode[],
   keyPrefix: string,
-  textStyle: StyleProp<TextStyle> | undefined,
-  linkStyle: StyleProp<TextStyle> | undefined
+  options: ClockRenderOptions
 ): ReactNode[] => {
   return nodes.map((node, index) => {
     const key = `${keyPrefix}-${index}`;
 
     if (node.kind === 'text') {
       return (
-        <Text key={key} style={textStyle}>
-          {node.text}
+        <Text key={key} style={options.textStyle}>
+          {renderClockText(node.text, key, options)}
         </Text>
       );
     }
 
     if (node.kind === 'br') {
       return (
-        <Text key={key} style={textStyle}>
+        <Text key={key} style={options.textStyle}>
           {'\n'}
         </Text>
       );
@@ -81,33 +131,33 @@ const renderInlineNodes = (
           onPress={() => {
             void openExternalUrl(node.href);
           }}
-          style={linkStyle ?? textStyle}
+          style={options.linkStyle ?? options.textStyle}
         >
-          {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+          {renderInlineNodes(node.children, key, { ...options, insideLink: true })}
         </Text>
       );
     }
 
     if (node.kind === 'strong') {
       return (
-        <Text key={key} style={[textStyle, { fontWeight: '700' }]}>
-          {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+        <Text key={key} style={[options.textStyle, { fontWeight: '700' }]}>
+          {renderInlineNodes(node.children, key, options)}
         </Text>
       );
     }
 
     if (node.kind === 'em') {
       return (
-        <Text key={key} style={[textStyle, { fontStyle: 'italic' }]}>
-          {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+        <Text key={key} style={[options.textStyle, { fontStyle: 'italic' }]}>
+          {renderInlineNodes(node.children, key, options)}
         </Text>
       );
     }
 
     if (node.kind === 'u') {
       return (
-        <Text key={key} style={[textStyle, { textDecorationLine: 'underline' }]}>
-          {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+        <Text key={key} style={[options.textStyle, { textDecorationLine: 'underline' }]}>
+          {renderInlineNodes(node.children, key, options)}
         </Text>
       );
     }
@@ -115,8 +165,8 @@ const renderInlineNodes = (
     // Block nodes nested where inline is expected: flatten to their children.
     if ('children' in node) {
       return (
-        <Text key={key} style={textStyle}>
-          {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+        <Text key={key} style={options.textStyle}>
+          {renderInlineNodes(node.children, key, options)}
         </Text>
       );
     }
@@ -125,11 +175,7 @@ const renderInlineNodes = (
   });
 };
 
-const renderBlockNodes = (
-  nodes: DescriptionNode[],
-  textStyle: StyleProp<TextStyle> | undefined,
-  linkStyle: StyleProp<TextStyle> | undefined
-): ReactElement[] => {
+const renderBlockNodes = (nodes: DescriptionNode[], options: ClockRenderOptions): ReactElement[] => {
   const blocks: ReactElement[] = [];
   let inlineRun: DescriptionNode[] = [];
 
@@ -138,8 +184,8 @@ const renderBlockNodes = (
       return;
     }
     blocks.push(
-      <Text key={key} style={textStyle}>
-        {renderInlineNodes(inlineRun, key, textStyle, linkStyle)}
+      <Text key={key} style={options.textStyle}>
+        {renderInlineNodes(inlineRun, key, options)}
       </Text>
     );
     inlineRun = [];
@@ -169,9 +215,9 @@ const renderBlockNodes = (
         }
         const bullet = node.kind === 'ol' ? `${childIndex + 1}. ` : '• ';
         blocks.push(
-          <Text key={`${key}-li-${childIndex}`} style={textStyle}>
+          <Text key={`${key}-li-${childIndex}`} style={options.textStyle}>
             {bullet}
-            {renderInlineNodes(child.children, `${key}-li-${childIndex}`, textStyle, linkStyle)}
+            {renderInlineNodes(child.children, `${key}-li-${childIndex}`, options)}
           </Text>
         );
       });
@@ -180,9 +226,9 @@ const renderBlockNodes = (
 
     if (node.kind === 'li') {
       blocks.push(
-        <Text key={key} style={textStyle}>
+        <Text key={key} style={options.textStyle}>
           {'• '}
-          {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+          {renderInlineNodes(node.children, key, options)}
         </Text>
       );
       return;
@@ -190,8 +236,8 @@ const renderBlockNodes = (
 
     // p, h1–h6
     blocks.push(
-      <Text key={key} style={textStyle}>
-        {renderInlineNodes(node.children, key, textStyle, linkStyle)}
+      <Text key={key} style={options.textStyle}>
+        {renderInlineNodes(node.children, key, options)}
       </Text>
     );
   });
@@ -215,6 +261,7 @@ export function DescriptionText({
   testID,
   toggleTestID,
   emptyLabel,
+  onDescriptionClock,
 }: DescriptionTextProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -259,9 +306,32 @@ export function DescriptionText({
     );
   }
 
+  const clockOptions: ClockRenderOptions = {
+    clockLabel: (clockText) => t('info.summary.play_from', { time: clockText }),
+    insideLink: false,
+    linkStyle,
+    onDescriptionClock,
+    textStyle,
+  };
+
   let body: ReactNode;
   if (showRich && document.rich !== null) {
-    body = <View testID={testID}>{renderBlockNodes(document.rich, textStyle, linkStyle)}</View>;
+    body = <View testID={testID}>{renderBlockNodes(document.rich, clockOptions)}</View>;
+  } else if (onDescriptionClock !== undefined) {
+    const preview =
+      !canCollapse || expanded || collapseLength === null ? plain : plain.slice(0, collapseLength);
+    const showEllipsis = canCollapse && !expanded && collapseLength !== null;
+    body = (
+      <Text
+        ellipsizeMode={previewLineLimit === undefined ? undefined : 'tail'}
+        numberOfLines={previewLineLimit}
+        style={textStyle}
+        testID={testID}
+      >
+        {renderClockText(preview, 'plain', clockOptions)}
+        {showEllipsis ? '…' : null}
+      </Text>
+    );
   } else {
     body = (
       <Text

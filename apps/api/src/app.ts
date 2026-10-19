@@ -113,6 +113,7 @@ export const startApp = async () => {
     const { itemChapterRouter } = await import('./routes/itemChapter.js');
     const { mqRouter } = await import('./routes/mq.js');
     const { feedRouter } = await import('./routes/feed.js');
+    const { identityRouter } = await import('./routes/identity.js');
     const { publisherFeedRouter } = await import('./routes/publisherFeed.js');
     const { accountSettingsRouter } = await import('./routes/accountSettings.js');
     const { legalRouter } = await import('./routes/legal.js');
@@ -144,6 +145,7 @@ export const startApp = async () => {
     app.use(embedDemoRoutesRoot);
     app.use(externalServicesRouter);
     app.use(feedRouter);
+    app.use(identityRouter);
     app.use(legalRouter);
     app.use(managedCopyRouter);
     app.use(itemRouter);

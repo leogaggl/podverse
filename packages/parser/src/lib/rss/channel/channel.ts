@@ -1,3 +1,4 @@
+import { loggerService } from '@parser/factories/loggerService.js';
 import { timerManager } from '@parser/factories/timerManager.js';
 import { handleParsedChannelAbout } from '@parser/lib/rss/channel/channelAbout.js';
 import { handleParsedChannelCategory } from '@parser/lib/rss/channel/channelCategory.js';
@@ -20,7 +21,13 @@ import type { FeedObject } from 'podverse-partytime';
 
 import type { RemoteItemDto } from '@podverse/helpers';
 import type { Channel, ChannelSeasonIndex, EntityManager } from '@podverse/orm';
-import { AppDataSourceReadWrite, ChannelService } from '@podverse/orm';
+import {
+  AppDataSourceReadWrite,
+  ChannelMergeService,
+  ChannelService,
+  FeedService,
+  isPodcastGuidUniqueViolation,
+} from '@podverse/orm';
 import { compatChannelDto } from '@podverse/parser-mapping';
 
 export type ParsedChannelResult = {
@@ -34,9 +41,7 @@ export const handleParsedChannel = async (
 ): Promise<ParsedChannelResult> => {
   timerManager.start('handleParsedChannel');
 
-  const channelService = new ChannelService();
-  const channelDto = compatChannelDto(parsedFeed);
-  await channelService.update(channel.id, channelDto);
+  await updateParsedChannel(channel, parsedFeed);
 
   const newRemoteItems = timerManager.shouldLogTimer
     ? await handleParsingTables(parsedFeed, channel, channelSeasonIndex)
@@ -52,6 +57,63 @@ export const handleParsedChannel = async (
   timerManager.end('handleParsedChannel');
   return { newRemoteItems };
 };
+
+async function updateParsedChannel(channel: Channel, parsedFeed: FeedObject): Promise<void> {
+  const channelService = new ChannelService();
+  const channelDto = compatChannelDto(parsedFeed);
+  try {
+    await channelService.update(channel.id, channelDto);
+    return;
+  } catch (error) {
+    const collidingGuid = channelDto.podcast_guid;
+    if (
+      !isPodcastGuidUniqueViolation(error) ||
+      collidingGuid === null ||
+      collidingGuid === undefined ||
+      collidingGuid === ''
+    ) {
+      throw error;
+    }
+    await channelService.update(channel.id, {
+      title: channelDto.title,
+      sortable_title: channelDto.sortable_title,
+      medium_id: channelDto.medium_id,
+    });
+    await recordPodcastGuidCollision(channel, collidingGuid);
+  }
+}
+
+async function recordPodcastGuidCollision(channel: Channel, podcastGuid: string): Promise<void> {
+  const holders = await new ChannelService().getAllByPodcastGuids({ relations: { feed: true } }, [
+    podcastGuid,
+  ]);
+  const ownerIds = holders.map((holder) => holder.id).filter((id) => id !== channel.id);
+  loggerService.warn(
+    `podcast_guid collision on channel ${channel.id}; left podcast_guid unset. Existing channel ids: ${
+      ownerIds.length > 0 ? ownerIds.join(', ') : 'unknown'
+    }`
+  );
+
+  const ownFeed = await new FeedService().get(channel.feed_id);
+  const podcastIndexIds: number[] = [];
+  if (
+    ownFeed !== null &&
+    ownFeed.podcast_index_id !== null &&
+    ownFeed.podcast_index_id !== undefined
+  ) {
+    podcastIndexIds.push(ownFeed.podcast_index_id);
+  }
+  for (const holder of holders) {
+    if (holder.id === channel.id) {
+      continue;
+    }
+    const holderPodcastIndexId = holder.feed?.podcast_index_id;
+    if (holderPodcastIndexId !== null && holderPodcastIndexId !== undefined) {
+      podcastIndexIds.push(holderPodcastIndexId);
+    }
+  }
+  await new ChannelMergeService().markGuidCollision(podcastIndexIds);
+}
 
 const handleParsingTables = async (
   parsedFeed: FeedObject,

@@ -42,6 +42,7 @@ import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { ChannelBrowseStackParamList } from '../../navigation';
 import { buildAlbumDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import type { TrackTab } from '../../prefs/detailListPrefs';
 import { DEFAULT_TRACK_TAB } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -548,6 +549,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
   }, []);
 
   const descriptionHtml = track?.item_description?.value ?? null;
+  const onDescriptionClock = useItemDescriptionClock(track, channel);
 
   const playableTrack = useMemo((): DTOItem | null => {
     if (track === null) {
@@ -714,6 +716,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
             emptyLabel={t('info.summary.no_summary')}
             html={descriptionHtml}
             linkStyle={styles.showMore}
+            onDescriptionClock={onDescriptionClock}
             resetKey={trackId}
             showMoreStyle={styles.showMore}
             testID="track-detail-description"
@@ -783,6 +786,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     activeTab,
     descriptionHtml,
     handleRetryTranscript,
+    onDescriptionClock,
     isTranscriptLoading,
     offlineModeEnabled,
     styles.description,

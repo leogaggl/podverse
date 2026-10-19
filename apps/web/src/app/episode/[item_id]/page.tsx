@@ -13,7 +13,7 @@ import {
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import { buildNoindexMetadata } from '../../../lib/seo/buildNoindexMetadata';
 import {
-  getChannelForSeoPage,
+  getChannelForItemPage,
   getItemForSeoPage,
   getItemThenChannelHeroImageUrl,
 } from '../../../lib/seo/fetchers';
@@ -29,6 +29,7 @@ import {
   getStoredSortPref,
 } from '../../../utils/localSettings/localSettings';
 import { enforceCanonicalItemRoute } from '../../../utils/redirect/enforceCanonicalMediumRoute';
+import { permanentRedirectIfMerged } from '../../../utils/redirect/permanentRedirectIfMerged';
 import { EpisodePageClient } from './EpisodePageClient';
 import type { EpisodePageDropdownConfigCurrentParams } from './EpisodePageDropdownConfig';
 import { getEpisodePageFilterParams } from './EpisodePageDropdownConfig';
@@ -56,11 +57,20 @@ export type EpisodePageProps = {
   params: Promise<{ item_id: string }>;
 };
 
-export async function generateMetadata({ params }: EpisodePageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: EpisodePageProps): Promise<Metadata> {
+  const { item_id } = await params;
+  await permanentRedirectIfMerged({
+    kind: 'item',
+    id: item_id,
+    routeKind: 'episode',
+    searchParams: await searchParams,
+  });
   try {
-    const { item_id } = await params;
     const item = await getItemForSeoPage(item_id);
-    const channel = await getChannelForSeoPage(item.channel_id);
+    const channel = await getChannelForItemPage(item);
     const descriptionPlain = truncateMetaDescription(
       toSeoPlainText(item.item_description?.value || item.title)
     );
@@ -80,9 +90,15 @@ export async function generateMetadata({ params }: EpisodePageProps): Promise<Me
 export default async function EpisodePage({ params, searchParams }: EpisodePageProps) {
   const { item_id } = await params;
   const queryParams = await searchParams;
+  await permanentRedirectIfMerged({
+    kind: 'item',
+    id: item_id,
+    routeKind: 'episode',
+    searchParams: queryParams,
+  });
 
   const ssrItem = await getItemForSeoPage(item_id);
-  const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
+  const ssrChannel = await getChannelForItemPage(ssrItem);
   enforceCanonicalItemRoute(ssrChannel.medium_id, ssrItem.id_text, 'episode');
 
   // Keyed on the resolved `id_text` rather than the route segment, so an episode reached by numeric

@@ -5,6 +5,7 @@ export enum FeedLifecycleStateKeyEnum {
   Active = 'active',
   PendingArchive = 'pending_archive',
   Archived = 'archived',
+  Merged = 'merged',
   Takedown = 'takedown',
 }
 

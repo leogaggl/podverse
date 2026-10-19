@@ -17,6 +17,7 @@ import { ContentPeopleRows } from '../../../../components/Content/About/ContentP
 import { CoreEpisodeSummary } from '../../../../components/Core/Podcast/Episodes/CoreEpisodeSummary';
 import { DetailListWrapper } from '../../../../components/List/DetailListWrapper';
 import { WebLoadingSpinnerOverlay } from '../../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
+import { useDescriptionClockPlayback } from '../../../../hooks/useDescriptionClockPlayback';
 import { useLivestreamPageContext } from './LivestreamPageContext';
 
 type LivestreamPageListProps = {
@@ -35,6 +36,12 @@ export const LivestreamPageList: React.FC<LivestreamPageListProps> = ({
   const tV4VBoostMessages = useTranslations('v4v.boost_messages');
   const { filterParams, isLoading } = useLivestreamPageContext();
   const { type } = filterParams;
+  const clock = useDescriptionClockPlayback({
+    channel: ssrChannel,
+    item: ssrItem,
+    kind: 'item',
+    livestream: true,
+  });
   const { boostsPageFetcher, breadcrumbLinkResolver, refreshTrigger } = useBoostMessagesView({
     channel: ssrChannel,
     itemGuid: ssrItem.guid ?? null,
@@ -51,7 +58,13 @@ export const LivestreamPageList: React.FC<LivestreamPageListProps> = ({
 
   return (
     <DetailListWrapper>
-      {type === 'summary' && <CoreEpisodeSummary description={ssrItem.item_description?.value} />}
+      {type === 'summary' && (
+        <CoreEpisodeSummary
+          description={ssrItem.item_description?.value}
+          descriptionClockLabel={clock.descriptionClockLabel}
+          onDescriptionClock={clock.onDescriptionClock}
+        />
+      )}
       {type === 'people' && <ContentPeopleRows item_persons={ssrItem.item_persons} />}
       {type === 'boosts' && boostsPageFetcher !== null && (
         <BoostMessagesSection

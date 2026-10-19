@@ -110,6 +110,8 @@ export const createItemTimerAccumulator = (): ItemTimerAccumulator => {
 };
 
 export type HandleParsedItemsResult = {
+  /** True when this channel already had item rows before this parse inserted any. */
+  hadStoredItems: boolean;
   newItemGuids: string[];
   newItemGuidEnclosureUrls: string[];
 };
@@ -126,6 +128,7 @@ export const handleParsedItems = async (
     select: { id: true, guid: true, guid_enclosure_url: true },
   });
   timerManager.end('getManyByChannel');
+  const hadStoredItems = existingItems.length > 0;
 
   timerManager.start('existingItemIds');
   const existingItemIds: number[] = existingItems.map((item) => item.id);
@@ -190,6 +193,7 @@ export const handleParsedItems = async (
   await itemService.updateManyFlagStatus(itemsToDelete, ItemFlagStatusStatusEnum.PendingArchive);
 
   return {
+    hadStoredItems,
     newItemGuids,
     newItemGuidEnclosureUrls,
   };

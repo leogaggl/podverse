@@ -248,10 +248,26 @@ export function getOpmlImportConfig(): OpmlImportConfig {
   };
 }
 
+export const PODCAST_INDEX_DUPLICATE_MERGE_MODES = ['off', 'dry_run', 'apply'] as const;
+export type PodcastIndexDuplicateMergeMode = (typeof PODCAST_INDEX_DUPLICATE_MERGE_MODES)[number];
+
+function isPodcastIndexDuplicateMergeMode(value: string): value is PodcastIndexDuplicateMergeMode {
+  return value === 'off' || value === 'dry_run' || value === 'apply';
+}
+
+function readPodcastIndexDuplicateMergeMode(): PodcastIndexDuplicateMergeMode {
+  const value = process.env.PODCAST_INDEX_DUPLICATE_MERGE_MODE!;
+  if (isPodcastIndexDuplicateMergeMode(value)) {
+    return value;
+  }
+  throw new Error('PODCAST_INDEX_DUPLICATE_MERGE_MODE must be off, dry_run, or apply');
+}
+
 export type PodcastIndexConfig = {
   authKey: string;
   baseUrl: string;
   secretKey: string;
+  duplicateMergeMode: PodcastIndexDuplicateMergeMode;
   rateLimitDelay?: number;
   maxRetries?: number;
   retryBaseDelayMs?: number;
@@ -271,6 +287,7 @@ export function getPodcastIndexConfig(): PodcastIndexConfig {
     authKey: process.env.PODCAST_INDEX_AUTH_KEY!,
     baseUrl: process.env.PODCAST_INDEX_BASE_URL!,
     secretKey: process.env.PODCAST_INDEX_SECRET_KEY!,
+    duplicateMergeMode: readPodcastIndexDuplicateMergeMode(),
     ...(rateLimitDelay > 0 && { rateLimitDelay }),
     ...(maxRetries !== undefined && Number.isFinite(maxRetries) && { maxRetries }),
     ...(retryBaseDelayMs !== undefined &&

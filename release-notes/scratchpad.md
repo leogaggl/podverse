@@ -138,14 +138,14 @@
 ## Dead-feed job records duplicate pairs only
 
 - Surfaces: workers, external-services-podcast-index, mq, parser, k8s
-- Change: `PI_DUPLICATE_MERGE_MODE=off` exits before the Podcast Index dead-feed CSV download.
+- Change: `PODCAST_INDEX_DUPLICATE_MERGE_MODE=off` exits before the Podcast Index dead-feed CSV download.
   `dry_run` and `apply` upsert `detected` pairs for feeds we already have, after following
   duplicate chains and skipping cycles, dead-end survivors, and rows with no duplicate target.
   The hourly cron is no longer suspended. A `podcast_guid` unique collision leaves that column
   unset and does not fail the parse. Recent-feed enqueue skips feeds whose lifecycle is `merged`.
 - Who notices: operators. Listeners see no merge yet.
 - Operator steps: none until alpha is set to `dry_run` after reviewing counts. Base stays `off`.
-  Add `PI_DUPLICATE_MERGE_MODE=off` to an existing local workers env if startup validation asks for it.
+  Add `PODCAST_INDEX_DUPLICATE_MERGE_MODE=off` to an existing local workers env if startup validation asks for it.
 
 ## Channel header title and subscribe stay inside the artwork
 
@@ -211,7 +211,7 @@
   already have or moves follows, queue progress, clips, and playlists onto the surviving channel.
   The old channel stops parsing. Pairs that do not look like the same episodes wait for review.
 - Who notices: listeners who followed a duplicate RSS URL; operators reviewing merges
-- Operator steps: `PI_DUPLICATE_MERGE_MODE` stays `off` until an environment is ready
+- Operator steps: `PODCAST_INDEX_DUPLICATE_MERGE_MODE` stays `off` until an environment is ready
 
 ## Chapter and clip titles stay in place when the chapter changes
 
@@ -228,4 +228,49 @@
 - Change: Opening a show or episode that Podcast Index merged into another show lands on the
   surviving show. Episode links that have no match on the survivor still play.
 - Who notices: anyone with a bookmark or shared link to a duplicate feed
+- Operator steps: none
+
+## Full player Summary keeps even pane padding
+
+- Surfaces: mobile
+- Change: Summary and transcript in the full player keep the same inset under the text as above
+  it. That bottom inset stays on the card while the text scrolls.
+- Who notices: listeners reading the summary or transcript in the full player
+- Operator steps: none
+
+## Full player pane error stays inset
+
+- Surfaces: mobile
+- Change: The "Something went wrong" message and Try Again button in the full-player pane sit
+  in from the left and right edges of the card. Chapter, clip, and summary content keep their
+  own inset.
+- Who notices: listeners when a full-player section fails to load
+- Operator steps: none
+
+## The phone keeps a show that was merged
+
+- Surfaces: mobile, api
+- Change: Subscriptions, downloads, and listening progress follow a show when its duplicate feed
+  is merged. Downloaded audio is not fetched again. Signed-out subscriptions are included.
+- Who notices: mobile listeners subscribed to a duplicate RSS feed
+- Operator steps: none
+
+## Operators can review show merges
+
+- Surfaces: management-api, management-web
+- Change: Duplicate feeds Podcast Index marked, but that do not clearly share episodes, wait in
+  Merge Review. Approve lets the next apply run move them. Revert undoes an applied merge.
+- Who notices: operators, not listeners
+- Operator steps: none
+
+## Full player type, range hyphen, and description clocks
+
+- Surfaces: mobile, web, i18n
+- Change: The full-player episode title is 24pt semibold and the chapter or clip line is 20pt
+  regular, so the artwork square is wider. Chapter and clip ranges use a hyphen (`1:15:03 - 1:22:25`)
+  in every locale. A clock in a full item description (including the collapsed preview) can be
+  pressed to play that item from that time on mobile and web. Channel About and list previews stay
+  plain text.
+- Who notices: listeners on the full player, and anyone reading an episode, track, livestream, or
+  clip summary
 - Operator steps: none

@@ -310,7 +310,7 @@ const useClipRangeLabel = (row: HomeFeedRowData): string | null => {
       return row.durationLabel;
     }
     return clipListTimeRangeLabel(row.clipStartTime, row.clipEndTime, (timeStart, timeEnd) =>
-      t('info.time.start_end', { timeEnd, timeStart })
+      t('features.clip.clip_time_range', { hhmmssEnd: timeEnd, hhmmssStart: timeStart })
     );
   }, [row.clipEndTime, row.clipStartTime, row.durationLabel, t]);
 };

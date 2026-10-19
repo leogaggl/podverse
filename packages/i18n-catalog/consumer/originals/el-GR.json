@@ -192,7 +192,7 @@
       "end_time": "Ώρα λήξης",
       "end_time_aria": "Ώρα λήξης σε ώρες, λεπτά και δευτερόλεπτα (hh:mm:ss)",
       "end_time_play_aria": "Αναπαραγωγή από την ώρα λήξης του αποσπάσματος",
-      "clip_time_range": "{hhmmssStart} έως {hhmmssEnd}",
+      "clip_time_range": "{hhmmssStart} - {hhmmssEnd}",
       "login_prompt": "Συνδεθείτε για να χρησιμοποιήσετε αυτή τη λειτουργία."
     },
     "my_clips": "Τα αποσπάσματά μου",
@@ -360,7 +360,8 @@
     "about": "Σχετικά",
     "summary": {
       "summary": "Περίληψη",
-      "no_summary": "Δεν διατίθεται περίληψη"
+      "no_summary": "Δεν διατίθεται περίληψη",
+      "play_from": "Αναπαραγωγή από {time}"
     },
     "podroll": "Podroll",
     "no_podroll_found": "Δεν βρέθηκαν προτεινόμενα podcast",

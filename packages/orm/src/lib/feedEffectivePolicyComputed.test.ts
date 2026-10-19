@@ -7,9 +7,10 @@ import { FeedLifecycleStateKeyEnum } from '@orm/entities/feed/feedLifecycleState
 import { FeedPolicyReasonEnum } from '@orm/entities/feed/feedPolicy.js';
 import { describe, expect, it } from 'vitest';
 
+import type { ComputedFeedEffectivePolicy } from './feedEffectivePolicyComputed.js';
 import {
   applyLifecycleConstraintsToComputedPolicy,
-  type ComputedFeedEffectivePolicy,
+  applyLifecycleConstraintsToEffectiveFlags,
   computeEffectivePolicyFromConditionKeys,
 } from './feedEffectivePolicyComputed.js';
 
@@ -80,6 +81,19 @@ describe('feed policy parity matrix (07b)', () => {
     expect(p.parseAllowed).toBe(false);
     expect(p.publicVisible).toBe(false);
     expect(p.addAllowed).toBe(false);
+  });
+
+  it('7b — merged: gates blocked regardless of conditions list', () => {
+    const p = effectiveForParity([], FeedLifecycleStateKeyEnum.Merged);
+    expect(p.parseAllowed).toBe(false);
+    expect(p.publicVisible).toBe(false);
+    expect(p.addAllowed).toBe(false);
+
+    const flags = { parseAllowed: true, publicVisible: true, addAllowed: true };
+    applyLifecycleConstraintsToEffectiveFlags(FeedLifecycleStateKeyEnum.Merged, flags);
+    expect(flags.parseAllowed).toBe(false);
+    expect(flags.publicVisible).toBe(false);
+    expect(flags.addAllowed).toBe(false);
   });
 
   it('7 — archived: gates blocked regardless of conditions list', () => {
