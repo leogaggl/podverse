@@ -48,3 +48,18 @@ export const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
 
 /** Public clip on that episode (`e2eArchClip01` = 13). */
 export const E2E_ARCHIVED_CLIP_ID_TEXT = 'e2eArchClip01';
+
+/** Clip whose episode was removed (`e2eRemClip01` = 12). Owned by `E2E_USER_EMAIL`. */
+export const E2E_REMOVED_CLIP_ID_TEXT = 'e2eRemClip01';
+export const E2E_REMOVED_CLIP_TITLE = 'E2E Removed Clip';
+export const E2E_REMOVED_EPISODE_TITLE = 'E2E Removed Episode';
+export const E2E_REMOVED_SHOW_TITLE = 'E2E Removed Show';
+
+/** Playlist with one live episode and one removed entry (`e2eRemPlay01` = 12). */
+export const E2E_REMOVED_PLAYLIST_ID_TEXT = 'e2eRemPlay01';
+export const E2E_REMOVED_PLAYLIST_TITLE = 'E2E Removed Playlist';
+
+/** Archived show the seeded E2E user still follows (`e2eArchShow01` = 12). No episodes. */
+export const E2E_ARCHIVED_SHOW_ID_TEXT = 'e2eArchShow01';
+export const E2E_ARCHIVED_SHOW_TITLE = 'E2E Archived Show';
+export const E2E_ARCHIVED_SHOW_FEED_URL = 'https://e2e-seed-archived-show.example/podcast.xml';

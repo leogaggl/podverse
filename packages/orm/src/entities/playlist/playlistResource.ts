@@ -1,4 +1,5 @@
 import type { Playlist } from '@orm/entities/playlist/playlist.js';
+import type { DTORemovedSource } from '@podverse/helpers';
 import type { Relation } from 'typeorm';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
@@ -26,25 +27,32 @@ export class PlaylistResource {
   @JoinColumn({ name: 'clip_id' })
   clip!: Relation<Clip>;
 
-  @Column()
-  item_id!: string;
+  @Column({ nullable: true })
+  item_id!: string | null;
 
-  @ManyToOne('Item', (item: Item) => item.id, { onDelete: 'CASCADE' })
+  @ManyToOne('Item', (item: Item) => item.id, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'item_id' })
-  item!: Relation<Item>;
+  item!: Relation<Item> | null;
 
-  @Column()
-  item_soundbite_id!: number;
+  @Column({ nullable: true })
+  item_soundbite_id!: number | null;
 
   @ManyToOne('ItemSoundbite', (itemSoundbite: ItemSoundbite) => itemSoundbite.id, {
-    onDelete: 'CASCADE',
+    onDelete: 'SET NULL',
+    nullable: true,
   })
   @JoinColumn({ name: 'item_soundbite_id' })
-  item_soundbite!: Relation<ItemSoundbite>;
+  item_soundbite!: Relation<ItemSoundbite> | null;
 
   @Column()
   add_by_rss_hash_id!: string;
 
   @Column({ type: 'jsonb' })
   add_by_rss_resource_data!: object;
+
+  @Column({ type: 'jsonb', nullable: true })
+  removed_source!: DTORemovedSource | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  source_removed_at!: Date | null;
 }

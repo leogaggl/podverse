@@ -73,6 +73,17 @@ const E2E_MERGED_SURVIVOR_CHANNEL_ID_TEXT = 'e2eMrgSurCh01';
 const E2E_MERGED_OLD_ITEM_ID_TEXT = 'e2eMrgOldIt01';
 const E2E_MERGED_SURVIVOR_ITEM_ID_TEXT = 'e2eMrgSurIt01';
 const E2E_MERGED_UNMATCHED_ITEM_ID_TEXT = 'e2eMrgUnmIt01';
+const E2E_REMOVED_CLIP_ID_TEXT = 'e2eRemClip01';
+const E2E_REMOVED_CLIP_TITLE = 'E2E Removed Clip';
+const E2E_REMOVED_EPISODE_TITLE = 'E2E Removed Episode';
+const E2E_REMOVED_SHOW_TITLE = 'E2E Removed Show';
+const E2E_REMOVED_PLAYLIST_ID_TEXT = 'e2eRemPlay01';
+const E2E_REMOVED_PLAYLIST_TITLE = 'E2E Removed Playlist';
+const E2E_ARCHIVED_SHOW_ID_TEXT = 'e2eArchShow01';
+const E2E_ARCHIVED_SHOW_TITLE = 'E2E Archived Show';
+const E2E_ARCHIVED_SHOW_FEED_PI_ID = 876543240;
+const E2E_ARCHIVED_SHOW_FEED_URL = 'https://e2e-seed-archived-show.example/podcast.xml';
+const E2E_REMOVED_SOURCE_AT = '2020-01-15T00:00:00.000Z';
 const E2E_PODCAST_FEED_URL = 'https://e2e-seed-podcast.example/podcast.xml';
 const E2E_MUSIC_FEED_PI_ID = 876543212;
 const E2E_MUSIC_FEED_URL = 'https://e2e-seed-music.example/album.xml';
@@ -259,6 +270,47 @@ const E2E_USER_EMAIL = 'e2e-user@example.com';
 
 const OPML_IMPORT_KEY_PREFIX = 'opml:import:';
 const OPML_IMPORT_HOURLY_KEY_PREFIX = 'opml:import:hourly:';
+const SEED_DESCRIPTION_PREVIEW_MAX_LENGTH = 400;
+
+function decodeSeedHtmlEntities(value) {
+  return value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+}
+
+function toSeedDescriptionPreview(value) {
+  const plain = decodeSeedHtmlEntities(value.replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= SEED_DESCRIPTION_PREVIEW_MAX_LENGTH) {
+    return plain;
+  }
+
+  const bounded = plain.slice(0, SEED_DESCRIPTION_PREVIEW_MAX_LENGTH);
+  const lastWhitespace = bounded.search(/\s+\S*$/);
+  if (lastWhitespace === -1) {
+    return bounded;
+  }
+  return bounded.slice(0, lastWhitespace);
+}
+
+async function insertSeedChannelDescription(client, channelId, value) {
+  await client.query(
+    `INSERT INTO channel_description (channel_id, value, preview)
+     VALUES ($1, $2, $3)`,
+    [channelId, value, toSeedDescriptionPreview(value)]
+  );
+}
+
+async function insertSeedItemDescription(client, itemId, value) {
+  await client.query(
+    `INSERT INTO item_description (item_id, value, preview)
+     VALUES ($1, $2, $3)`,
+    [itemId, value, toSeedDescriptionPreview(value)]
+  );
+}
 
 async function scanKeysByMatch(redis, match) {
   const keys = [];
@@ -732,10 +784,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   // Required for API GET /channel/:id — ChannelController treats channels without channel_about as unparsed (404).
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
 
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [channelId, 'E2E seeded channel for livestream header image Playwright test.']
+  await insertSeedChannelDescription(
+    client,
+    channelId,
+    'E2E seeded channel for livestream header image Playwright test.'
   );
 
   await client.query(
@@ -812,10 +864,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   const podcastChannelId = podcastChannelResult.rows[0].id;
 
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [podcastChannelId]);
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [podcastChannelId, 'E2E seeded channel for deterministic media-player podcast tests.']
+  await insertSeedChannelDescription(
+    client,
+    podcastChannelId,
+    'E2E seeded channel for deterministic media-player podcast tests.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -870,11 +922,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
        VALUES ($1, $2)`,
       [itemId, E2E_PODCAST_ITEM_RESUME_DURATION_SECONDS]
     );
-    await client.query(
-      `INSERT INTO item_description (item_id, value)
-       VALUES ($1, $2)`,
-      [itemId, `${title} deterministic E2E media-player fixture.`]
-    );
+    await insertSeedItemDescription(client, itemId, `${title} deterministic E2E media-player fixture.`);
     await client.query(
       `INSERT INTO item_image (item_id, url, image_width_size)
        VALUES ($1, $2, 1400)`,
@@ -1243,10 +1291,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   const musicChannelId = musicChannelResult.rows[0].id;
 
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [musicChannelId]);
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [musicChannelId, 'E2E seeded album for deterministic media-player music tests.']
+  await insertSeedChannelDescription(
+    client,
+    musicChannelId,
+    'E2E seeded album for deterministic media-player music tests.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -1304,11 +1352,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
        VALUES ($1, $2)`,
       [itemId, E2E_MUSIC_TRACK_DURATION_SECONDS]
     );
-    await client.query(
-      `INSERT INTO item_description (item_id, value)
-       VALUES ($1, $2)`,
-      [itemId, `${title} deterministic E2E music fixture.`]
-    );
+    await insertSeedItemDescription(client, itemId, `${title} deterministic E2E music fixture.`);
     await client.query(
       `INSERT INTO item_image (item_id, url, image_width_size)
        VALUES ($1, $2, 1400)`,
@@ -1410,10 +1454,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   const musicArtistChannelId = musicArtistChannelResult.rows[0].id;
 
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [musicArtistChannelId]);
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [musicArtistChannelId, 'E2E seeded artist for deterministic album and track remote items.']
+  await insertSeedChannelDescription(
+    client,
+    musicArtistChannelId,
+    'E2E seeded artist for deterministic album and track remote items.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -1502,13 +1546,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
      VALUES ($1, $2)`,
     [directoryArtistChannelId, E2E_DIRECTORY_ARTIST_LAST_PUB_DATE_ISO]
   );
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [
-      directoryArtistChannelId,
-      'E2E seeded publisher-music artist for directory last-pub-date rows.',
-    ]
+  await insertSeedChannelDescription(
+    client,
+    directoryArtistChannelId,
+    'E2E seeded publisher-music artist for directory last-pub-date rows.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -1668,10 +1709,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   const videoChannelId = videoChannelResult.rows[0].id;
 
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [videoChannelId]);
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [videoChannelId, 'E2E seeded video-medium channel for the mobile video-transition spike.']
+  await insertSeedChannelDescription(
+    client,
+    videoChannelId,
+    'E2E seeded video-medium channel for the mobile video-transition spike.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -1698,10 +1739,10 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     videoItemId,
     E2E_VIDEO_ITEM_DURATION_SECONDS,
   ]);
-  await client.query(
-    `INSERT INTO item_description (item_id, value)
-     VALUES ($1, $2)`,
-    [videoItemId, 'E2E Video Transition Episode deterministic video fixture.']
+  await insertSeedItemDescription(
+    client,
+    videoItemId,
+    'E2E Video Transition Episode deterministic video fixture.'
   );
   await client.query(
     `INSERT INTO item_image (item_id, url, image_width_size)
@@ -1773,10 +1814,10 @@ async function seedHlsVodFixture(client) {
   const channelId = channelResult.rows[0].id;
 
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [channelId, 'E2E seeded podcast channel for non-live HLS playback.']
+  await insertSeedChannelDescription(
+    client,
+    channelId,
+    'E2E seeded podcast channel for non-live HLS playback.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -1803,10 +1844,10 @@ async function seedHlsVodFixture(client) {
     itemId,
     E2E_HLS_VOD_DURATION_SECONDS,
   ]);
-  await client.query(
-    `INSERT INTO item_description (item_id, value)
-     VALUES ($1, $2)`,
-    [itemId, 'E2E HLS VOD episode. Deterministic HLS playlist fixture.']
+  await insertSeedItemDescription(
+    client,
+    itemId,
+    'E2E HLS VOD episode. Deterministic HLS playlist fixture.'
   );
   await client.query(
     `INSERT INTO item_image (item_id, url, image_width_size)
@@ -1875,10 +1916,10 @@ async function seedLiveAvFixtures(client) {
   const channelId = channelResult.rows[0].id;
 
   await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
-  await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     VALUES ($1, $2)`,
-    [channelId, 'E2E seeded channel with playable live audio and live video items.']
+  await insertSeedChannelDescription(
+    client,
+    channelId,
+    'E2E seeded channel with playable live audio and live video items.'
   );
   await client.query(
     `INSERT INTO channel_image (channel_id, url, image_width_size)
@@ -1902,11 +1943,7 @@ async function seedLiveAvFixtures(client) {
     );
     const itemId = itemResult.rows[0].id;
 
-    await client.query(
-      `INSERT INTO item_description (item_id, value)
-       VALUES ($1, $2)`,
-      [itemId, `${title} deterministic E2E live-stream fixture.`]
-    );
+    await insertSeedItemDescription(client, itemId, `${title} deterministic E2E live-stream fixture.`);
     await client.query(
       `INSERT INTO item_image (item_id, url, image_width_size)
        VALUES ($1, $2, 1400)`,
@@ -2107,8 +2144,8 @@ async function seedPerfVolumeFixtures(client) {
   );
 
   await client.query(
-    `INSERT INTO channel_description (channel_id, value)
-     SELECT c.id, 'E2E perf channel ' || n || '.'
+    `INSERT INTO channel_description (channel_id, value, preview)
+     SELECT c.id, 'E2E perf channel ' || n || '.', 'E2E perf channel ' || n || '.'
      FROM generate_series(1, $1::int) AS n
      JOIN channel c ON c.id_text = 'e2ePerfCh' || lpad(n::text, 3, '0')`,
     [E2E_PERF_CHANNEL_COUNT]
@@ -2184,12 +2221,13 @@ async function seedPerfVolumeFixtures(client) {
     [E2E_PODCAST_SHORT_ENCLOSURE_URL]
   );
 
+  const descriptionPreview = toSeedDescriptionPreview(descriptionHtml);
   await client.query(
-    `INSERT INTO item_description (item_id, value)
-     SELECT i.id, $1
+    `INSERT INTO item_description (item_id, value, preview)
+     SELECT i.id, $1, $2
      FROM item i
      WHERE i.id_text LIKE 'e2ePerfIt%'`,
-    [descriptionHtml]
+    [descriptionHtml, descriptionPreview]
   );
 
   const counts = await client.query(
@@ -2340,10 +2378,7 @@ async function seedMergedChannelRedirect(client) {
     );
     const channelId = channelResult.rows[0].id;
     await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
-    await client.query(`INSERT INTO channel_description (channel_id, value) VALUES ($1, $2)`, [
-      channelId,
-      `${title} description.`,
-    ]);
+    await insertSeedChannelDescription(client, channelId, `${title} description.`);
     await client.query(
       `INSERT INTO channel_image (channel_id, url, image_width_size) VALUES ($1, $2, 1400)`,
       [channelId, E2E_FIXTURE_CHANNEL_IMAGE_URL]
@@ -2431,6 +2466,109 @@ async function seedMergedChannelRedirect(client) {
   );
 }
 
+async function seedRemovedContentFixtures(client, accountId) {
+  await client.query(`DELETE FROM clip WHERE id_text = $1`, [E2E_REMOVED_CLIP_ID_TEXT]);
+  await client.query(`DELETE FROM playlist WHERE id_text = $1`, [E2E_REMOVED_PLAYLIST_ID_TEXT]);
+  await client.query(`DELETE FROM feed WHERE podcast_index_id = $1`, [E2E_ARCHIVED_SHOW_FEED_PI_ID]);
+
+  const removedSource = {
+    kind: 'item',
+    item_title: E2E_REMOVED_EPISODE_TITLE,
+    channel_title: E2E_REMOVED_SHOW_TITLE,
+    pub_date: null,
+    soundbite_title: null,
+  };
+
+  await client.query(
+    `INSERT INTO clip (
+       id_text, account_id, item_id, start_time, title, sharable_status_id,
+       removed_source, source_removed_at
+     ) VALUES ($1, $2, NULL, 0, $3, 1, $4::jsonb, $5)`,
+    [
+      E2E_REMOVED_CLIP_ID_TEXT,
+      accountId,
+      E2E_REMOVED_CLIP_TITLE,
+      JSON.stringify(removedSource),
+      E2E_REMOVED_SOURCE_AT,
+    ]
+  );
+
+  const chaptered = await client.query(`SELECT id FROM item WHERE id_text = $1`, [
+    E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT,
+  ]);
+  if (!chaptered.rows[0]) {
+    throw new Error(`Missing seeded episode ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}`);
+  }
+
+  const playlist = await client.query(
+    `INSERT INTO playlist (id_text, account_id, sharable_status_id, title, medium_id)
+     VALUES (
+       $1,
+       $2,
+       1,
+       $3,
+       (SELECT id FROM medium WHERE value = 'podcast' LIMIT 1)
+     )
+     RETURNING id`,
+    [E2E_REMOVED_PLAYLIST_ID_TEXT, accountId, E2E_REMOVED_PLAYLIST_TITLE]
+  );
+  const playlistId = playlist.rows[0].id;
+  await client.query(
+    `INSERT INTO playlist_resource (playlist_id, list_position, item_id) VALUES ($1, '1', $2)`,
+    [playlistId, chaptered.rows[0].id]
+  );
+  await client.query(
+    `INSERT INTO playlist_resource (playlist_id, list_position, removed_source, source_removed_at)
+     VALUES ($1, '2', $2::jsonb, $3)`,
+    [playlistId, JSON.stringify(removedSource), E2E_REMOVED_SOURCE_AT]
+  );
+
+  const feed = await client.query(
+    `INSERT INTO feed (url, podcast_index_id) VALUES ($1, $2) RETURNING id`,
+    [E2E_ARCHIVED_SHOW_FEED_URL, E2E_ARCHIVED_SHOW_FEED_PI_ID]
+  );
+  const feedId = feed.rows[0].id;
+  await client.query(
+    `INSERT INTO feed_policy (feed_id, parse_allowed, public_visible, add_allowed)
+     VALUES ($1, true, true, true)`,
+    [feedId]
+  );
+  const channel = await client.query(
+    `INSERT INTO channel (id_text, feed_id, medium_id, title, follow_conversion_status)
+     VALUES (
+       $1,
+       $2,
+       (SELECT id FROM medium WHERE value = 'podcast' LIMIT 1),
+       $3,
+       'converted'
+     )
+     RETURNING id`,
+    [E2E_ARCHIVED_SHOW_ID_TEXT, feedId, E2E_ARCHIVED_SHOW_TITLE]
+  );
+  const channelId = channel.rows[0].id;
+  await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channelId]);
+  await insertSeedChannelDescription(client, channelId, `${E2E_ARCHIVED_SHOW_TITLE} description.`);
+  await client.query(
+    `INSERT INTO channel_image (channel_id, url, image_width_size) VALUES ($1, $2, 1400)`,
+    [channelId, E2E_FIXTURE_CHANNEL_IMAGE_URL]
+  );
+  await client.query(
+    `UPDATE feed_lifecycle_state
+     SET feed_lifecycle_state_type_id = (
+       SELECT id FROM feed_lifecycle_state_type WHERE state_key = 'archived'
+     ),
+     updated_by_source = 'system'
+     WHERE feed_id = $1`,
+    [feedId]
+  );
+  await client.query(
+    `INSERT INTO account_following_channel (account_id, channel_id)
+     VALUES ($1, $2)
+     ON CONFLICT (account_id, channel_id) DO NOTHING`,
+    [accountId, channelId]
+  );
+}
+
 async function main() {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
   const invitePlaceholderPasswordHash = await bcrypt.hash(crypto.randomUUID(), 10);
@@ -2451,6 +2589,7 @@ async function main() {
   await clearOpmlImportKeyvalState(accountId);
   await seedMediaPlayerAndEmbedFixtures(client, accountId);
   await seedMergedChannelRedirect(client);
+  await seedRemovedContentFixtures(client, accountId);
   await seedPerfVolumeFixtures(client);
 
   await client.end();

@@ -1,6 +1,9 @@
+import { deriveMembershipState, evaluateFeatureAccess } from '@podverse/helpers';
 import { getErrorResponseBody, getErrorResponseStatus } from '@podverse/helpers/error';
 
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
+import { requestAddByRssRefresh } from '../../sync/requestAddByRssRefresh';
+import { accountRepository } from './accountRepository';
 import type { ChannelWindowSyncResult } from './channelItemsRepository';
 import { channelItemsRepository } from './channelItemsRepository';
 import { identityRemapRepository } from './identityRemapRepository';
@@ -9,11 +12,13 @@ import { syncEventLogRepository } from './syncEventLogRepository';
 import type { MobileAuthRequestContext } from './types';
 
 /**
- * Directory episode list 404, or 410 that names the show this one was merged into. Add-by-RSS
- * never uses this path. A merge target rewrites local keys. Anything else drops the follow so
- * the next launch does not ask again.
+ * Directory episode list 404, or 410 that names a merge target or an archived show.
+ * Add-by-RSS never uses this path. A merge target rewrites local keys. An archived show
+ * with an Add-by-RSS URL drops the directory follow and records that the follow moved.
+ * Anything else drops the follow so the next launch does not ask again.
  */
 export const DIRECTORY_CHANNEL_GONE_CODE = 'directory_channel_gone';
+export const DIRECTORY_CHANNEL_CONVERTED_CODE = 'directory_channel_converted';
 
 export const isDirectoryChannelGoneError = (error: unknown): boolean => {
   return getErrorResponseStatus(error) === 404;
@@ -52,19 +57,63 @@ const mergedChannelIdText = (error: unknown): string | null => {
   return merged.id_text;
 };
 
+/**
+ * Non-empty Add-by-RSS URL on an archived 410. `''` is an archived 410 with no URL.
+ * `null` is any other response.
+ */
+const archivedAddByRssFeedUrl = (error: unknown): string | null => {
+  if (getErrorResponseStatus(error) !== 410) {
+    return null;
+  }
+  const body = getErrorResponseBody(error);
+  if (body === undefined) {
+    return null;
+  }
+  const gone = body.gone;
+  if (gone === null || typeof gone !== 'object' || Array.isArray(gone)) {
+    return null;
+  }
+  if (!('reason' in gone) || gone.reason !== 'archived') {
+    return null;
+  }
+  if (!('add_by_rss_feed_url' in gone) || typeof gone.add_by_rss_feed_url !== 'string') {
+    return '';
+  }
+  const url = gone.add_by_rss_feed_url.trim();
+  return url.length > 0 ? url : '';
+};
+
 const shouldResolveBeforeDrop = (error: unknown): boolean => {
   const status = getErrorResponseStatus(error);
   if (status === 404) {
     return true;
   }
-  return status === 410 && mergedChannelIdText(error) !== null;
+  if (status === 410 && mergedChannelIdText(error) !== null) {
+    return true;
+  }
+  return archivedAddByRssFeedUrl(error) !== null;
 };
 
-export const dropGoneDirectoryChannel = async (params: {
-  channelIdText: string;
-  channelTitle?: string | null;
-  context: MobileAuthRequestContext;
-}): Promise<void> => {
+const enqueueAddByRssRefreshForMember = async (): Promise<void> => {
+  const account = await accountRepository.getSnapshot();
+  if (account === null) {
+    return;
+  }
+  const access = evaluateFeatureAccess('add_by_rss_refresh', deriveMembershipState(account));
+  if (!access.allowed) {
+    return;
+  }
+  requestAddByRssRefresh();
+};
+
+const dropDirectoryFollow = async (
+  params: {
+    channelIdText: string;
+    channelTitle?: string | null;
+    context: MobileAuthRequestContext;
+  },
+  errorCode: string
+): Promise<void> => {
   const local = await subscriptionsRepository.getByIdText(params.channelIdText);
   const title = params.channelTitle ?? local?.title ?? null;
 
@@ -80,7 +129,7 @@ export const dropGoneDirectoryChannel = async (params: {
   });
 
   await syncEventLogRepository.append({
-    errorCode: DIRECTORY_CHANNEL_GONE_CODE,
+    errorCode,
     jobKind: 'channel-items',
     message: formatDirectoryChannelGoneDetail(params.channelIdText, title),
     occurredAt: Date.now(),
@@ -88,6 +137,14 @@ export const dropGoneDirectoryChannel = async (params: {
   });
 
   homeFeedRefresh.notify();
+};
+
+export const dropGoneDirectoryChannel = async (params: {
+  channelIdText: string;
+  channelTitle?: string | null;
+  context: MobileAuthRequestContext;
+}): Promise<void> => {
+  await dropDirectoryFollow(params, DIRECTORY_CHANNEL_GONE_CODE);
 };
 
 const runOrDropGone = async (
@@ -108,7 +165,13 @@ const runOrDropGone = async (
     if (toIdText !== null) {
       return { kind: 'remapped', toIdText };
     }
-    await dropGoneDirectoryChannel(params);
+    const feedUrl = archivedAddByRssFeedUrl(error);
+    if (feedUrl !== null && feedUrl.length > 0) {
+      await dropDirectoryFollow(params, DIRECTORY_CHANNEL_CONVERTED_CODE);
+      await enqueueAddByRssRefreshForMember();
+      return { kind: 'gone' };
+    }
+    await dropDirectoryFollow(params, DIRECTORY_CHANNEL_GONE_CODE);
     return { kind: 'gone' };
   }
 };

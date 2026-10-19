@@ -1,5 +1,6 @@
 // TODO: get rid of "any" in the file
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { Clip } from '@orm/entities/clip.js';
 import { PlaylistResource } from '@orm/entities/playlist/playlistResource.js';
 import { BaseManyService } from '@orm/services/base/baseManyService.js';
 import type {
@@ -76,6 +77,38 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
     return resources;
   }
 
+  /**
+   * A snapshot names what its owner saved. A playlist entry's snapshot goes only to the playlist
+   * owner and a clip's only to the clip owner; everyone else still sees source_removed_at.
+   * Mutates resources in place.
+   */
+  private redactRemovedSourcesForNonOwner(
+    resources: PlaylistResource[],
+    playlistOwnerId: number | null,
+    requesterAccountId: number | null
+  ): PlaylistResource[] {
+    const ownsPlaylist = requesterAccountId !== null && requesterAccountId === playlistOwnerId;
+    for (const resource of resources) {
+      if (!ownsPlaylist) {
+        resource.removed_source = null;
+      }
+      const clip: Clip | null | undefined = resource.clip;
+      if (clip && (requesterAccountId === null || clip.account?.id !== requesterAccountId)) {
+        clip.removed_source = null;
+      }
+    }
+    return resources;
+  }
+
+  private redactForNonOwner(
+    resources: PlaylistResource[],
+    playlistOwnerId: number | null,
+    requesterAccountId: number | null
+  ): PlaylistResource[] {
+    this.redactRemovedSourcesForNonOwner(resources, playlistOwnerId, requesterAccountId);
+    return this.redactAddByRSSForNonOwner(resources, playlistOwnerId, requesterAccountId);
+  }
+
   async getManyByPlaylistIdText(
     playlist_id_text: string,
     account_id: number | null,
@@ -102,7 +135,7 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
 
     const filtered = this.filterPrivateClips(results, account_id);
     const playlistOwnerId = (playlist as { account?: { id?: number } }).account?.id ?? null;
-    return this.redactAddByRSSForNonOwner(filtered, playlistOwnerId, account_id);
+    return this.redactForNonOwner(filtered, playlistOwnerId, account_id);
   }
 
   async getManyForQueueByListPosition(
@@ -180,7 +213,7 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
 
     const filtered = this.filterPrivateClips(results, account_id);
     const playlistOwnerId = (playlist as { account?: { id?: number } }).account?.id ?? null;
-    return this.redactAddByRSSForNonOwner(filtered, playlistOwnerId, account_id);
+    return this.redactForNonOwner(filtered, playlistOwnerId, account_id);
   }
 
   async getManyByPlaylistShuffle(
@@ -251,14 +284,16 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
     const result = await query.getRawAndEntities();
     const filtered = this.filterPrivateClips(result.entities, account_id);
     const playlistOwnerId = (playlist as { account?: { id?: number } }).account?.id ?? null;
-    return this.redactAddByRSSForNonOwner(filtered, playlistOwnerId, account_id);
+    return this.redactForNonOwner(filtered, playlistOwnerId, account_id);
   }
 
   async getAllByPlaylistIdText(
     playlist_id_text: string,
     account_id: number | null
   ): Promise<PlaylistResource[]> {
-    const playlist = await this.playlistService.getByIdText(playlist_id_text);
+    const playlist = await this.playlistService.getByIdText(playlist_id_text, {
+      relations: playlistAccountRelations,
+    });
     if (!playlist) {
       throw new Error('Playlist not found.');
     }
@@ -270,7 +305,9 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
     };
 
     const results = await this.repositoryRead.find(options);
-    return this.filterPrivateClips(results, account_id);
+    const filtered = this.filterPrivateClips(results, account_id);
+    const playlistOwnerId = (playlist as { account?: { id?: number } }).account?.id ?? null;
+    return this.redactRemovedSourcesForNonOwner(filtered, playlistOwnerId, account_id);
   }
 
   async getAllByPlaylistIdTextCount(playlist_id_text: string): Promise<number> {

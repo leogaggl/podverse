@@ -268,6 +268,7 @@
     "outcome_skipped": "Ignoré — hors ligne",
     "outcome_success": "Réussi",
     "directory_channel_gone": "{channel} a été retiré de cet appareil. Il n'est plus dans le répertoire.",
+    "directory_channel_converted": "{channel} a été déplacé vers Ajouter par RSS. Il n'est plus dans le répertoire.",
     "row_a11y_hint": "Ouvre les détails complets",
     "saved_footnote": "Les détails complets sont enregistrés dans Plus › Avancé › Journal d'erreurs.",
     "kind": {

@@ -1,11 +1,19 @@
-# Keeping Only What Archived Content Still Needs
+# Content Lifecycle 2: Keeping Only What Archived Content Still Needs
 
-- **Covers:** How archived episodes and shows kept for clips and playlists shrink to what
-  those surfaces show, and grow back when content returns.
-- **Status:** Planned
-- **Series:** Content lifecycle, part 2 of 3
-- **Sources:** `.llm/plans/active/archived-content-slimming/`
-- **Length:** about 6 minutes (925 words)
+- **Version:** 2026-10-19T00:13-05:00
+- **Episode ID:** content-lifecycle-archived-slimming
+- **Changed:** The work is built, so the script describes it as built. Previous title:
+  "Keeping Only What Archived Content Still Needs". Regenerate the audio.
+- **Description:** How archived episodes and shows that are kept for clips and playlists
+  shrink to what those screens show, and how they grow back when the content returns to its
+  feed.
+- **Status:** Built
+- **Group:** Content Lifecycle, part 2
+- **Sources:** `.llm/plans/completed/archived-content-slimming/`;
+  `packages/orm/src/services/archivedSlimming.ts`, `packages/orm/src/services/archiver.ts`,
+  `infra/k8s/base/ops/source/database/linear-migrations/app/0017_archived_slimming.sql`,
+  the `ormArchivedSlimReport` worker command
+- **Length:** about 6 minutes (924 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -23,7 +31,7 @@
 
 ## Script
 
-CLAIRE: This is part two of three on how Podverse handles feed content over its life. Part one was show notes. This part is archived content, and keeping only what's still used. It's planned, not built yet.
+CLAIRE: This is part two of Content Lifecycle, on how Podverse handles feed content over its life. Part one was show notes. This part is archived content, and keeping only what's still used. It's built.
 
 TOM: Start with what archived means here.
 
@@ -31,7 +39,7 @@ CLAIRE: When an episode disappears from its feed, or a whole show is archived, t
 
 TOM: And if someone has?
 
-CLAIRE: Then the archiver keeps the episode, and keeps all of it. Full show notes, which after part one can be up to thirty thousand stored characters. Transcript and chapter records. People, value splits, funding, soundbites, location, license, chat, and season data. And an archived show keeps its whole show record and every related table, forever.
+CLAIRE: Then the archiver used to keep the episode, and keep all of it. Full show notes, which at the standard tier from part one can be up to thirty thousand stored characters. Transcript and chapter records. People, value splits, funding, soundbites, location, license, chat, and season data. And an archived show kept its whole show record and every related table, forever.
 
 TOM: How much of that does anyone read?
 
@@ -97,7 +105,7 @@ CLAIRE: Not by itself. Postgres reuses freed space after routine vacuuming, but 
 
 TOM: Anything found along the way?
 
-CLAIRE: A latent bug. A show's trailers can point at a season, and that link has no delete rule. The existing takedown cleanup deletes seasons before trailers, so a takedown fails for any show whose trailers are tied to a season. This work builds one shared cleanup list that removes trailers first, and both takedown and slimming use it.
+CLAIRE: A latent bug. A show's trailers can point at a season, and that link has no delete rule. The old takedown cleanup deleted seasons before trailers, so a takedown failed for any show whose trailers were tied to a season. Now takedown and slimming share one cleanup list, and it removes trailers first.
 
 (pause)
 

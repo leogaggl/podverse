@@ -14,7 +14,7 @@ export class ItemDescription {
   @JoinColumn({ name: 'item_id' })
   item!: Relation<Item>;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', select: false })
   value!: string;
 
   @Column({ type: 'varchar', length: DESCRIPTION_PREVIEW_MAX_LENGTH, nullable: true })

@@ -17,7 +17,11 @@ const {
   statsTrackItemCreateMock,
   statsTrackPlaylistCreateMock,
   isListenStatsAllowedMock,
+  clipGetByIdTextMock,
 } = vi.hoisted(() => ({
+  clipGetByIdTextMock: vi.fn<
+    () => Promise<{ item_id: string | null; source_removed_at: Date | null } | null>
+  >(async () => null),
   statsTrackAccountCreateMock: vi.fn(async () => {}),
   statsTrackChannelCreateMock: vi.fn(async () => {}),
   statsTrackClipCreateMock: vi.fn(async () => {}),
@@ -45,6 +49,10 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     _create = statsTrackClipCreateMock;
   }
 
+  class MockClipService {
+    getByIdText = clipGetByIdTextMock;
+  }
+
   class MockStatsTrackEventItemService {
     _create = statsTrackItemCreateMock;
   }
@@ -62,6 +70,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     CategoryService: IntegrationTestNoopCategoryService,
     AccountService: MockAccountService,
     AccountSettingsListenStatsService: MockAccountSettingsListenStatsService,
+    ClipService: MockClipService,
     StatsTrackEventAccountService: MockStatsTrackEventAccountService,
     StatsTrackEventChannelService: MockStatsTrackEventChannelService,
     StatsTrackEventClipService: MockStatsTrackEventClipService,
@@ -142,6 +151,19 @@ describe('stats track POST routes', () => {
 
     expect(res.status).toBe(201);
     expect(statsTrackClipCreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 410 for stats/clip when the clip source was removed', async () => {
+    statsTrackClipCreateMock.mockClear();
+    clipGetByIdTextMock.mockResolvedValueOnce({ item_id: null, source_removed_at: new Date() });
+    const res = await request(app)
+      .post(`${statsBase}/clip`)
+      .set(authHeaders())
+      .send({ clip_id_text: 'clip-id-text' });
+
+    expect(res.status).toBe(410);
+    expect(res.body).toEqual({ message: 'Clip source was removed', removed: true });
+    expect(statsTrackClipCreateMock).not.toHaveBeenCalled();
   });
 
   it('returns 201 for stats/item when authenticated', async () => {

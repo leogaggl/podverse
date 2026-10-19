@@ -1,0 +1,66 @@
+appId: com.podverse.app.next
+name: Removed Content
+---
+# Owner clips and playlist entries whose episode was removed.
+# Seed: e2eRemClip01 / E2E Removed Clip, playlist e2eRemPlay01 / E2E Removed Playlist.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- tapOn:
+    id: tab-my-library
+- assertVisible:
+    id: library-hub-screen
+- tapOn:
+    id: library-nav-my-clips
+- extendedWaitUntil:
+    visible:
+      id: library-my-clips-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- scrollUntilVisible:
+    element:
+      text: "E2E Removed Clip"
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    text: "Content Removed"
+- takeScreenshot: removed-content-my-clips
+
+- tapOn:
+    text: "E2E Removed Clip"
+- extendedWaitUntil:
+    visible:
+      id: clip-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    text: "The episode for this clip was removed from Podverse Next."
+- assertNotVisible:
+    id: clip-detail-bounded-play
+- takeScreenshot: removed-content-clip-detail
+
+- back
+- back
+- extendedWaitUntil:
+    visible:
+      id: library-hub-screen
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: library-nav-playlists
+- extendedWaitUntil:
+    visible:
+      id: library-playlists-screen
+    timeout: ${TIMEOUT_SLOW}
+- scrollUntilVisible:
+    element:
+      id: library-playlist-row-e2eRemPlay01
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: library-playlist-row-e2eRemPlay01
+- extendedWaitUntil:
+    visible:
+      id: library-playlist-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    text: "Content Removed"
+- takeScreenshot: removed-content-playlist

@@ -243,6 +243,7 @@
     "outcome_skipped": "Skipped — Offline",
     "outcome_success": "Succeeded",
     "directory_channel_gone": "Removed {channel} from this device. It is no longer in the directory.",
+    "directory_channel_converted": "Moved {channel} to Add by RSS. It is no longer in the directory.",
     "row_a11y_hint": "Opens Full Details",
     "saved_footnote": "Full details are saved in More › Advanced › Error Log.",
     "kind": {

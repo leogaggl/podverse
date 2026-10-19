@@ -192,6 +192,11 @@ the fence. A wait inside the fence is a sentence: stop this turn, and do not run
 until the operator replies that the step is done. A shell comment between two commands is not a
 wait. Authoring detail: **copy-pasta-recommend-model**.
 
+**Optional last checkbox.** After the Close prompt, a heavy set asks one question and nothing
+else: an unchecked `- [ ] **abcaicast** (optional)` plus the line `After this set, do you want
+an abcaicast for this work?` No fence. Leave it off when the work is a style or copy tweak a
+training episode would not be about. Wording and when to include it: **copy-pasta-recommend-model**.
+
 Example per prompt (model/reasoning **outside** the fence):
 
 ```markdown
@@ -427,6 +432,7 @@ Before finalizing plans:
 - [ ] Parallel groups don't have conflicts
 - [ ] Each plan has verification steps
 - [ ] Copy-pasta references plans (doesn't duplicate)
+- [ ] Heavy sets end with the optional abcaicast question; trivial sets leave it off
 - [ ] Every COPY-PASTA prompt has **Cursor model:** and **Reasoning:** outside the paste fence
 - [ ] Operator actions are above the fence; a wait inside it is an explicit stop-this-turn
 - [ ] Execution order is clear

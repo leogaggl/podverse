@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  captureRemovedReferencesMock,
   clipFindOneMock,
   feedCreateQueryBuilderMock,
   feedQbGetManyMock,
@@ -14,6 +15,8 @@ const {
   itemQueryMock,
   itemReadFindMock,
   itemSaveMock,
+  managerDeleteMock,
+  managerQueryMock,
   playlistFindOneMock,
   pruneQueueResourcesMock,
 } = vi.hoisted(() => {
@@ -31,6 +34,7 @@ const {
   };
 
   return {
+    captureRemovedReferencesMock: vi.fn(async () => ({ clips: 0, playlistEntries: 0 })),
     clipFindOneMock: vi.fn(),
     feedCreateQueryBuilderMock: vi.fn(makeFeedQueryBuilder),
     feedQbGetManyMock,
@@ -44,6 +48,8 @@ const {
     itemQueryMock: vi.fn(),
     itemReadFindMock: vi.fn(),
     itemSaveMock: vi.fn(),
+    managerDeleteMock: vi.fn(),
+    managerQueryMock: vi.fn(),
     playlistFindOneMock: vi.fn(),
     pruneQueueResourcesMock: vi.fn(),
   };
@@ -84,7 +90,14 @@ vi.mock('@orm/db/index.js', () => ({
       }
       return {};
     },
+    transaction: async <T>(
+      work: (manager: { delete: typeof managerDeleteMock; query: typeof managerQueryMock }) => T
+    ): Promise<T> => work({ delete: managerDeleteMock, query: managerQueryMock }),
   },
+}));
+
+vi.mock('./removedReferences.js', () => ({
+  captureRemovedReferences: captureRemovedReferencesMock,
 }));
 
 vi.mock('@orm/entities/clip.js', () => ({ Clip: ClipEntity }));
@@ -121,6 +134,24 @@ const { slimArchivedItemsMock, slimArchivedChannelsMock } = vi.hoisted(() => ({
 vi.mock('./archivedSlimming.js', () => ({
   slimArchivedItems: slimArchivedItemsMock,
   slimArchivedChannels: slimArchivedChannelsMock,
+}));
+
+const { convertFollowsMock, deleteEmptyShowsMock } = vi.hoisted(() => ({
+  convertFollowsMock: vi.fn(async () => ({
+    converted: 0,
+    followsMoved: 0,
+    unreachable: 0,
+    skipped: 0,
+  })),
+  deleteEmptyShowsMock: vi.fn(async () => ({ deleted: 0 })),
+}));
+
+vi.mock('./archivedFollowConversion.js', () => ({
+  convertArchivedShowFollows: convertFollowsMock,
+}));
+
+vi.mock('./archivedChannelCleanup.js', () => ({
+  deleteEmptyRemovedShows: deleteEmptyShowsMock,
 }));
 
 vi.mock('@orm/factories/loggerService.js', () => ({
@@ -171,6 +202,9 @@ describe('ArchiverService takedown hard-delete handling', () => {
     itemQueryMock.mockReset();
     itemReadFindMock.mockReset();
     itemSaveMock.mockReset();
+    managerDeleteMock.mockReset();
+    managerQueryMock.mockReset();
+    captureRemovedReferencesMock.mockClear();
     playlistFindOneMock.mockReset();
     pruneQueueResourcesMock.mockReset();
     resetSlimMocks();
@@ -215,11 +249,37 @@ describe('ArchiverService takedown hard-delete handling', () => {
     const service = new ArchiverService();
     await service.removeAllItemsForTakedownFeeds();
 
-    expect(itemDeleteMock).toHaveBeenCalledTimes(2);
-    expect(itemDeleteMock).toHaveBeenNthCalledWith(1, [101, 102]);
-    expect(itemDeleteMock).toHaveBeenNthCalledWith(2, [201]);
+    expect(itemDeleteMock).not.toHaveBeenCalled();
+    expect(managerDeleteMock).toHaveBeenCalledTimes(2);
+    expect(managerDeleteMock).toHaveBeenNthCalledWith(1, ItemEntity, [101, 102]);
+    expect(managerDeleteMock).toHaveBeenNthCalledWith(2, ItemEntity, [201]);
     expect(feedSaveMock).not.toHaveBeenCalled();
-    expect(feedQueryMock).toHaveBeenCalledTimes(44);
+    expect(feedQueryMock).not.toHaveBeenCalled();
+    const channelQueryCount =
+      CHANNEL_DETAIL_DELETE_QUERIES.length + CHANNEL_IDENTITY_DELETE_QUERIES.length;
+    expect(managerQueryMock).toHaveBeenCalledTimes(2 * (channelQueryCount + 1));
+  });
+
+  it('captures snapshots and clears item_merge_map before deleting the items', async () => {
+    feedReadFindMock.mockResolvedValue([
+      { id: 10, channel: { id: 1001, items: [{ id: 101 }, { id: 102 }] } },
+    ]);
+
+    const service = new ArchiverService();
+    await service.removeAllItemsForTakedownFeeds();
+
+    expect(captureRemovedReferencesMock).toHaveBeenCalledWith([101, 102], expect.anything());
+    expect(managerQueryMock).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('DELETE FROM item_merge_map'),
+      [[101, 102]]
+    );
+
+    const captureOrder = captureRemovedReferencesMock.mock.invocationCallOrder[0] ?? 0;
+    const mergeMapOrder = managerQueryMock.mock.invocationCallOrder[0] ?? 0;
+    const deleteOrder = managerDeleteMock.mock.invocationCallOrder[0] ?? 0;
+    expect(captureOrder).toBeLessThan(mergeMapOrder);
+    expect(mergeMapOrder).toBeLessThan(deleteOrder);
   });
 
   it('skips delete when feed channel is missing or has no items', async () => {
@@ -232,16 +292,18 @@ describe('ArchiverService takedown hard-delete handling', () => {
     const service = new ArchiverService();
     await service.removeAllItemsForTakedownFeeds();
 
-    expect(itemDeleteMock).not.toHaveBeenCalled();
+    expect(managerDeleteMock).not.toHaveBeenCalled();
     expect(feedSaveMock).not.toHaveBeenCalled();
-    expect(feedQueryMock).toHaveBeenCalledTimes(44);
-    expect(feedQueryMock).toHaveBeenNthCalledWith(
+    const channelQueryCount =
+      CHANNEL_DETAIL_DELETE_QUERIES.length + CHANNEL_IDENTITY_DELETE_QUERIES.length;
+    expect(managerQueryMock).toHaveBeenCalledTimes(2 * channelQueryCount);
+    expect(managerQueryMock).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining('DELETE FROM channel_value_recipient'),
       [1003]
     );
-    expect(feedQueryMock).toHaveBeenNthCalledWith(
-      23,
+    expect(managerQueryMock).toHaveBeenNthCalledWith(
+      channelQueryCount + 1,
       expect.stringContaining('DELETE FROM channel_value_recipient'),
       [1004]
     );
@@ -253,7 +315,7 @@ describe('ArchiverService takedown hard-delete handling', () => {
     const service = new ArchiverService();
     await service.removeAllItemsForTakedownFeeds();
 
-    const sqls = feedQueryMock.mock.calls.map((call) => call[0]);
+    const sqls = managerQueryMock.mock.calls.map((call) => call[0]);
     expect(sqls).toEqual([
       ...CHANNEL_DETAIL_DELETE_QUERIES.map((query) => query.sql),
       ...CHANNEL_IDENTITY_DELETE_QUERIES.map((query) => query.sql),
@@ -349,6 +411,15 @@ describe('ArchiverService spam feed item cleanup', () => {
     itemSaveMock.mockReset();
     playlistFindOneMock.mockReset();
     pruneQueueResourcesMock.mockReset();
+    convertFollowsMock.mockReset();
+    convertFollowsMock.mockResolvedValue({
+      converted: 0,
+      followsMoved: 0,
+      unreachable: 0,
+      skipped: 0,
+    });
+    deleteEmptyShowsMock.mockReset();
+    deleteEmptyShowsMock.mockResolvedValue({ deleted: 0 });
     resetSlimMocks();
   });
 
@@ -378,7 +449,16 @@ describe('ArchiverService spam feed item cleanup', () => {
     vi.spyOn(service, 'removeAllItemsForTakedownFeeds').mockImplementation(async () => {
       order.push('takedown');
     });
-    await service.archiveAll();
+    convertFollowsMock.mockImplementation(async () => {
+      order.push('convertFollows');
+      return { converted: 0, followsMoved: 0, unreachable: 0, skipped: 0 };
+    });
+    deleteEmptyShowsMock.mockImplementation(async () => {
+      order.push('deleteEmptyShows');
+      return { deleted: 0 };
+    });
+    const feedProbe = async () => false;
+    await service.archiveAll({ feedProbe });
     expect(order).toEqual([
       'pendingArchiveFeeds',
       'spamFeeds',
@@ -386,8 +466,11 @@ describe('ArchiverService spam feed item cleanup', () => {
       'deleteArchivedOrphans',
       'slimItems',
       'slimChannels',
+      'convertFollows',
       'takedown',
+      'deleteEmptyShows',
     ]);
+    expect(convertFollowsMock).toHaveBeenCalledWith(feedProbe);
     expect(pruneQueueResourcesMock).toHaveBeenCalledTimes(1);
   });
 

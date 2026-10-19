@@ -39,6 +39,15 @@ import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
 import type { Item } from '../item/item.js';
 
+export const FOLLOW_CONVERSION_STATUS_VALUES = [
+  'converted',
+  'no_followers',
+  'unreachable',
+  'skipped',
+] as const;
+
+export type FollowConversionStatus = (typeof FOLLOW_CONVERSION_STATUS_VALUES)[number];
+
 @Entity('channel')
 @Unique(['podcast_guid'])
 @Index('channel_podcast_guid_unique', ['podcast_guid'], { where: 'podcast_guid IS NOT NULL' })
@@ -84,6 +93,15 @@ export class Channel {
 
   @Column({ type: 'timestamp', nullable: true })
   archived_slimmed_at?: Date | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  follow_conversion_status!: FollowConversionStatus | null;
+
+  @Column({ type: 'smallint', default: 0 })
+  follow_conversion_attempts!: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  follow_conversion_last_attempt_at!: Date | null;
 
   @OneToOne('ChannelAbout', (channel_about: ChannelAbout) => channel_about.channel)
   channel_about!: ChannelAbout;

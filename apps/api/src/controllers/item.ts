@@ -1,3 +1,4 @@
+import { config } from '@api/config/index.js';
 import { handleReturnDataOrNotFound } from '@api/controllers/helpers/data.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import { sendMergedInto } from '@api/controllers/helpers/mergedInto.js';
@@ -21,14 +22,18 @@ import {
 } from '@api/lib/validation/index.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
+import jwt from 'jsonwebtoken';
 
 import type {
   CategoryMappingKeys,
+  DTOChannelGone,
   DTOItemDescriptionDetail,
   QueryParamsMedium,
   StatsAggregatedRangeCountField,
 } from '@podverse/helpers';
 import {
+  AuthCookieName,
+  CHANNEL_GONE_ARCHIVED_MESSAGE,
   fillTopPage,
   getCategoryEnumValue,
   LIVE_ITEM_STATUSES,
@@ -49,9 +54,11 @@ import type {
   StatsAggregatedItem,
 } from '@podverse/orm';
 import {
+  archivedShowFeedUrlForFollower,
   channelGetOneRelations,
   ChannelMergeRedirectService,
   ChannelService,
+  FeedLifecycleStateKeyEnum,
   ItemChapterService,
   itemGetManyRelations,
   itemGetManyRelationsWithChannel,
@@ -62,6 +69,46 @@ import {
   subItemGetManyRelationsWithChannel,
 } from '@podverse/orm';
 import { parseChapters } from '@podverse/parser';
+
+function bearerOrCookieToken(req: Request): string {
+  const cookies: unknown = req.cookies;
+  if (typeof cookies === 'object' && cookies !== null) {
+    const cookieToken: unknown = Reflect.get(cookies, AuthCookieName);
+    if (typeof cookieToken === 'string' && cookieToken !== '') {
+      return cookieToken;
+    }
+  }
+  const header = req.headers.authorization;
+  if (typeof header !== 'string') {
+    return '';
+  }
+  const prefix = 'Bearer ';
+  if (!header.startsWith(prefix) || header.length <= prefix.length) {
+    return '';
+  }
+  return header.slice(prefix.length);
+}
+
+function accountIdFromRequest(req: Request): number | null {
+  const token = bearerOrCookieToken(req);
+  if (token === '') {
+    return null;
+  }
+  let decoded: unknown;
+  try {
+    decoded = jwt.verify(token, config.auth.jwtSecret);
+  } catch {
+    return null;
+  }
+  if (typeof decoded !== 'object' || decoded === null) {
+    return null;
+  }
+  const id = Reflect.get(decoded, 'id');
+  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+  return id;
+}
 
 const getRecentOrder = (itemType: 'normal' | 'live-item'): FindOptionsOrder<Item> => {
   if (itemType === 'live-item') {
@@ -80,6 +127,65 @@ export class ItemController {
 
   private static isParsedReadyChannel(channel: { channel_about?: unknown } | null): boolean {
     return Boolean(channel?.channel_about);
+  }
+
+  /**
+   * Merge redirect, then takedown, then archived. A missing or unparsed channel is 404.
+   * Returns null when the response has already been sent.
+   */
+  private static async episodeListChannel(
+    req: Request,
+    res: Response,
+    channelIdOrIdText: string
+  ): Promise<Channel | null> {
+    const move = await ItemController.mergeRedirects.channelMove(channelIdOrIdText);
+    if (move) {
+      sendMergedInto(res, 'channel', move.to_id_text);
+      return null;
+    }
+
+    const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
+      channel_about: true,
+      feed: {
+        feed_lifecycle_state: {
+          feed_lifecycle_state_type: true,
+        },
+      },
+    });
+    if (!channel) {
+      res.status(404).json({ message: 'Channel not found' });
+      return null;
+    }
+
+    const stateKey = channel.feed?.feed_lifecycle_state?.feed_lifecycle_state_type?.state_key;
+    if (stateKey === FeedLifecycleStateKeyEnum.Takedown) {
+      res.status(404).json({ message: 'Channel not found' });
+      return null;
+    }
+    if (stateKey === FeedLifecycleStateKeyEnum.Archived) {
+      const accountId = accountIdFromRequest(req);
+      const rawFeedUrl = channel.feed?.url ?? '';
+      const addByRssFeedUrl =
+        accountId === null || rawFeedUrl === ''
+          ? null
+          : await archivedShowFeedUrlForFollower(accountId, rawFeedUrl);
+      const body: DTOChannelGone = {
+        message: CHANNEL_GONE_ARCHIVED_MESSAGE,
+        gone: {
+          reason: 'archived',
+          add_by_rss_feed_url: addByRssFeedUrl,
+        },
+      };
+      res.status(410).json(body);
+      return null;
+    }
+
+    if (!ItemController.isParsedReadyChannel(channel)) {
+      res.status(404).json({ message: 'Channel not found' });
+      return null;
+    }
+
+    return channel;
   }
 
   private static async loadFilledTopItems(args: {
@@ -569,12 +675,8 @@ export class ItemController {
           const { page, limit, offset } = getPaginationParams(req);
           const channelIdOrIdText = getParamRequired(req, 'channelIdOrIdText');
 
-          const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
-            channel_about: true,
-          });
-
-          if (!channel || !ItemController.isParsedReadyChannel(channel)) {
-            res.status(404).json({ message: 'Channel not found' });
+          const channel = await ItemController.episodeListChannel(req, res, channelIdOrIdText);
+          if (!channel) {
             return;
           }
 
@@ -608,12 +710,8 @@ export class ItemController {
           const { page, limit, offset } = getPaginationParams(req);
           const channelIdOrIdText = getParamRequired(req, 'channelIdOrIdText');
 
-          const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
-            channel_about: true,
-          });
-
-          if (!channel || !ItemController.isParsedReadyChannel(channel)) {
-            res.status(404).json({ message: 'Channel not found' });
+          const channel = await ItemController.episodeListChannel(req, res, channelIdOrIdText);
+          if (!channel) {
             return;
           }
 
@@ -655,12 +753,8 @@ export class ItemController {
           const itemType = 'normal';
           const liveItemType = null;
 
-          const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
-            channel_about: true,
-          });
-
-          if (!channel || !ItemController.isParsedReadyChannel(channel)) {
-            res.status(404).json({ message: 'Channel not found' });
+          const channel = await ItemController.episodeListChannel(req, res, channelIdOrIdText);
+          if (!channel) {
             return;
           }
 
@@ -698,12 +792,8 @@ export class ItemController {
           const { page, limit, offset } = getPaginationParams(req);
           const channelIdOrIdText = getParamRequired(req, 'channelIdOrIdText');
 
-          const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
-            channel_about: true,
-          });
-
-          if (!channel || !ItemController.isParsedReadyChannel(channel)) {
-            res.status(404).json({ message: 'Channel not found' });
+          const channel = await ItemController.episodeListChannel(req, res, channelIdOrIdText);
+          if (!channel) {
             return;
           }
 
@@ -739,12 +829,8 @@ export class ItemController {
           const { page, limit, offset } = getPaginationParams(req);
           const channelIdOrIdText = getParamRequired(req, 'channelIdOrIdText');
 
-          const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
-            channel_about: true,
-          });
-
-          if (!channel || !ItemController.isParsedReadyChannel(channel)) {
-            res.status(404).json({ message: 'Channel not found' });
+          const channel = await ItemController.episodeListChannel(req, res, channelIdOrIdText);
+          if (!channel) {
             return;
           }
 
@@ -785,12 +871,8 @@ export class ItemController {
           const channelIdOrIdText = getParamRequired(req, 'channelIdOrIdText');
           const { shuffleHash } = req.query as { shuffleHash: string };
 
-          const channel = await ItemController.channelService.getByIdOrIdText(channelIdOrIdText, {
-            channel_about: true,
-          });
-
-          if (!channel || !ItemController.isParsedReadyChannel(channel)) {
-            res.status(404).json({ message: 'Channel not found' });
+          const channel = await ItemController.episodeListChannel(req, res, channelIdOrIdText);
+          if (!channel) {
             return;
           }
 

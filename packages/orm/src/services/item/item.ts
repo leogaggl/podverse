@@ -20,8 +20,10 @@ import { Brackets, Equal, In, IsNull, LessThan, MoreThan, Not } from 'typeorm';
 import type { QueryParamsMedium } from '@podverse/helpers';
 import { getMediumIdArrayFromType, PAGINATION } from '@podverse/helpers';
 
+import { captureRemovedReferences } from '../removedReferences.js';
 import { ItemChaptersFeedService } from './itemChaptersFeed.js';
 import { ItemContentLinkService } from './itemContentLink.js';
+import { ItemDescriptionService } from './itemDescription.js';
 import { ItemEnclosureService } from './itemEnclosure.js';
 import { ItemFlagStatusService } from './itemFlagStatus.js';
 import { ItemFundingService } from './itemFunding.js';
@@ -89,6 +91,14 @@ export class ItemService {
 
     if (!item) {
       return null;
+    }
+
+    if (relations.item_description && item.item_description) {
+      const itemDescriptionService = new ItemDescriptionService();
+      const value = await itemDescriptionService.getValueByParentId(item.id);
+      if (value !== null) {
+        item.item_description.value = value;
+      }
     }
 
     if (relations.item_chapters_feed) {
@@ -1001,13 +1011,19 @@ export class ItemService {
   }
 
   async delete(id: number): Promise<void> {
-    await this.repositoryReadWrite.delete(id);
+    await this.deleteMany([id]);
   }
 
+  /** Clips and playlist entries pointing at these items keep a snapshot of what they referenced. */
   async deleteMany(ids: number[]): Promise<void> {
-    if (ids.length) {
-      await this.repositoryReadWrite.delete(ids);
+    if (ids.length === 0) {
+      return;
     }
+
+    await AppDataSourceReadWrite.transaction(async (manager) => {
+      await captureRemovedReferences(ids, manager);
+      await manager.delete(Item, ids);
+    });
   }
 }
 

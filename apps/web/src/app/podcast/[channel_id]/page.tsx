@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import type {
@@ -18,6 +18,7 @@ import {
   QUERY_PARAMS_STATS_RANGE_VALUES,
 } from '@podverse/helpers-requests';
 
+import { loadChannelItemList } from '../../../lib/channel/loadChannelItemList';
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import { buildNoindexMetadata } from '../../../lib/seo/buildNoindexMetadata';
 import { getChannelForSeoPage, getChannelHeroImageUrl } from '../../../lib/seo/fetchers';
@@ -144,22 +145,34 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
     ssrChannel.id_text
   );
 
-  if (currentType === 'clips') {
+  const itemList = await loadChannelItemList(() =>
+    ssrApiRequestService.reqItemGetManyByChannel({
+      idOrIdText: ssrChannel.id_text,
+      page: currentPage,
+      sort: currentSort,
+      range: currentRange,
+    })
+  );
+  const directoryRemoved = itemList.kind === 'archived';
+
+  if (itemList.kind === 'archived') {
+    ssrItems = [];
+    ssrTotalPages = 1;
+  } else if (currentType === 'clips') {
     ssrClips = [];
   } else if (currentType === 'boosts') {
     ssrTotalPages = 1;
   } else if (currentType === 'soundbites' && currentSort !== 'top') {
     ssrTotalPages = getCurrentTotalPages({ currentType, responseItemSoundbites, currentPage });
+  } else if (itemList.kind === 'missing') {
+    notFound();
   } else {
-    const responseItems = await ssrApiRequestService.reqItemGetManyByChannel({
-      idOrIdText: ssrChannel.id_text,
-      page: currentPage,
-      sort: currentSort,
-      range: currentRange,
+    ssrItems = [...ssrItemsWithLiveItem, ...itemList.response.data];
+    ssrTotalPages = getCurrentTotalPages({
+      currentType,
+      responseItems: itemList.response,
+      currentPage,
     });
-
-    ssrItems = [...ssrItemsWithLiveItem, ...responseItems.data];
-    ssrTotalPages = getCurrentTotalPages({ currentType, responseItems, currentPage });
   }
 
   let ssrPodroll = null;
@@ -184,6 +197,7 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
       ssrHasItemSoundbites={ssrHasItemSoundbites}
       ssrTotalPages={ssrTotalPages}
       ssrPodroll={ssrPodroll}
+      directoryRemoved={directoryRemoved}
     />
   );
 }

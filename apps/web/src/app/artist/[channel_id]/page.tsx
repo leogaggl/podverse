@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { buildArtistPath } from '@podverse/helpers';
 import { QUERY_PARAMS_CHANNEL_MUSIC_ARTIST_TYPE_VALUES } from '@podverse/helpers-requests';
 
+import { loadChannelItemList } from '../../../lib/channel/loadChannelItemList';
 import { buildContentMetadata } from '../../../lib/seo/buildContentMetadata';
 import {
   getChannelHeroImageUrl,
@@ -85,6 +86,16 @@ export default async function ArtistPage({ params, searchParams }: ArtistPagePro
     ssrPodroll = await ssrApiRequestService.reqPodrollGetForChannel(response.channel.id_text);
   }
 
+  const itemList = await loadChannelItemList(() =>
+    ssrApiRequestService.reqItemGetManyByChannel({
+      idOrIdText: response.channel.id_text,
+      page: 1,
+      sort: 'recent',
+      range: null,
+    })
+  );
+  const directoryRemoved = itemList.kind === 'archived';
+
   return (
     <ArtistPageClient
       initialQueryParams={{
@@ -96,6 +107,7 @@ export default async function ArtistPage({ params, searchParams }: ArtistPagePro
       ssrItemsAdded={response.itemsAdded}
       ssrItemsUnadded={response.itemsUnadded}
       ssrPodroll={ssrPodroll}
+      directoryRemoved={directoryRemoved}
     />
   );
 }

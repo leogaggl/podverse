@@ -43,6 +43,21 @@ export const E2E_ARCHIVED_CLIP_TITLE = 'E2E Archived Clip';
 export const E2E_ARCHIVED_CLIP_PREVIEW = 'This archived episode keeps a short preview.';
 export const E2E_ARCHIVED_CLIP_LINK_URL = 'https://example.com/e2e-archived-clip-episode';
 
+/** Clip whose episode was removed. Owned by the seeded E2E user. */
+export const E2E_REMOVED_CLIP_ID_TEXT = 'e2eRemClip01';
+export const E2E_REMOVED_CLIP_TITLE = 'E2E Removed Clip';
+export const E2E_REMOVED_EPISODE_TITLE = 'E2E Removed Episode';
+export const E2E_REMOVED_SHOW_TITLE = 'E2E Removed Show';
+
+/** Playlist with one live episode and one removed entry. Owned by the seeded E2E user. */
+export const E2E_REMOVED_PLAYLIST_ID_TEXT = 'e2eRemPlay01';
+export const E2E_REMOVED_PLAYLIST_TITLE = 'E2E Removed Playlist';
+
+/** Archived show the seeded E2E user still follows. No episodes. */
+export const E2E_ARCHIVED_SHOW_ID_TEXT = 'e2eArchShow01';
+export const E2E_ARCHIVED_SHOW_TITLE = 'E2E Archived Show';
+export const E2E_ARCHIVED_SHOW_FEED_URL = 'https://e2e-seed-archived-show.example/podcast.xml';
+
 export const E2E_ITEM_CHAPTER_INTRO_ID_TEXT = 'e2eChapIntro01';
 export const E2E_ITEM_CHAPTER_TOPIC_ID_TEXT = 'e2eChapTopic01';
 /** First of `e2eChapFil01`–`e2eChapFil12` on the chaptered episode — tall Chapters pane only. */

@@ -105,6 +105,15 @@ function toIsoTimestampOrNull(raw: unknown): string | null {
   return null;
 }
 
+function channelTitleFromLookupRow(row: Record<string, unknown>): string | null {
+  const title = row.channel_title;
+  if (typeof title === 'string' && title !== '') {
+    return title;
+  }
+  const url = row.url;
+  return typeof url === 'string' && url !== '' ? url : null;
+}
+
 function mapLookupRow(row: Record<string, unknown>): FeedOperationsLookupRow {
   const rawKeys = row.active_condition_keys;
   const keys = normalizeConditionKeys(Array.isArray(rawKeys) ? rawKeys : []);
@@ -174,10 +183,7 @@ function mapLookupRow(row: Record<string, unknown>): FeedOperationsLookupRow {
         ? null
         : String(row.primary_block_reason),
     policy_overrides: policyOverrides,
-    channel_title:
-      row.channel_title === null || row.channel_title === undefined
-        ? null
-        : String(row.channel_title),
+    channel_title: channelTitleFromLookupRow(row),
   };
 }
 
@@ -244,7 +250,7 @@ export type ListFeedOperationsForTableResult = {
 const LIST_SORT_SQL: Record<FeedOperationsListSortKey, string> = {
   id: 'f.id',
   podcast_index_id: 'f.podcast_index_id',
-  channel_title: "LOWER(COALESCE(c.title, ''))",
+  channel_title: "LOWER(COALESCE(NULLIF(c.title, ''), f.url))",
   lifecycle_state_key: "LOWER(COALESCE(flst.state_key::text, ''))",
   url: 'LOWER(f.url)',
   description_longest_source_length: 'f.description_longest_source_length',

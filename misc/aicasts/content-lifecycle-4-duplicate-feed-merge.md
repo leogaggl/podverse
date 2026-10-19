@@ -1,15 +1,21 @@
-# One Show, Not Two: Following Podcast Index Merges
+# Content Lifecycle 4: One Show, Not Two
 
-- **Covers:** How Podverse records Podcast Index duplicate pairs, checks that their episodes
-  match, folds the copies into one show, and keeps old links, phones, and downloads working.
-- **Status:** Built on the current branch, not yet committed. Ships with the mode off.
-- **Series:** Standalone
+- **Version:** 2026-10-19T00:13-05:00
+- **Episode ID:** duplicate-feed-merge
+- **Changed:** Moved from a standalone cast into Content Lifecycle as part four. The opening,
+  the line on retired feeds without a replacement, and the closing changed. Previous title:
+  "One Show, Not Two: Following Podcast Index Merges". Regenerate the audio.
+- **Description:** How Podverse records duplicate feed pairs from Podcast Index, checks that
+  their episodes match, folds the copies into one show, and keeps old links, phones, and
+  downloads working.
+- **Status:** Built. Ships with the merge mode off.
+- **Group:** Content Lifecycle, part 4
 - **Sources:** `.llm/plans/completed/pi-duplicate-feed-merge/`,
   `apps/workers/src/commands/podcastIndex/deadFeeds/`,
   `packages/orm/src/lib/duplicateFeedMatch.ts`,
   `packages/orm/src/services/channel/applyChannelMerge.ts`, `apps/api/src/routes/identity.ts`,
   `apps/mobile/src/data/identityRemap.ts`
-- **Length:** about 9 minutes (1,310 words)
+- **Length:** about 9 minutes (1,330 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -27,7 +33,7 @@
 
 ## Script
 
-CLAIRE: This is a standalone cast about duplicate feeds: when the same show exists under two RSS addresses, and how Podverse folds them into one. This one is built. It ships switched off and gets turned on one environment at a time.
+CLAIRE: This is part four of Content Lifecycle. It's about duplicate feeds: when the same show exists under two RSS addresses, and how Podverse folds them into one. This one is built. It ships switched off and gets turned on one environment at a time.
 
 TOM: How does one show end up with two feeds?
 
@@ -39,7 +45,7 @@ CLAIRE: Not much. Every hour it rewrites a list of feeds it has retired. About t
 
 TOM: So who decides two feeds are the same show? Us or them?
 
-CLAIRE: Them. Podcast Index decides the pair. Podverse never invents a duplicate because titles look alike or an identifier matches. Our checks can refuse a pair, or send it to a person for review. They can never create one. And a retired feed with no named replacement is left alone.
+CLAIRE: Them. Podcast Index decides the pair. Podverse never invents a duplicate because titles look alike or an identifier matches. Our checks can refuse a pair, or send it to a person for review. They can never create one. And a retired feed with no named replacement is never a merge. Part five covers what happens to those.
 
 (pause)
 
@@ -125,4 +131,4 @@ CLAIRE: One setting with three values: off, dry run, and apply. Off does nothing
 
 TOM: To remember. One: Podcast Index decides the pair, and Podverse only checks it. Two: a pair is verified by matching episodes, eighty percent and at least three, or one episode plus a shared identifier. Three: re-point when we have one feed, absorb when we have both, and every change is journaled and reversible. Four: old links redirect, phones remap in place, and downloads are never fetched again.
 
-CLAIRE: And none of it notifies listeners about episodes they already had.
+CLAIRE: And none of it notifies listeners about episodes they already had. Next part: feeds Podcast Index retires with no replacement.

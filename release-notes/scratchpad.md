@@ -368,3 +368,87 @@
 - Change: A clip page shows the episode Summary under the clip header, including the shortened-notes
   link when the stored description was cut.
 - Who notices: listeners opening a clip, including a clip of an archived episode
+
+## API list responses omit full description HTML
+
+- Surfaces: api, web, mobile
+- Change: Episode and channel list responses include item_description / channel_description with
+  preview, is_truncated, and source_length, but no value. Item and channel detail, and
+  GET /item/:idOrIdText/description, still return value. List payloads shrink, most for feeds
+  with long show notes.
+- Who notices: third-party API clients that read value from list responses; listeners see
+  faster lists
+- Operator steps: none. Ship with the rest of this set. Install a mobile binary that includes
+  the show notes cache on any phone pointed at alpha.
+
+## Removed-source schema and DTO groundwork for clips and playlists
+
+- Surfaces: ops (app migration and readiness markers), orm, helpers DTOs
+- Change: App migration `0018_removed_content_references.sql` makes `clip.item_id` nullable with
+  `ON DELETE SET NULL`, adds `removed_source` and `source_removed_at` to `clip` and
+  `playlist_resource`, updates the playlist reference check to allow a source-less row only when
+  `source_removed_at` is present, and adds channel follow-conversion columns. API readiness now
+  waits for `0018_removed_content_references.sql`.
+- Who notices: operators applying migrations; API clients can receive clip and playlist resources
+  where `item` or `item_soundbite` is null plus optional removed-source fields
+- Operator steps: deploy and push the `infra/k8s/` changes to the Argo CD tracked branch
+
+## Clips and playlist entries survive takedowns
+
+- Surfaces: api, workers (archiveAll), orm
+- Change: When a feed is taken down, each clip and playlist entry pointing at its episodes or
+  official soundbites is kept with a small snapshot (episode title, show title, date, soundbite
+  title) instead of being deleted. Takedown runs in one transaction per feed and clears
+  `item_merge_map` rows for those episodes first. `GET /clip/:id` on a removed clip returns 200
+  with `item: null`, `removed_source`, and `source_removed_at` to the clip owner, and 410
+  `{ message: 'Clip source was removed', removed: true }` to everyone else. `POST /stats/clip`
+  returns 410 for a removed clip. `PATCH /clip/:id` on a removed clip accepts title and
+  description only; a time or sharing change is 400, and `item_id_text` is optional there.
+  Playlist resource reads return an entry's `removed_source` only to the playlist owner, and a
+  clip's `removed_source` only to the clip owner; `source_removed_at` is always present. My
+  Profile clips include the owner's removed clips. Removed clips leave queues on the next prune.
+  New catalog copy: `info.removed.*` (consumer) and `error_log.directory_channel_converted`
+  (mobile).
+- Who notices: users with clips or playlists of taken-down shows; API clients (clip `item` can
+  be null, new 410 responses)
+- Operator steps: none beyond the 0018 migration
+
+## Archive keeps episodes behind playlist soundbites
+
+- Surfaces: workers (archiveAll), orm
+- Change: The archive pass no longer hard-deletes an archived episode whose official soundbite
+  is in a playlist. Deleting it would remove the soundbite and leave the playlist row with no
+  reference, which the playlist check rejects, stalling the archive run.
+- Who notices: operators (archive runs stop failing on these episodes); playlist owners keep
+  those soundbite entries
+- Operator steps: none
+
+## Archived shows move members to Add by RSS; empty shows are deleted
+
+- Surfaces: workers (archiveAll), api, management-api, orm
+- Change: When a show is archived and its RSS feed still responds, members who follow it get an
+  Add-by-RSS follow in place of the directory follow. The episode list for an archived show
+  returns 410 with reason archived (404 for takedown). Archived or taken-down shows with no
+  episodes left are deleted; the feed row stays, so management can still restore it.
+- Who notices: members following shows that leave the directory; API clients of the episode
+  list
+- Operator steps: none; the next archiveAll processes up to 100 archived shows per run
+
+## Web shows removed clips and playlist entries as Content Removed
+
+- Surfaces: web
+- Change: Clips and playlist entries whose episode was removed stay visible to their owner as
+  Content Removed, with the episode and show titles, and can be deleted. Other visitors see only
+  that the content was removed. Pages of shows that left the directory say so in place of the
+  episode list.
+- Who notices: web users with clips or playlists of removed shows
+
+## Mobile keeps removed clips and moves archived shows to Add by RSS
+
+- Surfaces: mobile
+- Change: Clips and playlist entries whose episode was removed show as Content Removed, keep
+  their place, and can be deleted. They do not play. When a followed show leaves the directory
+  and the server moved a member's follow to Add by RSS, the sync log says so and Add by RSS
+  refreshes so the show reappears there.
+- Who notices: mobile users with clips or playlists of removed shows; members following shows
+  that leave the directory

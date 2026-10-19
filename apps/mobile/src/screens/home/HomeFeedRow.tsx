@@ -353,7 +353,8 @@ export const HomeFeedRow = memo(function HomeFeedRow({
   }, []);
   perfCount('home.row.render');
   const styles = useThemedStyles(createStyles);
-  const isPlayable = isPlayableDirectoryMediaType(mediaType);
+  const isPlayable = row.playable !== false && isPlayableDirectoryMediaType(mediaType);
+  const removedLabel = row.removed === true ? t('info.removed.content_removed') : null;
   const showInlineTrackMore = customActions === undefined && mediaType === 'tracks';
   const { liveLabel, unseenSpoken } = useMetadataAnnouncements(row.metadata);
   const unseenBadge = row.metadata?.unseenBadge ?? null;
@@ -383,6 +384,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       ? row.description
       : null;
   const isChannelList = isChannelListMediaType(mediaType);
+  const showArtwork = showChannelContext && row.removed !== true;
   const contextLineVisible = showContextLine ?? showChannelContext;
   const channelLabel =
     !isChannelList && contextLineVisible && row.subtitle !== null && row.subtitle.length > 0
@@ -397,7 +399,6 @@ export const HomeFeedRow = memo(function HomeFeedRow({
     channelFooter?.kind === 'count' || channelFooter?.kind === 'author'
       ? channelFooter.label
       : null;
-  const showArtwork = showChannelContext;
 
   const moreActions = useMemo(() => {
     const standardActions = buildMediaRowMoreActions(
@@ -508,7 +509,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       accessibilityLabel={[
         ...(isChannelList
           ? [updatedLabel, row.title, footerLabel]
-          : [channelLabel, row.title, updatedLabel]),
+          : [channelLabel, removedLabel, row.title, updatedLabel]),
         description,
         durationLabel,
         liveLabel,
@@ -554,6 +555,15 @@ export const HomeFeedRow = memo(function HomeFeedRow({
                 testID={`home-feed-row-subtitle-${row.id}`}
               >
                 {channelLabel}
+              </Text>
+            ) : null}
+            {removedLabel !== null ? (
+              <Text
+                numberOfLines={1}
+                style={styles.channelTitle}
+                testID={`home-feed-row-removed-${row.id}`}
+              >
+                {removedLabel}
               </Text>
             ) : null}
             <Text

@@ -10,8 +10,10 @@ import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
 import { ChannelSeenPageView } from '../../../components/ChannelSeen/ChannelSeenPageView';
+import { DirectoryRemovedNotice } from '../../../components/Content/DirectoryRemovedNotice';
 import { CoreArtistHeader } from '../../../components/Core/Artist/CoreArtistHeader';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import { DirectoryRemovedProvider } from '../../../contexts/DirectoryRemoved';
 import { ArtistPageContextProvider } from './ArtistPageContext';
 import { ArtistPageList } from './ArtistPageList';
 import { ArtistPageListHeader } from './ArtistPageListHeader';
@@ -25,6 +27,7 @@ interface ArtistPageClientProps {
   ssrItemsAdded: DTOItem[];
   ssrItemsUnadded: NonNullable<EpisodeByGuidResponse['episode']>[];
   ssrPodroll: RemoteItemsResponse | null;
+  directoryRemoved: boolean;
 }
 
 export function ArtistPageClient(props: ArtistPageClientProps) {
@@ -36,6 +39,7 @@ export function ArtistPageClient(props: ArtistPageClientProps) {
     ssrItemsAdded,
     ssrItemsUnadded,
     ssrPodroll,
+    directoryRemoved,
   } = props;
   const ssrHasAlbums = ssrChannelsAdded.length > 0 || ssrChannelsUnadded.length > 0;
   const ssrHasTracks = ssrItemsAdded.length > 0 || ssrItemsUnadded.length > 0;
@@ -47,33 +51,41 @@ export function ArtistPageClient(props: ArtistPageClientProps) {
   });
 
   return (
-    <ArtistPageContextProvider initialQueryParams={initialQueryParams}>
-      <MainWrapper>
-        <ChannelSeenPageView channelIdText={ssrChannel.id_text} />
-        <CoreArtistHeader channel={ssrChannel} />
-        <MainSidebarLayout>
-          <ArtistPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
-          <MainColumnStack>
-            <ArtistPageListHeader
-              ssrHasAlbums={ssrHasAlbums}
-              ssrHasTracks={ssrHasTracks}
-              ssrHasDescription={ssrHasDescription}
-              ssrHasPeople={(ssrChannel.channel_persons?.length ?? 0) > 0}
-              ssrHasPodroll={ssrHasPodroll}
-              ssrCanShowBoosts={ssrCanShowBoosts}
-            />
-            <ArtistPageList
-              ssrChannel={ssrChannel}
-              ssrChannelsAdded={ssrChannelsAdded}
-              ssrChannelsUnadded={ssrChannelsUnadded}
-              ssrItemsAdded={ssrItemsAdded}
-              ssrItemsUnadded={ssrItemsUnadded}
-              podroll={ssrPodroll}
-              ssrCanShowBoosts={ssrCanShowBoosts}
-            />
-          </MainColumnStack>
-        </MainSidebarLayout>
-      </MainWrapper>
-    </ArtistPageContextProvider>
+    <DirectoryRemovedProvider removed={directoryRemoved}>
+      <ArtistPageContextProvider initialQueryParams={initialQueryParams}>
+        <MainWrapper>
+          <ChannelSeenPageView channelIdText={ssrChannel.id_text} />
+          <CoreArtistHeader channel={ssrChannel} />
+          <MainSidebarLayout>
+            <ArtistPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
+            <MainColumnStack>
+              {directoryRemoved ? (
+                <DirectoryRemovedNotice />
+              ) : (
+                <>
+                  <ArtistPageListHeader
+                    ssrHasAlbums={ssrHasAlbums}
+                    ssrHasTracks={ssrHasTracks}
+                    ssrHasDescription={ssrHasDescription}
+                    ssrHasPeople={(ssrChannel.channel_persons?.length ?? 0) > 0}
+                    ssrHasPodroll={ssrHasPodroll}
+                    ssrCanShowBoosts={ssrCanShowBoosts}
+                  />
+                  <ArtistPageList
+                    ssrChannel={ssrChannel}
+                    ssrChannelsAdded={ssrChannelsAdded}
+                    ssrChannelsUnadded={ssrChannelsUnadded}
+                    ssrItemsAdded={ssrItemsAdded}
+                    ssrItemsUnadded={ssrItemsUnadded}
+                    podroll={ssrPodroll}
+                    ssrCanShowBoosts={ssrCanShowBoosts}
+                  />
+                </>
+              )}
+            </MainColumnStack>
+          </MainSidebarLayout>
+        </MainWrapper>
+      </ArtistPageContextProvider>
+    </DirectoryRemovedProvider>
   );
 }

@@ -53,8 +53,13 @@ and Podverse Next.
 When the operator says **abcaicast**, write a two-voice training conversation (Claire and Tom)
 about a feature, for an AI audio service. If no subject came with the command, ask for a short
 description of what the cast should cover first. Casts go in `misc/aicasts/` and are committed,
-so past casts stay in the repo. Check that folder before writing, and read it when the operator
-asks about an earlier cast. Follow `.cursor/skills/abcaicast/SKILL.md`.
+so past casts stay in the repo. Read it when the operator asks about an earlier cast.
+
+The casts are one course published by RSS, grown over time. Each abcaicast audits the existing
+casts and updates any the session's work made inaccurate. A new cast is written only when no
+existing episode covers the work. Every cast carries a **Version** (date and time) and a stable
+**Episode ID**, and is titled `<Group Title> <n>: <Episode Title>`. Follow
+`.cursor/skills/abcaicast/SKILL.md`.
 
 ## legacy app
 

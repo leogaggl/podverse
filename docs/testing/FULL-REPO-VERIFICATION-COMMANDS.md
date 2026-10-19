@@ -203,6 +203,7 @@ npm run mobile:e2e:test -- terms-popularity
 npm run mobile:e2e:test -- push
 npm run mobile:e2e:test -- queue-add
 npm run mobile:e2e:test -- queue-screen
+npm run mobile:e2e:test -- removed-content
 npm run mobile:e2e:test -- search-unparsed
 npm run mobile:e2e:test -- search
 npm run mobile:e2e:test -- settings-downloads

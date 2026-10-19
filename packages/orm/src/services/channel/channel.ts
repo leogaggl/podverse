@@ -13,6 +13,7 @@ import type { QueryParamsMedium } from '@podverse/helpers';
 import { getMediumIdArrayFromType, MediumEnum } from '@podverse/helpers';
 
 import { ChannelCategoryService } from './channelCategory.js';
+import { ChannelDescriptionService } from './channelDescription.js';
 import { ChannelFundingService } from './channelFunding.js';
 import { ChannelImageService } from './channelImage.js';
 import { ChannelMetaBoostService } from './channelMetaBoost.js';
@@ -133,6 +134,14 @@ export class ChannelService {
 
     if (!channel) {
       return null;
+    }
+
+    if (relations.channel_description && channel.channel_description) {
+      const channelDescriptionService = new ChannelDescriptionService();
+      const value = await channelDescriptionService.getValueByParentId(channel.id);
+      if (value !== null) {
+        channel.channel_description.value = value;
+      }
     }
 
     if (relations.channel_categories) {

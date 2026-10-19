@@ -27,6 +27,8 @@ const LONG_NOTES_VALUE =
 const LONG_NOTES_PREVIEW = 'About This Episode Long notes kept up to the feed tier. Link One';
 const LONG_NOTES_LINK_URL = 'https://example.com/item-description-test';
 const LONG_NOTES_SOURCE_LENGTH = 18000;
+const CHANNEL_DESCRIPTION_VALUE = '<p>Channel description for detail response coverage.</p>';
+const CHANNEL_DESCRIPTION_PREVIEW = 'Channel description for detail response coverage.';
 
 type SeededChannel = {
   channelIdText: string;
@@ -63,6 +65,11 @@ async function seedChannel(manager: EntityManager, runId: number): Promise<Seede
     })
   );
   await manager.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [channel.id]);
+  await manager.query(
+    `INSERT INTO channel_description (channel_id, value, preview, is_truncated, source_length)
+     VALUES ($1, $2, $3, false, $4)`,
+    [channel.id, CHANNEL_DESCRIPTION_VALUE, CHANNEL_DESCRIPTION_PREVIEW, 75]
+  );
 
   const itemRepo = manager.getRepository(Item);
   const longNotes = await itemRepo.save(
@@ -181,14 +188,35 @@ describe('item description', () => {
     const longNotesRow = rows.find((row) => isRecord(row) && row.id_text === longNotesIdText);
     expect(isRecord(longNotesRow) && isRecord(longNotesRow.item_description)).toBe(true);
     if (isRecord(longNotesRow) && isRecord(longNotesRow.item_description)) {
+      expect(longNotesRow.item_description).not.toHaveProperty('value');
       expect(longNotesRow.item_description).toEqual(
         expect.objectContaining({
-          value: LONG_NOTES_VALUE,
           preview: LONG_NOTES_PREVIEW,
           is_truncated: true,
           source_length: LONG_NOTES_SOURCE_LENGTH,
         })
       );
+    }
+  });
+
+  it('returns full notes on item detail', async () => {
+    const { longNotesIdText } = requireSeeded();
+    const res = await request(requireApp()).get(`${base}/item/${longNotesIdText}`);
+    expect(res.status).toBe(200);
+    expect(isRecord(res.body) && isRecord(res.body.item_description)).toBe(true);
+    if (isRecord(res.body) && isRecord(res.body.item_description)) {
+      expect(res.body.item_description.value).toBe(LONG_NOTES_VALUE);
+    }
+  });
+
+  it('returns full notes on channel detail', async () => {
+    const { channelIdText } = requireSeeded();
+    const res = await request(requireApp()).get(`${base}/channel/${channelIdText}`);
+    expect(res.status).toBe(200);
+    expect(isRecord(res.body) && isRecord(res.body.channel_description)).toBe(true);
+    if (isRecord(res.body) && isRecord(res.body.channel_description)) {
+      expect(res.body.channel_description.value).toBe(CHANNEL_DESCRIPTION_VALUE);
+      expect(res.body.channel_description.preview).toBe(CHANNEL_DESCRIPTION_PREVIEW);
     }
   });
 });

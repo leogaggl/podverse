@@ -403,6 +403,12 @@
       "min": "{count} min",
       "start": "{timeStart} heure de début",
       "start_end": "{timeStart} à {timeEnd}"
+    },
+    "removed": {
+      "content_removed": "Contenu supprimé",
+      "clip_source_removed": "L'épisode de ce clip a été supprimé de {brand_name}.",
+      "playlist_entry_removed": "Cet élément a été supprimé de {brand_name}.",
+      "show_not_in_directory": "Cette émission n'est plus dans le répertoire {brand_name}."
     }
   },
   "media_player": {

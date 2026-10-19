@@ -8,6 +8,7 @@ import {
   formatDateAbbrev,
   getErrorCode,
   getErrorResponseStatus,
+  isRemovedSource,
   MediumEnum,
 } from '@podverse/helpers';
 
@@ -19,6 +20,7 @@ import { SectionCard } from '../../components/section/SectionCard';
 import { AuthAwareLoadState } from '../../components/state/AuthAwareLoadState';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { playlistRepository } from '../../data';
+import { mobileBrandName } from '../../lib/mobileBrandName';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import type { PlaylistReorderMutation } from '../../lib/reorder/resolvePlaylistDrop';
 import { resolvePlaylistDrop } from '../../lib/reorder/resolvePlaylistDrop';
@@ -350,6 +352,9 @@ export function PlaylistDetailScreen({ navigation, route }: PlaylistDetailScreen
     for (const resource of resources) {
       const row = playlistResourceToHomeRow(resource, {
         addByRssPrivateTitle: t('features.add_by_rss.private_item_placeholder'),
+        playlistEntryRemovedLabel: t('info.removed.playlist_entry_removed', {
+          brand_name: mobileBrandName(),
+        }),
       });
       if (row === null) {
         continue;
@@ -666,6 +671,17 @@ export function PlaylistDetailScreen({ navigation, route }: PlaylistDetailScreen
       if (isDragActive || isSavingOrder || Date.now() < dragTapBlockUntilRef.current) {
         return;
       }
+      const clip = resource.clip;
+      const clipRemoved =
+        clip !== null &&
+        clip !== undefined &&
+        (isRemovedSource(resource) || isRemovedSource(clip));
+      if (isRemovedSource(resource) || clipRemoved) {
+        if (clipRemoved && clip.id_text.length > 0) {
+          navigation.navigate(LIBRARY_STACK_ROUTES.LibraryClipDetail, { clipId: clip.id_text });
+        }
+        return;
+      }
       const resourceData = resource.add_by_rss_resource_data;
       if (isAddByRssResourceData(resourceData)) {
         void playAddByRssResourceData(resourceData);
@@ -701,6 +717,7 @@ export function PlaylistDetailScreen({ navigation, route }: PlaylistDetailScreen
     [
       isDragActive,
       isSavingOrder,
+      navigation,
       playAddByRssResourceData,
       playPlaylistRowById,
       playSoundbite,

@@ -215,7 +215,12 @@ const createAddByRssParseJob = (
     priority,
     `add-by-rss-parse:${ticket.feedUrl}`,
     async (context) => {
-      await addByRssRepository.applyRefreshResult(deps.getAuthContext(), ticket);
+      const account = await accountRepository.getSnapshot();
+      await addByRssRepository.applyRefreshResult(
+        deps.getAuthContext(),
+        ticket,
+        account?.id_text ?? null
+      );
       const settings = await autoDownloadRepository.getByChannelIdText(ticket.feedUrl);
       if (settings?.enabled === true) {
         enqueueAutoDownloadEvaluateIfReady(context, priority, [ticket.feedUrl]);

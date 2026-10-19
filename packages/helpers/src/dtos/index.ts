@@ -1,6 +1,7 @@
 export * from './addByRSSResourceData.js';
 export * from './betweenParams.js';
 export * from './category.js';
+export * from './channelGone.js';
 export * from './clip.js';
 export * from './embedDemoShowcase.js';
 export * from './medium.js';
@@ -8,6 +9,7 @@ export * from './membershipClaimToken.js';
 export * from './managedCopy.js';
 export * from './onDemandParserEvent.js';
 export * from './queueExtraParams.js';
+export * from './removedSource.js';
 export * from './sharableStatus.js';
 export * from './account/account.js';
 export * from './account/accountCredentials.js';

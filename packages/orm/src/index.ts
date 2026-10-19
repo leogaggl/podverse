@@ -233,8 +233,11 @@ export * from './services/account/accountSettings/accountSettingsPlayback.js';
 export * from './services/account/accountUPDevice.js';
 export * from './services/account/accountVerification.js';
 export * from './services/account/accountWebPushDevice.js';
+export * from './services/archivedChannelCleanup.js';
+export * from './services/archivedFollowConversion.js';
 export * from './services/archivedSlimming.js';
 export * from './services/archiver.js';
+export * from './services/removedReferences.js';
 
 export * from './services/channel/channel.js';
 export * from './services/channel/channelAbout.js';
@@ -321,6 +324,7 @@ export * from './services/publisherFeed.js';
 
 export * from './services/queue/queue.js';
 export * from './services/queue/queueResource.js';
+export * from './services/queue/queueResourceActiveItemFilter.js';
 
 export * from './services/stats/statsAggregatedAccount.js';
 export * from './services/stats/statsAggregatedChannel.js';

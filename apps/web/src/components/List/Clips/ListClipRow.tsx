@@ -6,7 +6,11 @@ import React from 'react';
 import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOChannel, DTOClip, DTOItem, EnclosureSelectedParams } from '@podverse/helpers';
-import { getQueueForMedium, mergeDTOItemThenChannelImageCandidates } from '@podverse/helpers';
+import {
+  getQueueForMedium,
+  isRemovedSource,
+  mergeDTOItemThenChannelImageCandidates,
+} from '@podverse/helpers';
 import { getShuffleHash } from '@podverse/helpers-requests';
 import type { MoreButtonMenuItem } from '@podverse/ui';
 import { ImagesPerView } from '@podverse/ui';
@@ -78,10 +82,15 @@ export const ListClipRow: React.FC<Props> = ({
   );
 
   const tFeatures = useTranslations('features');
+  const tInfo = useTranslations('info');
   const tMedia = useTranslations('media');
   const tMediaPlayer = useTranslations('media_player');
   const tMisc = useTranslations('misc');
   const tInstructions = useTranslations('instructions');
+  const sourceRemoved = isRemovedSource(clip);
+  const snapshotTitles = [clip.removed_source?.item_title, clip.removed_source?.channel_title].filter(
+    (part): part is string => typeof part === 'string' && part.length > 0
+  );
   const { mpClip, mpIsPlaying, setMPIsPlaying } = useMediaPlayer();
   const { loggedInAccount } = useAccount();
   const { setModalPlaylistAddTo, setModalLoginRequired } = useModals();
@@ -240,42 +249,44 @@ export const ListClipRow: React.FC<Props> = ({
     likeRow?.onToggle();
   };
 
-  const moreButtonMenuItems: MoreButtonMenuItem[] = isEditModePlaylist
-    ? [
-        {
-          label: tFeatures('playlist.remove_from_playlist'),
-          onClick: removeFromPlaylistOnClick,
-          variant: 'danger',
-        },
-      ]
-    : [
-        {
-          label: tMediaPlayer('play'),
-          onClick: () => alert(tMediaPlayer('play')),
-        },
-        {
-          label: tFeatures('queue.queue_next'),
-          onClick: addToQueueNextOnClick,
-        },
-        {
-          label: tFeatures('queue.queue_last'),
-          onClick: addToQueueLastOnClick,
-        },
-        {
-          label: tFeatures('playlist.add_to_playlist'),
-          onClick: addToPlaylistOnClick,
-        },
-        ...(likeRow
-          ? [
-              {
-                label: likeRow.isLiked
-                  ? tFeatures('playlist.remove_from_liked')
-                  : tFeatures('playlist.add_to_liked'),
-                onClick: onLikeFromMenu,
-              } satisfies MoreButtonMenuItem,
-            ]
-          : []),
-      ];
+  const moreButtonMenuItems: MoreButtonMenuItem[] = [];
+
+  if (isEditModePlaylist) {
+    moreButtonMenuItems.push({
+      label: tFeatures('playlist.remove_from_playlist'),
+      onClick: removeFromPlaylistOnClick,
+      variant: 'danger',
+    });
+  } else if (!sourceRemoved) {
+    moreButtonMenuItems.push(
+      {
+        label: tMediaPlayer('play'),
+        onClick: () => alert(tMediaPlayer('play')),
+      },
+      {
+        label: tFeatures('queue.queue_next'),
+        onClick: addToQueueNextOnClick,
+      },
+      {
+        label: tFeatures('queue.queue_last'),
+        onClick: addToQueueLastOnClick,
+      },
+      {
+        label: tFeatures('playlist.add_to_playlist'),
+        onClick: addToPlaylistOnClick,
+      },
+      ...(likeRow
+        ? [
+            {
+              label: likeRow.isLiked
+                ? tFeatures('playlist.remove_from_liked')
+                : tFeatures('playlist.add_to_liked'),
+              onClick: onLikeFromMenu,
+            } satisfies MoreButtonMenuItem,
+          ]
+        : [])
+    );
+  }
 
   if (isEditModeQueue) {
     moreButtonMenuItems.push({
@@ -298,77 +309,88 @@ export const ListClipRow: React.FC<Props> = ({
     });
   }
 
+  const titleBlock = (
+    <div className={styles.topSection}>
+      <h3 className={styles.clipTitle}>{clipTitle}</h3>
+      {sourceRemoved ? (
+        snapshotTitles.length > 0 ? (
+          <div className={styles.subtitle}>{snapshotTitles.join(' • ')}</div>
+        ) : null
+      ) : (
+        (showChannelInfo || showItemInfo) && (
+          <div className={styles.subtitle}>
+            {showChannelInfo && channelTitle}
+            {showChannelInfo && showItemInfo && ' • '}
+            {showItemInfo && itemTitle}
+          </div>
+        )
+      )}
+    </div>
+  );
+
   return (
-    <div className={styles.row}>
+    <div className={styles.row} data-removed-source={sourceRemoved ? 'true' : undefined}>
       {(isEditModeQueue || isEditModePlaylist) && (
         <div className={styles.editingButtons}>
           <FaGripLines />
         </div>
       )}
       <ImagesPerView
-        candidates={clipArtworkCandidates}
-        alt={itemTitle || tMedia('podcast.episode_image')}
+        candidates={sourceRemoved ? [] : clipArtworkCandidates}
+        alt={sourceRemoved ? clipTitle : itemTitle || tMedia('podcast.episode_image')}
         widthDesktop={IMAGES.LIST.CLIPS.SIZE}
         heightDesktop={IMAGES.LIST.CLIPS.SIZE}
         widthMobile={IMAGES.LIST.CLIPS.SIZE}
         heightMobile={IMAGES.LIST.CLIPS.SIZE}
         classNameDesktop={styles.image}
         classNameMobile={styles.imageMobile}
-        href={onPlayAndRemove ? undefined : url}
-        onClick={onPlayAndRemove}
+        href={sourceRemoved || onPlayAndRemove ? undefined : url}
+        onClick={sourceRemoved ? undefined : onPlayAndRemove}
       />
       <div className={styles.content}>
-        {onPlayAndRemove ? (
+        {sourceRemoved ? (
+          titleBlock
+        ) : onPlayAndRemove ? (
           <button type="button" className={styles.clickableTopSection} onClick={onPlayAndRemove}>
-            <div className={styles.topSection}>
-              <h3 className={styles.clipTitle}>{clipTitle}</h3>
-              {(showChannelInfo || showItemInfo) && (
-                <div className={styles.subtitle}>
-                  {showChannelInfo && channelTitle}
-                  {showChannelInfo && showItemInfo && ' • '}
-                  {showItemInfo && itemTitle}
-                </div>
-              )}
-            </div>
+            {titleBlock}
           </button>
         ) : (
-          <Link href={url}>
-            <div className={styles.topSection}>
-              <h3 className={styles.clipTitle}>{clipTitle}</h3>
-              {(showChannelInfo || showItemInfo) && (
-                <div className={styles.subtitle}>
-                  {showChannelInfo && channelTitle}
-                  {showChannelInfo && showItemInfo && ' • '}
-                  {showItemInfo && itemTitle}
-                </div>
-              )}
-            </div>
-          </Link>
+          <Link href={url}>{titleBlock}</Link>
         )}
         <div className={styles.bottomSection}>
           <div className={styles.bottomSectionStart}>
-            <PlayButtonRow
-              clip={clip}
-              item={item || clip.item}
-              onClick={onPlayAndRemove ?? playButtonOnClick}
-            />
-            <div className={styles.timeSection}>
-              {showItemInfo && (
-                <>
-                  <ReadableDate date={itemPubDate} />
-                  {' • '}
-                </>
-              )}
-              <ReadableTimeRange startTime={clip.start_time} endTime={clip.end_time} />
-            </div>
+            {sourceRemoved ? (
+              <div className={styles.timeSection}>
+                {tInfo('removed.content_removed')}
+              </div>
+            ) : (
+              <>
+                <PlayButtonRow
+                  clip={clip}
+                  item={item || clip.item}
+                  onClick={onPlayAndRemove ?? playButtonOnClick}
+                />
+                <div className={styles.timeSection}>
+                  {showItemInfo && (
+                    <>
+                      <ReadableDate date={itemPubDate} />
+                      {' • '}
+                    </>
+                  )}
+                  <ReadableTimeRange startTime={clip.start_time} endTime={clip.end_time} />
+                </div>
+              </>
+            )}
           </div>
           <div className={styles.bottomSectionEnd}>
             <ItemRowMoreActions
-              enclosures={item?.item_enclosures ?? []}
-              itemTitle={itemTitle}
+              enclosures={sourceRemoved ? [] : (item?.item_enclosures ?? [])}
+              itemTitle={sourceRemoved ? clipTitle : itemTitle}
               ariaLabel={tMedia('more_options')}
               moreButtonMenuItems={moreButtonMenuItems}
-              onLoadInPlayerWithSource={isActiveItem ? undefined : (params) => loadItem(params)}
+              onLoadInPlayerWithSource={
+                sourceRemoved || isActiveItem ? undefined : (params) => loadItem(params)
+              }
             />
           </div>
         </div>

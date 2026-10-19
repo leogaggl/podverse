@@ -19,6 +19,7 @@ import { useMediaPlayerControls } from '../contexts/MediaPlayerControls';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { getApiRequestService } from '../factories/apiRequestService';
 import { playbackTargetFromStandardLoad } from '../lib/playback';
+import { isPlayablePlaylistResource } from '../lib/playlist/playablePlaylistResource';
 import { resolveAddByRSSListContextFromCurrentItem } from '../utils/addByRSS/resolveListContextFromCurrentItem';
 import { useAddByRSSPlayPrevious } from './useAddByRSSPlayPrevious';
 import { useEpisodeChapterNavigation } from './useEpisodeChapterNavigation';
@@ -101,7 +102,7 @@ export function useTrackPreviousButtonActions(): {
         'backward'
       );
       const playlistResources: DTOPlaylistResource[] = response.data;
-      const previousRow = playlistResources.length > 0 ? playlistResources[0] : null;
+      const previousRow = playlistResources.find((row) => isPlayablePlaylistResource(row)) ?? null;
       if (previousRow) {
         if (previousRow.clip) {
           clip = previousRow.clip;

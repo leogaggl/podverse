@@ -1,18 +1,19 @@
-# 09 — Narrow list payloads (gated)
+# 09 — Narrow list payloads
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
-## Gate
+## Premise
 
-Run this only after the mobile store build that contains 08 is the oldest build testers run.
-Older builds read full notes from list payloads; this plan removes them. Web has no such gate
-because it ships with the API.
+No alpha tester is running an older build, and the app database can be wiped. List responses
+omit `value` in the same release as the preview reads from 07 and 08. A phone that already
+cached a list row still has `value`; `getDescriptionPreviewText` covers that row. A reinstall
+only sees the new shape. Web ships with the API.
 
 ## Summary
 
 List endpoints stop shipping full description HTML. Detail endpoints and the description
-endpoint (06) still return it. This finishes the widen-then-narrow change: with stored caps up
-to 150,000 characters, a 20-episode list could otherwise carry megabytes of notes nobody reads.
+endpoint (06) still return it. With stored caps up to 150,000 characters, a 20-episode list
+could otherwise carry megabytes of notes nobody reads.
 
 ## ORM
 
@@ -86,8 +87,8 @@ Append to `release-notes/scratchpad.md`:
   with long show notes.
 - Who notices: third-party API clients that read value from list responses; listeners see
   faster lists
-- Operator steps: none. Ship only after the mobile build with the show notes cache is the
-  oldest build testers run.
+- Operator steps: none. Ship with the rest of this set. Install a mobile binary that includes
+  the show notes cache on any phone pointed at alpha.
 ```
 
 ## Done when

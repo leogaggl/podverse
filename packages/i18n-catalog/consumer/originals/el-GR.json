@@ -403,6 +403,12 @@
       "min": "{count} λεπ",
       "start": "{timeStart} αρχική ώρα",
       "start_end": "{timeStart} έως {timeEnd}"
+    },
+    "removed": {
+      "content_removed": "Το περιεχόμενο αφαιρέθηκε",
+      "clip_source_removed": "Το επεισόδιο αυτού του αποσπάσματος αφαιρέθηκε από το {brand_name}.",
+      "playlist_entry_removed": "Αυτό το στοιχείο αφαιρέθηκε από το {brand_name}.",
+      "show_not_in_directory": "Αυτή η εκπομπή δεν βρίσκεται πλέον στον κατάλογο του {brand_name}."
     }
   },
   "media_player": {

@@ -5,9 +5,11 @@ import type {
   DTOItemSoundbite,
   DTOPlaylistResource,
   DTOQueueResource,
+  DTORemovedSource,
 } from '@podverse/helpers';
 import {
   getDescriptionPreviewText,
+  isRemovedSource,
   primaryChannelListArtworkUrl,
   primaryListArtworkUrl,
 } from '@podverse/helpers';
@@ -36,6 +38,8 @@ type QueueResourceHomeRowOptions = {
 
 type PlaylistResourceHomeRowOptions = {
   addByRssPrivateTitle?: string;
+  /** Title when a removed entry has no snapshot episode or soundbite title. */
+  playlistEntryRemovedLabel?: string;
 };
 
 /**
@@ -87,11 +91,16 @@ export const MIXED_SOURCE_CLIP_ROW_OPTIONS: ClipHomeRowOptions = {
   showItemInfo: true,
 };
 
-/** Clip list rows can omit `item` when the API only returns the clip shell. */
+/**
+ * Clip list rows can omit `item` when the API only returns the clip shell.
+ * `source_removed_at` is optional: a payload that omits it still plays.
+ */
 export type ClipHomeRowSource = {
   end_time?: string | number | null;
   id_text: string;
   item?: ItemHomeRowSource | null;
+  removed_source?: DTORemovedSource | null;
+  source_removed_at?: string | null;
   start_time?: string | number | null;
   title?: string | null;
 };
@@ -145,6 +154,15 @@ export function clipListTimeRangeLabel(
   return formatRange(timeStart, formatHHMMSS(end));
 }
 
+const snapshotEpisodeAndShow = (source: DTORemovedSource | null | undefined): string | null => {
+  const episode = nonEmptyTitle(source?.item_title);
+  const show = nonEmptyTitle(source?.channel_title);
+  if (episode !== null && show !== null) {
+    return `${episode} • ${show}`;
+  }
+  return episode ?? show;
+};
+
 export function clipToHomeRow(
   clip: ClipHomeRowSource,
   options: ClipHomeRowOptions = {}
@@ -154,6 +172,20 @@ export function clipToHomeRow(
   const itemTitle = nonEmptyTitle(item?.title);
   const clipStartTime = clipTimeString(clip.start_time);
   const clipEndTime = clipTimeString(clip.end_time);
+
+  if (isRemovedSource(clip)) {
+    return {
+      description: null,
+      duration: null,
+      id: clip.id_text,
+      imageUrl: null,
+      playable: false,
+      removed: true,
+      subtitle: snapshotEpisodeAndShow(clip.removed_source),
+      title: nonEmptyTitle(clip.title) ?? clip.id_text,
+      updatedAt: null,
+    };
+  }
 
   if (item === null || item === undefined) {
     return {
@@ -277,6 +309,22 @@ const readClipItem = (value: unknown): ItemHomeRowSource | null => {
   };
 };
 
+const readRemovedSource = (value: unknown): DTORemovedSource | null => {
+  if (!isObjectLike(value)) {
+    return null;
+  }
+  if (value.kind !== 'item' && value.kind !== 'soundbite') {
+    return null;
+  }
+  return {
+    channel_title: getNonEmptyTrimmedStringProperty(value, 'channel_title'),
+    item_title: getNonEmptyTrimmedStringProperty(value, 'item_title'),
+    kind: value.kind,
+    pub_date: getNonEmptyTrimmedStringProperty(value, 'pub_date'),
+    soundbite_title: getNonEmptyTrimmedStringProperty(value, 'soundbite_title'),
+  };
+};
+
 /** Public clip list payloads are nested `DTOClip` objects, including rows cached for Home. */
 export const clipHomeRowSourceFromUnknown = (value: unknown): ClipHomeRowSource | null => {
   if (!isObjectLike(value)) {
@@ -290,10 +338,17 @@ export const clipHomeRowSourceFromUnknown = (value: unknown): ClipHomeRowSource 
   const startTime = value.start_time;
   const endTime = value.end_time;
 
+  const sourceRemovedAt = value.source_removed_at;
+  const removedSource = readRemovedSource(value.removed_source);
+
   return {
     end_time: typeof endTime === 'number' || typeof endTime === 'string' ? endTime : null,
     id_text: idText,
     item: readClipItem(value.item),
+    ...(removedSource !== null ? { removed_source: removedSource } : {}),
+    ...(typeof sourceRemovedAt === 'string' && sourceRemovedAt.length > 0
+      ? { source_removed_at: sourceRemovedAt }
+      : {}),
     start_time: typeof startTime === 'number' || typeof startTime === 'string' ? startTime : null,
     title: getNonEmptyTrimmedStringProperty(value, 'title'),
   };
@@ -336,11 +391,39 @@ export function playlistResourceToHomeRow(
   options?: PlaylistResourceHomeRowOptions
 ): PlaylistResourceHomeRow | null {
   if (resource.clip) {
-    const clipRow = clipToHomeRow(resource.clip, MIXED_SOURCE_CLIP_ROW_OPTIONS);
+    const clipSource = isRemovedSource(resource)
+      ? {
+          ...resource.clip,
+          removed_source: resource.clip.removed_source ?? resource.removed_source,
+          source_removed_at: resource.clip.source_removed_at ?? resource.source_removed_at,
+        }
+      : resource.clip;
+    const clipRow = clipToHomeRow(clipSource, MIXED_SOURCE_CLIP_ROW_OPTIONS);
     return {
       ...clipRow,
       id: `clip-${resource.clip.id_text}`,
       mediaType: 'clips',
+    };
+  }
+
+  if (isRemovedSource(resource)) {
+    const snapshot = resource.removed_source;
+    const title =
+      nonEmptyTitle(snapshot?.item_title) ??
+      nonEmptyTitle(snapshot?.soundbite_title) ??
+      options?.playlistEntryRemovedLabel ??
+      String(resource.id);
+    return {
+      description: null,
+      duration: null,
+      id: `removed-${resource.id}`,
+      imageUrl: null,
+      mediaType: 'episodes',
+      playable: false,
+      removed: true,
+      subtitle: nonEmptyTitle(snapshot?.channel_title),
+      title,
+      updatedAt: snapshot?.pub_date ?? null,
     };
   }
 

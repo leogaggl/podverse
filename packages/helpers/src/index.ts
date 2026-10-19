@@ -145,4 +145,5 @@ export * from './lib/safeLinkHref.js';
 export * from './lib/scheduledJobStatus.js';
 export * from './lib/url.js';
 export * from './lib/guards.js';
+export * from './lib/removedSource.js';
 export * from './lib/value.js';

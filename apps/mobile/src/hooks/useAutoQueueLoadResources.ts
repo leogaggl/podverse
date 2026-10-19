@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { isRemovedSource } from '@podverse/helpers';
 import type {
   DTOChannel,
   DTOClip,
@@ -176,6 +177,14 @@ export function useAutoQueueLoadResources() {
       if (config.playlist_id_text !== null) {
         let validIdx = 0;
         playlistResourcesResponse.forEach((playlistResource) => {
+          if (
+            isRemovedSource(playlistResource) ||
+            (playlistResource.clip !== null &&
+              playlistResource.clip !== undefined &&
+              isRemovedSource(playlistResource.clip))
+          ) {
+            return;
+          }
           if (playlistResource.clip && playlistResource.clip.item) {
             newAutoQueueResources[startKey + validIdx] = {
               channel: playlistResource.clip.item.channel ?? null,

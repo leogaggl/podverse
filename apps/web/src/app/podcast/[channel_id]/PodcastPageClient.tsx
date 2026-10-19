@@ -10,8 +10,10 @@ import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
 import { ChannelSeenPageView } from '../../../components/ChannelSeen/ChannelSeenPageView';
+import { DirectoryRemovedNotice } from '../../../components/Content/DirectoryRemovedNotice';
 import { CorePodcastHeader } from '../../../components/Core/Podcast/CorePodcastHeader';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import { DirectoryRemovedProvider } from '../../../contexts/DirectoryRemoved';
 import { PodcastPageContextProvider } from './PodcastPageContext';
 import { PodcastPageList } from './PodcastPageList';
 import { PodcastPageListHeader } from './PodcastPageListHeader';
@@ -28,6 +30,7 @@ interface PodcastPageClientProps {
   ssrClips: DTOClip[];
   ssrTotalPages: number;
   ssrPodroll: RemoteItemsResponse | null;
+  directoryRemoved: boolean;
 }
 
 export function PodcastPageClient(props: PodcastPageClientProps) {
@@ -42,6 +45,7 @@ export function PodcastPageClient(props: PodcastPageClientProps) {
     ssrHasItemSoundbites,
     ssrTotalPages,
     ssrPodroll,
+    directoryRemoved,
   } = props;
   const { canShowBoostMessagesTab: ssrCanShowBoosts } = getBoostEligibilityForContent({
     channel: ssrChannel,
@@ -49,36 +53,45 @@ export function PodcastPageClient(props: PodcastPageClientProps) {
   });
 
   return (
-    <PodcastPageContextProvider
-      hasExplicitUrlParams={hasExplicitUrlParams}
-      initialQueryParams={initialQueryParams}
-      ssrChannelIdText={ssrChannel.id_text}
-      ssrItemsWithLiveItem={ssrItemsWithLiveItem}
-      ssrItems={ssrItems}
-      ssrClips={ssrClips}
-      ssrItemSoundbites={ssrItemSoundbites}
-      ssrTotalPages={ssrTotalPages}
-    >
-      <MainWrapper>
-        <ChannelSeenPageView channelIdText={ssrChannel.id_text} />
-        <CorePodcastHeader channel={ssrChannel} />
-        <MainSidebarLayout>
-          <PodcastPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
-          <MainColumnStack>
-            <PodcastPageListHeader
-              ssrHasPeople={(ssrChannel.channel_persons?.length ?? 0) > 0}
-              ssrHasPodroll={!!ssrPodroll}
-              ssrHasItemSoundbites={ssrHasItemSoundbites}
-              ssrCanShowBoosts={ssrCanShowBoosts}
-            />
-            <PodcastPageList
-              ssrChannel={ssrChannel}
-              podroll={ssrPodroll}
-              ssrCanShowBoosts={ssrCanShowBoosts}
-            />
-          </MainColumnStack>
-        </MainSidebarLayout>
-      </MainWrapper>
-    </PodcastPageContextProvider>
+    <DirectoryRemovedProvider removed={directoryRemoved}>
+      <PodcastPageContextProvider
+        hasExplicitUrlParams={hasExplicitUrlParams}
+        initialQueryParams={initialQueryParams}
+        ssrChannelIdText={ssrChannel.id_text}
+        ssrItemsWithLiveItem={ssrItemsWithLiveItem}
+        ssrItems={ssrItems}
+        ssrClips={ssrClips}
+        ssrItemSoundbites={ssrItemSoundbites}
+        ssrTotalPages={ssrTotalPages}
+        directoryRemoved={directoryRemoved}
+      >
+        <MainWrapper>
+          <ChannelSeenPageView channelIdText={ssrChannel.id_text} />
+          <CorePodcastHeader channel={ssrChannel} />
+          <MainSidebarLayout>
+            <PodcastPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
+            <MainColumnStack>
+              {directoryRemoved ? (
+                <DirectoryRemovedNotice />
+              ) : (
+                <>
+                  <PodcastPageListHeader
+                    ssrHasPeople={(ssrChannel.channel_persons?.length ?? 0) > 0}
+                    ssrHasPodroll={!!ssrPodroll}
+                    ssrHasItemSoundbites={ssrHasItemSoundbites}
+                    ssrCanShowBoosts={ssrCanShowBoosts}
+                  />
+                  <PodcastPageList
+                    ssrChannel={ssrChannel}
+                    podroll={ssrPodroll}
+                    ssrCanShowBoosts={ssrCanShowBoosts}
+                  />
+                </>
+              )}
+            </MainColumnStack>
+          </MainSidebarLayout>
+        </MainWrapper>
+      </PodcastPageContextProvider>
+    </DirectoryRemovedProvider>
   );
 }

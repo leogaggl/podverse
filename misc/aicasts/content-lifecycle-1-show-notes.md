@@ -1,10 +1,14 @@
-# Show Notes That Keep Their Shape
+# Content Lifecycle 1: Show Notes That Keep Their Shape
 
-- **Covers:** How show notes are cleaned at ingest, bounded by per-feed tiers, flagged when
-  cut, served as previews in lists, and kept on the phone for the full player and offline.
-- **Status:** Partly built (ingest, tiers, management controls, the description endpoint, web
-  previews and notice, and the mobile notes cache are built; narrowing list payloads is planned)
-- **Series:** Content lifecycle, part 1 of 3
+- **Version:** 2026-10-19T00:13-05:00
+- **Episode ID:** content-lifecycle-show-notes
+- **Changed:** List responses now carry only the preview, so the rollout section and the
+  opening changed. Previous title: "Show Notes That Keep Their Shape". Regenerate the audio.
+- **Description:** How Podverse cleans show notes when a feed is parsed, sets a length limit
+  per feed, tells listeners when notes were cut, and keeps full notes on the phone for the
+  player and for offline listening.
+- **Status:** Built
+- **Group:** Content Lifecycle, part 1
 - **Sources:** `.llm/plans/active/feed-description-tiers/` (finished prompts under
   `.llm/plans/completed/feed-description-tiers/`); `packages/helpers/src/lib/descriptionIngest.ts`,
   `packages/helpers/src/lib/descriptionLimits.ts`, `packages/helpers/src/lib/descriptionPreview.ts`,
@@ -15,7 +19,7 @@
   `apps/web/src/components/Content/Description/DescriptionTruncationNotice.tsx`,
   `apps/mobile/src/lib/content/`, `apps/mobile/src/hooks/useItemDescription.ts`,
   `apps/mobile/src/data/repositories/itemDescriptionCacheRepository.ts`
-- **Length:** about 9 minutes (1,297 words)
+- **Length:** about 9 minutes (1,304 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -33,7 +37,7 @@
 
 ## Script
 
-CLAIRE: This is part one of three on how Podverse handles feed content over its life: when it arrives, when it goes quiet, and when it's removed. This part is show notes. Most of it is built now. One last step, trimming list responses, is still planned.
+CLAIRE: This is part one of Content Lifecycle, on how Podverse handles feed content over its life: when it arrives, when it goes quiet, and when it's removed. This part is show notes, and all of it is built.
 
 TOM: Show notes meaning the long description under an episode.
 
@@ -113,9 +117,13 @@ CLAIRE: Exactly. Add by RSS episodes are the one exception. They have no server 
 
 (pause)
 
-TOM: Phones already in people's pockets expect the full description in lists. How does that roll out?
+TOM: So list responses don't carry the full notes anymore?
 
-CLAIRE: Widen first, then narrow. The new fields and the new reads are built. Every new field is optional, and old rows on a phone have no preview, so the app computes one from the stored text. The narrowing step is planned and gated. Only once the oldest build testers run includes the notes cache do list responses stop carrying full descriptions.
+CLAIRE: Right. A list row carries the preview and no full description. The episode detail response and the description endpoint still return the full notes. The database doesn't even load the full text for a list, unless a query asks for it by name.
+
+TOM: What about rows a phone saved before that change?
+
+CLAIRE: Those still have full notes and no preview, so the app computes a preview from the stored text. Every new field is optional, so an old row never breaks a screen.
 
 TOM: And existing data with the old cut?
 

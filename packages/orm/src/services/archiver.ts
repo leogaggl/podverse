@@ -11,10 +11,14 @@ import { PlaylistResource } from '@orm/entities/playlist/playlistResource.js';
 import { loggerService } from '@orm/factories/loggerService.js';
 import type { FindOptionsRelations } from 'typeorm';
 
+import { deleteEmptyRemovedShows } from './archivedChannelCleanup.js';
+import type { FeedProbe } from './archivedFollowConversion.js';
+import { convertArchivedShowFollows } from './archivedFollowConversion.js';
 import { slimArchivedChannels, slimArchivedItems } from './archivedSlimming.js';
 import { FeedService } from './feed/feed.js';
 import { ItemFlagStatusService } from './item/itemFlagStatus.js';
 import { pruneNonActiveItemBackedQueueResourceRows } from './queue/queueResourceActiveItemFilter.js';
+import { captureRemovedReferences } from './removedReferences.js';
 
 const ARCHIVED_ITEM_ORPHAN_DELETE_BATCH_SIZE = 1000;
 
@@ -139,7 +143,6 @@ export class ArchiverService {
   private itemRepositoryRead = AppDataSourceRead.getRepository(Item);
   private itemRepositoryReadWrite = AppDataSourceReadWrite.getRepository(Item);
   private feedRepositoryRead = AppDataSourceRead.getRepository(Feed);
-  private feedRepositoryReadWrite = AppDataSourceReadWrite.getRepository(Feed);
   private playlistResourceRepository = AppDataSourceRead.getRepository(PlaylistResource);
   private clipRepository = AppDataSourceRead.getRepository(Clip);
 
@@ -230,9 +233,13 @@ export class ArchiverService {
 
   private async processItems(items: Item[], archivedStatus: ItemFlagStatus): Promise<void> {
     for (const item of items) {
-      const hasPlaylistResource = !!(await this.playlistResourceRepository.findOne({
-        where: { item: { id: item.id } },
-      }));
+      const hasPlaylistResource =
+        !!(await this.playlistResourceRepository.findOne({
+          where: { item: { id: item.id } },
+        })) ||
+        !!(await this.playlistResourceRepository.findOne({
+          where: { item_soundbite: { item: { id: item.id } } },
+        }));
 
       const hasClip = !!(await this.clipRepository.findOne({
         where: { item: { id: item.id } },
@@ -248,7 +255,9 @@ export class ArchiverService {
   }
 
   /**
-   * Removes `Archived` items without `Clip` or `playlist_resource` rows.
+   * Removes `Archived` items without `Clip` or `playlist_resource` rows, counting playlist rows
+   * that point at one of the item's soundbites. Deleting such an item would null that row's
+   * only reference, which the playlist_resource CHECK rejects.
    * Retention at archive time (`processItems`) keeps items only for those relationships; this pass
    * drops archived rows after users remove clips or playlists.
    */
@@ -261,6 +270,11 @@ export class ArchiverService {
          WHERE i.item_flag_status_id = $1
            AND NOT EXISTS (SELECT 1 FROM clip c WHERE c.item_id = i.id)
            AND NOT EXISTS (SELECT 1 FROM playlist_resource pr WHERE pr.item_id = i.id)
+           AND NOT EXISTS (
+             SELECT 1 FROM playlist_resource pr
+             INNER JOIN item_soundbite sb ON sb.id = pr.item_soundbite_id
+             WHERE sb.item_id = i.id
+           )
          LIMIT $2`,
         [archivedId, ARCHIVED_ITEM_ORPHAN_DELETE_BATCH_SIZE]
       )) as { id: number }[];
@@ -386,15 +400,14 @@ export class ArchiverService {
     });
   }
 
-  private async removeOptionalChannelRows(channelId: number): Promise<void> {
-    const queries = [...CHANNEL_DETAIL_DELETE_QUERIES, ...CHANNEL_IDENTITY_DELETE_QUERIES];
-    for (const query of queries) {
-      await this.feedRepositoryReadWrite.query(query.sql, query.params(channelId));
-    }
-  }
-
+  /**
+   * One transaction per feed: snapshots are written before the episodes go, and
+   * item_merge_map rows are removed first because their item foreign keys have no ON DELETE.
+   */
   async removeAllItemsForTakedownFeeds(): Promise<void> {
     const feeds = await this.getFeedsWithTakedownStatus();
+    const queries = [...CHANNEL_DETAIL_DELETE_QUERIES, ...CHANNEL_IDENTITY_DELETE_QUERIES];
+
     for (const feed of feeds) {
       const channel = feed.channel;
       if (!channel) {
@@ -402,15 +415,32 @@ export class ArchiverService {
       }
 
       const itemIds = channel.items?.map((item) => item.id) ?? [];
-      if (itemIds.length > 0) {
-        await this.itemRepositoryReadWrite.delete(itemIds);
-      }
 
-      await this.removeOptionalChannelRows(channel.id);
+      const captured = await AppDataSourceReadWrite.transaction(async (manager) => {
+        const counts = await captureRemovedReferences(itemIds, manager);
+
+        if (itemIds.length > 0) {
+          await manager.query(
+            `DELETE FROM item_merge_map WHERE from_item_id = ANY($1::int[]) OR to_item_id = ANY($1::int[])`,
+            [itemIds]
+          );
+          await manager.delete(Item, itemIds);
+        }
+
+        for (const query of queries) {
+          await manager.query(query.sql, query.params(channel.id));
+        }
+
+        return counts;
+      });
+
+      loggerService.info(
+        `Takedown removed feed=${feed.id} items=${itemIds.length} clips_kept=${captured.clips} playlist_entries_kept=${captured.playlistEntries}`
+      );
     }
   }
 
-  async archiveAll(): Promise<void> {
+  async archiveAll(options: { feedProbe: FeedProbe }): Promise<void> {
     await this.processPendingArchiveFeeds();
     await this.processSpamFeeds();
     await this.processPendingArchiveItems();
@@ -420,7 +450,13 @@ export class ArchiverService {
     loggerService.info(
       `Archived content slimmed: items=${items.slimmed} channels=${channels.slimmed}`
     );
+    const follows = await convertArchivedShowFollows(options.feedProbe);
+    loggerService.info(
+      `Archived follow conversion: converted=${follows.converted} follows_moved=${follows.followsMoved} unreachable=${follows.unreachable} skipped=${follows.skipped}`
+    );
     await this.removeAllItemsForTakedownFeeds();
+    const removed = await deleteEmptyRemovedShows();
+    loggerService.info(`Empty removed shows deleted: count=${removed.deleted}`);
     await pruneNonActiveItemBackedQueueResourceRows();
   }
 }

@@ -14,7 +14,7 @@ export class ChannelDescription {
   @JoinColumn({ name: 'channel_id' })
   channel!: Relation<Channel>;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', select: false })
   value!: string;
 
   @Column({ type: 'varchar', length: DESCRIPTION_PREVIEW_MAX_LENGTH, nullable: true })

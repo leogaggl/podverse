@@ -13,6 +13,7 @@ import type {
 } from '@podverse/helpers';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
+import { useDirectoryRemoved } from '../../../contexts/DirectoryRemoved';
 import { useModals } from '../../../contexts/Modals';
 import { IconButton } from './IconButton';
 import { NotificationIconButton } from './NotificationIconButton';
@@ -39,6 +40,7 @@ export const HeaderButtons: React.FC<HeaderButtonsProps> = ({ channel, shareArgs
   const tValue = useTranslations('value');
 
   const { setModalShare, setModalFunding, setModalBoost } = useModals();
+  const directoryRemoved = useDirectoryRemoved();
 
   const { item = null, clip = null, item_chapter = null, item_soundbite = null } = shareArgs;
   const { canShowBoostAction } = getBoostEligibilityForContent({
@@ -48,7 +50,7 @@ export const HeaderButtons: React.FC<HeaderButtonsProps> = ({ channel, shareArgs
 
   return (
     <div className={styles.buttons}>
-      <SubscribeButton entity={channel} kind={kind} />
+      {directoryRemoved ? null : <SubscribeButton entity={channel} kind={kind} />}
       <NotificationIconButton channel={channel} kind={kind} />
       {channel?.feed?.url && (
         <IconButton

@@ -72,6 +72,15 @@ export type HomeFeedRowData = {
   clipStartTime?: string | null;
   clipEndTime?: string | null;
   /**
+   * False when this row must not start playback. Omitted rows stay playable.
+   */
+  playable?: boolean;
+  /**
+   * The episode behind this clip or playlist entry was removed. The row shows the removed
+   * label and no artwork.
+   */
+  removed?: boolean;
+  /**
    * Set only for subscription rows. The other media types list content rather than follows, and
    * "how many unseen" is a question only a subscription can answer.
    */

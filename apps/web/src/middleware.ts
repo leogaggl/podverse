@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { ONE_YEAR_SECONDS } from '@podverse/helpers';
 
+import { CLIP_REMOVED_REQUEST_HEADER } from './lib/clip/removedClip';
 import {
   channelPathForMedium,
   channelPathForRoute,
@@ -97,6 +98,44 @@ async function mediumIdForChannel(base: string, idText: string): Promise<number 
   }
 }
 
+function clipIdFromPath(pathname: string): string | null {
+  const match = /^\/clip\/([^/]+)$/.exec(pathname);
+  if (match === null || match[1] === undefined || match[1].length === 0) {
+    return null;
+  }
+  return match[1];
+}
+
+/** A visitor request for a removed clip is 410. The page still renders the removed shell. */
+async function visitorClipRemoved(request: NextRequest): Promise<boolean> {
+  const clipId = clipIdFromPath(request.nextUrl.pathname);
+  if (clipId === null) {
+    return false;
+  }
+  const base = ssrApiBase();
+  if (base === null) {
+    return false;
+  }
+  try {
+    const cookie = request.headers.get('cookie');
+    const headers: Record<string, string> = { accept: 'application/json' };
+    if (cookie) {
+      headers.cookie = cookie;
+    }
+    const response = await fetch(`${base}/clip/${encodeURIComponent(clipId)}`, {
+      headers,
+      signal: AbortSignal.timeout(4000),
+    });
+    if (response.status !== 410) {
+      return false;
+    }
+    const payload: unknown = await response.json();
+    return isRecord(payload) && payload.removed === true;
+  } catch {
+    return false;
+  }
+}
+
 function passThrough(request: NextRequest): NextResponse {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(MERGE_REDIRECT_CHECKED_HEADER, '1');
@@ -104,6 +143,15 @@ function passThrough(request: NextRequest): NextResponse {
 }
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
+  if (await visitorClipRemoved(request)) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(CLIP_REMOVED_REQUEST_HEADER, '1');
+    return NextResponse.next({
+      status: 410,
+      request: { headers: requestHeaders },
+    });
+  }
+
   const route = mergeRedirectRouteFromPath(request.nextUrl.pathname);
   if (route === null) {
     return NextResponse.next();
@@ -195,5 +243,6 @@ export const config = {
     '/episode/:id',
     '/track/:id',
     '/podcast-index/feed/:id',
+    '/clip/:id',
   ],
 };

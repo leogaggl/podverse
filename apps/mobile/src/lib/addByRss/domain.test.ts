@@ -5,6 +5,7 @@ import { convertParsedRSSFeedToCompat } from '@podverse/parser-mapping';
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
 import {
   extractPreviewFromParsePayload,
+  localFeedForServerFollow,
   mapParsedFeedToPreview,
   mergeLocalAndRemoteAddByRssFeeds,
 } from './domain';
@@ -23,6 +24,27 @@ const localFeed = (
   title: 'E2E Add-by-RSS Channel',
   updatedAt: '2026-01-01T00:00:00.000Z',
   ...overrides,
+});
+
+describe('localFeedForServerFollow', () => {
+  const follow = {
+    feed_url: 'https://example.com/moved.xml',
+    image_url: 'https://example.com/art.jpg',
+    title: 'Moved Show',
+  };
+
+  it('creates one local row from the follow and leaves an existing row alone', () => {
+    const created = localFeedForServerFollow(follow, null);
+
+    expect(created).not.toBeNull();
+    expect(created?.feedUrl).toBe(follow.feed_url);
+    expect(created?.title).toBe('Moved Show');
+    expect(created?.imageUrl).toBe('https://example.com/art.jpg');
+    if (created === null) {
+      return;
+    }
+    expect(localFeedForServerFollow(follow, created)).toBeNull();
+  });
 });
 
 describe('mergeLocalAndRemoteAddByRssFeeds', () => {

@@ -6,9 +6,15 @@ import type { Request, Response } from 'express';
 import Joi from 'joi';
 
 import { ACCOUNT_ENTITLEMENT_CAPABILITY } from '@podverse/helpers';
-import { StatsTrackEventClipService } from '@podverse/orm';
+import {
+  CLIP_SOURCE_REMOVED_MESSAGE,
+  ClipService,
+  isClipSourceRemoved,
+  StatsTrackEventClipService,
+} from '@podverse/orm';
 
 export class StatsTrackEventClipController {
+  private static clipService = new ClipService();
   private static statsTrackEventClipService = new StatsTrackEventClipService();
 
   static async create(req: Request, res: Response): Promise<void> {
@@ -26,6 +32,11 @@ export class StatsTrackEventClipController {
 
           try {
             await assertListenStatsAllowed(jwtUser.id);
+            const clip = await StatsTrackEventClipController.clipService.getByIdText(clip_id_text);
+            if (clip && isClipSourceRemoved(clip)) {
+              res.status(410).json({ message: CLIP_SOURCE_REMOVED_MESSAGE, removed: true });
+              return;
+            }
             await StatsTrackEventClipController.statsTrackEventClipService._create(
               jwtUser.id,
               clip_id_text

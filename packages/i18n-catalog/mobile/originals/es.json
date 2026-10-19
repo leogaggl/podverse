@@ -268,6 +268,7 @@
     "outcome_skipped": "Omitido — sin conexión",
     "outcome_success": "Correcto",
     "directory_channel_gone": "Se eliminó {channel} de este dispositivo. Ya no está en el directorio.",
+    "directory_channel_converted": "Se movió {channel} a Añadir por RSS. Ya no está en el directorio.",
     "row_a11y_hint": "Abre los detalles completos",
     "saved_footnote": "Los detalles completos se guardan en Más › Avanzado › Registro de errores.",
     "kind": {
