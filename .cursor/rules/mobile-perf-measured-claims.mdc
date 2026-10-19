@@ -82,9 +82,9 @@ weaker device — a regression shows there first — and do not assume a fix tha
 After the shared clear-on-tap, the iPhone stall a finger could feel was expo-image resizing full
 covers on the main queue. Off-thread thumbnails at device pixels, tagged with the screen scale,
 moved revisit chip visible from about 777 ms to 67 ms (ledger row T5). That is the floor. Do not
-start the parked Home follow-ups (kept lists, a playback row store, stable row objects on refresh)
-to chase the same-frame targets unless a new manual capture misses that floor, or play or refresh
-itself feels heavy. Narrative:
+chase the same-frame targets with kept lists, a playback-row store, or stable row objects on
+refresh unless a new manual capture misses that floor, or play or refresh itself feels heavy.
+Narrative:
 [MOBILE-IOS-CHIP-SWITCH.md](/docs/development/mobile/MOBILE-IOS-CHIP-SWITCH.md). The image rules
 are **mobile-image-loading**.
 
