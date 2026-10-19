@@ -59,9 +59,10 @@ function write(accountId: number, channelIdText = 'show1'): AccountContentLogWri
 }
 
 describe('upsertAccountContentLogs', () => {
-  const query = vi.fn(
-    async (_sql: string, _parameters?: readonly unknown[]): Promise<unknown> => [[], 0]
-  );
+  const query = vi.fn(async (_sql: string, _parameters?: readonly unknown[]): Promise<unknown> => [
+    [],
+    0,
+  ]);
   const manager = { query };
 
   beforeEach(() => {
@@ -113,9 +114,10 @@ describe('upsertAccountContentLogs', () => {
 });
 
 describe('recordTakenDownContentLog', () => {
-  const query = vi.fn(
-    async (_sql: string, _parameters?: readonly unknown[]): Promise<unknown> => [[], 0]
-  );
+  const query = vi.fn(async (_sql: string, _parameters?: readonly unknown[]): Promise<unknown> => [
+    [],
+    0,
+  ]);
   const manager = { query };
 
   beforeEach(() => {
