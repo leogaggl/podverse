@@ -33,7 +33,7 @@ Consistency and DRYness across tabs/screens matter as much as on web. Rebuilding
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Low-level controls                          | `components/primitives/` (`Button`, `Card`, `CountBadge`, `UnseenIndicator`, `CoverImage`, `MoreMenu`, `FillList`, `ListRow`, `ReorderHandle`, `ScreenHeader`, `ToggleSwitch`, `VerticalCenter`)             |
 | Reorder / drag                              | `components/reorder/` (`ReorderableSections`, `ReorderableList`)                                                                                                                                             |
-| Screen scaffold                             | `components/screen/` (`HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `OfflineModeBanner`, `MobileScreenContainer`, `ModalSafeArea`, `ThemedStackHeader`)                                                 |
+| Screen scaffold                             | `components/screen/` (`HeaderBar`, `HeaderBarChrome`, `HeaderBarAction`, `HeaderBarActions`, `OfflineModeBanner`, `MobileScreenContainer`, `ModalSafeArea`, `ThemedStackHeader`)                              |
 | Section / list grouping                     | `components/section/` (`SectionHeading`, `SectionCard`)                                                                                                                                                      |
 | Loading / empty / error / auth-gated chrome | `components/state/` (`ListLoading`, `ListEmpty`, `ListError`, `CallToActionSection`, `LoadingSection`, `AuthAwareLoadState`, `RetryableError`)                                                               |
 | Playback row actions / mini player          | `components/player/`                                                                                                                                                                                         |
@@ -177,8 +177,9 @@ on `AccessDenialReason`, no fallback `t(...)`. See **mobile-screen-layout** and
 **Screen layout:** tab roots and stack screens share `HeaderBar` (44pt row, no divider under the
 title) and the same page-body gutter — `screenBodyInsets` from `theme/screenLayout.ts`
 (`spacing.lg` below the bar and on both sides). Header icons and header action labels use
-`tokens.text.primary` via `HeaderBarAction` (same as the title — not accent/link blue). Those
-icons use the 26pt default. Do not
+`tokens.text.primary` via `HeaderBarAction` (same as the title — not accent/link blue). Stack
+header icons use the 26pt default. The channel settings gear is 22pt and top-aligned with the
+title (`CHANNEL_HEADER_SETTINGS_ICON_SIZE`). Do not
 add a second inner `Card` inset on top of that gutter. Do not wrap a scrolling result list in a
 perimeter `Card`. Screen lists that show a `VerticalCenter` fill empty use **`FillList`** (scroll
 locked when `data` is empty and `ListEmptyComponent` is set). Login and Sign up overlay the tabs

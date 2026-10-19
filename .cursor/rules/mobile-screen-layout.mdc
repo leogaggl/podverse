@@ -30,20 +30,27 @@ per-screen inset under the title bar.
   divider, hairline, or shadow under the title.
 - Stack titles go through **`ThemedStackHeader`** (already wraps `HeaderBar` via
   **`HeaderBarChrome`**). Trailing header actions use **`HeaderBarAction`** in `headerRight` —
-  do not invent a one-off top-right `Pressable`. **Share and the notification (bell)** on
+  do not invent a one-off top-right `Pressable`. When that slot has more than one action, wrap
+  them in **`HeaderBarActions`**, which spaces siblings by `spacing.md`.
+  **Share and the notification (bell)** on
   podcast, album, artist, episode, and track detail belong in that title-bar slot. **Channel
-  settings** are the Settings section chip on podcast, album, and artist — not a gear in the
-  title bar, and not a `ChannelHeader` action. When the Settings chip is present, it is the
-  **last section chip** in the row (after Funding and every other content chip); only the
-  optional trailing sort / category filter chip may sit after it. Do **not** place share or
+  settings** are a gear on the title row of `ChannelHeader` (podcast, album, and artist),
+  top-aligned with the title. The glyph is **`CHANNEL_HEADER_SETTINGS_ICON_SIZE`** (22), one
+  step under the stack-header icons. The title is at most two lines, then an ellipsis, and stops
+  `spacing.md` short of the gear. The action row (subscribe, and any sibling) sits on the bottom
+  edge of the 78pt artwork, so a one-line title and a two-line title keep that row in place. A
+  subtitle under the title shares that top group, and the title is then one line, so the action
+  row still lands on the artwork edge. The gear stays visible when signed out. It is not a
+  section chip and not a stack-title control. Pressing it shows the settings pane; pressing it
+  again, or choosing a section chip, returns to that section. Do **not** place share or
   the bell in **`ChannelHeader`** to match web `HeaderButtons` — web has no stack title bar;
   mobile does.
-  `ChannelHeader` `actions` is subscribe plus optional outbound links (RSS, website). **Header
+  `ChannelHeader` `actions` is that bottom row. RSS and website stay on About. **Header
   icons and header action labels use `tokens.text.primary`** (same as the title) — never
   `tokens.text.accent` / link blue. That color lives in **`HeaderBarAction`**; do not
-  reintroduce accent tint on back, overflow, or trailing header controls. Header action icons
-  use that component's **26pt** default. The back glyph stays 28. Do not pass a smaller icon
-  size to match an older header. A header More opens
+  reintroduce accent tint on back, overflow, or trailing header controls. Stack header action
+  icons use that component's **26pt** default. The back glyph stays 28. Do not pass a smaller
+  icon size on a stack header action. The channel gear is the smaller glyph. A header More opens
   **`MoreMenu`** — a bottom sheet that appears instantly: tertiary action group with centered
   bold rows, then a separate opaque quaternary Cancel block (same bold weight). Do not slide or
   fade, do not use a translucent Cancel fill, do not use a centered card, and do not style Cancel
@@ -154,7 +161,7 @@ The text stack uses `justifyContent: 'center'` so it stays vertically centered o
 The gap between artwork and text is **`listRowArtworkGap(tokens.spacing)`** (`spacing.base`) on
 `HomeFeedRow` and `ListRow`, not a per-screen `spacing.md` or a leading `marginLeft`. The
 channel header mark is also 78. Its art→title gap stays **`spacing.lg`**, the header's own
-seam.
+seam. The title row and the action row share that 78pt height.
 
 A Home show row is the date, then the title, then "{count} downloaded", including zero. That
 title is regular weight (`400`) at 19pt. A Browse
@@ -279,8 +286,7 @@ Podcast section lists use **`PodcastSectionList`**, which already composes **`Fi
 visible while the rows scroll. **`ListFilterField`** stays in that list's `ListHeaderComponent` —
 it is not pinned. Pull-to-refresh belongs on **`PodcastSectionList`** (the list below the chips),
 so the spinner appears above the filter. Share and the notification bell stay in
-the stack `headerRight`. Channel settings are the Settings chip, not in this pinned
-identity block.
+the stack `headerRight`. Channel settings are the gear at the top right of `ChannelHeader`.
 
 ## Podcast detail filter visibility
 
@@ -304,9 +310,10 @@ the filter cannot sort or pick a category (About, Podroll, Official Clips, music
 the category picker). Do not leave a disabled sort chip in the row to hold layout.
 
 Section and media-type chips keep the order the caller handed in. Selecting one does not move it
-to the front. Evidence chips resolve before Funding; Settings (when signed in) is last among
-section chips so a first-visit insert stays at the end of the available set, still before the
-optional sort / category trailing chip.
+to the front. Evidence chips resolve before Funding. People, when present, is the last content
+chip. A first-visit insert stays at the end of that set, still before the optional sort / category
+trailing chip. Channel settings are not a chip. A settings row that needs an account opens the
+login gate on press.
 
 ## Action error icons
 

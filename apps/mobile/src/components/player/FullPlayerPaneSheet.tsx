@@ -3,8 +3,24 @@ import { useMemo } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
-import { listChipRowBottomGap } from '../../theme/screenLayout';
+import type { ThemeTokens } from '@podverse/design-tokens';
+
 import { useTheme } from '../../theme/useTheme';
+
+export const FULL_PLAYER_PANE_SHEET_BORDER_WIDTH = 1;
+
+/**
+ * Horizontal margin of the pane sheet. The Summary preview reads the same value. The sheet
+ * does not pad its children vertically: list rows run to the rounded edge and the radius clips
+ * the first and last rows.
+ */
+export const fullPlayerPaneSheetChrome = (
+  spacing: ThemeTokens['spacing']
+): { marginHorizontal: number } => {
+  return {
+    marginHorizontal: spacing.md,
+  };
+};
 
 export type FullPlayerPaneSheetProps = {
   children: ReactNode;
@@ -34,26 +50,23 @@ export function FullPlayerPaneSheet({
 }: FullPlayerPaneSheetProps) {
   const { styles: themeStyles, tokens } = useTheme();
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        body: {
-          flex: 1,
-          minHeight: 0,
-        },
-        sheet: {
-          backgroundColor: themeStyles.paneSheet.backgroundColor,
-          borderColor: themeStyles.border.borderColor,
-          borderRadius: tokens.radii.md,
-          borderWidth: 1,
-          marginHorizontal: tokens.spacing.md,
-          overflow: 'hidden',
-          // Same inset as the old sheet start/end caps — keeps content off the rounded corners.
-          paddingVertical: listChipRowBottomGap(tokens.spacing) * 2,
-        },
-      }),
-    [themeStyles, tokens]
-  );
+  const styles = useMemo(() => {
+    const chrome = fullPlayerPaneSheetChrome(tokens.spacing);
+    return StyleSheet.create({
+      body: {
+        flex: 1,
+        minHeight: 0,
+      },
+      sheet: {
+        backgroundColor: themeStyles.paneSheet.backgroundColor,
+        borderColor: themeStyles.border.borderColor,
+        borderRadius: tokens.radii.md,
+        borderWidth: FULL_PLAYER_PANE_SHEET_BORDER_WIDTH,
+        marginHorizontal: chrome.marginHorizontal,
+        overflow: 'hidden',
+      },
+    });
+  }, [themeStyles, tokens]);
 
   return (
     <View

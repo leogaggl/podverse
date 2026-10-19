@@ -7,7 +7,10 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import type { DescriptionNode } from '@podverse/helpers';
 import { readDescriptionDocument } from '@podverse/helpers';
 
-/** Same collapse length channel About and item Summary use. */
+/**
+ * Collapsed plain-text length for channel About and for item Summary outside the full player.
+ * The full-player sheet sizes its own preview from the sheet height.
+ */
 export const DESCRIPTION_PROSE_COLLAPSE_LENGTH = 720;
 
 export type DescriptionTextProps = {
@@ -22,6 +25,12 @@ export type DescriptionTextProps = {
    * description (clip Summary).
    */
   collapseLength?: number | null;
+  /**
+   * When collapsed, clamp the preview to this many lines. `collapseLength` still bounds how
+   * much plain text is mounted. The full-player sheet uses this so the preview fills the card
+   * and Show more sits just past the fold.
+   */
+  collapsedMaxLines?: number;
   textStyle?: StyleProp<TextStyle>;
   showMoreStyle?: StyleProp<TextStyle>;
   linkStyle?: StyleProp<TextStyle>;
@@ -199,6 +208,7 @@ export function DescriptionText({
   html,
   resetKey = null,
   collapseLength = DESCRIPTION_PROSE_COLLAPSE_LENGTH,
+  collapsedMaxLines,
   textStyle,
   showMoreStyle,
   linkStyle,
@@ -225,6 +235,15 @@ export function DescriptionText({
     return `${plain.slice(0, collapseLength)}…`;
   }, [canCollapse, collapseLength, expanded, plain]);
 
+  const previewLineLimit =
+    canCollapse &&
+    !expanded &&
+    collapsedMaxLines !== undefined &&
+    Number.isFinite(collapsedMaxLines) &&
+    collapsedMaxLines > 0
+      ? Math.floor(collapsedMaxLines)
+      : undefined;
+
   const handleToggle = useCallback(() => {
     setExpanded((current) => !current);
   }, []);
@@ -245,7 +264,12 @@ export function DescriptionText({
     body = <View testID={testID}>{renderBlockNodes(document.rich, textStyle, linkStyle)}</View>;
   } else {
     body = (
-      <Text style={textStyle} testID={testID}>
+      <Text
+        ellipsizeMode={previewLineLimit === undefined ? undefined : 'tail'}
+        numberOfLines={previewLineLimit}
+        style={textStyle}
+        testID={testID}
+      >
         {displayPlain}
       </Text>
     );

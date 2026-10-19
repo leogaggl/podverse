@@ -229,10 +229,6 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           ...typography.prose,
           color: themeStyles.textPrimary.color,
         },
-        headerActions: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
         list: {
           backgroundColor: themeStyles.screen.backgroundColor,
           flex: 1,
@@ -389,17 +385,15 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={styles.headerActions}>
-          <HeaderBarAction
-            accessibilityLabel={t('features.share')}
-            icon="share-outline"
-            onPress={handleShare}
-            testID="episode-detail-share"
-          />
-        </View>
+        <HeaderBarAction
+          accessibilityLabel={t('features.share')}
+          icon="share-outline"
+          onPress={handleShare}
+          testID="episode-detail-share"
+        />
       ),
     });
-  }, [handleShare, navigation, styles.headerActions, t]);
+  }, [handleShare, navigation, t]);
 
   const {
     activeTab,

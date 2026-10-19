@@ -5,6 +5,7 @@ import {
   MARQUEE_LOOP_GAP,
   marqueeLoopDistance,
   marqueeScrollDurationMs,
+  resolveMarqueeLayout,
   shouldMarqueeScroll,
   stabilizeMeasuredWidth,
 } from './marqueeScroll';
@@ -41,6 +42,60 @@ describe('shouldMarqueeScroll', () => {
     expect(shouldMarqueeScroll({ contentWidth: 0, reduceMotion: false, viewportWidth: 180 })).toBe(
       false
     );
+  });
+});
+
+describe('resolveMarqueeLayout', () => {
+  it('waits while either width is still zero', () => {
+    expect(
+      resolveMarqueeLayout({
+        contentWidth: 0,
+        reduceMotion: false,
+        restInset: 0,
+        viewportWidth: 180,
+      })
+    ).toBe('measuring');
+    expect(
+      resolveMarqueeLayout({
+        contentWidth: 320,
+        reduceMotion: false,
+        restInset: 0,
+        viewportWidth: 0,
+      })
+    ).toBe('measuring');
+  });
+
+  it('fits when the label is within the space it has', () => {
+    expect(
+      resolveMarqueeLayout({
+        contentWidth: 140,
+        reduceMotion: false,
+        restInset: 0,
+        viewportWidth: 180,
+      })
+    ).toBe('fit');
+  });
+
+  it('scrolls when the label is wider than the space it has', () => {
+    expect(
+      resolveMarqueeLayout({
+        contentWidth: 320,
+        reduceMotion: false,
+        restInset: 0,
+        viewportWidth: 180,
+      })
+    ).toBe('scroll');
+  });
+
+  it('fits under Reduce Motion even when the label overflows', () => {
+    expect(
+      resolveMarqueeLayout({
+        contentWidth: 320,
+        reduceMotion: true,
+        restInset: 0,
+        viewportWidth: 180,
+      })
+    ).toBe('fit');
   });
 });
 

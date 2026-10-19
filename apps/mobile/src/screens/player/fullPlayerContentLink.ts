@@ -3,23 +3,18 @@ import { primaryChannelListArtworkUrl, primaryListArtworkUrl } from '@podverse/h
 import { isArtistMediumId } from '@podverse/helpers/medium';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
-export type FullPlayerOpenRequest = {
+export type FullPlayerContentTarget = {
   idText: string;
   imageUrl: string | null;
   kind: 'add-by-rss' | 'album' | 'artist' | 'clip' | 'episode' | 'podcast' | 'track';
   name: string;
 };
 
-export type FullPlayerContentTab = 'Browse' | 'Home' | 'My Library' | 'Search';
+/** Home holds follows. Browse holds directory content this device does not follow. */
+export type PlayerContentStack = 'Browse' | 'Home';
 
-export type FullPlayerRootStateLike = {
-  routes: readonly {
-    name: string;
-    state?: {
-      index?: number;
-      routes: readonly { name?: string }[];
-    };
-  }[];
+export type FullPlayerOpenRequest = FullPlayerContentTarget & {
+  stack: PlayerContentStack;
 };
 
 const nonEmpty = (value: string | null | undefined): string | null => {
@@ -42,7 +37,7 @@ const episodeRequest = (
   item: DTOItem,
   channel: DTOChannel,
   name: string
-): FullPlayerOpenRequest | null => {
+): FullPlayerContentTarget | null => {
   const idText = nonEmpty(item.id_text);
   if (idText === null) {
     return null;
@@ -59,7 +54,7 @@ const channelRequest = (
   channel: DTOChannel,
   name: string,
   kind: 'album' | 'artist' | 'podcast'
-): FullPlayerOpenRequest | null => {
+): FullPlayerContentTarget | null => {
   const idText = nonEmpty(channel.id_text);
   if (idText === null) {
     return null;
@@ -83,7 +78,7 @@ const musicChannelKind = (channel: DTOChannel): 'album' | 'artist' => {
 export const resolveFullPlayerTitleLink = (
   target: PlaybackTarget | null,
   visibleTitle: string | null
-): FullPlayerOpenRequest | null => {
+): FullPlayerContentTarget | null => {
   const name = nonEmpty(visibleTitle);
   if (target === null || name === null) {
     return null;
@@ -128,7 +123,7 @@ export const resolveFullPlayerChannelLink = (
   target: PlaybackTarget | null,
   visibleChannelTitle: string | null,
   addByRssFeedIdText: string | null
-): FullPlayerOpenRequest | null => {
+): FullPlayerContentTarget | null => {
   const name = nonEmpty(visibleChannelTitle);
   if (target === null || name === null) {
     return null;
@@ -154,7 +149,7 @@ export const resolveFullPlayerChannelLink = (
   }
 };
 
-export const fullPlayerOpenScreenLabelKey = (kind: FullPlayerOpenRequest['kind']): string => {
+export const fullPlayerOpenScreenLabelKey = (kind: FullPlayerContentTarget['kind']): string => {
   switch (kind) {
     case 'episode':
       return 'media.podcast.episode';
@@ -202,33 +197,16 @@ export const resolveLocalAddByRssFeedIdText = async (
   return byUrl === null ? null : byUrl.idText;
 };
 
-const isContentTab = (name: string): name is FullPlayerContentTab => {
-  return name === 'Home' || name === 'Search' || name === 'Browse' || name === 'My Library';
-};
-
-/** The tab under the player. Notifications and More have no detail routes, so those use Home. */
-export const focusedContentTabFromRootState = (
-  state: FullPlayerRootStateLike
-): FullPlayerContentTab => {
-  const main = state.routes.find((route) => route.name === 'MainTabs');
-  const tabState = main?.state;
-  if (tabState === undefined || tabState.index === undefined) {
+/**
+ * A directory follow opens on Home, where that channel's episodes live. Anything this device
+ * does not follow opens on Browse. Add by RSS is a follow, so it opens on Home too.
+ */
+export const playerContentStack = (params: {
+  isSubscribed: boolean;
+  kind: FullPlayerContentTarget['kind'];
+}): PlayerContentStack => {
+  if (params.kind === 'add-by-rss' || params.isSubscribed) {
     return 'Home';
   }
-  const routeName = tabState.routes[tabState.index]?.name;
-  if (routeName === undefined || !isContentTab(routeName)) {
-    return 'Home';
-  }
-  return routeName;
-};
-
-/** Add by RSS detail is registered on Home and My Library only. */
-export const contentTabForDestination = (
-  tab: FullPlayerContentTab,
-  request: FullPlayerOpenRequest
-): FullPlayerContentTab => {
-  if (request.kind === 'add-by-rss' && tab !== 'Home' && tab !== 'My Library') {
-    return 'Home';
-  }
-  return tab;
+  return 'Browse';
 };

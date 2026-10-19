@@ -40,6 +40,12 @@ export const FORM_BUTTON_MIN_HEIGHT = 52;
 export const LIST_ROW_ACTION_ICON_SIZE = 26;
 
 /**
+ * Channel-header settings gear. One step under the stack-header glyph so the icon can sit on the
+ * title's top edge beside a two-line name.
+ */
+export const CHANNEL_HEADER_SETTINGS_ICON_SIZE = 22;
+
+/**
  * Glyph size for the Play / Pause triangle inside the glowing circle. Smaller than bare-row glyphs
  * on purpose: legacy keeps the play mark compact inside the ring.
  */

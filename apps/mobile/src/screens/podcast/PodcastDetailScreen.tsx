@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
 
 import type { DTOChannel } from '@podverse/helpers';
 import { primaryChannelLightboxArtworkUrl, primaryChannelListArtworkUrl } from '@podverse/helpers';
@@ -19,11 +18,12 @@ import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { useBoostSheet } from '../../components/boost/useBoostSheet';
-import { ChannelDetailShell, ChannelHeader } from '../../components/channel';
+import { ChannelDetailShell, ChannelHeader, ChannelSettingsPane } from '../../components/channel';
 import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
 import { ListFilterField, MenuSelectChip } from '../../components/form';
 import { Button } from '../../components/primitives/Button';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { channelSeenRepository } from '../../data/repositories/channelSeenRepository';
 import { downloadsRepository } from '../../data/repositories/downloadsRepository';
@@ -80,7 +80,6 @@ import {
   PodcastOfficialClipsSection,
   PodcastPeopleSection,
   PodcastPodrollSection,
-  PodcastSettingsSection,
 } from './sections';
 
 type PodcastDetailScreenProps = NativeStackScreenProps<
@@ -113,7 +112,6 @@ const SECTION_COMPONENTS: Record<PodcastTab, ComponentType<PodcastSectionPanePro
   funding: PodcastFundingSection,
   people: PodcastPeopleSection,
   podroll: PodcastPodrollSection,
-  settings: PodcastSettingsSection,
   soundbites: PodcastOfficialClipsSection,
 };
 
@@ -128,7 +126,7 @@ const SECTION_COMPONENTS: Record<PodcastTab, ComponentType<PodcastSectionPanePro
  *
  * Subscribe lives on the channel identity block. RSS and website URLs live on About. Funding is
  * its own chip. Share and notifications live in the stack title bar. Channel settings are the
- * Settings chip (`mobile-screen-layout`).
+ * gear at the top right of the channel header (`mobile-screen-layout`).
  */
 export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenProps) {
   const { t } = useTranslation();
@@ -166,6 +164,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
   const [isSavingSubscription, setIsSavingSubscription] = useState<boolean>(false);
   const [subscriptionNoticeKey, setSubscriptionNoticeKey] = useState<string | null>(null);
   const [section, setSection] = useState<PodcastTab>(DEFAULT_PODCAST_TAB);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const deferredSection = useDeferredValue(section);
   const [isSectionHydrated, setIsSectionHydrated] = useState<boolean>(false);
   const [sort, setSort] = useState<PodcastDetailSort>(DEFAULT_PODCAST_DETAIL_SORT);
@@ -213,17 +212,6 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
     setHasCheckedSoundbites(nextChrome !== null);
     setIsSubscribed(resolveInitialSubscribed(podcastId, previewIsSubscribed));
   }, [podcastId, previewIsSubscribed]);
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        headerActions: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
-      }),
-    [tokens]
-  );
 
   const authContext = useMemo(
     () => ({ accessToken, clearSession, refreshToken, setTokens }),
@@ -428,7 +416,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={styles.headerActions}>
+        <HeaderBarActions>
           {canShowBoost && channel !== null ? (
             <HeaderBarAction
               accessibilityLabel={t('value.boost')}
@@ -458,7 +446,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
             onPress={handleShare}
             testID="podcast-detail-share"
           />
-        </View>
+        </HeaderBarActions>
       ),
     });
   }, [
@@ -468,7 +456,6 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
     navigation,
     notificationsEnabled,
     openBoost,
-    styles.headerActions,
     t,
     tokens.text.warning,
     toggleNotifications,
@@ -556,12 +543,11 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       resolvePodcastSections({
         channel,
         hasSoundbites,
-        isSignedIn,
         previewHasFunding,
         previewHasPeople,
         previewHasPodroll,
       }),
-    [channel, hasSoundbites, isSignedIn, previewHasFunding, previewHasPeople, previewHasPodroll]
+    [channel, hasSoundbites, previewHasFunding, previewHasPeople, previewHasPodroll]
   );
 
   /**
@@ -598,7 +584,12 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
   }, [isSectionHydrated, offlineModeEnabled, podcastId]);
 
   const handleSectionSelect = useCallback((next: PodcastTab) => {
+    setSettingsOpen(false);
     setSection(next);
+  }, []);
+
+  const handleSettingsPress = useCallback(() => {
+    setSettingsOpen((open) => !open);
   }, []);
 
   const handleSortSelect = useCallback(
@@ -666,6 +657,12 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       }
       artworkUri={artworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      settings={{
+        accessibilityLabel: t('settings.settings'),
+        onPress: handleSettingsPress,
+        selected: settingsOpen,
+        testID: 'podcast-detail-header-settings',
+      }}
       testID="podcast-detail-header"
       title={headerTitle}
       viewerUri={primaryChannelLightboxArtworkUrl(channel?.channel_images) ?? artworkUri}
@@ -686,7 +683,14 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
   const SectionPane = SECTION_COMPONENTS[deferredSection];
   const sectionUnavailableOffline =
     offlineModeEnabled && isPodcastSectionUnavailableOffline(deferredSection);
-  const sectionBody = sectionUnavailableOffline ? (
+  const settingsBody = (
+    <ChannelSettingsPane
+      channel={channel}
+      notifications={notifications}
+      testIDPrefix="podcast-detail"
+    />
+  );
+  const sectionListBody = sectionUnavailableOffline ? (
     <ListEmpty
       messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
       testID="podcast-detail-offline-unavailable"
@@ -704,27 +708,29 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       sort={sort}
     />
   );
+  const sectionBody = settingsOpen ? settingsBody : sectionListBody;
 
-  const chipTrailing = sortEnabled ? (
-    <>
-      <MenuSelectChip
-        heading={t('filters.screen.sort_heading')}
-        onSelect={handleSortSelect}
-        options={sortOptions}
-        testID="podcast-detail-sort"
-        value={sort}
-      />
-      {sort === 'top' ? (
+  const chipTrailing =
+    settingsOpen || !sortEnabled ? undefined : (
+      <>
         <MenuSelectChip
-          heading={t('filters.screen.range_heading')}
-          onSelect={handleRangeSelect}
-          options={rangeOptions}
-          testID="podcast-detail-range"
-          value={range}
+          heading={t('filters.screen.sort_heading')}
+          onSelect={handleSortSelect}
+          options={sortOptions}
+          testID="podcast-detail-sort"
+          value={sort}
         />
-      ) : null}
-    </>
-  ) : undefined;
+        {sort === 'top' ? (
+          <MenuSelectChip
+            heading={t('filters.screen.range_heading')}
+            onSelect={handleRangeSelect}
+            options={rangeOptions}
+            testID="podcast-detail-range"
+            value={range}
+          />
+        ) : null}
+      </>
+    );
 
   return (
     <>
@@ -737,7 +743,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
         sectionBody={sectionBody}
         sectionChips={sectionChips}
         sectionsTestID="podcast-detail-sections"
-        selectedSection={section}
+        selectedSection={settingsOpen ? null : section}
         testID="podcast-detail-screen"
       />
       {boostSheet}

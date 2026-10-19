@@ -57,14 +57,59 @@ name: Anonymous Subscriptions Persist
 - takeScreenshot: subscriptions-anonymous-detail-before
 
 # Header actions, signed out: share and the bell are unconditional, so a visitor can pass the show
-# on and can find out what following it would give them. The Settings chip is absent because there
-# is no account to hold per-podcast settings.
+# on and can find out what following it would give them. Settings is the gear on the channel
+# header. A row that needs an account explains that on press.
 - assertVisible:
     id: podcast-detail-share
 - assertVisible:
     id: podcast-detail-notifications-toggle
+- assertVisible:
+    id: podcast-detail-header-settings
 - assertNotVisible:
     id: podcast-detail-section-settings
+- tapOn:
+    id: podcast-detail-header-settings
+- extendedWaitUntil:
+    visible:
+      id: podcast-detail-settings
+    timeout: ${TIMEOUT_FAST}
+- extendedWaitUntil:
+    visible:
+      id: podcast-detail-settings-check-feed
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: podcast-detail-settings-check-feed
+- extendedWaitUntil:
+    visible:
+      id: premium-gate-modal
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: premium-gate-login
+- tapOn:
+    id: premium-gate-cancel
+- tapOn:
+    id: podcast-detail-settings-notifications-toggle
+- extendedWaitUntil:
+    visible:
+      id: premium-gate-modal
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: premium-gate-login
+- tapOn:
+    id: premium-gate-cancel
+- tapOn:
+    id: podcast-detail-settings-auto-download
+- extendedWaitUntil:
+    visible:
+      id: premium-gate-modal
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: premium-gate-login
+- takeScreenshot: subscriptions-anonymous-settings-login-gate
+- tapOn:
+    id: premium-gate-cancel
+- assertNotVisible:
+    id: podcast-detail-settings-auto-download-unavailable
 
 # Notifications need an account, so the bell explains that rather than failing silently or hiding.
 - tapOn:
@@ -87,9 +132,9 @@ name: Anonymous Subscriptions Persist
 # Flipping to "Unsubscribe" is the proof the local write landed; signed out there is no server
 # round trip behind it.
 - assertVisible: "Unsubscribe"
-# Subscribed but still signed out: Settings needs an account, so the chip stays away.
-- assertNotVisible:
-    id: podcast-detail-section-settings
+# Subscribed and still signed out: the Settings pane stays open.
+- assertVisible:
+    id: podcast-detail-settings
 - takeScreenshot: subscriptions-anonymous-detail-after
 
 # Home now has the subscription, so the empty state is gone and the filter has something to narrow.

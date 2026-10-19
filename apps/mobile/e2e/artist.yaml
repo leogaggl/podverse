@@ -16,7 +16,11 @@ name: Artist flow
     visible:
       id: artist-detail-sections
     timeout: ${TIMEOUT_SLOW}
-# Albums, Tracks, and About are always in the chip row.
+# Albums, Tracks, and About are always in the chip row. Settings is the channel-header gear.
+- assertVisible:
+    id: artist-detail-header-settings
+- assertNotVisible:
+    id: artist-detail-section-settings
 - extendedWaitUntil:
     visible:
       id: artist-detail-section-albums

@@ -1,9 +1,8 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../../theme/useTheme';
 import { HeaderBarAction } from '../screen/HeaderBarAction';
+import { HeaderBarActions } from '../screen/HeaderBarActions';
 import { HeaderBarChrome } from '../screen/HeaderBarChrome';
 
 type FullPlayerActionRowProps = {
@@ -39,17 +38,6 @@ export function FullPlayerActionRow({
   const { t } = useTranslation();
   const { tokens } = useTheme();
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        actions: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
-      }),
-    []
-  );
-
   return (
     <HeaderBarChrome
       backAccessibilityLabel={t('misc.close')}
@@ -57,7 +45,7 @@ export function FullPlayerActionRow({
       backTestID="full-player-close"
       onBack={onClose}
       right={
-        <View style={styles.actions}>
+        <HeaderBarActions>
           {showBoost ? (
             <HeaderBarAction
               accessibilityLabel={t('value.boost')}
@@ -103,7 +91,7 @@ export function FullPlayerActionRow({
               testID="full-player-v4v"
             />
           ) : null}
-        </View>
+        </HeaderBarActions>
       }
       testID="full-player-action-row"
     />

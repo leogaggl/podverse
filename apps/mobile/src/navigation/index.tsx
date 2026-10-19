@@ -89,10 +89,6 @@ import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
 import type { FullPlayerOpenRequest } from '../screens/player/fullPlayerContentLink';
-import {
-  contentTabForDestination,
-  focusedContentTabFromRootState,
-} from '../screens/player/fullPlayerContentLink';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
 import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
@@ -586,39 +582,33 @@ export type MobileTabParamList = {
 
 const openFullPlayerContent = (
   navigation: NavigationProp<RootStackParamList>,
-  request: FullPlayerOpenRequest
+  request: FullPlayerOpenRequest,
+  visibleTabIds: readonly ContentTabId[]
 ): void => {
-  const tab = contentTabForDestination(
-    focusedContentTabFromRootState(navigation.getState()),
-    request
-  );
   const previewImageUrl = request.imageUrl;
   const previewTitle = request.name;
 
-  if (tab === 'Home') {
+  if (request.stack === 'Home') {
+    const params = homeContentParams(request, previewImageUrl, previewTitle);
+    if (visibleTabIds.includes('Home')) {
+      navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params, screen: 'Home' });
+      return;
+    }
     navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-      params: homeContentParams(request, previewImageUrl, previewTitle),
-      screen: 'Home',
+      params: { initial: false, params, screen: MORE_STACK_ROUTES.MoreOverflowHome },
+      screen: 'More',
     });
     return;
   }
-  if (tab === 'Search') {
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-      params: searchContentParams(request, previewImageUrl, previewTitle),
-      screen: 'Search',
-    });
-    return;
-  }
-  if (tab === 'Browse') {
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-      params: browseContentParams(request, previewImageUrl, previewTitle),
-      screen: 'Browse',
-    });
+
+  const params = browseContentParams(request, previewImageUrl, previewTitle);
+  if (visibleTabIds.includes('Browse')) {
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params, screen: 'Browse' });
     return;
   }
   navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
-    params: libraryContentParams(request, previewImageUrl, previewTitle),
-    screen: 'My Library',
+    params: { initial: false, params, screen: MORE_STACK_ROUTES.MoreOverflowBrowse },
+    screen: 'More',
   });
 };
 
@@ -673,25 +663,11 @@ const homeContentParams = (
   }
 };
 
-const searchContentParams = (
-  request: FullPlayerOpenRequest,
-  previewImageUrl: string | null,
-  previewTitle: string
-): NavigatorScreenParams<SearchStackParamList> => {
-  if (request.kind === 'add-by-rss') {
-    return { screen: 'SearchRoot' };
-  }
-  return catalogContentParams(request, previewImageUrl, previewTitle);
-};
-
 const browseContentParams = (
   request: FullPlayerOpenRequest,
   previewImageUrl: string | null,
   previewTitle: string
 ): NavigatorScreenParams<BrowseStackParamList> => {
-  if (request.kind === 'add-by-rss') {
-    return { screen: 'BrowseRoot' };
-  }
   return catalogContentParams(request, previewImageUrl, previewTitle);
 };
 
@@ -738,63 +714,7 @@ const catalogContentParams = (
         screen: 'ArtistDetail',
       };
     case 'add-by-rss':
-      // Search and Browse have no Add by RSS screen.
-      throw new Error('Add by RSS content opens on Home or My Library.');
-  }
-};
-
-const libraryContentParams = (
-  request: FullPlayerOpenRequest,
-  previewImageUrl: string | null,
-  previewTitle: string
-): NavigatorScreenParams<LibraryStackParamList> => {
-  switch (request.kind) {
-    case 'episode':
-      return { initial: false, params: { episodeId: request.idText }, screen: 'EpisodeDetail' };
-    case 'clip':
-      return {
-        initial: false,
-        params: { clipId: request.idText },
-        screen: 'LibraryClipDetail',
-      };
-    case 'track':
-      return {
-        initial: false,
-        params: buildTrackDetailParams({ previewImageUrl, previewTitle, trackId: request.idText }),
-        screen: 'TrackDetail',
-      };
-    case 'podcast':
-      return {
-        initial: false,
-        params: buildPodcastDetailParams({
-          podcastId: request.idText,
-          previewImageUrl,
-          previewTitle,
-        }),
-        screen: 'PodcastDetail',
-      };
-    case 'album':
-      return {
-        initial: false,
-        params: buildAlbumDetailParams({ albumId: request.idText, previewImageUrl, previewTitle }),
-        screen: 'AlbumDetail',
-      };
-    case 'artist':
-      return {
-        initial: false,
-        params: buildArtistDetailParams({
-          artistId: request.idText,
-          previewImageUrl,
-          previewTitle,
-        }),
-        screen: 'ArtistDetail',
-      };
-    case 'add-by-rss':
-      return {
-        initial: false,
-        params: { feedIdText: request.idText },
-        screen: 'AddByRssPodcastDetail',
-      };
+      throw new Error('Add by RSS content opens on Home.');
   }
 };
 
@@ -1953,6 +1873,7 @@ export function MobileTabNavigator({
   onRequestSignUp,
 }: MobileTabNavigatorProps) {
   const navigationTheme = useNavigationTheme();
+  const { visibleTabIds } = useTabLayout();
 
   useEffect(() => {
     if (pendingDeepLinkUrl === null || !rootNavigationRef.isReady()) {
@@ -1994,7 +1915,7 @@ export function MobileTabNavigator({
           {(props) => (
             <FullPlayerScreen
               onOpenContent={(request) => {
-                openFullPlayerContent(props.navigation, request);
+                openFullPlayerContent(props.navigation, request, visibleTabIds);
               }}
               onClose={() => {
                 if (props.navigation.canGoBack()) {

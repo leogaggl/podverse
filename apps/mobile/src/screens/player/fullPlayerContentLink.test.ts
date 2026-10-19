@@ -5,8 +5,7 @@ import { MediumEnum } from '@podverse/helpers/medium';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import {
-  contentTabForDestination,
-  focusedContentTabFromRootState,
+  playerContentStack,
   resolveFullPlayerChannelLink,
   resolveFullPlayerTitleLink,
   resolveLocalAddByRssFeedIdText,
@@ -143,44 +142,12 @@ describe('resolveLocalAddByRssFeedIdText', () => {
   });
 });
 
-describe('focused content tab', () => {
-  it('uses Home when the focused tab has no detail stack', () => {
-    expect(
-      focusedContentTabFromRootState({
-        routes: [
-          {
-            name: 'MainTabs',
-            state: { index: 0, routes: [{ name: 'More' }] },
-          },
-        ],
-      })
-    ).toBe('Home');
-  });
-
-  it('keeps Search for a catalog screen and sends Add by RSS to Home', () => {
-    expect(
-      contentTabForDestination('Search', {
-        idText: 'ep-1',
-        imageUrl: null,
-        kind: 'episode',
-        name: 'Episode',
-      })
-    ).toBe('Search');
-    expect(
-      contentTabForDestination('Search', {
-        idText: 'feed-1',
-        imageUrl: null,
-        kind: 'add-by-rss',
-        name: 'Feed',
-      })
-    ).toBe('Home');
-    expect(
-      contentTabForDestination('My Library', {
-        idText: 'feed-1',
-        imageUrl: null,
-        kind: 'add-by-rss',
-        name: 'Feed',
-      })
-    ).toBe('My Library');
+describe('playerContentStack', () => {
+  it('opens a follow on Home and everything else on Browse', () => {
+    expect(playerContentStack({ isSubscribed: true, kind: 'episode' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: true, kind: 'podcast' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: false, kind: 'episode' })).toBe('Browse');
+    expect(playerContentStack({ isSubscribed: false, kind: 'clip' })).toBe('Browse');
+    expect(playerContentStack({ isSubscribed: false, kind: 'add-by-rss' })).toBe('Home');
   });
 });

@@ -44,7 +44,7 @@ describe('resolvePodcastSections', () => {
     ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'podroll']);
   });
 
-  it('offers Settings last for signed-in users, after Funding', () => {
+  it('puts Funding after evidence chips', () => {
     expect(
       resolvePodcastSections({
         channel: {
@@ -52,7 +52,6 @@ describe('resolvePodcastSections', () => {
           channel_podroll: { channel_podroll_remote_items: [{ feed_guid: 'guid-1' }] },
         },
         hasSoundbites: true,
-        isSignedIn: true,
       })
     ).toEqual([
       'episodes',
@@ -62,11 +61,10 @@ describe('resolvePodcastSections', () => {
       'soundbites',
       'podroll',
       'funding',
-      'settings',
     ]);
   });
 
-  it('puts People after Funding and before Settings when the channel has people', () => {
+  it('puts People after Funding when the channel has people', () => {
     expect(
       resolvePodcastSections({
         channel: {
@@ -74,31 +72,8 @@ describe('resolvePodcastSections', () => {
           channel_persons: [{ id: 1 }],
         },
         hasSoundbites: false,
-        isSignedIn: true,
       })
-    ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'funding', 'people', 'settings']);
-  });
-
-  it('hides Settings when signed out', () => {
-    expect(
-      resolvePodcastSections({
-        channel: null,
-        hasSoundbites: false,
-        isSignedIn: false,
-      })
-    ).toEqual([...ALWAYS_ON]);
-  });
-
-  it('keeps Funding last among content chips when signed out', () => {
-    expect(
-      resolvePodcastSections({
-        channel: {
-          channel_fundings: [{ url: 'https://example.com/support' }],
-          channel_podroll: { channel_podroll_remote_items: [{ feed_guid: 'guid-1' }] },
-        },
-        hasSoundbites: true,
-      })
-    ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'soundbites', 'podroll', 'funding']);
+    ).toEqual(['episodes', 'downloaded', 'about', 'clips', 'funding', 'people']);
   });
 
   it('lets the channel DTO override a cached Podroll flag', () => {

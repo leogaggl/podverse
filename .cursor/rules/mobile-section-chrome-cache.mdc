@@ -26,12 +26,12 @@ of the horizontal row so a first-visit insert is more likely off-screen on a pho
 
 **Artist** always-on (in this order): Albums, Tracks, About. Tracks stays when the track list is
 empty, including while the request is still out. An empty list is a real answer. Podroll,
-Funding, and People stay evidence chips after that set. Settings, when the listener is signed
-in, is last.
+Funding, and People stay evidence chips after that set. Channel settings are the gear on
+`ChannelHeader`, not a chip, so they are not part of this cache.
 
 `hasPeople` is a cached evidence flag on both channel and item chrome. The People chip appears
-only when that channel or item has people: after Funding and before Settings on podcast, album,
-and artist, and after Funding on episode, track, and the full player. Parse only an explicit
+only when that channel or item has people: after Funding on podcast, album, artist, episode,
+track, and the full player. Parse only an explicit
 `true`. A writer that has learned whether people exist writes `true` or `false`. An error path
 that does not know leaves `hasPeople` unset.
 

@@ -257,24 +257,18 @@ name: Podcast Episode Flow
     timeout: ${TIMEOUT_FASTER}
 
 # --- Header actions and podcast settings, signed in ---
-# Share and the bell stay in the title bar. Settings is a section chip for signed-in users.
+# Share and the bell stay in the stack title bar. Settings is the gear on the channel header.
 - assertVisible:
     id: podcast-detail-share
 - assertVisible:
     id: podcast-detail-notifications-toggle
-# People sits ahead of Settings, so on a phone Settings starts fully past the trailing edge and
-# stays out of the accessibility tree until the chip row scrolls.
-- swipe:
-    from:
-      id: podcast-detail-sections
-    direction: LEFT
-- extendedWaitUntil:
-    visible:
-      id: podcast-detail-section-settings
-    timeout: ${TIMEOUT_SLOWER}
+- assertVisible:
+    id: podcast-detail-header-settings
+- assertNotVisible:
+    id: podcast-detail-section-settings
 - takeScreenshot: podcast-episode-header-actions
 - tapOn:
-    id: podcast-detail-section-settings
+    id: podcast-detail-header-settings
 - extendedWaitUntil:
     visible:
       id: podcast-detail-settings

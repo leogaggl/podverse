@@ -58,7 +58,9 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
 
 /**
  * Grouped channel settings for podcast, album, and artist detail. Section titles sit above each
- * card; rows share one inset. Auto-download explains itself on tap until the feature exists.
+ * card; rows share one inset. Check feed, notifications, and auto-download need an account, so a
+ * signed-out press opens the login gate. Once signed in, auto-download explains that it is not
+ * available yet.
  */
 export function ChannelSettingsPane({
   channel,
@@ -232,6 +234,10 @@ export function ChannelSettingsPane({
           <SettingsSwitchRow
             accessibilityLabel={t('features.download.auto_download')}
             onPress={() => {
+              if (!isSignedIn) {
+                openGate('needs_account');
+                return;
+              }
               setAutoDownloadNoticeVisible(true);
             }}
             testID={`${testIDPrefix}-settings-auto-download`}

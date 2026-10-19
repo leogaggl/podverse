@@ -50,6 +50,37 @@ export const shouldMarqueeScroll = ({
   return contentWidth - viewportWidth > OVERFLOW_EPSILON;
 };
 
+/** Measuring until both widths exist, then either a resting fit or a scroll. */
+export type MarqueeLayout = 'fit' | 'measuring' | 'scroll';
+
+/**
+ * Layout for one label. A width of 0 is still measuring, so a new string cannot reuse the
+ * previous string's width. Reduce Motion never scrolls: an overflowing label truncates in the
+ * fit layout. `restInset` is space reserved before the first word, so the overflow check uses
+ * the width that remains.
+ */
+export const resolveMarqueeLayout = ({
+  contentWidth,
+  reduceMotion,
+  restInset,
+  viewportWidth,
+}: {
+  contentWidth: number;
+  reduceMotion: boolean;
+  restInset: number;
+  viewportWidth: number;
+}): MarqueeLayout => {
+  if (viewportWidth <= 0 || contentWidth <= 0) {
+    return 'measuring';
+  }
+  const scrolls = shouldMarqueeScroll({
+    contentWidth,
+    reduceMotion,
+    viewportWidth: Math.max(0, viewportWidth - restInset),
+  });
+  return scrolls ? 'scroll' : 'fit';
+};
+
 /** How far one revolution travels: one full copy plus the seam before the title repeats. */
 export const marqueeLoopDistance = (contentWidth: number): number => {
   return Math.max(0, contentWidth) + MARQUEE_LOOP_GAP;

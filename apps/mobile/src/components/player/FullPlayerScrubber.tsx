@@ -45,7 +45,8 @@ const CHAPTER_TOOLTIP_AUTO_DISMISS_MS = 5000;
 const TRACK_HEIGHT = 6;
 const TRACK_HIT_HEIGHT = 44;
 const THUMB_SIZE = 12;
-const CHAPTER_DOT_SIZE = 4;
+/** Chapter boundary width. Each mark is this wide and as tall as the track. */
+const CHAPTER_MARKER_WIDTH = 1;
 const SEGMENT_BAND_HEIGHT = 32;
 const SEGMENT_PULSE_HALF_MS = 2000;
 /**
@@ -56,11 +57,11 @@ const PAN_ACTIVE_OFFSET_X = 24;
 const PAN_FAIL_OFFSET_Y = 16;
 
 /**
- * The thumb, chapter dots, and segment pulse use one palette on every theme so the playhead and
+ * The thumb, chapter markers, and segment pulse use one palette on every theme so the playhead and
  * chapter boundaries read the same on light and dark. The played fill keeps the theme accent.
  */
 const THUMB_COLOR = '#ffffff';
-const CHAPTER_DOT_COLOR = '#ffc107';
+const CHAPTER_MARKER_COLOR = '#ffc107';
 const SEGMENT_PULSE_COLORS = ['rgba(116, 168, 220, 0.6)', 'rgba(255, 193, 7, 0.6)'];
 
 type HighlightBounds = {
@@ -126,7 +127,7 @@ const resolveHighlightBounds = ({
 };
 
 /**
- * Full-player scrubber: a thin track with a thumb on the playhead, a dot at each chapter boundary,
+ * Full-player scrubber: a thin track with a thumb on the playhead, a line at each chapter boundary,
  * a pulsing band behind the current chapter or clip, and a long-press chapter tooltip. The hit
  * target is 44pt. A tap seeks where it lands. A drag takes over only after clear horizontal travel,
  * so a vertical swipe that starts on the bar still scrolls the player. While dragging, the left
@@ -453,17 +454,15 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
           justifyContent: 'center',
           position: 'relative',
         },
-        chapterDot: {
-          backgroundColor: CHAPTER_DOT_COLOR,
-          borderRadius: CHAPTER_DOT_SIZE / 2,
-          height: CHAPTER_DOT_SIZE,
-          marginLeft: -CHAPTER_DOT_SIZE / 2,
+        chapterMarker: {
+          backgroundColor: CHAPTER_MARKER_COLOR,
+          height: TRACK_HEIGHT,
+          marginLeft: -CHAPTER_MARKER_WIDTH / 2,
           position: 'absolute',
-          top: (TRACK_HIT_HEIGHT - CHAPTER_DOT_SIZE) / 2,
-          width: CHAPTER_DOT_SIZE,
+          top: (TRACK_HIT_HEIGHT - TRACK_HEIGHT) / 2,
+          width: CHAPTER_MARKER_WIDTH,
         },
         segmentBand: {
-          borderRadius: tokens.radii.sm,
           height: SEGMENT_BAND_HEIGHT,
           position: 'absolute',
           top: (TRACK_HIT_HEIGHT - SEGMENT_BAND_HEIGHT) / 2,
@@ -595,7 +594,7 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
             <View
               key={ratio}
               pointerEvents="none"
-              style={[styles.chapterDot, { left: `${ratio * 100}%` }]}
+              style={[styles.chapterMarker, { left: `${ratio * 100}%` }]}
               testID="full-player-chapter-marker"
             />
           ))}
