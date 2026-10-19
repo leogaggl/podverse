@@ -1222,12 +1222,24 @@ export function FullPlayerScreen({
                 style={({ pressed }) => [styles.titleLink, pressed ? { opacity: 0.6 } : null]}
                 testID="full-player-title-link"
               >
-                <MarqueeText align="center" style={styles.title} testID="full-player-title">
+                <MarqueeText
+                  align="center"
+                  style={styles.title}
+                  testID="full-player-title"
+                  turnGroup="full-player"
+                  turnOrder={0}
+                >
                   {visibleTitle}
                 </MarqueeText>
               </Pressable>
             ) : (
-              <MarqueeText align="center" style={styles.title} testID="full-player-title">
+              <MarqueeText
+                align="center"
+                style={styles.title}
+                testID="full-player-title"
+                turnGroup="full-player"
+                turnOrder={0}
+              >
                 {visibleTitle ?? t('media_player.fullscreen_media_player')}
               </MarqueeText>
             )}

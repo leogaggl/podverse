@@ -118,7 +118,12 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
       <View style={styles.row}>
         <MiniPlayerArtwork accessibilityLabel={t('media_player.media_player_image')} />
         <View style={styles.textColumn}>
-          <MarqueeText style={styles.title} testID="mini-player-title">
+          <MarqueeText
+            style={styles.title}
+            testID="mini-player-title"
+            turnGroup="mini-player"
+            turnOrder={0}
+          >
             {nowPlaying.title}
           </MarqueeText>
           {nowPlaying.channelTitle !== null ? (

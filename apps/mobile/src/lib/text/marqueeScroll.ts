@@ -9,8 +9,8 @@ export const MARQUEE_LOOP_GAP = spacing['2xl'];
 /** Scroll speed. Slow enough to read a long episode title while it passes. */
 export const MARQUEE_SPEED_DP_PER_SECOND = 28;
 
-/** Pause with the start of the label visible before the loop starts. */
-export const MARQUEE_EDGE_HOLD_MS = 1600;
+/** Rest with the first word visible before every pass, so the label is readable between passes. */
+export const MARQUEE_EDGE_HOLD_MS = 2500;
 
 /** Sub-pixel differences are measurement noise, not overflow worth animating. */
 const OVERFLOW_EPSILON = 1;

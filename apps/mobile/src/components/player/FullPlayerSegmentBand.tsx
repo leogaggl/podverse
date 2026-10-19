@@ -160,6 +160,8 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
               align={iconName === null ? 'center' : 'left'}
               style={styles.segmentText}
               testID="full-player-segment-title"
+              turnGroup="full-player"
+              turnOrder={1}
             >
               {segment.title}
             </MarqueeText>

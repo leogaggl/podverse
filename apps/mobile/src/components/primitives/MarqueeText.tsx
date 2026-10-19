@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, StyleProp, TextStyle } from 'react-native';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
+import { useMarqueeTurn } from '../../hooks/useMarqueeTurn';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import {
   MARQUEE_EDGE_HOLD_MS,
@@ -11,16 +12,29 @@ import {
   shouldMarqueeScroll,
   stabilizeMeasuredWidth,
 } from '../../lib/text/marqueeScroll';
+import type { MarqueeTurnGroup } from '../../lib/text/marqueeTurns';
 
 export type MarqueeTextProps = {
   /**
-   * Where the label sits when it fits. A scrolling label always starts at the leading edge, since
-   * the pass has to begin at the first word.
+   * Where the label sits when it fits. A scrolling label rests on its first word, at the leading
+   * edge unless `restInset` is set, since the pass has to begin at the first word.
    */
   align?: 'center' | 'left';
   children: string;
+  /**
+   * Space before the first word while the label is at rest. The space travels with the scrolling
+   * copy, so the glyphs still leave at the clip edge.
+   */
+  restInset?: number;
   style?: StyleProp<TextStyle>;
   testID?: string;
+  /**
+   * Labels in the same group scroll one at a time, handing off after each pass. Ungrouped labels
+   * loop on their own.
+   */
+  turnGroup?: MarqueeTurnGroup;
+  /** Position in the group's rotation. Lower goes first. */
+  turnOrder?: number;
 };
 
 /**
@@ -28,53 +42,76 @@ export type MarqueeTextProps = {
  * instead under Reduce Motion.
  *
  * Built for player chrome, where the bar is one line tall and the full title is the thing the
- * listener is looking for. Overflowing labels hold on the first word, then travel at a constant
- * speed with a second copy parked after a seam gap so the wrap is a continuation, not a snap.
+ * listener is looking for. Overflowing labels rest on the first word before every pass, then
+ * travel at a constant speed with a second copy parked after a seam gap so the wrap is a
+ * continuation, not a snap. Labels that share a group move one at a time and hand off after
+ * each pass. A label with no group repeats on its own.
  * The moving glyphs are painted out of flow so their natural width cannot widen the clip box.
  * An off-screen copy of the label measures that natural width, since a one-line `Text` inside a
  * flex row reports only the width it was allowed.
  */
-export function MarqueeText({ align = 'left', children, style, testID }: MarqueeTextProps) {
+export function MarqueeText({
+  align = 'left',
+  children,
+  restInset = 0,
+  style,
+  testID,
+  turnGroup,
+  turnOrder,
+}: MarqueeTextProps) {
   const [viewportWidth, setViewportWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
   const reduceMotion = useReduceMotion();
   const offset = useRef(new Animated.Value(0)).current;
 
-  const scrolls = shouldMarqueeScroll({ contentWidth, reduceMotion, viewportWidth });
+  const scrolls = shouldMarqueeScroll({
+    contentWidth,
+    reduceMotion,
+    viewportWidth: Math.max(0, viewportWidth - restInset),
+  });
+  const { finish, turn } = useMarqueeTurn({ group: turnGroup, order: turnOrder ?? 0, scrolls });
 
   useEffect(() => {
     offset.setValue(0);
-    if (!scrolls) {
+    if (!scrolls || turn === null) {
       return;
     }
     const distance = marqueeLoopDistance(contentWidth);
     let cancelled = false;
     let animation: Animated.CompositeAnimation | undefined;
 
-    const runRevolution = () => {
-      if (cancelled) {
-        return;
-      }
-      offset.setValue(0);
-      animation = Animated.timing(offset, {
-        duration: marqueeScrollDurationMs(distance),
-        easing: Easing.linear,
-        toValue: -distance,
-        useNativeDriver: true,
-      });
+    const startPass = (onFinished: () => void) => {
+      animation = Animated.sequence([
+        Animated.delay(MARQUEE_EDGE_HOLD_MS),
+        Animated.timing(offset, {
+          duration: marqueeScrollDurationMs(distance),
+          easing: Easing.linear,
+          toValue: -distance,
+          useNativeDriver: true,
+        }),
+      ]);
       animation.start(({ finished }) => {
-        if (finished) {
-          runRevolution();
+        if (finished && !cancelled) {
+          onFinished();
         }
       });
     };
 
-    animation = Animated.delay(MARQUEE_EDGE_HOLD_MS);
-    animation.start(({ finished }) => {
-      if (finished) {
-        runRevolution();
-      }
-    });
+    if (turnGroup === undefined) {
+      const runPass = () => {
+        if (cancelled) {
+          return;
+        }
+        offset.setValue(0);
+        startPass(runPass);
+      };
+      runPass();
+    } else {
+      startPass(() => {
+        offset.setValue(0);
+        finish();
+      });
+    }
 
     return () => {
       cancelled = true;
@@ -82,7 +119,7 @@ export function MarqueeText({ align = 'left', children, style, testID }: Marquee
       offset.setValue(0);
     };
     // `children` restarts from the first word when the now-playing label changes.
-  }, [children, contentWidth, offset, scrolls]);
+  }, [children, contentWidth, finish, offset, scrolls, turn, turnGroup]);
 
   const handleViewportLayout = (event: LayoutChangeEvent) => {
     const next = event.nativeEvent.layout.width;
@@ -113,12 +150,14 @@ export function MarqueeText({ align = 'left', children, style, testID }: Marquee
             scrolls ? { transform: [{ translateX: offset }] } : styles.paintFit,
           ]}
         >
+          {scrolls && restInset > 0 ? <View style={{ width: restInset }} /> : null}
           <Text
             numberOfLines={1}
             style={[
               copyStyle,
               align === 'center' && !scrolls ? styles.centered : null,
               scrolls ? null : styles.fitCopy,
+              !scrolls && align === 'left' && restInset > 0 ? { paddingLeft: restInset } : null,
             ]}
           >
             {children}
