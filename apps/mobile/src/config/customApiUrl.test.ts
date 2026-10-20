@@ -32,6 +32,7 @@ describe('normalizeCustomApiBaseUrl', () => {
     expect(normalizeCustomApiBaseUrl('ftp://example.com/api/v2')).toBeNull();
     expect(normalizeCustomApiBaseUrl('https://example.com/v2')).toBeNull();
     expect(normalizeCustomApiBaseUrl('not-a-url')).toBeNull();
+    expect(normalizeCustomApiBaseUrl('pvngtest@bobot.lol')).toBeNull();
   });
 });
 
@@ -56,6 +57,9 @@ describe('planCustomApiCommit', () => {
 
   it('rejects a malformed address before any request', () => {
     expect(planCustomApiCommit('not-a-url', null, BUILT_IN)).toEqual({ action: 'invalid' });
+    expect(planCustomApiCommit('pvngtest@bobot.lol', null, BUILT_IN)).toEqual({
+      action: 'invalid',
+    });
   });
 
   it('does nothing when the field already matches the saved override', () => {

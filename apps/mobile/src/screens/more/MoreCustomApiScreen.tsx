@@ -15,7 +15,7 @@ import {
 } from '../../config/customApiEndpoint';
 import type { CustomApiProbeFailure } from '../../config/customApiProbe';
 import { probeCustomApiBaseUrl } from '../../config/customApiProbe';
-import { planCustomApiCommit } from '../../config/customApiUrl';
+import { normalizeCustomApiBaseUrl, planCustomApiCommit } from '../../config/customApiUrl';
 import type { MoreStackParamList } from '../../navigation';
 import { formActionsGap, formActionsTopGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -26,6 +26,25 @@ type Props = NativeStackScreenProps<MoreStackParamList, 'MoreCustomApi'>;
 type Feedback =
   { kind: 'saved' } | { kind: 'reset_done' } | { kind: 'invalid_url' } | CustomApiProbeFailure;
 
+const HTTP_URL_PREFIX = /^https?:\/\//i;
+
+/**
+ * Empty text is a valid "use the original API" value. Text that is not an http(s) address is
+ * invalid immediately. An http(s) address that is not a canonical API base waits for blur or Save.
+ */
+const isCustomApiFieldInvalid = (
+  draft: string,
+  blurred: boolean,
+  saveRejected: boolean
+): boolean => {
+  const trimmed = draft.trim();
+  if (trimmed === '' || normalizeCustomApiBaseUrl(trimmed) !== null) {
+    return false;
+  }
+
+  return !HTTP_URL_PREFIX.test(trimmed) || blurred || saveRejected;
+};
+
 export function MoreCustomApiScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { logout, status } = useAuth();
@@ -33,6 +52,7 @@ export function MoreCustomApiScreen({ navigation }: Props) {
   const { styles: themeStyles, tokens } = useTheme();
   const [draft, setDraft] = useState(saved ?? '');
   const [draftSource, setDraftSource] = useState(saved);
+  const [urlBlurred, setUrlBlurred] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -44,6 +64,7 @@ export function MoreCustomApiScreen({ navigation }: Props) {
   if (saved !== draftSource) {
     setDraftSource(saved);
     setDraft(saved ?? '');
+    setUrlBlurred(false);
   }
 
   const styles = StyleSheet.create({
@@ -98,7 +119,19 @@ export function MoreCustomApiScreen({ navigation }: Props) {
     }
   };
 
-  const isError = feedback !== null && feedback.kind !== 'saved' && feedback.kind !== 'reset_done';
+  const fieldInvalid = isCustomApiFieldInvalid(
+    draft,
+    urlBlurred,
+    feedback?.kind === 'invalid_url'
+  );
+  const displayedFeedback: Feedback | null =
+    fieldInvalid && (feedback === null || feedback.kind === 'invalid_url')
+      ? { kind: 'invalid_url' }
+      : feedback;
+  const isError =
+    displayedFeedback !== null &&
+    displayedFeedback.kind !== 'saved' &&
+    displayedFeedback.kind !== 'reset_done';
 
   const commit = async (draftValue: string) => {
     if (busyRef.current) {
@@ -159,6 +192,7 @@ export function MoreCustomApiScreen({ navigation }: Props) {
       return;
     }
     setFeedback(null);
+    setUrlBlurred(false);
     busyRef.current = true;
     try {
       if (readCustomApiBaseUrlOverride() !== null) {
@@ -188,7 +222,7 @@ export function MoreCustomApiScreen({ navigation }: Props) {
   };
 
   return (
-    <MobileScreenContainer testID="custom-api-screen">
+    <MobileScreenContainer automaticallyAdjustKeyboardInsets testID="custom-api-screen">
       <View style={styles.stack}>
         <Text style={styles.body}>{t('custom_api.intro')}</Text>
         <Text style={styles.label}>{t('custom_api.original_label')}</Text>
@@ -201,10 +235,15 @@ export function MoreCustomApiScreen({ navigation }: Props) {
         <TextField
           accessibilityLabel={t('custom_api.url_label')}
           autoCapitalize="none"
+          autoComplete="off"
           autoCorrect={false}
           editable={!isBusy}
           eyebrow={t('custom_api.url_label')}
+          invalid={fieldInvalid}
           keyboardType="url"
+          onBlur={() => {
+            setUrlBlurred(true);
+          }}
           onChangeText={(value) => {
             setDraft(value);
             setFeedback(null);
@@ -214,15 +253,16 @@ export function MoreCustomApiScreen({ navigation }: Props) {
           }}
           placeholder={t('custom_api.url_placeholder')}
           testID="custom-api-url-input"
+          textContentType="URL"
           value={draft}
         />
-        {feedback !== null ? (
+        {displayedFeedback !== null ? (
           <Text
             accessibilityLiveRegion="polite"
             style={isError ? styles.error : styles.status}
             testID={isError ? 'custom-api-error' : 'custom-api-status'}
           >
-            {feedbackText(feedback)}
+            {feedbackText(displayedFeedback)}
           </Text>
         ) : null}
       </View>

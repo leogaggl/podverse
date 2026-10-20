@@ -246,23 +246,27 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
           <TextField
             accessibilityLabel={t('authentication.email')}
             autoCapitalize="none"
+            autoComplete="email"
             autoCorrect={false}
             eyebrow={t('authentication.email')}
             keyboardType="email-address"
             onChangeText={setEmail}
             placeholder={t('authentication.email_example')}
             testID="signup-email"
+            textContentType="emailAddress"
             value={email}
           />
           <TextField
             accessibilityLabel={t('authentication.password')}
             autoCapitalize="none"
+            autoComplete={isE2e ? 'off' : 'new-password'}
             autoCorrect={false}
             eyebrow={t('authentication.password')}
             onChangeText={setPassword}
             placeholder={t('authentication.password_hint')}
             secureTextEntry={!isE2e}
             testID="signup-password"
+            textContentType={isE2e ? 'none' : 'newPassword'}
             value={password}
           />
           <TextField

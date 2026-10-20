@@ -265,16 +265,19 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
         <TextField
           accessibilityLabel={t('features.add_by_rss.basic_auth_username')}
           autoCapitalize="none"
+          autoComplete="username"
           autoCorrect={false}
           eyebrow={t('features.add_by_rss.basic_auth_username')}
           onChangeText={setUsername}
           placeholder={t('misc.required')}
           testID="rss-credentials-username"
+          textContentType="username"
           value={username}
         />
         <TextField
           accessibilityLabel={t('features.add_by_rss.basic_auth_password')}
           autoCapitalize="none"
+          autoComplete={isE2e ? 'off' : 'current-password'}
           autoCorrect={false}
           eyebrow={t('features.add_by_rss.basic_auth_password')}
           onChangeText={setPassword}
@@ -282,6 +285,7 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
           // iOS Autofill plus a secure field blocks Maestro inputText. E2E shows the password in plaintext.
           secureTextEntry={!isE2e}
           testID="rss-credentials-password"
+          textContentType={isE2e ? 'none' : 'password'}
           value={password}
         />
       </View>
