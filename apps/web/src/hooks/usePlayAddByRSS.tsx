@@ -4,10 +4,11 @@ import type { EnclosureSelectedParams } from '@podverse/helpers';
 import {
   buildLabeledItemEnclosuresFromAddByRSSBundle,
   getQueueForMedium,
+  MediumEnum,
   resolvePreferredMediaTypeEnclosureSelectedParams,
 } from '@podverse/helpers';
 import type { AddByRSSItemIndexItem, AddByRSSLivestreamIndexItem } from '@podverse/parser-mapping';
-import { buildAddByRSSResourceData, getAddByRSSHashId } from '@podverse/parser-mapping';
+import { buildAddByRSSResourceData, getAddByRSSHashIds } from '@podverse/parser-mapping';
 
 import { useAccount } from '../contexts/Account';
 import { useAutoQueue } from '../contexts/AutoQueue';
@@ -16,6 +17,8 @@ import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { useQueues } from '../contexts/Queue';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { addByRSSPlaybackIdentity, writePlaybackHandoffLocalState } from './playbackHandoffState';
+import { useQueueResourcesLoadActive } from './useQueueResourcesLoadActive';
 
 export type PlayAddByRSSOptions = {
   /** False for empty-player queue hydration, which must not stamp `last_played_at`. */
@@ -39,10 +42,12 @@ export function usePlayAddByRSS() {
     setMPEnclosureSelectedParams,
     setMPShouldPlay,
     setMPDuration,
+    playbackLoadGenerationRef,
   } = useMediaPlayer();
   const { setMPCurrentTime } = useMediaPlayerCurrentTime();
   const { setAutoQueueResources, setAutoQueueActiveRow } = useAutoQueue();
   const { queues } = useQueues();
+  const queueResourcesLoadActive = useQueueResourcesLoadActive();
   const { loggedInAccount } = useAccount();
   const { preferredMediaType } = useLocalSettings();
 
@@ -81,11 +86,11 @@ export function usePlayAddByRSS() {
     const resourceData = buildAddByRSSResourceData(indexItem);
     const idText = indexItem.idText ?? '';
 
-    const mediumId = indexItem.mediumId ?? null;
-    const queue =
-      loggedInAccount && mediumId !== null && mediumId !== undefined
-        ? getQueueForMedium(queues, mediumId)
-        : null;
+    // Feeds without a medium tag are podcasts.
+    const mediumId = indexItem.mediumId ?? MediumEnum.Podcast;
+    const queue = loggedInAccount ? getQueueForMedium(queues, mediumId) : null;
+    const recordNowPlaying = options?.recordNowPlaying !== false;
+    const lastPlayedAtIso = new Date().toISOString();
 
     // Set state immediately so the media player effect runs while the user gesture is still
     // valid. Browsers require a recent user gesture to allow media.play(); awaiting the API
@@ -94,6 +99,11 @@ export function usePlayAddByRSS() {
     setAutoQueueActiveRow(0);
 
     setMPAddByRSS({ idText, resourceData });
+    writePlaybackHandoffLocalState({
+      itemIdText: addByRSSPlaybackIdentity(resourceData),
+      itemTitle: resourceData.title ?? null,
+      lastPlayedAt: recordNowPlaying ? lastPlayedAtIso : null,
+    });
     setMPChannel(null);
     setMPClip(null);
     setMPItem(null);
@@ -148,20 +158,25 @@ export function usePlayAddByRSS() {
 
     // Resolve position when not provided (fetch from API) and sync to queue API.
     if (queue?.id_text) {
+      const queueIdText = queue.id_text;
+      // Any later playback load means the user moved on; this item stops writing to the queue.
+      let ownLoadGeneration = playbackLoadGenerationRef.current;
+      const isSuperseded = () => playbackLoadGenerationRef.current !== ownLoadGeneration;
       (async () => {
         let resolvedPosition = typeof playbackPosition === 'number' ? playbackPosition : 0;
 
         if (typeof playbackPosition !== 'number') {
-          const hash = getAddByRSSHashId(indexItem);
+          const hashIds = getAddByRSSHashIds(indexItem);
+          const isThisItem = (hashId: string | null | undefined): boolean =>
+            typeof hashId === 'string' && hashIds.includes(hashId);
           try {
             const nowPlaying = await apiRequestService.reqQueueResourcesGetNowPlayingByQueueIdText(
               queue.id_text
             );
             if (
-              nowPlaying?.add_by_rss_hash_id !== null &&
-              nowPlaying?.add_by_rss_hash_id !== undefined &&
-              nowPlaying.add_by_rss_hash_id === hash &&
-              nowPlaying.playback_position !== null
+              isThisItem(nowPlaying?.add_by_rss_hash_id) &&
+              nowPlaying?.playback_position !== null &&
+              nowPlaying?.playback_position !== undefined
             ) {
               const p = parseFloat(String(nowPlaying.playback_position));
               if (!Number.isNaN(p) && p >= 0) {
@@ -172,9 +187,7 @@ export function usePlayAddByRSS() {
               const upcoming = await apiRequestService.reqQueueResourcesGetAllUpcomingByQueueIdText(
                 queue.id_text
               );
-              const fromUpcoming = upcoming?.find(
-                (r) => r.add_by_rss_hash_id !== null && r.add_by_rss_hash_id === hash
-              );
+              const fromUpcoming = upcoming?.find((r) => isThisItem(r.add_by_rss_hash_id));
               if (
                 fromUpcoming?.playback_position !== null &&
                 fromUpcoming?.playback_position !== undefined
@@ -189,9 +202,7 @@ export function usePlayAddByRSS() {
                     queue.id_text,
                     1
                   );
-                const fromHistory = history?.data?.find(
-                  (r) => r.add_by_rss_hash_id !== null && r.add_by_rss_hash_id === hash
-                );
+                const fromHistory = history?.data?.find((r) => isThisItem(r.add_by_rss_hash_id));
                 if (
                   fromHistory?.playback_position !== null &&
                   fromHistory?.playback_position !== undefined
@@ -208,24 +219,42 @@ export function usePlayAddByRSS() {
           }
         }
 
+        if (isSuperseded()) {
+          return;
+        }
+
         const durationSeconds = getDurationSecondsFromBundle(resourceData.bundle) ?? 0;
 
         // Only update seek state when we resolved position in this async (was not provided).
         if (typeof playbackPosition !== 'number') {
           syncPlaybackPolicy(resolvedPosition, durationSeconds);
+          ownLoadGeneration = playbackLoadGenerationRef.current;
         }
 
-        if (options?.recordNowPlaying !== false) {
-          apiRequestService
-            .reqQueueResourceItemAddByRSSAddNowPlaying(queue.id_text, {
-              add_by_rss_resource_data: resourceData,
-              playback_position: String(resolvedPosition),
-              last_played_at: new Date().toISOString(),
-              playback_event_kind: 'play',
-            })
-            .catch(() => {
-              // Fire-and-forget; queue sync is best-effort
-            });
+        if (!recordNowPlaying) {
+          return;
+        }
+
+        try {
+          await apiRequestService.reqQueueResourceItemAddByRSSAddNowPlaying(queueIdText, {
+            add_by_rss_resource_data: resourceData,
+            playback_position: String(resolvedPosition),
+            last_played_at: lastPlayedAtIso,
+            playback_event_kind: 'play',
+          });
+        } catch (error) {
+          console.error('Failed to record Add by RSS now playing', error);
+          return;
+        }
+
+        // The refreshed queue head is this item, so the queue head effect keeps it in place.
+        if (isSuperseded()) {
+          return;
+        }
+        try {
+          await queueResourcesLoadActive(undefined, { queueIdText });
+        } catch (error) {
+          console.error('Failed to refresh the queue after Add by RSS now playing', error);
         }
       })();
     }

@@ -160,22 +160,6 @@ export const downloadErrorMessageKeys = (reason: string | null): ActionErrorMess
 };
 
 /**
- * Machine detail a user can screenshot for the host or for support. Empty parts are omitted.
- */
-export const actionErrorDetailLine = (parts: {
-  code: string;
-  httpStatus?: number;
-  message: string;
-  reason: string;
-}): string => {
-  const status = parts.httpStatus === undefined ? '' : `HTTP ${parts.httpStatus}`;
-  return [parts.reason, status, parts.code, parts.message]
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
-    .join(' · ');
-};
-
-/**
  * Load and retry failures that never received a native error payload. A rejected native call may
  * still carry a code and message, which are kept for the dialog detail and the error log.
  */

@@ -17,7 +17,8 @@ Use this skill when answering implementation requests in this repo.
 
 ## Required response behavior
 
-1. End with runnable verification commands in a fenced `bash` block.
+1. End with runnable verification commands in a fenced `bash` block. Exception: a COPY-PASTA
+   prompt that is not the last in its set ends without one (§ Plan sets below).
 2. Do not suggest direct Playwright execution (`npx playwright test ...`) for web E2E; use the `make` wrappers so seed/setup is included.
 3. Do not suggest bare Maestro CLI for mobile E2E; use `npm run mobile:e2e:test` (npm-first workflow).
 4. **E2E-affected changes (mandatory):** If the change affects E2E tests (web or mobile), include the **EXACT** focused command(s) needed to verify.
@@ -53,15 +54,28 @@ Follow **commands-from-monorepo-root** rule:
 
 **Never** suggest `npm run test:unit -w <workspace>` — that script name exists only at repo root.
 
+## Plan sets: verification once, at the end
+
+The operator does not test between COPY-PASTA prompts. They run everything after the set.
+
+- **Intermediate prompts** (not the last) end with no verification block. Report the files
+  changed, self-check results when the prompt ran one, any blocker, and anything a later prompt
+  needs.
+- **Writing a set:** the cumulative verification list lives once, in the last prompt or the
+  Close section of `COPY-PASTA.md`. Numbered plans name the tests they add or update as part of
+  the work, but carry no operator command block. Intermediate fences do not say "end with the
+  operator verification commands".
+
 ## Copy-pasta final prompt (cumulative verification)
 
 When you complete the **last** step in a plan set (`COPY-PASTA.md` / `00-EXECUTION-ORDER.md`):
 
 1. Assume the operator ran every COPY-PASTA prompt back-to-back **without** running tests until this final step.
-2. Collect **Verification** sections from each numbered plan file in the set.
+2. Start from the cumulative list in the last prompt or Close. Add any spec, Maestro flow, or test
+   file the set created that the list misses (check `git status`). Older sets that put a
+   **Verification** section in each numbered plan: merge those instead.
 3. Merge into one fenced `bash` block for the operator: `npm run build:packages`, `npm run lint`, `npm run test:unit` (or scoped `npm run test -w <workspace>` when the phase is narrow), `npm run test:e2e:api`, scoped `make e2e_test_*_report_spec`, scoped `npm run mobile:e2e:test -- <area>`, etc., as applicable to the set. For mobile API-backed sets, keep leave-running Metro/API out of that block (HOW-TO-RUN prose / comments only).
 4. Deduplicate commands; order: build/lint → unit → API → E2E web → E2E mobile (scoped before full suite).
-5. For intermediate COPY-PASTA steps (not the last), end with verification commands for **that step only**.
 
 ## Spec variables
 

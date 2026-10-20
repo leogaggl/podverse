@@ -27,7 +27,10 @@ test.describe('Add by RSS with a username and password', () => {
   }, testInfo) => {
     test.setTimeout(45_000);
     await loginSeedUser(page);
-    const parse = await stubAddByRSSParse(page, [{ status: 'parsed', credentialsState: 'sent' }]);
+    const parse = await stubAddByRSSParse(page, {
+      feedUrl: FEED_URL,
+      outcomes: [{ status: 'parsed', credentialsState: 'sent' }],
+    });
     const followBodies: unknown[] = [];
     page.on('request', (request: Request) => {
       if (

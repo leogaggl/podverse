@@ -5,21 +5,17 @@ import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { AddByRSSParseStatus } from '@podverse/helpers';
-import { createAddByRSSId, createAddByRSSIdText } from '@podverse/helpers';
 import { CallToActionMessage, Dropdown, MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { useAccount } from '../../../contexts/Account';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
 import type { AddByRSSParseOutcome } from '../../../utils/addByRSS/actions';
-import {
-  applyAddByRSSParseStatus,
-  enqueueAddByRSSParseWithStoredCredentials,
-  pollAddByRSSParseStatus,
-} from '../../../utils/addByRSS/actions';
-import { getFollowedAddByRSSChannels } from '../../../utils/addByRSS/api';
+import { applyAddByRSSParseStatus } from '../../../utils/addByRSS/actions';
 import { partitionAddByRSSFeedsByCredentials } from '../../../utils/addByRSS/credentialsStatus';
 import { listFeedsWithCredentials } from '../../../utils/addByRSS/credentialStore';
+import { onAddByRSSFeedChanged } from '../../../utils/addByRSS/feedChangedEvent';
+import { enqueueAddByRSSFirstParses } from '../../../utils/addByRSS/firstParse';
 import {
   ADD_BY_RSS_ITEMS_PAGE_SIZE,
   buildAddByRSSItemsIndex,
@@ -28,12 +24,10 @@ import {
 } from '../../../utils/addByRSS/itemIndex';
 import { runAddByRSSParseAll } from '../../../utils/addByRSS/parseAll';
 import {
-  bulkRemoveAddByRSSFeeds,
-  bulkUpsertAddByRSSFeeds,
-  clearAddByRSSItemsIndex,
   getAddByRSSFeedsByResourceType,
   getAllAddByRSSFeeds,
 } from '../../../utils/addByRSS/storage';
+import { syncAddByRSSFollowStubs } from '../../../utils/addByRSS/sync';
 import type {
   AddByRSSFeedRecord,
   AddByRSSItemIndexItem,
@@ -58,6 +52,8 @@ type AddByRSSListClientProps = {
 };
 
 type ListSort = 'recent' | 'oldest';
+
+const FEED_CHANGED_REFRESH_DELAY_MS = 250;
 
 const getResourceLabel = (
   resourceType: AddByRSSResourceType,
@@ -93,66 +89,6 @@ const upsertFeedInState = (
   next[index] = updated;
   return next;
 };
-
-const uncachedFollowParses = new Set<string>();
-
-function feedNeedsFirstParse(feed: AddByRSSFeedRecord): boolean {
-  return (
-    feed.cache === undefined &&
-    (feed.lastParsedAt === undefined || feed.lastParsedAt === null) &&
-    feed.status === undefined
-  );
-}
-
-/** One parse per followed URL that has no local cache yet, shared across list mounts. */
-async function enqueueFollowsWithoutCache(
-  accountId: string,
-  onStatus: (
-    feedUrl: string,
-    parsedFeed: AddByRSSParsedFeed | undefined,
-    status: AddByRSSParseStatus,
-    cache?: AddByRSSFeedRecord['cache'],
-    outcome?: AddByRSSParseOutcome
-  ) => Promise<void>
-): Promise<void> {
-  const feeds = await getAllAddByRSSFeeds();
-  const pending: AddByRSSFeedRecord[] = [];
-  for (const feed of feeds) {
-    if (!feedNeedsFirstParse(feed) || uncachedFollowParses.has(feed.feedUrl)) {
-      continue;
-    }
-    uncachedFollowParses.add(feed.feedUrl);
-    pending.push(feed);
-  }
-
-  for (const feed of pending) {
-    try {
-      await onStatus(feed.feedUrl, undefined, 'queued');
-      const { request_id } = await enqueueAddByRSSParseWithStoredCredentials({
-        accountId,
-        feedUrl: feed.feedUrl,
-      });
-      void pollAddByRSSParseStatus({
-        requestId: request_id,
-        onStatusUpdate: async (statusResponse) => {
-          await onStatus(
-            feed.feedUrl,
-            statusResponse.payload,
-            statusResponse.status,
-            statusResponse.cache,
-            statusResponse
-          );
-        },
-      }).catch((error: unknown) => {
-        console.error(error);
-        uncachedFollowParses.delete(feed.feedUrl);
-      });
-    } catch (error: unknown) {
-      console.error(error);
-      uncachedFollowParses.delete(feed.feedUrl);
-    }
-  }
-}
 
 export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resourceType }) => {
   const tFeatures = useTranslations('features');
@@ -330,49 +266,7 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
     if (!loggedInAccount) {
       return;
     }
-
-    const remote = await getFollowedAddByRSSChannels(loggedInAccount.id_text);
-    const existing = await getAllAddByRSSFeeds();
-    const remoteUrls = new Set(remote.map((channel) => channel.feed_url));
-    const toRemove = existing
-      .filter((feed) => !remoteUrls.has(feed.feedUrl))
-      .map((feed) => feed.idText);
-    const existingByUrl = new Map(existing.map((feed) => [feed.feedUrl, feed]));
-    const now = new Date().toISOString();
-
-    if (toRemove.length > 0) {
-      await bulkRemoveAddByRSSFeeds(toRemove);
-      await clearAddByRSSItemsIndex();
-    }
-
-    const toUpsert: AddByRSSFeedRecord[] = remote.map((channel) => {
-      const existingRecord = existingByUrl.get(channel.feed_url);
-      if (existingRecord) {
-        return {
-          ...existingRecord,
-          title: channel.title ?? existingRecord.title,
-          imageUrl: channel.image_url ?? existingRecord.imageUrl,
-          updatedAt: now,
-          requiresCredentials: channel.requires_credentials === true,
-        };
-      }
-
-      const idText = createAddByRSSIdText();
-      return {
-        id: createAddByRSSId(idText),
-        idText,
-        resourceType: 'podcasts',
-        feedUrl: channel.feed_url,
-        title: channel.title ?? channel.feed_url,
-        imageUrl: channel.image_url ?? null,
-        updatedAt: now,
-        requiresCredentials: channel.requires_credentials === true,
-      };
-    });
-
-    if (toUpsert.length > 0) {
-      await bulkUpsertAddByRSSFeeds(toUpsert);
-    }
+    await syncAddByRSSFollowStubs(loggedInAccount.id_text);
   }, [loggedInAccount]);
 
   const loadFeeds = useCallback(async () => {
@@ -474,11 +368,35 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
     void loadFeeds();
   }, [loadFeeds]);
 
+  // A parse started elsewhere (the background refresh, another page) lands here too. Bursts of
+  // status updates collapse into one re-read.
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = onAddByRSSFeedChanged(() => {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        timer = null;
+        void refreshFeeds();
+      }, FEED_CHANGED_REFRESH_DELAY_MS);
+    });
+    return () => {
+      unsubscribe();
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+    };
+  }, [refreshFeeds]);
+
   React.useEffect(() => {
     if (!loggedInAccount) {
       return;
     }
-    void enqueueFollowsWithoutCache(loggedInAccount.id_text, handleParseStatus);
+    void enqueueAddByRSSFirstParses({
+      accountId: loggedInAccount.id_text,
+      onStatus: handleParseStatus,
+    });
   }, [feeds, handleParseStatus, loggedInAccount]);
 
   return (

@@ -30,7 +30,7 @@ Read and execute .llm/plans/active/feature/01-example.md
 
 Follow the detail doc … and locked decisions in 00-SUMMARY.md.
 
-Do not run tests during agent work; leave operator verification commands at the end.
+Do not run tests during agent work.
 \`\`\`
 ```
 
@@ -43,6 +43,14 @@ When the last phase is a single prompt, that prompt also closes the set: it move
 with the cumulative verification for the whole set. A separate Close prompt costs a chat and an
 operator handoff to move three files. Keep a separate **Close** only when the last phase runs
 prompts at the same time, because neither of those agents knows it finished last.
+
+## Verification lives in one place
+
+The operator runs tests once, after the whole set. Only the last prompt (or Close) carries the
+cumulative verification list, written when the set is created. Intermediate fences do not ask
+for operator verification commands, and numbered plans have no operator command block; they name
+the tests they add or update as part of the work. Details: **response-ending-make-verify**
+§ Plan sets.
 
 ## Orchestrate line (trial)
 
@@ -57,6 +65,28 @@ you want to read each result before the next prompt starts.
 ```
 
 **abcagentoptimize** tracks the trial and decides whether this extends to other sets.
+
+## Plan runner
+
+The operator can run a whole set unattended with **plan-runner**, a Cursor SDK script in the
+sibling `plan-runner` repo. It starts one agent per prompt on the prompt's own model and
+reasoning, stops at the first blocker, and starts nothing else until that blocker is resumed.
+Put one line under "How to use" in every COPY-PASTA:
+
+```markdown
+**Optional — run the set unattended (Root tab):**
+`node ../plan-runner/run-plan-set.mjs <set>`. It stops at the first blocker; see the
+plan-runner README to resume.
+```
+
+The runner parses this page, so keep the shapes it reads exact:
+
+- `## <heading>` per phase; prompts that may run together share one heading.
+- `- [ ] **NN — Title**`, then `**Cursor model:** <model> · **Reasoning:** <level>`, then the
+  fence.
+- The fence starts with `Read and execute .llm/plans/active/<set>/<NN-plan>.md`.
+- A wait for a person is a stop-this-turn instruction (above). Under the runner, the agent reports
+  that stop as blocked, and the operator resumes the same agent after doing the step.
 
 ## Optional last checkbox — abcaicast
 

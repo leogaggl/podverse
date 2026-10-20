@@ -50,29 +50,75 @@ const E2E_ADDBYRSS_FRESH_ENCLOSURE_URL =
   'http://localhost:2111/e2e/audio/e2e-addbyrss-fresh-60s-440hz.mp3';
 
 /**
+ * The seeded account already follows this feed. Its fixture mirrors the committed feed's channel
+ * and first episode, so it never shares a title with the feed a flow adds.
+ */
+const E2E_TEST_ASSETS_FEED_URL = 'http://localhost:2111/feeds/feed-podcast-1.rss';
+
+type E2eParsedFeedFixture = {
+  channelTitle: string;
+  link: string;
+  channelImageUrl: string;
+  itemTitle: string;
+  itemGuid: string;
+  itemDurationSeconds: number;
+  enclosureUrl: string;
+  itemImageUrl: string;
+  pubDate: string;
+};
+
+const E2E_DEFAULT_PARSED_FEED: E2eParsedFeedFixture = {
+  channelTitle: E2E_ADD_BY_RSS_CHANNEL_TITLE,
+  link: 'https://e2e-seed-addbyrss.example/',
+  channelImageUrl: E2E_ADD_BY_RSS_CHANNEL_IMAGE_URL,
+  itemTitle: E2E_ADD_BY_RSS_ITEM_TITLE,
+  itemGuid: E2E_ADD_BY_RSS_ITEM_GUID,
+  itemDurationSeconds: 60,
+  enclosureUrl: E2E_ADDBYRSS_FRESH_ENCLOSURE_URL,
+  itemImageUrl: E2E_ADD_BY_RSS_ITEM_IMAGE_URL,
+  pubDate: '2025-01-01T00:00:00.000Z',
+};
+
+const E2E_TEST_ASSETS_PARSED_FEED: E2eParsedFeedFixture = {
+  channelTitle: 'Vitium amitto volup traho praesentium tantillus totam balbus balbus paulatim.',
+  link: 'http://localhost:2111/',
+  channelImageUrl: 'http://localhost:2111/images/image-005-300.jpg',
+  itemTitle: 'Tamdiu deinde doloribus terebro asper accusamus pariatur atrocitas torrens ea.',
+  itemGuid: 'ed7204c0-1267-11f1-89a4-7b8808f0f4f1',
+  itemDurationSeconds: 61,
+  enclosureUrl: 'http://localhost:2111/audio/audio-001.mp3',
+  itemImageUrl: 'http://localhost:2111/images/image-001-300.jpg',
+  pubDate: '2025-07-02T11:21:52.000Z',
+};
+
+/**
  * Minimal partytime-shaped payload so mobile `convertParsedRSSFeedToCompat` yields a mapped bundle
  * with one playable item. Cast via unknown: fixture is intentionally not a full FeedObject.
  */
-const buildE2eParsedFeedPayload = (): NonNullable<AddByRSSParseCacheEntry['payload']> => {
+const buildE2eParsedFeedPayload = (
+  feedUrl: string
+): NonNullable<AddByRSSParseCacheEntry['payload']> => {
+  const source =
+    feedUrl === E2E_TEST_ASSETS_FEED_URL ? E2E_TEST_ASSETS_PARSED_FEED : E2E_DEFAULT_PARSED_FEED;
   const fixture = {
-    title: E2E_ADD_BY_RSS_CHANNEL_TITLE,
-    link: 'https://e2e-seed-addbyrss.example/',
+    title: source.channelTitle,
+    link: source.link,
     description: 'E2E add-by-RSS fixture',
     explicit: false,
-    image: { url: E2E_ADD_BY_RSS_CHANNEL_IMAGE_URL },
+    image: { url: source.channelImageUrl },
     items: [
       {
-        title: E2E_ADD_BY_RSS_ITEM_TITLE,
-        guid: E2E_ADD_BY_RSS_ITEM_GUID,
-        duration: 60,
+        title: source.itemTitle,
+        guid: source.itemGuid,
+        duration: source.itemDurationSeconds,
         explicit: false,
         enclosure: {
-          url: E2E_ADDBYRSS_FRESH_ENCLOSURE_URL,
+          url: source.enclosureUrl,
           type: 'audio/mpeg',
           length: 0,
         },
-        image: E2E_ADD_BY_RSS_ITEM_IMAGE_URL,
-        pubDate: '2025-01-01T00:00:00.000Z',
+        image: source.itemImageUrl,
+        pubDate: source.pubDate,
       },
     ],
   };
@@ -170,7 +216,7 @@ class AccountAddByRSSParseController {
                     etag: etag || undefined,
                     lastModified: last_modified || undefined,
                   },
-                  payload: buildE2eParsedFeedPayload(),
+                  payload: buildE2eParsedFeedPayload(feedUrl),
                   updatedAt: new Date().toISOString(),
                 });
                 res.status(201).json({ request_id: requestId });
@@ -313,7 +359,7 @@ class AccountAddByRSSParseController {
                       etag,
                       lastModified,
                     },
-                    payload: buildE2eParsedFeedPayload(),
+                    payload: buildE2eParsedFeedPayload(feedUrl),
                     updatedAt: new Date().toISOString(),
                   });
                   continue;

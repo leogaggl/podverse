@@ -12,6 +12,7 @@ import { isMusicMediumId } from '@podverse/helpers/medium';
 // Import from the request module (not the auth barrel) to keep the React AuthProvider out of the
 // data-layer module graph.
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
+import { withCanonicalAddByRssFeedUrl } from '../../lib/addByRss/resourceData';
 import {
   buildItemLabeledEnclosures,
   DEFAULT_ENCLOSURE_SELECTED_PARAMS,
@@ -302,11 +303,13 @@ const refreshQueueViewsAfterMutation = async (
 
 /**
  * A now-playing resource targeted by a move-to-history mutation. Mirrors the web
- * `useQueueResourcesMoveNowPlayingToHistory` clip / soundbite / item branches.
+ * `useQueueResourcesMoveNowPlayingToHistory` clip / soundbite / item / Add by RSS branches. An Add
+ * by RSS resource is identified by its resource data; the server derives the hash from it.
  */
-export type MoveNowPlayingToHistoryTarget = {
-  kind: 'item' | 'clip' | 'soundbite';
-  idText: string;
+export type MoveNowPlayingToHistoryTarget = (
+  | { kind: 'item' | 'clip' | 'soundbite'; idText: string }
+  | { kind: 'add_by_rss'; resourceData: object }
+) & {
   playbackPosition?: string;
   completed?: boolean;
 };
@@ -330,6 +333,12 @@ const addResourceToHistory = async (
   };
 
   await requestWithMobileAuthRefresh(context, async (api) => {
+    if (target.kind === 'add_by_rss') {
+      return api.reqQueueResourceItemAddByRSSAddHistory(queueIdText, {
+        ...params,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(target.resourceData),
+      });
+    }
     if (target.kind === 'clip') {
       return api.reqQueueResourceClipAddHistory(queueIdText, target.idText, params);
     }
@@ -674,7 +683,7 @@ export const queueRepository = {
     const generation = queueCacheGeneration;
     const added = await requestWithMobileAuthRefresh(context, async (api) =>
       api.reqQueueResourceItemAddByRSSAddNext(queueIdText, {
-        add_by_rss_resource_data: resourceData,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(resourceData),
       })
     );
     await refreshQueueViewsAfterMutation(context, queueIdText, generation);
@@ -692,7 +701,7 @@ export const queueRepository = {
     const generation = queueCacheGeneration;
     const added = await requestWithMobileAuthRefresh(context, async (api) =>
       api.reqQueueResourceItemAddByRSSAddBetween(queueIdText, {
-        add_by_rss_resource_data: resourceData,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(resourceData),
         ...toBetweenParams(position1, position2),
       })
     );
@@ -709,7 +718,7 @@ export const queueRepository = {
     const generation = queueCacheGeneration;
     const added = await requestWithMobileAuthRefresh(context, async (api) =>
       api.reqQueueResourceItemAddByRSSAddLast(queueIdText, {
-        add_by_rss_resource_data: resourceData,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(resourceData),
       })
     );
     await refreshQueueViewsAfterMutation(context, queueIdText, generation);

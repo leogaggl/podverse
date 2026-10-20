@@ -119,11 +119,7 @@ export function MoreCustomApiScreen({ navigation }: Props) {
     }
   };
 
-  const fieldInvalid = isCustomApiFieldInvalid(
-    draft,
-    urlBlurred,
-    feedback?.kind === 'invalid_url'
-  );
+  const fieldInvalid = isCustomApiFieldInvalid(draft, urlBlurred, feedback?.kind === 'invalid_url');
   const displayedFeedback: Feedback | null =
     fieldInvalid && (feedback === null || feedback.kind === 'invalid_url')
       ? { kind: 'invalid_url' }

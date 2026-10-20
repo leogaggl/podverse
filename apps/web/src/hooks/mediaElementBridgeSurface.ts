@@ -111,12 +111,14 @@ export type SyncHttpFileUrlRestoreSeekAndPlayInput = {
   onRestoreSeekApplied: () => void;
   shouldPlay: boolean;
   onPlayedShouldPlayClear: () => void;
+  onPlayRejected?: (error: unknown) => void;
 };
 
 export type ApplyItemEnclosureSurfaceChangeInput = {
   treatAsActiveNonLiveFile: boolean;
   shouldPlayWhenReady: boolean;
   onPlayedShouldPlayClear: () => void;
+  onPlayRejected?: (error: unknown) => void;
   /** The HLS playlist attachment owns `load`. A file reload here would interrupt it. */
   hlsPlaylistAttachment?: boolean;
 };
@@ -184,7 +186,7 @@ export function syncHttpFileUrlRestoreSeekAndPlayFromRef(
   }
   const elPlay = mediaRef.current;
   if (input.shouldPlay && elPlay) {
-    playMediaWhenReady(elPlay, input.onPlayedShouldPlayClear);
+    playMediaWhenReady(elPlay, input.onPlayedShouldPlayClear, input.onPlayRejected);
   }
 }
 
@@ -201,7 +203,7 @@ export function applyItemEnclosureSurfaceChangeFromRef(
       media.load();
     }
     if (input.shouldPlayWhenReady) {
-      playMediaWhenReady(media, input.onPlayedShouldPlayClear);
+      playMediaWhenReady(media, input.onPlayedShouldPlayClear, input.onPlayRejected);
     }
   } else {
     detachNonLiveHlsPlayback(media);

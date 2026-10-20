@@ -63,9 +63,16 @@ const md5Digest = (inputBytes) => {
   while (input.length % 64 !== 56) {
     input.push(0);
   }
+  // Little-endian 64-bit bit length. JS shift counts wrap at 32, so the high word is split off
+  // arithmetically rather than with `>>> 32`.
   const bitLen = originalLength * 8;
-  for (let i = 0; i < 8; i += 1) {
-    input.push((bitLen >>> (8 * i)) & 0xff);
+  const bitLenLow = bitLen >>> 0;
+  const bitLenHigh = Math.floor(bitLen / 0x100000000) >>> 0;
+  for (let i = 0; i < 4; i += 1) {
+    input.push((bitLenLow >>> (8 * i)) & 0xff);
+  }
+  for (let i = 0; i < 4; i += 1) {
+    input.push((bitLenHigh >>> (8 * i)) & 0xff);
   }
 
   let a = 0x67452301;

@@ -137,6 +137,7 @@ export function buildE2eWebSidecarEnvPrefix(options?: E2eWebSidecarEnvOptions): 
 export function buildE2eWebAppEnv(options?: E2eWebSidecarEnvOptions): Record<string, string> {
   return {
     NODE_ENV: 'production',
+    ALLOW_LOCALHOST_PROXY: 'true',
     PORT: '4032',
     RUNTIME_CONFIG_URL: 'http://localhost:4031',
     NODE_OPTIONS: '--disable-warning=DEP0060',

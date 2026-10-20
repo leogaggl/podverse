@@ -31,6 +31,7 @@ export function NonLiveMediaMount() {
   const {
     mpItem,
     mpAddByRSS,
+    mpAddByRSSMediaSource,
     mpClip,
     mpItemSoundbite,
     mpItemLabeledItemEnclosures,
@@ -44,14 +45,14 @@ export function NonLiveMediaMount() {
 
   const isVideoPlaying = isNonLiveVideoPlaying({
     mpItem,
-    mpAddByRSS,
+    mpAddByRSS: mpAddByRSSMediaSource,
     mpItemLabeledItemEnclosures,
     mpEnclosureSelectedParams,
   });
 
   const currentVideoKey =
-    isVideoPlaying && mpAddByRSS?.idText
-      ? `addbyrss:${mpAddByRSS.idText}`
+    isVideoPlaying && mpAddByRSSMediaSource?.idText
+      ? `addbyrss:${mpAddByRSSMediaSource.idText}`
       : isVideoPlaying && mpItem?.id_text
         ? `item:${mpItem.id_text}`
         : null;
@@ -89,7 +90,7 @@ export function NonLiveMediaMount() {
     }
     if (lastVideoKeyRef.current !== currentVideoKey) {
       lastVideoKeyRef.current = currentVideoKey;
-      if (mpAddByRSS && isVideoPlaying) {
+      if (mpAddByRSSMediaSource && isVideoPlaying) {
         setVideoLocation('floating');
         return;
       }
@@ -97,7 +98,7 @@ export function NonLiveMediaMount() {
         setVideoLocation('floating');
       }
     }
-  }, [currentVideoKey, videoLocation, setVideoLocation, mpAddByRSS, isVideoPlaying]);
+  }, [currentVideoKey, videoLocation, setVideoLocation, mpAddByRSSMediaSource, isVideoPlaying]);
 
   useEffect(() => {
     if (!currentVideoKey) {

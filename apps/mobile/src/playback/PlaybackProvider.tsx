@@ -73,6 +73,7 @@ import type { MobileAuthRequestContext } from '../data';
 import type { PlaybackOutboxEnqueueEvent, PlaybackStatsTargets } from '../data';
 import {
   accountRepository,
+  addByRssRepository,
   playbackContentRepository,
   playbackOutboxRepository,
   queueRepository,
@@ -91,6 +92,7 @@ import { useAutoQueueLoadResources } from '../hooks/useAutoQueueLoadResources';
 import { useQueueDataRevision } from '../hooks/useQueueDataRevision';
 import { useQueueMutations } from '../hooks/useQueueMutations';
 import { useQueueResourcesLoadActive } from '../hooks/useQueueResourcesLoadActive';
+import { resolveLocalAddByRssResourceData } from '../lib/addByRss/localResourceData';
 import type { AutoQueueDirective, AutoQueueResourcesMapRow } from '../lib/autoQueue/autoQueue';
 import {
   autoQueueIncrementActiveRow,
@@ -164,6 +166,8 @@ import {
   playbackEventFromBackgroundTransition,
   playbackEventFromDiscreteSignal,
   playbackEventFromProgressSample,
+  playbackEventPayloadForTarget,
+  playbackMediumIdFromTarget,
   shouldClaimActiveQueueForPlaybackEvent,
   shouldPostNowPlayingImmediately,
 } from './playbackEventSource';
@@ -171,6 +175,7 @@ import {
   buildPlaybackHandoffDismissedStateKey,
   shouldPromptForPlaybackHandoffConflict,
 } from './playbackHandoff';
+import { addByRssResourceDataTitle, queueResourceTitle } from './playbackHandoffTitle';
 import {
   getPlaybackDurationSeconds,
   getPlaybackPositionClockSeconds,
@@ -312,6 +317,12 @@ const resolveAddByRssPlaybackUrl = (resourceData: AddByRSSResourceData): string 
     return resolveE2eMediaUrl(itemUrl.trim());
   }
 
+  // A row written without the full bundle still names its enclosure.
+  const enclosureUrl = resourceData.enclosure_url;
+  if (typeof enclosureUrl === 'string' && enclosureUrl.trim().length > 0) {
+    return resolveE2eMediaUrl(enclosureUrl.trim());
+  }
+
   return null;
 };
 
@@ -413,22 +424,6 @@ const resolveQueueResourceRef = (
   }
   if (resource.item?.id_text) {
     return { resourceIdText: resource.item.id_text, resourceKind: 'item' };
-  }
-  return null;
-};
-
-const queueResourceTitle = (resource: DTOQueueResource): string | null => {
-  const titleFromItem = resource.item?.title;
-  if (typeof titleFromItem === 'string' && titleFromItem.length > 0) {
-    return titleFromItem;
-  }
-  const titleFromClipItem = resource.clip?.item?.title;
-  if (typeof titleFromClipItem === 'string' && titleFromClipItem.length > 0) {
-    return titleFromClipItem;
-  }
-  const titleFromSoundbiteItem = resource.item_soundbite?.item?.title;
-  if (typeof titleFromSoundbiteItem === 'string' && titleFromSoundbiteItem.length > 0) {
-    return titleFromSoundbiteItem;
   }
   return null;
 };
@@ -971,9 +966,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         }
 
         const target = activeTargetRef.current;
-        // Add-by-RSS plays from a device-local feed with no channel and no queue behind it, so
-        // there is no queue-scoped playback event to write.
-        if (target === null || target.kind === 'add-by-rss') {
+        if (target === null) {
           return false;
         }
 
@@ -982,14 +975,15 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           return false;
         }
 
-        const queueFromList = getQueueForMedium(queuesRef.current, target.channel.medium_id);
+        const mediumId = playbackMediumIdFromTarget(target);
+        const queueFromList = getQueueForMedium(queuesRef.current, mediumId);
         const queueFromActive =
           activeQueueRef.current === null
             ? null
-            : getQueueForMedium([activeQueueRef.current], target.channel.medium_id);
+            : getQueueForMedium([activeQueueRef.current], mediumId);
         let queue = queueFromList ?? queueFromActive;
         if (queue === null) {
-          const loaded = await loadActive(target.channel.medium_id);
+          const loaded = await loadActive(mediumId);
           queue = loaded.activeQueue;
         }
         if (queue === null) {
@@ -1020,7 +1014,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           isPlaying: params.isPlaying,
           mediaFileDuration,
           occurredAt,
-          payload: params.payload,
+          payload: playbackEventPayloadForTarget(target, params.payload),
           playbackPosition,
           queueIdText: queue.id_text,
           resourceIdText: resource.resourceIdText,
@@ -1768,6 +1762,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     async (
       resourceData: AddByRSSResourceData,
       options: {
+        autoPlayOverride?: boolean;
         autoQueue: AutoQueueDirective;
         explicitPlaybackSeconds?: number;
       }
@@ -1783,6 +1778,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           resourceData,
         },
         {
+          autoPlayOverride: options.autoPlayOverride,
           autoQueue: options.autoQueue,
           explicitPlaybackSeconds: options.explicitPlaybackSeconds,
           summary: summaryFromAddByRssResourceData(resourceData),
@@ -1818,7 +1814,12 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     ): Promise<void> => {
       const autoQueue = options?.autoQueue ?? { mode: 'preserve' };
       if (isAddByRssResourceData(resource.add_by_rss_resource_data)) {
-        await startAddByRssPlayback(resource.add_by_rss_resource_data, {
+        const resourceData = await resolveLocalAddByRssResourceData(
+          resource.add_by_rss_resource_data,
+          addByRssRepository
+        );
+        await startAddByRssPlayback(resourceData, {
+          autoPlayOverride: options?.autoPlayOverride,
           autoQueue,
           explicitPlaybackSeconds: options?.explicitPlaybackSeconds,
         });
@@ -1901,7 +1902,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     async (
       state: Pick<
         PlaybackReconcileDifferentNowPlayingConflict['local'],
-        'resourceIdText' | 'resourceKind'
+        'queueIdText' | 'resourceIdText' | 'resourceKind'
       >
     ): Promise<string> => {
       const activeTarget = activeTargetRef.current;
@@ -1942,13 +1943,31 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           const title = soundbite.item?.title;
           return title && title.length > 0 ? title : soundbite.id_text;
         }
+        if (state.resourceKind === 'add_by_rss') {
+          const accountIdText = await resolveAuthenticatedAccountIdText();
+          const resourceData =
+            accountIdText === null
+              ? null
+              : await playbackOutboxRepository.getPendingAddByRssResourceData({
+                  accountIdText,
+                  queueIdText: state.queueIdText,
+                  resourceIdText: state.resourceIdText,
+                });
+          const title = addByRssResourceDataTitle(resourceData);
+          if (title !== null) {
+            return title;
+          }
+        }
       } catch {
         // Best-effort title hydration for prompt copy.
       }
 
-      return state.resourceIdText;
+      // An Add by RSS id is a hash; the prompt names the feature instead.
+      return state.resourceKind === 'add_by_rss'
+        ? t('features.add_by_rss.label')
+        : state.resourceIdText;
     },
-    [buildContext]
+    [buildContext, resolveAuthenticatedAccountIdText, t]
   );
 
   useEffect(() => {
@@ -2158,8 +2177,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 
   const probeHasQueueAhead = useCallback(
     async (target: PlaybackTarget): Promise<boolean> => {
-      const advanceMediumId =
-        target.kind !== 'add-by-rss' ? target.channel.medium_id : activeQueueRef.current?.medium_id;
+      const advanceMediumId = playbackMediumIdFromTarget(target);
       let upcomingManualCount = 0;
       try {
         const result = await loadActive(advanceMediumId);
@@ -2241,14 +2259,13 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         //
         // The queue is the one for the medium of what was playing, not whichever queue happens to be
         // active: starting a track leaves a podcast queue active until its own claim lands, and
-        // asking that queue for the next row skips into the wrong medium. Add-by-RSS has no channel
-        // and no queue behind it, so it falls back to the active queue.
+        // asking that queue for the next row skips into the wrong medium. Add-by-RSS uses its
+        // resource data medium, or the podcast queue when it has none, the same queue its playback
+        // events were written to.
         let activeResource: DTOQueueResource | null = null;
         let upcomingManualCount = 0;
         const advanceMediumId =
-          target !== null && target.kind !== 'add-by-rss'
-            ? target.channel.medium_id
-            : activeQueueRef.current?.medium_id;
+          target !== null ? playbackMediumIdFromTarget(target) : activeQueueRef.current?.medium_id;
         try {
           const result = await loadActive(advanceMediumId);
           activeResource = result.activeResource;

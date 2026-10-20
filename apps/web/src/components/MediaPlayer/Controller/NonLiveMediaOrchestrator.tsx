@@ -39,6 +39,19 @@ import {
 import type { MusicItemPlaybackIntent, PlaybackLoadDecision } from '../../../lib/playback';
 import { clampNearEndSeconds, selectItemChapterForTime } from '../../../lib/playback';
 import {
+  decideBlockedHostPlayback,
+  resolvedPlaybackUrlForIdentity,
+} from '../../../utils/media/blockedHostPlayback';
+import type { MPPlaybackError, WebPlaybackErrorKind } from '../../../utils/media/playbackErrorCopy';
+import {
+  mediaErrorCodeLabel,
+  mediaErrorKind,
+  playbackErrorIdentity,
+  playRejectionDetail,
+  playRejectionKind,
+  shouldAdvanceQueueAfterEnded,
+} from '../../../utils/media/playbackErrorCopy';
+import {
   checkIfIsAudioFile,
   checkIfIsVideoFile,
   checkIsLiveItem,
@@ -53,8 +66,33 @@ import {
 import { MediaElement } from '../MediaElement/MediaElement';
 import { toFileMediaElementSource } from '../MediaElement/mediaElementSourceFromTarget';
 
-/** `MediaError.MEDIA_ERR_ABORTED`: the load was cancelled (source switch), not a failure. */
-const MEDIA_ERR_ABORTED = 1;
+const playbackErrorForLoadedItem = (params: {
+  kind: WebPlaybackErrorKind;
+  code: string;
+  message: string;
+  mediaUrl: string | null;
+  addByRss: MediaPlayerAddByRSSState;
+  item: DTOItem | null;
+  clip: DTOClip | null;
+  soundbite: DTOItemSoundbite | null;
+}): MPPlaybackError | null => {
+  const identity = playbackErrorIdentity({
+    addByRssResourceData: params.addByRss?.resourceData ?? null,
+    itemIdText: params.item?.id_text ?? null,
+    clipIdText: params.clip?.id_text ?? null,
+    soundbiteIdText: params.soundbite?.id_text ?? null,
+  });
+  if (identity === null) {
+    return null;
+  }
+  return {
+    kind: params.kind,
+    identity,
+    mediaUrl: params.mediaUrl,
+    code: params.code,
+    message: params.message,
+  };
+};
 
 export interface NonLiveMediaOrchestratorProps {
   mediaType: 'audio' | 'video';
@@ -119,7 +157,13 @@ export interface NonLiveMediaOrchestratorProps {
 export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> = (props) => {
   const { loggedInAccount } = useAccount();
   const { embedPlayerSize, isEmbedRoute } = useEmbedPlaybackGuardrails();
-  const { activePlaybackTarget } = useMediaPlayer();
+  const { activePlaybackTarget, mpPlaybackError, reportPlaybackError, setMPPlaybackError } =
+    useMediaPlayer();
+  const playbackError = mpPlaybackError ?? null;
+  const mpPlaybackErrorRef = useRef(playbackError);
+  mpPlaybackErrorRef.current = playbackError;
+  const reportPlaybackErrorRef = useRef(reportPlaybackError);
+  reportPlaybackErrorRef.current = reportPlaybackError;
   const loggedInAccountRef = useRef(loggedInAccount);
   useEffect(() => {
     loggedInAccountRef.current = loggedInAccount;
@@ -309,19 +353,139 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
     }
   }, [seekInternally, setMPIsPlaying, setMPShouldPlay, setMPCurrentTime]);
 
-  const bridge = useMediaElementBridge(mediaRef, {
-    onError(error) {
-      const addByRSS = mpAddByRSSRef.current;
-      if (!addByRSS || !error || error.code === MEDIA_ERR_ABORTED) {
-        return;
-      }
+  const applyResolvedPlaybackUrl = (url: string, continuePlayback: boolean) => {
+    const media = mediaRef.current;
+    const seconds =
+      media !== null && Number.isFinite(media.currentTime) && media.currentTime >= 0
+        ? media.currentTime
+        : 0;
+    bridgeRef.current?.syncHttpFileUrlRestoreSeekAndPlay({
+      url,
+      persistedSeekToApply: seconds,
+      onRestoreSeekApplied: () => {},
+      shouldPlay: continuePlayback,
+      onPlayedShouldPlayClear: () => {
+        setMPShouldPlay(false);
+      },
+    });
+    if (continuePlayback) {
+      setMPIsPlaying(true);
+      setMPShouldPlay(true);
+    }
+  };
+
+  const settlePlaybackFailure = (fallback: MPPlaybackError, mediaErrorCode: number | null) => {
+    const continuePlayback = mpIsPlayingRef.current === true || mpShouldPlayRef.current === true;
+    const addByRSS = mpAddByRSSRef.current;
+    if (addByRSS && onAddByRSSMediaErrorRef.current) {
       const channelIdText = addByRSS.resourceData.channel_id_text;
-      onAddByRSSMediaErrorRef.current?.({
+      onAddByRSSMediaErrorRef.current({
         channelIdText: typeof channelIdText === 'string' ? channelIdText : null,
         itemIdText: addByRSS.idText,
-        mediaUrl: mediaRef.current?.currentSrc || mediaRef.current?.src || null,
-        mediaErrorCode: error.code,
+        mediaUrl: fallback.mediaUrl,
+        mediaErrorCode,
+        fallback,
+        onResolvedPlaybackUrl: (url) => {
+          applyResolvedPlaybackUrl(url, continuePlayback);
+        },
       });
+      return;
+    }
+    void (async () => {
+      const decision = await decideBlockedHostPlayback({
+        kind: fallback.kind,
+        mediaUrl: fallback.mediaUrl,
+        identity: fallback.identity,
+        credentialsProtected: false,
+      });
+      const identityNow = playbackErrorIdentity({
+        addByRssResourceData: mpAddByRSSRef.current?.resourceData ?? null,
+        itemIdText: mpItemRef.current?.id_text ?? null,
+        clipIdText: mpClipRef.current?.id_text ?? null,
+        soundbiteIdText: mpItemSoundbiteRef.current?.id_text ?? null,
+      });
+      if (identityNow !== fallback.identity) {
+        return;
+      }
+      if (decision.type === 'reload') {
+        applyResolvedPlaybackUrl(decision.url, continuePlayback);
+        return;
+      }
+      if (decision.type === 'report') {
+        reportPlaybackErrorRef.current?.({
+          ...fallback,
+          kind: decision.kind,
+          message: decision.detail,
+          ...(decision.httpStatus === undefined ? {} : { httpStatus: decision.httpStatus }),
+        });
+        return;
+      }
+      reportPlaybackErrorRef.current?.(fallback);
+    })();
+  };
+
+  const bridge = useMediaElementBridge(mediaRef, {
+    onError(error) {
+      if (!error) {
+        return;
+      }
+      const kind = mediaErrorKind(error.code);
+      if (kind === null) {
+        return;
+      }
+      const mediaUrl = mediaRef.current?.currentSrc || mediaRef.current?.src || null;
+      const fallback = playbackErrorForLoadedItem({
+        kind,
+        code: mediaErrorCodeLabel(error.code),
+        message: error.message,
+        mediaUrl,
+        addByRss: mpAddByRSSRef.current,
+        item: mpItemRef.current,
+        clip: mpClipRef.current,
+        soundbite: mpItemSoundbiteRef.current,
+      });
+      if (fallback === null) {
+        return;
+      }
+      settlePlaybackFailure(fallback, error.code);
+    },
+    onPlaying() {
+      setMPPlaybackError?.(null);
+    },
+    onPlayRejected(error) {
+      const kind = playRejectionKind(error);
+      if (kind === null) {
+        return;
+      }
+      const detail = playRejectionDetail(error);
+      const playbackError = playbackErrorForLoadedItem({
+        kind,
+        code: detail.code,
+        message: detail.message,
+        mediaUrl: mediaRef.current?.currentSrc || mediaRef.current?.src || null,
+        addByRss: mpAddByRSSRef.current,
+        item: mpItemRef.current,
+        clip: mpClipRef.current,
+        soundbite: mpItemSoundbiteRef.current,
+      });
+      if (playbackError !== null) {
+        settlePlaybackFailure(playbackError, null);
+      }
+    },
+    onInvalidSource() {
+      const playbackError = playbackErrorForLoadedItem({
+        kind: 'invalid-source',
+        code: 'invalid-source',
+        message: '',
+        mediaUrl: null,
+        addByRss: mpAddByRSSRef.current,
+        item: mpItemRef.current,
+        clip: mpClipRef.current,
+        soundbite: mpItemSoundbiteRef.current,
+      });
+      if (playbackError !== null) {
+        reportPlaybackErrorRef.current?.(playbackError);
+      }
     },
     onLoadedMetadata(newDuration) {
       if (!mediaRef.current) {
@@ -639,6 +803,14 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       }
     },
     onEnded() {
+      if (
+        !shouldAdvanceQueueAfterEnded({
+          mediaErrorCode: mediaRef.current?.error?.code ?? null,
+          playbackError: mpPlaybackErrorRef.current,
+        })
+      ) {
+        return;
+      }
       void (async () => {
         if (isEmbedRouteRef.current) {
           if (notifyEmbedListItemEnded()) {
@@ -734,12 +906,53 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
         sourceRowIndex: mpEnclosureSelectedParams.sourceRowSelected,
       });
       const uri = selected?.source?.uri;
-      if (typeof uri !== 'string' || uri.trim() === '') return;
+      if (typeof uri !== 'string' || uri.trim() === '') {
+        const playbackError = playbackErrorForLoadedItem({
+          kind: 'invalid-source',
+          code: 'invalid-source',
+          message: '',
+          mediaUrl: null,
+          addByRss: mpAddByRSS,
+          item: mpItemRef.current,
+          clip: mpClipRef.current,
+          soundbite: mpItemSoundbiteRef.current,
+        });
+        if (playbackError !== null) {
+          reportPlaybackErrorRef.current?.(playbackError);
+        }
+        return;
+      }
       url = uri.trim();
     } else {
       const enclosureUrl = mpAddByRSS.resourceData.enclosure_url;
-      if (typeof enclosureUrl !== 'string' || enclosureUrl.trim() === '') return;
+      if (typeof enclosureUrl !== 'string' || enclosureUrl.trim() === '') {
+        const playbackError = playbackErrorForLoadedItem({
+          kind: 'invalid-source',
+          code: 'invalid-source',
+          message: '',
+          mediaUrl: null,
+          addByRss: mpAddByRSS,
+          item: mpItemRef.current,
+          clip: mpClipRef.current,
+          soundbite: mpItemSoundbiteRef.current,
+        });
+        if (playbackError !== null) {
+          reportPlaybackErrorRef.current?.(playbackError);
+        }
+        return;
+      }
       url = enclosureUrl.trim();
+    }
+    const playbackIdentity = playbackErrorIdentity({
+      addByRssResourceData: mpAddByRSS.resourceData,
+      itemIdText: mpItemRef.current?.id_text ?? null,
+      clipIdText: mpClipRef.current?.id_text ?? null,
+      soundbiteIdText: mpItemSoundbiteRef.current?.id_text ?? null,
+    });
+    const resolvedUrl =
+      playbackIdentity === null ? null : resolvedPlaybackUrlForIdentity(playbackIdentity);
+    if (resolvedUrl !== null) {
+      url = resolvedUrl;
     }
     const enclosureSwitchDecision =
       pendingPlaybackDecisionRef.current?.reason === 'enclosure-switch-resume'
@@ -825,12 +1038,16 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
   }, [mpAddByRSS, mpItemLabeledEnclosures.length, selectedItemEnclosureAndSource, mediaType]);
 
   useEffect(() => {
+    if (playbackError !== null) {
+      bridge.pause();
+      return;
+    }
     if (mpIsPlaying) {
       void bridge.play();
     } else {
       bridge.pause();
     }
-  }, [mpIsPlaying, bridge]);
+  }, [mpIsPlaying, playbackError, bridge]);
 
   useEffect(() => {
     bridge.setVolume(mpVolume);

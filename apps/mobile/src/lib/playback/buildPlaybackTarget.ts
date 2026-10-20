@@ -10,6 +10,7 @@ import type { MusicItemPlaybackIntent, PlaybackTarget } from '@podverse/playback
 
 import type { MediaEngineSource } from '../../../modules/podverse-media-engine';
 import type { MoveNowPlayingToHistoryTarget, PlaybackStatsTargets } from '../../data';
+import { isAddByRssLivestreamResourceData } from '../addByRss/resourceData';
 import { resolveEngineAudioProfile } from './engineAudioProfile';
 
 /**
@@ -108,8 +109,8 @@ export function buildChapterPlaybackTarget(
 
 /**
  * Map a playing target to the move-to-history target used on ended/skip. Chapters and item kinds
- * move the underlying item; add-by-RSS / livestream do not participate in the server queue lifecycle
- * (add-by-RSS uses its own history flow), so they return `null`.
+ * move the underlying item; an Add by RSS episode moves by its resource data. Livestreams, Add by
+ * RSS livestreams included, do not participate in the server queue lifecycle, so they return `null`.
  */
 export function playbackTargetToHistoryTarget(
   target: PlaybackTarget,
@@ -132,6 +133,15 @@ export function playbackTargetToHistoryTarget(
     case 'item-music':
       return { completed: true, idText: target.item.id_text, kind: 'item', playbackPosition };
     case 'add-by-rss':
+      if (isAddByRssLivestreamResourceData(target.resourceData)) {
+        return null;
+      }
+      return {
+        completed: true,
+        kind: 'add_by_rss',
+        playbackPosition,
+        resourceData: target.resourceData,
+      };
     case 'livestream':
       return null;
   }

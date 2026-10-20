@@ -6,7 +6,12 @@
 // Requires the Mobile E2E API on :4230 and the web E2E seed fixtures.
 //
 // Env (via `runScript: { env: ... }`):
-//   E2E_ITEM_ID_TEXT        required, item id_text to make now-playing
+//   E2E_ITEM_ID_TEXT        item id_text to make now-playing. Required unless the Add by RSS
+//                           variables below are set.
+//   E2E_ADD_BY_RSS_FEED_URL, E2E_ADD_BY_RSS_GUID, E2E_ADD_BY_RSS_TITLE,
+//   E2E_ADD_BY_RSS_ENCLOSURE_URL
+//                           make an Add by RSS episode now-playing instead, as web writes it: no
+//                           parsed bundle, only the feed URL, guid, title, and enclosure.
 //   E2E_PLAYBACK_POSITION   seconds, default 0
 //   E2E_PLAYBACK_EVENT_KIND one of the shared playback event kinds, default "play"
 //   E2E_LAST_PLAYED_AT      ISO-8601 timestamp. When omitted, four minutes after now so a
@@ -46,15 +51,38 @@ const PLAYBACK_EVENT_KIND = optional(
   typeof E2E_PLAYBACK_EVENT_KIND !== 'undefined' ? E2E_PLAYBACK_EVENT_KIND : null,
   'play'
 );
+const ADD_BY_RSS_FEED_URL = optional(
+  typeof E2E_ADD_BY_RSS_FEED_URL !== 'undefined' ? E2E_ADD_BY_RSS_FEED_URL : null,
+  ''
+);
+const ADD_BY_RSS_GUID = optional(
+  typeof E2E_ADD_BY_RSS_GUID !== 'undefined' ? E2E_ADD_BY_RSS_GUID : null,
+  ''
+);
+const ADD_BY_RSS_TITLE = optional(
+  typeof E2E_ADD_BY_RSS_TITLE !== 'undefined' ? E2E_ADD_BY_RSS_TITLE : null,
+  ''
+);
+const ADD_BY_RSS_ENCLOSURE_URL = optional(
+  typeof E2E_ADD_BY_RSS_ENCLOSURE_URL !== 'undefined' ? E2E_ADD_BY_RSS_ENCLOSURE_URL : null,
+  ''
+);
 const NEWER_THAN_LOCAL_MS = 4 * 60 * 1000;
 const LAST_PLAYED_AT = optional(
   typeof E2E_LAST_PLAYED_AT !== 'undefined' ? E2E_LAST_PLAYED_AT : null,
   new Date(Date.now() + NEWER_THAN_LOCAL_MS).toISOString()
 );
 
-if (ITEM_ID_TEXT.length === 0) {
+const IS_ADD_BY_RSS = ADD_BY_RSS_FEED_URL.length > 0;
+if (IS_ADD_BY_RSS && (ADD_BY_RSS_GUID.length === 0 || ADD_BY_RSS_ENCLOSURE_URL.length === 0)) {
+  throw new Error(
+    'seed-playback-now-playing: E2E_ADD_BY_RSS_GUID and E2E_ADD_BY_RSS_ENCLOSURE_URL are required with E2E_ADD_BY_RSS_FEED_URL'
+  );
+}
+if (!IS_ADD_BY_RSS && ITEM_ID_TEXT.length === 0) {
   throw new Error('seed-playback-now-playing: E2E_ITEM_ID_TEXT is required');
 }
+const SEED_LABEL = IS_ADD_BY_RSS ? `Add by RSS ${ADD_BY_RSS_GUID}` : ITEM_ID_TEXT;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
@@ -123,27 +151,47 @@ const seedBody = {
 };
 const nowPlayingUrl = `${API_BASE_URL}/queue/${QUEUE_ID_TEXT}/resources/now-playing`;
 
-const readNowPlayingItemIdText = (body) => {
+const readNowPlayingResource = (body) => {
   const parsed = json(body);
-  const resource = Array.isArray(parsed) ? parsed[0] : parsed;
-  const idText = resource && resource.item && resource.item.id_text;
-  return typeof idText === 'string' ? idText : '';
+  return Array.isArray(parsed) ? parsed[0] : parsed;
 };
+
+const isSeededResource = (resource) => {
+  if (!resource) {
+    return false;
+  }
+  if (IS_ADD_BY_RSS) {
+    const data = resource.add_by_rss_resource_data;
+    return !!data && data.feed_url === ADD_BY_RSS_FEED_URL && data.guid === ADD_BY_RSS_GUID;
+  }
+  return !!resource.item && resource.item.id_text === ITEM_ID_TEXT;
+};
+
+const seedUrl = IS_ADD_BY_RSS
+  ? `${API_BASE_URL}/queue/${QUEUE_ID_TEXT}/item-add-by-rss/now-playing`
+  : `${API_BASE_URL}/queue/${QUEUE_ID_TEXT}/item/${ITEM_ID_TEXT}/now-playing`;
+const seedRequestBody = IS_ADD_BY_RSS
+  ? Object.assign({}, seedBody, {
+      add_by_rss_resource_data: {
+        enclosure_url: ADD_BY_RSS_ENCLOSURE_URL,
+        feed_url: ADD_BY_RSS_FEED_URL,
+        guid: ADD_BY_RSS_GUID,
+        medium_id: null,
+        title: ADD_BY_RSS_TITLE,
+      },
+    })
+  : seedBody;
 
 // A just-paused device may still be posting episode A. Write B and reread until the
 // server row matches, so remount reconcile sees the other-device item.
 let confirmed = false;
 for (let attempt = 0; attempt < 8; attempt += 1) {
-  const seedResponse = postJson(
-    `${API_BASE_URL}/queue/${QUEUE_ID_TEXT}/item/${ITEM_ID_TEXT}/now-playing`,
-    seedBody,
-    authHeaders
-  );
-  failOn(`now-playing seed for ${ITEM_ID_TEXT}`, seedResponse);
+  const seedResponse = postJson(seedUrl, seedRequestBody, authHeaders);
+  failOn(`now-playing seed for ${SEED_LABEL}`, seedResponse);
 
   const current = http.get(nowPlayingUrl, { headers: authHeaders });
-  failOn(`now-playing read for ${ITEM_ID_TEXT}`, current);
-  if (readNowPlayingItemIdText(current.body) === ITEM_ID_TEXT) {
+  failOn(`now-playing read for ${SEED_LABEL}`, current);
+  if (isSeededResource(readNowPlayingResource(current.body))) {
     confirmed = true;
     break;
   }
@@ -151,6 +199,6 @@ for (let attempt = 0; attempt < 8; attempt += 1) {
 
 if (!confirmed) {
   throw new Error(
-    `seed-playback-now-playing: server now-playing was not ${ITEM_ID_TEXT} after retries`
+    `seed-playback-now-playing: server now-playing was not ${SEED_LABEL} after retries`
   );
 }

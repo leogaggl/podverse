@@ -55,10 +55,13 @@ export async function unfollowFeedOnServer(page: Page, feedUrl: string): Promise
 type StubbedParseOutcome = Pick<
   AddByRSSParseCacheEntry<never>,
   'status' | 'failureReason' | 'credentialsState' | 'httpStatus' | 'authChallenge'
->;
+> & {
+  /** Partytime-shaped feed a `parsed` outcome returns. Omitted, the feed keeps its stored title. */
+  payload?: Record<string, unknown>;
+};
 
 export type StubbedParseRequests = {
-  /** JSON bodies sent to `POST /account/add-by-rss/parse`, in order. */
+  /** JSON bodies sent to `POST /account/add-by-rss/parse` for the stubbed feed, in order. */
   enqueueBodies: Record<string, unknown>[];
 };
 
@@ -72,15 +75,44 @@ const corsHeaders = (route: Route): Record<string, string> => ({
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const sameFeedUrl = (a: unknown, b: string): boolean => {
+  if (typeof a !== 'string') {
+    return false;
+  }
+  try {
+    return new URL(a).href === new URL(b).href;
+  } catch {
+    return a === b;
+  }
+};
+
+/** A response for a page that already navigated away has nowhere to go. */
+const fulfillUnlessGone = async (
+  route: Route,
+  response: Parameters<Route['fulfill']>[0]
+): Promise<void> => {
+  try {
+    await route.fulfill(response);
+  } catch {
+    // The request was aborted with its page.
+  }
+};
+
 /**
  * Stands in for the parse queue, which the web E2E stack does not run (no broker or workers).
- * The Nth enqueue resolves to the Nth outcome (the last outcome repeats). Parsed outcomes carry
- * no payload, so the feed keeps its URL as its title.
+ * Only parses of `feedUrl` are stubbed; parses of other feeds (the background refresh's first
+ * parse of the seeded follows) reach the API. The Nth stubbed enqueue resolves to the Nth outcome
+ * (the last outcome repeats). Status answers wait for `statusReleased` when given.
  */
 export async function stubAddByRSSParse(
   page: Page,
-  outcomes: StubbedParseOutcome[]
+  params: {
+    feedUrl: string;
+    outcomes: StubbedParseOutcome[];
+    statusReleased?: Promise<void>;
+  }
 ): Promise<StubbedParseRequests> {
+  const { feedUrl, outcomes, statusReleased } = params;
   const enqueueBodies: Record<string, unknown>[] = [];
 
   await page.route('**/account/add-by-rss/parse', async (route) => {
@@ -89,7 +121,11 @@ export async function stubAddByRSSParse(
       return;
     }
     const body: unknown = route.request().postDataJSON();
-    enqueueBodies.push(isRecord(body) ? body : {});
+    if (!isRecord(body) || !sameFeedUrl(body['feed_url'], feedUrl)) {
+      await route.continue();
+      return;
+    }
+    enqueueBodies.push(body);
     await route.fulfill({
       status: 202,
       contentType: 'application/json',
@@ -100,16 +136,22 @@ export async function stubAddByRSSParse(
 
   await page.route('**/account/add-by-rss/parse/status/*', async (route) => {
     const requestId = new URL(route.request().url()).pathname.split('/').pop() ?? '';
+    if (!requestId.startsWith(REQUEST_ID_PREFIX)) {
+      await route.continue();
+      return;
+    }
+    if (statusReleased) {
+      await statusReleased;
+    }
     const index = Number.parseInt(requestId.replace(REQUEST_ID_PREFIX, ''), 10);
     const outcome = outcomes[Math.min(Number.isFinite(index) ? index : 0, outcomes.length - 1)];
-    const feedUrl = enqueueBodies[index]?.['feed_url'];
-    await route.fulfill({
+    await fulfillUnlessGone(route, {
       status: 200,
       contentType: 'application/json',
       headers: corsHeaders(route),
       body: JSON.stringify({
         requestId,
-        feedUrl: typeof feedUrl === 'string' ? feedUrl : '',
+        feedUrl,
         updatedAt: new Date().toISOString(),
         ...outcome,
       }),
@@ -117,6 +159,30 @@ export async function stubAddByRSSParse(
   });
 
   return { enqueueBodies };
+}
+
+export type StubbedParseAllRequests = {
+  /** How many `POST /account/add-by-rss/parse/all` requests the page sent. */
+  count: () => number;
+};
+
+/** Answers every refresh-all with no work, and counts the requests. */
+export async function stubAddByRSSParseAll(page: Page): Promise<StubbedParseAllRequests> {
+  let requests = 0;
+  await page.route('**/account/add-by-rss/parse/all', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    requests += 1;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      headers: corsHeaders(route),
+      body: JSON.stringify({ request_ids: [], deduped_feed_urls: [], dedupe_ttl_seconds: null }),
+    });
+  });
+  return { count: () => requests };
 }
 
 /** The local feed idText behind a row in the needs-credentials section. */

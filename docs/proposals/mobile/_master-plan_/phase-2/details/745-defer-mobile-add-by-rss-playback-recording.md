@@ -2,58 +2,66 @@
 
 **Master step:** P2.3.17
 **Model (author + implement):** Opus 5
-**Status:** deferred
+**Status:** done
 
 ## Scope
 
-Mobile does not record playback events for add-by-RSS episodes. Playing one on the phone writes no
-position, enqueues no outbox row, and never takes part in reconciliation or multi-device handoff.
+Mobile records playback for add-by-RSS episodes the same way it records linked resources. Playing
+one on the phone enqueues outbox rows, saves now-playing and position to the account (after
+reconnect when offline), and takes part in reconciliation and multi-device handoff.
 
-`nowPlayingResourceFromTarget` in `apps/mobile/src/playback/playbackEventSource.ts` returns `null`
-for the `add-by-rss` target kind, and `recordPlaybackEvent` in
-`apps/mobile/src/playback/PlaybackProvider.tsx` returns early on that `null` before it reaches the
-outbox. Add-by-RSS screens play through the provider (`useAddByRssPlayback.ts` calls
-`playAddByRssResourceData`), so that early return is the only thing standing between them and the
-outbox.
+**Livestream records nothing, and that is correct.** A livestream has no meaningful resume
+position. `nowPlayingResourceFromTarget` returns `null` for the `livestream` kind and for an
+add-by-RSS target whose resource data is a livestream (`liveItem` or `livestream_item`).
 
-**Livestream also returns `null`, and that is correct.** A livestream has no meaningful resume
-position, so it must keep returning `null` when this is picked up.
+## Identity
 
-## Why this is a gap rather than a design choice
+The resource id is the add-by-RSS hash of **feed URL plus guid**: `getAddByRSSHashId` over resource
+data whose `feed_url` is canonical (userinfo removed). An item with no RSS guid, or a guid made up
+on the device, falls back to feed URL plus enclosure URL. Every device and the API compute the same
+id for the same episode, so a row written on web matches the episode on the phone. The md5 shim
+(`apps/mobile/src/shims/node-crypto.js`) hashes UTF-8 bytes and matches Node, including for
+non-ASCII guids.
 
-Every other layer already handles the kind:
+Every mobile resource data builder canonicalizes `feed_url` (`withCanonicalAddByRssFeedUrl` in
+`apps/mobile/src/lib/addByRss/resourceData.ts`): playback resource data, queue adds, playlist adds,
+history moves, and the outbox payload. Credentials never leave the device.
 
-- `PLAYBACK_OUTBOX_RESOURCE_KINDS` in `apps/mobile/src/data/repositories/playbackOutbox.ts` includes
-  `'add_by_rss'`.
-- `apps/mobile/src/data/repositories/playbackReconcile.ts` resolves and merges `add_by_rss` refs.
-- The API exposes `POST /queue/:queue_id_text/item-add-by-rss/now-playing` and accepts the same
-  `last_played_at` / `playback_event_kind` fields as the linked-resource routes.
-- `QueueResourceService.replayPlaybackEvents` applies add-by-RSS events through
-  `applyAddByRssPlaybackWriteTransactional`.
-- Web records add-by-RSS positions with event kinds via `apps/web/src/hooks/useAddByRSSPositionSave.tsx`.
+## Recording
 
-So mobile is the only surface that cannot produce an add-by-RSS timestamp, while still being able to
-_read_ one. That asymmetry is the actual harm: mobile can detect a conflict against a remote
-add-by-RSS row but can never win one, so a stale server row can overwrite real listening that
-happened on the phone. This is the case
-[`cross-surface-change-impact`](/.cursor/rules/cross-surface-change-impact.mdc) exists to catch —
-cross-device state must be written by every surface that can change it.
+- `nowPlayingResourceFromTarget` (`apps/mobile/src/playback/playbackEventSource.ts`) returns
+  `{ resourceKind: 'add_by_rss', resourceIdText: <hash> }`.
+- `writePlaybackEvent` (`apps/mobile/src/playback/PlaybackProvider.tsx`) picks the queue from the
+  resource data `medium_id`, or the podcast queue when it is null (`playbackMediumIdFromTarget`).
+  Queue advance after an add-by-RSS episode reads the same queue.
+- The outbox payload carries the full `add_by_rss_resource_data` next to any stats payload
+  (`playbackEventPayloadForTarget`), so replay can create the server row.
+- The meaningful-event rule is the one linked resources use: play, pause, seek, periodic position,
+  and completion.
+- Ended or skipped add-by-RSS episodes move to history through
+  `POST /queue/:queue_id_text/item-add-by-rss/history` (`playbackTargetToHistoryTarget`).
 
-## Why deferred
+## Reconciliation and handoff
 
-Add-by-RSS is a smaller share of mobile listening than subscribed content, and the fix touches the
-playback recording path that the rest of reconciliation depends on. Landing it separately keeps that
-change reviewable on its own rather than folding it into the reconciliation work it corrects.
+- Later-wins applies with add-by-RSS on either side (`playbackReconcile.ts` is kind-agnostic).
+- The handoff prompt names an add-by-RSS side by its episode title: the server row's resource data,
+  the active player, or the newest pending outbox payload. When none has a title it shows the Add by
+  RSS label, never the hash.
+- Switching to, or adopting at startup, a server add-by-RSS row goes through `playQueueResource`.
+  When this device has parsed the same feed, it plays its own copy of the episode, matched by
+  canonical feed URL and then guid or enclosure, and confirmed by hash
+  (`resolveLocalAddByRssResourceData`). Otherwise it plays from the row's resource data, falling back
+  to its `enclosure_url` when the row has no parsed bundle. A startup adopt loads paused.
 
-## Acceptance criteria (when picked up)
+## Acceptance criteria
 
 - Playing an add-by-RSS episode on mobile enqueues outbox events with the same meaningful-event rule
-  as linked resources, using the resource kind `add_by_rss` and the feed's hash id.
+  as linked resources, using the resource kind `add_by_rss` and the feed URL plus guid id.
 - Offline add-by-RSS listening drains to the API after reconnect and lands in history in
   chronological order alongside linked-resource listening.
 - An add-by-RSS episode played on mobile wins a later-wins merge against an older server row.
 - A different-item handoff conflict where either side is add-by-RSS prompts with a usable title, not
-  a bare hash id, whenever the stored feed bundle has one.
+  a bare hash id.
 - Livestream targets still record nothing.
 
 ## Web parity references
@@ -62,6 +70,7 @@ change reviewable on its own rather than folding it into the reconciliation work
 - `apps/mobile/src/playback/playbackEventSource.ts`
 - `apps/mobile/src/playback/PlaybackProvider.tsx`
 - `apps/mobile/src/hooks/useAddByRssPlayback.ts`
+- `apps/mobile/src/lib/addByRss/localResourceData.ts`
 - `apps/mobile/src/data/repositories/playbackOutbox.ts`
 - `apps/mobile/src/data/repositories/playbackReconcile.ts`
 - [743-offline-playback-reconciliation](/docs/proposals/mobile/_master-plan_/phase-2/details/743-offline-playback-reconciliation.md)
@@ -69,9 +78,16 @@ change reviewable on its own rather than folding it into the reconciliation work
 
 ## Verification
 
+Unit coverage: `playbackEventSource.test.ts`, `playbackHandoffTitle.test.ts`,
+`playbackReconcile.test.ts`, `localResourceData.test.ts`, and `nodeCryptoShim.test.ts`.
+`add-by-rss.yaml` asserts the server now-playing row after the phone plays an add-by-RSS episode,
+and `playback-multi-device-handoff.yaml` switches to an add-by-RSS row another device wrote.
+
 ```bash
-# Mobile Maestro — when implemented
+npm --prefix apps/mobile run test
+npm run mobile:e2e:test -- playback-multi-device-handoff
 npm run mobile:e2e:test -- playback-offline-reconciliation
+npm run mobile:e2e:test -- add-by-rss
 open .artifacts/mobile-e2e-reports/latest/failures.json
 open .artifacts/mobile-e2e-reports/latest/ios-phone/index.html
 open .artifacts/mobile-e2e-reports/latest/android-phone/index.html

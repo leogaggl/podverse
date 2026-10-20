@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { DTOQueueResource } from '@podverse/helpers';
 import {
   buildLabeledItemEnclosures,
+  getAddByRSSHashIdsForResourceData,
   resolveHandoffDecision,
   resolvePreferredMediaTypeEnclosureSelectedParams,
 } from '@podverse/helpers';
+import { buildAddByRSSResourceData } from '@podverse/parser-mapping';
 
 import type { AutoQueueResourcesMapRow } from '../contexts/AutoQueue';
 import { checkIsActiveRowHighestKey, useAutoQueue } from '../contexts/AutoQueue';
@@ -18,16 +20,22 @@ import { useQueues } from '../contexts/Queue';
 import { getApiRequestService } from '../factories/apiRequestService';
 import type { MusicItemPlaybackIntent } from '../lib/playback';
 import { parsePlaybackSeconds, playbackTargetFromStandardLoad } from '../lib/playback';
-import { loadAddByRSSIndexItemFromResourceData } from '../utils/addByRSS/playFromQueueResource';
+import {
+  getAddByRSSResourceDataFeedUrl,
+  resolveAddByRSSIndexItemFromResourceData,
+} from '../utils/addByRSS/playFromQueueResource';
 import {
   buildPlaybackHandoffDismissedStateKey,
   readPlaybackHandoffDismissedStateKey,
   writePlaybackHandoffDismissedStateKey,
 } from '../utils/playbackHandoffDismissal';
 import {
+  addByRSSPlaybackIdentity,
+  clearPlaybackHandoffLocalState,
   readPlaybackHandoffLocalState,
   writePlaybackHandoffLocalState,
 } from './playbackHandoffState';
+import { useAddByRSSMetadataUpgrade } from './useAddByRSSMetadataUpgrade';
 import { useAutoQueueLoadResources } from './useAutoQueueLoadResources';
 import { useMediaPlayerResourceUpdate } from './useMediaPlayerResourceUpdate';
 import { usePlayAddByRSS } from './usePlayAddByRSS';
@@ -67,33 +75,45 @@ const isUpcomingQueueListPosition = (listPosition: string): boolean => {
   return Number.isFinite(position) && position > 0;
 };
 
-const queueResourceIdentity = (
-  resource: DTOQueueResource
-): { itemIdText: string; itemTitle: string | null } | null => {
+type QueueResourceIdentity = {
+  itemIdText: string;
+  itemTitle: string | null;
+  /** Shown when there is no title. Null for add-by-RSS, whose identity is a hash. */
+  displayIdText: string | null;
+};
+
+const queueResourceIdentity = (resource: DTOQueueResource): QueueResourceIdentity | null => {
   if (resource.item?.id_text) {
     return {
       itemIdText: resource.item.id_text,
       itemTitle: resource.item.title ?? null,
+      displayIdText: resource.item.id_text,
     };
   }
   if (resource.clip?.item?.id_text) {
     return {
       itemIdText: resource.clip.item.id_text,
       itemTitle: resource.clip.item.title ?? null,
+      displayIdText: resource.clip.item.id_text,
     };
   }
   if (resource.item_soundbite?.item?.id_text) {
     return {
       itemIdText: resource.item_soundbite.item.id_text,
       itemTitle: resource.item_soundbite.item.title ?? null,
+      displayIdText: resource.item_soundbite.item.id_text,
     };
   }
-  const addByRssIdText = resource.add_by_rss_resource_data?.id_text;
-  if (typeof addByRssIdText === 'string' && addByRssIdText.length > 0) {
+  const addByRssIdentity = addByRSSPlaybackIdentity(
+    resource.add_by_rss_resource_data,
+    resource.add_by_rss_hash_id
+  );
+  if (addByRssIdentity !== null) {
     const addByRssTitle = resource.add_by_rss_resource_data?.title;
     return {
-      itemIdText: addByRssIdText,
+      itemIdText: addByRssIdentity,
       itemTitle: typeof addByRssTitle === 'string' ? addByRssTitle : null,
+      displayIdText: null,
     };
   }
   return null;
@@ -139,6 +159,7 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
   const { preferredMediaType } = useLocalSettings();
   const mediaPlayerResourceUpdate = useMediaPlayerResourceUpdate();
   const playAddByRSS = usePlayAddByRSS();
+  const armAddByRSSMetadataUpgrade = useAddByRSSMetadataUpgrade();
   const updateNowPlaying = useQueueResourcesUpdateNowPlaying();
   const { activeQueue, activeQueueUpcomingResources } = useQueues();
   const queueResourcesLoadActive = useQueueResourcesLoadActive();
@@ -323,20 +344,65 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     });
   };
 
+  /** What the player holds. The handoff record never stands in for it. */
+  const loadedPlaybackIdentity = (): string | null => {
+    if (mpAddByRSS !== null) {
+      return addByRSSPlaybackIdentity(mpAddByRSS.resourceData);
+    }
+    if (mpItem?.id_text) {
+      return mpItem.id_text;
+    }
+    if (mpClip?.item?.id_text) {
+      return mpClip.item.id_text;
+    }
+    if (mpItemSoundbite?.item?.id_text) {
+      return mpItemSoundbite.item.id_text;
+    }
+    return null;
+  };
+
+  /**
+   * True when `identity` names the loaded item. An add-by-RSS row written before feed identity
+   * carries the legacy hash of the same payload, so that hash names it too.
+   */
+  const isLoadedPlaybackIdentity = (identity: string): boolean => {
+    if (identity === loadedPlaybackIdentity()) {
+      return true;
+    }
+    return (
+      mpAddByRSS !== null &&
+      getAddByRSSHashIdsForResourceData(mpAddByRSS.resourceData).includes(identity)
+    );
+  };
+
+  const loadedAddByRSSTitle = (): string | null => {
+    const title = mpAddByRSS?.resourceData.title;
+    return typeof title === 'string' ? title : null;
+  };
+
   const shouldLoadQueueResource = (nextResource: DTOQueueResource): boolean => {
     const serverIdentity = queueResourceIdentity(nextResource);
-    const localState = readPlaybackHandoffLocalState();
     const hasLoadedLocalTarget =
       mpItem !== null || mpAddByRSS !== null || mpClip !== null || mpItemSoundbite !== null;
     if (!hasLoadedLocalTarget) {
       return true;
     }
-    const localItemIdText = localState?.itemIdText ?? mpItem?.id_text ?? null;
+    const localItemIdText = loadedPlaybackIdentity();
+    // A record naming anything other than the loaded item is stale; its timestamp and title
+    // describe a different item.
+    const storedLocalState = readPlaybackHandoffLocalState();
+    const localState =
+      storedLocalState !== null && isLoadedPlaybackIdentity(storedLocalState.itemIdText)
+        ? storedLocalState
+        : null;
+    if (storedLocalState !== null && localState === null) {
+      clearPlaybackHandoffLocalState();
+    }
 
     if (serverIdentity === null || localItemIdText === null) {
       return true;
     }
-    if (localItemIdText === serverIdentity.itemIdText) {
+    if (isLoadedPlaybackIdentity(serverIdentity.itemIdText)) {
       return true;
     }
 
@@ -365,9 +431,12 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
 
     setPlaybackHandoffPrompt({
       dismissedStateKey,
-      localTitle: resolveDisplayTitle(localState?.itemTitle, localItemIdText),
+      localTitle:
+        mpAddByRSS !== null
+          ? resolveDisplayTitle(loadedAddByRSSTitle() ?? localState?.itemTitle, null)
+          : resolveDisplayTitle(localState?.itemTitle, localItemIdText),
       nextResource,
-      serverTitle: resolveDisplayTitle(serverIdentity.itemTitle, serverIdentity.itemIdText),
+      serverTitle: resolveDisplayTitle(serverIdentity.itemTitle, serverIdentity.displayIdText),
     });
 
     return false;
@@ -551,11 +620,12 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     options?: QueueResourceLoadOptions
   ) {
     const resourceData = nextResource.add_by_rss_resource_data ?? null;
-    const indexItem = await loadAddByRSSIndexItemFromResourceData(resourceData);
-    if (indexItem) {
+    const resolved = await resolveAddByRSSIndexItemFromResourceData(resourceData);
+    if (resolved) {
       if (isStaleAutomaticLoad(options?.automaticLoad)) {
         return;
       }
+      const { indexItem, source } = resolved;
       const playbackPosition = nextResource.playback_position
         ? parseFloat(String(nextResource.playback_position))
         : undefined;
@@ -571,6 +641,19 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
         }
       );
       rememberQueueResourceAsLocalState(nextResource);
+
+      const feedUrl = getAddByRSSResourceDataFeedUrl(resourceData);
+      if (
+        resourceData !== null &&
+        feedUrl !== null &&
+        (source === 'minimal' || source === 'bundle') &&
+        'bundle' in indexItem
+      ) {
+        const identity = addByRSSPlaybackIdentity(buildAddByRSSResourceData(indexItem));
+        if (identity !== null) {
+          armAddByRSSMetadataUpgrade({ identity, feedUrl, resourceData });
+        }
+      }
     }
   }
 
@@ -656,11 +739,16 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
         loadGeneration: effectLoadGeneration,
       };
       const loadOptions: QueueResourceLoadOptions = { ...options, automaticLoad };
-      const nextIdText =
-        typeof nextResource.add_by_rss_resource_data?.id_text === 'string'
-          ? nextResource.add_by_rss_resource_data.id_text
-          : null;
-      const isAlreadyPlayingThisAddByRSS = nextIdText !== null && mpAddByRSS?.idText === nextIdText;
+      const nextAddByRSSIdentity = nextResource.add_by_rss_resource_data
+        ? addByRSSPlaybackIdentity(
+            nextResource.add_by_rss_resource_data,
+            nextResource.add_by_rss_hash_id
+          )
+        : null;
+      const isAlreadyPlayingThisAddByRSS =
+        nextAddByRSSIdentity !== null &&
+        mpAddByRSS !== null &&
+        isLoadedPlaybackIdentity(nextAddByRSSIdentity);
       // This effect re-runs on play/pause, and a track fires `pause` just before `ended`. Reloading
       // the item already in the player writes it back to now-playing, which can land after `ended`
       // moved it to history and keep the queue from advancing.
@@ -688,6 +776,12 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     };
 
     if (!playerEmpty) {
+      // Only an empty player adopts a different item automatically. A newer server item on a
+      // paused player is offered through the handoff prompt instead.
+      const serverIdentity = queueResourceIdentity(nextResource);
+      if (serverIdentity === null || !isLoadedPlaybackIdentity(serverIdentity.itemIdText)) {
+        return;
+      }
       dispatchLoad(adoptedWithoutListen ? { skipNowPlayingWrite: true } : undefined);
       return;
     }

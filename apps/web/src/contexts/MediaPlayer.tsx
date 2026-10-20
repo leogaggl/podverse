@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import type {
   AddByRSSResourceData,
@@ -14,6 +14,7 @@ import type {
   PlaybackSpeedValue,
 } from '@podverse/helpers';
 
+import { addByRSSPlaybackIdentity } from '../hooks/playbackHandoffState';
 import type {
   MusicItemPlaybackIntent,
   PlaybackLoadDecision,
@@ -21,6 +22,8 @@ import type {
   PlaybackTarget,
 } from '../lib/playback';
 import { resolvePlaybackLoadDecision } from '../lib/playback';
+import type { MPPlaybackError } from '../utils/media/playbackErrorCopy';
+import { playbackErrorIdentity, reducePlaybackError } from '../utils/media/playbackErrorCopy';
 import { useQueueResourcesAbridgedIndex } from './QueueResourcesAbridgedIndex';
 
 /** State for "now playing" when the source is add-by-RSS (no DTO item). */
@@ -30,9 +33,20 @@ export type MediaPlayerAddByRSSState = {
 } | null;
 
 type MediaPlayerContextType = {
-  /** When set, now playing is an add-by-RSS item; use for enclosure URL and display. */
+  /** When set, now playing is an add-by-RSS item; use for display, saves, and lists. */
   mpAddByRSS: MediaPlayerAddByRSSState;
+  /** Loads an add-by-RSS item: sets both `mpAddByRSS` and `mpAddByRSSMediaSource`. */
   setMPAddByRSS: (val: MediaPlayerAddByRSSState) => void;
+  /**
+   * The add-by-RSS item the media element was loaded with. Media elements read this, not
+   * `mpAddByRSS`, so a metadata update cannot reload media or move the position.
+   */
+  mpAddByRSSMediaSource: MediaPlayerAddByRSSState;
+  /**
+   * Replaces `mpAddByRSS` metadata (title, artwork, bundle) for the item already loaded. Ignored
+   * unless `next` has the loaded item's Add by RSS identity. Leaves the media source untouched.
+   */
+  updateMPAddByRSSMetadata: (next: NonNullable<MediaPlayerAddByRSSState>) => void;
   mpChannel: DTOChannel | null;
   setMPChannel: (val: DTOChannel | null) => void;
   mpItem: DTOItem | null;
@@ -89,6 +103,13 @@ type MediaPlayerContextType = {
    * and queue-head loads compare against this so a load applied after they start wins.
    */
   playbackLoadGenerationRef: RefObject<number>;
+  /** Set while the loaded item cannot play. Cleared when a different item loads, on retry, and on `playing`. */
+  mpPlaybackError: MPPlaybackError | null;
+  setMPPlaybackError: (error: MPPlaybackError | null) => void;
+  /** Records a failure and stops the play/pause control from staying on Play. */
+  reportPlaybackError: (error: MPPlaybackError) => void;
+  playbackErrorDialogOpen: boolean;
+  setPlaybackErrorDialogOpen: (open: boolean) => void;
 };
 
 export const MediaPlayerContext = createContext<MediaPlayerContextType | undefined>(undefined);
@@ -99,7 +120,24 @@ type MediaPlayerProviderProps = {
 
 export const MediaPlayerProvider = ({ children }: MediaPlayerProviderProps) => {
   const { queueResourcesAbridgedIndex } = useQueueResourcesAbridgedIndex();
-  const [mpAddByRSS, setMPAddByRSS] = useState<MediaPlayerAddByRSSState>(null);
+  const [mpAddByRSS, setMPAddByRSSDisplay] = useState<MediaPlayerAddByRSSState>(null);
+  const [mpAddByRSSMediaSource, setMPAddByRSSMediaSource] =
+    useState<MediaPlayerAddByRSSState>(null);
+  const setMPAddByRSS = useCallback((val: MediaPlayerAddByRSSState) => {
+    setMPAddByRSSDisplay(val);
+    setMPAddByRSSMediaSource(val);
+  }, []);
+  const updateMPAddByRSSMetadata = useCallback((next: NonNullable<MediaPlayerAddByRSSState>) => {
+    const nextIdentity = addByRSSPlaybackIdentity(next.resourceData);
+    if (nextIdentity === null) {
+      return;
+    }
+    setMPAddByRSSDisplay((current) =>
+      current !== null && addByRSSPlaybackIdentity(current.resourceData) === nextIdentity
+        ? next
+        : current
+    );
+  }, []);
   const [mpChannel, setMPChannel] = useState<DTOChannel | null>(null);
   const [mpItem, setMPItem] = useState<DTOItem | null>(null);
   const [mpItemLabeledItemEnclosures, setMPItemLabeledItemEnclosures] = useState<
@@ -117,6 +155,8 @@ export const MediaPlayerProvider = ({ children }: MediaPlayerProviderProps) => {
   const [mpItemChapterShouldSeek, setMPItemChapterShouldSeek] = useState<boolean>(false);
   const [mpItemSoundbite, setMPItemSoundbite] = useState<DTOItemSoundbite | null>(null);
   const [mpIsPlaying, setMPIsPlaying] = useState<boolean>(false);
+  const [mpPlaybackError, setMPPlaybackError] = useState<MPPlaybackError | null>(null);
+  const [playbackErrorDialogOpen, setPlaybackErrorDialogOpen] = useState(false);
   const [mpPlaybackMode, setMPPlaybackMode] = useState<PlaybackMode>('autoplay-next');
   const [mpPlaybackSpeed, setMPPlaybackSpeed] = useState<PlaybackSpeedValue>(1.0);
   const [mpIsMuted, setMPIsMuted] = useState<boolean>(false);
@@ -124,6 +164,38 @@ export const MediaPlayerProvider = ({ children }: MediaPlayerProviderProps) => {
   const [mpDuration, setMPDuration] = useState<number>(0);
   const [playerModalIsOpen, setPlayerModalIsOpen] = useState<boolean>(false);
   const [mpShouldPlay, setMPShouldPlay] = useState<boolean>(false);
+  const reportPlaybackError = useCallback((error: MPPlaybackError) => {
+    setMPPlaybackError((current) => {
+      if (
+        current !== null &&
+        current.identity === error.identity &&
+        current.kind === error.kind &&
+        current.code === error.code &&
+        current.message === error.message
+      ) {
+        return current;
+      }
+      return reducePlaybackError(current, { type: 'report', error });
+    });
+    setMPIsPlaying(false);
+    setMPShouldPlay(false);
+  }, []);
+  const loadedIdentity = playbackErrorIdentity({
+    addByRssResourceData: mpAddByRSS?.resourceData ?? null,
+    itemIdText: mpItem?.id_text ?? null,
+    clipIdText: mpClip?.id_text ?? null,
+    soundbiteIdText: mpItemSoundbite?.id_text ?? null,
+  });
+  useEffect(() => {
+    setMPPlaybackError((current) =>
+      reducePlaybackError(current, { type: 'identity', identity: loadedIdentity })
+    );
+  }, [loadedIdentity]);
+  useEffect(() => {
+    if (mpPlaybackError === null) {
+      setPlaybackErrorDialogOpen(false);
+    }
+  }, [mpPlaybackError]);
   const [addByRSSSeekToTime, setAddByRSSSeekToTime] = useState<number | null>(null);
   const [activePlaybackTarget, setActivePlaybackTarget] = useState<PlaybackTarget | null>(null);
   const [pendingPlaybackDecision, setPendingPlaybackDecision] =
@@ -149,6 +221,8 @@ export const MediaPlayerProvider = ({ children }: MediaPlayerProviderProps) => {
       value={{
         mpAddByRSS,
         setMPAddByRSS,
+        mpAddByRSSMediaSource,
+        updateMPAddByRSSMetadata,
         mpChannel,
         setMPChannel,
         mpItem,
@@ -192,6 +266,11 @@ export const MediaPlayerProvider = ({ children }: MediaPlayerProviderProps) => {
         applyPlaybackLoad,
         pendingMusicQueueLoadIntentRef,
         playbackLoadGenerationRef,
+        mpPlaybackError,
+        setMPPlaybackError,
+        reportPlaybackError,
+        playbackErrorDialogOpen,
+        setPlaybackErrorDialogOpen,
       }}
     >
       {children}

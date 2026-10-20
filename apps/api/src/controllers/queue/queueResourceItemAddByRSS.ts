@@ -1,5 +1,6 @@
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import { verifyQueueOwnership } from '@api/controllers/queue/queue.js';
+import { normalizeAddByRSSResourceData } from '@api/lib/addByRSSResourceData.js';
 import { ensureAuthenticated } from '@api/lib/auth/index.js';
 import { getParamRequired } from '@api/lib/params.js';
 import {
@@ -46,7 +47,9 @@ class QueueResourceItemAddByRSSController {
           verifyQueueOwnership()(req, res, async () => {
             validateBodyObject(queueResourceAddByRSSQueueWriteBodySchema, req, res, async () => {
               const queue_id_text = getParamRequired(req, 'queue_id_text');
-              const { add_by_rss_resource_data } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
               try {
                 const queueResource =
                   await QueueResourceItemAddByRSSController.queueResourceService.addItemAddByRSSToQueueNext(
@@ -74,7 +77,9 @@ class QueueResourceItemAddByRSSController {
           verifyQueueOwnership()(req, res, async () => {
             validateBodyObject(queueResourceAddByRSSQueueWriteBodySchema, req, res, async () => {
               const queue_id_text = getParamRequired(req, 'queue_id_text');
-              const { add_by_rss_resource_data } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
               try {
                 const queueResource =
                   await QueueResourceItemAddByRSSController.queueResourceService.addItemAddByRSSToQueueLast(
@@ -102,7 +107,10 @@ class QueueResourceItemAddByRSSController {
           verifyQueueOwnership()(req, res, async () => {
             validateBodyObject(queueResourceAddByRSSBetweenBodySchema, req, res, async () => {
               const queue_id_text = getParamRequired(req, 'queue_id_text');
-              const { add_by_rss_resource_data, position1, position2 } = req.body;
+              const { position1, position2 } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
               try {
                 const queueResource =
                   await QueueResourceItemAddByRSSController.queueResourceService.addItemAddByRSSToQueueBetween(
@@ -133,13 +141,15 @@ class QueueResourceItemAddByRSSController {
             verifyQueueOwnership()(req, res, async () => {
               const queue_id_text = getParamRequired(req, 'queue_id_text');
               const {
-                add_by_rss_resource_data,
                 playback_position,
                 media_file_duration,
                 completed,
                 last_played_at,
                 playback_event_kind,
               } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
 
               const params = {
                 ...(completed !== undefined ? { completed } : {}),
@@ -184,13 +194,15 @@ class QueueResourceItemAddByRSSController {
             verifyQueueOwnership()(req, res, async () => {
               const queue_id_text = getParamRequired(req, 'queue_id_text');
               const {
-                add_by_rss_resource_data,
                 completed,
                 playback_position,
                 media_file_duration,
                 last_played_at,
                 playback_event_kind,
               } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
 
               const params = {
                 ...(completed !== undefined ? { completed } : {}),

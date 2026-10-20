@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { LoadingSpinner } from '../../layout/LoadingSpinner/index';
-import { useImageRuntime } from '../ImageRuntime/ImageRuntime';
+import { isResolvableRemoteImageUrl, useImageRuntime } from '../ImageRuntime/ImageRuntime';
 
 import styles from './ImageNonReact.module.scss';
 
@@ -26,14 +26,28 @@ export const ImageNonReact: React.FC<ImageNonReactProps> = ({
   className,
   skipProxy,
 }) => {
-  const { imageProxyEnabled, placeholderSrc, proxyPathPrefix } = useImageRuntime();
+  const { imageProxyEnabled, placeholderSrc, proxyPathPrefix, resolveBlockedImageUrl } =
+    useImageRuntime();
   const previousIdRef = useRef<string | null>(null);
+  const askedDirectRef = useRef(new Set<string>());
 
   const [index, setIndex] = useState(0);
+  const [directResolvedSrc, setDirectResolvedSrc] = useState<string | null>(null);
   const [phase, setPhase] = useState<LoadPhase>(() =>
     candidates.length > 0 ? 'loading' : 'exhausted'
   );
   const id = candidatesId(candidates);
+  const indexRef = useRef(index);
+  indexRef.current = index;
+
+  useEffect(() => {
+    askedDirectRef.current.clear();
+    setDirectResolvedSrc(null);
+  }, [id]);
+
+  useEffect(() => {
+    setDirectResolvedSrc(null);
+  }, [index]);
 
   useEffect(() => {
     if (id === '[]') {
@@ -69,7 +83,10 @@ export const ImageNonReact: React.FC<ImageNonReactProps> = ({
     }
   }, []);
 
-  const onImageError = () => {
+  const currentUrl = candidates[index];
+  const useProxy = imageProxyEnabled && !skipProxy;
+
+  const advanceAttempt = () => {
     if (index < candidates.length - 1) {
       setIndex((i) => i + 1);
       setPhase('loading');
@@ -78,23 +95,48 @@ export const ImageNonReact: React.FC<ImageNonReactProps> = ({
     }
   };
 
+  const onImageError = () => {
+    if (
+      !useProxy &&
+      currentUrl !== undefined &&
+      currentUrl !== '' &&
+      resolveBlockedImageUrl !== undefined &&
+      isResolvableRemoteImageUrl(currentUrl, placeholderSrc) &&
+      !askedDirectRef.current.has(currentUrl)
+    ) {
+      askedDirectRef.current.add(currentUrl);
+      const failedSrc = currentUrl;
+      const failedIndex = indexRef.current;
+      void resolveBlockedImageUrl(failedSrc).then((next) => {
+        if (indexRef.current !== failedIndex) {
+          return;
+        }
+        if (next !== null && next !== failedSrc) {
+          setDirectResolvedSrc(next);
+          setPhase('loading');
+          return;
+        }
+        advanceAttempt();
+      });
+      return;
+    }
+    advanceAttempt();
+  };
+
   if (candidates.length === 0) {
     return (
       <div className={classNames(styles.wrapper, className)}>
-        <img src={placeholderSrc} alt={alt} className={styles.fallback} />
+        <img src={placeholderSrc} alt={alt} className={styles.placeholder} />
       </div>
     );
   }
 
   const atEnd = phase === 'exhausted';
   const showHeadphone = atEnd;
-  const currentUrl = candidates[index];
-  const useProxy = imageProxyEnabled && !skipProxy;
   const showAttempt =
     !showHeadphone && currentUrl
-      ? useProxy
-        ? proxyPathPrefix + encodeURIComponent(currentUrl)
-        : currentUrl
+      ? (directResolvedSrc ??
+        (useProxy ? proxyPathPrefix + encodeURIComponent(currentUrl) : currentUrl))
       : null;
   const showSpinner = !showHeadphone && phase === 'loading' && Boolean(showAttempt);
 
@@ -103,7 +145,7 @@ export const ImageNonReact: React.FC<ImageNonReactProps> = ({
       className={classNames(styles.wrapper, className)}
       aria-busy={phase === 'loading' || undefined}
     >
-      {showHeadphone && <img src={placeholderSrc} alt={alt} className={styles.fallback} />}
+      {showHeadphone && <img src={placeholderSrc} alt={alt} className={styles.placeholder} />}
 
       {showAttempt && (
         <img

@@ -49,6 +49,18 @@ export const BASIC_AUTH_OTHER_HOST_MEDIA_FEED_URL = `${BASIC_AUTH_BASE_URL}/${BA
  */
 export const REDIRECT_OTHER_HOST_PREFIX = 'redirect/other-host';
 
+/**
+ * `GET /redirect/corp-hop/<path>` answers 302 to `<path>` on the other loopback host and sets
+ * `Cross-Origin-Resource-Policy: same-origin` on that redirect only. The final file does not.
+ */
+export const REDIRECT_CORP_HOP_PREFIX = 'redirect/corp-hop';
+
+/**
+ * `GET /redirect/corp-final/<path>` answers 302 to the same path on the other loopback host.
+ * The redirect and the final file both send `Cross-Origin-Resource-Policy: same-origin`.
+ */
+export const REDIRECT_CORP_FINAL_PREFIX = 'redirect/corp-final';
+
 /** Reports whether the request carried an `Authorization` header. Never echoes its value. */
 export const AUTHORIZATION_PROBE_PATH = 'debug/authorization';
 

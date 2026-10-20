@@ -6,6 +6,7 @@ import type {
 import { primaryListArtworkUrl, sleep } from '@podverse/helpers';
 import { createAddByRSSId, createAddByRSSIdText } from '@podverse/helpers/addByRSS/ids';
 import { isObjectLike, toNonEmptyTrimmedString } from '@podverse/helpers/guards';
+import { canonicalAddByRSSFeedUrl } from '@podverse/helpers-validation/client';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 import {
   buildAddByRSSResourceData,
@@ -245,10 +246,12 @@ export function toAddByRssItemPlaybackResourceData(
 
   const indexItem = toIndexItem(feedForIndex, itemBundle, itemIndex, record.idText);
   const mappedResourceData = buildAddByRSSResourceData(indexItem);
+  // Canonical so the hash matches every other device, and userinfo never leaves the device.
+  const feedUrl = canonicalAddByRSSFeedUrl(record.feedUrl);
 
   return {
     ...mappedResourceData,
-    feed_url: record.feedUrl,
+    ...(feedUrl !== null ? { feed_url: feedUrl } : {}),
     playback_position: record.playbackPosition ?? '0',
   };
 }

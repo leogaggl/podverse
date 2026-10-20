@@ -2,6 +2,7 @@ import type { CommandLineArgs } from '@workers/commands/index.js';
 import { getAddByRSSConfig } from '@workers/config/index.js';
 import { getActiveMQArtemisService } from '@workers/factories/activeMQArtemisService.js';
 import { getLoggerService } from '@workers/factories/loggerService.js';
+import { applyAddByRSSFollowMetadata } from '@workers/lib/addByRSS/applyAddByRSSFollowMetadata.js';
 import {
   classifyAddByRSSParseFailure,
   nextRequiresCredentials,
@@ -152,6 +153,19 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
             feedUrl,
             nextRequiresCredentials({ status: 'succeeded', credentialsState })
           );
+          await applyAddByRSSFollowMetadata({
+            accountId,
+            feedUrl,
+            result,
+            setFeedMetadata: (id, url, metadata) =>
+              new AccountFollowingAddByRSSChannelService().setFeedMetadata(id, url, metadata),
+            onError: (error) => {
+              loggerService.logError(
+                'mqAddByRSSRunParser: failed to update follow title and image',
+                error
+              );
+            },
+          });
         } else {
           const failure = classifyAddByRSSParseFailure({ error: fetchError, credentialsState });
           const errorMessage =

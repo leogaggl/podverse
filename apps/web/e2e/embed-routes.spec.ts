@@ -414,7 +414,7 @@ test.describe('Embed routes (anonymous)', () => {
       );
       await expectEmbedListShell(page);
       await expectEmbedListActiveRowLabel(page, EMBED_SAMPLE_CLIP_TITLE);
-      await expectEmbedListActiveRowMetaContains(page, '0:05 to 0:10');
+      await expectEmbedListActiveRowMetaContains(page, '0:05 - 0:10');
     });
   });
 

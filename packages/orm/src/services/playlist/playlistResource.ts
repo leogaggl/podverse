@@ -9,10 +9,14 @@ import type {
   FindOptionsOrderValue,
   FindOptionsWhere,
 } from 'typeorm';
-import { LessThan, MoreThan } from 'typeorm';
+import { In, LessThan, MoreThan } from 'typeorm';
 
 import type { PlaylistResourceIdTextOptions } from '@podverse/helpers';
-import { getAddByRSSHashId, PAGINATION } from '@podverse/helpers';
+import {
+  getAddByRSSHashId,
+  getAddByRSSHashIdsForResourceData,
+  PAGINATION,
+} from '@podverse/helpers';
 
 import { ClipService } from '../clip.js';
 import { ItemService } from '../item/item.js';
@@ -665,6 +669,14 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
       lastItem as PlaylistResource
     );
     const add_by_rss_hash_id = getAddByRSSHashId(add_by_rss_resource_data);
+    const existingRows = await this.repositoryReadWrite.find({
+      where: {
+        playlist: { id: playlist.id },
+        add_by_rss_hash_id: In(getAddByRSSHashIdsForResourceData(add_by_rss_resource_data)),
+      },
+    });
+    const existing =
+      existingRows.find((row) => row.add_by_rss_hash_id === add_by_rss_hash_id) ?? existingRows[0];
 
     const finalDto = {
       add_by_rss_resource_data,
@@ -672,7 +684,13 @@ export class PlaylistResourceService extends BaseManyService<PlaylistResource, '
       add_by_rss_hash_id,
     };
 
-    const results = await this._update(playlist, ['playlist', 'add_by_rss_hash_id'], finalDto);
+    const results = await this._update(
+      playlist,
+      ['playlist', 'add_by_rss_hash_id'],
+      finalDto,
+      undefined,
+      existing
+    );
 
     await this.playlistService.updateLastUpdatedAndItemCount(playlist.id_text);
 

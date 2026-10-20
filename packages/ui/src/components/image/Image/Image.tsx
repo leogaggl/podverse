@@ -2,11 +2,11 @@
 
 import classNames from 'classnames';
 import NextImage from 'next/image';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { resolveImageCandidates } from '@podverse/helpers';
 
-import { useImageRuntime } from '../ImageRuntime/ImageRuntime';
+import { isResolvableRemoteImageUrl, useImageRuntime } from '../ImageRuntime/ImageRuntime';
 
 import styles from './Image.module.scss';
 
@@ -58,6 +58,7 @@ export const Image: React.FC<ImageProps> = ({
     nextImageOptimizationEnabled,
     placeholderSrc,
     proxyPathPrefix,
+    resolveBlockedImageUrl,
   } = useImageRuntime();
 
   const nextImageUnoptimized = !nextImageOptimizationEnabled;
@@ -68,26 +69,65 @@ export const Image: React.FC<ImageProps> = ({
   const chainId = useMemo(() => JSON.stringify(resolvedChain), [resolvedChain]);
 
   const [internalAttemptIndex, setInternalAttemptIndex] = useState(0);
-
+  const [directResolvedSrc, setDirectResolvedSrc] = useState<string | null>(null);
+  const askedDirectRef = useRef(new Set<string>());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    askedDirectRef.current.clear();
+    setDirectResolvedSrc(null);
     setInternalAttemptIndex(0);
   }, [chainId, skipProxy]);
 
   const attemptIndex =
     fallbackControl !== undefined ? fallbackControl.attemptIndex : internalAttemptIndex;
+  const attemptRef = useRef(attemptIndex);
+  attemptRef.current = attemptIndex;
+
+  useEffect(() => {
+    setDirectResolvedSrc(null);
+  }, [attemptIndex]);
 
   useEffect(() => {
     setLoaded(false);
   }, [chainId, attemptIndex]);
 
-  const onLoadFailure = () => {
+  const rawSrc = resolvedChain[attemptIndex];
+  const useProxy = imageProxyEnabled && !skipProxy;
+  const loadedDirectly = !useProxy && nextImageUnoptimized;
+
+  const advanceAttempt = () => {
     if (fallbackControl !== undefined) {
       fallbackControl.onAttemptFailed();
     } else {
       setInternalAttemptIndex((i) => i + 1);
     }
+  };
+
+  const onLoadFailure = () => {
+    if (
+      loadedDirectly &&
+      rawSrc !== undefined &&
+      resolveBlockedImageUrl !== undefined &&
+      isResolvableRemoteImageUrl(rawSrc, placeholderSrc) &&
+      !askedDirectRef.current.has(rawSrc)
+    ) {
+      askedDirectRef.current.add(rawSrc);
+      const failedSrc = rawSrc;
+      const failedAttempt = attemptRef.current;
+      void resolveBlockedImageUrl(failedSrc).then((next) => {
+        if (attemptRef.current !== failedAttempt) {
+          return;
+        }
+        if (next !== null && next !== failedSrc) {
+          setDirectResolvedSrc(next);
+          return;
+        }
+        advanceAttempt();
+      });
+      return;
+    }
+    advanceAttempt();
   };
 
   const handleLoad = () => {
@@ -106,8 +146,6 @@ export const Image: React.FC<ImageProps> = ({
     height !== undefined && width === listGridSlotSize && height === listGridSlotSize;
   const placeholderWidth = Math.round((width * 2) / 2.5);
   const placeholderHeight = Math.round((renderedHeight * 2) / 2.5);
-
-  const rawSrc = resolvedChain[attemptIndex];
   const showPlaceholder =
     resolvedChain.length === 0 || attemptIndex >= resolvedChain.length || rawSrc === undefined;
 
@@ -127,30 +165,32 @@ export const Image: React.FC<ImageProps> = ({
               : { width, height: renderedHeight }
         }
       >
-        <NextImage
-          src={placeholderSrc}
-          alt={alt}
-          width={placeholderWidth}
-          height={placeholderHeight}
-          className={classNames(
-            styles.imagePlaceholder,
-            isFluidGridSlot && styles.imagePlaceholderFluid
-          )}
-          priority={priority}
-          unoptimized={nextImageUnoptimized}
-        />
+        <div className={styles.placeholderInner}>
+          <NextImage
+            src={placeholderSrc}
+            alt={alt}
+            width={placeholderWidth}
+            height={placeholderHeight}
+            className={classNames(
+              styles.imagePlaceholder,
+              isFluidGridSlot && styles.imagePlaceholderFluid
+            )}
+            priority={priority}
+            unoptimized={nextImageUnoptimized}
+          />
+        </div>
       </div>
     );
   }
 
-  const useProxy = imageProxyEnabled && !skipProxy;
-  const finalSrc = useProxy ? proxyPathPrefix + encodeURIComponent(rawSrc) : rawSrc;
+  const finalSrc =
+    directResolvedSrc ?? (useProxy ? proxyPathPrefix + encodeURIComponent(rawSrc) : rawSrc);
 
   const skeletonClass = enableSkeletonFlash && !loaded ? styles.skeletonBg : undefined;
 
   return (
     <NextImage
-      key={`${chainId}-${attemptIndex}`}
+      key={`${chainId}-${attemptIndex}-${directResolvedSrc ?? ''}`}
       src={finalSrc}
       alt={alt}
       width={width}

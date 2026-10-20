@@ -19,7 +19,8 @@ Current E2E bar: **Confident**. Use this skill when you change **layout**, **fun
 
 For CRUD flows, also apply **e2e-crud-state-matrix**. For membership-gated pages, apply **e2e-membership-state-matrix** and **e2e-authz-matrix**. For query-param state, apply **e2e-url-state-contracts**. For test readability, apply **e2e-readability**. For HTML report screenshots, apply **e2e-screenshot-verified-element** and call `capturePageLoad` / `actionAndCapture` from `e2e/helpers/stepScreenshots.ts` (see below).
 
-**End your response with exact E2E verification commands.** See **response-ending-make-verify**.
+**End your response with exact E2E verification commands.** Inside a plan set, only the last
+prompt does, with the cumulative list. See **response-ending-make-verify**.
 
 ## Membership-state testing
 

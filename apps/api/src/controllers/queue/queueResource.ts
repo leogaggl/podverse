@@ -1,4 +1,5 @@
 import { verifyQueueOwnership } from '@api/controllers/queue/queue.js';
+import { normalizeAddByRSSResourceData } from '@api/lib/addByRSSResourceData.js';
 import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { getParamRequired } from '@api/lib/params.js';
 import type { QueuePlaybackReplayBodyEvent } from '@api/lib/validation/index.js';
@@ -171,6 +172,10 @@ class QueueResourceController {
               // Replay is idempotent from merge semantics; no dedupe id is required.
               const replayRows = events.map((event) => ({
                 ...event,
+                add_by_rss_resource_data:
+                  event.add_by_rss_resource_data === undefined
+                    ? undefined
+                    : normalizeAddByRSSResourceData(event.add_by_rss_resource_data),
                 media_file_duration:
                   event.media_file_duration === undefined
                     ? undefined

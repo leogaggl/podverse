@@ -439,3 +439,77 @@ describe('planPlaybackReconcile invariants', () => {
     expect(findNowPlayingInvariantViolations(plan.resolved)).toEqual([]);
   });
 });
+
+describe('planPlaybackReconcile with Add by RSS', () => {
+  const addByRssPayload = {
+    add_by_rss_resource_data: {
+      feed_url: 'https://example.com/feed.xml',
+      guid: 'episode-guid-1',
+      title: 'Add by RSS Episode',
+    },
+  };
+
+  it('lets a newer Add by RSS play on this phone win over an older server item', () => {
+    const plan = run({
+      localOutboxEvents: [
+        event('abr-hash-1', 'play', '2026-09-13T11:00:00.000Z', {
+          payload: addByRssPayload,
+          playbackPosition: 90,
+          resourceKind: 'add_by_rss',
+        }),
+      ],
+      remoteState: [
+        state('episode-a', {
+          zone: 'now_playing',
+          playbackPosition: 30,
+          lastMeaningfulAt: at('2026-09-13T10:00:00.000Z'),
+        }),
+      ],
+    });
+
+    const nowPlaying = findNowPlayingByQueue(plan.resolved);
+    expect(nowPlaying?.resourceKind).toBe('add_by_rss');
+    expect(nowPlaying?.resourceIdText).toBe('abr-hash-1');
+    expect(findResolved(plan.resolved, { resourceIdText: 'episode-a' })?.zone).toBe('history');
+
+    const pushed = plan.push.find((action) => action.resourceKind === 'add_by_rss');
+    expect(pushed?.zone).toBe('now_playing');
+    expect(pushed?.payload).toEqual(addByRssPayload);
+  });
+
+  it('lets a newer server Add by RSS row win over an older local item', () => {
+    const plan = run({
+      localState: [
+        state('episode-a', {
+          zone: 'now_playing',
+          playbackPosition: 30,
+          lastMeaningfulAt: at('2026-09-13T10:00:00.000Z'),
+        }),
+      ],
+      remoteState: [
+        state('abr-hash-2', {
+          resourceKind: 'add_by_rss',
+          zone: 'now_playing',
+          playbackPosition: 200,
+          lastMeaningfulAt: at('2026-09-13T11:00:00.000Z'),
+        }),
+      ],
+    });
+
+    const nowPlaying = findNowPlayingByQueue(plan.resolved);
+    expect(nowPlaying?.resourceKind).toBe('add_by_rss');
+    expect(nowPlaying?.resourceIdText).toBe('abr-hash-2');
+    expect(plan.resolveConflicts[0]?.winner.resourceKind).toBe('add_by_rss');
+    expect(plan.resolveConflicts[0]?.loser.resourceIdText).toBe('episode-a');
+  });
+
+  it('does not push an offline Add by RSS play that has no resource data to create the row', () => {
+    const plan = run({
+      localOutboxEvents: [
+        event('abr-hash-3', 'play', '2026-09-13T11:00:00.000Z', { resourceKind: 'add_by_rss' }),
+      ],
+    });
+
+    expect(plan.push.filter((action) => action.resourceKind === 'add_by_rss')).toEqual([]);
+  });
+});

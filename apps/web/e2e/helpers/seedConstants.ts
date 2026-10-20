@@ -10,6 +10,8 @@
  * `apps/web/e2e/helpers/anonymousSnapshot.ts`.
  */
 
+import { getAddByRSSHashId } from '@podverse/helpers';
+
 export const E2E_PODCAST_CHANNEL_ID_TEXT = 'e2ePodChnl001';
 export const E2E_PODCAST_CHANNEL_TITLE = 'E2E Podcast Seed Channel';
 
@@ -95,6 +97,25 @@ export const E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID =
 export const E2E_ADD_BY_RSS_RESOURCE_FRESH_ID_TEXT = 'e2eAbRsResF01';
 export const E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID =
   'https://e2e-seed-addbyrss.example/item-guid/fresh';
+/**
+ * Canonical test-assets feed URL carried by the seeded with-position queue row, so its hash is
+ * the `{feed_url, guid}` form. The fresh row carries no `feed_url` and keeps the legacy hash.
+ */
+export const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL = 'http://localhost:2111/feeds/feed-podcast-1.rss';
+/** The seeded account follows the test-assets feed with this title and artwork. */
+export const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_TITLE =
+  'Vitium amitto volup traho praesentium tantillus totam balbus balbus paulatim.';
+export const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_IMAGE_URL =
+  'http://localhost:2111/images/image-005-300.jpg';
+export const E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_HASH_ID = getAddByRSSHashId({
+  feed_url: E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
+  channel_id_text: E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
+  guid: E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID,
+});
+export const E2E_ADD_BY_RSS_RESOURCE_FRESH_HASH_ID = getAddByRSSHashId({
+  channel_id_text: E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
+  guid: E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID,
+});
 
 /**
  * Anonymous snapshot ids reuse stable item ids but the snapshot itself is

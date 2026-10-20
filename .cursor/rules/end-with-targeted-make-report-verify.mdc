@@ -37,6 +37,11 @@ Preferred commands:
 - Full web regression: `make e2e_test_report`
 - API only: `npm run test:e2e:api`
 
+**Plan sets:** the operator runs tests once, after the whole set. A COPY-PASTA prompt that is not
+the last in its set ends **without** a verification block; it reports what it changed, its
+self-check results, any blocker, and anything a later prompt needs. Rules 1–4 above apply to
+standalone work and to the last prompt of a set.
+
 **Final COPY-PASTA prompt:** When completing the last step in a plan set (`COPY-PASTA.md` /
 `00-EXECUTION-ORDER.md`), list every cumulative verification command for the whole set. Follow
 **response-ending-make-verify** (with **mobile-e2e-screenshots** and **plan-completion**) for the

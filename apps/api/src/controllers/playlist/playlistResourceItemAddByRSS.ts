@@ -1,5 +1,6 @@
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import { verifyPlaylistOwnership } from '@api/controllers/playlist/playlist.js';
+import { normalizeAddByRSSResourceData } from '@api/lib/addByRSSResourceData.js';
 import { ensureAuthenticated } from '@api/lib/auth/index.js';
 import { getParamRequired } from '@api/lib/params.js';
 import {
@@ -29,7 +30,9 @@ class PlaylistResourceItemAddByRSSController {
           verifyPlaylistOwnership()(req, res, async () => {
             validateBodyObject(bodySchema, req, res, async () => {
               const playlist_id_text = getParamRequired(req, 'playlist_id_text');
-              const { add_by_rss_resource_data } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
 
               try {
                 const playlistResource =
@@ -62,7 +65,9 @@ class PlaylistResourceItemAddByRSSController {
           verifyPlaylistOwnership()(req, res, async () => {
             validateBodyObject(bodySchema, req, res, async () => {
               const playlist_id_text = getParamRequired(req, 'playlist_id_text');
-              const { add_by_rss_resource_data } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
 
               try {
                 const playlistResource =
@@ -96,7 +101,10 @@ class PlaylistResourceItemAddByRSSController {
           verifyPlaylistOwnership()(req, res, async () => {
             validateBodyObject(bodySchema, req, res, async () => {
               const playlist_id_text = getParamRequired(req, 'playlist_id_text');
-              const { add_by_rss_resource_data, position1, position2 } = req.body;
+              const { position1, position2 } = req.body;
+              const add_by_rss_resource_data = normalizeAddByRSSResourceData(
+                req.body.add_by_rss_resource_data
+              );
 
               try {
                 const playlistResource =

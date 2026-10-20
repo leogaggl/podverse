@@ -17,6 +17,7 @@ import {
   E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID,
   E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_ID_TEXT,
   E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_SECONDS,
+  E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
   E2E_ADDBYRSS_FRESH_ENCLOSURE_URL,
   E2E_ADDBYRSS_WITH_POSITION_ENCLOSURE_URL,
   E2E_PODCAST_QUEUE_ID_TEXT,
@@ -72,10 +73,11 @@ async function expectAudioSrcMatches(page: Page, enclosureUrl: string): Promise<
 /**
  * Mirror of `tools/web/seed-e2e.mjs` `buildAddByRssResourceDataSeed` /
  * `buildAddByRssBundleSeed`. Building the same payload in the spec lets the
- * API match the seeded queue_resource row by `add_by_rss_hash_id` (md5 of
- * channel_id_text + guid) when promoting the resource to now-playing while
- * keeping the bundle intact so `loadAddByRSSIndexItemFromResourceData` can
- * reconstruct the index item without IndexedDB.
+ * API match the seeded queue_resource row by `add_by_rss_hash_id` when
+ * promoting the resource to now-playing while keeping the bundle intact so
+ * `loadAddByRSSIndexItemFromResourceData` can reconstruct the index item
+ * without IndexedDB. The with-position payload carries `feed_url` (hash of
+ * feed_url + guid); the fresh payload omits it (legacy channel_id_text + guid).
  */
 type AddByRssBundleInput = {
   guid: string;
@@ -105,6 +107,7 @@ function buildAddByRssBundle({ guid, title, enclosureUrl }: AddByRssBundleInput)
 }
 
 type AddByRssResourceInput = {
+  feedUrl?: string;
   itemIdText: string;
   guid: string;
   title: string;
@@ -112,12 +115,14 @@ type AddByRssResourceInput = {
 };
 
 function buildAddByRssResourceData({
+  feedUrl,
   itemIdText,
   guid,
   title,
   enclosureUrl,
 }: AddByRssResourceInput): object {
   return {
+    ...(feedUrl !== undefined ? { feed_url: feedUrl } : {}),
     channel_id_text: E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
     guid,
     title,
@@ -135,6 +140,7 @@ function buildAddByRssResourceData({
 }
 
 const withPositionResourceData = buildAddByRssResourceData({
+  feedUrl: E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
   itemIdText: E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_ID_TEXT,
   guid: E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID,
   title: WITH_POSITION_TITLE,

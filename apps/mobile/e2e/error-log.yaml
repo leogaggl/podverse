@@ -17,7 +17,6 @@ name: Error Log
       id: more-nav-advanced
     direction: DOWN
     timeout: ${TIMEOUT_FAST}
-    centerElement: true
 - tapOn:
     id: more-nav-advanced
 - assertVisible:

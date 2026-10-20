@@ -160,6 +160,62 @@ export const bulkUpsertAddByRSSFeeds = async (records: AddByRSSFeedRecord[]): Pr
   });
 };
 
+export type AddByRSSFollowMetadataPatch = {
+  feedUrl: string;
+  title: string | null;
+  imageUrl: string | null;
+  requiresCredentials: boolean;
+};
+
+/**
+ * Writes follow metadata onto the current stored row. An unparsed feed takes the follow's title
+ * and artwork. A parsed feed keeps the title and artwork from its parse. Other fields stay as
+ * they are on the row read in this write.
+ */
+export const patchAddByRSSFollowMetadata = async (
+  patches: readonly AddByRSSFollowMetadataPatch[]
+): Promise<string[]> => {
+  if (!isIndexedDbAvailable() || patches.length === 0) {
+    return [];
+  }
+
+  const changedFeedUrls: string[] = [];
+  await withStore(FEEDS_STORE, 'readwrite', async (store) => {
+    const index = store.index('feedUrl');
+    for (const patch of patches) {
+      const current = await requestToPromise<AddByRSSFeedRecord | undefined>(
+        index.get(patch.feedUrl)
+      );
+      if (current === undefined) {
+        continue;
+      }
+      const isUnparsed = current.mappedFeed === undefined;
+      const title = isUnparsed ? (patch.title ?? current.title) : current.title;
+      const imageUrl = isUnparsed ? (patch.imageUrl ?? current.imageUrl) : current.imageUrl;
+      const requiresCredentials = patch.requiresCredentials;
+      if (
+        title === current.title &&
+        imageUrl === current.imageUrl &&
+        current.requiresCredentials === requiresCredentials
+      ) {
+        continue;
+      }
+      if (title !== current.title || imageUrl !== current.imageUrl) {
+        changedFeedUrls.push(current.feedUrl);
+      }
+      const updated: AddByRSSFeedRecord = {
+        ...current,
+        title,
+        imageUrl,
+        requiresCredentials,
+        updatedAt: new Date().toISOString(),
+      };
+      await requestToPromise(store.put(updated));
+    }
+  });
+  return changedFeedUrls;
+};
+
 export const removeAddByRSSFeed = async (idText: string): Promise<void> => {
   if (!isIndexedDbAvailable()) {
     return;
@@ -180,6 +236,38 @@ export const bulkRemoveAddByRSSFeeds = async (idTexts: string[]): Promise<void> 
       await requestToPromise(store.delete(idText));
     }
   });
+};
+
+type IndexItemWithFeed = { channelIdText: string; feedUrl?: string };
+
+/**
+ * Index items stored before feed identity have no `feedUrl`; take it from the owning feed record
+ * so they hash in the feed form.
+ */
+const withFeedUrls = async <T extends IndexItemWithFeed>(items: T[]): Promise<T[]> => {
+  if (items.every((item) => item.feedUrl)) {
+    return items;
+  }
+  const feeds = await getAllAddByRSSFeeds();
+  const feedUrlByIdText = new Map(feeds.map((feed) => [feed.idText, feed.feedUrl]));
+  return items.map((item) => {
+    if (item.feedUrl) {
+      return item;
+    }
+    const feedUrl = feedUrlByIdText.get(item.channelIdText);
+    return feedUrl ? { ...item, feedUrl } : item;
+  });
+};
+
+const withFeedUrl = async <T extends IndexItemWithFeed>(item: T | undefined): Promise<T | null> => {
+  if (!item) {
+    return null;
+  }
+  if (item.feedUrl) {
+    return item;
+  }
+  const feed = await getAddByRSSFeedByIdText(item.channelIdText);
+  return feed?.feedUrl ? { ...item, feedUrl: feed.feedUrl } : item;
 };
 
 export const clearAddByRSSItemsIndex = async (): Promise<void> => {
@@ -207,7 +295,9 @@ export const getAllAddByRSSItems = async (): Promise<AddByRSSItemIndexItem[]> =>
     return [];
   }
 
-  return withStore(ITEMS_STORE, 'readonly', async (store) => requestToPromise(store.getAll()));
+  return withFeedUrls<AddByRSSItemIndexItem>(
+    await withStore(ITEMS_STORE, 'readonly', async (store) => requestToPromise(store.getAll()))
+  );
 };
 
 export const getAllAddByRSSLivestreamItems = async (): Promise<AddByRSSLivestreamIndexItem[]> => {
@@ -215,7 +305,9 @@ export const getAllAddByRSSLivestreamItems = async (): Promise<AddByRSSLivestrea
     return [];
   }
 
-  return withStore(LIVE_ITEMS_STORE, 'readonly', async (store) => requestToPromise(store.getAll()));
+  return withFeedUrls<AddByRSSLivestreamIndexItem>(
+    await withStore(LIVE_ITEMS_STORE, 'readonly', async (store) => requestToPromise(store.getAll()))
+  );
 };
 
 export const bulkUpsertAddByRSSItemsIndexItems = async (
@@ -261,10 +353,12 @@ export const getAddByRSSItemByGuid = async (
     return null;
   }
 
-  return withStore(ITEMS_STORE, 'readonly', async (store) => {
-    const index = store.index('itemGuid');
-    return requestToPromise(index.get(itemGuid));
-  });
+  return withFeedUrl<AddByRSSItemIndexItem>(
+    await withStore(ITEMS_STORE, 'readonly', async (store) => {
+      const index = store.index('itemGuid');
+      return requestToPromise(index.get(itemGuid));
+    })
+  );
 };
 
 export const getAddByRSSLivestreamByGuid = async (
@@ -274,10 +368,12 @@ export const getAddByRSSLivestreamByGuid = async (
     return null;
   }
 
-  return withStore(LIVE_ITEMS_STORE, 'readonly', async (store) => {
-    const index = store.index('itemGuid');
-    return requestToPromise(index.get(itemGuid));
-  });
+  return withFeedUrl<AddByRSSLivestreamIndexItem>(
+    await withStore(LIVE_ITEMS_STORE, 'readonly', async (store) => {
+      const index = store.index('itemGuid');
+      return requestToPromise(index.get(itemGuid));
+    })
+  );
 };
 
 export const getAddByRSSItemByIdText = async (
@@ -287,10 +383,12 @@ export const getAddByRSSItemByIdText = async (
     return null;
   }
 
-  return withStore(ITEMS_STORE, 'readonly', async (store) => {
-    const index = store.index('idText');
-    return requestToPromise(index.get(idText));
-  });
+  return withFeedUrl<AddByRSSItemIndexItem>(
+    await withStore(ITEMS_STORE, 'readonly', async (store) => {
+      const index = store.index('idText');
+      return requestToPromise(index.get(idText));
+    })
+  );
 };
 
 export const getAddByRSSLivestreamByIdText = async (
@@ -300,10 +398,12 @@ export const getAddByRSSLivestreamByIdText = async (
     return null;
   }
 
-  return withStore(LIVE_ITEMS_STORE, 'readonly', async (store) => {
-    const index = store.index('idText');
-    return requestToPromise(index.get(idText));
-  });
+  return withFeedUrl<AddByRSSLivestreamIndexItem>(
+    await withStore(LIVE_ITEMS_STORE, 'readonly', async (store) => {
+      const index = store.index('idText');
+      return requestToPromise(index.get(idText));
+    })
+  );
 };
 
 export const getAddByRSSItemById = async (id: string): Promise<AddByRSSItemIndexItem | null> => {
@@ -311,9 +411,11 @@ export const getAddByRSSItemById = async (id: string): Promise<AddByRSSItemIndex
     return null;
   }
 
-  return withStore(ITEMS_STORE, 'readonly', async (store) => {
-    return requestToPromise(store.get(id));
-  });
+  return withFeedUrl<AddByRSSItemIndexItem>(
+    await withStore(ITEMS_STORE, 'readonly', async (store) => {
+      return requestToPromise(store.get(id));
+    })
+  );
 };
 
 export const getAddByRSSItemsIndexPage = async (params: {
@@ -362,7 +464,7 @@ export const getAddByRSSItemsIndexPage = async (params: {
     return items;
   });
 
-  return { items, totalCount };
+  return { items: await withFeedUrls(items), totalCount };
 };
 
 export const getAddByRSSItemsIndexMeta = async <T = unknown>(key: string): Promise<T | null> => {

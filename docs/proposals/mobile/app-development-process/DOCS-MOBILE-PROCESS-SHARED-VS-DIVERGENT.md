@@ -111,6 +111,13 @@ Add-by-RSS items are **not** ORM entities. They use parallel types (`AddByRSSRes
 web has dedicated AddByRSS "core" components. Mobile should mirror those types via
 `@podverse/parser-mapping` + helpers DTOs, not invent a second model.
 
+`add_by_rss_hash_id` is the same on every device: md5 of `{feed_url, guid}`, or
+`{feed_url, enclosure_url}` when the guid is missing or device-local, with `feed_url`
+canonicalized (`canonicalAddByRSSFeedUrl`). The API recomputes it from
+`add_by_rss_resource_data`. Rows without `feed_url` keep the legacy `{channel_id_text, guid}`
+hash, so clients match both (`getAddByRSSHashIds`). See
+`packages/helpers/src/lib/addByRSSHash.ts`.
+
 Do **not** import `@podverse/parser` in mobile (Node/ORM deps). Do import
 `@podverse/parser-mapping` for post-parse mapping (browser/mobile-safe).
 

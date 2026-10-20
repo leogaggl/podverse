@@ -302,27 +302,12 @@
     "clear": ""
   },
   "action_error": {
-    "playback_title": "",
     "download_title": "",
-    "playback_a11y": "",
     "download_a11y": "",
-    "report": "",
-    "playback_network": "",
-    "playback_unsupported": "",
-    "playback_file_not_found": "",
-    "playback_decode": "",
-    "playback_audio_session": "",
-    "playback_invalid_source": "",
-    "playback_unknown": "",
     "download_no_storage": "",
     "download_transfer_failed": "",
     "download_file_missing": "",
     "download_unknown": "",
-    "playback_host_http": "",
-    "playback_credentials_required": "",
-    "playback_credentials_rejected": "",
-    "playback_credentials_withheld_other_domain": "",
-    "playback_credentials_withheld_insecure": "",
     "download_credentials_withheld": ""
   },
   "authentication": {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { buildAddByRSSResourceData } from '@podverse/parser-mapping';
+import { buildAddByRSSResourceData, getAddByRSSHashIds } from '@podverse/parser-mapping';
 
 import { useAccount } from '../contexts/Account';
 import { getApiRequestService } from '../factories/apiRequestService';
@@ -10,17 +10,23 @@ import type { AddByRSSItemIndexItem } from '../utils/addByRSS/types';
 
 type RowEntry = { hashId: string; indexItem: AddByRSSItemIndexItem };
 
+/** A like stored under any of the item's hashes (feed form or legacy form) counts. */
 export function useLikesAddByRssBatch(rows: RowEntry[]) {
   const { loggedInAccount } = useAccount();
   const [likedSet, setLikedSet] = useState<Set<string>>(new Set());
   const [isBatchLoading, setIsBatchLoading] = useState(false);
+  const hashIdsByRow = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const r of rows) {
+      if (r.hashId.length > 0) {
+        m.set(r.hashId, getAddByRSSHashIds(r.indexItem));
+      }
+    }
+    return m;
+  }, [rows]);
   const hashList = useMemo(
-    () =>
-      rows
-        .map((r) => r.hashId)
-        .filter((h): h is string => h.length > 0)
-        .sort(),
-    [rows]
+    () => [...new Set([...hashIdsByRow.values()].flat())].sort(),
+    [hashIdsByRow]
   );
   const sortedKey = useMemo(() => hashList.join('\u0001'), [hashList]);
   const rowByHash = useMemo(() => {
@@ -54,9 +60,15 @@ export function useLikesAddByRssBatch(rows: RowEntry[]) {
     };
   }, [hashList, loggedInAccount, sortedKey]);
 
+  const isLikedIn = useCallback(
+    (set: Set<string>, hashId: string): boolean =>
+      (hashIdsByRow.get(hashId) ?? [hashId]).some((id) => set.has(id)),
+    [hashIdsByRow]
+  );
+
   const isLiked = useCallback(
-    (hashId: string) => !isBatchLoading && likedSet.has(hashId),
-    [isBatchLoading, likedSet]
+    (hashId: string) => !isBatchLoading && isLikedIn(likedSet, hashId),
+    [isBatchLoading, isLikedIn, likedSet]
   );
 
   const toggle = useCallback(
@@ -68,16 +80,21 @@ export function useLikesAddByRssBatch(rows: RowEntry[]) {
       if (!indexItem) {
         return;
       }
-      const was = likedSet.has(hashId);
-      setLikedSet((s) => {
-        const n = new Set(s);
-        if (was) {
-          n.delete(hashId);
-        } else {
-          n.add(hashId);
-        }
-        return n;
-      });
+      const rowHashIds = hashIdsByRow.get(hashId) ?? [hashId];
+      const setLiked = (liked: boolean) => {
+        setLikedSet((s) => {
+          const n = new Set(s);
+          for (const id of rowHashIds) {
+            n.delete(id);
+          }
+          if (liked) {
+            n.add(hashId);
+          }
+          return n;
+        });
+      };
+      const was = isLikedIn(likedSet, hashId);
+      setLiked(!was);
       try {
         const addByRssResourceData = buildAddByRSSResourceData(indexItem);
         const r = await getApiRequestService().reqPlaylistToggleLike({
@@ -85,28 +102,12 @@ export function useLikesAddByRssBatch(rows: RowEntry[]) {
           add_by_rss_hash_id: hashId,
           add_by_rss_resource_data: { ...addByRssResourceData },
         });
-        setLikedSet((s) => {
-          const n = new Set(s);
-          if (r.liked) {
-            n.add(hashId);
-          } else {
-            n.delete(hashId);
-          }
-          return n;
-        });
+        setLiked(r.liked);
       } catch {
-        setLikedSet((s) => {
-          const n = new Set(s);
-          if (was) {
-            n.add(hashId);
-          } else {
-            n.delete(hashId);
-          }
-          return n;
-        });
+        setLiked(was);
       }
     },
-    [loggedInAccount, likedSet, rowByHash]
+    [hashIdsByRow, isLikedIn, loggedInAccount, likedSet, rowByHash]
   );
 
   return { isLiked, toggle, isBatchLoading, likedSet };

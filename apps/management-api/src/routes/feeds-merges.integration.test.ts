@@ -139,8 +139,18 @@ vi.mock('@management-api/lib/database/auditLog.js', () => {
   return { AuditLogService };
 });
 
+const adminIdTextByUserId: Record<number, string> = {
+  1: 'pvMgtSu001',
+  2: 'pvMgtAd002',
+  3: 'pvMgtAd003',
+};
+
 const adminAuthHeaders = (userId: number): { Authorization: string } => ({
-  Authorization: `Bearer ${jwt.sign({ id: userId, id_text: 'pvMgtSu001' }, JWT_SECRET, { expiresIn: '1h' })}`,
+  Authorization: `Bearer ${jwt.sign(
+    { id: userId, id_text: adminIdTextByUserId[userId] ?? 'pvMgtSu001' },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  )}`,
 });
 
 describe('feed merge review routes', () => {

@@ -39,6 +39,7 @@ const nextConfig = {
   },
   serverExternalPackages: [
     'winston',
+    '@podverse/observability',
     '@podverse/extension-metrics-sdk',
     '@opentelemetry/api',
     '@opentelemetry/exporter-metrics-otlp-http',

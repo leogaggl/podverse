@@ -1,10 +1,16 @@
 /**
- * Add-by-RSS hash: compute add_by_rss_hash_id from a minimal, stable set of
- * fields. Uses channel_id_text + guid as primary identifier. Falls back to
- * channel_id_text + enclosure_url if guid is missing.
+ * Add-by-RSS hash: compute add_by_rss_hash_id from a minimal, stable set of fields.
  *
- * Used by queue and playlist ORM; client must use the same logic for
- * remove-from-queue/playlist to work.
+ * Feed form (the episode has the same id on every device): `feed_url` + `guid`, or
+ * `feed_url` + `enclosure_url` when the guid is missing or device-local.
+ *
+ * Legacy form (payloads without `feed_url`): `channel_id_text` + `guid`, or
+ * `channel_id_text` + `enclosure_url` when the guid is missing. `channel_id_text` is a random id
+ * each device creates for its copy of the feed, so this form differs per device.
+ *
+ * `getMd5Hash` hashes `JSON.stringify`, so key insertion order is part of the contract. Migration
+ * `0020_add_by_rss_feed_identity.sql` reproduces the feed form in SQL
+ * (`public.add_by_rss_hash_id_from_feed`); the two must stay byte for byte identical.
  */
 
 import { getMd5Hash } from './hash.js';
@@ -17,10 +23,31 @@ function toHashString(value: unknown): string | null {
   return s === '' ? null : s;
 }
 
+const DIGITS_ONLY = /^[0-9]+$/;
+
+/**
+ * True when `guid` was made up on this device for an item without an RSS guid: the device's
+ * channel id, a hyphen, then the item's position. Such a guid differs per device, so the feed
+ * form ignores it and falls back to `enclosure_url`.
+ */
+export function isDeviceLocalAddByRSSGuid(
+  guid: string,
+  channelIdText: string | null | undefined
+): boolean {
+  const channel = toHashString(channelIdText);
+  if (channel === null) {
+    return false;
+  }
+  const prefix = `${channel}-`;
+  return guid.startsWith(prefix) && DIGITS_ONLY.test(guid.slice(prefix.length));
+}
+
 /**
  * Extract minimal hash input from add_by_rss_resource_data (full payload).
- * Returns an object with channel_id_text + guid (primary) or
- * channel_id_text + enclosure_url (fallback if no guid).
+ *
+ * `feed_url` must already be canonical (`canonicalAddByRSSFeedUrl` in `@podverse/helpers-validation`,
+ * userinfo removed). This package cannot canonicalize it; the code that builds resource data and
+ * the API boundary do.
  */
 export function extractAddByRSSHashInput(data: unknown): Record<string, string> {
   if (!data || typeof data !== 'object') {
@@ -29,31 +56,57 @@ export function extractAddByRSSHashInput(data: unknown): Record<string, string> 
   const record = data as Record<string, unknown>;
   const result: Record<string, string> = {};
 
+  const feedUrl = toHashString(record['feed_url']);
   const channelIdText = toHashString(record['channel_id_text']);
+  const guid = toHashString(record['guid']);
+  const enclosureUrl = toHashString(record['enclosure_url']);
+
+  if (feedUrl) {
+    result['feed_url'] = feedUrl;
+    if (guid && !isDeviceLocalAddByRSSGuid(guid, channelIdText)) {
+      result['guid'] = guid;
+    } else if (enclosureUrl) {
+      result['enclosure_url'] = enclosureUrl;
+    }
+    return result;
+  }
+
   if (channelIdText) {
     result['channel_id_text'] = channelIdText;
   }
-
-  const guid = toHashString(record['guid']);
   if (guid) {
-    // Primary: channel_id_text + guid
     result['guid'] = guid;
-  } else {
-    // Fallback: channel_id_text + enclosure_url (if no guid)
-    const enclosureUrl = toHashString(record['enclosure_url']);
-    if (enclosureUrl) {
-      result['enclosure_url'] = enclosureUrl;
-    }
+  } else if (enclosureUrl) {
+    result['enclosure_url'] = enclosureUrl;
   }
 
   return result;
 }
 
-/**
- * Compute add_by_rss_hash_id from full add_by_rss_resource_data payload.
- * Uses channel_id_text + guid, or channel_id_text + enclosure_url as fallback.
- */
+/** Compute add_by_rss_hash_id from a full add_by_rss_resource_data payload. */
 export function getAddByRSSHashId(addByRSSResourceData: unknown): string {
   const minimal = extractAddByRSSHashInput(addByRSSResourceData);
   return getMd5Hash(minimal);
+}
+
+/**
+ * The legacy hash for a payload, ignoring `feed_url`. Rows written before feed identity carry it,
+ * and rows whose payload never had `feed_url` still use it.
+ */
+export function getLegacyAddByRSSHashId(addByRSSResourceData: unknown): string {
+  if (!addByRSSResourceData || typeof addByRSSResourceData !== 'object') {
+    return getMd5Hash({});
+  }
+  const { feed_url: _feedUrl, ...legacy } = addByRSSResourceData as Record<string, unknown>;
+  return getAddByRSSHashId(legacy);
+}
+
+/**
+ * Every add_by_rss_hash_id a stored row for this payload may carry: the current hash first, then
+ * the legacy hash when it differs.
+ */
+export function getAddByRSSHashIdsForResourceData(addByRSSResourceData: unknown): string[] {
+  const current = getAddByRSSHashId(addByRSSResourceData);
+  const legacy = getLegacyAddByRSSHashId(addByRSSResourceData);
+  return legacy === current ? [current] : [current, legacy];
 }

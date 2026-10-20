@@ -2,7 +2,7 @@
 
 A COPY-PASTA prompt that names this file is the operator asking you to run these checks before
 handing back. For that prompt only, it replaces "do not run tests during agent work". The
-operator verification commands at the end of the plan still go in your final message.
+operator still runs the full verification once, after the last prompt in the set.
 
 ## Load the toolchain once
 
@@ -46,5 +46,6 @@ Do not run full `npm run lint`, `npm run test:unit`, E2E (`make e2e_*`), Maestro
 
 ## Report
 
-One line per command in the final message: the command, pass or fail, and what you fixed. Then
-the plan's operator verification commands, unchanged.
+One line per command in the final message: the command, pass or fail, and what you fixed. No
+operator verification block unless this is the last prompt in the set
+(**response-ending-make-verify** § Plan sets).

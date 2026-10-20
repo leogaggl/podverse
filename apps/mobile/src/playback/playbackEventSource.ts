@@ -1,5 +1,13 @@
+import { getAddByRSSHashId } from '@podverse/helpers';
+import { isObjectLike } from '@podverse/helpers/guards';
+import { MediumEnum } from '@podverse/helpers/medium';
 import type { PlaybackEventKind } from '@podverse/helpers/playbackEvents';
 import type { PlaybackTarget } from '@podverse/playback-core';
+
+import {
+  isAddByRssLivestreamResourceData,
+  withCanonicalAddByRssFeedUrl,
+} from '../lib/addByRss/resourceData';
 
 export type PlaybackDiscreteSignal =
   | 'complete'
@@ -14,7 +22,7 @@ export type PlaybackDiscreteSignal =
 
 export type PlaybackNowPlayingResource = {
   resourceIdText: string;
-  resourceKind: 'clip' | 'item' | 'soundbite';
+  resourceKind: 'add_by_rss' | 'clip' | 'item' | 'soundbite';
 };
 
 const IMMEDIATE_NOW_PLAYING_EVENT_KINDS: readonly PlaybackEventKind[] = [
@@ -68,7 +76,44 @@ export const nowPlayingResourceFromTarget = (
     case 'item-video':
       return { resourceIdText: target.item.id_text, resourceKind: 'item' };
     case 'add-by-rss':
+      if (isAddByRssLivestreamResourceData(target.resourceData)) {
+        return null;
+      }
+      return {
+        resourceIdText: getAddByRSSHashId(withCanonicalAddByRssFeedUrl(target.resourceData)),
+        resourceKind: 'add_by_rss',
+      };
     case 'livestream':
       return null;
   }
+};
+
+/**
+ * Payload stored with a playback event. An Add by RSS event carries its full resource data so the
+ * server can create the now-playing row on replay, even when no queue row exists for it yet.
+ */
+export const playbackEventPayloadForTarget = (
+  target: PlaybackTarget,
+  payload: unknown
+): unknown => {
+  if (target.kind !== 'add-by-rss') {
+    return payload;
+  }
+  const base = isObjectLike(payload) ? payload : {};
+  return {
+    ...base,
+    add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(target.resourceData),
+  };
+};
+
+/**
+ * The medium whose queue holds this target's playback. An Add by RSS target with no medium plays
+ * on the podcast queue.
+ */
+export const playbackMediumIdFromTarget = (target: PlaybackTarget): number => {
+  if (target.kind === 'add-by-rss') {
+    const mediumId = target.resourceData.medium_id;
+    return typeof mediumId === 'number' ? mediumId : MediumEnum.Podcast;
+  }
+  return target.channel.medium_id;
 };

@@ -50,7 +50,7 @@ export function useNonLivePlaybackAvProps(): Omit<
   }, [listContext, mediaPlayer.mpAddByRSS, playNextRaw]);
 
   return {
-    mpAddByRSS: mediaPlayer.mpAddByRSS,
+    mpAddByRSS: mediaPlayer.mpAddByRSSMediaSource,
     mpChannel: mediaPlayer.mpChannel,
     mpClip: mediaPlayer.mpClip,
     setMPClip: mediaPlayer.setMPClip,

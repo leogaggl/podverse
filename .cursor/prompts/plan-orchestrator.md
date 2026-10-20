@@ -17,11 +17,12 @@ for the orchestrator.
 2. For each unchecked prompt, in order, launch one `Task` subagent (`generalPurpose`, foreground)
    with:
    - **model** from the prompt's **Cursor model** line: Cursor Grok 4.7 → `grok-4.7-xhigh-fast`,
-     Codex 5.3 → `gpt-5.3-codex-high`, Opus 5.5 → `claude-opus-5-5-xhigh`. When a slug is not in
+     Codex 5.3 → `gpt-5.3-codex-high`, Opus 5.5 → `claude-opus-5-5-high`. When a slug is not in
      this session's subagent model list, stop and ask.
    - **prompt**: the fenced block verbatim, then: "You run under an orchestrator; nobody can
-     answer questions mid-turn. Return the files you changed, the operator verification
-     commands, any blocker or open question, and anything a later prompt must know."
+     answer questions mid-turn. Return the files you changed, your self-check results, any
+     blocker or open question, and anything a later prompt must know. Only the last prompt in
+     the set returns operator verification commands."
    - Notes a later prompt is told to read ("Read 03's final message"): paste that subagent's
      returned notes into the later prompt.
 3. Prompts the execution order lets run at the same time may launch together in one message

@@ -1,12 +1,9 @@
-import crypto from 'node:crypto';
-
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 import {
-  E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
-  E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID,
-  E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID,
+  E2E_ADD_BY_RSS_RESOURCE_FRESH_HASH_ID,
+  E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_HASH_ID,
   E2E_CLIP_ID_TEXT,
   E2E_EMBED_MUSIC_TRACK_VIDEO_ID_TEXT,
   E2E_EMBED_VIDEO_ITEM_ID_TEXT,
@@ -23,19 +20,6 @@ import {
 } from './seedConstants';
 
 const API_BASE_URL = 'http://localhost:4030/api/v2';
-
-/**
- * Replicates the seed's `computeAddByRssHashSeed` and the API server's
- * `add_by_rss_hash_id` derivation: md5 of the JSON-stringified subset of
- * `{ channel_id_text, guid }` (key insertion order preserved). Used to
- * delete seeded add-by-RSS queue resources by hash id.
- */
-function computeAddByRssHashId(channelIdText: string, guid: string): string {
-  const minimal: Record<string, string> = {};
-  if (channelIdText) minimal.channel_id_text = channelIdText;
-  if (guid) minimal.guid = guid;
-  return crypto.createHash('md5').update(JSON.stringify(minimal)).digest('hex');
-}
 
 /**
  * The media player aside renders the same title in both the desktop and
@@ -159,11 +143,8 @@ export async function clearSeededPodcastQueueResources(page: Page): Promise<void
   const clipIdTexts = [E2E_CLIP_ID_TEXT];
   const soundbiteIdTexts = [E2E_SOUNDBITE_ID_TEXT];
   const addByRssHashIds = [
-    computeAddByRssHashId(
-      E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
-      E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID
-    ),
-    computeAddByRssHashId(E2E_ADD_BY_RSS_CHANNEL_ID_TEXT, E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID),
+    E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_HASH_ID,
+    E2E_ADD_BY_RSS_RESOURCE_FRESH_HASH_ID,
   ];
 
   for (const { id_text: queueIdText } of queues) {

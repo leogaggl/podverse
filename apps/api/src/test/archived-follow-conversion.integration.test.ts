@@ -427,12 +427,13 @@ describe('archived follow conversion and empty show deletion', () => {
       [mergeShow.podcastIndexId, nextPodcastIndexIdValue(), mergeShow.channelId]
     );
 
+    const invalidUrl = `http://#archived-invalid-${runId}`;
     const invalid = await createShow(manager, {
-      url: 'https://invalid-feed-placeholder.example/podcast.xml',
+      url: `https://invalid-feed-placeholder-${runId}.example/podcast.xml`,
       title: `Invalid feed ${runId}`,
     });
     await markArchived(invalid.feedId);
-    await manager.query(`UPDATE feed SET url = 'http://' WHERE id = $1`, [invalid.feedId]);
+    await manager.query(`UPDATE feed SET url = $2 WHERE id = $1`, [invalid.feedId, invalidUrl]);
 
     const probed: string[] = [];
     await convertArchivedShowFollows(async (url) => {
@@ -441,7 +442,7 @@ describe('archived follow conversion and empty show deletion', () => {
     });
 
     expect(probed.some((url) => url.includes(mergeHost))).toBe(false);
-    expect(probed.some((url) => url === 'http://' || url === 'http:///')).toBe(false);
+    expect(probed).not.toContain(invalidUrl);
     expect((await conversionState(manager, mergeShow.channelId)).status).toBe('skipped');
     expect((await conversionState(manager, invalid.channelId)).status).toBe('skipped');
   });

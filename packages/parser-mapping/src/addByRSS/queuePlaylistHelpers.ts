@@ -2,11 +2,17 @@
  * Add-by-RSS queue and playlist: build minimal hash input and full resource
  * payload for API. Same resource => same add_by_rss_hash_id (matches backend).
  *
- * Hash uses channel_id_text + guid (primary) or channel_id_text + enclosure_url (fallback).
+ * Hash uses canonical feed_url + guid (or enclosure_url); index items without a feed URL keep the
+ * legacy channel_id_text form. See `extractAddByRSSHashInput` in `@podverse/helpers`.
  */
 
 import type { AddByRSSResourceDataImageEntry } from '@podverse/helpers';
-import { getAddByRSSHashId as getAddByRSSHashIdFromHelpers } from '@podverse/helpers';
+import {
+  extractAddByRSSHashInput,
+  getAddByRSSHashId as getAddByRSSHashIdFromHelpers,
+  getAddByRSSHashIdsForResourceData,
+} from '@podverse/helpers';
+import { canonicalAddByRSSFeedUrl } from '@podverse/helpers-validation/client';
 
 import type { AddByRSSItemIndexItem, AddByRSSLivestreamIndexItem } from './types.js';
 
@@ -59,32 +65,34 @@ function getEnclosureUrl(item: AddByRSSItemIndexItem | AddByRSSLivestreamIndexIt
   return '';
 }
 
+/** Canonical feed URL (userinfo removed) for an index item, or null when it has none. */
+function getCanonicalFeedUrl(
+  item: AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem
+): string | null {
+  const feedUrl = item.feedUrl?.trim() ?? '';
+  return feedUrl ? canonicalAddByRSSFeedUrl(feedUrl) : null;
+}
+
+function buildHashFields(
+  item: AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem,
+  feedUrl: string | null
+): Record<string, string | null> {
+  return {
+    feed_url: feedUrl,
+    channel_id_text: item.channelIdText ?? null,
+    guid: item.itemGuid ?? null,
+    enclosure_url: getEnclosureUrl(item),
+  };
+}
+
 /**
- * Build minimal hash input from an index item.
- * Uses channel_id_text + guid (primary) or channel_id_text + enclosure_url (fallback).
- * Must match backend extractAddByRSSHashInput logic.
+ * Build minimal hash input from an index item, in the same form the API computes from
+ * `buildAddByRSSResourceData`.
  */
 export function buildAddByRSSHashInput(
   item: AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem
 ): Record<string, string> {
-  const out: Record<string, string> = {};
-
-  const channel_id_text = item.channelIdText?.trim() ?? '';
-  if (channel_id_text) {
-    out['channel_id_text'] = channel_id_text;
-  }
-
-  const guid = item.itemGuid?.trim() ?? '';
-  if (guid) {
-    out['guid'] = guid;
-  } else {
-    const enclosure_url = getEnclosureUrl(item);
-    if (enclosure_url) {
-      out['enclosure_url'] = enclosure_url;
-    }
-  }
-
-  return out;
+  return extractAddByRSSHashInput(buildHashFields(item, getCanonicalFeedUrl(item)));
 }
 
 /**
@@ -123,7 +131,10 @@ export function buildAddByRSSResourceData(
     item_images = [{ url: item.item.image, image_width_size: null }];
   }
 
+  const feed_url = getCanonicalFeedUrl(item);
+
   const payload: AddByRSSResourceDataPayload = {
+    ...(feed_url !== null ? { feed_url } : {}),
     channel_id_text,
     guid,
     title,
@@ -172,4 +183,14 @@ export function getAddByRSSHashId(
 ): string {
   const minimal = buildAddByRSSHashInput(item);
   return getAddByRSSHashIdFromHelpers(minimal);
+}
+
+/**
+ * Every add_by_rss_hash_id a server row for this item may carry: the feed form first, then the
+ * legacy form for rows written before feed identity. One entry when the item has no feed URL.
+ */
+export function getAddByRSSHashIds(
+  item: AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem
+): string[] {
+  return getAddByRSSHashIdsForResourceData(buildHashFields(item, getCanonicalFeedUrl(item)));
 }

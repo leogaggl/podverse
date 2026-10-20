@@ -23,8 +23,13 @@ import { AddByRSSAlbumPageClient } from '../../../app/add-by-rss/album/AddByRSSA
 import { AddByRSSPodcastPageDetailClient } from '../../../app/add-by-rss/podcast/AddByRSSPodcastPageDetailClient';
 import { IMAGES } from '../../../constants/images';
 import { useAccount } from '../../../contexts/Account';
+import { useAddByRSSFeedChanged } from '../../../hooks/useAddByRSSFeedChanged';
+import {
+  addByRSSFeedNeedsFirstParse,
+  enqueueAddByRSSFirstParses,
+} from '../../../utils/addByRSS/firstParse';
 import { getAddByRSSFeedByIdText } from '../../../utils/addByRSS/storage';
-import { syncAddByRSSCacheWithServer } from '../../../utils/addByRSS/sync';
+import { syncAddByRSSFollowStubs } from '../../../utils/addByRSS/sync';
 import type {
   AddByRSSFeedRecord,
   AddByRSSMappedFeed,
@@ -60,22 +65,59 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
 
   const isEpisodesDetail = resourceType === 'episodes';
 
+  const accountIdText = loggedInAccount?.id_text ?? null;
+
   React.useEffect(() => {
+    let isCurrent = true;
     const load = async () => {
       setIsLoading(true);
-      if (!loggedInAccount) {
+      if (accountIdText === null) {
         setFeed(null);
         setIsLoading(false);
         return;
       }
-      await syncAddByRSSCacheWithServer(loggedInAccount.id_text);
-      const record = await getAddByRSSFeedByIdText(idText);
-      setFeed(record);
+
+      // The stored record shows at once; the follow sync then brings in the server's title and
+      // artwork, or removes a feed the account no longer follows.
+      const local = await getAddByRSSFeedByIdText(idText);
+      if (!isCurrent) {
+        return;
+      }
+      if (local) {
+        setFeed(local);
+        setIsLoading(false);
+      }
+
+      try {
+        await syncAddByRSSFollowStubs(accountIdText);
+      } catch (error) {
+        console.error(error);
+      }
+      const synced = await getAddByRSSFeedByIdText(idText);
+      if (!isCurrent) {
+        return;
+      }
+      setFeed(synced);
       setIsLoading(false);
+
+      if (synced && addByRSSFeedNeedsFirstParse(synced)) {
+        void enqueueAddByRSSFirstParses({ accountId: accountIdText, feedUrls: [synced.feedUrl] });
+      }
     };
 
     void load();
-  }, [idText, loggedInAccount]);
+    return () => {
+      isCurrent = false;
+    };
+  }, [accountIdText, idText]);
+
+  useAddByRSSFeedChanged(feed?.feedUrl ?? null, () => {
+    void getAddByRSSFeedByIdText(idText).then((record) => {
+      if (record) {
+        setFeed(record);
+      }
+    });
+  });
 
   React.useEffect(() => {
     if (isEpisodesDetail && feed) {
@@ -140,6 +182,8 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
     }
   })();
   const statusLabel = feed.status ? tFeatures(`add_by_rss.status_${feed.status}`) : undefined;
+  const isAwaitingFirstItems =
+    mappedFeed === undefined && (feed.status === 'queued' || feed.status === 'processing');
   const headerNode =
     resourceType === 'artists' ? (
       <AddByRSSArtistHeader feed={feed} />
@@ -196,7 +240,14 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
               <section className={styles.items}>
                 <h3 className={styles.itemsHeader}>{itemsLabel}</h3>
                 {items.length === 0 ? (
-                  <p className={styles.emptyItems}>{tFeatures('add_by_rss.no_feeds')}</p>
+                  <p
+                    className={styles.emptyItems}
+                    role={isAwaitingFirstItems ? 'status' : undefined}
+                  >
+                    {isAwaitingFirstItems
+                      ? `${tFeatures('add_by_rss.status')}: ${statusLabel ?? feed.status}`
+                      : tFeatures('add_by_rss.no_feeds')}
+                  </p>
                 ) : (
                   <ul className={styles.itemsList}>
                     {items.map((bundle, index) => (

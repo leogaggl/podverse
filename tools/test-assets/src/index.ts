@@ -17,6 +17,8 @@ export {
   LIGHTHOUSE_CHANNEL_ID_FEED_1,
   LIGHTHOUSE_ITEM_ID_FEED_1,
   OTHER_HOST_ASSETS_BASE_URL,
+  REDIRECT_CORP_FINAL_PREFIX,
+  REDIRECT_CORP_HOP_PREFIX,
   REDIRECT_OTHER_HOST_PREFIX,
 } from './constants.js';
 export { generateFeedAndAssets } from './generate-feed.js';

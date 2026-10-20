@@ -309,11 +309,11 @@ Use Appendix D template from master plan:
 
 **Depth by Model tier:**
 
-| Model           | Minimum content                                                                                 |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| Cursor Grok 4.7 | Scope + acceptance bullets + exact file paths + verification commands; every either/or resolved |
-| Codex 5.3       | Above + web parity links + the vendor / security contract the code must satisfy                 |
-| Opus 5.5        | Above + architecture notes, edge cases, spike outcomes, cross-track deps                        |
+| Model           | Minimum content                                                                        |
+| --------------- | -------------------------------------------------------------------------------------- |
+| Cursor Grok 4.7 | Scope + acceptance bullets + exact file paths + tests to add; every either/or resolved |
+| Codex 5.3       | Above + web parity links + the vendor / security contract the code must satisfy        |
+| Opus 5.5        | Above + architecture notes, edge cases, spike outcomes, cross-track deps               |
 
 Cheaper models get **more explicit** plans, not thinner ones: a Cursor Grok 4.7 plan transcribes
 decisions instead of making them.
@@ -344,7 +344,8 @@ Each COPY-PASTA prompt must include:
   (see **copy-pasta-recommend-model** — never put these lines inside the fence)
 - Inside the paste fence: `Read and execute .llm/plans/active/mobile-<phase-slug>/<NN-plan>.md`
   plus a short reminder to follow the detail doc / locked decisions and not run tests during
-  agent work (operator verifies at end)
+  agent work (operator verifies once, after the set; only the last prompt carries the
+  cumulative verification list)
 
 Keep each numbered plan file **under 300 lines**; split if larger.
 
@@ -367,7 +368,8 @@ When operator pastes COPY-PASTA from `mobile-<phase-slug>/`:
 3. **Do not run** tests/lint as verification gates during agent work.
 4. **After this prompt completes:** mark affected master-plan steps `done`, update Appendix C,
    mark COPY-PASTA prompt `[x]`, update detail doc headers (§ Progress tracking).
-5. End with operator verification commands in a fenced `bash` block (**response-ending-make-verify**).
+5. Only the last prompt in the set ends with operator verification commands, the cumulative list
+   for the whole set (**response-ending-make-verify** § Plan sets).
 
 When the **last** prompt in the set finishes (all steps in phase `done`):
 

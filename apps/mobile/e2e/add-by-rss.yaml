@@ -3,6 +3,8 @@ name: Add By RSS Flow
 ---
 # Add-by-RSS library in My Library: plus opens the add form; the list is feeds only. Detail and
 # playback stay on the Library stack. Fixture URL matches web e2e seed constants.
+#
+# Needs flow_needs_e2e_api + flow_needs_test_assets.
 
 - runFlow: shared/launch-and-connect.yaml
 - runFlow: shared/login-seeded-user.yaml
@@ -17,9 +19,10 @@ name: Add By RSS Flow
     id: rss-root-screen
 - takeScreenshot: add-by-rss-library-initial
 
-# Empty library: Add Feed runs the same add handler as the header plus.
+# The seeded account already follows the test-assets feed, so the library is not empty. The
+# header plus opens the add form.
 - tapOn:
-    id: rss-feeds-empty-action
+    id: rss-add-button
 - assertVisible:
     id: rss-add-screen
 - assertVisible:
@@ -79,15 +82,25 @@ name: Add By RSS Flow
     timeout: ${TIMEOUT_SLOW}
 - takeScreenshot: add-by-rss-playback-active
 
+# The phone records Add by RSS listening: the account's server now-playing row is this episode,
+# keyed by feed URL plus guid, so web and other devices can pick it up.
+- runScript:
+    file: scripts/assert-add-by-rss-now-playing.js
+    env:
+      E2E_ADD_BY_RSS_FEED_URL: https://e2e-seed-addbyrss.example/podcast.xml
+      E2E_ADD_BY_RSS_TITLE: E2E Add-by-RSS Episode
+
 - tapOn:
     id: add-by-rss-home-remove
 - extendedWaitUntil:
     visible:
       id: rss-root-screen
     timeout: ${TIMEOUT_SLOW}
-# The mini player keeps playing the episode and still names the channel, so the empty library is
-# what proves the feed is gone.
+# The mini player keeps playing the episode and still names the channel, so the check is scoped
+# to the feed list. The seeded test-assets follow stays listed.
 - extendedWaitUntil:
-    visible:
-      id: rss-feeds-empty
+    notVisible:
+      text: E2E Add-by-RSS Channel
+      childOf:
+        id: rss-feed-list
     timeout: ${TIMEOUT_SLOW}

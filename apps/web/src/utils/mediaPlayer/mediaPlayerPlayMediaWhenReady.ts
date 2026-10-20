@@ -19,22 +19,28 @@ export function waitForSourceUri(
   });
 }
 
-export function playMediaWhenReady(media: HTMLMediaElement | null, onPlayed?: () => void) {
+export function playMediaWhenReady(
+  media: HTMLMediaElement | null,
+  onPlayed?: () => void,
+  onRejected?: (error: unknown) => void
+) {
   if (!media) {
     return;
   }
-  if (media.readyState >= 2) {
-    // HAVE_CURRENT_DATA
-    media.play().catch(() => {});
+  const start = () => {
+    media.play().catch((error: unknown) => {
+      onRejected?.(error);
+    });
     if (onPlayed) {
       onPlayed();
     }
+  };
+  if (media.readyState >= 2) {
+    // HAVE_CURRENT_DATA
+    start();
   } else {
     const onCanPlay = () => {
-      media.play().catch(() => {});
-      if (onPlayed) {
-        onPlayed();
-      }
+      start();
       media.removeEventListener('canplay', onCanPlay);
     };
     media.addEventListener('canplay', onCanPlay);

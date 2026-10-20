@@ -1,5 +1,10 @@
 import type { MediumFilter } from '@podverse/helpers';
-import { createAddByRSSIdText, PAGINATION, sleep } from '@podverse/helpers';
+import {
+  createAddByRSSIdText,
+  isDeviceLocalAddByRSSGuid,
+  PAGINATION,
+  sleep,
+} from '@podverse/helpers';
 import { matchesMediumFilter } from '@podverse/helpers';
 import { getItemMediumIdFromBundle } from '@podverse/parser-mapping';
 
@@ -67,6 +72,7 @@ const toIndexItem = (
     idText,
     itemGuid,
     channelIdText: feed.idText,
+    feedUrl: feed.feedUrl,
     channelTitle: getChannelTitle(feed),
     channelImageUrl: getChannelImageUrl(feed),
     mediumId,
@@ -93,6 +99,7 @@ const toLiveIndexItem = (
     idText,
     itemGuid,
     channelIdText: feed.idText,
+    feedUrl: feed.feedUrl,
     channelTitle: getChannelTitle(feed),
     channelImageUrl: getChannelImageUrl(feed),
     mediumId,
@@ -287,6 +294,47 @@ export const findAddByRSSItemByGuid = (
       }
       fallbackId += 1;
     }
+  }
+
+  return null;
+};
+
+const bundleHasEnclosureUrl = (
+  bundle: AddByRSSMappedFeed['items'][number],
+  enclosureUrl: string
+): boolean =>
+  bundle.enclosures.some((enclosure) =>
+    enclosure.item_enclosure_sources.some((source) => source.uri.trim() === enclosureUrl)
+  );
+
+/**
+ * The parsed episode in `feed` that a queue or playlist row refers to. A row guid that is set and
+ * not device-local (`isDeviceLocalAddByRSSGuid` against the row's `channel_id_text`) must match;
+ * otherwise the row's `enclosure_url` must match one of the episode's sources.
+ */
+export const findAddByRSSItemInFeed = (
+  feed: AddByRSSFeedRecord,
+  match: { guid: string | null; channelIdText: string | null; enclosureUrl: string | null },
+  existingIdTextMap?: Map<string, string>
+): AddByRSSItemIndexItem | null => {
+  const guid = match.guid?.trim() ?? '';
+  const enclosureUrl = match.enclosureUrl?.trim() ?? '';
+  const matchByGuid = guid !== '' && !isDeviceLocalAddByRSSGuid(guid, match.channelIdText);
+  if (!matchByGuid && enclosureUrl === '') {
+    return null;
+  }
+
+  const feedItems = feed.mappedFeed?.items ?? [];
+  for (const [index, bundle] of feedItems.entries()) {
+    const isMatch = matchByGuid
+      ? bundle.item.guid === guid
+      : bundleHasEnclosureUrl(bundle, enclosureUrl);
+    if (!isMatch) {
+      continue;
+    }
+    const itemGuid = bundle.item.guid ?? `${feed.idText}-${index}`;
+    const existingIdText = existingIdTextMap?.get(`${feed.idText}-${itemGuid}`);
+    return toIndexItem(feed, bundle, index, existingIdText);
   }
 
   return null;

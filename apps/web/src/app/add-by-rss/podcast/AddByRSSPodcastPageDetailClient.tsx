@@ -295,6 +295,9 @@ export const AddByRSSPodcastPageDetailClient: React.FC<AddByRSSPodcastPageDetail
   }, [liveItems]);
 
   const showLiveItems = activeTab === 'episodes' && currentPage === 1 && sortedLiveItems.length > 0;
+  const isAwaitingFirstEpisodes =
+    mappedFeed === undefined &&
+    (localFeed.status === 'queued' || localFeed.status === 'processing');
   const handleTabSelect = useCallback(
     (key: AddByRSSPodcastPageTabKey) => {
       setActiveTab(key);
@@ -363,6 +366,12 @@ export const AddByRSSPodcastPageDetailClient: React.FC<AddByRSSPodcastPageDetail
                     />
                   )}
                   {showLiveItems && sortedLiveItems.length > 0 && <Divider />}
+                  {isAwaitingFirstEpisodes &&
+                    statusLines.map((line) => (
+                      <p key={line} data-testid="add-by-rss-episodes-processing" role="status">
+                        {line}
+                      </p>
+                    ))}
                   <AddByRSSEpisodeNodes
                     channelIdText={localFeed.idText}
                     channelTitle={channelTitle}

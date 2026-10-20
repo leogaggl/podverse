@@ -62,6 +62,11 @@ that were applied or rejected so the next run starts from open items.
   scoped type-check and unit tests before handing back.
 - **Orchestrator trial** — [plan-orchestrator](/.cursor/prompts/plan-orchestrator.md) runs a
   sequential set as subagents in one chat.
+- **Plan runner** — the sibling `plan-runner` repo runs a whole COPY-PASTA set with the Cursor
+  SDK, one agent per prompt on that prompt's model, and stops at the first blocker
+  (**copy-pasta-recommend-model** § Plan runner).
+- **Verification once per set** — intermediate prompts carry no operator test commands; the
+  operator tests after the last prompt (**response-ending-make-verify** § Plan sets).
 - **Large files** — **large-file-reading** sends agents to Grep instead of paging.
 - **Reasoning depth** — Cursor Grok 4.7 at medium for prompts whose plan resolves every choice;
   measure before changing the default in **copy-pasta-recommend-model**.

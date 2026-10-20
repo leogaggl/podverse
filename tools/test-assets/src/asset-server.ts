@@ -14,6 +14,8 @@ import {
   BASIC_AUTH_VARIANTS_SUBPATH,
   DEFAULT_ASSETS_BASE_URL,
   OTHER_HOST_ASSETS_BASE_URL,
+  REDIRECT_CORP_FINAL_PREFIX,
+  REDIRECT_CORP_HOP_PREFIX,
   REDIRECT_OTHER_HOST_PREFIX,
 } from './constants.js';
 import { BASIC_AUTH_FEED_FILENAME } from './generate-feed-constants.js';
@@ -86,6 +88,30 @@ function otherLoopbackHost(hostHeader: string | undefined): string {
   }
   const requestHost = (hostHeader ?? '').replace(/:\d+$/, '');
   return requestHost === '127.0.0.1' ? 'localhost' : '127.0.0.1';
+}
+
+function redirectToOtherLoopbackHost(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pathname: string,
+  rawPath: string,
+  prefix: string,
+  corp: { onFinal: boolean; onRedirect: boolean }
+): void {
+  const query = rawPath.includes('?') ? rawPath.slice(rawPath.indexOf('?')) : '';
+  const targetHost = otherLoopbackHost(req.headers.host);
+  const targetPath = pathname.slice(prefix.length + 1);
+  const finalQuery = corp.onFinal ? `${query === '' ? '?' : `${query}&`}corp=same-origin` : query;
+  const target = `http://${targetHost}:${ASSET_PORT}/${targetPath}${finalQuery}`;
+  const headers: Record<string, string> = {
+    Location: target,
+    'Content-Type': 'text/plain',
+  };
+  if (corp.onRedirect) {
+    headers['Cross-Origin-Resource-Policy'] = 'same-origin';
+  }
+  res.writeHead(302, headers);
+  res.end('Redirecting');
 }
 
 export class AssetServer {
@@ -162,6 +188,8 @@ export class AssetServer {
 
         // Parse requested file path (strip leading slash and query so path.join stays under assetsDir)
         const rawPath = req.url === '/' ? '/index.html' : req.url || '/';
+        const query = rawPath.includes('?') ? rawPath.slice(rawPath.indexOf('?') + 1) : '';
+        const corpSameOrigin = new URLSearchParams(query).get('corp') === 'same-origin';
         const pathname = path
           .normalize(
             (rawPath.includes('?') ? rawPath.slice(0, rawPath.indexOf('?')) : rawPath).replace(
@@ -183,6 +211,20 @@ export class AssetServer {
         }
 
         const redirectPrefix = `${REDIRECT_OTHER_HOST_PREFIX}/`;
+        if (pathname.startsWith(`${REDIRECT_CORP_HOP_PREFIX}/`)) {
+          redirectToOtherLoopbackHost(req, res, pathname, rawPath, REDIRECT_CORP_HOP_PREFIX, {
+            onFinal: false,
+            onRedirect: true,
+          });
+          return;
+        }
+        if (pathname.startsWith(`${REDIRECT_CORP_FINAL_PREFIX}/`)) {
+          redirectToOtherLoopbackHost(req, res, pathname, rawPath, REDIRECT_CORP_FINAL_PREFIX, {
+            onFinal: true,
+            onRedirect: true,
+          });
+          return;
+        }
         if (pathname.startsWith(redirectPrefix)) {
           const query = rawPath.includes('?') ? rawPath.slice(rawPath.indexOf('?')) : '';
           const targetHost = otherLoopbackHost(req.headers.host);
@@ -287,6 +329,9 @@ export class AssetServer {
             'Content-Type': mimeType,
             'Accept-Ranges': 'bytes',
           };
+          if (corpSameOrigin) {
+            baseHeaders['Cross-Origin-Resource-Policy'] = 'same-origin';
+          }
           if (ext === '.rss' || ext === '.xml') {
             baseHeaders['Content-Disposition'] = 'inline';
           }
