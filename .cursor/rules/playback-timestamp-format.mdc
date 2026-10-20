@@ -6,7 +6,7 @@ globs:
   - "apps/management-web/**"
   - "packages/ui/**"
   - "packages/helpers/**"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Playback timestamp format

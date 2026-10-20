@@ -1,6 +1,9 @@
 ---
 description: Do not add app-local files that only re-export workspace package symbols; import from the canonical package instead.
-alwaysApply: true
+globs:
+  - "apps/*/src/**"
+  - "packages/*/src/**"
+alwaysApply: false
 ---
 
 # Avoid re-export wrapper files

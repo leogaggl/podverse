@@ -36,10 +36,32 @@ Do not run tests during agent work; leave operator verification commands at the 
 
 A phase-level summary table with Model + Reasoning columns is fine in addition to per-prompt lines.
 
+## Close folds into the last prompt
+
+When the last phase is a single prompt, that prompt also closes the set: it moves the remaining
+`00-*` files and `COPY-PASTA.md` to `completed/`, removes the empty `active/` directory, and ends
+with the cumulative verification for the whole set. A separate Close prompt costs a chat and an
+operator handoff to move three files. Keep a separate **Close** only when the last phase runs
+prompts at the same time, because neither of those agents knows it finished last.
+
+## Orchestrate line (trial)
+
+When every prompt in a set is Cursor Grok 4.7 and none needs a person mid-set (taps, installs,
+Metro switches, a value to paste), put one optional line above Phase 1:
+
+```markdown
+**Optional — one chat runs the whole set:** paste
+`Orchestrate .llm/plans/active/<set>/ with .cursor/prompts/plan-orchestrator.md.`
+(Cursor Grok 4.7 · medium). It stops at the first blocker. Use the prompts below instead when
+you want to read each result before the next prompt starts.
+```
+
+**abcagentoptimize** tracks the trial and decides whether this extends to other sets.
+
 ## Optional last checkbox — abcaicast
 
-The final section of a COPY-PASTA page may end with one more checkbox, after Close. It is a
-question for the operator, not a prompt:
+The final section of a COPY-PASTA page may end with one more checkbox, after the last prompt
+(or Close). It is a question for the operator, not a prompt:
 
 ```markdown
 - [ ] **abcaicast** (optional)

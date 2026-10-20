@@ -1,6 +1,9 @@
 ---
 description: Use APP_ROUTES and path builders from @podverse/helpers for app link paths; do not hardcode /episode, /podcast, etc.
-alwaysApply: true
+globs:
+  - "apps/*/src/**"
+  - "packages/*/src/**"
+alwaysApply: false
 ---
 
 # Shared app route constants

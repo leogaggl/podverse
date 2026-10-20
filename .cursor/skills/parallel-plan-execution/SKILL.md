@@ -154,6 +154,10 @@ Update QueryParams imports in podcast-related pages.
 
 ````
 
+When a plan edits a file listed in **large-file-reading** (`openapi.yml`, the baseline schema
+SQL, `PlaybackProvider.tsx`, the i18n catalogs, and so on), name the anchor (route path,
+`operationId`, table, symbol, or key prefix) so the executor can Grep straight to it.
+
 ### Step 5: Create Copy-Pasta File
 
 File: `migration-COPY-PASTA.md` (or `COPY-PASTA.md` in a plan set)
@@ -192,8 +196,13 @@ the fence. A wait inside the fence is a sentence: stop this turn, and do not run
 until the operator replies that the step is done. A shell comment between two commands is not a
 wait. Authoring detail: **copy-pasta-recommend-model**.
 
-**Optional last checkbox.** After the Close prompt, a heavy set asks one question and nothing
-else: an unchecked `- [ ] **abcaicast** (optional)` plus the line `After this set, do you want
+**Close folds into the last prompt** when the last phase is a single prompt; keep a separate
+Close only when the last phase runs prompts at the same time. A set of only Cursor Grok 4.7
+prompts with no hand steps also gets the optional orchestrate line. Both:
+**copy-pasta-recommend-model**.
+
+**Optional last checkbox.** After the last prompt (or Close), a heavy set asks one question and
+nothing else: an unchecked `- [ ] **abcaicast** (optional)` plus the line `After this set, do you want
 an abcaicast for this work?` No fence. Leave it off when the work is a style or copy tweak a
 training episode would not be about. Wording and when to include it: **copy-pasta-recommend-model**.
 

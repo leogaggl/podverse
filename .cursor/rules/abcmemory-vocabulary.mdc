@@ -61,6 +61,12 @@ existing episode covers the work. Every cast carries a **Version** (date and tim
 **Episode ID**, and is titled `<Group Title> <n>: <Episode Title>`. Follow
 `.cursor/skills/abcaicast/SKILL.md`.
 
+## abcagentoptimize
+
+When the operator says **abcagentoptimize**, recommend speed-ups for agent plan work that keep
+quality. Follow `.cursor/skills/abcagentoptimize/SKILL.md`. During normal work, append speed-up
+ideas to that skill's log; ask mid-turn only when the answer changes the current turn.
+
 ## legacy app
 
 **legacy app** (also **podverse-rn**, **v4 mobile**) means the React Native app in the sibling

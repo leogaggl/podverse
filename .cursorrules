@@ -70,6 +70,11 @@ Do **not** ask for a GitHub issue as part of the LLM process.
 
 Warn if drifting: "This seems outside scope. Continue?"
 
+### Response length
+
+Answer as briefly as conveys the point. Default to the short version; expand only when the
+operator asks for more. Brevity never drops a command the operator must run or a risk they need.
+
 ### Agent/plan work: operator-only git and publish
 
 - **Git operations = `git` + `gh`.** Do not run write/publish commands (`git push`, `gh pr create`, `gh pr merge`, releases, etc.) unless the user explicitly asks for a specific command in that message.
