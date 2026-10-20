@@ -1,6 +1,9 @@
 ---
 description: After a host-mounted Linux npm ci or install, always give the Mac node_modules reinstall so local dev keeps working
-alwaysApply: true
+globs:
+  - "scripts/publish/**"
+  - "scripts/development/update-lockfile-linux.sh"
+alwaysApply: false
 ---
 
 # Restore Mac node_modules after Linux npm

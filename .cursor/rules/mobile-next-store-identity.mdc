@@ -1,6 +1,10 @@
 ---
 description: Next-gen store builds stay on com.podverse.app.next until the operator explicitly replaces the old production app
-alwaysApply: true
+globs:
+  - "apps/mobile/app.config.ts"
+  - "apps/mobile/eas.json"
+  - "scripts/mobile/eas-store.sh"
+alwaysApply: false
 ---
 
 # Next-gen store identity stays isolated

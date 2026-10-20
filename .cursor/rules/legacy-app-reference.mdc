@@ -1,6 +1,8 @@
 ---
 description: When and how to use the sibling podverse-rn legacy app as inspiration
-alwaysApply: true
+globs:
+  - ".cursor/skills/mobile-legacy-screenshot-planning/**"
+alwaysApply: false
 ---
 
 # Legacy app reference (`podverse-rn`)

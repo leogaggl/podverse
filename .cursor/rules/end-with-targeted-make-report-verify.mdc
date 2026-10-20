@@ -37,6 +37,8 @@ Preferred commands:
 - Full web regression: `make e2e_test_report`
 - API only: `npm run test:e2e:api`
 
-**Final COPY-PASTA prompt:** When completing the last step in a plan set (`COPY-PASTA.md` / `00-EXECUTION-ORDER.md`), assume the operator ran all prompts without running tests until the end. List **all** cumulative verification commands for the whole set (dedupe; order: build/lint → unit → API → E2E web/mobile). Use **one** fenced `bash` block for one-shot commands only; for mobile leave-running Metro/API, name **Mobile E2E Metro** / **Mobile E2E API** in prose (HOW-TO-RUN + **vscode-terminals-commands**) — do not force a single-shell paste of blockers. See **response-ending-make-verify**, **mobile-e2e-screenshots**, and **plan-completion** skills.
-
-Extended reference: **response-ending-make-verify**, **ui-e2e-screenshot-report**, **mobile-e2e-screenshots**, and **plan-completion** skills.
+**Final COPY-PASTA prompt:** When completing the last step in a plan set (`COPY-PASTA.md` /
+`00-EXECUTION-ORDER.md`), list every cumulative verification command for the whole set. Follow
+**response-ending-make-verify** (with **mobile-e2e-screenshots** and **plan-completion**) for the
+assumption that earlier prompts were not tested, dedupe and order, the single one-shot block, and
+leave-running Metro tabs.

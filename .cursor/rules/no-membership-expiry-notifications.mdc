@@ -1,6 +1,12 @@
 ---
 description: Membership expiry is told to the user in-app, derived on demand. Never a push, email, or scheduled job.
-alwaysApply: true
+globs:
+  - "packages/notifications/**"
+  - "apps/workers/src/**"
+  - "**/*membership*"
+  - "**/*Membership*"
+  - "**/*notification*"
+alwaysApply: false
 ---
 
 # Membership expiry is in-app and on demand, never a notification

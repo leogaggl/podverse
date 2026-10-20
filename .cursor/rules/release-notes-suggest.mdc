@@ -1,6 +1,10 @@
 ---
 description: Release steps given to the operator always come with suggested release notes
-alwaysApply: true
+globs:
+  - "release-notes/**"
+  - "scripts/publish/**"
+  - "scripts/mobile/eas-store.sh"
+alwaysApply: false
 ---
 
 # Suggest release notes with every release step

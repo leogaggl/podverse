@@ -1,6 +1,12 @@
 ---
 description: Mobile store builds are on-demand only; never tie eas build/submit to staging or main merges.
-alwaysApply: true
+globs:
+  - "apps/mobile/eas.json"
+  - "apps/mobile/app.config.ts"
+  - "scripts/mobile/eas-store.sh"
+  - "makefiles/local/Makefile.local.mobile.mk"
+  - ".github/workflows/**"
+alwaysApply: false
 ---
 
 # Mobile store builds are on-demand

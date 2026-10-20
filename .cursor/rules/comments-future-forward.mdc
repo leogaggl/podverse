@@ -1,6 +1,9 @@
 ---
 description: Code comments describe the code as it is now, never what it used to be, what was removed, or which plan asked for it.
-alwaysApply: true
+globs:
+  - "**/*.{ts,tsx,js,mjs,cjs,sql,scss,sh,yaml,yml}"
+  - "apps/mobile/e2e/**"
+alwaysApply: false
 ---
 
 # Comments are future-forward

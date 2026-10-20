@@ -1,6 +1,12 @@
 ---
 description: English UI chrome is title case; sentences stay sentence case
-alwaysApply: true
+globs:
+  - "packages/i18n-catalog/**"
+  - "apps/{web,management-web,mobile}/src/**"
+  - "packages/ui/src/**"
+  - "apps/api/src/lib/mailer/**"
+  - "apps/*/e2e/**"
+alwaysApply: false
 ---
 
 # UI copy casing

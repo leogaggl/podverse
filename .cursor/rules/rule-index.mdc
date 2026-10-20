@@ -1,0 +1,22 @@
+---
+description: Scoped rules to open before answering when no matching file is in context
+alwaysApply: true
+---
+
+# Scoped rule index
+
+These rules load when their files are read. Open the rule first when the task matches but no
+file of theirs is in context.
+
+- Store build or submit steps, EAS, store identity → `mobile-store-builds-on-demand`,
+  `mobile-next-store-identity`
+- About or Summary content → `about-summary-web-mobile-alignment`
+- Mobile run, install, or device commands → `mobile-ios-simulator`
+- Mobile terminal tabs, CarPlay logs, or Expo CLI → `vscode-terminals-mobile`
+- Any ship step (tag, release, publish, store, promotion) → `release-notes-suggest`
+- Comments in source, tests, SQL, or styles → `comments-future-forward`
+- UI labels, titles, buttons, or catalog copy → `ui-copy-casing`
+- Membership expiry, notifications, scheduled jobs → `no-membership-expiry-notifications`
+- `sync-develop-to-staging.sh`, `update-lockfile-linux.sh`, or `bump-version.sh` →
+  `reinstall-node-modules-after-linux-npm`
+- Legacy app, podverse-rn, or v4 mobile → `legacy-app-reference`
