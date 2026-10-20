@@ -10,6 +10,8 @@ import { screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 
 type MobileScreenContainerProps = {
+  /** iOS lifts this scroll view above the keyboard so a message under a field can be reached. */
+  automaticallyAdjustKeyboardInsets?: boolean;
   children: ReactNode;
   /** Omit on pushed stack screens — the native nav title is the heading (iOS Settings style). */
   heading?: string;
@@ -18,6 +20,7 @@ type MobileScreenContainerProps = {
 };
 
 export function MobileScreenContainer({
+  automaticallyAdjustKeyboardInsets = false,
   children,
   heading,
   scrollEnabled = true,
@@ -52,6 +55,7 @@ export function MobileScreenContainer({
       testID={testID}
     >
       <ScrollView
+        automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}

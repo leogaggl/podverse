@@ -1,7 +1,7 @@
 'use client';
 
 import { NextIntlClientProvider } from 'next-intl';
-import { Suspense } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import type { DTOAccount, DTOCategory, QueueResourcesAbridgedIndex } from '@podverse/helpers';
 import { ImageRuntimeProvider } from '@podverse/ui';
@@ -28,6 +28,8 @@ import { PlaylistsLikesProvider } from '../contexts/PlaylistsFavorites';
 import { QueuesProvider } from '../contexts/Queue';
 import { QueueResourcesAbridgedIndexProvider } from '../contexts/QueueResourcesAbridgedIndex';
 import type { LocalSettingsState } from '../utils/localSettings/localSettings';
+import { resolveMediaUrl } from '../utils/media/resolveMediaUrl';
+import { AddByRSSBackgroundRefresh } from './AddByRSSBackgroundRefresh';
 
 export default function Providers({
   children,
@@ -48,6 +50,14 @@ export default function Providers({
   messages: Record<string, Record<string, string | Record<string, unknown>>>;
   categories: DTOCategory[];
 }) {
+  const resolveBlockedImageUrl = useCallback(async (url: string) => {
+    const result = await resolveMediaUrl(url);
+    if (result.reason !== 'resolved' || result.url === null) {
+      return null;
+    }
+    return result.url;
+  }, []);
+
   return (
     <ConfigProvider config={config}>
       <ImageRuntimeProvider
@@ -56,6 +66,7 @@ export default function Providers({
         nextImageOptimizationEnabled={config.public.nextImageOptimization.enabled}
         placeholderSrc={IMAGES.SRC.PLACEHOLDER}
         proxyPathPrefix={PROXY.PATH}
+        resolveBlockedImageUrl={resolveBlockedImageUrl}
       >
         <NextIntlClientProvider locale={locale} messages={messages} timeZone="America/Chicago">
           <Suspense fallback={null}>
@@ -65,6 +76,7 @@ export default function Providers({
             <LocalSettingsProvider ssrLocalSettings={ssrLocalSettings}>
               <ConsentGatedIntegrations />
               <AccountProvider ssrLoggedInAccount={ssrLoggedInAccount}>
+                <AddByRSSBackgroundRefresh />
                 <NotificationsProvider>
                   <QueuesProvider>
                     <QueueResourcesAbridgedIndexProvider

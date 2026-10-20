@@ -169,6 +169,12 @@ const E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID =
   'https://e2e-seed-addbyrss.example/item-guid/with-position';
 const E2E_ADD_BY_RSS_RESOURCE_FRESH_ID_TEXT = 'e2eAbRsResF01';
 const E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID = 'https://e2e-seed-addbyrss.example/item-guid/fresh';
+// Canonical test-assets feed URL. The with-position queue row carries it as `feed_url`; the
+// fresh row carries none, so both hash forms stay covered.
+const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL = 'http://localhost:2111/feeds/feed-podcast-1.rss';
+const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_TITLE =
+  'Vitium amitto volup traho praesentium tantillus totam balbus balbus paulatim.';
+const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_IMAGE_URL = 'http://localhost:2111/images/image-005-300.jpg';
 
 // Deterministic playback positions in seconds (match the committed fixtures).
 const E2E_PODCAST_ITEM_RESUME_P_POS_SECONDS = 5;
@@ -1575,7 +1581,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   // (including `bundle`) lets the in-app loader reconstruct the index
   // item without IndexedDB. Spec mirrors these builders inline in
   // apps/web/e2e/media-player-addbyrss-resume.spec.ts so the API call
-  // can reproduce the same md5(channel_id_text + guid) hash.
+  // reproduces the same hash.
   function buildAddByRssBundleSeed({ guid, title, enclosureUrl }) {
     return {
       item: { title, guid },
@@ -1597,8 +1603,9 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     };
   }
 
-  function buildAddByRssResourceDataSeed({ itemIdText, guid, title, enclosureUrl }) {
+  function buildAddByRssResourceDataSeed({ feedUrl, itemIdText, guid, title, enclosureUrl }) {
     return {
+      ...(feedUrl ? { feed_url: feedUrl } : {}),
       channel_id_text: E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
       guid,
       title,
@@ -1615,17 +1622,18 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     };
   }
 
-  // Mirror of packages/helpers/src/lib/addByRSSHash.ts (getAddByRSSHashId).
-  // Hash input keeps only channel_id_text + guid (guid takes precedence over
-  // enclosure_url when present).
-  function computeAddByRssHashSeed(channelIdText, guid) {
-    const minimal = {};
-    if (channelIdText) minimal.channel_id_text = channelIdText;
-    if (guid) minimal.guid = guid;
+  // Mirror of packages/helpers/src/lib/addByRSSHash.ts (getAddByRSSHashId) for
+  // seeded guids, which are never empty or device-local: `{feed_url, guid}` when
+  // the row carries a canonical feed_url, else the legacy `{channel_id_text, guid}`.
+  function computeAddByRssHashSeed({ feedUrl, channelIdText, guid }) {
+    const minimal = feedUrl
+      ? { feed_url: feedUrl, guid }
+      : { channel_id_text: channelIdText, guid };
     return crypto.createHash('md5').update(JSON.stringify(minimal)).digest('hex');
   }
 
   const withPositionResourceData = buildAddByRssResourceDataSeed({
+    feedUrl: E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
     itemIdText: E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_ID_TEXT,
     guid: E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID,
     title: 'E2E Add-by-RSS With Position',
@@ -1638,14 +1646,14 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     enclosureUrl: E2E_ADDBYRSS_FRESH_ENCLOSURE_URL,
   });
 
-  const withPositionHash = computeAddByRssHashSeed(
-    E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
-    E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID
-  );
-  const freshHash = computeAddByRssHashSeed(
-    E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
-    E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID
-  );
+  const withPositionHash = computeAddByRssHashSeed({
+    feedUrl: E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
+    guid: E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_GUID,
+  });
+  const freshHash = computeAddByRssHashSeed({
+    channelIdText: E2E_ADD_BY_RSS_CHANNEL_ID_TEXT,
+    guid: E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID,
+  });
 
   await client.query(
     `INSERT INTO queue_resource (
@@ -1673,6 +1681,22 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   console.log(
     `Seeded add-by-RSS media-player E2E resources (${E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_ID_TEXT} at list_position 3 with playback_position=${E2E_ADD_BY_RSS_RESOURCE_WITH_POSITION_SECONDS}, ${E2E_ADD_BY_RSS_RESOURCE_FRESH_ID_TEXT} at list_position 4 with playback_position=0)`
   );
+
+  // The account follows the test-assets feed from another device's point of view: a follow row
+  // with a real title and artwork, and nothing parsed on this device. Title and image match the
+  // committed feed (and the mobile E2E parse fixture in accountAddByRSSParse.ts).
+  await client.query(
+    `INSERT INTO account_following_add_by_rss_channel (account_id, feed_url, title, image_url)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (account_id, feed_url) DO NOTHING`,
+    [
+      accountId,
+      E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
+      E2E_ADD_BY_RSS_TEST_ASSETS_FEED_TITLE,
+      E2E_ADD_BY_RSS_TEST_ASSETS_FEED_IMAGE_URL,
+    ]
+  );
+  console.log(`Seeded add-by-RSS follow on ${E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL}`);
 
   // Standalone video-medium channel + item for the mobile video mini->full transition E2E.
   // Deliberately NOT added to any queue and NOT reachable from

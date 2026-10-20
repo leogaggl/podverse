@@ -21,6 +21,11 @@ export type TextFieldProps = {
   accessibilityLabel: string;
   autoCapitalize?: TextInputProps['autoCapitalize'];
   autoCorrect?: boolean;
+  /**
+   * Platform autofill name. Omitted fields stay `off`, so a saved username cannot land in a box
+   * that did not ask for one. Pass this together with `textContentType`.
+   */
+  autoComplete?: TextInputProps['autoComplete'];
   /** When false, the field stays visible and keeps its value but does not accept edits. */
   editable?: boolean;
   /**
@@ -29,6 +34,8 @@ export type TextFieldProps = {
    */
   eyebrow?: string;
   inputRef?: TextFieldRef;
+  /** Danger border and eyebrow, including while the field is focused. */
+  invalid?: boolean;
   keyboardType?: TextInputProps['keyboardType'];
   /** Decorative. Taps land on the field and focus the input. */
   leading?: ReactNode;
@@ -43,6 +50,8 @@ export type TextFieldProps = {
   secureTextEntry?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** iOS autofill name. Omitted fields stay `none`. Pass this together with `autoComplete`. */
+  textContentType?: TextInputProps['textContentType'];
   value: string;
 };
 
@@ -65,15 +74,18 @@ function bindInputRef(ref: TextFieldRef | undefined, node: TextInputInstance | n
  * filters omit it and stay compact. A leading icon is decoration; it does not submit or steal
  * focus. Do not add padding on the `TextInput` — keep inset on this chrome. Leaving a navigator
  * screen blurs the field so a tab switch does not keep a caret or focus ring. Hosts outside a
- * navigator (the login overlay) skip that listener; unmount still drops focus.
+ * navigator (the login overlay) skip that listener; unmount still drops focus. Autofill stays off
+ * unless the caller names the field.
  */
 export function TextField({
   accessibilityLabel,
   autoCapitalize,
+  autoComplete,
   autoCorrect,
   editable = true,
   eyebrow,
   inputRef,
+  invalid = false,
   keyboardType,
   leading,
   multiline = false,
@@ -87,6 +99,7 @@ export function TextField({
   secureTextEntry,
   style,
   testID,
+  textContentType,
   value,
 }: TextFieldProps) {
   const { styles: themeStyles, tokens } = useTheme();
@@ -103,7 +116,7 @@ export function TextField({
           minWidth: 0,
         },
         eyebrow: {
-          color: tokens.text.link,
+          color: invalid ? tokens.text.danger : tokens.text.link,
           fontSize: 14,
           fontWeight: '700',
           marginBottom: tokens.spacing.sm,
@@ -111,7 +124,7 @@ export function TextField({
         field: {
           alignItems: hasEyebrow ? 'flex-start' : 'stretch',
           backgroundColor: tokens.background.tertiary,
-          borderColor: 'transparent',
+          borderColor: invalid ? tokens.text.danger : 'transparent',
           borderRadius: tokens.radii.md,
           borderWidth: 2,
           flexDirection: 'row',
@@ -140,7 +153,7 @@ export function TextField({
           width: COMPACT_INPUT_MIN_HEIGHT,
         },
       }),
-    [hasEyebrow, multiline, themeStyles, tokens]
+    [hasEyebrow, invalid, multiline, themeStyles, tokens]
   );
 
   const setInputRef = useCallback(
@@ -167,7 +180,7 @@ export function TextField({
   }, [navigation]);
 
   return (
-    <View style={[styles.field, isFocused ? styles.fieldFocused : null, style]}>
+    <View style={[styles.field, isFocused && !invalid ? styles.fieldFocused : null, style]}>
       <Pressable
         accessibilityElementsHidden
         accessible={false}
@@ -189,8 +202,10 @@ export function TextField({
         <TextInput
           accessibilityLabel={accessibilityLabel}
           autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete ?? 'off'}
           autoCorrect={autoCorrect}
           editable={editable}
+          importantForAutofill={autoComplete === undefined || autoComplete === 'off' ? 'no' : 'yes'}
           keyboardType={keyboardType}
           multiline={multiline}
           onBlur={() => {
@@ -210,6 +225,7 @@ export function TextField({
           secureTextEntry={secureTextEntry}
           style={styles.input}
           testID={testID}
+          textContentType={textContentType ?? 'none'}
           value={value}
         />
       </View>

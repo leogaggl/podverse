@@ -46,6 +46,8 @@ const {
     id: 1,
     clip_id_text: CLIP_ID_TEXT,
     account: { id: TEST_USER_ID },
+    item_id: 1,
+    source_removed_at: null,
     sharable_status: { id: 1 },
   })),
   clipGetManyPublicMock: vi.fn(async () => []),
@@ -391,6 +393,8 @@ describe('clip routes', () => {
         id: 1,
         clip_id_text: CLIP_ID_TEXT,
         account: { id: TEST_USER_ID },
+        item_id: 1,
+        source_removed_at: null,
         sharable_status: { id: 1 },
       });
 

@@ -39,6 +39,15 @@ describe('fetchWithTimeout', () => {
     expect(headers?.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[1-9a-f]$/);
   });
 
+  it('follows redirects unless a mode is set', async () => {
+    await fetchWithTimeout('https://example.com/feed.xml');
+    await fetchWithTimeout('https://example.com/feed.xml', { redirect: 'manual' });
+
+    const calls = vi.mocked(globalThis.fetch).mock.calls;
+    expect(calls[0]?.[1]?.redirect).toBe('follow');
+    expect(calls[1]?.[1]?.redirect).toBe('manual');
+  });
+
   it('returns the full body when maxBodyBytes is omitted', async () => {
     const response = await fetchWithTimeout('https://example.com/feed.xml');
     expect(await response.text()).toBe('ok');
@@ -49,7 +58,6 @@ describe('fetchWithTimeout', () => {
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new TextEncoder().encode('abcdefghij'));
-        controller.close();
       },
       cancel() {
         cancelled = true;

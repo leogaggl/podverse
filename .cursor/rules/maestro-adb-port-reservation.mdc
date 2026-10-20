@@ -1,6 +1,12 @@
 ---
 description: Reserve localhost ports 5555-5683 for Android emulator ADB endpoints used by Maestro.
-alwaysApply: true
+globs:
+  - "infra/docker/**"
+  - "**/docker-compose*.yml"
+  - "makefiles/**"
+  - "scripts/mobile/**"
+  - "apps/mobile/e2e/**"
+alwaysApply: false
 ---
 
 # Maestro ADB port reservation

@@ -19,7 +19,7 @@ Authoritative AI rules and skills: **`.cursor/`**, **`.cursorrules`**. **Styles 
 
 ### Essential Commands
 
-All commands below are run **from the monorepo root** (do not `cd` into apps first). Use `-w apps/<name>` to run workspace scripts from root. When providing runnable commands in responses, **always put them in a fenced code block** (e.g. ```bash) so the IDE shows a copy button.
+Run these from the monorepo root. Command form: `.cursor/rules/commands-from-monorepo-root.mdc`.
 
 ```bash
 npm run build:packages # Build packages (required before apps)
@@ -31,17 +31,14 @@ npm run dev:all        # Start everything with watch mode
 
 ### Nix / terminal (agent sandbox)
 
-Node and npm are provided by the repo's Nix flake, not a global install. When running terminal commands (e.g. in Cursor's agent), use the wrapper so the correct environment is available:
-
-- **Wrapper:** `./scripts/nix/with-env <command> [args...]`
-- **Examples:** `./scripts/nix/with-env npm run build:packages`, `./scripts/nix/with-env npm run lint`
-- Run from repo root. Full explanation and setup-in-other-repos: [docs/development/tooling/CURSOR-NIX-WITH-ENV.md](docs/development/tooling/CURSOR-NIX-WITH-ENV.md).
+Node, npm, make, and other flake tools: `.cursor/rules/nix-terminal-wrapper.mdc`.
+Setup in other repos: [docs/development/tooling/CURSOR-NIX-WITH-ENV.md](docs/development/tooling/CURSOR-NIX-WITH-ENV.md).
 
 ### Lock file and workspace dependencies
 
 All monorepo Dockerfiles use `npm ci` for reproducible installs. The root `package-lock.json` must match all workspace `package.json` files. The Make targets that build Docker images (e.g. `local_build_api`, `local_build_web`, `local_build_web_runtime_config`, `local_build_test_assets`, `local_build_all`) automatically run `sync_lockfile` first so the lock file is in sync before `npm ci` runs in the container. After adding, removing, or renaming workspace packages, run `make sync_lockfile` and commit the updated `package-lock.json` so the change is committed; the next Docker build will use the updated lock file from the context.
 
-**Linux-canonical lockfile:** CI runs on Linux and needs Linux optional deps (e.g. `@parcel/watcher`, `@next/swc-linux-x64-gnu`, next-intl’s `@swc/core`) in the lockfile. Generate or refresh the lockfile under Linux x64 so it stays correct for CI: run `./scripts/development/update-lockfile-linux.sh` (requires Docker). The bump-version script runs this automatically before committing. When you add or update dependencies from a Mac, run that script and commit the updated `package-lock.json`. After running `./scripts/development/update-lockfile-linux.sh` on macOS, run `npm install` on the host so darwin native binaries are restored; see [LOCKFILE-LINUX.md](docs/development/tooling/LOCKFILE-LINUX.md).
+**Linux-canonical lockfile:** CI runs on Linux and needs Linux optional deps (e.g. `@parcel/watcher`, `@next/swc-linux-x64-gnu`, next-intl’s `@swc/core`) in the lockfile. Generate or refresh the lockfile under Linux x64 so it stays correct for CI: run `./scripts/development/update-lockfile-linux.sh` (requires Docker). The bump-version script runs this automatically before committing. When you add or update dependencies from a Mac, run that script and commit the updated `package-lock.json`. Restoring Mac `node_modules` afterward: `.cursor/rules/reinstall-node-modules-after-linux-npm.mdc`. See [LOCKFILE-LINUX.md](docs/development/tooling/LOCKFILE-LINUX.md).
 
 **Workers (example: add feeds from Podcast Index DB):**
 
@@ -101,23 +98,10 @@ Use the shared request helpers for all HTTP calls; do not use raw `fetch()`.
 
 ### Environment File Formatting
 
-In `.env` files:
+Quote style, empty values, and K8s `source/*.env` comments: `.cursor/rules/env-file-formatting.mdc`.
 
-- **Non-empty values**: Use double quotes
-- **Empty/unset values**: No value after `=`
 - **Alignment with .env.example**: All `.env` files (including `infra/config/local/*.env`) must match the organization, section comments, and variable order of their authoritative `.env.example`; only values may differ
 - **Web and Management Web**: `apps/web/.env.local` and `apps/management-web/.env.local` contain only `RUNTIME_CONFIG_URL`; the runtime-config sidecar uses `apps/web/sidecar/.env` and `apps/management-web/sidecar/.env` (created by `make local_env_setup`)
-- **K8s `source` env (ConfigMap)**: In `infra/k8s/**/source/*.env`, each comment line that documents env var names may reference **at most one** variable; repeat the line if two vars need the same note
-
-```bash
-# Correct
-DATABASE_HOST="localhost"
-EMPTY_VALUE=
-
-# Incorrect
-DATABASE_HOST=localhost
-EMPTY_VALUE=""
-```
 
 ### Import Order
 
@@ -138,23 +122,19 @@ Enforced by ESLint; fix with `npm run lint:fix`. Styles (CSS/SCSS) go last in co
 
 ### Shared UI (`@podverse/ui`)
 
-- Use **`@podverse/ui` first** for generic controls and layout primitives in **web** and **management-web**.
-- If both apps need the same behavior, add or extend **one** component (or hook) in `packages/ui` and export it from `packages/ui/src/index.ts`.
-- When styles differ between apps, **converge on the web app’s existing baseline** unless there is a documented accessibility or product reason; express app differences with props (`variant`, `appearance`, etc.).
-- When deduplicating or promoting UI from one app to shared code, follow [`ui-component-promotion`](.cursor/skills/ui-component-promotion/SKILL.md) (inventory → api → `packages/ui` → export → thin app wrappers → tests).
-- Rule reference: [`.cursor/rules/prefer-shared-ui-web-management.mdc`](.cursor/rules/prefer-shared-ui-web-management.mdc). Skills: [`reusable-components`](.cursor/skills/reusable-components/SKILL.md), [`ui-component-promotion`](.cursor/skills/ui-component-promotion/SKILL.md).
-- **i18n:** Do not embed user-facing copy in `@podverse/ui`; apps localize and pass strings (see [`shared-ui-i18n`](.cursor/rules/shared-ui-i18n.mdc)). All user-facing strings on web, management-web, and mobile must resolve through i18n (see [`i18n-user-facing-strings`](.cursor/rules/i18n-user-facing-strings.mdc)).
-- **Repeated identical wiring:** If the same `@podverse/ui` + localization pattern appears twice or more in one app, use a thin app-local wrapper (see [`reusable-components`](.cursor/skills/reusable-components/SKILL.md)).
+- Shared primitives and the web visual baseline: `.cursor/rules/prefer-shared-ui-web-management.mdc`.
+- Extracting between apps: `.cursor/skills/ui-component-promotion/SKILL.md`.
+- User-facing strings: `.cursor/rules/i18n-user-facing-strings.mdc`. Shared UI copy: `.cursor/rules/shared-ui-i18n.mdc`.
+- Repeated `@podverse/ui` wiring in one app: `.cursor/rules/app-local-ui-wrappers.mdc`.
 
 ### ESM and import type
 
-- **ESM**: **Tier A** (packages except `packages/ui`, Node apps, workers, sidecars, tools, scripts) uses NodeNext-style **`.js` relative specifiers** for TypeScript modules; **Tier C** (`packages/ui`) and **Tier B** (`apps/web/src`, `apps/management-web/src`, and those apps' `e2e`) keep **extensionless** relative imports for bundler-transpiled UI / Turbopack — see [docs/development/tooling/DOCS-DEVELOPMENT-TOOLING-IMPORT-SPECIFIERS.md](docs/development/tooling/DOCS-DEVELOPMENT-TOOLING-IMPORT-SPECIFIERS.md) and [`.cursor/skills/import-specifiers-tiered/SKILL.md`](.cursor/skills/import-specifiers-tiered/SKILL.md).
-- **Type-only imports**: Use `import type { X } from '...'` when the import is only used as a type (avoids runtime references and helps with circular deps). Keep value imports when the symbol is used at runtime (e.g. classes for `instanceof`, decorators that need the constructor).
-- **Separate line for types**: Do not mix type and value in one import. Use a separate `import type { ... }` line (e.g. `import { DataSource } from 'typeorm';` and `import type { DataSourceOptions } from 'typeorm';`). ESLint `consistent-type-imports` with `fixStyle: 'separate-type-imports'` enforces this.
+- **ESM import specifiers:** `.cursor/rules/import-specifiers-tiered.mdc` and `.cursor/skills/import-specifiers-tiered/SKILL.md`. Tier B includes those apps' `e2e/**`. Prefer `"type": "module"` where applicable.
+- **Type-only imports:** use `import type` for types so the import is not a runtime reference, including across a circular import. Keep a value import when the symbol is used at runtime (classes for `instanceof`, decorators that need the constructor). Separate type and value imports: `.cursor/rules/type-imports-separate-line.mdc`.
 
 ### Type assertions
 
-It is **critical** to avoid `as` (type assertions) as much as possible. Prefer improving types (DTOs, interfaces), optional chaining, and type guards; use `as` only when there is no better option, and confine or document those cases.
+`.cursor/rules/avoid-type-assertions.mdc`.
 
 ## Architecture
 
@@ -263,19 +243,14 @@ logger.error('Feed parsing failed', { error, feedUrl });
 
 ### Configuration
 
-- ❌ Set default values in `config/index.ts`
 - ❌ Set a default for LOG_DIR in any app (empty = console-only; see logging skill or [logs/LOGS.md](logs/LOGS.md))
-- ❌ Use `!` assertions outside of config files
 - ❌ Add env vars without updating validation scripts (`lib/startup/validation.ts`)
 
 ### i18n / Translations
 
-- ❌ Hardcode user-facing UI strings in `apps/web`, `apps/management-web`, or `apps/mobile` (use catalog + `t()`; see [`i18n-user-facing-strings`](.cursor/rules/i18n-user-facing-strings.mdc))
-- ❌ Write English chrome in sentence case — labels, titles, and buttons are title case (`Add Feed`, not `Add feed`); sentences stay sentence case. See [`ui-copy-casing`](.cursor/rules/ui-copy-casing.mdc)
-- ❌ Modify files in `i18n/compiled/` (generated at build time, not committed)
-- ❌ Add locales without updating all sync points (see `docs/localization/I18N.md`)
-- ❌ Use empty strings in catalog `originals/`
-- ❌ Edit `packages/i18n-catalog/*/overrides/` (operator-only; agents write all locales in `originals/`)
+- User-facing strings, title case, and compiled catalogs: `.cursor/rules/i18n-user-facing-strings.mdc` and `.cursor/rules/ui-copy-casing.mdc`.
+- Adding a locale: `.cursor/rules/i18n-management.mdc`. Guide: `docs/localization/I18N.md`.
+- Do not use empty strings in catalog `originals/`.
 
 ### General
 
@@ -283,7 +258,7 @@ logger.error('Feed parsing failed', { error, feedUrl });
 - ❌ Import from package `src/` directly (use `@podverse/package-name`)
 - ❌ Add features beyond what was requested (keep changes focused)
 - ❌ Create abstractions for one-time operations
-- ❌ Ship an interactive control without an accessible name, role, and state — a `testID` is not a label (see [`screen-reader-accessibility`](.cursor/rules/screen-reader-accessibility.mdc))
+- ❌ An interactive control needs an accessible name: `.cursor/rules/screen-reader-accessibility.mdc`
 
 ## Testing and Verification
 
@@ -291,10 +266,8 @@ When implementing features or executing plans that touch **api** or **management
 
 ### AI agents: write tests, do not run them
 
-- **During agent or plan implementation:** do **not** run test, lint, or verification commands (`npm run test*`, `make e2e_*`, or `npm run lint` as verification gates).
-- **Do** add or update tests when the change requires them (see paragraph above and **feature-implementation-testing**).
-- **After each implementation response:** tell the **operator** which command(s) to run in a fenced `bash` block — see **response-ending-make-verify** skill, **end-with-targeted-make-report-verify** rule, and `.cursorrules` § Agent/plan work.
-- **Final COPY-PASTA step:** when completing the last prompt in a plan set, list **all** cumulative verification commands for the whole set (assume the operator ran all COPY-PASTA prompts without testing until the end). See **plan-completion** and **parallel-plan-execution** skills.
+- **Do** add or update tests when the change requires them (see the paragraph above and **feature-implementation-testing**).
+- **Do not run** tests during agent or plan work. End with the operator's commands, including the cumulative list on the last COPY-PASTA prompt. See `.cursor/rules/end-with-targeted-make-report-verify.mdc` and `.cursor/skills/response-ending-make-verify/SKILL.md`.
 - **Before Submitting Changes** below applies to **operators and PR authors**, not to in-session agent runs.
 
 ### Root npm scripts
@@ -345,21 +318,21 @@ Operators and PR authors verify locally:
 - **api-testing** — how to write API integration tests
 - **e2e-page-tests** — how to write E2E Playwright specs
 - **ui-component-promotion** — promote shared UI across web and management-web via `packages/ui`
-- **reuse-beyond-components** (rule) — the reuse habit covers hooks and plain functions, not just components; search for an existing implementation before writing one, and when the same logic already exists on the other surface, collapse the two rather than adding a third copy
+- **reuse-beyond-components** (rule) — `.cursor/rules/reuse-beyond-components.mdc`
 - **modal-layout-contract** — `Modal`, `Modal.Body`, `Modal.Actions`; no overflow masking; modal footers match web (right-aligned, wrap)
 - **management-post-save-navigation** — after successful create or primary save on management-web New/Edit (one row), navigate to the list unless an exception applies (invite link, password-only update, detail-first flows)
 - **css-custom-properties-no-var-fallbacks** — never `var(--token, fallback)` in SCSS/CSS or inline styles; fix tokens or set vars at source
 - **unit-test-priority-confident** — prioritize unit tests by risk
 - **unit-test-design-no-overgranularity** — avoid over-testing
 - **unit-test-new-code-gate** — require tests for new critical logic
-- **response-ending-make-verify** (skill + rule) — agents end implementation responses with operator verification commands in a fenced `bash` block; agents do not run tests during implementation
-- **ui-e2e-screenshot-report** (skill + rule) — for UI changes, instruct the operator to run the narrowest scoped screenshot report and where to open `.artifacts/e2e-reports/latest/.../index.html`
+- **response-ending-make-verify** — `.cursor/skills/response-ending-make-verify/SKILL.md` and `.cursor/rules/end-with-targeted-make-report-verify.mdc`
+- **ui-e2e-screenshot-report** — `.cursor/skills/ui-e2e-screenshot-report/SKILL.md`
 - **e2e-run-with-make-only** (rule) — always use make targets for E2E
 - **mobile-list-virtualization** (rule) — for `apps/mobile/src/**/*.tsx`, user-data lists use `FlatList` / `SectionList` (not `ScrollView` + `.map()`), list owns scroll via `ListHeaderComponent`/`ListFooterComponent`
-- **screen-reader-accessibility** (rule) — every screen and component must be usable with VoiceOver, TalkBack, and desktop screen readers; new work ships accessible, and labeling improvements are in scope for code you already touch. Existing-surface audit is deferred to [899-defer-accessibility-audit](docs/proposals/mobile/_master-plan_/phase-2/details/899-defer-accessibility-audit.md)
-- **cross-surface-change-impact** (rule) — work focused on one surface must assess whether web, API, or ORM need matching changes; cross-device state must be written by every surface that can change it
-- **dto-changes-are-device-data-migrations** (rule) — mobile SQLite does not mirror Postgres, but it stores whole DTOs as JSON (`account_snapshot`, `channel_item`, `queue_cache`, `add_by_rss_feed`), so changing a shared DTO rewrites data already on installed phones; TypeScript cannot see those rows
-- **filter-sort-persistence** (rule) — every screen with a filter or sort control remembers the last selection **per instance** (per channel, per item) and restores it on load, on web and mobile; stored device-locally (web: bounded LRU in the `local-settings` cookie so SSR can read it; mobile: AsyncStorage), never server-synced; free-text filters are excluded
+- **screen-reader-accessibility** — `.cursor/rules/screen-reader-accessibility.mdc`
+- **cross-surface-change-impact** — `.cursor/rules/cross-surface-change-impact.mdc`
+- **dto-changes-are-device-data-migrations** — `.cursor/rules/dto-changes-are-device-data-migrations.mdc`
+- **filter-sort-persistence** — `.cursor/rules/filter-sort-persistence.mdc`
 
 ## References
 

@@ -13,6 +13,7 @@ export * from './addByRSS/types.js';
 export * from './addByRSS/reconstruct.js';
 export * from './addByRSS/resourceType.js';
 export * from './addByRSS/cacheMaps.js';
+export * from './addByRSS/channelMetadata.js';
 export * from './addByRSS/chaptersTranscript.js';
 export * from './addByRSS/boost.js';
 export * from './addByRSS/queuePlaylistHelpers.js';

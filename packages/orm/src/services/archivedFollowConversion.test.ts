@@ -7,7 +7,7 @@ const { queryMock, upsertMock } = vi.hoisted(() => ({
 
 vi.mock('@orm/db/index.js', () => ({
   AppDataSourceReadWrite: {
-    query: queryMock,
+    manager: { query: queryMock },
     transaction: async (work: (manager: { query: typeof queryMock }) => Promise<unknown>) =>
       work({ query: queryMock }),
   },

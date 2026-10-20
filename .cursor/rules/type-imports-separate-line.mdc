@@ -3,7 +3,7 @@ description: Type imports must use a separate import line; do not mix type and v
 globs:
   - "**/*.ts"
   - "**/*.tsx"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Type Imports on Separate Line

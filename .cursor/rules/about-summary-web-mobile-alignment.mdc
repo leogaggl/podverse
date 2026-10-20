@@ -1,6 +1,14 @@
 ---
 description: Channel About and item Summary carry the same information on web and mobile
-alwaysApply: true
+globs:
+  - "apps/web/src/components/Content/About/**"
+  - "apps/web/src/components/Media/Livestream/LivestreamSummary.tsx"
+  - "apps/web/src/components/Core/Podcast/Episodes/CoreEpisodeSummary.tsx"
+  - "apps/mobile/src/components/content/**"
+  - "apps/mobile/src/screens/{podcast,episode,album,artist,track,clip,player}/**"
+  - "apps/mobile/src/hooks/useItemDescription.ts"
+  - "packages/helpers/src/dtos/**/*About*"
+alwaysApply: false
 ---
 
 # About / Summary web–mobile alignment

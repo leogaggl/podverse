@@ -28,16 +28,19 @@ test.describe('Add by RSS with a rejected password', () => {
   }, testInfo) => {
     test.setTimeout(60_000);
     await loginSeedUser(page);
-    const parse = await stubAddByRSSParse(page, [
-      {
-        status: 'failed',
-        failureReason: 'credentials_rejected',
-        credentialsState: 'sent',
-        httpStatus: 401,
-        authChallenge: 'basic',
-      },
-      { status: 'parsed', credentialsState: 'sent' },
-    ]);
+    const parse = await stubAddByRSSParse(page, {
+      feedUrl: FEED_URL,
+      outcomes: [
+        {
+          status: 'failed',
+          failureReason: 'credentials_rejected',
+          credentialsState: 'sent',
+          httpStatus: 401,
+          authChallenge: 'basic',
+        },
+        { status: 'parsed', credentialsState: 'sent' },
+      ],
+    });
 
     await page.goto('/add-by-rss/add');
 

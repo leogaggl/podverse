@@ -3,8 +3,7 @@ description: Manual vs E2E named iOS/Android device targets — never interactiv
 globs:
   - "apps/mobile/**"
   - "scripts/mobile/**"
-  - ".vscode/terminals.json"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Mobile default simulator / emulator targets

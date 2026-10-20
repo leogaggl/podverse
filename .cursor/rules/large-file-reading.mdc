@@ -1,0 +1,31 @@
+---
+description: Search large files and read a window around the match instead of paging through them
+globs:
+  - "apps/api/openapi.yml"
+  - "apps/management-api/openapi.yml"
+  - "infra/k8s/base/ops/source/database/linear-migrations/app/0001_app_schema.sql"
+  - "apps/mobile/src/playback/PlaybackProvider.tsx"
+  - "apps/mobile/src/navigation/index.tsx"
+  - "apps/mobile/src/screens/player/FullPlayerScreen.tsx"
+  - "apps/mobile/src/screens/home/HomeScreen.tsx"
+  - "tools/web/seed-e2e.mjs"
+  - "packages/orm/src/services/queue/queueResource.ts"
+  - "packages/helpers-requests/src/api/_request.ts"
+  - "packages/i18n-catalog/*/originals/*.json"
+alwaysApply: false
+---
+
+# Large files: search, then read a window
+
+These files run from about 1,500 to 18,000 lines. Paging through one fills the context, and a
+full context is when agents start re-reading files they already saw.
+
+- Find the spot with Grep (`-n` plus `-C`, `-A`, or `-B`) on a name you know: route path,
+  `operationId`, table, catalog key, symbol. Then Read with `offset` and `limit` around it.
+- Do not read the whole file, and do not page through it in sequential chunks.
+- Keep the line numbers you already have. Search again only after an edit moves them.
+- `openapi.yml`: search the route path or `operationId`, and add new routes beside a sibling.
+- `0001_app_schema.sql`: search `CREATE TABLE public.<table>`, then check later migrations in
+  the same directory for changes to that table.
+- i18n catalogs: search the key prefix and insert beside its siblings with StrReplace. Never
+  rewrite a catalog file.

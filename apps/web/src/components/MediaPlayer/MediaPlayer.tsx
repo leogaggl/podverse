@@ -17,6 +17,7 @@ import { updateLayoutForMediaPlayer } from '../../utils/mediaPlayer/mediaPlayerL
 import { MediaPlayerDesktop } from './Desktop/MediaPlayerDesktop';
 import { MediaPlayerMobile } from './Mobile/MediaPlayerMobile';
 import { MediaPlayerModal } from './Modal/MediaPlayerModal';
+import { PlaybackErrorAnnouncer, PlaybackErrorModal } from './Modal/PlaybackErrorModal';
 
 import styles from '../../styles/components/MediaPlayer/MediaPlayer.module.scss';
 
@@ -35,6 +36,8 @@ export const MediaPlayer = () => {
       <MediaPlayerDesktop />
       <MediaPlayerMobile />
       <MediaPlayerModal />
+      <PlaybackErrorAnnouncer />
+      <PlaybackErrorModal />
     </aside>
   );
 };

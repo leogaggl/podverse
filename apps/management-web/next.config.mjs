@@ -9,6 +9,7 @@ const nextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(import.meta.dirname, '../../'),
   serverExternalPackages: [
+    '@podverse/observability',
     '@podverse/extension-metrics-sdk',
     '@opentelemetry/api',
     '@opentelemetry/exporter-metrics-otlp-http',

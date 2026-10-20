@@ -101,3 +101,37 @@ name: Playback Multi-device Handoff
     id: full-player-position
     text: "0:4[0-9]"
 - takeScreenshot: playback-handoff-same-item-no-prompt
+
+# Another device is now playing an episode of the seeded Add by RSS follow (the test-assets feed).
+# The row carries only what web writes (feed URL, guid, title, enclosure). Switching plays this
+# phone's parsed copy when it has one, and the row itself when it does not. The prompt names the
+# episode by title, never by its id. The title is the feed's own, so both paths show the same one.
+- runScript:
+    file: scripts/seed-playback-now-playing.js
+    env:
+      E2E_ADD_BY_RSS_ENCLOSURE_URL: http://localhost:2111/audio/audio-001.mp3
+      E2E_ADD_BY_RSS_FEED_URL: http://localhost:2111/feeds/feed-podcast-1.rss
+      E2E_ADD_BY_RSS_GUID: ed7204c0-1267-11f1-89a4-7b8808f0f4f1
+      E2E_ADD_BY_RSS_TITLE: Tamdiu deinde doloribus terebro asper accusamus pariatur atrocitas torrens ea.
+      E2E_PLAYBACK_EVENT_KIND: play
+      E2E_PLAYBACK_POSITION: "12"
+- launchApp:
+    clearState: false
+- runFlow: shared/connect-dev-client-overlay-ok.yaml
+- extendedWaitUntil:
+    visible:
+      id: playback-handoff-dialog
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    text: "(?s).*E2E Podcast Resume P > 0.*Tamdiu deinde doloribus.*"
+- takeScreenshot: playback-handoff-add-by-rss-prompt
+- tapOn:
+    id: playback-handoff-switch
+- assertNotVisible:
+    id: playback-handoff-dialog
+- extendedWaitUntil:
+    visible:
+      id: playback-now-playing-title-e2e
+      text: "Tamdiu deinde doloribus.*"
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: playback-handoff-add-by-rss-switched

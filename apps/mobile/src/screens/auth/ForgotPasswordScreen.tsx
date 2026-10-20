@@ -88,6 +88,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
             <TextField
               accessibilityLabel={t('authentication.email')}
               autoCapitalize="none"
+              autoComplete="email"
               autoCorrect={false}
               eyebrow={t('authentication.email')}
               keyboardType="email-address"
@@ -101,6 +102,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
               placeholder={t('authentication.email_example')}
               returnKeyType="done"
               testID="forgot-password-email"
+              textContentType="emailAddress"
               value={email}
             />
             <FormActions

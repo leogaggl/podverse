@@ -2,11 +2,12 @@ import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { actionErrorDetailLine } from '@podverse/helpers';
+
 import type { PlaybackErrorEvent } from '../../modules/podverse-media-engine';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { addByRssCredentialsStateForLastLoad } from '../playback/addByRssMediaAuth';
 import {
-  actionErrorDetailLine,
   downloadErrorMessageKeys,
   playbackCredentialsMessageKeys,
   playbackErrorMessageKeys,

@@ -8,7 +8,9 @@ alwaysApply: false
 # Plan Lifecycle
 
 When you finish executing a plan in `active/`, move it to `completed/` automatically (no prompt).
-See **Plan Completion** skill for: single-file move vs. moving the whole set when it's the last plan.
+When the prompt names the exact move, make it; there is no need to open the **Plan Completion**
+skill. Open that skill only when the prompt is silent and you must decide between a single-file
+move and moving the whole set.
 
 1. Move the file (or whole set) from `active/` to `completed/` (preserving subdirectory structure)
 2. Update any references in `00-master-plan.md`, a project `00-SUMMARY.md`, or `.llm/LLM.md` if needed

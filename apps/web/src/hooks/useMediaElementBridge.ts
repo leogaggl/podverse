@@ -15,6 +15,7 @@ import {
   applyItemEnclosureSurfaceChangeFromRef,
   attachNonLiveHlsPlayback,
   detachNonLiveHlsPlayback,
+  hasManagedNonLiveHls,
   syncHttpFileUrlRestoreSeekAndPlayFromRef,
   waitForLoadedMetadataOnce,
 } from './mediaElementBridgeSurface';
@@ -68,6 +69,8 @@ export type MediaElementBridge = {
   applyItemEnclosureSurfaceChange: (input: ApplyItemEnclosureSurfaceChangeInput) => void;
   /** Live element playhead when mounted; `undefined` when no element or time is invalid. */
   readCurrentTimeSeconds: () => number | undefined;
+  /** Reload the current source, seek to `seconds`, and play. */
+  reloadAt: (seconds: number) => void;
 };
 
 export type UseMediaElementBridgeOptions = {
@@ -78,6 +81,12 @@ export type UseMediaElementBridgeOptions = {
   onEnded?: () => void;
   onError?: (error: MediaError | null) => void;
   onLoadedMetadata?: (durationSeconds: number) => void;
+  /** Fires once playback has actually started, which clears a playback error. */
+  onPlaying?: () => void;
+  /** A rejected `play()`. `NotAllowedError` and `AbortError` are not failures. */
+  onPlayRejected?: (error: unknown) => void;
+  /** Play was requested and the element has no source. */
+  onInvalidSource?: () => void;
 };
 
 function isTokenCurrent(token: number, loadGenRef: { current: number }): boolean {
@@ -123,6 +132,9 @@ export function useMediaElementBridge(
     const onError = () => {
       optionsRef.current.onError?.(media.error);
     };
+    const onPlaying = () => {
+      optionsRef.current.onPlaying?.();
+    };
     const onLoadedMetadata = () => {
       const d = Number.isFinite(media.duration) ? media.duration : NaN;
       optionsRef.current.onLoadedMetadata?.(d);
@@ -134,6 +146,7 @@ export function useMediaElementBridge(
     media.addEventListener('pause', onPause);
     media.addEventListener('ended', onEnded);
     media.addEventListener('error', onError);
+    media.addEventListener('playing', onPlaying);
     media.addEventListener('loadedmetadata', onLoadedMetadata);
     return () => {
       media.removeEventListener('timeupdate', onTimeUpdate);
@@ -142,6 +155,7 @@ export function useMediaElementBridge(
       media.removeEventListener('pause', onPause);
       media.removeEventListener('ended', onEnded);
       media.removeEventListener('error', onError);
+      media.removeEventListener('playing', onPlaying);
       media.removeEventListener('loadedmetadata', onLoadedMetadata);
     };
   }, [mediaRef]);
@@ -177,8 +191,8 @@ export function useMediaElementBridge(
       if (decision.shouldAutoPlay) {
         try {
           await media.play();
-        } catch {
-          // Autoplay policy may reject play(); observability only.
+        } catch (error: unknown) {
+          optionsRef.current.onPlayRejected?.(error);
         }
         if (!isTokenCurrent(myToken, loadGenRef)) {
           return;
@@ -202,8 +216,18 @@ export function useMediaElementBridge(
     if (!media) {
       throw new Error('useMediaElementBridge: media element not mounted');
     }
+    if ((media.currentSrc || media.src) === '') {
+      optionsRef.current.onInvalidSource?.();
+      return;
+    }
     await new Promise<void>((resolve) => {
-      playMediaWhenReady(media, () => resolve());
+      playMediaWhenReady(
+        media,
+        () => resolve(),
+        (error) => {
+          optionsRef.current.onPlayRejected?.(error);
+        }
+      );
     });
   }, [mediaRef]);
 
@@ -221,8 +245,18 @@ export function useMediaElementBridge(
       throw new Error('useMediaElementBridge: media element not mounted');
     }
     if (media.paused) {
+      if ((media.currentSrc || media.src) === '') {
+        optionsRef.current.onInvalidSource?.();
+        return;
+      }
       await new Promise<void>((resolve) => {
-        playMediaWhenReady(media, () => resolve());
+        playMediaWhenReady(
+          media,
+          () => resolve(),
+          (error) => {
+            optionsRef.current.onPlayRejected?.(error);
+          }
+        );
       });
     } else {
       media.pause();
@@ -307,14 +341,24 @@ export function useMediaElementBridge(
 
   const syncHttpFileUrlRestoreSeekAndPlay = useCallback(
     (input: SyncHttpFileUrlRestoreSeekAndPlayInput) => {
-      syncHttpFileUrlRestoreSeekAndPlayFromRef(mediaRef, input);
+      syncHttpFileUrlRestoreSeekAndPlayFromRef(mediaRef, {
+        ...input,
+        onPlayRejected: (error) => {
+          optionsRef.current.onPlayRejected?.(error);
+        },
+      });
     },
     [mediaRef]
   );
 
   const applyItemEnclosureSurfaceChange = useCallback(
     (input: ApplyItemEnclosureSurfaceChangeInput) => {
-      applyItemEnclosureSurfaceChangeFromRef(mediaRef, input);
+      applyItemEnclosureSurfaceChangeFromRef(mediaRef, {
+        ...input,
+        onPlayRejected: (error) => {
+          optionsRef.current.onPlayRejected?.(error);
+        },
+      });
     },
     [mediaRef]
   );
@@ -330,6 +374,36 @@ export function useMediaElementBridge(
     }
     return currentTime;
   }, [mediaRef]);
+
+  const reloadAt = useCallback(
+    (seconds: number) => {
+      const media = mediaRef.current;
+      if (!media) {
+        return;
+      }
+      const src = media.currentSrc || media.src;
+      if (src === '') {
+        optionsRef.current.onInvalidSource?.();
+        return;
+      }
+      const start = () => {
+        if (Number.isFinite(seconds) && seconds >= 0) {
+          media.currentTime = seconds;
+        }
+        media.play().catch((error: unknown) => {
+          optionsRef.current.onPlayRejected?.(error);
+        });
+      };
+      media.addEventListener('loadedmetadata', start, { once: true });
+      if (hasManagedNonLiveHls(media)) {
+        detachNonLiveHlsPlayback(media);
+        void attachNonLiveHlsPlayback(media, src);
+        return;
+      }
+      media.load();
+    },
+    [mediaRef]
+  );
 
   return useMemo(
     () => ({
@@ -348,6 +422,7 @@ export function useMediaElementBridge(
       syncHttpFileUrlRestoreSeekAndPlay,
       applyItemEnclosureSurfaceChange,
       readCurrentTimeSeconds,
+      reloadAt,
     }),
     [
       loadAndStart,
@@ -365,6 +440,7 @@ export function useMediaElementBridge(
       syncHttpFileUrlRestoreSeekAndPlay,
       applyItemEnclosureSurfaceChange,
       readCurrentTimeSeconds,
+      reloadAt,
     ]
   );
 }

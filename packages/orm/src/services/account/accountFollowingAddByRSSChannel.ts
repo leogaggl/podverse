@@ -3,6 +3,22 @@ import { AccountService } from '@orm/services/account/account.js';
 import { BaseManyService } from '@orm/services/base/baseManyService.js';
 import type { EntityManager, FindManyOptions, FindOptionsSelect } from 'typeorm';
 
+import { DATABASE_CONSTANTS } from '@podverse/helpers';
+
+/** http(s) with no `user:pass@`: the follow row is read by every device on the account. */
+const isStorableImageUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.username === '' &&
+      url.password === ''
+    );
+  } catch {
+    return false;
+  }
+};
+
 export type AccountFollowingAddByRSSChannelDto = {
   feed_url: string;
   title?: string | null;
@@ -97,6 +113,40 @@ export class AccountFollowingAddByRSSChannelService extends BaseManyService<
     requires_credentials: boolean
   ): Promise<void> {
     await this.repositoryReadWrite.update({ account_id, feed_url }, { requires_credentials });
+  }
+
+  /**
+   * Records the title and artwork a parse found, so devices that have not parsed the feed show
+   * them. Missing or empty values leave the stored ones alone. An image URL that carries
+   * credentials, is not http(s), or does not fit the column is dropped. A no-op when the account
+   * does not follow the feed.
+   */
+  async setFeedMetadata(
+    account_id: number,
+    feed_url: string,
+    metadata: { title?: string | null; image_url?: string | null }
+  ): Promise<void> {
+    const update: { title?: string; image_url?: string } = {};
+
+    const title = metadata.title?.trim() ?? '';
+    if (title !== '') {
+      update.title = title.slice(0, DATABASE_CONSTANTS.varchar_normal);
+    }
+
+    const imageUrl = metadata.image_url?.trim() ?? '';
+    if (
+      imageUrl !== '' &&
+      imageUrl.length <= DATABASE_CONSTANTS.varchar_url &&
+      isStorableImageUrl(imageUrl)
+    ) {
+      update.image_url = imageUrl;
+    }
+
+    if (update.title === undefined && update.image_url === undefined) {
+      return;
+    }
+
+    await this.repositoryReadWrite.update({ account_id, feed_url }, update);
   }
 
   async removeRSSChannel(account_id: number, feed_url: string): Promise<void> {

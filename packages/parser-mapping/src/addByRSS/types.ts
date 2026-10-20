@@ -21,6 +21,11 @@ export type AddByRSSItemIndexItem = {
   itemGuid: string;
   /** Parent channel text identifier */
   channelIdText: string;
+  /**
+   * Parent feed URL. Missing on index items stored before feed identity; without it the item
+   * hashes in the legacy per-device form.
+   */
+  feedUrl?: string;
   /** Parent channel title */
   channelTitle: string;
   /** Parent channel image URL */
@@ -46,6 +51,8 @@ export type AddByRSSLivestreamIndexItem = {
   itemGuid: string;
   /** Parent channel text identifier */
   channelIdText: string;
+  /** Parent feed URL; see `AddByRSSItemIndexItem.feedUrl`. */
+  feedUrl?: string;
   /** Parent channel title */
   channelTitle: string;
   /** Parent channel image URL */

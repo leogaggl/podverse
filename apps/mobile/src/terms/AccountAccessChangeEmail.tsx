@@ -141,6 +141,7 @@ export function AccountAccessChangeEmail() {
           <TextField
             accessibilityLabel={t('authentication.email')}
             autoCapitalize="none"
+            autoComplete="email"
             autoCorrect={false}
             eyebrow={t('authentication.email')}
             keyboardType="email-address"
@@ -153,6 +154,7 @@ export function AccountAccessChangeEmail() {
             }}
             placeholder={t('authentication.email_example')}
             testID="account-access-change-email-email"
+            textContentType="emailAddress"
             value={email}
           />
           {visibleError !== null ? (

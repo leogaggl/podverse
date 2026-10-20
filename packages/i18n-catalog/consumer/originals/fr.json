@@ -1450,6 +1450,25 @@
     "relative_time_days_from_now": "Dans {count, plural, one {# jour} other {# jours}}",
     "no_body": "Ouvrir pour voir les détails."
   },
+  "action_error": {
+    "playback_title": "Erreur de lecture",
+    "playback_a11y": "Erreur de lecture",
+    "report": "Détails : {detail}",
+    "playback_host_http": "Le serveur qui héberge ce média a renvoyé une erreur. Les podcasteurs et artistes hébergent leurs propres fichiers : ils devront peut-être la corriger.",
+    "playback_network": "La connexion a échoué pendant le chargement. Vérifiez le réseau, puis réessayez.",
+    "playback_unsupported": "Ce fichier utilise un format que cet appareil ne peut pas lire. L'hôte du podcast doit peut-être proposer un autre fichier.",
+    "playback_file_not_found": "Le fichier est introuvable. L'hôte l'a peut-être retiré.",
+    "playback_decode": "Cet appareil n'a pas pu décoder le média.",
+    "playback_audio_session": "L'audio n'a pas pu démarrer. Fermez les autres apps qui lisent du son, puis réessayez.",
+    "playback_invalid_source": "L'adresse du média n'est pas valide.",
+    "playback_unknown": "Un problème est survenu pendant la lecture. Réessayez.",
+    "playback_credentials_required": "L'hôte de ce flux a demandé un identifiant et un mot de passe. Ajoutez-les au flux sous Ajouter par RSS, puis réessayez.",
+    "playback_credentials_rejected": "L'hôte de ce flux n'a pas accepté l'identifiant et le mot de passe enregistrés. Mettez-les à jour sous Ajouter par RSS, puis réessayez.",
+    "playback_credentials_withheld_other_domain": "Ce média est sur un autre site que le flux, donc l'identifiant et le mot de passe du flux ne lui ont pas été envoyés.",
+    "playback_credentials_withheld_insecure": "Ce média utilise une adresse non chiffrée, donc l'identifiant et le mot de passe du flux ne lui ont pas été envoyés.",
+    "playback_host_blocked": "L'hôte de ce média n'autorise pas la lecture sur les sites web. Il peut tout de même se lire dans l'app {brand_name}.",
+    "open_media_link": "Ouvrir le lien du média"
+  },
   "seo": {
     "pages": {
       "home": {

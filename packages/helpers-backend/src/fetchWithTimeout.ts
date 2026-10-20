@@ -9,11 +9,16 @@ import { injectTraceContext, isObservabilityInitialized } from '@podverse/observ
 export type RequestCache =
   'default' | 'force-cache' | 'no-cache' | 'no-store' | 'reload' | 'only-if-cached';
 
+/** Fetch redirect mode. Defined here so it is available without the DOM lib. */
+export type RequestRedirectMode = 'error' | 'follow' | 'manual';
+
 export type FetchWithTimeoutOptions = {
   body?: string;
   cache?: RequestCache;
   headers?: Record<string, string>;
   method?: string;
+  /** Defaults to `follow`, the Fetch API default. */
+  redirect?: RequestRedirectMode;
   timeoutMs?: number;
   /**
    * When set to a non-negative finite number, the returned body contains at most this many
@@ -88,7 +93,14 @@ const fetchWithInjectedHeaders = async (
   url: string,
   options: FetchWithTimeoutOptions | undefined
 ): Promise<Response> => {
-  const { body, cache, headers: inputHeaders, method = 'GET', timeoutMs } = options ?? {};
+  const {
+    body,
+    cache,
+    headers: inputHeaders,
+    method = 'GET',
+    redirect = 'follow',
+    timeoutMs,
+  } = options ?? {};
   const headers: Record<string, string> = { ...inputHeaders };
   injectTraceContext(headers);
 
@@ -104,6 +116,7 @@ const fetchWithInjectedHeaders = async (
       cache,
       headers,
       method,
+      redirect,
       signal: controller.signal,
     });
     return response;

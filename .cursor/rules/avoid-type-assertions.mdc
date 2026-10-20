@@ -3,7 +3,7 @@ description: Avoid type assertions (as) when a better approach exists; prefer ty
 globs:
   - "**/*.ts"
   - "**/*.tsx"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Avoid Type Assertions

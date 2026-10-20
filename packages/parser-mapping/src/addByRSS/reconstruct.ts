@@ -5,6 +5,7 @@
  */
 
 import type { AddByRSSResourceData, AddByRSSResourceDataImageEntry } from '@podverse/helpers';
+import { getItemItunesEpisodeTypeEnumValue } from '@podverse/helpers';
 
 import type {
   AddByRSSItemIndexItem,
@@ -18,17 +19,41 @@ function isAddByRSSResourceDataImageEntry(value: unknown): value is AddByRSSReso
   );
 }
 
+function imageEntriesFromResourceData(value: unknown): AddByRSSResourceDataImageEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (entry): entry is AddByRSSResourceDataImageEntry =>
+      isAddByRSSResourceDataImageEntry(entry) && entry.url !== ''
+  );
+}
+
 function channelImageUrlFromResourceData(resourceData: AddByRSSResourceData): string | undefined {
-  const images = resourceData.channel_images;
-  if (!Array.isArray(images)) {
-    return undefined;
+  const [first] = imageEntriesFromResourceData(resourceData.channel_images);
+  if (first) {
+    return first.url;
   }
-  for (const entry of images) {
-    if (isAddByRSSResourceDataImageEntry(entry) && entry.url !== '') {
-      return entry.url;
-    }
+  const legacyUrl = resourceData['channel_image_url'];
+  return typeof legacyUrl === 'string' && legacyUrl.trim() !== '' ? legacyUrl.trim() : undefined;
+}
+
+function trimmedString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/** `feed_url` as stored. Resource data carries it canonical, which keeps the feed-form hash. */
+function feedUrlFromResourceData(resourceData: AddByRSSResourceData): string | undefined {
+  const feedUrl = trimmedString(resourceData['feed_url']);
+  return feedUrl !== '' ? feedUrl : undefined;
+}
+
+function msFromIsoString(value: unknown): number {
+  if (typeof value !== 'string' || value === '') {
+    return 0;
   }
-  return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 /**
@@ -46,35 +71,98 @@ export function reconstructAddByRSSItemFromResourceData(
     return null;
   }
 
-  const idText = typeof resourceData.id_text === 'string' ? resourceData.id_text.trim() : '';
-  const channelIdText =
-    typeof resourceData.channel_id_text === 'string' ? resourceData.channel_id_text.trim() : '';
-  const itemGuid = typeof resourceData.guid === 'string' ? resourceData.guid.trim() : '';
-  const channelTitle =
-    typeof resourceData.channel_title === 'string' ? resourceData.channel_title : '';
-  const channelImageUrl = channelImageUrlFromResourceData(resourceData);
-  const mediumId = typeof resourceData.medium_id === 'number' ? resourceData.medium_id : null;
+  return toItemIndexItem(resourceData, bundle);
+}
 
-  // Parse pub_date back to milliseconds
-  let pubDateMs = 0;
-  if (typeof resourceData.pub_date === 'string' && resourceData.pub_date) {
-    const parsed = Date.parse(resourceData.pub_date);
-    if (!isNaN(parsed)) {
-      pubDateMs = parsed;
-    }
-  }
-
+function toItemIndexItem(
+  resourceData: AddByRSSResourceData,
+  bundle: AddByRSSMappedFeed['items'][number]
+): AddByRSSItemIndexItem {
+  const channelIdText = trimmedString(resourceData.channel_id_text);
+  const itemGuid = trimmedString(resourceData.guid);
+  const feedUrl = feedUrlFromResourceData(resourceData);
   return {
     id: `${channelIdText}-${itemGuid}`,
-    idText,
+    idText: trimmedString(resourceData.id_text),
     itemGuid,
     channelIdText,
-    channelTitle,
-    channelImageUrl,
-    mediumId,
+    ...(feedUrl !== undefined ? { feedUrl } : {}),
+    channelTitle: typeof resourceData.channel_title === 'string' ? resourceData.channel_title : '',
+    channelImageUrl: channelImageUrlFromResourceData(resourceData),
+    mediumId: typeof resourceData.medium_id === 'number' ? resourceData.medium_id : null,
     bundle,
-    pubDateMs,
+    pubDateMs: msFromIsoString(resourceData.pub_date),
   };
+}
+
+/**
+ * An episode index item built from the resource data alone, for a row whose feed this device has
+ * not parsed and that carries no `bundle`. It holds what the player needs to start: the enclosure,
+ * title, channel title, channel and item artwork, duration, pub date, medium, feed URL, and guid.
+ * Notes, chapters, transcripts, and value tags arrive once the feed is parsed.
+ *
+ * `buildAddByRSSResourceData` on the result hashes the same as `resourceData`. Returns null when
+ * there is no `enclosure_url`, since nothing could play.
+ */
+export function buildMinimalAddByRSSItemFromResourceData(
+  resourceData: AddByRSSResourceData
+): AddByRSSItemIndexItem | null {
+  const enclosureUrl = trimmedString(resourceData['enclosure_url']);
+  if (enclosureUrl === '') {
+    return null;
+  }
+  const itemGuid = trimmedString(resourceData.guid);
+  const title = trimmedString(resourceData.title);
+  const pubDateMs = msFromIsoString(resourceData.pub_date);
+  const duration = resourceData['duration'];
+
+  const bundle: AddByRSSMappedFeed['items'][number] = {
+    item: {
+      guid: itemGuid !== '' ? itemGuid : null,
+      guid_enclosure_url: null,
+      pub_date: pubDateMs > 0 ? new Date(pubDateMs) : null,
+      title: title !== '' ? title : null,
+    },
+    about: {
+      duration: null,
+      explicit: false,
+      website_link_url: null,
+      item_itunes_episode_type: getItemItunesEpisodeTypeEnumValue('full'),
+    },
+    chaptersFeed: null,
+    chat: null,
+    description: null,
+    enclosures: [
+      {
+        item_enclosure: {
+          type: '',
+          length: typeof duration === 'number' && Number.isFinite(duration) ? duration : null,
+          bitrate: null,
+          height: null,
+          language: null,
+          title: null,
+          rel: null,
+          codecs: null,
+          item_enclosure_default: true,
+        },
+        item_enclosure_integrity: null,
+        item_enclosure_sources: [{ uri: enclosureUrl, content_type: null }],
+      },
+    ],
+    images: imageEntriesFromResourceData(resourceData.item_images),
+    license: null,
+    location: null,
+    people: [],
+    season: null,
+    seasonEpisode: null,
+    socialInteract: [],
+    soundbites: [],
+    transcripts: [],
+    txt: [],
+    value: [],
+  };
+
+  return toItemIndexItem(resourceData, bundle);
 }
 
 /**
@@ -96,34 +184,21 @@ export function reconstructAddByRSSLivestreamFromResourceData(
     return null;
   }
 
-  const idText = typeof resourceData.id_text === 'string' ? resourceData.id_text.trim() : '';
-  const channelIdText =
-    typeof resourceData.channel_id_text === 'string' ? resourceData.channel_id_text.trim() : '';
-  const itemGuid = typeof resourceData.guid === 'string' ? resourceData.guid.trim() : '';
-  const channelTitle =
-    typeof resourceData.channel_title === 'string' ? resourceData.channel_title : '';
-  const channelImageUrl = channelImageUrlFromResourceData(resourceData);
-  const mediumId = typeof resourceData.medium_id === 'number' ? resourceData.medium_id : null;
-
-  // Parse start_time back to milliseconds
-  let startTimeMs = 0;
-  if (typeof resourceData.start_time === 'string' && resourceData.start_time) {
-    const parsed = Date.parse(resourceData.start_time);
-    if (!isNaN(parsed)) {
-      startTimeMs = parsed;
-    }
-  }
+  const channelIdText = trimmedString(resourceData.channel_id_text);
+  const itemGuid = trimmedString(resourceData.guid);
+  const feedUrl = feedUrlFromResourceData(resourceData);
 
   return {
     id: `${channelIdText}-${itemGuid}`,
-    idText,
+    idText: trimmedString(resourceData.id_text),
     itemGuid,
     channelIdText,
-    channelTitle,
-    channelImageUrl,
-    mediumId,
+    ...(feedUrl !== undefined ? { feedUrl } : {}),
+    channelTitle: typeof resourceData.channel_title === 'string' ? resourceData.channel_title : '',
+    channelImageUrl: channelImageUrlFromResourceData(resourceData),
+    mediumId: typeof resourceData.medium_id === 'number' ? resourceData.medium_id : null,
     liveItem,
     item: livestreamItem,
-    startTimeMs,
+    startTimeMs: msFromIsoString(resourceData.start_time),
   };
 }

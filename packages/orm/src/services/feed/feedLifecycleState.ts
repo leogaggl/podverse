@@ -59,6 +59,7 @@ export class FeedLifecycleStateService {
 
     const row = existing ?? lifecycleRepo.create({ feed_id: feedId });
 
+    row.feed_lifecycle_state_type = targetType;
     row.feed_lifecycle_state_type_id = targetType.id;
     row.reason_key = params.reasonKey ?? null;
     row.note = params.note ?? null;

@@ -1,3 +1,4 @@
+import { normalizeAddByRSSResourceData } from '@api/lib/addByRSSResourceData.js';
 import {
   ensureAuthenticated,
   getAuthenticatedUser,
@@ -25,7 +26,7 @@ import Joi from 'joi';
 
 import type { QueryParamsQueueMedium } from '@podverse/helpers';
 import {
-  getAddByRSSHashId,
+  getAddByRSSHashIdsForResourceData,
   getQueueMediumIdFromType,
   MediumEnum,
   PLAYLIST_LIKES_MEMBERSHIP_MAX_IDS,
@@ -757,13 +758,12 @@ class PlaylistController {
                 typeof req.body.item_id_text === 'string' ? req.body.item_id_text : '';
               const clipIdText =
                 typeof req.body.clip_id_text === 'string' ? req.body.clip_id_text : '';
-              const addByRSSHashIdFromBody =
-                typeof req.body.add_by_rss_hash_id === 'string' ? req.body.add_by_rss_hash_id : '';
-              const addByRSSResourceData =
+              const addByRSSResourceData = normalizeAddByRSSResourceData(
                 req.body.add_by_rss_resource_data &&
-                typeof req.body.add_by_rss_resource_data === 'object'
+                  typeof req.body.add_by_rss_resource_data === 'object'
                   ? req.body.add_by_rss_resource_data
-                  : {};
+                  : {}
+              );
 
               if (resourceType === 'item') {
                 const item = await PlaylistController.itemService.getByIdText(itemIdText, {
@@ -830,20 +830,23 @@ class PlaylistController {
                 return;
               }
 
-              const addByRSSHashId =
-                addByRSSHashIdFromBody || getAddByRSSHashId(addByRSSResourceData);
-
               const likesPlaylist = await playlistService.getOrCreateDefaultLikesPlaylist(
                 account.id,
                 MediumEnum.AV
               );
-              const liked = await playlistService.hasAddByRSSLike(likesPlaylist.id, addByRSSHashId);
+              const likedHashIds = await playlistService.getAddByRSSLikeHashIds(
+                likesPlaylist.id,
+                getAddByRSSHashIdsForResourceData(addByRSSResourceData)
+              );
+              const liked = likedHashIds.length > 0;
 
               if (liked) {
-                await PlaylistController.playlistResourceService.removeItemAddByRSSFromPlaylist(
-                  likesPlaylist.id_text,
-                  addByRSSHashId
-                );
+                for (const likedHashId of likedHashIds) {
+                  await PlaylistController.playlistResourceService.removeItemAddByRSSFromPlaylist(
+                    likesPlaylist.id_text,
+                    likedHashId
+                  );
+                }
               } else {
                 await PlaylistController.playlistResourceService.addItemAddByRSSToPlaylistLast(
                   likesPlaylist.id_text,

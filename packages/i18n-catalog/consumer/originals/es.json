@@ -1450,6 +1450,25 @@
     "relative_time_days_from_now": "En {count, plural, one {# día} other {# días}}",
     "no_body": "Ábrela para ver los detalles."
   },
+  "action_error": {
+    "playback_title": "Error de reproducción",
+    "playback_a11y": "Error de reproducción",
+    "report": "Detalles: {detail}",
+    "playback_host_http": "El servidor que aloja este contenido devolvió un error. Los podcasters y artistas alojan sus propios archivos, así que puede que tengan que arreglarlo.",
+    "playback_network": "La conexión falló al cargar este medio. Revisa tu red e inténtalo de nuevo.",
+    "playback_unsupported": "Este archivo usa un formato que este dispositivo no puede reproducir. El anfitrión del podcast puede tener que ofrecer otro archivo.",
+    "playback_file_not_found": "No se encontró el archivo. Puede que el anfitrión lo haya quitado.",
+    "playback_decode": "Este dispositivo no pudo decodificar el medio.",
+    "playback_audio_session": "No se pudo iniciar el audio. Cierra otras apps que estén reproduciendo sonido e inténtalo de nuevo.",
+    "playback_invalid_source": "La dirección del medio no es válida.",
+    "playback_unknown": "Algo salió mal al reproducir. Inténtalo de nuevo.",
+    "playback_credentials_required": "El host de este feed pidió usuario y contraseña. Añádelos al feed en Añadir por RSS e inténtalo de nuevo.",
+    "playback_credentials_rejected": "El host de este feed no aceptó el usuario y la contraseña guardados. Actualízalos en Añadir por RSS e inténtalo de nuevo.",
+    "playback_credentials_withheld_other_domain": "Este contenido está en un sitio distinto al del feed, así que no se enviaron el usuario y la contraseña del feed.",
+    "playback_credentials_withheld_insecure": "Este contenido usa una dirección sin cifrar, así que no se enviaron el usuario y la contraseña del feed.",
+    "playback_host_blocked": "El servidor de este medio no permite reproducirlo en sitios web. Puede que sí se reproduzca en la app de {brand_name}.",
+    "open_media_link": "Abrir enlace del medio"
+  },
   "seo": {
     "pages": {
       "home": {

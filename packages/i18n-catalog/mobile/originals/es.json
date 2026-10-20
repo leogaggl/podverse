@@ -302,27 +302,12 @@
     "clear": "Borrar"
   },
   "action_error": {
-    "playback_title": "Error de reproducción",
     "download_title": "Error de descarga",
-    "playback_a11y": "Error de reproducción",
     "download_a11y": "Error de descarga",
-    "report": "Detalles: {detail}",
-    "playback_network": "La conexión falló al cargar este medio. Revisa tu red e inténtalo de nuevo.",
-    "playback_unsupported": "Este archivo usa un formato que este dispositivo no puede reproducir. El anfitrión del podcast puede tener que ofrecer otro archivo.",
-    "playback_file_not_found": "No se encontró el archivo. Puede que el anfitrión lo haya quitado.",
-    "playback_decode": "Este dispositivo no pudo decodificar el medio.",
-    "playback_audio_session": "No se pudo iniciar el audio. Cierra otras apps que estén reproduciendo sonido e inténtalo de nuevo.",
-    "playback_invalid_source": "La dirección del medio no es válida.",
-    "playback_unknown": "Algo salió mal al reproducir. Inténtalo de nuevo.",
     "download_no_storage": "No hay suficiente espacio libre en este dispositivo. Libera espacio e inténtalo de nuevo.",
     "download_transfer_failed": "La descarga no terminó. Revisa tu conexión e inténtalo de nuevo.",
     "download_file_missing": "Falta el archivo descargado en este dispositivo.",
     "download_unknown": "La descarga falló. Inténtalo de nuevo.",
-    "playback_host_http": "El servidor que aloja este contenido devolvió un error. Los podcasters y artistas alojan sus propios archivos, así que puede que tengan que arreglarlo.",
-    "playback_credentials_required": "El host de este feed pidió usuario y contraseña. Añádelos al feed en Añadir por RSS e inténtalo de nuevo.",
-    "playback_credentials_rejected": "El host de este feed no aceptó el usuario y la contraseña guardados. Actualízalos en Añadir por RSS e inténtalo de nuevo.",
-    "playback_credentials_withheld_other_domain": "Este contenido está en un sitio distinto al del feed, así que no se enviaron el usuario y la contraseña del feed.",
-    "playback_credentials_withheld_insecure": "Este contenido usa una dirección sin cifrar, así que no se enviaron el usuario y la contraseña del feed.",
     "download_credentials_withheld": "Este archivo necesita el usuario y la contraseña del feed, y las descargas en este dispositivo no los envían. Aún puedes reproducirlo sin descargarlo."
   },
   "authentication": {

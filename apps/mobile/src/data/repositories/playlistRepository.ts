@@ -15,6 +15,7 @@ import type {
 import type { ApiListResponse } from '@podverse/helpers-requests';
 
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
+import { withCanonicalAddByRssFeedUrl } from '../../lib/addByRss/resourceData';
 import { isOfflineModeEnabled, OfflineModeEnabledError } from '../../prefs/offlineMode';
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { NativeCacheBrowseNode } from '../nativeCache';
@@ -973,7 +974,7 @@ export const playlistRepository = {
     assertOnlineWrite();
     await requestWithMobileAuthRefresh(context, async (api) =>
       api.reqPlaylistResourceItemAddByRSSAddFirst(playlistIdText, {
-        add_by_rss_resource_data: addByRssResourceData,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(addByRssResourceData),
       })
     );
     return fetchAndReplaceResourcesPrivateAll(context, playlistIdText, generation);
@@ -988,7 +989,7 @@ export const playlistRepository = {
     assertOnlineWrite();
     await requestWithMobileAuthRefresh(context, async (api) =>
       api.reqPlaylistResourceItemAddByRSSAddLast(playlistIdText, {
-        add_by_rss_resource_data: addByRssResourceData,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(addByRssResourceData),
       })
     );
     return fetchAndReplaceResourcesPrivateAll(context, playlistIdText, generation);
@@ -1005,7 +1006,7 @@ export const playlistRepository = {
     assertOnlineWrite();
     await requestWithMobileAuthRefresh(context, async (api) =>
       api.reqPlaylistResourceItemAddByRSSAddBetween(playlistIdText, {
-        add_by_rss_resource_data: addByRssResourceData,
+        add_by_rss_resource_data: withCanonicalAddByRssFeedUrl(addByRssResourceData),
         ...toBetweenParams(position1, position2),
       })
     );

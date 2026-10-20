@@ -24,6 +24,7 @@ import type {
 import {
   clampClientPlaybackTimestamp,
   getAddByRSSHashId,
+  getAddByRSSHashIdsForResourceData,
   mergePlaybackState,
   PLAYBACK_REPLAY_BATCH_LIMIT,
   resolveZoneForEvent,
@@ -482,6 +483,23 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
     return manager.save(queueResource);
   }
 
+  /**
+   * The queue row for an Add by RSS payload: the row with `hashId`, else a row written before feed
+   * identity under the payload's legacy hash. Callers save the returned row under `hashId`.
+   */
+  private async findAddByRssQueueResource(
+    manager: EntityManager,
+    queueId: number,
+    hashId: string,
+    resourceData: object | undefined
+  ): Promise<QueueResource | null> {
+    const hashIds = resourceData ? getAddByRSSHashIdsForResourceData(resourceData) : [hashId];
+    const rows = await manager.find(QueueResource, {
+      where: { queue: { id: queueId }, add_by_rss_hash_id: In(hashIds) },
+    });
+    return rows.find((row) => row.add_by_rss_hash_id === hashId) ?? rows[0] ?? null;
+  }
+
   private async applyAddByRssPlaybackWriteTransactional(
     manager: EntityManager,
     queue_id_text: string,
@@ -492,9 +510,12 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
     fallbackZone: QueueResourcePlaybackZone,
     receivedAtIso?: string
   ): Promise<QueueResource | null> {
-    let queueResource = await manager.findOne(QueueResource, {
-      where: { queue: { id: queue.id }, add_by_rss_hash_id: addByRssHashId },
-    });
+    let queueResource = await this.findAddByRssQueueResource(
+      manager,
+      queue.id,
+      addByRssHashId,
+      addByRssResourceData
+    );
     const receiptIso = receivedAtIso ?? new Date().toISOString();
     const write = this.buildPlaybackWriteParams(queueResource, params, fallbackZone, receiptIso);
 
@@ -579,9 +600,9 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
       });
     }
 
-    const addByRssHashId =
-      event.add_by_rss_hash_id ??
-      (event.add_by_rss_resource_data ? getAddByRSSHashId(event.add_by_rss_resource_data) : null);
+    const addByRssHashId = event.add_by_rss_resource_data
+      ? getAddByRSSHashId(event.add_by_rss_resource_data)
+      : (event.add_by_rss_hash_id ?? null);
     const hasAddByRss = addByRssHashId !== null;
 
     const sourceCount = linkedCandidates.length + (hasAddByRss ? 1 : 0);
@@ -1490,6 +1511,12 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
       lastQueued as QueueResource
     );
     const add_by_rss_hash_id = getAddByRSSHashId(add_by_rss_resource_data);
+    const existing = await this.findAddByRssQueueResource(
+      this.repositoryReadWrite.manager,
+      queue.id,
+      add_by_rss_hash_id,
+      add_by_rss_resource_data
+    );
 
     const finalDto = {
       add_by_rss_resource_data,
@@ -1497,7 +1524,13 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
       add_by_rss_hash_id,
     };
 
-    return this._update(queue, ['queue', 'add_by_rss_hash_id'], finalDto);
+    return this._update(
+      queue,
+      ['queue', 'add_by_rss_hash_id'],
+      finalDto,
+      undefined,
+      existing ?? undefined
+    );
   }
 
   private async addItemAddByRSSToQueueHelper(
@@ -1604,9 +1637,12 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
       );
     }
 
-    let queueResource = await manager.findOne(QueueResource, {
-      where: { queue: { id: queue.id }, add_by_rss_hash_id },
-    });
+    let queueResource = await this.findAddByRssQueueResource(
+      manager,
+      queue.id,
+      add_by_rss_hash_id,
+      add_by_rss_resource_data
+    );
 
     // If the only matching row is the one we just moved to history (same hash: replay),
     // update that row back to now-playing to avoid violating UNIQUE (queue_id, add_by_rss_hash_id).
@@ -1624,6 +1660,7 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
     if (isMovedRow && queueResource) {
       Object.assign(queueResource, {
         add_by_rss_resource_data,
+        add_by_rss_hash_id,
         list_position: '0',
         ...extraFields,
       });
@@ -1638,6 +1675,7 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
     } else {
       Object.assign(queueResource, {
         add_by_rss_resource_data,
+        add_by_rss_hash_id,
         list_position: '0',
         ...extraFields,
       });
@@ -1666,11 +1704,15 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
       ? parseFloat(mostRecentHistoryItem.list_position) + QUEUE_LIST_POSITION_INCREMENT
       : -1;
 
-    const existing = await this.repositoryRead.findOne({
-      where: { queue: { id: queue.id }, add_by_rss_hash_id },
-    });
+    const existing = await this.findAddByRssQueueResource(
+      this.repositoryReadWrite.manager,
+      queue.id,
+      add_by_rss_hash_id,
+      add_by_rss_resource_data
+    );
 
     if (existing) {
+      existing.add_by_rss_hash_id = add_by_rss_hash_id;
       existing.list_position = newPosition.toString();
       if (params.completed !== undefined) {
         existing.completed = params.completed;

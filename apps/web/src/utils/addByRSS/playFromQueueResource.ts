@@ -1,67 +1,147 @@
 /**
  * Load add-by-RSS index item from queue resource data (e.g. for "play next from queue").
- * Uses id_text and start_time (if present = livestream) to fetch from IndexedDB.
- * Falls back to reconstructing from embedded bundle/liveItem data if IndexedDB is empty.
+ * Livestreams (`start_time` set) come from IndexedDB by id_text, then from the embedded liveItem.
+ * Episodes are looked up in order: IndexedDB by id_text, this browser's parsed copy of the feed
+ * (`feed_url` + guid, or + `enclosure_url` for a missing or device-local guid), the embedded
+ * bundle, and last a minimal item built from the resource data alone.
  */
 
 import type { AddByRSSResourceData } from '@podverse/helpers';
 import {
+  buildMinimalAddByRSSItemFromResourceData,
   reconstructAddByRSSItemFromResourceData,
   reconstructAddByRSSLivestreamFromResourceData,
 } from '@podverse/parser-mapping';
 
-import { getAddByRSSItemByIdText, getAddByRSSLivestreamByIdText } from './storage';
-import type { AddByRSSItemIndexItem, AddByRSSLivestreamIndexItem } from './types.js';
+import { toAddByRSSFeedChangedUrl } from './feedChangedEvent';
+import { findAddByRSSItemInFeed } from './itemIndex';
+import {
+  getAddByRSSFeedByUrl,
+  getAddByRSSItemById,
+  getAddByRSSItemByIdText,
+  getAddByRSSLivestreamByIdText,
+  getAllAddByRSSFeeds,
+} from './storage';
+import type {
+  AddByRSSFeedRecord,
+  AddByRSSItemIndexItem,
+  AddByRSSLivestreamIndexItem,
+} from './types.js';
 
 /**
- * Load index item from add_by_rss_resource_data payload (queue/playlist API).
- * First tries IndexedDB lookup, then falls back to reconstructing from embedded data.
- * Returns null if neither source is available.
+ * Where a resolved item came from. `'bundle'` and `'minimal'` lack this browser's parse of the
+ * feed, so their metadata can be upgraded once the feed is parsed.
  */
-export async function loadAddByRSSIndexItemFromResourceData(
+export type AddByRSSResolvedSource = 'local' | 'feed' | 'bundle' | 'minimal';
+
+export type AddByRSSResolvedIndexItem = {
+  indexItem: AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem;
+  source: AddByRSSResolvedSource;
+};
+
+const trimmedOrNull = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+/** The `feed_url` on resource data, or null when the row predates feed identity. */
+export const getAddByRSSResourceDataFeedUrl = (
   resourceData: AddByRSSResourceData | null | undefined
-): Promise<AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem | null> {
+): string | null => trimmedOrNull(resourceData?.['feed_url']);
+
+const findStoredFeedRecord = async (feedUrl: string): Promise<AddByRSSFeedRecord | null> => {
+  const exact = await getAddByRSSFeedByUrl(feedUrl);
+  if (exact) {
+    return exact;
+  }
+  const canonical = toAddByRSSFeedChangedUrl(feedUrl);
+  const feeds = await getAllAddByRSSFeeds();
+  return feeds.find((feed) => toAddByRSSFeedChangedUrl(feed.feedUrl) === canonical) ?? null;
+};
+
+/**
+ * The episode a row refers to in this browser's parsed copy of its feed, keeping the id_text the
+ * item already has in the index. Null when the feed is not stored, not parsed, or lacks the item.
+ */
+export async function findAddByRSSItemInStoredFeed(
+  resourceData: AddByRSSResourceData
+): Promise<AddByRSSItemIndexItem | null> {
+  const feedUrl = getAddByRSSResourceDataFeedUrl(resourceData);
+  if (feedUrl === null) {
+    return null;
+  }
+  const feed = await findStoredFeedRecord(feedUrl);
+  if (!feed?.mappedFeed) {
+    return null;
+  }
+  const found = findAddByRSSItemInFeed(feed, {
+    guid: trimmedOrNull(resourceData.guid),
+    channelIdText: trimmedOrNull(resourceData.channel_id_text),
+    enclosureUrl: trimmedOrNull(resourceData['enclosure_url']),
+  });
+  if (!found) {
+    return null;
+  }
+  const indexed = await getAddByRSSItemById(found.id);
+  return indexed ? { ...found, idText: indexed.idText } : found;
+}
+
+/** True when this browser stores a record for the row's feed (followed and synced here). */
+export async function hasStoredAddByRSSFeed(feedUrl: string): Promise<boolean> {
+  return (await findStoredFeedRecord(feedUrl)) !== null;
+}
+
+/**
+ * Resolve the index item for add_by_rss_resource_data (queue/playlist API) and where it came from.
+ * Returns null when nothing can play.
+ */
+export async function resolveAddByRSSIndexItemFromResourceData(
+  resourceData: AddByRSSResourceData | null | undefined
+): Promise<AddByRSSResolvedIndexItem | null> {
   if (!resourceData || typeof resourceData !== 'object') {
     return null;
   }
 
-  const idText =
-    typeof resourceData.id_text === 'string' && resourceData.id_text.trim() !== ''
-      ? resourceData.id_text.trim()
-      : null;
-
+  const idText = trimmedOrNull(resourceData.id_text);
   const hasStartTime =
     resourceData.start_time !== null &&
     resourceData.start_time !== undefined &&
     resourceData.start_time !== '';
 
-  // Try IndexedDB first (fastest, has latest data if feed was recently parsed)
-  if (idText) {
-    if (hasStartTime) {
-      const livestream = await getAddByRSSLivestreamByIdText(idText);
-      if (livestream) {
-        return livestream;
-      }
-    } else {
-      const item = await getAddByRSSItemByIdText(idText);
-      if (item) {
-        return item;
-      }
-    }
-  }
-
-  // Fallback: reconstruct from embedded bundle/liveItem data (cross-device scenario)
   if (hasStartTime) {
+    const livestream = idText ? await getAddByRSSLivestreamByIdText(idText) : null;
+    if (livestream) {
+      return { indexItem: livestream, source: 'local' };
+    }
     const reconstructed = reconstructAddByRSSLivestreamFromResourceData(resourceData);
-    if (reconstructed) {
-      return reconstructed;
-    }
-  } else {
-    const reconstructed = reconstructAddByRSSItemFromResourceData(resourceData);
-    if (reconstructed) {
-      return reconstructed;
-    }
+    return reconstructed ? { indexItem: reconstructed, source: 'bundle' } : null;
   }
 
-  return null;
+  const local = idText ? await getAddByRSSItemByIdText(idText) : null;
+  if (local) {
+    return { indexItem: local, source: 'local' };
+  }
+
+  const fromFeed = await findAddByRSSItemInStoredFeed(resourceData);
+  if (fromFeed) {
+    return { indexItem: fromFeed, source: 'feed' };
+  }
+
+  const reconstructed = reconstructAddByRSSItemFromResourceData(resourceData);
+  if (reconstructed) {
+    return { indexItem: reconstructed, source: 'bundle' };
+  }
+
+  const minimal = buildMinimalAddByRSSItemFromResourceData(resourceData);
+  return minimal ? { indexItem: minimal, source: 'minimal' } : null;
+}
+
+/** The index item for add_by_rss_resource_data, or null when nothing can play. */
+export async function loadAddByRSSIndexItemFromResourceData(
+  resourceData: AddByRSSResourceData | null | undefined
+): Promise<AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem | null> {
+  return (await resolveAddByRSSIndexItemFromResourceData(resourceData))?.indexItem ?? null;
 }

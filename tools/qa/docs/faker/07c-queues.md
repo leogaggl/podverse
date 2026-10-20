@@ -4,7 +4,7 @@
 
 Queue generators create playback queues for accounts, one per supported medium type.
 
-> **⚠️ Note:** The `add_by_rss_hash_id` and `add_by_rss_resource_data` fields in `QueueResource` are **excluded** from this initial implementation. These JSON-based fields will be implemented separately after all other faker work is complete. See [00-index.md](./00-index.md#excluded-features-deferred) for details.
+> **⚠️ Note:** The `add_by_rss_hash_id` and `add_by_rss_resource_data` fields in `QueueResource` are **excluded** from this initial implementation. These JSON-based fields will be implemented separately after all other faker work is complete. See [00-index.md](./00-index.md#excluded-features-deferred) for details. When they are added, compute `add_by_rss_hash_id` with `getAddByRSSHashId` from `@podverse/helpers` over the resource data (md5 of `{feed_url, guid}`, or `{feed_url, enclosure_url}` without a usable guid), never by hand.
 
 ## Entity Relationships
 

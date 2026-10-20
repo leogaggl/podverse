@@ -4,6 +4,8 @@ import { FaPause, FaPlay } from 'react-icons/fa6';
 import type { DTOClip, DTOItem, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers';
 
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
+import { playbackErrorIdentity } from '../../../utils/media/playbackErrorCopy';
+import { PlaybackErrorButton } from './PlaybackErrorButton';
 
 import styles from '../../../styles/components/MediaPlayer/Buttons/PlayButtonLarge.module.scss';
 
@@ -25,8 +27,15 @@ export const PlayButtonLarge: React.FC<PlayButtonLargeProps> = ({
   addByRSSIdText,
   onClick,
 }) => {
-  const { mpIsPlaying, mpItem, mpClip, mpItemSoundbite, mpItemChapter, mpAddByRSS } =
-    useMediaPlayer();
+  const {
+    mpAddByRSS,
+    mpClip,
+    mpIsPlaying,
+    mpItem,
+    mpItemChapter,
+    mpItemSoundbite,
+    mpPlaybackError,
+  } = useMediaPlayer();
   const tMediaPlayer = useTranslations('media_player');
 
   let isCurrentlyInPlayer = false;
@@ -43,6 +52,20 @@ export const PlayButtonLarge: React.FC<PlayButtonLargeProps> = ({
   }
 
   const isPlaying = isCurrentlyInPlayer && mpIsPlaying;
+  const loadedIdentity = playbackErrorIdentity({
+    addByRssResourceData: mpAddByRSS?.resourceData ?? null,
+    itemIdText: mpItem?.id_text ?? null,
+    clipIdText: mpClip?.id_text ?? null,
+    soundbiteIdText: mpItemSoundbite?.id_text ?? null,
+  });
+  if (
+    isCurrentlyInPlayer &&
+    mpPlaybackError !== null &&
+    loadedIdentity !== null &&
+    mpPlaybackError.identity === loadedIdentity
+  ) {
+    return <PlaybackErrorButton className={styles.playButtonLarge} />;
+  }
   const label = isPlaying ? tMediaPlayer('pause') : tMediaPlayer('play');
   const icon = isPlaying ? <FaPause /> : <FaPlay />;
 

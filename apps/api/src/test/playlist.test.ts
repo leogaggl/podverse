@@ -35,7 +35,7 @@ const {
   playlistGetOrCreateDefaultLikesPlaylistMock,
   playlistHasItemLikeMock,
   playlistHasClipLikeMock,
-  playlistHasAddByRSSLikeMock,
+  playlistGetAddByRSSLikeHashIdsMock,
   statsPlGetManyPublicMock,
   statsPlGetManyPrivateMock,
   statsPlGetManyPrivateByPlaylistsMock,
@@ -115,7 +115,7 @@ const {
   })),
   playlistHasItemLikeMock: vi.fn(async () => false),
   playlistHasClipLikeMock: vi.fn(async () => false),
-  playlistHasAddByRSSLikeMock: vi.fn(async () => false),
+  playlistGetAddByRSSLikeHashIdsMock: vi.fn(async (): Promise<string[]> => []),
   statsPlGetManyPublicMock: vi.fn(async () => [{ playlist: { id: 1, title: 'Top' } }]),
   statsPlGetManyPrivateMock: vi.fn(async () => [[{ playlist: { id: 1 } }], 1]),
   statsPlGetManyPrivateByPlaylistsMock: vi.fn(async () => [
@@ -201,7 +201,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getOrCreateDefaultLikesPlaylist = playlistGetOrCreateDefaultLikesPlaylistMock;
     hasItemLike = playlistHasItemLikeMock;
     hasClipLike = playlistHasClipLikeMock;
-    hasAddByRSSLike = playlistHasAddByRSSLikeMock;
+    getAddByRSSLikeHashIds = playlistGetAddByRSSLikeHashIdsMock;
   }
 
   class MockPlaylistResourceService {

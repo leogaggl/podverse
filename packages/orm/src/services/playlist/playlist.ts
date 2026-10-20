@@ -298,15 +298,22 @@ export class PlaylistService extends BaseManyService<Playlist, 'account'> {
     return count > 0;
   }
 
-  async hasAddByRSSLike(playlist_id: number, add_by_rss_hash_id: string): Promise<boolean> {
-    const count = await this.repositoryRead.manager.getRepository(PlaylistResource).count({
+  /** The hashes among `add_by_rss_hash_ids` that the playlist holds. */
+  async getAddByRSSLikeHashIds(
+    playlist_id: number,
+    add_by_rss_hash_ids: string[]
+  ): Promise<string[]> {
+    const rows = await this.repositoryRead.manager.getRepository(PlaylistResource).find({
+      select: { add_by_rss_hash_id: true },
       where: {
         playlist: { id: playlist_id },
-        add_by_rss_hash_id,
+        add_by_rss_hash_id: In(add_by_rss_hash_ids),
       },
     });
 
-    return count > 0;
+    return rows
+      .map((row) => row.add_by_rss_hash_id)
+      .filter((hashId): hashId is string => typeof hashId === 'string');
   }
 
   async getLikesMembership(

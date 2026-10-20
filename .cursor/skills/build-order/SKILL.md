@@ -41,3 +41,35 @@ When changing build order/process, update all relevant sources in the same PR:
 
 - Do not use all-workspace build enumeration for root `build` unless dependencies are guaranteed.
 - Do not change build sequencing without updating the canonical build-order doc.
+
+## Examples
+
+Worked examples for commands from the monorepo root (**commands-from-monorepo-root**).
+
+**Workers (devPiBulkFeedsAddFromFile):**
+
+```bash
+npm run dev_pi_bulk_feeds_add_from_file -w apps/workers -- -startId 1 -endId 10 -q rss-slow
+```
+
+**Building a single app:**
+
+```bash
+npm run build -w apps/workers
+```
+
+**Running any workspace script from root:**
+
+```bash
+npm run <script-name> -w <workspace> -- [args]
+```
+
+**Unit tests — full tier vs scoped:**
+
+```bash
+npm run test:unit
+npm run test -w apps/web
+npm run test -w @podverse/playback-core
+```
+
+This keeps instructions copy-pasteable from repo root and avoids confusion about where `.env` and default paths resolve. Using fenced code blocks ensures the UI shows a copy button for each command.

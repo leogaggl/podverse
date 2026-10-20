@@ -146,13 +146,18 @@ Update QueryParams imports in podcast-related pages.
 
 [... detailed instructions ...]
 
-## Verification
+## Tests
 
-```bash
-[verification commands]
-```
+- Add or update: [spec, flow, or unit test paths this plan owns]
 
 ````
+
+No operator command block in numbered plans. The cumulative verification list lives once, in the
+last prompt or Close of `COPY-PASTA.md` (**response-ending-make-verify** § Plan sets).
+
+When a plan edits a file listed in **large-file-reading** (`openapi.yml`, the baseline schema
+SQL, `PlaybackProvider.tsx`, the i18n catalogs, and so on), name the anchor (route path,
+`operationId`, table, symbol, or key prefix) so the executor can Grep straight to it.
 
 ### Step 5: Create Copy-Pasta File
 
@@ -192,8 +197,13 @@ the fence. A wait inside the fence is a sentence: stop this turn, and do not run
 until the operator replies that the step is done. A shell comment between two commands is not a
 wait. Authoring detail: **copy-pasta-recommend-model**.
 
-**Optional last checkbox.** After the Close prompt, a heavy set asks one question and nothing
-else: an unchecked `- [ ] **abcaicast** (optional)` plus the line `After this set, do you want
+**Close folds into the last prompt** when the last phase is a single prompt; keep a separate
+Close only when the last phase runs prompts at the same time. A set of only Cursor Grok 4.7
+prompts with no hand steps also gets the optional orchestrate line. Both:
+**copy-pasta-recommend-model**.
+
+**Optional last checkbox.** After the last prompt (or Close), a heavy set asks one question and
+nothing else: an unchecked `- [ ] **abcaicast** (optional)` plus the line `After this set, do you want
 an abcaicast for this work?` No fence. Leave it off when the work is a style or copy tweak a
 training episode would not be about. Wording and when to include it: **copy-pasta-recommend-model**.
 
@@ -243,8 +253,6 @@ Structure:
 Read and execute .llm/plans/active/feature/migration-06-critical.md
 
 [2-3 line summary of what this fixes]
-
-Verify: [quick verification command]
 \`\`\`
 
 ---
@@ -386,8 +394,9 @@ it to build on. Agents cannot see each other's prompts, so an unstated boundary 
 ❌ **Don't**: Make phases too granular (1 file per plan)
 ✅ **Do**: Group related files (3-7 files per plan is ideal)
 
-❌ **Don't**: Skip verification steps
-✅ **Do**: Include verification in each plan and copy-pasta prompt
+❌ **Don't**: Put operator verification commands in each plan or intermediate prompt; the operator
+tests once, after the set
+✅ **Do**: Write the cumulative verification list once, in the last prompt or Close
 
 ## Template: Quick Start
 
@@ -430,7 +439,8 @@ Before finalizing plans:
 - [ ] All files accounted for in summary
 - [ ] Dependencies clearly identified
 - [ ] Parallel groups don't have conflicts
-- [ ] Each plan has verification steps
+- [ ] Each plan names the tests it adds or updates; the last prompt or Close has the cumulative
+      verification list
 - [ ] Copy-pasta references plans (doesn't duplicate)
 - [ ] Heavy sets end with the optional abcaicast question; trivial sets leave it off
 - [ ] Every COPY-PASTA prompt has **Cursor model:** and **Reasoning:** outside the paste fence
@@ -467,7 +477,7 @@ You've done this well when:
 - No redundant information across files
 - Clear phase dependencies (sequential) vs agent parallelization (within phase)
 - Measurable time savings from parallelization
-- All verification steps included
+- One cumulative verification list, in the last prompt or Close
 
 **User should never wonder**: "Can I start Phase 2 while Phase 1 is running?" Answer must be obvious: NO.
 

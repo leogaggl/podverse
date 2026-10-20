@@ -178,6 +178,7 @@ export function LoginScreen({ onDismiss, onForgotPassword, onSwitchToSignUp }: L
           <TextField
             accessibilityLabel={t('authentication.email_or_username')}
             autoCapitalize="none"
+            autoComplete="username"
             autoCorrect={false}
             eyebrow={t('authentication.email_or_username')}
             keyboardType="email-address"
@@ -187,11 +188,13 @@ export function LoginScreen({ onDismiss, onForgotPassword, onSwitchToSignUp }: L
             }}
             placeholder={t('authentication.email_example')}
             testID="login-email"
+            textContentType="username"
             value={email}
           />
           <TextField
             accessibilityLabel={t('authentication.password')}
             autoCapitalize="none"
+            autoComplete={isE2e ? 'off' : 'current-password'}
             autoCorrect={false}
             eyebrow={t('authentication.password')}
             onChangeText={(value) => {
@@ -202,6 +205,7 @@ export function LoginScreen({ onDismiss, onForgotPassword, onSwitchToSignUp }: L
             // E2E: iOS Autofill + secureTextEntry blocks Maestro inputText; plaintext when isE2e.
             secureTextEntry={!isE2e}
             testID="login-password"
+            textContentType={isE2e ? 'none' : 'password'}
             value={password}
           />
           {showForgotPassword ? (

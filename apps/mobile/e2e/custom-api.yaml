@@ -2,7 +2,8 @@ appId: com.podverse.app.next
 name: Custom API
 ---
 # More › Advanced › Custom API. A malformed address is rejected on the device, so this flow
-# never calls the network. Reset restores the field without a probe.
+# never calls the network. A non-URL shows the error before Save. Reset restores the field
+# without a probe.
 # More is two pages on phone; iOS XCUITest omits off-screen testIDs until this row is scrolled in.
 
 - runFlow: shared/launch-and-connect.yaml
@@ -15,7 +16,6 @@ name: Custom API
       id: more-nav-advanced
     direction: DOWN
     timeout: ${TIMEOUT_FAST}
-    centerElement: true
 - tapOn:
     id: more-nav-advanced
 - assertVisible:
@@ -35,7 +35,16 @@ name: Custom API
 - tapOn:
     id: custom-api-url-input
 - inputText: "not-a-url"
-# Return submits the field and dismisses the keyboard. hideKeyboard leaves this screen.
+# The error is under the field. Scroll it in before Save. Return submits the field.
+# hideKeyboard leaves this screen.
+- scrollUntilVisible:
+    element:
+      id: custom-api-error
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    centerElement: true
+- assertVisible:
+    id: custom-api-error
 - pressKey: Enter
 - scrollUntilVisible:
     element:

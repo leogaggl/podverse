@@ -1450,6 +1450,25 @@
     "relative_time_days_from_now": "",
     "no_body": ""
   },
+  "action_error": {
+    "playback_title": "",
+    "playback_a11y": "",
+    "report": "",
+    "playback_host_http": "",
+    "playback_network": "",
+    "playback_unsupported": "",
+    "playback_file_not_found": "",
+    "playback_decode": "",
+    "playback_audio_session": "",
+    "playback_invalid_source": "",
+    "playback_unknown": "",
+    "playback_credentials_required": "",
+    "playback_credentials_rejected": "",
+    "playback_credentials_withheld_other_domain": "",
+    "playback_credentials_withheld_insecure": "",
+    "playback_host_blocked": "",
+    "open_media_link": ""
+  },
   "seo": {
     "pages": {
       "home": {

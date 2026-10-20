@@ -96,6 +96,7 @@ describe('useMediaElementBridge', () => {
     const { result } = renderHook(() => useMediaElementBridge(mediaRef, {}));
     const bridge = result.current;
 
+    fake.src = 'https://cdn.example.com/ep.mp3';
     fake.fireLoadedMetadata(100);
     await bridge.play();
     bridge.pauseAt(50);
@@ -114,6 +115,7 @@ describe('useMediaElementBridge', () => {
     const { result } = renderHook(() => useMediaElementBridge(mediaRef, {}));
     const bridge = result.current;
 
+    fake.src = 'https://cdn.example.com/ep.mp3';
     fake.fireLoadedMetadata(100);
     await bridge.play();
     bridge.pauseAt(50);
@@ -138,6 +140,7 @@ describe('useMediaElementBridge', () => {
     );
     const bridge = result.current;
 
+    fake.src = 'https://cdn.example.com/ep.mp3';
     fake.fireLoadedMetadata(100);
     await bridge.play();
     bridge.pauseAt(50);
@@ -169,6 +172,7 @@ describe('useMediaElementBridge', () => {
     const { result } = renderHook(() => useMediaElementBridge(mediaRef, {}));
     const bridge = result.current;
 
+    fake.src = 'https://cdn.example.com/ep.mp3';
     fake.fireLoadedMetadata(60);
     await bridge.play();
     expect(fake.paused).toBe(false);

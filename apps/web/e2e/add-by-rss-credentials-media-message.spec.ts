@@ -26,10 +26,11 @@ const FEED_TITLE = 'E2E protected media feed';
 const ITEM_ID_TEXT = 'e2eAbRsResP01';
 const ITEM_GUID = 'https://e2e-seed-addbyrss.example/item-guid/protected-media';
 const ITEM_TITLE = 'E2E protected media episode';
-const MEDIA_MESSAGE = /browsers cannot send to audio and video files/;
 
+/** `FEED_URL` is already canonical, so the API stores the same hash this spec computes. */
 function buildProtectedResourceData(channelIdText: string): Record<string, unknown> {
   return {
+    feed_url: FEED_URL,
     channel_id_text: channelIdText,
     guid: ITEM_GUID,
     title: ITEM_TITLE,
@@ -112,15 +113,20 @@ test.describe('Add by RSS protected media on the web', () => {
       await expect(audio).toHaveAttribute('src', E2E_BASIC_AUTH_AUDIO_URL, { timeout: 15_000 });
     });
 
-    await test.step('The failed load explains that browsers cannot send credentials to media', async () => {
-      const message = page.getByText(MEDIA_MESSAGE);
-      await expect(message).toBeVisible({ timeout: 15_000 });
+    await test.step('The failed load explains that the feed asked for a username and password', async () => {
+      const errorButton = page.getByRole('button', { name: 'Playback Error' }).first();
+      await expect(errorButton).toBeVisible({ timeout: 15_000 });
+      await errorButton.click();
+
+      const dialog = page.getByRole('dialog', { name: 'Playback Error' });
+      const message = dialog.getByText(/asked for a username and password/);
+      await expect(message).toBeVisible();
 
       await capturePageLoad(
         page,
         testInfo,
-        'Protected media that the browser cannot load shows an explanation and suggests the mobile app.',
-        message
+        'A password-protected feed explains the failure in a dialog.',
+        dialog
       );
     });
   });

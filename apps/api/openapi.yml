@@ -3081,6 +3081,11 @@ components:
         add_by_rss_resource_data:
           type: object
           additionalProperties: true
+          description: >-
+            Add by RSS episode payload. The API canonicalizes `feed_url` (userinfo removed) and
+            computes add_by_rss_hash_id from `feed_url` plus `guid` (or `enclosure_url`), so the
+            same episode has one id on every device. A payload without `feed_url` hashes from
+            `channel_id_text`. Adding an episode the queue already holds moves that row.
         last_played_at:
           type: string
           format: date-time
@@ -3130,6 +3135,9 @@ components:
         add_by_rss_resource_data:
           type: object
           additionalProperties: true
+          description: >-
+            When present, the API computes add_by_rss_hash_id from this payload; see
+            QueueResourceAddByRssQueueWriteRequest.
         playback_event_kind:
           type: string
           enum:

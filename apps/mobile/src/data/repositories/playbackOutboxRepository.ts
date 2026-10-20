@@ -1186,5 +1186,39 @@ export const playbackOutboxRepository = {
     return mapLocalStateRow(row);
   },
 
+  /**
+   * The resource data carried by the newest pending Add by RSS event for one resource, or null when
+   * no pending event holds it (for example after the outbox drained).
+   */
+  getPendingAddByRssResourceData: async (params: {
+    accountIdText: string;
+    queueIdText: string;
+    resourceIdText: string;
+  }): Promise<object | null> => {
+    await initializeDatabase();
+    const rows = await getDb()
+      .select({
+        payloadJson: schema.playbackOutbox.payloadJson,
+        resourceKind: schema.playbackOutbox.resourceKind,
+      })
+      .from(schema.playbackOutbox)
+      .where(
+        and(
+          eq(schema.playbackOutbox.accountIdText, params.accountIdText),
+          eq(schema.playbackOutbox.queueIdText, params.queueIdText),
+          eq(schema.playbackOutbox.resourceKind, 'add_by_rss'),
+          eq(schema.playbackOutbox.resourceIdText, params.resourceIdText)
+        )
+      )
+      .orderBy(desc(schema.playbackOutbox.id))
+      .limit(1);
+
+    const row = rows[0];
+    if (row === undefined) {
+      return null;
+    }
+    return extractAddByRssResourceData(row) ?? null;
+  },
+
   eventKindEmitsRemovalTombstone,
 };

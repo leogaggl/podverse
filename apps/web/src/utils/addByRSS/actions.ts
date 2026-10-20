@@ -1,7 +1,7 @@
 import type { AddByRSSParseStatus, DTOAccount } from '@podverse/helpers';
 import { createAddByRSSId, createAddByRSSIdText, sleep } from '@podverse/helpers';
 import type { AddByRSSBasicAuthCredentials } from '@podverse/helpers-validation/client';
-import { convertParsedRSSFeedToCompat } from '@podverse/parser-mapping';
+import { convertParsedRSSFeedToCompat, getAddByRSSChannelMetadata } from '@podverse/parser-mapping';
 
 import type { AddByRSSParseStatusResponse } from './api';
 import {
@@ -12,6 +12,8 @@ import {
 } from './api';
 import { nextLocalRequiresCredentials } from './credentialsStatus';
 import { deleteCredentials, getCredentials, setCredentials } from './credentialStore';
+import { emitAddByRSSFeedChanged } from './feedChangedEvent';
+import { markAddByRSSParseInFlight, releaseAddByRSSParseInFlight } from './parseInFlight';
 import { getAddByRSSFeedByUrl, removeAddByRSSFeed, upsertAddByRSSFeed } from './storage';
 import type { AddByRSSFeedRecord, AddByRSSParsedFeed, AddByRSSResourceType } from './types';
 
@@ -131,10 +133,15 @@ export const followAddByRSSChannelAndQueue = async (params: {
     updatedAt: new Date().toISOString(),
     ...(credentials ? { requiresCredentials: true } : {}),
   };
-  await upsertAddByRSSFeed(record);
-
-  const parseResponse = await enqueueAddByRSSParse({ feedUrl: params.feedUrl, credentials });
-  return { requestId: parseResponse.request_id, record, account };
+  markAddByRSSParseInFlight(params.feedUrl);
+  try {
+    await upsertAddByRSSFeed(record);
+    const parseResponse = await enqueueAddByRSSParse({ feedUrl: params.feedUrl, credentials });
+    return { requestId: parseResponse.request_id, record, account };
+  } catch (error) {
+    releaseAddByRSSParseInFlight(params.feedUrl);
+    throw error;
+  }
 };
 
 /**
@@ -200,12 +207,12 @@ export const applyAddByRSSParseStatus = async ({
   if (!parsedFeed) {
     await upsertAddByRSSFeed(nextBase);
     onUpdated?.(nextBase);
+    emitAddByRSSFeedChanged(nextBase.feedUrl);
     return nextBase;
   }
 
   const mappedFeed = convertParsedRSSFeedToCompat(parsedFeed);
-  const mappedTitle = mappedFeed.channel.channel.title ?? null;
-  const mappedImageUrl = mappedFeed.channel.images?.[0]?.url ?? null;
+  const { title: mappedTitle, imageUrl: mappedImageUrl } = getAddByRSSChannelMetadata(mappedFeed);
   const updated = {
     ...nextBase,
     mappedFeed,
@@ -214,6 +221,7 @@ export const applyAddByRSSParseStatus = async ({
   };
   await upsertAddByRSSFeed(updated);
   onUpdated?.(updated);
+  emitAddByRSSFeedChanged(updated.feedUrl);
   return updated;
 };
 
