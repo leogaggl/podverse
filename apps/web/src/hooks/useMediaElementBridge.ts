@@ -16,6 +16,7 @@ import {
   attachNonLiveHlsPlayback,
   detachNonLiveHlsPlayback,
   hasManagedNonLiveHls,
+  mediaElementHasPlayableSource,
   syncHttpFileUrlRestoreSeekAndPlayFromRef,
   waitForLoadedMetadataOnce,
 } from './mediaElementBridgeSurface';
@@ -216,7 +217,7 @@ export function useMediaElementBridge(
     if (!media) {
       throw new Error('useMediaElementBridge: media element not mounted');
     }
-    if ((media.currentSrc || media.src) === '') {
+    if (!mediaElementHasPlayableSource(media)) {
       optionsRef.current.onInvalidSource?.();
       return;
     }
@@ -245,7 +246,7 @@ export function useMediaElementBridge(
       throw new Error('useMediaElementBridge: media element not mounted');
     }
     if (media.paused) {
-      if ((media.currentSrc || media.src) === '') {
+      if (!mediaElementHasPlayableSource(media)) {
         optionsRef.current.onInvalidSource?.();
         return;
       }

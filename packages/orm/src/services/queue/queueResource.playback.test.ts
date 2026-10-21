@@ -92,6 +92,9 @@ describe('QueueResourceService playback policy', () => {
     };
 
     const manager = {
+      create: vi.fn((_entity: unknown, partial: unknown) => partial),
+      createQueryBuilder: vi.fn(),
+      find: vi.fn().mockResolvedValue([]),
       findOne: managerFindOneMock,
       getRepository: vi.fn(),
       query: managerQueryMock,
@@ -385,6 +388,57 @@ describe('QueueResourceService playback policy', () => {
     );
 
     expect(repositoryReadWriteRemoveMock).not.toHaveBeenCalled();
+  });
+
+  it('stores last_played_at when an Add by RSS row becomes now-playing', async () => {
+    const lastPlayedAt = '2026-09-13T11:05:00.000Z';
+    const resourceData = {
+      enclosure_url: 'https://example.com/ep.mp3',
+      feed_url: 'https://example.com/feed.xml',
+      guid: 'episode-guid-1',
+      title: 'Add by RSS Episode',
+    };
+    const queue = { id: 7, id_text: 'queue-abr' };
+
+    managerFindOneMock.mockImplementation(
+      async (
+        _entity: unknown,
+        options: { relations?: unknown; where?: Record<string, unknown> }
+      ) => {
+        const where = options.where;
+        if (where !== undefined && 'id_text' in where) {
+          return queue;
+        }
+        if (where !== undefined && 'list_position' in where) {
+          return null;
+        }
+        return { id: queue.id };
+      }
+    );
+
+    const service = new QueueResourceService();
+    const repositoryReadWrite = getRepositoryReadWriteMock();
+    const result = await service.addItemAddByRSSToNowPlaying('queue-abr', resourceData, {
+      last_played_at: lastPlayedAt,
+      playback_event_kind: 'play',
+      playback_position: '12',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        last_played_at: new Date(lastPlayedAt),
+        last_played_received_at: expect.any(Date),
+        list_position: '0',
+        playback_position: '12',
+      })
+    );
+    expect(repositoryReadWrite.manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        add_by_rss_resource_data: resourceData,
+        last_played_at: new Date(lastPlayedAt),
+        list_position: '0',
+      })
+    );
   });
 
   describe('promoteFirstUpcomingToNowPlaying', () => {

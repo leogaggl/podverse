@@ -212,3 +212,40 @@ export function applyItemEnclosureSurfaceChangeFromRef(
     media.load();
   }
 }
+
+export function mediaElementHasPlayableSource(media: HTMLMediaElement): boolean {
+  return (media.currentSrc || media.src) !== '' || hasManagedNonLiveHls(media);
+}
+
+/**
+ * Resolves true when the element has a file URL or a managed HLS attachment.
+ * Both can land after play is requested: a progressive file URL on the next
+ * commit, and an HLS attachment after hls.js connects.
+ */
+export function waitForPlayableMediaSource(
+  getMedia: () => HTMLMediaElement | null,
+  isCancelled: () => boolean,
+  maxWaitMs = 1000,
+  intervalMs = 50
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = () => {
+      if (isCancelled()) {
+        resolve(false);
+        return;
+      }
+      const media = getMedia();
+      if (media !== null && mediaElementHasPlayableSource(media)) {
+        resolve(true);
+        return;
+      }
+      if (Date.now() - start >= maxWaitMs) {
+        resolve(false);
+        return;
+      }
+      setTimeout(check, intervalMs);
+    };
+    check();
+  });
+}

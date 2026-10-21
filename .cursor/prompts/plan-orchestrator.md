@@ -7,8 +7,8 @@ Orchestrate .llm/plans/active/<set>/ with .cursor/prompts/plan-orchestrator.md.
 ```
 
 This chat runs the set's prompts as subagents, one fresh context each, and stops at the first
-thing a person should look at. It does not edit code itself. Cursor Grok 4.7 at medium is enough
-for the orchestrator.
+thing a person should look at. It does not edit code itself. Run the orchestrator on Cursor Grok 4.7,
+extra high, Fast.
 
 ## Run
 

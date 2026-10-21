@@ -38,8 +38,8 @@ name: Removed Content
     id: clip-detail-bounded-play
 - takeScreenshot: removed-content-clip-detail
 
-- back
-- back
+- runFlow: shared/stack-back.yaml
+- runFlow: shared/stack-back.yaml
 - extendedWaitUntil:
     visible:
       id: library-hub-screen

@@ -9,6 +9,7 @@ import type {
   EnclosureSelectedParams,
   QueueResourcesAbridgedIndex,
 } from '@podverse/helpers';
+import { buildLabeledItemEnclosures } from '@podverse/helpers';
 
 import { useAddByRSSListContext } from '../contexts/AddByRSSListContext';
 import type { AutoQueueConfig } from '../contexts/AutoQueue';
@@ -281,7 +282,12 @@ export function useMediaPlayerResourceUpdate() {
           enclosureRowSelected: null,
           sourceRowSelected: null,
         });
-        setMPItemLabeledItemEnclosures([]);
+        // Livestream playback uses the live player, not the non-live file list.
+        setMPItemLabeledItemEnclosures(
+          target.kind === 'livestream'
+            ? []
+            : buildLabeledItemEnclosures(nextItem?.item_enclosures ?? [])
+        );
       }
     } else {
       setMPEnclosureSelectedParams(enclosureSelectedParams);

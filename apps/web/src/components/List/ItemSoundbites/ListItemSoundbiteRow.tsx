@@ -1,9 +1,9 @@
 'use client';
 
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaGripLines } from 'react-icons/fa6';
 
 import type {
   DTOChannel,
@@ -32,6 +32,7 @@ import { PlayButtonRow } from '../../MediaPlayer/Buttons/PlayButtonRow';
 import { ReadableDate } from '../../Time/ReadableDate';
 import { ReadableTimeRange } from '../../Time/ReadableTimeRange';
 import { showToastPromise } from '../../Toast/Toast';
+import { ListReorderHandle } from '../ListReorderHandle';
 
 import styles from '../../../styles/components/List/ItemSoundbites/ListItemSoundbiteRow.module.scss';
 
@@ -46,6 +47,7 @@ interface ListItemSoundbiteProps {
   isEditModePlaylist?: boolean;
   removeFromPlaylist?: () => void;
   playlist_id_text: string | null;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onPlayAndRemove?: () => void;
 }
 
@@ -60,6 +62,7 @@ export const ListItemSoundbiteRow: React.FC<ListItemSoundbiteProps> = ({
   isEditModePlaylist,
   removeFromPlaylist,
   playlist_id_text,
+  dragHandleProps,
   onPlayAndRemove,
 }) => {
   const apiRequestService = getApiRequestService();
@@ -289,9 +292,7 @@ export const ListItemSoundbiteRow: React.FC<ListItemSoundbiteProps> = ({
   return (
     <div className={styles.row}>
       {(isEditModeQueue || isEditModePlaylist) && (
-        <div className={styles.editingButtons}>
-          <FaGripLines />
-        </div>
+        <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
       )}
       <ImagesPerView
         candidates={soundbiteArtworkCandidates}

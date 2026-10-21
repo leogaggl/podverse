@@ -18,6 +18,9 @@ export class PlaylistResource {
   @JoinColumn({ name: 'playlist_id' })
   playlist!: Relation<Playlist>;
 
+  @Column()
+  playlist_id!: number;
+
   @Column({ type: 'numeric' })
   list_position!: string;
 

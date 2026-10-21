@@ -417,7 +417,6 @@ export const ListQueueResources: React.FC<Props> = ({
                           <div
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
-                            {...providedDraggable.dragHandleProps}
                           >
                             <ListQueueResourceRow
                               queueResource={queueResource}
@@ -428,6 +427,7 @@ export const ListQueueResources: React.FC<Props> = ({
                                 setResources(updatedResources);
                               }}
                               isEditModeQueue={true}
+                              dragHandleProps={providedDraggable.dragHandleProps}
                               onPlayAndRemove={createPlayAndRemoveHandler(queueResource)}
                             />
                           </div>

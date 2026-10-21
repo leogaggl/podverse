@@ -57,20 +57,11 @@ export function SettingsRemovedContent() {
       ) : null}
       {state.status === 'ready' && state.rows.length > 0 ? (
         <ul className={styles.rows}>
-          {state.rows.map((row) => {
-            const sentences = removedContentSentences(row, t);
-            return (
-              <li key={row.id}>
-                <p className={styles.row} aria-label={sentences.join(' ')}>
-                  {sentences.map((sentence, index) => (
-                    <span key={`${row.id}-${index}`} className={styles.sentence}>
-                      {sentence}
-                    </span>
-                  ))}
-                </p>
-              </li>
-            );
-          })}
+          {state.rows.map((row) => (
+            <li key={row.id}>
+              <p className={styles.row}>{removedContentSentences(row, t).join(' ')}</p>
+            </li>
+          ))}
         </ul>
       ) : null}
     </SettingsSection>

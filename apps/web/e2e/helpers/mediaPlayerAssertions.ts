@@ -100,18 +100,11 @@ export async function waitForAudioReadyAtLeast(
  * soundbites, add-by-RSS).
  *
  * Why every queue and not just the seeded `E2E_PODCAST_QUEUE_ID_TEXT`:
- *   `useQueueResourceUpdateNowPlaying` looks up the active queue by
- *   `getQueueMediumIdFromMediumId(mpChannel.medium_id)`, which maps
- *   podcast → `MediumEnum.AV` (id 20). The seeded queue has
- *   `medium_id = MediumEnum.Podcast` (id 2), so when a test clicks Play
- *   on the chaptered item the app does not find a matching queue and
- *   auto-creates a new AV queue (random id_text such as `Xb82kbPW5x`)
- *   to host the now-playing record. That new queue then survives across
- *   tests in the same Playwright invocation and its `p` value reaches
- *   `handleLoadedMetadata` via the abridged index, which made the next
- *   test seek to the previous test's playback position. Iterating over
- *   every queue here removes the resource regardless of which queue
- *   was used.
+ *   Play writes the now-playing row onto the queue the client selects
+ *   for the channel medium. A test can leave that position on the seeded
+ *   AV queue or on a queue the account created during the run. The next
+ *   test then seeks to that position through the abridged index. Walking
+ *   every account queue removes the row whichever queue holds it.
  *
  * Idempotent — accepts 404 / nonexistent rows. The podcast-resume and
  * addbyrss-resume specs re-promote their target resource per test, so

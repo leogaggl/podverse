@@ -1,9 +1,9 @@
 'use client';
 
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOChannel, DTOClip, DTOItem, EnclosureSelectedParams } from '@podverse/helpers';
 import {
@@ -31,6 +31,7 @@ import { PlayButtonRow } from '../../MediaPlayer/Buttons/PlayButtonRow';
 import { ReadableDate } from '../../Time/ReadableDate';
 import { ReadableTimeRange } from '../../Time/ReadableTimeRange';
 import { showToastPromise } from '../../Toast/Toast';
+import { ListReorderHandle } from '../ListReorderHandle';
 import type { ListEpisodeRowLike } from '../Podcasts/Episodes/ListEpisodeRow';
 
 import styles from '../../../styles/components/List/Clips/ListClipRow.module.scss';
@@ -46,6 +47,7 @@ interface Props {
   isEditModePlaylist?: boolean;
   removeFromPlaylist?: () => void;
   playlist_id_text: string | null;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onPlayAndRemove?: () => void;
   likeRow?: ListEpisodeRowLike;
 }
@@ -61,6 +63,7 @@ export const ListClipRow: React.FC<Props> = ({
   isEditModePlaylist,
   removeFromPlaylist,
   playlist_id_text,
+  dragHandleProps,
   onPlayAndRemove,
   likeRow,
 }) => {
@@ -332,9 +335,7 @@ export const ListClipRow: React.FC<Props> = ({
   return (
     <div className={styles.row} data-removed-source={sourceRemoved ? 'true' : undefined}>
       {(isEditModeQueue || isEditModePlaylist) && (
-        <div className={styles.editingButtons}>
-          <FaGripLines />
-        </div>
+        <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
       )}
       <ImagesPerView
         candidates={sourceRemoved ? [] : clipArtworkCandidates}
