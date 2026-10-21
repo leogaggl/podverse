@@ -1,9 +1,9 @@
 'use client';
 
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOPlaylist, DTOPlaylistResource } from '@podverse/helpers';
 import {
@@ -32,6 +32,7 @@ import { ReadableDuration } from '../../Time/ReadableDuration';
 import { showToastPromise, showToastPromiseWithLoading } from '../../Toast/Toast';
 import { ListClipRow } from '../Clips/ListClipRow';
 import { ListItemSoundbiteRow } from '../ItemSoundbites/ListItemSoundbiteRow';
+import { ListReorderHandle } from '../ListReorderHandle';
 import { ListTrackRow } from '../Music/Albums/Tracks/ListTrackRow';
 import { ListEpisodeRow } from '../Podcasts/Episodes/ListEpisodeRow';
 
@@ -42,6 +43,7 @@ interface Props {
   playlistResource: DTOPlaylistResource;
   removeFromPlaylist?: () => void;
   isEditModePlaylist: boolean;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onPlay?: () => void;
 }
 
@@ -50,6 +52,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
   playlistResource,
   removeFromPlaylist,
   isEditModePlaylist,
+  dragHandleProps,
   onPlay,
 }) => {
   const apiRequestService = getApiRequestService();
@@ -261,9 +264,10 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
       return (
         <div className={styles.trackRow}>
           {isEditModePlaylist && (
-            <div className={styles.editingButtons}>
-              <FaGripLines />
-            </div>
+            <ListReorderHandle
+              className={styles.editingButtons}
+              dragHandleProps={dragHandleProps}
+            />
           )}
           <Button variant="unstyled" className={styles.trackClickable} onClick={onPlay}>
             <ImagesPerView
@@ -296,9 +300,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
     return (
       <div className={styles.row}>
         {isEditModePlaylist && (
-          <div className={styles.editingButtons}>
-            <FaGripLines />
-          </div>
+          <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
         )}
         <ImagesPerView
           candidates={imageCandidates}
@@ -349,6 +351,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
         showChannelInfo
         showItemInfo
         isEditModePlaylist={isEditModePlaylist}
+        dragHandleProps={dragHandleProps}
         removeFromPlaylist={removeFromPlaylist}
         playlist_id_text={playlist.id_text}
       />
@@ -356,7 +359,13 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
   }
 
   if (isRemovedSource(playlistResource)) {
-    return <RemovedPlaylistEntryRow playlistResource={playlistResource} />;
+    return (
+      <RemovedPlaylistEntryRow
+        playlistResource={playlistResource}
+        isEditModePlaylist={isEditModePlaylist}
+        dragHandleProps={dragHandleProps}
+      />
+    );
   }
 
   if (item) {
@@ -371,6 +380,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
             item={item}
             showChannelInfo
             isEditModePlaylist={isEditModePlaylist}
+            dragHandleProps={dragHandleProps}
             removeFromPlaylist={removeFromPlaylist}
             playlist_id_text={playlist.id_text}
           />
@@ -382,6 +392,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
             item={item}
             showChannelInfo
             isEditModePlaylist={isEditModePlaylist}
+            dragHandleProps={dragHandleProps}
             removeFromPlaylist={removeFromPlaylist}
             playlist_id_text={playlist.id_text}
           />
@@ -402,6 +413,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
             showChannelInfo
             showItemInfo
             isEditModePlaylist={isEditModePlaylist}
+            dragHandleProps={dragHandleProps}
             removeFromPlaylist={removeFromPlaylist}
             playlist_id_text={playlist.id_text}
           />
@@ -421,6 +433,7 @@ export const ListPlaylistResourceRow: React.FC<Props> = ({
           showChannelInfo
           showItemInfo
           isEditModePlaylist={isEditModePlaylist}
+          dragHandleProps={dragHandleProps}
           removeFromPlaylist={removeFromPlaylist}
           playlist_id_text={playlist.id_text}
         />
@@ -435,7 +448,15 @@ function nonEmptyTitle(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
-function RemovedPlaylistEntryRow({ playlistResource }: { playlistResource: DTOPlaylistResource }) {
+function RemovedPlaylistEntryRow({
+  playlistResource,
+  isEditModePlaylist,
+  dragHandleProps,
+}: {
+  playlistResource: DTOPlaylistResource;
+  isEditModePlaylist: boolean;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
+}) {
   const tInfo = useTranslations('info');
   const config = useConfig();
   const source = playlistResource.removed_source;
@@ -451,6 +472,9 @@ function RemovedPlaylistEntryRow({ playlistResource }: { playlistResource: DTOPl
 
   return (
     <div className={styles.row} data-removed-source="true">
+      {isEditModePlaylist ? (
+        <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
+      ) : null}
       <ImagesPerView
         candidates={[]}
         alt={primary}

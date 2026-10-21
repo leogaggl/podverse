@@ -50,3 +50,11 @@
 - Change: Choosing Switch Episode records that other device's episode, so the same prompt
   cannot open again while the phone is starting it. Continue Here already did this.
 - Who notices: listeners who switch to the episode playing on another device
+
+## Playlist edit clicks play the episode
+
+- Surfaces: web
+- Change: Playlist edit mode uses the reorder grip as the drag handle, including Add by RSS rows
+  and removed entries. Pressing play, a title, or the more menu works. A handle on the whole row
+  was canceling those presses. Removed entries keep a grip so they can still be reordered.
+- Who notices: anyone editing a playlist on web
