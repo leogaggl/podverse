@@ -27,6 +27,7 @@ import { useMediaPlayerResourceUpdate } from '../useMediaPlayerResourceUpdate';
 
 const hoisted = vi.hoisted(() => ({
   setMPCurrentTime: vi.fn<(t: number) => void>(),
+  setMPItemLabeledItemEnclosures: vi.fn(),
   updateNowPlaying: vi.fn(),
   abridgedRef: {
     current: {
@@ -74,7 +75,7 @@ vi.mock('../../contexts/MediaPlayer', () => ({
     setMPItemChapter: vi.fn(),
     setMPItemChapterShouldSeek: vi.fn(),
     setMPItemSoundbite: vi.fn(),
-    setMPItemLabeledItemEnclosures: vi.fn(),
+    setMPItemLabeledItemEnclosures: hoisted.setMPItemLabeledItemEnclosures,
     setMPEnclosureSelectedParams: vi.fn(),
     setMPIsPlaying: vi.fn(),
     mpEnclosureSelectedParams: null,
@@ -181,6 +182,7 @@ function dispatch(
 
 beforeEach(() => {
   hoisted.setMPCurrentTime.mockClear();
+  hoisted.setMPItemLabeledItemEnclosures.mockClear();
   hoisted.updateNowPlaying.mockClear();
   hoisted.abridgedRef.current = {
     items: {},
@@ -312,5 +314,58 @@ describe('useMediaPlayerResourceUpdate near-end clamp (matrix § 6)', () => {
       { channel: channel(MediumEnum.Podcast), item: item(99) }
     );
     expect(hoisted.setMPCurrentTime).toHaveBeenCalledWith(0);
+  });
+
+  it('keeps the item file list when playback starts on a different item', () => {
+    const next = item(11);
+    next.item_enclosures = [
+      {
+        id: 1,
+        item_id: 11,
+        type: 'audio/mpeg',
+        item_enclosure_default: true,
+        item_enclosure_integrity: null,
+        item_enclosure_sources: [
+          { id: 1, item_enclosure_id: 1, uri: 'http://localhost:2111/e2e/audio/a.mp3' },
+        ],
+      },
+    ];
+    const args: UpdateArgs = {
+      target: playbackTargetFromStandardLoad({
+        channel: channel(MediumEnum.Podcast),
+        clip: null,
+        item: next,
+        itemChapter: null,
+        itemSoundbite: null,
+        musicIntent: 'explicit_play',
+      }),
+      itemChapterShouldSeek: false,
+      enclosureSelectedParams: 'use-active-item-or-default',
+      skipMoveNowPlayingToHistory: false,
+      shouldPlay: true,
+      isPlaying: true,
+      newAutoQueueConfig: {
+        playlist_id_text: null,
+        disabled: false,
+        random: false,
+        repeat: false,
+        nextPage: 1,
+        shuffleHash: '',
+      },
+      autoQueueShouldClear: false,
+    };
+    render(<Probe args={args} />);
+    expect(hoisted.setMPItemLabeledItemEnclosures).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mediaType: 'audio',
+          enclosure: expect.objectContaining({
+            item_enclosure_sources: expect.arrayContaining([
+              expect.objectContaining({ uri: 'http://localhost:2111/e2e/audio/a.mp3' }),
+            ]),
+          }),
+        }),
+      ])
+    );
   });
 });

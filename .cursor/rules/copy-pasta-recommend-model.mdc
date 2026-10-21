@@ -23,7 +23,7 @@ nothing useful for the agent.
 ```markdown
 - [ ] **01 — Example step**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
 \`\`\`
 Read and execute .llm/plans/active/feature/01-example.md
@@ -60,7 +60,7 @@ Metro switches, a value to paste), put one optional line above Phase 1:
 ```markdown
 **Optional — one chat runs the whole set:** paste
 `Orchestrate .llm/plans/active/<set>/ with .cursor/prompts/plan-orchestrator.md.`
-(Cursor Grok 4.7 · medium). It stops at the first blocker. Use the prompts below instead when
+(Cursor Grok 4.7 · extra high). It stops at the first blocker. Use the prompts below instead when
 you want to read each result before the next prompt starts.
 ```
 
@@ -153,9 +153,11 @@ Most to least expensive:
 split it instead. The relative strengths of Codex 5.3 and Cursor Grok 4.7 are not measured here,
 so do not route routine work to Codex 5.3 on a hunch.
 
-Reasoning defaults: Cursor Grok 4.7 → **high** for feature work, **extra high** when it takes a
-moderately tricky prompt, **medium** for docs and mechanical edits. Codex 5.3 → **high**.
-Opus 5.5 → **high**, **extra high** only for billing, concurrency, or safety-critical design.
+Reasoning: Cursor Grok 4.7 is always **extra high** with **Fast** on, for every prompt including
+docs and mechanical edits. Its cost is not a concern, so never lower it. In the Cursor picker that
+is Grok 4.7, extra high, Fast; plan-runner pins the same in its `models.json`. Codex 5.3 →
+**high**. Opus 5.5 → **high**, **extra high** only for billing, concurrency, or safety-critical
+design.
 
 **Plans written for a cheaper model are more explicit.** When a prompt goes to Cursor Grok 4.7,
 its numbered plan resolves every either/or choice and names exact paths, so the model transcribes

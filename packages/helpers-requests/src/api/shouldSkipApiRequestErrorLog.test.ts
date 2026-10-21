@@ -4,6 +4,7 @@ import { ApiRequestService } from './_request.js';
 import { isFeedContentApiPath } from './feedContentApiPathPrefixes.js';
 import { shouldSkipApiRequestErrorLog } from './shouldSkipApiRequestErrorLog.js';
 import { skipApiRequestErrorLogForAccountNotFound } from './skipApiRequestErrorLogForAccountNotFound.js';
+import { skipApiRequestErrorLogForDirectoryChannelGone } from './skipApiRequestErrorLogForDirectoryChannelGone.js';
 import { skipApiRequestErrorLogForFeedContentNotFound } from './skipApiRequestErrorLogForFeedContentNotFound.js';
 import { skipApiRequestErrorLogForMembershipGate } from './skipApiRequestErrorLogForMembershipGate.js';
 import { skipApiRequestErrorLogForMembershipPricing } from './skipApiRequestErrorLogForMembershipPricing.js';
@@ -53,6 +54,53 @@ describe('skipApiRequestErrorLogForFeedContentNotFound', () => {
       false
     );
     expect(skipApiRequestErrorLogForFeedContentNotFound({ status: 500 }, '/item/foo')).toBe(false);
+  });
+});
+
+describe('skipApiRequestErrorLogForDirectoryChannelGone', () => {
+  it('returns true for an archived show or a merge target on a feed path', () => {
+    expect(
+      skipApiRequestErrorLogForDirectoryChannelGone(
+        {
+          status: 410,
+          responseData: {
+            message: 'Show is no longer in the directory',
+            gone: { reason: 'archived', add_by_rss_feed_url: null },
+          },
+        },
+        '/item/channel/recent/e2eArchShow01'
+      )
+    ).toBe(true);
+    expect(
+      skipApiRequestErrorLogForDirectoryChannelGone(
+        {
+          status: 410,
+          responseData: { merged_into: { kind: 'channel', id_text: 'e2eMrgSurCh01' } },
+        },
+        '/channel/e2eMrgOldCh01'
+      )
+    ).toBe(true);
+  });
+
+  it('returns false for other 410 responses', () => {
+    expect(
+      skipApiRequestErrorLogForDirectoryChannelGone(
+        { status: 410, responseData: { message: 'Gone' } },
+        '/item/channel/recent/e2eArchShow01'
+      )
+    ).toBe(false);
+    expect(
+      skipApiRequestErrorLogForDirectoryChannelGone(
+        {
+          status: 410,
+          responseData: {
+            gone: { reason: 'archived', add_by_rss_feed_url: null },
+          },
+        },
+        '/account/me'
+      )
+    ).toBe(false);
+    expect(skipApiRequestErrorLogForDirectoryChannelGone({ status: 404 }, '/item/foo')).toBe(false);
   });
 });
 
@@ -132,6 +180,18 @@ describe('shouldSkipApiRequestErrorLog', () => {
       )
     ).toBe(true);
     expect(shouldSkipApiRequestErrorLog({ status: 404 }, '/item/foo')).toBe(true);
+    expect(
+      shouldSkipApiRequestErrorLog(
+        {
+          status: 410,
+          responseData: {
+            message: 'Show is no longer in the directory',
+            gone: { reason: 'archived', add_by_rss_feed_url: null },
+          },
+        },
+        '/item/channel/recent/e2eArchShow01'
+      )
+    ).toBe(true);
     expect(
       shouldSkipApiRequestErrorLog(
         { status: 404, responseData: { message: 'Account not found' } },
@@ -303,6 +363,69 @@ describe('ApiRequestService apiRequest console logging', () => {
     });
 
     await expect(svc.apiRequest({ path: '/other', method: 'GET' })).rejects.toBe(error);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it('does not console.error on an archived directory show 410', async () => {
+    const requestMock = vi.mocked(request);
+    const error = Object.assign(new Error('Request failed'), {
+      response: {
+        status: 410,
+        data: {
+          message: 'Show is no longer in the directory',
+          gone: { reason: 'archived', add_by_rss_feed_url: null },
+        },
+      },
+      config: {
+        url: 'http://localhost:4230/api/v2/item/channel/recent/e2eArchShow01',
+        method: 'get',
+      },
+    });
+    requestMock.mockRejectedValueOnce(error);
+
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const svc = new ApiRequestService({
+      protocol: 'http',
+      host: 'localhost',
+      prefix: '/api',
+      version: '/v2',
+    });
+
+    await expect(
+      svc.apiRequest({ path: '/item/channel/recent/e2eArchShow01', method: 'GET' })
+    ).rejects.toBe(error);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('still console.errors on a 410 without a gone or merge body', async () => {
+    const requestMock = vi.mocked(request);
+    const error = Object.assign(new Error('Request failed'), {
+      response: {
+        status: 410,
+        data: { message: 'Gone' },
+      },
+      config: {
+        url: 'http://localhost:4230/api/v2/item/channel/recent/e2eArchShow01',
+        method: 'get',
+      },
+    });
+    requestMock.mockRejectedValueOnce(error);
+
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const svc = new ApiRequestService({
+      protocol: 'http',
+      host: 'localhost',
+      prefix: '/api',
+      version: '/v2',
+    });
+
+    await expect(
+      svc.apiRequest({ path: '/item/channel/recent/e2eArchShow01', method: 'GET' })
+    ).rejects.toBe(error);
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });

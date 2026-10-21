@@ -893,7 +893,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
      VALUES (
        $1,
        $2,
-       (SELECT id FROM medium WHERE value = 'podcast' LIMIT 1),
+       (SELECT id FROM medium WHERE value = 'av' LIMIT 1),
        true
      )
      RETURNING id`,

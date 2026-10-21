@@ -1,9 +1,9 @@
 'use client';
 
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOChannel, DTOItem, EnclosureSelectedParams } from '@podverse/helpers';
 import {
@@ -35,6 +35,7 @@ import { PlayButtonRow } from '../../../MediaPlayer/Buttons/PlayButtonRow';
 import { ReadableDate } from '../../../Time/ReadableDate';
 import { getDurationAndPositionStr, ReadableDuration } from '../../../Time/ReadableDuration';
 import { showToastPromise, showToastPromiseWithLoading } from '../../../Toast/Toast';
+import { ListReorderHandle } from '../../ListReorderHandle';
 
 import styles from '../../../../styles/components/Common/List/Podcasts/Episodes/ListEpisodeRow.module.scss';
 
@@ -52,6 +53,7 @@ interface Props {
   isEditModePlaylist?: boolean;
   removeFromPlaylist?: () => void;
   playlist_id_text: string | null;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onPlayAndRemove?: () => void;
   /** When set, adds Add to Liked / Remove from Liked to the more menu. Omit for e.g. playlist edit-only rows. */
   likeRow?: ListEpisodeRowLike;
@@ -66,6 +68,7 @@ export const ListEpisodeRow: React.FC<Props> = ({
   isEditModePlaylist,
   removeFromPlaylist,
   playlist_id_text,
+  dragHandleProps,
   onPlayAndRemove,
   likeRow,
 }) => {
@@ -341,9 +344,7 @@ export const ListEpisodeRow: React.FC<Props> = ({
   return (
     <div className={styles.row}>
       {(isEditModeQueue || isEditModePlaylist) && (
-        <div className={styles.editingButtons}>
-          <FaGripLines />
-        </div>
+        <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
       )}
       <ImagesPerView
         candidates={episodeArtworkCandidates}

@@ -2067,6 +2067,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    // Record the remote episode before closing the prompt. The reconcile conflict is still
+    // the previous episode until this play lands, and that conflict would open the dialog again.
+    rememberPlaybackHandoffDismissal(prompt.dismissedStateKey);
     setPlaybackHandoffPrompt(null);
     if (isPlayingRef.current) {
       return;
@@ -2076,7 +2079,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       autoPlayOverride: true,
       explicitPlaybackSeconds: normalizePlaybackPosition(prompt.remoteResource.playback_position),
     });
-  }, [playQueueResource]);
+  }, [playQueueResource, rememberPlaybackHandoffDismissal]);
 
   const playAutoQueueRow = useCallback(
     async (row: AutoQueueResourcesMapRow): Promise<boolean> => {

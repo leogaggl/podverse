@@ -36,5 +36,6 @@ name: Removed Content
       id: removed-content-row
     timeout: ${TIMEOUT_SLOW}
 - assertVisible:
-    text: "E2E Archived Show"
+    id: removed-content-row
+    text: "E2E Archived Show is no longer in the directory. Your follow ended."
 - takeScreenshot: removed-content-row

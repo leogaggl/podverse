@@ -105,7 +105,7 @@ test.describe('Membership gate on member-only actions', () => {
     });
     expect(loginResponse.ok(), await loginResponse.text()).toBeTruthy();
 
-    // The seeded e2e-user has an active podcast queue (e2ePodQueue01), so Queue: Next resolves a queue
+    // The seeded e2e-user has an active AV queue (e2ePodQueue01), so Queue: Next resolves a queue
     // and actually fires the member-only request.
     await page.goto('/episode/e2ePodResume03');
     await expect(

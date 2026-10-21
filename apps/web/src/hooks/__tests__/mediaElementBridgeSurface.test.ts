@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   applyItemEnclosureSurfaceChangeFromRef,
   attachNonLiveHlsPlayback,
+  mediaElementHasPlayableSource,
+  waitForPlayableMediaSource,
 } from '../mediaElementBridgeSurface';
 
 const hlsJs = vi.hoisted(() => ({
@@ -134,5 +136,34 @@ describe('attachNonLiveHlsPlayback', () => {
     expect(media.src).toBe('');
     expect(hlsJs.loadSource).toHaveBeenCalledWith('https://cdn.example/ep.m3u8');
     expect(hlsJs.attachMedia).toHaveBeenCalledWith(media);
+    expect(mediaElementHasPlayableSource(media)).toBe(true);
+  });
+
+  it('waits until a file URL or a managed HLS attachment is present', async () => {
+    vi.useFakeTimers();
+    try {
+      const media = { src: '', currentSrc: '' } as HTMLMediaElement;
+      const pending = waitForPlayableMediaSource(
+        () => media,
+        () => false,
+        1000,
+        50
+      );
+      media.src = 'http://localhost:2111/e2e/audio/a.mp3';
+      await vi.advanceTimersByTimeAsync(50);
+      await expect(pending).resolves.toBe(true);
+
+      const empty = { src: '', currentSrc: '' } as HTMLMediaElement;
+      const timedOut = waitForPlayableMediaSource(
+        () => empty,
+        () => false,
+        1000,
+        50
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      await expect(timedOut).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

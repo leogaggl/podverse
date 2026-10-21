@@ -1,8 +1,8 @@
 'use client';
 
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOQueueResource } from '@podverse/helpers';
 import { MediumEnum } from '@podverse/helpers';
@@ -17,6 +17,7 @@ import { ReadableDuration } from '../../Time/ReadableDuration';
 import { showToastPromise } from '../../Toast/Toast';
 import { ListClipRow } from '../Clips/ListClipRow';
 import { ListItemSoundbiteRow } from '../ItemSoundbites/ListItemSoundbiteRow';
+import { ListReorderHandle } from '../ListReorderHandle';
 import { ListTrackRow } from '../Music/Albums/Tracks/ListTrackRow';
 import { ListEpisodeRow } from '../Podcasts/Episodes/ListEpisodeRow';
 
@@ -26,6 +27,7 @@ interface Props {
   queueResource: DTOQueueResource;
   removeFromQueue?: () => void;
   isEditModeQueue: boolean;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onPlayAndRemove?: () => void;
 }
 
@@ -33,6 +35,7 @@ export const ListQueueResourceRow: React.FC<Props> = ({
   queueResource,
   removeFromQueue,
   isEditModeQueue,
+  dragHandleProps,
   onPlayAndRemove,
 }) => {
   const apiRequestService = getApiRequestService();
@@ -104,9 +107,10 @@ export const ListQueueResourceRow: React.FC<Props> = ({
       return (
         <div className={styles.trackRow}>
           {isEditModeQueue && (
-            <div className={styles.editingButtons}>
-              <FaGripLines />
-            </div>
+            <ListReorderHandle
+              className={styles.editingButtons}
+              dragHandleProps={dragHandleProps}
+            />
           )}
           <Button variant="unstyled" className={styles.trackClickable} onClick={onPlayAndRemove}>
             <ImagesPerView
@@ -140,9 +144,7 @@ export const ListQueueResourceRow: React.FC<Props> = ({
     return (
       <div className={styles.row}>
         {isEditModeQueue && (
-          <div className={styles.editingButtons}>
-            <FaGripLines />
-          </div>
+          <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
         )}
         <ImagesPerView
           candidates={imageCandidates}
@@ -195,6 +197,7 @@ export const ListQueueResourceRow: React.FC<Props> = ({
             item={item}
             showChannelInfo
             isEditModeQueue={isEditModeQueue}
+            dragHandleProps={dragHandleProps}
             removeFromQueue={removeFromQueue}
             playlist_id_text={null}
             onPlayAndRemove={onPlayAndRemove}
@@ -207,6 +210,7 @@ export const ListQueueResourceRow: React.FC<Props> = ({
             item={item}
             showChannelInfo
             isEditModeQueue={isEditModeQueue}
+            dragHandleProps={dragHandleProps}
             removeFromQueue={removeFromQueue}
             playlist_id_text={null}
             onPlayAndRemove={onPlayAndRemove}
@@ -228,6 +232,7 @@ export const ListQueueResourceRow: React.FC<Props> = ({
             showChannelInfo
             showItemInfo
             isEditModeQueue={isEditModeQueue}
+            dragHandleProps={dragHandleProps}
             removeFromQueue={removeFromQueue}
             playlist_id_text={null}
             onPlayAndRemove={onPlayAndRemove}
@@ -248,6 +253,7 @@ export const ListQueueResourceRow: React.FC<Props> = ({
           showChannelInfo
           showItemInfo
           isEditModeQueue={isEditModeQueue}
+          dragHandleProps={dragHandleProps}
           removeFromQueue={removeFromQueue}
           playlist_id_text={null}
           onPlayAndRemove={onPlayAndRemove}

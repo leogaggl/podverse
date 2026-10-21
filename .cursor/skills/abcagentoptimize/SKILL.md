@@ -68,6 +68,8 @@ that were applied or rejected so the next run starts from open items.
 - **Verification once per set** — intermediate prompts carry no operator test commands; the
   operator tests after the last prompt (**response-ending-make-verify** § Plan sets).
 - **Large files** — **large-file-reading** sends agents to Grep instead of paging.
-- **Reasoning depth** — Cursor Grok 4.7 at medium for prompts whose plan resolves every choice;
-  measure before changing the default in **copy-pasta-recommend-model**.
+- **Reasoning depth** — Cursor Grok 4.7 is fixed at extra high with Fast on; cost is not a
+  concern, so do not recommend lowering it.
+- **Test sweeps** — **abctestall** and **abctestdeferred** run under plan-runner through
+  `scripts/abctest/run.sh`, one fresh agent per tier or per deferred group.
 - **Always-on size** — scope domain rules to globs or descriptions; keep an index of triggers.

@@ -1,4 +1,5 @@
 import { skipApiRequestErrorLogForAccountNotFound } from './skipApiRequestErrorLogForAccountNotFound.js';
+import { skipApiRequestErrorLogForDirectoryChannelGone } from './skipApiRequestErrorLogForDirectoryChannelGone.js';
 import { skipApiRequestErrorLogForFeedContentNotFound } from './skipApiRequestErrorLogForFeedContentNotFound.js';
 import { skipApiRequestErrorLogForMembershipGate } from './skipApiRequestErrorLogForMembershipGate.js';
 import { skipApiRequestErrorLogForMembershipPricing } from './skipApiRequestErrorLogForMembershipPricing.js';
@@ -12,6 +13,7 @@ export function shouldSkipApiRequestErrorLog(
     skipApiRequestErrorLogForMembershipGate(errorInfo) ||
     skipApiRequestErrorLogForTermsAcceptance(errorInfo) ||
     skipApiRequestErrorLogForFeedContentNotFound(errorInfo, requestPath) ||
+    skipApiRequestErrorLogForDirectoryChannelGone(errorInfo, requestPath) ||
     skipApiRequestErrorLogForAccountNotFound(errorInfo, requestPath) ||
     skipApiRequestErrorLogForMembershipPricing(errorInfo, requestPath)
   );

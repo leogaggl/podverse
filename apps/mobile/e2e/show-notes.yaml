@@ -69,13 +69,14 @@ name: Show Notes Flow
 - tapOn:
     id: full-player-section-summary
 
-# The Summary sits in the pane sheet below the fold. Outer swipes on the chip strip bring the sheet
-# on screen; playback keeps the clock moving, so each swipe settles on a bound.
+# The Summary sits in the pane sheet below the fold. The sheet can peek in while its text is still
+# off screen, so the swipe continues until that text is visible. Playback keeps the clock moving,
+# so each swipe settles on a bound.
 - repeat:
-    times: 4
+    times: 6
     while:
       notVisible:
-        id: full-player-pane-sheet
+        id: full-player-summary-text
     commands:
       - swipe:
           from:

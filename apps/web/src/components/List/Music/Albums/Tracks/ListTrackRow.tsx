@@ -1,9 +1,9 @@
 'use client';
 
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaGripLines } from 'react-icons/fa6';
 
 import type { DTOChannel, DTOItem, EnclosureSelectedParams } from '@podverse/helpers';
 import { getQueueForMedium, mergeDTOItemThenChannelImageCandidates } from '@podverse/helpers';
@@ -26,6 +26,7 @@ import { downloadTrackWithModal } from '../../../../../utils/downloadModal/downl
 import { downloadAndSaveFile } from '../../../../../utils/fileDownloader';
 import { ItemRowMoreActions } from '../../../../Media/ItemRowMoreActions';
 import { showToastPromise, showToastPromiseWithLoading } from '../../../../Toast/Toast';
+import { ListReorderHandle } from '../../../ListReorderHandle';
 import type { ListEpisodeRowLike } from '../../../Podcasts/Episodes/ListEpisodeRow';
 
 import styles from '../../../../../styles/components/Common/List/Podcasts/Episodes/ListEpisodeRow.module.scss';
@@ -39,6 +40,7 @@ interface Props {
   isEditModePlaylist?: boolean;
   removeFromPlaylist?: () => void;
   playlist_id_text: string | null;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onPlayAndRemove?: () => void;
   likeRow?: ListEpisodeRowLike;
 }
@@ -52,6 +54,7 @@ export const ListTrackRow: React.FC<Props> = ({
   isEditModePlaylist,
   removeFromPlaylist,
   playlist_id_text,
+  dragHandleProps,
   onPlayAndRemove,
   likeRow,
 }) => {
@@ -290,9 +293,7 @@ export const ListTrackRow: React.FC<Props> = ({
   return (
     <div className={styles.trackRow}>
       {(isEditModeQueue || isEditModePlaylist) && (
-        <div className={styles.editingButtons}>
-          <FaGripLines />
-        </div>
+        <ListReorderHandle className={styles.editingButtons} dragHandleProps={dragHandleProps} />
       )}
       <Button
         variant="unstyled"

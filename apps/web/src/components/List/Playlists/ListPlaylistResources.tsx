@@ -384,11 +384,7 @@ export const ListPlaylistResources: React.FC<Props> = ({
                     index={idx}
                   >
                     {(providedDraggable) => (
-                      <div
-                        ref={providedDraggable.innerRef}
-                        {...providedDraggable.draggableProps}
-                        {...providedDraggable.dragHandleProps}
-                      >
+                      <div ref={providedDraggable.innerRef} {...providedDraggable.draggableProps}>
                         <ListPlaylistResourceRow
                           playlistResource={playlistResource}
                           removeFromPlaylist={() => {
@@ -398,6 +394,7 @@ export const ListPlaylistResources: React.FC<Props> = ({
                             setResources(updatedResources);
                           }}
                           isEditModePlaylist
+                          dragHandleProps={providedDraggable.dragHandleProps}
                           playlist={playlist}
                           onPlay={createPlayHandler(playlistResource)}
                         />

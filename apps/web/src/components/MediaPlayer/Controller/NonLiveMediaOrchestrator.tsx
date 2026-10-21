@@ -25,6 +25,7 @@ import { useEmbedPlaybackGuardrails } from '../../../contexts/EmbedPlaybackMode'
 import type { MediaPlayerAddByRSSState } from '../../../contexts/MediaPlayer';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useRegisterMediaPlayerControlsBridge } from '../../../contexts/MediaPlayerControls';
+import { waitForPlayableMediaSource } from '../../../hooks/mediaElementBridgeSurface';
 import type { AddByRSSMediaFailureParams } from '../../../hooks/useAddByRSSMediaFailureNotice';
 import type { MediaElementBridge, MediaElementSource } from '../../../hooks/useMediaElementBridge';
 import { useMediaElementBridge } from '../../../hooks/useMediaElementBridge';
@@ -1042,11 +1043,26 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       bridge.pause();
       return;
     }
-    if (mpIsPlaying) {
-      void bridge.play();
-    } else {
+    if (!mpIsPlaying) {
       bridge.pause();
+      return;
     }
+
+    let cancelled = false;
+    void (async () => {
+      await waitForPlayableMediaSource(
+        () => mediaRef.current,
+        () => cancelled
+      );
+      if (cancelled || mpIsPlayingRef.current !== true) {
+        return;
+      }
+      await bridge.play();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [mpIsPlaying, playbackError, bridge]);
 
   useEffect(() => {

@@ -44,6 +44,11 @@ test.describe('Settings Advanced', () => {
 
     const advanced = page.getByRole('button', { name: 'Advanced', exact: true });
     const leftDirectory = page.getByText(LEFT_DIRECTORY);
+    // A paragraph exposes no accessible name, so the row is the paragraph that
+    // contains both sentences.
+    const removedContentRow = page.getByRole('paragraph').filter({
+      hasText: `${LEFT_DIRECTORY} ${FOLLOW_ENDED}`,
+    });
 
     await test.step('Open Settings and confirm the Advanced tab is present.', async () => {
       await page.goto('/settings');
@@ -60,11 +65,9 @@ test.describe('Settings Advanced', () => {
         await expect(page.getByRole('heading', { name: 'Removed Content' })).toBeVisible();
         await expect(leftDirectory).toBeVisible();
         await expect(page.getByText(FOLLOW_ENDED)).toBeVisible();
-        await expect(
-          page.getByRole('paragraph', { name: `${LEFT_DIRECTORY} ${FOLLOW_ENDED}` })
-        ).toBeVisible();
+        await expect(removedContentRow).toBeVisible();
       },
-      leftDirectory
+      removedContentRow
     );
   });
 });

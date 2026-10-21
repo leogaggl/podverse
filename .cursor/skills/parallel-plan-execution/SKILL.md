@@ -183,10 +183,10 @@ other model.
 
 | Reasoning | Use when |
 | --------- | -------- |
-| **low** | Checkbox updates, trivial renames |
-| **medium** | Docs, mechanical edits, archiving |
-| **high** | Feature work; default for all three models |
-| **extra high** | Cursor Grok 4.7 on a moderately tricky prompt; Opus 5.5 on billing, concurrency, or safety-critical design |
+| **high** | Default for Codex 5.3 and Opus 5.5 |
+| **extra high** | Every Cursor Grok 4.7 prompt, with Fast on; Opus 5.5 on billing, concurrency, or safety-critical design |
+
+**low** and **medium** are not used for these three models.
 
 Put a **phase-level summary table** (prompt, model, reasoning, why) at the top of COPY-PASTA so the
 operator sees the whole mix at once, plus the per-prompt line above each fence.
@@ -212,7 +212,7 @@ Example per prompt (model/reasoning **outside** the fence):
 ```markdown
 - [ ] **Prompt 3** complete
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
 \`\`\`
 Read and execute .llm/plans/active/feature/migration-03.md
@@ -261,7 +261,7 @@ Read and execute .llm/plans/active/feature/migration-06-critical.md
 
 ### Agent 2A: Group A
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
 \`\`\`
 Read and execute .llm/plans/active/feature/migration-08-group-a.md

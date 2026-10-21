@@ -118,6 +118,9 @@ name: Playback Multi-device Handoff
 - launchApp:
     clearState: false
 - runFlow: shared/connect-dev-client-overlay-ok.yaml
+# Maestro counts this wait from the last mutating command. Connect is not one, so the
+# script marks the start and the prompt gets the full timeout.
+- evalScript: ${true}
 - extendedWaitUntil:
     visible:
       id: playback-handoff-dialog
