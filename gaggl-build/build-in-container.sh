@@ -45,9 +45,13 @@ EXPO_NO_GIT_STATUS=1 CI=1 npx expo prebuild --platform android --clean --no-inst
 
 echo "=== Gradle release build ($ABI)"
 cd android
-# No SDK auto-download: every component is baked into the image
+# No SDK auto-download: every component is baked into the image.
+# Heaps sized to fit the container's memory cap: the Kotlin daemon would otherwise inherit
+# Gradle's -Xmx, and fewer workers means fewer CMake/Ninja native builds running at once.
+export CMAKE_BUILD_PARALLEL_LEVEL=4
 ./gradlew --no-daemon -PreactNativeArchitectures="$ABI" -Pandroid.builder.sdkDownload=false \
-  -Dorg.gradle.jvmargs=-Xmx6g assembleRelease
+  -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g" -Pkotlin.daemon.jvmargs=-Xmx2g \
+  -Dorg.gradle.workers.max=4 assembleRelease
 
 BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
 APK=app/build/outputs/apk/release/app-release.apk
@@ -60,5 +64,6 @@ OUT="/out/podverse-gaggl-${VERSION}-${ABI}.apk"
 "$BUILD_TOOLS/apksigner" verify --print-certs "$OUT" | head -3
 "$BUILD_TOOLS/aapt2" dump badging "$OUT" | grep -E "^package:|^application-label:|native-code"
 
-chown "${HOST_UID}:${HOST_GID}" "$OUT"
+# apksigner also writes the v4 signature (.idsig) used by adb incremental install
+chown "${HOST_UID}:${HOST_GID}" "$OUT" "$OUT.idsig"
 echo "Built $OUT"

@@ -12,6 +12,10 @@ ABI="${1:-arm64-v8a}"
 IMAGE="podverse-gaggl-build"
 KEYSTORE="${PODVERSE_KEYSTORE:-$HOME/.android/podverse-gaggl.jks}"
 KEY_ALIAS="${PODVERSE_KEY_ALIAS:-podverse-gaggl}"
+# Resource caps so the build hits its own limit instead of a host-wide OOM kill (14 GB host).
+# Pinning CPUs (not just a quota) also sizes Ninja's default -j for the native builds.
+BUILD_MEMORY="${BUILD_MEMORY:-9g}"
+BUILD_CPUS="${BUILD_CPUS:-8}"
 
 docker build --progress=plain -t "$IMAGE" "$REPO/gaggl-build"
 
@@ -32,6 +36,7 @@ fi
 
 mkdir -p "$REPO/gaggl-build/out"
 docker run --rm \
+  --memory="$BUILD_MEMORY" --memory-swap="$BUILD_MEMORY" --cpuset-cpus="0-$((BUILD_CPUS - 1))" \
   -v "$REPO":/src:ro \
   -v "$REPO/gaggl-build/out":/out \
   -v "$(dirname "$KEYSTORE")":/keystore:ro \
