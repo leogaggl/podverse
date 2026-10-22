@@ -58,7 +58,8 @@ const storeBillingPlugins: NonNullable<ExpoConfig['plugins']> =
   getMobileBillingModeFromEnv() === 'store' ? ['expo-iap'] : [];
 
 const config: ExpoConfig = {
-  name: 'Podverse Next',
+  // Forks can rename the app without editing this file (defaults stay the upstream identity).
+  name: process.env.PODVERSE_APP_NAME?.trim() || 'Podverse Next',
   slug: 'podverse-next',
   owner: 'podverse',
   extra: {
@@ -98,7 +99,7 @@ const config: ExpoConfig = {
     },
   },
   android: {
-    package: 'com.podverse.app.next',
+    package: process.env.PODVERSE_ANDROID_PACKAGE?.trim() || 'com.podverse.app.next',
     permissions: [
       'android.permission.FOREGROUND_SERVICE',
       'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
