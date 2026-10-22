@@ -35,8 +35,10 @@ RUN mkdir -p $ANDROID_HOME/cmdline-tools \
  && rm /tmp/tools.zip \
  && yes | sdkmanager --licenses > /dev/null \
  && sdkmanager --verbose "platform-tools"
-RUN sdkmanager --verbose "platforms;android-${COMPILE_SDK}" "platforms;android-36"
-RUN sdkmanager --verbose "build-tools;${BUILD_TOOLS}"
+# Libraries pin their own build-tools and compileSdk (react-native-gesture-handler wants 36.0.0),
+# so the recent ones are all installed alongside the app's own
+RUN sdkmanager --verbose "platforms;android-${COMPILE_SDK}" "platforms;android-36.1" "platforms;android-36" "platforms;android-35"
+RUN sdkmanager --verbose "build-tools;${BUILD_TOOLS}" "build-tools;36.1.0" "build-tools;36.0.0" "build-tools;35.0.0"
 RUN sdkmanager --verbose "cmake;${CMAKE_VERSION}"
 RUN sdkmanager --verbose "ndk;${NDK_VERSION}"
 
