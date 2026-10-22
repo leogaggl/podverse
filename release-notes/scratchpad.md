@@ -486,3 +486,31 @@
   position, or to no duration when that is missing too.
 - Who notices: anyone who opens an episode or livestream item that has no About row
 - Operator steps: none
+
+## Full player title keeps the other tabs where you left them
+
+- Surfaces: mobile
+- Change: The full player's item title, channel title, and queue button return to the tab
+  shell already on screen. My Library stays on Add by RSS (or whichever screen was open)
+  instead of dropping back to the library menu. Home still opens the playing item.
+- Who notices: anyone who opens the playing episode, track, or livestream from the full
+  player while another tab is in the middle of a screen
+- Operator steps: none
+
+## Make Clip back returns to the full player
+
+- Surfaces: mobile
+- Change: Header back on Make Clip returns to the full player, including the second time Make
+  Clip is opened during the same playback. On iOS, Make Clip no longer swipes closed; the back
+  control closes it. The full player still swipes closed.
+- Who notices: anyone who opens Make Clip from the full player and taps back without saving
+- Operator steps: none
+
+## Closed swipe actions stay out of the screen reader
+
+- Surfaces: mobile
+- Change: A list row's swipe action (Unsubscribe, Delete all) is exposed to VoiceOver and
+  TalkBack only while the row is open. Closing the row covers that button. The row's own
+  remove action remains the screen-reader path.
+- Who notices: screen-reader users on lists that swipe to reveal an action
+- Operator steps: none

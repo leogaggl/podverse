@@ -127,7 +127,7 @@ import { resolveMobileDeepLinkAction, resolveMobileDeepLinkState } from './notif
 import { OrderedTabBar } from './OrderedTabBar';
 import type { PodcastDetailRouteParams } from './podcastDetailParams';
 import { buildPodcastDetailParams } from './podcastDetailParams';
-import { ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
+import { MAKE_CLIP_SCREEN_OPTIONS, ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
 import { tabBarIcon } from './tabBarIcon';
 import { useTabLayout } from './TabLayoutProvider';
 import type { TrackDetailRouteParams } from './trackDetailParams';
@@ -607,6 +607,18 @@ export type MobileTabParamList = {
   More: NavigatorScreenParams<MoreStackParamList> | undefined;
 };
 
+/**
+ * The full player is a card on the root stack above the tab shell. Opening a link from
+ * that card pops back to the shell that is already there, so the other tabs keep the
+ * screens the listener left.
+ */
+const returnToMainTabs = (
+  navigation: { navigate: NavigationProp<RootStackParamList>['navigate'] },
+  params: NonNullable<RootStackParamList['MainTabs']>
+): void => {
+  navigation.navigate(ROOT_STACK_ROUTES.MainTabs, params, { pop: true });
+};
+
 const openFullPlayerContent = (
   navigation: NavigationProp<RootStackParamList>,
   request: FullPlayerOpenRequest,
@@ -618,10 +630,10 @@ const openFullPlayerContent = (
   if (request.stack === 'Home') {
     const params = homeContentParams(request, previewImageUrl, previewTitle);
     if (visibleTabIds.includes('Home')) {
-      navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params, screen: 'Home' });
+      returnToMainTabs(navigation, { params, screen: 'Home' });
       return;
     }
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+    returnToMainTabs(navigation, {
       params: { initial: false, params, screen: MORE_STACK_ROUTES.MoreOverflowHome },
       screen: 'More',
     });
@@ -630,10 +642,10 @@ const openFullPlayerContent = (
 
   const params = browseContentParams(request, previewImageUrl, previewTitle);
   if (visibleTabIds.includes('Browse')) {
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params, screen: 'Browse' });
+    returnToMainTabs(navigation, { params, screen: 'Browse' });
     return;
   }
-  navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+  returnToMainTabs(navigation, {
     params: { initial: false, params, screen: MORE_STACK_ROUTES.MoreOverflowBrowse },
     screen: 'More',
   });
@@ -745,10 +757,10 @@ const openFullPlayerItem = (
 
   if (request.stack === 'Home') {
     if (visibleTabIds.includes('Home')) {
-      navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params: stackParams, screen: 'Home' });
+      returnToMainTabs(navigation, { params: stackParams, screen: 'Home' });
       return;
     }
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+    returnToMainTabs(navigation, {
       params: { initial: false, params: stackParams, screen: MORE_STACK_ROUTES.MoreOverflowHome },
       screen: 'More',
     });
@@ -756,10 +768,10 @@ const openFullPlayerItem = (
   }
 
   if (visibleTabIds.includes('Browse')) {
-    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params: stackParams, screen: 'Browse' });
+    returnToMainTabs(navigation, { params: stackParams, screen: 'Browse' });
     return;
   }
-  navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+  returnToMainTabs(navigation, {
     params: {
       initial: false,
       params: stackParams,
@@ -2158,7 +2170,7 @@ export function MobileTabNavigator({
                 props.navigation.navigate(ROOT_STACK_ROUTES.MakeClip, params);
               }}
               onOpenQueue={() => {
-                props.navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+                returnToMainTabs(props.navigation, {
                   params: { screen: LIBRARY_STACK_ROUTES.LibraryQueue },
                   screen: 'My Library',
                 });
@@ -2172,7 +2184,7 @@ export function MobileTabNavigator({
         <RootStack.Screen
           component={MakeClipScreen}
           name={ROOT_STACK_ROUTES.MakeClip}
-          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+          options={MAKE_CLIP_SCREEN_OPTIONS}
         />
         <RootStack.Screen
           component={V4vInfoScreen}

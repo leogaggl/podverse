@@ -1,4 +1,5 @@
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import { Platform } from 'react-native';
 
 /**
  * Duration for every root slide-up / slide-down (full player, image viewer, V4V, and the
@@ -20,4 +21,13 @@ export const ROOT_SLIDE_UP_SCREEN_OPTIONS: NativeStackNavigationOptions = {
   gestureDirection: 'vertical',
   gestureEnabled: true,
   presentation: 'card',
+};
+
+/**
+ * Make clip uses the same slide-up card as the full player. The iOS dismiss gesture is off;
+ * header back closes this screen.
+ */
+export const MAKE_CLIP_SCREEN_OPTIONS: NativeStackNavigationOptions = {
+  ...ROOT_SLIDE_UP_SCREEN_OPTIONS,
+  gestureEnabled: Platform.OS !== 'ios',
 };
