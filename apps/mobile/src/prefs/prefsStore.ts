@@ -5,7 +5,15 @@ import { ALL_POSSIBLE_THEMES } from '@podverse/design-tokens';
 import type { MediaTypePreference } from '@podverse/helpers';
 import { DEFAULT_MEDIA_TYPE_PREFERENCE } from '@podverse/helpers';
 
-const HOME_MEDIA_TYPES = ['podcasts', 'episodes', 'clips', 'artists', 'albums', 'tracks'] as const;
+const HOME_MEDIA_TYPES = [
+  'podcasts',
+  'episodes',
+  'clips',
+  'artists',
+  'albums',
+  'tracks',
+  'livestreams',
+] as const;
 const SUBSCRIPTION_FILTERS = ['all', 'addByRss'] as const;
 
 export type HomeMediaType = (typeof HOME_MEDIA_TYPES)[number];

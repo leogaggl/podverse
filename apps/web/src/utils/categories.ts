@@ -33,6 +33,11 @@ export const onClickCategory = <T extends { sort?: string }>({
       page: 1,
     } as T);
     setShowCategoriesModal(false);
-    router.replace(`${linkPath}?category=${category.mapping_key}`);
+    const categoryQuery = `category=${category.mapping_key}`;
+    const target =
+      linkPath === undefined
+        ? `?${categoryQuery}`
+        : `${linkPath}${linkPath.includes('?') ? '&' : '?'}${categoryQuery}`;
+    router.replace(target);
   }
 };

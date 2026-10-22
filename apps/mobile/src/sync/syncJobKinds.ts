@@ -28,6 +28,7 @@ export const SYNC_JOB_KINDS = [
   'channel-live-status',
   'popularity-ranks',
   'home-clips',
+  'home-livestreams',
 ] as const;
 
 export type SyncJobKind = (typeof SYNC_JOB_KINDS)[number];
@@ -59,6 +60,7 @@ export const SYNC_JOB_LABEL_KEYS: Record<SyncJobKind, string> = {
   'channel-live-status': 'sync.job.live_status',
   'popularity-ranks': 'sync.job.subscriptions',
   'home-clips': 'sync.job.clips',
+  'home-livestreams': 'sync.job.live_status',
 };
 
 /**

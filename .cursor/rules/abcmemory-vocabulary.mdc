@@ -7,116 +7,47 @@ alwaysApply: true
 
 ## abcmemory
 
-**abcmemory** means the committed files Cursor uses for agent guidance in this repo — **only** under `.cursor/` and the repo root files Cursor reads:
-
-- `.cursor/skills/**`
-- `.cursor/rules/**`
-- `.cursor/prompts/**`
-- `.cursor/hooks/**` and `.cursor/hooks.json` (when present)
-- `.cursorrules`
-- `.cursorignore`
-
-## Not abcmemory
-
-**`.llm/`** (plans, templates, context) is a **planning workspace**, not agent memory. Do not treat it as a second abcmemory tree.
-
-Also not abcmemory unless you explicitly ask: `docs/`, `.github/`, and ad-hoc paths.
+**abcmemory** means the committed agent guidance: `.cursor/skills/**`, `.cursor/rules/**`,
+`.cursor/prompts/**`, `.cursor/hooks/**` and `.cursor/hooks.json`, `.cursorrules`, and
+`.cursorignore`. `.llm/` is a planning workspace, not abcmemory; neither are `docs/` or `.github/`
+unless the operator says so.
 
 ## abcremember
 
-When the user says **abcremember**, **create or update** the best-fit abcmemory file(s) under **`.cursor/`** (or `.cursorrules` / `.cursorignore`): prefer updating existing guidance when the instruction extends the same topic; create a new skill, rule, or prompt only when no suitable file exists. Then follow that guidance in future work. Do **not** write to `.llm/` unless they explicitly say to remember something there.
-
-For placement and workflow details, see `.cursor/skills/abcmemory/SKILL.md`.
+Create or update the best-fit abcmemory file, preferring an existing one, then follow it. Do not
+write to `.llm/` unless asked. `/abcremember` or `/abcmemory`; process in
+`.cursor/skills/abcmemory/SKILL.md`.
 
 ## next
 
-When the operator types **next**, treat it as **what next**: what they should do next in the
-current task. Answer with that step.
+**next** means "what next": answer with the operator's next step in the current task.
 
-## abcreleasenotes
+## abc* commands
 
-When the operator says **abcreleasenotes**, convert the entries in
-`release-notes/scratchpad.md` into the GitHub, store, and web release notes for the current
-version, then empty the scratchpad. Follow `.cursor/skills/abcreleasenotes/SKILL.md`. Agents
-append those entries during normal work (**release-notes-scratchpad**).
+Every abc command is a skill at `.cursor/skills/abc<name>/SKILL.md`. The operator runs it as
+`/abc<name>` from the slash menu, which loads the skill. A plain `abc<name>` in a message,
+resume text, or plan-runner prompt means the same thing: read that skill in full before acting.
+A new command is a new skill whose `name` matches its folder, not a `.cursor/commands/` file.
 
-## abcdeploysteps
+These hold even before the skill is read:
 
-When the operator says **abcdeploysteps**, the next two words are the repo and the environment:
-`abcdeploysteps podverse alpha`, `abcdeploysteps metaboost beta`. Do not guess either word. This
-repo's skill applies only when the repo word is `podverse`. Follow
-`.cursor/skills/abcdeploysteps/SKILL.md`. Only alpha is in use. Alpha means `alpha.podcastdj.com`
-and Podverse Next.
-
-## abcaicast
-
-When the operator says **abcaicast**, write a two-voice training conversation (Claire and Tom)
-about a feature, for an AI audio service. If no subject came with the command, ask for a short
-description of what the cast should cover first. Casts go in `misc/aicasts/` and are committed,
-so past casts stay in the repo. Read it when the operator asks about an earlier cast.
-
-The casts are one course published by RSS, grown over time. Each abcaicast audits the existing
-casts and updates any the session's work made inaccurate. A new cast is written only when no
-existing episode covers the work. Every cast carries a **Version** (date and time) and a stable
-**Episode ID**, and is titled `<Group Title> <n>: <Episode Title>`. Follow
-`.cursor/skills/abcaicast/SKILL.md`.
-
-## abcagentoptimize
-
-When the operator says **abcagentoptimize**, recommend speed-ups for agent plan work that keep
-quality. Follow `.cursor/skills/abcagentoptimize/SKILL.md`. During normal work, append speed-up
-ideas to that skill's log; ask mid-turn only when the answer changes the current turn.
+- **abcplan** — never implement in that chat.
+- **abcdeploysteps** `<repo> <env>` — never guess either word.
+- **abcresume** — never run the resume commands; the operator picks one.
+- **abcagentoptimize** — during normal work, append ideas to its log; ask mid-turn only when the
+  answer changes the current turn.
 
 ## legacy app
 
-**legacy app** (also **podverse-rn**, **v4 mobile**) means the React Native app in the sibling
-checkout **`../podverse-rn`** relative to this monorepo root (typically
-`/Users/mitcheldowney/repos/pv/podverse-rn`).
+**legacy app** (also **podverse-rn**, **v4 mobile**) is the sibling checkout `../podverse-rn`.
+**Nextgen** / **this monorepo** is the current product, including `apps/mobile`. See
+**legacy-app-reference**.
 
-**Nextgen** / **this monorepo** (`podverse`) is the current product codebase, including
-`apps/mobile`.
+## livestreams
 
-See **legacy-app-reference** for when and how to open that checkout.
-
-## description / about / summary
-
-These three get used interchangeably in conversation. In code they are not the same thing.
-
-- **description** is the **RSS-spec term** and the DTO field that holds that prose
-  (`<description>`, `channel_description`, `item_description`). Use this name for the field,
-  the DTO, and internal cell/kind identifiers that hold that text — not for the user-facing
-  section label.
-- **About** is the **channel-level** user-facing presentation (`info.about`) of that description
-  plus the extras that stay aligned with web (on mobile, RSS and website). People are their own
-  chip, not part of About. Funding is its own chip, not an About body link. Podcast, album, and
-  artist About chips use this name.
-- **Summary** is the **item-level** user-facing presentation (`info.summary.*`) of that
-  description. People are their own chip, not part of Summary. Episode, track, livestream, and
-  full-player Summary tabs use this name.
-
-Do not rename a channel About cell or section to `summary`, or an item Summary tab to
-`description` / `about`, just because the spoken terms overlap. Leave catalog keys on their
-surface (`info.about` vs `info.summary.*`). Do not swap those labels in UI copy, section chips,
-or testIDs.
-
-`channel_about` / `item_about` are a different DTO: structured metadata (author, duration,
-website URL), not the description prose. Do not treat those as the About/Summary body.
-
-Cross-surface field contract: **about-summary-web-mobile-alignment**.
-
-## playlist / HLS playlist
-
-**playlist** is a Podverse schema playlist: the `playlist` table, `playlist_id`, playlist screens,
-and catalog keys under `playlist.*`.
-
-An m3u8 media manifest is an **HLS playlist**. Write "HLS playlist" or "m3u8" in prose. In
-identifiers use `hlsPlaylist` (camelCase) or `hls_playlist` (snake_case reason codes and
-`HLS_PLAYLIST_*` constants). Do not write the one-word form `hlsplaylist`.
-
-A search for `playlist` still matches `hlsPlaylist` and `hls_playlist`, because those names
-contain that substring. Search `hlsPlaylist`, `hls_playlist`, or "HLS playlist" for manifests.
-Search whole-word `playlist` for the schema entity, and skip the qualified HLS names.
-
-Leave ffmpeg's `-hls_playlist_type` as ffmpeg spells it. Leave test URIs whose query parameter
-is literally `playlist=` (for example `ep.mp3?playlist=stream.m3u8`). Those fixtures show a query
-parameter, not an HLS playlist.
+- A feed's medium (podcast, music, video, and so on) comes from the feed. Livestreams are a flag
+  on top of that medium. A feed with live items is not always, or only, a livestream feed.
+- Live items are item-level (`live_item`). Livestream links choose `/podcast/livestream/` or
+  `/music/livestream/` by medium.
+- Never model livestreams as a medium, a feed type, or an `AddByRSSResourceType` value. Regular
+  and Add by RSS content follow the same rule.

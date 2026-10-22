@@ -1,4 +1,4 @@
-import type { DTOItem, LiveItemStatus } from '@podverse/helpers';
+import type { DTOItem, LiveItemStatus, QueryParamsMedium } from '@podverse/helpers';
 
 import type {
   ApiListResponse,
@@ -201,5 +201,26 @@ export async function reqLiveItemGetManyByChannel(
   return api.apiRequest<DTOItem[]>({
     path: `/live-item/channel/${channelIdOrIdText}`,
     method: 'GET',
+  });
+}
+
+export type QueryParamsLiveItemUpcoming = {
+  type: 'global' | 'subscribed';
+  medium: QueryParamsMedium;
+  page: number;
+};
+
+export async function reqLiveItemGetManyUpcoming(
+  api: ApiRequestService,
+  params: QueryParamsLiveItemUpcoming
+) {
+  const { type, ...query } = params;
+  return api.apiRequest<ApiListResponse<DTOItem>>({
+    path: `/live-item/${type}/upcoming`,
+    method: 'GET',
+    config: {
+      params: query,
+      ...(type === 'subscribed' ? { withCredentials: true } : {}),
+    },
   });
 }

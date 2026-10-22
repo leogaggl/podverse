@@ -70,17 +70,42 @@ export type PodcastDetailRange = QueryParamsStatsRange;
 export const DEFAULT_PODCAST_DETAIL_RANGE: PodcastDetailRange = 'week';
 
 /**
- * An add-by-RSS feed's episode order.
- *
- * Its own union rather than the directory podcast one: those lists are ordered by the channel
- * endpoints, while this one is sorted on the device from a stored feed, so popularity is not
- * something it can answer and title order is something it can.
+ * Panes an add-by-RSS feed can show. The screen offers the subset this feed can fill.
+ * The selected pane is visit-local and is not stored.
  */
-export const ADD_BY_RSS_EPISODE_SORT_OPTIONS = ['recent', 'alphabetical'] as const;
+export const ADD_BY_RSS_DETAIL_TABS = [
+  'episodes',
+  'tracks',
+  'downloaded',
+  'about',
+  'funding',
+  'people',
+] as const;
+
+export type AddByRssDetailTab = (typeof ADD_BY_RSS_DETAIL_TABS)[number];
+
+/**
+ * An add-by-RSS podcast feed's episode order, sorted on the device.
+ *
+ * Recent and oldest. Popularity needs the server. A stored token this list does not offer,
+ * including a title-order token, falls back to recent.
+ */
+export const ADD_BY_RSS_EPISODE_SORT_OPTIONS = ['recent', 'oldest'] as const;
 
 export type AddByRssEpisodeSort = (typeof ADD_BY_RSS_EPISODE_SORT_OPTIONS)[number];
 
 export const DEFAULT_ADD_BY_RSS_EPISODE_SORT: AddByRssEpisodeSort = 'recent';
+
+/**
+ * An add-by-RSS music feed's track order: the feed's sequence, or that sequence reversed.
+ *
+ * A stored token this list does not offer falls back to forward.
+ */
+export const ADD_BY_RSS_TRACK_SORT_OPTIONS = ['forward', 'backward'] as const;
+
+export type AddByRssTrackSort = (typeof ADD_BY_RSS_TRACK_SORT_OPTIONS)[number];
+
+export const DEFAULT_ADD_BY_RSS_TRACK_SORT: AddByRssTrackSort = 'forward';
 
 export const ALBUM_TABS = ['tracks', 'about', 'podroll', 'funding', 'people'] as const;
 
@@ -193,25 +218,30 @@ export const writePodcastDetailRange = async (
   await writeSortPref(channelScope(channelIdText), { range });
 };
 
-export type AddByRssDetailPrefs = {
-  sort: AddByRssEpisodeSort;
-};
-
-/** How this add-by-RSS feed's episode list should open. */
-export const readAddByRssDetailPrefs = async (feedIdText: string): Promise<AddByRssDetailPrefs> => {
+/** Episode order for this add-by-RSS feed. */
+export const readAddByRssEpisodeSort = async (feedIdText: string): Promise<AddByRssEpisodeSort> => {
   const stored = await readSortPref(channelScope(feedIdText));
-  return {
-    sort: pickSortPrefToken(
-      stored?.sort,
-      ADD_BY_RSS_EPISODE_SORT_OPTIONS,
-      DEFAULT_ADD_BY_RSS_EPISODE_SORT
-    ),
-  };
+  return pickSortPrefToken(
+    stored?.sort,
+    ADD_BY_RSS_EPISODE_SORT_OPTIONS,
+    DEFAULT_ADD_BY_RSS_EPISODE_SORT
+  );
 };
 
+/** Track order for this add-by-RSS music feed. */
+export const readAddByRssTrackSort = async (feedIdText: string): Promise<AddByRssTrackSort> => {
+  const stored = await readSortPref(channelScope(feedIdText));
+  return pickSortPrefToken(
+    stored?.sort,
+    ADD_BY_RSS_TRACK_SORT_OPTIONS,
+    DEFAULT_ADD_BY_RSS_TRACK_SORT
+  );
+};
+
+/** Remember the episode or track order for this add-by-RSS feed. */
 export const writeAddByRssDetailSort = async (
   feedIdText: string,
-  sort: AddByRssEpisodeSort
+  sort: AddByRssEpisodeSort | AddByRssTrackSort
 ): Promise<void> => {
   await writeSortPref(channelScope(feedIdText), { sort });
 };

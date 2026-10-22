@@ -59,7 +59,8 @@ packages/name/
 
 The `.cursor/` directory is for IDE-specific config only (rules, skills, settings).
 
-**300 line limit.** Split large plans:
+**One change per plan** (`.cursorrules` § Plan Management). Split a plan that holds changes that
+could ship separately:
 
 ```
 feature/

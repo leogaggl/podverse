@@ -4,12 +4,18 @@ import type { DescriptionIngestContext } from '@parser/lib/rss/descriptionIngest
 import type { ItemTimerAccumulator } from '@parser/lib/rss/item/item.js';
 import { createItemTimerAccumulator, handleParsedItem } from '@parser/lib/rss/item/item.js';
 import { dedupeByStableKey, getParsedItemStableKey } from '@parser/lib/rss/itemStableKey.js';
+import { markChannelMayHaveLiveItems } from '@parser/lib/rss/liveItem/channelLiveItemFlag.js';
 import type { Episode } from 'podverse-partytime';
 import type { Phase4PodcastLiveItem } from 'podverse-partytime/dist/parser/phase/phase-4.js';
 
 import { chunkArray, getLiveItemStatusEnumValue, LiveItemStatusEnum } from '@podverse/helpers';
 import type { Channel, ChannelSeasonIndex, EntityManager, LiveItem } from '@podverse/orm';
-import { AppDataSourceReadWrite, ItemService, LiveItemService } from '@podverse/orm';
+import {
+  AppDataSourceReadWrite,
+  ChannelService,
+  ItemService,
+  LiveItemService,
+} from '@podverse/orm';
 import { ItemFlagStatusStatusEnum } from '@podverse/orm';
 import type { CompatLiveItemDto } from '@podverse/parser-mapping';
 import { compatLiveItemsDtos } from '@podverse/parser-mapping';
@@ -126,6 +132,8 @@ export const handleParsedLiveItems = async (
   );
 
   const timerAccumulator = createItemTimerAccumulator();
+
+  await markChannelMayHaveLiveItems(channel, parsedLiveItems.length, new ChannelService());
 
   const liveItemObjDtosBatchs = chunkArray(liveItemObjDtos, 50);
   for (const liveItemObjDtosBatch of liveItemObjDtosBatchs) {

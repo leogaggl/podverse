@@ -2,13 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const isOfflineModeEnabled = vi.fn(() => false);
 const getInfoAsync = vi.fn();
-const resolveItemEnclosureUrl = vi.fn(() => 'https://cdn.example.com/ep.mp3');
-const buildItemLabeledEnclosures = vi.fn(() => []);
+const resolveItemEnclosureUrl = vi.fn(
+  (..._args: unknown[]) => 'https://cdn.example.com/ep.mp3'
+);
+const buildItemLabeledEnclosures = vi.fn((..._args: unknown[]): unknown[] => []);
 const downloadStoreGet = vi.fn();
 const hydrate = vi.fn(async (..._args: unknown[]) => undefined);
 const markFileMissing = vi.fn(async (..._args: unknown[]) => undefined);
 
 vi.mock('expo-file-system/legacy', () => ({
+  // Stored file:// rows rebase onto this directory, so file:///downloads/ stays that path.
+  documentDirectory: 'file:///',
   getInfoAsync: (uri: string) => getInfoAsync(uri),
 }));
 
@@ -17,14 +21,14 @@ vi.mock('../../prefs/offlineMode', () => ({
 }));
 
 vi.mock('./resolveEnclosureUrl', () => ({
-  buildItemLabeledEnclosures: () => buildItemLabeledEnclosures(),
-  resolveItemEnclosureUrl: () => resolveItemEnclosureUrl(),
+  buildItemLabeledEnclosures: (...args: unknown[]) => buildItemLabeledEnclosures(...args),
+  resolveItemEnclosureUrl: (...args: unknown[]) => resolveItemEnclosureUrl(...args),
 }));
 
 vi.mock('../../downloads/downloadManager', () => ({
   downloadManager: {
     hydrate: () => hydrate(),
-    markFileMissing: () => markFileMissing(),
+    markFileMissing: (itemIdText: string) => markFileMissing(itemIdText),
   },
 }));
 
@@ -37,7 +41,7 @@ vi.mock('../../downloads/downloadStore', () => ({
 import type { DTOItem } from '@podverse/helpers/dto';
 import type { EnclosureSelectedParams } from '@podverse/helpers/item/itemEnclosure';
 
-import { resolvePlaybackUrl } from './resolvePlaybackUrl';
+import { resolveLocalDownloadPlaybackUrl, resolvePlaybackUrl } from './resolvePlaybackUrl';
 
 /** Minimal item identity for the Offline Mode branch under test. */
 const item = { id_text: 'ep-1' } as DTOItem;
@@ -93,5 +97,53 @@ describe('resolvePlaybackUrl Offline Mode', () => {
       labeledItemEnclosures: [],
       selectedParams,
     });
+  });
+});
+
+describe('resolveLocalDownloadPlaybackUrl', () => {
+  beforeEach(() => {
+    isOfflineModeEnabled.mockReset();
+    isOfflineModeEnabled.mockReturnValue(false);
+    getInfoAsync.mockReset();
+    resolveItemEnclosureUrl.mockClear();
+    buildItemLabeledEnclosures.mockClear();
+    downloadStoreGet.mockReset();
+    hydrate.mockClear();
+    markFileMissing.mockClear();
+  });
+
+  it('returns the absolute path when a complete download file is on disk', async () => {
+    downloadStoreGet.mockReturnValue({
+      filePath: 'file:///downloads/ep-1.mp3',
+      status: 'complete',
+    });
+    getInfoAsync.mockResolvedValue({ exists: true });
+
+    await expect(resolveLocalDownloadPlaybackUrl('ep-1')).resolves.toBe(
+      'file:///downloads/ep-1.mp3'
+    );
+    expect(markFileMissing).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the download row is not complete', async () => {
+    downloadStoreGet.mockReturnValue({
+      filePath: 'file:///downloads/ep-1.mp3',
+      status: 'downloading',
+    });
+
+    await expect(resolveLocalDownloadPlaybackUrl('ep-1')).resolves.toBeNull();
+    expect(getInfoAsync).not.toHaveBeenCalled();
+    expect(markFileMissing).not.toHaveBeenCalled();
+  });
+
+  it('returns null and marks the row missing when a complete download file is gone', async () => {
+    downloadStoreGet.mockReturnValue({
+      filePath: 'file:///downloads/ep-gone.mp3',
+      status: 'complete',
+    });
+    getInfoAsync.mockResolvedValue({ exists: false });
+
+    await expect(resolveLocalDownloadPlaybackUrl('ep-gone')).resolves.toBeNull();
+    expect(markFileMissing).toHaveBeenCalledWith('ep-gone');
   });
 });

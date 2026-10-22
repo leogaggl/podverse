@@ -8,7 +8,7 @@ Orchestrate .llm/plans/active/<set>/ with .cursor/prompts/plan-orchestrator.md.
 
 This chat runs the set's prompts as subagents, one fresh context each, and stops at the first
 thing a person should look at. It does not edit code itself. Run the orchestrator on Cursor Grok 4.7,
-extra high, Fast.
+medium, Fast off.
 
 ## Run
 
@@ -16,9 +16,10 @@ extra high, Fast.
    numbered plans and the code.
 2. For each unchecked prompt, in order, launch one `Task` subagent (`generalPurpose`, foreground)
    with:
-   - **model** from the prompt's **Cursor model** line: Cursor Grok 4.7 → `grok-4.7-xhigh-fast`,
-     Codex 5.3 → `gpt-5.3-codex-high`, Opus 5.5 → `claude-opus-5-5-high`. When a slug is not in
-     this session's subagent model list, stop and ask.
+   - **model** from the prompt's **Cursor model** and **Reasoning** line: Cursor Grok 4.7 → the
+     `grok-4.7` slug for that reasoning without Fast, Codex 5.3 → `gpt-5.3-codex-high`, Opus 5.5
+     → `claude-opus-5-5-high`. When that slug is not in this session's subagent model list, stop
+     and ask; do not substitute a Fast or higher-reasoning slug.
    - **prompt**: the fenced block verbatim, then: "You run under an orchestrator; nobody can
      answer questions mid-turn. Return the files you changed, your self-check results, any
      blocker or open question, and anything a later prompt must know. Only the last prompt in

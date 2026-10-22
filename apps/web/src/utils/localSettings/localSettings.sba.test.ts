@@ -18,52 +18,40 @@ const baseSettings = {
   aqc: { rp: false, rd: false },
 };
 
-const allClosed: SidebarAccordionState = {
-  podcasts: false,
-  music: false,
-  addByRSS: false,
-  library: false,
-};
+const allClosed: SidebarAccordionState = { library: false };
 
-const allOpen: SidebarAccordionState = {
-  podcasts: true,
-  music: true,
-  addByRSS: true,
-  library: true,
-};
+const allOpen: SidebarAccordionState = { library: true };
 
 describe('local-settings sidebar accordion (sba)', () => {
   beforeEach(() => {
     clearLocalSettingsCookie();
   });
 
-  it('starts every section open when no cookie is present', () => {
+  it('starts the Library accordion open when no cookie is present', () => {
     expect(getParsedLocalSettings().sba).toEqual(allOpen);
   });
 
-  it('starts every section open when the cookie has no accordion', () => {
+  it('starts the Library accordion open when the cookie has no accordion', () => {
     writeLocalSettings(baseSettings);
 
     expect(getParsedLocalSettings().sba).toEqual(allOpen);
   });
 
-  it('keeps every section closed when the cookie saved that choice', () => {
+  it('keeps the Library accordion closed when the cookie saved that choice', () => {
     writeLocalSettings({ ...baseSettings, sba: allClosed });
 
     expect(getParsedLocalSettings().sba).toEqual(allClosed);
   });
 
-  it('keeps one saved close and leaves the other sections open', () => {
+  it('keeps a saved Library close from an older cookie and leaves other settings', () => {
     writeLocalSettings({
       ...baseSettings,
-      sba: { ...allOpen, music: false },
+      sba: { podcasts: true, music: false, addByRSS: true, library: false },
     });
 
-    expect(getParsedLocalSettings().sba).toEqual({
-      podcasts: true,
-      music: false,
-      addByRSS: true,
-      library: true,
-    });
+    const settings = getParsedLocalSettings();
+
+    expect(settings.sba).toEqual({ library: false });
+    expect(settings.vs).toBe('grid');
   });
 });

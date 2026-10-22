@@ -1,0 +1,101 @@
+appId: com.podverse.app.next
+name: Add By RSS Track Flow
+---
+# The music fixture lists under Tracks, opens the track page from More, shows Lyrics, plays on
+# row tap, and links from the full player.
+#
+# Needs flow_needs_e2e_api + flow_needs_test_assets.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+- tapOn:
+    id: tab-my-library
+- tapOn:
+    id: library-nav-add-by-rss
+- tapOn:
+    id: rss-add-button
+- tapOn:
+    id: rss-url-input
+- inputText: https://e2e-seed-addbyrss.example/album.xml
+- tapOn:
+    id: rss-add-submit
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_SLOWER}
+- runFlow:
+    file: shared/reveal-chip-row-trailing.yaml
+    env:
+      CHIP_ROW_ID: rss-media-type-selector
+      TRAILING_ID: rss-media-type-tracks
+- tapOn:
+    id: rss-media-type-tracks
+- extendedWaitUntil:
+    visible:
+      id: "home-feed-row-title-.*"
+      text: E2E Add-by-RSS Track
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: "home-row-more-.*"
+- extendedWaitUntil:
+    visible:
+      id: "media-row-action-go-to-track.*"
+    timeout: ${TIMEOUT_FASTER}
+- takeScreenshot: add-by-rss-track-more-menu
+- tapOn:
+    id: "media-row-action-go-to-track.*"
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-track-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: add-by-rss-track-detail-title
+    text: E2E Add-by-RSS Track
+- assertVisible:
+    id: add-by-rss-track-detail-album-header
+- assertVisible:
+    id: add-by-rss-track-detail-summary
+- tapOn:
+    id: add-by-rss-track-detail-tab-transcript
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-track-detail-tab-transcript-content
+      text: ".*Magni valetudo odio.*"
+    timeout: ${TIMEOUT_SLOWER}
+- takeScreenshot: add-by-rss-track-detail-lyrics
+- runFlow: shared/stack-back.yaml
+# A track row tap plays; it does not open the page.
+- tapOn:
+    id: "home-feed-row-title-.*"
+    text: E2E Add-by-RSS Track
+- extendedWaitUntil:
+    visible:
+      id: playback-now-playing-title-e2e
+      text: E2E Add-by-RSS Track
+    timeout: ${TIMEOUT_SLOWEST}
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-title-link
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: full-player-section-transcript
+- extendedWaitUntil:
+    visible:
+      id: full-player-transcript-text
+      text: ".*Magni valetudo odio.*"
+    timeout: ${TIMEOUT_SLOWER}
+- tapOn:
+    id: full-player-title-link
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-track-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: add-by-rss-track-player-back-to-feed

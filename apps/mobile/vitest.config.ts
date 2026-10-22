@@ -76,7 +76,10 @@ import { defineConfig } from 'vitest/config';
  * so the singleton listener is testable in node), the
  * transport glyph mapping that keeps the spinner to a
  * source that cannot start yet (`src/playback/playbackTransport.ts`), which clip or chapter the
- * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the marquee overflow and travel math
+ * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the Add by RSS chapters and
+ * transcript kept for the item now playing
+ * (`src/playback/addByRssNowPlayingSectionsStore.ts` — one item, dropped on reset, nothing on
+ * disk), the marquee overflow and travel math
  * (`src/lib/text/marqueeScroll.ts`), the offset that scrolls a selected chip into its row
  * (`src/components/form/chipRowReveal.ts`), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
  * and whether a server refresh should replace what a cache-first screen already painted
@@ -103,6 +106,7 @@ export default defineConfig({
       'src/auth/localDevLoginPrefill.test.ts',
       'src/auth/mobileClientHeaders.test.ts',
       'src/billing/**/*.test.ts',
+      'src/components/content/itemDetailDateLabel.test.ts',
       'src/components/form/chipRowReveal.test.ts',
       'src/components/overlay/overlayStore.test.ts',
       'src/components/overlay/overlayTransitions.test.ts',
@@ -134,17 +138,27 @@ export default defineConfig({
       'src/lib/addByRss/addByRssErrorLog.test.ts',
       'src/lib/addByRss/credentials.test.ts',
       'src/lib/addByRss/domain.test.ts',
+      'src/lib/addByRss/storedResourceType.test.ts',
+      'src/lib/addByRss/downloadIdText.test.ts',
+      'src/lib/addByRss/downloadItem.test.ts',
+      'src/lib/addByRss/itemSections.test.ts',
+      'src/lib/addByRss/liveItemDetail.test.ts',
+      'src/lib/addByRss/liveRows.test.ts',
       'src/lib/addByRss/localResourceData.test.ts',
       'src/lib/addByRss/mediaAuth.test.ts',
+      'src/lib/addByRss/resourceData.test.ts',
       'src/lib/apiErrorStatus.test.ts',
       'src/lib/cachedValue.test.ts',
       'src/lib/home/homeFeedRefresh.test.ts',
       'src/lib/perf/frameStats.test.ts',
       'src/lib/perf/perfSpans.test.ts',
+      'src/lib/playback/addByRssPlaybackIdentity.test.ts',
       'src/lib/playback/engineSourceAdoption.test.ts',
       'src/lib/playback/lastPlaybackStorage.test.ts',
       'src/lib/playback/planDownloadCompletePlaybackHandoff.test.ts',
+      'src/lib/playback/resolvePlaybackUrl.test.ts',
       'src/lib/rows/homeRowMappers.test.ts',
+      'src/lib/rows/liveItemRows.test.ts',
       'src/lib/share/shareSheetPassthrough.test.ts',
       'src/lib/share/shareUrl.test.ts',
       'src/lib/text/marqueeScroll.test.ts',
@@ -154,6 +168,7 @@ export default defineConfig({
       'src/navigation/deepLinking.test.ts',
       'src/navigation/focusedTabPop.test.ts',
       'src/net/connectivityMachine.test.ts',
+      'src/playback/addByRssNowPlayingSectionsStore.test.ts',
       'src/playback/nowPlayingSegment.test.ts',
       'src/playback/playbackErrorLog.test.ts',
       'src/playback/playbackEventSource.test.ts',
@@ -165,11 +180,19 @@ export default defineConfig({
       'src/prefs/prefsStore.test.ts',
       'src/push/notificationTarget.test.ts',
       'src/screens/home/HomeFeedRow.test.ts',
+      'src/screens/home/addByRss/addByRssDetailSections.test.ts',
+      'src/screens/home/addByRss/addByRssEpisodeTabs.test.ts',
+      'src/screens/home/addByRss/addByRssTrackTabs.test.ts',
+      'src/screens/home/itemUnseen.test.ts',
       'src/screens/home/homeRowMetadata.test.ts',
+      'src/screens/home/homeItemMerge.test.ts',
+      'src/screens/home/homeItemRowActions.test.ts',
       'src/screens/home/addByRssHomeDetailData.test.ts',
       'src/screens/episode/episodeSectionPaneLoaders.test.ts',
       'src/screens/episode/episodeTabs.test.ts',
+      'src/screens/player/fullPlayerAddByRssPanes.test.ts',
       'src/screens/player/fullPlayerLayout.test.ts',
+      'src/screens/player/fullPlayerContentLink.test.ts',
       'src/screens/search/podcastIndexFeedPreview.test.ts',
       'src/screens/more/errorLogDeviceContext.test.ts',
       'src/screens/more/errorLogMailto.test.ts',

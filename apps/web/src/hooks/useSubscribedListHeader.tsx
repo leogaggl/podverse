@@ -44,6 +44,8 @@ export type UseSubscribedListHeaderArgs<
   setFilterParams: (next: TFilter) => void;
   setShowCategoriesModal?: (open: boolean) => void;
   showRangeDropdown: boolean;
+  /** When false, the type menu is left out. Absent keeps it. */
+  showTypeDropdown?: boolean;
   sort: TSort;
   sortMenuItems: DropdownOption[];
   sortValues: readonly TSort[];
@@ -72,6 +74,7 @@ export function useSubscribedListHeader<
     setFilterParams,
     setShowCategoriesModal,
     showRangeDropdown,
+    showTypeDropdown,
     sort,
     sortMenuItems,
     sortValues,
@@ -199,7 +202,9 @@ export function useSubscribedListHeader<
   const buttonsNode = useMemo(
     () => (
       <>
-        <Dropdown key="type" value={type} menuItems={typeMenuItems} onChange={handleTypeChange} />
+        {showTypeDropdown !== false ? (
+          <Dropdown key="type" value={type} menuItems={typeMenuItems} onChange={handleTypeChange} />
+        ) : null}
         <Dropdown key="sort" value={sort} menuItems={sortMenuItems} onChange={handleSortChange} />
         {showRangeDropdown && range ? (
           <Dropdown
@@ -220,6 +225,7 @@ export function useSubscribedListHeader<
       rangeMenuItems,
       setViewSelected,
       showRangeDropdown,
+      showTypeDropdown,
       sort,
       sortMenuItems,
       type,

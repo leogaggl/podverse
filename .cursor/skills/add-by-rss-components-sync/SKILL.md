@@ -44,7 +44,7 @@ preserving their distinct data sources and behaviors.
 
 ## Add-by-RSS Constraints
 
-- Add-by-RSS headers must not include share buttons.
+- Add-by-RSS headers, list rows, and More menus must not include Share. Regular rows keep Share.
 - Add-by-RSS channel views should use the feed URL as a title fallback until parsed fields exist.
 - Add-by-RSS list views should support list and grid when their non-Add-by-RSS equivalents do.
 - Add-by-RSS list rows should include the same MoreButton menu where applicable.

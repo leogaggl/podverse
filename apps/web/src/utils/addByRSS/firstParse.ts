@@ -1,5 +1,6 @@
 import type { AddByRSSParseStatus } from '@podverse/helpers';
 
+import { trackBackgroundActivity } from '../backgroundActivity/backgroundActivityStore';
 import type { AddByRSSParseOutcome } from './actions';
 import {
   applyAddByRSSParseStatus,
@@ -93,34 +94,40 @@ export async function enqueueAddByRSSFirstParses(params: {
     pending.push({ feed, feedKey });
   }
 
+  if (pending.length === 0) {
+    return [];
+  }
+
   const started: string[] = [];
-  for (const { feed, feedKey } of pending) {
-    try {
-      const { request_id } = await enqueueAddByRSSParseWithStoredCredentials({
-        accountId,
-        feedUrl: feed.feedUrl,
-      });
-      await onStatus(feed.feedUrl, undefined, 'queued');
-      started.push(feed.feedUrl);
-      void pollAddByRSSParseStatus({
-        requestId: request_id,
-        onStatusUpdate: async (statusResponse) => {
-          await onStatus(
-            feed.feedUrl,
-            statusResponse.payload,
-            statusResponse.status,
-            statusResponse.cache,
-            statusResponse
-          );
-        },
-      }).catch((error: unknown) => {
+  await trackBackgroundActivity('add_by_rss_refresh', { counted: false }, async () => {
+    for (const { feed, feedKey } of pending) {
+      try {
+        const { request_id } = await enqueueAddByRSSParseWithStoredCredentials({
+          accountId,
+          feedUrl: feed.feedUrl,
+        });
+        await onStatus(feed.feedUrl, undefined, 'queued');
+        started.push(feed.feedUrl);
+        void pollAddByRSSParseStatus({
+          requestId: request_id,
+          onStatusUpdate: async (statusResponse) => {
+            await onStatus(
+              feed.feedUrl,
+              statusResponse.payload,
+              statusResponse.status,
+              statusResponse.cache,
+              statusResponse
+            );
+          },
+        }).catch((error: unknown) => {
+          logFirstParseErrorOnce(feedKey, error);
+          releaseAddByRSSParseInFlight(feed.feedUrl);
+        });
+      } catch (error: unknown) {
         logFirstParseErrorOnce(feedKey, error);
         releaseAddByRSSParseInFlight(feed.feedUrl);
-      });
-    } catch (error: unknown) {
-      logFirstParseErrorOnce(feedKey, error);
-      releaseAddByRSSParseInFlight(feed.feedUrl);
+      }
     }
-  }
+  });
   return started;
 }

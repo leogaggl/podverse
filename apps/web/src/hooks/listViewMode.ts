@@ -1,6 +1,3 @@
-import type { QueryParamsMedium, SortPrefScope } from '@podverse/helpers';
-import { homeListViewModeScopeForMedium } from '@podverse/helpers';
-
 import type { ViewSelectedOption } from '../components/ViewSelector/ViewSelector';
 
 export function isListViewMode(value: string | undefined): value is ViewSelectedOption {
@@ -16,8 +13,4 @@ export function resolveListViewMode(storedViewMode: string | undefined): ViewSel
     return storedViewMode;
   }
   return 'rows';
-}
-
-export function homeListViewModeScope(medium: QueryParamsMedium): SortPrefScope {
-  return homeListViewModeScopeForMedium(medium);
 }

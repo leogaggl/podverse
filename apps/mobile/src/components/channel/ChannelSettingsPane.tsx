@@ -3,12 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import type { DTOChannel } from '@podverse/helpers';
-import { buildFeedParseStatusLines, formatDateTimeAbbrev } from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import type { ChannelNotificationsState } from '../../hooks/useChannelNotifications';
-import { resolveSupportedLocale } from '../../i18n/locale';
 import { NOTIFICATION_TYPE_ROWS } from '../../lib/notifications/notificationTypeRows';
 import { handleRateLimitMessage } from '../../lib/rateLimit/handleRateLimitMessage';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
@@ -26,7 +24,8 @@ import {
   SettingsRowDescription,
   SettingsSwitchRow,
 } from '../form';
-import { Button } from '../primitives/Button';
+import { ChannelFeedSettingsGroup } from './ChannelFeedSettingsGroup';
+import { useFeedParseStatusLines } from './useFeedParseStatusLines';
 
 export type ChannelSettingsPaneProps = {
   channel: DTOChannel | null;
@@ -43,9 +42,6 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
     feedInner: {
       gap: settingsCardInnerGap(tokens.spacing),
       padding: tokens.spacing.lg,
-    },
-    feedStatus: {
-      gap: tokens.spacing.xs,
     },
     scroll: {
       flex: 1,
@@ -67,7 +63,7 @@ export function ChannelSettingsPane({
   notifications,
   testIDPrefix,
 }: ChannelSettingsPaneProps) {
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const { handleGateError, openGate } = useMembershipGate();
   const styles = useThemedStyles(createStyles);
@@ -76,33 +72,22 @@ export function ChannelSettingsPane({
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
   const [autoDownloadNoticeVisible, setAutoDownloadNoticeVisible] = useState(false);
 
-  const locale = resolveSupportedLocale(i18n.language);
   const isSignedIn = status === 'authenticated';
   const feed = channel?.feed ?? null;
+  const feedLog = feed?.feed_log;
+  const feedStatusLines = useFeedParseStatusLines(
+    feedLog === undefined
+      ? null
+      : {
+          lastFailedParseTime: feedLog.last_failed_parse_time,
+          lastFinishedParseTime: feedLog.last_finished_parse_time,
+        }
+  );
 
   const authContext = useMemo(
     () => ({ accessToken, clearSession, refreshToken, setTokens }),
     [accessToken, clearSession, refreshToken, setTokens]
   );
-
-  const feedStatusLines = useMemo(() => {
-    const feedLog = feed?.feed_log;
-    if (feedLog === undefined) {
-      return [];
-    }
-    return buildFeedParseStatusLines(
-      {
-        lastFailedParseTime: feedLog.last_failed_parse_time,
-        lastFinishedParseTime: feedLog.last_finished_parse_time,
-      },
-      (iso) => formatDateTimeAbbrev(iso, locale),
-      {
-        lastFailedParse: (date) => t('settings.feed.last_failed_parse', { date }),
-        lastParsed: (date) => t('settings.feed.last_parsed', { date }),
-        neverFullyParsed: t('settings.feed.never_fully_parsed'),
-      }
-    ).lines;
-  }, [feed?.feed_log, locale, t]);
 
   const handleCheckFeedForUpdates = useCallback(async () => {
     if (isCheckingFeed) {
@@ -151,33 +136,15 @@ export function ChannelSettingsPane({
         testID={`${testIDPrefix}-settings`}
       >
         {showFeed ? (
-          <SettingsGroup testID={`${testIDPrefix}-settings-feed-card`} title={t('info.rss_feed')}>
-            <View style={styles.feedInner}>
-              {feedStatusLines.length > 0 ? (
-                <View style={styles.feedStatus}>
-                  {feedStatusLines.map((line) => (
-                    <SettingsRowDescription key={line}>{line}</SettingsRowDescription>
-                  ))}
-                </View>
-              ) : null}
-              <Button
-                fullWidth
-                label={t('settings.feed.check_feed_for_updates')}
-                loading={isCheckingFeed}
-                onPress={() => {
-                  void handleCheckFeedForUpdates();
-                }}
-                size="form"
-                testID={`${testIDPrefix}-settings-check-feed`}
-                variant="secondary"
-              />
-              {feedNotice !== null ? (
-                <SettingsRowDescription testID={`${testIDPrefix}-settings-feed-notice`}>
-                  {feedNotice}
-                </SettingsRowDescription>
-              ) : null}
-            </View>
-          </SettingsGroup>
+          <ChannelFeedSettingsGroup
+            isChecking={isCheckingFeed}
+            notice={feedNotice}
+            onCheck={() => {
+              void handleCheckFeedForUpdates();
+            }}
+            statusLines={feedStatusLines}
+            testIDPrefix={testIDPrefix}
+          />
         ) : null}
 
         <SettingsGroup

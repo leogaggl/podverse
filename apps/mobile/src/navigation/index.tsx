@@ -55,7 +55,11 @@ import { ClipDetailScreen } from '../screens/clip/ClipDetailScreen';
 import { MakeClipScreen } from '../screens/clip/MakeClipScreen';
 import { EpisodeDetailScreen } from '../screens/episode/EpisodeDetailScreen';
 import { HelloWorldScreen } from '../screens/HelloWorldScreen';
+import type { AddByRssDetailStackParamList } from '../screens/home/addByRss/addByRssStackParams';
+import { AddByRssEpisodeDetailScreen } from '../screens/home/AddByRssEpisodeDetailScreen';
 import { AddByRssHomeDetailScreen } from '../screens/home/AddByRssHomeDetailScreen';
+import { AddByRssLivestreamDetailScreen } from '../screens/home/AddByRssLivestreamDetailScreen';
+import { AddByRssTrackDetailScreen } from '../screens/home/AddByRssTrackDetailScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { ImageViewerScreen } from '../screens/image/ImageViewerScreen';
 import { LibraryDownloadsScreen } from '../screens/library/LibraryDownloadsScreen';
@@ -90,7 +94,13 @@ import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScre
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
-import type { FullPlayerOpenRequest } from '../screens/player/fullPlayerContentLink';
+import { playerItemStackRoutes } from '../screens/player/fullPlayerContentLink';
+import type {
+  FullPlayerContentTarget,
+  FullPlayerItemOpenRequest,
+  FullPlayerOpenRequest,
+  PlayerStackRoute,
+} from '../screens/player/fullPlayerContentLink';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
 import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
@@ -144,7 +154,10 @@ const rootNavigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export const HOME_STACK_ROUTES = {
   AddByRssCredentials: 'AddByRssCredentials',
+  AddByRssEpisodeDetail: 'AddByRssEpisodeDetail',
+  AddByRssLivestreamDetail: 'AddByRssLivestreamDetail',
   AddByRssPodcastDetail: 'AddByRssPodcastDetail',
+  AddByRssTrackDetail: 'AddByRssTrackDetail',
   AlbumDetail: 'AlbumDetail',
   ArtistDetail: 'ArtistDetail',
   ClipDetail: 'ClipDetail',
@@ -176,7 +189,10 @@ export const SEARCH_STACK_ROUTES = {
 export const LIBRARY_STACK_ROUTES = {
   AddByRssAdd: 'AddByRssAdd',
   AddByRssCredentials: 'AddByRssCredentials',
+  AddByRssEpisodeDetail: 'AddByRssEpisodeDetail',
+  AddByRssLivestreamDetail: 'AddByRssLivestreamDetail',
   AddByRssPodcastDetail: 'AddByRssPodcastDetail',
+  AddByRssTrackDetail: 'AddByRssTrackDetail',
   AddByRssRoot: 'AddByRssRoot',
   AlbumDetail: 'AlbumDetail',
   ArtistDetail: 'ArtistDetail',
@@ -273,7 +289,11 @@ const prefixScreenPaths = <Screens extends Record<string, string>>(
 };
 
 const homeTabLinkScreens = {
+  AddByRssEpisodeDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/item/:itemKey`,
+  AddByRssLivestreamDetail:
+    `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/livestream/:liveItemKey`,
   AddByRssPodcastDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText`,
+  AddByRssTrackDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/track/:itemKey`,
   AlbumDetail: `${MOBILE_HOME_TAB_SEGMENT}${APP_ROUTES.ALBUM}/:albumId`,
   ArtistDetail: `${MOBILE_HOME_TAB_SEGMENT}${APP_ROUTES.ARTIST}/:artistId`,
   ClipDetail: `${MOBILE_HOME_TAB_SEGMENT}${APP_ROUTES.CLIP}/:clipId`,
@@ -314,7 +334,10 @@ const moreTabLinkScreens = {
 const libraryTabLinkScreens = {
   AddByRssAdd: 'my-library/add-by-rss/add',
   AddByRssCredentials: 'my-library/add-by-rss/credentials/:feedIdText',
+  AddByRssEpisodeDetail: 'my-library/add-by-rss/:feedIdText/item/:itemKey',
+  AddByRssLivestreamDetail: 'my-library/add-by-rss/:feedIdText/livestream/:liveItemKey',
   AddByRssPodcastDetail: 'my-library/add-by-rss/:feedIdText',
+  AddByRssTrackDetail: 'my-library/add-by-rss/:feedIdText/track/:itemKey',
   AddByRssRoot: 'my-library/add-by-rss',
   AlbumDetail: `my-library${APP_ROUTES.ALBUM}/:albumId`,
   ArtistDetail: `my-library${APP_ROUTES.ARTIST}/:artistId`,
@@ -469,11 +492,10 @@ export type ChannelBrowseStackParamList = {
   TrackDetail: TrackDetailRouteParams;
 };
 
-export type HomeStackParamList = ChannelBrowseStackParamList & {
-  AddByRssCredentials: { feedIdText: string };
-  AddByRssPodcastDetail: { feedIdText: string };
-  HomeRoot: undefined;
-};
+export type HomeStackParamList = ChannelBrowseStackParamList &
+  AddByRssDetailStackParamList & {
+    HomeRoot: undefined;
+  };
 
 export type SearchStackParamList = ChannelBrowseStackParamList & {
   /**
@@ -485,10 +507,8 @@ export type SearchStackParamList = ChannelBrowseStackParamList & {
   SearchRoot: { autoFocus?: boolean; medium?: 'all' | 'music' } | undefined;
 };
 
-export type LibraryStackParamList = {
+export type LibraryStackParamList = AddByRssDetailStackParamList & {
   AddByRssAdd: undefined;
-  AddByRssCredentials: { feedIdText: string };
-  AddByRssPodcastDetail: { feedIdText: string };
   AddByRssRoot: undefined;
   AlbumDetail: AlbumDetailRouteParams;
   ArtistDetail: ArtistDetailRouteParams;
@@ -620,6 +640,136 @@ const openFullPlayerContent = (
   });
 };
 
+const playerChannelRoute = (channel: FullPlayerContentTarget): PlayerStackRoute | null => {
+  switch (channel.kind) {
+    case 'podcast':
+      return {
+        name: HOME_STACK_ROUTES.PodcastDetail,
+        params: buildPodcastDetailParams({
+          podcastId: channel.idText,
+          previewImageUrl: channel.imageUrl,
+          previewTitle: channel.name,
+        }),
+      };
+    case 'album':
+      return {
+        name: HOME_STACK_ROUTES.AlbumDetail,
+        params: buildAlbumDetailParams({
+          albumId: channel.idText,
+          previewImageUrl: channel.imageUrl,
+          previewTitle: channel.name,
+        }),
+      };
+    case 'artist':
+      return {
+        name: HOME_STACK_ROUTES.ArtistDetail,
+        params: buildArtistDetailParams({
+          artistId: channel.idText,
+          previewImageUrl: channel.imageUrl,
+          previewTitle: channel.name,
+        }),
+      };
+    case 'add-by-rss':
+      return {
+        name: HOME_STACK_ROUTES.AddByRssPodcastDetail,
+        params: { feedIdText: channel.idText },
+      };
+    case 'add-by-rss-episode':
+    case 'add-by-rss-livestream':
+    case 'add-by-rss-track':
+    case 'clip':
+    case 'episode':
+    case 'track':
+      return null;
+  }
+};
+
+const playerItemRoute = (item: FullPlayerContentTarget): PlayerStackRoute | null => {
+  switch (item.kind) {
+    case 'episode':
+      return { name: HOME_STACK_ROUTES.EpisodeDetail, params: { episodeId: item.idText } };
+    case 'clip':
+      return { name: HOME_STACK_ROUTES.ClipDetail, params: { clipId: item.idText } };
+    case 'track':
+      return {
+        name: HOME_STACK_ROUTES.TrackDetail,
+        params: buildTrackDetailParams({
+          previewImageUrl: item.imageUrl,
+          previewTitle: item.name,
+          trackId: item.idText,
+        }),
+      };
+    case 'add-by-rss-episode':
+      return {
+        name: HOME_STACK_ROUTES.AddByRssEpisodeDetail,
+        params: { feedIdText: item.idText, itemKey: item.itemKey ?? '' },
+      };
+    case 'add-by-rss-track':
+      return {
+        name: HOME_STACK_ROUTES.AddByRssTrackDetail,
+        params: { feedIdText: item.idText, itemKey: item.itemKey ?? '' },
+      };
+    case 'add-by-rss-livestream':
+      return {
+        name: HOME_STACK_ROUTES.AddByRssLivestreamDetail,
+        params: { feedIdText: item.idText, liveItemKey: item.itemKey ?? '' },
+      };
+    case 'add-by-rss':
+    case 'album':
+    case 'artist':
+    case 'podcast':
+      return null;
+  }
+};
+
+const openFullPlayerItem = (
+  navigation: NavigationProp<RootStackParamList>,
+  request: FullPlayerItemOpenRequest,
+  visibleTabIds: readonly ContentTabId[]
+): void => {
+  const channelRoute = playerChannelRoute(request.channel);
+  if (channelRoute === null) {
+    openFullPlayerContent(navigation, { ...request.item, stack: request.stack }, visibleTabIds);
+    return;
+  }
+
+  const itemRoute = playerItemRoute(request.item);
+  if (itemRoute === null) {
+    openFullPlayerContent(navigation, { ...request.item, stack: request.stack }, visibleTabIds);
+    return;
+  }
+
+  const rootName =
+    request.stack === 'Home' ? HOME_STACK_ROUTES.HomeRoot : BROWSE_STACK_ROUTES.BrowseRoot;
+  const routes = playerItemStackRoutes(rootName, channelRoute, itemRoute);
+  const stackParams = { state: { index: routes.length - 1, routes } };
+
+  if (request.stack === 'Home') {
+    if (visibleTabIds.includes('Home')) {
+      navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params: stackParams, screen: 'Home' });
+      return;
+    }
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+      params: { initial: false, params: stackParams, screen: MORE_STACK_ROUTES.MoreOverflowHome },
+      screen: 'More',
+    });
+    return;
+  }
+
+  if (visibleTabIds.includes('Browse')) {
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs, { params: stackParams, screen: 'Browse' });
+    return;
+  }
+  navigation.navigate(ROOT_STACK_ROUTES.MainTabs, {
+    params: {
+      initial: false,
+      params: stackParams,
+      screen: MORE_STACK_ROUTES.MoreOverflowBrowse,
+    },
+    screen: 'More',
+  });
+};
+
 const homeContentParams = (
   request: FullPlayerOpenRequest,
   previewImageUrl: string | null,
@@ -667,6 +817,24 @@ const homeContentParams = (
         initial: false,
         params: { feedIdText: request.idText },
         screen: 'AddByRssPodcastDetail',
+      };
+    case 'add-by-rss-episode':
+      return {
+        initial: false,
+        params: { feedIdText: request.idText, itemKey: request.itemKey ?? '' },
+        screen: 'AddByRssEpisodeDetail',
+      };
+    case 'add-by-rss-track':
+      return {
+        initial: false,
+        params: { feedIdText: request.idText, itemKey: request.itemKey ?? '' },
+        screen: 'AddByRssTrackDetail',
+      };
+    case 'add-by-rss-livestream':
+      return {
+        initial: false,
+        params: { feedIdText: request.idText, liveItemKey: request.itemKey ?? '' },
+        screen: 'AddByRssLivestreamDetail',
       };
   }
 };
@@ -722,6 +890,9 @@ const catalogContentParams = (
         screen: 'ArtistDetail',
       };
     case 'add-by-rss':
+    case 'add-by-rss-episode':
+    case 'add-by-rss-livestream':
+    case 'add-by-rss-track':
       throw new Error('Add by RSS content opens on Home.');
   }
 };
@@ -853,6 +1024,21 @@ function HomeStackNavigator() {
         options={{ title: t('media.podcast.podcast') }}
       />
       <HomeStack.Screen
+        component={AddByRssEpisodeDetailScreen}
+        name={HOME_STACK_ROUTES.AddByRssEpisodeDetail}
+        options={{ title: t('media.podcast.episode') }}
+      />
+      <HomeStack.Screen
+        component={AddByRssLivestreamDetailScreen}
+        name={HOME_STACK_ROUTES.AddByRssLivestreamDetail}
+        options={{ title: t('media.livestream.livestream') }}
+      />
+      <HomeStack.Screen
+        component={AddByRssTrackDetailScreen}
+        name={HOME_STACK_ROUTES.AddByRssTrackDetail}
+        options={{ title: t('media.music.track') }}
+      />
+      <HomeStack.Screen
         component={AddByRssCredentialsScreen}
         name={HOME_STACK_ROUTES.AddByRssCredentials}
         options={{ title: t('features.add_by_rss.credentials_page_title') }}
@@ -981,6 +1167,21 @@ function LibraryStackNavigator() {
         component={AddByRssHomeDetailScreen}
         name={LIBRARY_STACK_ROUTES.AddByRssPodcastDetail}
         options={{ title: t('media.podcast.podcast') }}
+      />
+      <LibraryStack.Screen
+        component={AddByRssEpisodeDetailScreen}
+        name={LIBRARY_STACK_ROUTES.AddByRssEpisodeDetail}
+        options={{ title: t('media.podcast.episode') }}
+      />
+      <LibraryStack.Screen
+        component={AddByRssLivestreamDetailScreen}
+        name={LIBRARY_STACK_ROUTES.AddByRssLivestreamDetail}
+        options={{ title: t('media.livestream.livestream') }}
+      />
+      <LibraryStack.Screen
+        component={AddByRssTrackDetailScreen}
+        name={LIBRARY_STACK_ROUTES.AddByRssTrackDetail}
+        options={{ title: t('media.music.track') }}
       />
       <LibraryStack.Screen
         component={AddByRssCredentialsScreen}
@@ -1943,6 +2144,9 @@ export function MobileTabNavigator({
             <FullPlayerScreen
               onOpenContent={(request) => {
                 openFullPlayerContent(props.navigation, request, visibleTabIds);
+              }}
+              onOpenItem={(request) => {
+                openFullPlayerItem(props.navigation, request, visibleTabIds);
               }}
               onClose={() => {
                 if (props.navigation.canGoBack()) {

@@ -5,7 +5,9 @@ import { MediumEnum } from '@podverse/helpers/medium';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import {
+  fullPlayerOpenScreenLabelKey,
   playerContentStack,
+  playerItemStackRoutes,
   resolveFullPlayerChannelLink,
   resolveFullPlayerTitleLink,
   resolveLocalAddByRssFeedIdText,
@@ -28,14 +30,18 @@ const itemFields: Partial<DTOItem> = {
 const item = itemFields as DTOItem;
 
 const episodeTarget: PlaybackTarget = { channel, item, kind: 'item-podcast' };
+const noAddByRssItem = { feedIdText: null, itemKey: null };
 
 describe('resolveFullPlayerTitleLink', () => {
   it('opens the episode for an episode, a chapter, an official clip, and a video', () => {
-    expect(resolveFullPlayerTitleLink(episodeTarget, 'Episode')?.kind).toBe('episode');
+    expect(resolveFullPlayerTitleLink(episodeTarget, 'Episode', noAddByRssItem)?.kind).toBe(
+      'episode'
+    );
     expect(
       resolveFullPlayerTitleLink(
         { channel, item, kind: 'chapter', chapter: { id_text: 'ch' } } as PlaybackTarget,
-        'Episode'
+        'Episode',
+        noAddByRssItem
       )?.idText
     ).toBe('ep-1');
     expect(
@@ -46,43 +52,124 @@ describe('resolveFullPlayerTitleLink', () => {
           kind: 'soundbite',
           soundbite: { id_text: 'sb' },
         } as PlaybackTarget,
-        'Episode'
+        'Episode',
+        noAddByRssItem
       )?.kind
     ).toBe('episode');
-    expect(resolveFullPlayerTitleLink({ channel, item, kind: 'item-video' }, 'Episode')?.kind).toBe(
-      'episode'
-    );
+    expect(
+      resolveFullPlayerTitleLink({ channel, item, kind: 'item-video' }, 'Episode', noAddByRssItem)
+        ?.kind
+    ).toBe('episode');
   });
 
   it('opens the clip for a clip and the track for music', () => {
     expect(
       resolveFullPlayerTitleLink(
         { channel, clip: { id_text: 'clip-1' }, item, kind: 'clip' } as PlaybackTarget,
-        'Clip'
+        'Clip',
+        noAddByRssItem
       )
     ).toMatchObject({ idText: 'clip-1', kind: 'clip' });
     expect(
       resolveFullPlayerTitleLink(
         { channel, intent: 'explicit_play', item, kind: 'item-music' } as PlaybackTarget,
-        'Track'
+        'Track',
+        noAddByRssItem
       )?.kind
     ).toBe('track');
   });
 
   it('opens the episode for a livestream that has an item, and skips a title with no item', () => {
-    expect(resolveFullPlayerTitleLink({ channel, item, kind: 'livestream' }, 'Live')?.kind).toBe(
-      'episode'
-    );
-    expect(resolveFullPlayerTitleLink({ channel, item: null, kind: 'livestream' }, 'Live')).toBe(
-      null
-    );
-  });
-
-  it('does not link an Add by RSS title', () => {
+    expect(
+      resolveFullPlayerTitleLink({ channel, item, kind: 'livestream' }, 'Live', noAddByRssItem)
+    ).toMatchObject({ idText: 'ep-1', kind: 'episode' });
     expect(
       resolveFullPlayerTitleLink(
-        { kind: 'add-by-rss', resourceData: { title: 'Private' } },
-        'Private'
+        { channel, item: null, kind: 'livestream' },
+        'Live',
+        noAddByRssItem
+      )
+    ).toBe(null);
+  });
+
+  it('links a music track when the feed id and the item key are both set', () => {
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { medium_id: MediumEnum.Music, title: 'Track' } },
+        'Track',
+        { feedIdText: 'feed-1', itemKey: 'item-guid' }
+      )
+    ).toMatchObject({
+      idText: 'feed-1',
+      imageUrl: null,
+      itemKey: 'item-guid',
+      kind: 'add-by-rss-track',
+    });
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { medium_id: MediumEnum.Music, title: 'Track' } },
+        'Track',
+        { feedIdText: 'feed-1', itemKey: null }
+      )
+    ).toBe(null);
+  });
+
+  it('links a podcast episode when the feed id and the item key are both set', () => {
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { medium_id: MediumEnum.Podcast, title: 'Episode' } },
+        'Episode',
+        { feedIdText: 'feed-1', itemKey: 'item-guid' }
+      )
+    ).toMatchObject({
+      idText: 'feed-1',
+      imageUrl: null,
+      itemKey: 'item-guid',
+      kind: 'add-by-rss-episode',
+    });
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { medium_id: MediumEnum.Podcast, title: 'Episode' } },
+        'Episode',
+        { feedIdText: null, itemKey: 'item-guid' }
+      )
+    ).toBe(null);
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { medium_id: MediumEnum.Podcast, title: 'Episode' } },
+        'Episode',
+        { feedIdText: 'feed-1', itemKey: null }
+      )
+    ).toBe(null);
+  });
+
+  it('links an Add by RSS livestream, including one on a music feed, when both ids are set', () => {
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { liveItem: {}, title: 'Live' } },
+        'Live',
+        { feedIdText: 'feed-1', itemKey: 'studio-live' }
+      )
+    ).toMatchObject({
+      idText: 'feed-1',
+      itemKey: 'studio-live',
+      kind: 'add-by-rss-livestream',
+    });
+    expect(
+      resolveFullPlayerTitleLink(
+        {
+          kind: 'add-by-rss',
+          resourceData: { liveItem: {}, medium_id: MediumEnum.Music, title: 'Live' },
+        },
+        'Live',
+        { feedIdText: 'feed-1', itemKey: 'studio-live' }
+      )?.kind
+    ).toBe('add-by-rss-livestream');
+    expect(
+      resolveFullPlayerTitleLink(
+        { kind: 'add-by-rss', resourceData: { liveItem: {}, title: 'Live' } },
+        'Live',
+        { feedIdText: 'feed-1', itemKey: null }
       )
     ).toBe(null);
   });
@@ -107,6 +194,26 @@ describe('resolveFullPlayerChannelLink', () => {
         null
       )?.kind
     ).toBe('album');
+  });
+
+  it('opens the album for a livestream on an album feed and the podcast otherwise', () => {
+    const livestream = (mediumId: MediumEnum): PlaybackTarget => ({
+      channel: { ...channel, medium_id: mediumId },
+      item,
+      kind: 'livestream',
+    });
+    expect(
+      resolveFullPlayerChannelLink(livestream(MediumEnum.Music), 'Album One', null)
+    ).toMatchObject({ idText: 'show-1', kind: 'album', name: 'Album One' });
+    expect(
+      resolveFullPlayerChannelLink(livestream(MediumEnum.MusicL), 'Album One', null)?.kind
+    ).toBe('album');
+    expect(
+      resolveFullPlayerChannelLink(livestream(MediumEnum.PublisherMusic), 'Album One', null)?.kind
+    ).toBe('podcast');
+    expect(
+      resolveFullPlayerChannelLink(livestream(MediumEnum.Podcast), 'Album One', null)?.kind
+    ).toBe('podcast');
   });
 
   it('opens Add by RSS only after this device resolves a local feed', () => {
@@ -146,8 +253,46 @@ describe('playerContentStack', () => {
   it('opens a follow on Home and everything else on Browse', () => {
     expect(playerContentStack({ isSubscribed: true, kind: 'episode' })).toBe('Home');
     expect(playerContentStack({ isSubscribed: true, kind: 'podcast' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: true, kind: 'album' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: false, kind: 'album' })).toBe('Browse');
     expect(playerContentStack({ isSubscribed: false, kind: 'episode' })).toBe('Browse');
     expect(playerContentStack({ isSubscribed: false, kind: 'clip' })).toBe('Browse');
     expect(playerContentStack({ isSubscribed: false, kind: 'add-by-rss' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: false, kind: 'add-by-rss-episode' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: false, kind: 'add-by-rss-track' })).toBe('Home');
+    expect(playerContentStack({ isSubscribed: false, kind: 'add-by-rss-livestream' })).toBe('Home');
+  });
+});
+
+describe('fullPlayerOpenScreenLabelKey', () => {
+  it('names an Add by RSS track as a track', () => {
+    expect(fullPlayerOpenScreenLabelKey('add-by-rss-track')).toBe('media.music.track');
+  });
+
+  it('names an Add by RSS livestream as a livestream', () => {
+    expect(fullPlayerOpenScreenLabelKey('add-by-rss-livestream')).toBe(
+      'media.livestream.livestream'
+    );
+  });
+});
+
+describe('playerItemStackRoutes', () => {
+  const channel = { name: 'PodcastDetail', params: { podcastId: 'show-1' } };
+  const item = { name: 'EpisodeDetail', params: { episodeId: 'ep-1' } };
+
+  it('puts Home root under the channel, then the episode', () => {
+    expect(playerItemStackRoutes('HomeRoot', channel, item)).toEqual([
+      { name: 'HomeRoot' },
+      { name: 'PodcastDetail', params: { podcastId: 'show-1' } },
+      { name: 'EpisodeDetail', params: { episodeId: 'ep-1' } },
+    ]);
+  });
+
+  it('puts Browse root under the same channel and episode', () => {
+    expect(playerItemStackRoutes('BrowseRoot', channel, item)).toEqual([
+      { name: 'BrowseRoot' },
+      { name: 'PodcastDetail', params: { podcastId: 'show-1' } },
+      { name: 'EpisodeDetail', params: { episodeId: 'ep-1' } },
+    ]);
   });
 });

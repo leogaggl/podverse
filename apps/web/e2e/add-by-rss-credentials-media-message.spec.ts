@@ -101,7 +101,7 @@ test.describe('Add by RSS protected media on the web', () => {
       requiresCredentials: true,
     });
 
-    await page.goto('/add-by-rss/podcasts');
+    await page.goto('/add-by-rss');
     const channelIdText = await readNeedsCredentialsFeedIdText(page, FEED_TITLE);
     resourceData = buildProtectedResourceData(channelIdText);
     await setNowPlaying(page, resourceData);

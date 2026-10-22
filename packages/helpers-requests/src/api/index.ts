@@ -4,6 +4,7 @@ export * from './managedCopy/managedCopy.js';
 export * from './parseMembershipGateError.js';
 export * from './queryParams.js';
 export type { OpmlImportStatusResponse, ReqAccountOpmlImportResponse } from './account/account.js';
+export type { QueryParamsLiveItemUpcoming } from './liveItem/liveItem.js';
 export type {
   IdentityResolvePodcastIndexMove,
   IdentityResolveRequest,

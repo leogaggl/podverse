@@ -138,26 +138,35 @@ Browse rows there.
 
 **List rows:** `HomeFeedRow` for media/results (a top hairline on every row, including the first;
 no bottom hairline; a podcast, album, or artist row uses `LIST_ROW_SHOW_VERTICAL_INSET` (10) so
-the 78×78 artwork makes a 98pt row, and its date/title/footer gap is `spacing.sm`. Episode,
-clip, and track rows use `spacing.lg` and an identity `gap` of `spacing.base`. Downloads and
-category rows use `spacing.base`. Artwork is 78×78). Identity lines use a column `gap`, not
-per-line margins, and the text stack is vertically centered. Track rows (`mediaType="tracks"`)
-omit the list play/pause band and put More in `identityRow`, vertically centered with the
-artwork and text; the row press still starts playback. `ListRow` is the title/subtitle primitive.
-Its title-to-subtitle gap stays `spacing.sm`, and its default vertical padding is `spacing.base`.
-A numeric `badgeCount`
-renders `CountBadge` left of `trailing` (chevron) and hides at 0; do not invent a second count
-chip. See **mobile-screen-layout**.
+the 78×78 artwork makes a 98pt row. Every `HomeFeedRow` identity stack uses a column `gap` of
+`spacing.xs`. Episode, clip, and track rows use vertical padding `spacing.lg`. Downloads and
+category rows use `spacing.base`. Artwork is 78×78). Identity lines use that column `gap`, not
+per-line margins, and the text stack is vertically centered. Item and channel pub dates use the
+same type: 14pt, weight 700, line height 20, `tokens.text.link`. An item description is 14pt,
+weight 400, line height 20, in secondary color, and it shares that `spacing.xs` gap with the
+identity row. The play band stays on the wider gap below the text. Track rows
+(`mediaType="tracks"`) omit the list play/pause band and put More in `identityRow`, vertically
+centered with the artwork and text; the row press still starts playback. `ListRow` is the
+title/subtitle primitive. Its title-to-subtitle gap stays `spacing.sm`, and its default vertical
+padding is `spacing.base`. A numeric `badgeCount` renders `CountBadge` left of `trailing`
+(chevron) and hides at 0; do not invent a second count chip. See **mobile-screen-layout**.
 
 **Home subscription markers:** live, unseen, and downloaded each have one home. Do not reuse the
 count chip for unseen presence.
 
 - **List (`HomeFeedRow`):** live `Badge` is centered on the artwork; downloaded count is the
-  line under the title; unseen is `UnseenIndicator` (accent circle, no number) in a slim
-  full-height rail at the far right of the row, with the dot vertically centered on the whole
-  row.
+  line under the title; unseen on a channel row is `UnseenIndicator` (accent circle, no number)
+  in a slim full-height rail at the far right of the row, with the dot vertically centered on
+  the whole row. On a channel-detail item row the same indicator sits at the trailing top of
+  the title line. Inside a channel (no artwork) a livestream row's status starts the date line,
+  the Live badge while on the air and a neutral Scheduled or Ended badge otherwise. Outside a
+  channel Scheduled leads the context line.
 - **Grid (`HomeFeedGridCell`):** live top-right, unseen indicator bottom-right, downloaded
   `CountBadge` bottom-left.
+
+**Grid long press:** a tile whose list row has a swipe action passes it as `removeAction`;
+holding the tile opens `MoreMenu` with that action and Cancel, and screen readers get it as the
+`remove` accessibility action. A tile with no swipe counterpart (Browse) has no long press.
 
 **Count badges:** `CountBadge` is the circular (oval when the digits need it) count chip. Hub
 rows pass `badgeCount` on `MenuListItem` / `ListRow`. Bottom tabs use React Navigation

@@ -1,115 +1,108 @@
-import { cookies } from 'next/headers';
-import z from 'zod';
-
-import type { DTOChannel } from '@podverse/helpers';
-import { getTotalPages, QUERY_PARAMS_MEDIUMS } from '@podverse/helpers';
-import { QUERY_PARAMS_HOME_SORT_VALUES } from '@podverse/helpers-requests';
-
+import { MediaListChips } from '../components/MediaListChips/MediaListChips';
 import { getCuratedStaticPageMetadata } from '../lib/seo/curatedPageMetadata';
-import { getSSRAuthService } from '../utils/auth/ssrAuth';
-import type { HomeFilterDefaults } from '../utils/localSettings/localSettings';
 import {
-  getFilterDefaultsForPage,
-  getParsedLocalSettings,
-} from '../utils/localSettings/localSettings';
-import { HomePageClient } from './HomePageClient';
-import type { HomePageDropdownConfigCurrentParams } from './HomePageDropdownConfig';
-import { getHomePageFilterParams } from './HomePageDropdownConfig';
+  DEFAULT_MEDIA_LIST_CHIP,
+  MEDIA_LIST_CHIP_QUERY_PARAM,
+  readStoredMediaListChip,
+  resolveMediaListChip,
+  SUBSCRIBED_CHIPS,
+} from '../utils/mediaListChips';
+import { loadAlbumsListProps } from './_media-lists/albums/albumsListSsr';
+import { AlbumsPageClient } from './_media-lists/albums/AlbumsPageClient';
+import { loadArtistsListProps } from './_media-lists/artists/artistsListSsr';
+import { ArtistsPageClient } from './_media-lists/artists/ArtistsPageClient';
+import { loadClipsListProps } from './_media-lists/clips/clipsListSsr';
+import { ClipsPageClient } from './_media-lists/clips/ClipsPageClient';
+import { loadEpisodesListProps } from './_media-lists/episodes/episodesListSsr';
+import { EpisodesPageClient } from './_media-lists/episodes/EpisodesPageClient';
+import { loadLivestreamsListProps } from './_media-lists/livestreams/livestreamsListSsr';
+import { LivestreamsPageClient } from './_media-lists/livestreams/LivestreamsPageClient';
+import type { MediaListSearchParams } from './_media-lists/mediaListSsr';
+import { getMediaListSsr } from './_media-lists/mediaListSsr';
+import { loadPodcastsListProps } from './_media-lists/podcasts/podcastsListSsr';
+import { PodcastsPageClient } from './_media-lists/podcasts/PodcastsPageClient';
+import { loadTracksListProps } from './_media-lists/tracks/tracksListSsr';
+import { TracksPageClient } from './_media-lists/tracks/TracksPageClient';
 
-/**
- * `medium` and `sort` carry no schema default, so an absent parameter stays `undefined` and the
- * stored preference below is reachable. A default applied here would win the `??` chain before the
- * cookie was ever consulted, which is how a remembered home sort gets written and never read.
- */
-const searchParamsSchema = z.object({
-  page: z
-    .string()
-    .transform((v) => parseInt(v, 10))
-    .optional()
-    .default(1),
-  medium: z.enum(QUERY_PARAMS_MEDIUMS).optional(),
-  sort: z.enum(QUERY_PARAMS_HOME_SORT_VALUES).optional(),
-});
-
-type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export type HomePageProps = {
-  searchParams: Promise<SearchParams>;
-};
+type SubscribedPageProps = { searchParams: Promise<MediaListSearchParams> };
 
 export async function generateMetadata() {
   return getCuratedStaticPageMetadata('home');
 }
 
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const { isValidAuthSession, termsAcceptanceRequired, ssrApiRequestService } =
-    await getSSRAuthService();
-  const canLoadPrivateSsrData = isValidAuthSession && !termsAcceptanceRequired;
-
-  const cookieStore = await cookies();
-  const ssrLocalSettings = getParsedLocalSettings(cookieStore);
-  const ssrFilterDefaults = getFilterDefaultsForPage(ssrLocalSettings, 'home');
-
-  const queryParams = await searchParams;
-  const { currentPage, currentMedium, currentSort } = await parseSearchParams(
-    queryParams,
-    ssrFilterDefaults
-  );
-
-  let ssrChannels: DTOChannel[] = [];
-  let ssrTotalPages = 1;
-
-  if (canLoadPrivateSsrData) {
-    const response = await ssrApiRequestService.reqChannelGetMany({
-      page: currentPage,
-      sort: currentSort,
-      type: 'subscribed',
-      medium: currentMedium,
-      range: null,
-      category: null,
-    });
-    ssrChannels = response.data;
-    ssrTotalPages = getTotalPages(
-      response.meta.count,
-      response.meta.limit,
-      response.data.length,
-      currentPage
-    );
-  }
-
-  return (
-    <HomePageClient
-      isValidAuthSession={isValidAuthSession}
-      initialQueryParams={{
-        page: currentPage,
-        medium: currentMedium,
-        sort: currentSort,
-      }}
-      ssrChannels={ssrChannels}
-      ssrTotalPages={ssrTotalPages}
-    />
-  );
-}
-
-function parseSearchParams(
-  queryParams: SearchParams,
-  cookieDefaults?: HomeFilterDefaults
-): HomePageDropdownConfigCurrentParams {
-  const parsed = searchParamsSchema.safeParse(queryParams);
-
-  if (!parsed.success) {
-    return {
-      currentPage: 1,
-      currentMedium: cookieDefaults?.medium ?? 'all',
-      currentSort: cookieDefaults?.sort ?? 'recent',
-    };
-  }
-
-  const data = parsed.data;
-
-  return getHomePageFilterParams({
-    page: data.page ?? 1,
-    medium: data.medium ?? cookieDefaults?.medium ?? 'all',
-    sort: data.sort ?? cookieDefaults?.sort ?? 'recent',
+export default async function SubscribedPage({ searchParams }: SubscribedPageProps) {
+  const params = await searchParams;
+  const ssr = await getMediaListSsr();
+  const { chip, urlChip } = resolveMediaListChip({
+    chips: SUBSCRIBED_CHIPS,
+    urlValue: params[MEDIA_LIST_CHIP_QUERY_PARAM],
+    storedValue: readStoredMediaListChip(ssr.localSettings, 'subscribed'),
+    defaultChip: DEFAULT_MEDIA_LIST_CHIP,
   });
+  const chipsNode = (
+    <MediaListChips page="subscribed" chips={SUBSCRIBED_CHIPS} selected={chip} urlChip={urlChip} />
+  );
+
+  switch (chip) {
+    case 'podcasts':
+      return (
+        <PodcastsPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadPodcastsListProps('subscribed', params, ssr)}
+        />
+      );
+    case 'episodes':
+      return (
+        <EpisodesPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadEpisodesListProps('subscribed', params, ssr)}
+        />
+      );
+    case 'clips':
+      return (
+        <ClipsPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadClipsListProps('subscribed', params, ssr)}
+        />
+      );
+    case 'artists':
+      return (
+        <ArtistsPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadArtistsListProps('subscribed', params, ssr)}
+        />
+      );
+    case 'albums':
+      return (
+        <AlbumsPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadAlbumsListProps('subscribed', params, ssr)}
+        />
+      );
+    case 'tracks':
+      return (
+        <TracksPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadTracksListProps('subscribed', params, ssr)}
+        />
+      );
+    case 'livestreams':
+      return (
+        <LivestreamsPageClient
+          key={chip}
+          chipsNode={chipsNode}
+          {...await loadLivestreamsListProps('subscribed', params, ssr)}
+        />
+      );
+    default: {
+      const _exhaustive: never = chip;
+      return _exhaustive;
+    }
+  }
 }

@@ -8,8 +8,8 @@ import {
 } from './helpers/seedConstants';
 import { actionAndCapture, capturePageLoad } from './helpers/stepScreenshots';
 
-const ARTISTS_URL = '/artists';
-const PODCASTS_URL = '/podcasts';
+const ARTISTS_URL = '/browse?tab=artists';
+const PODCASTS_URL = '/browse';
 const DIRECTORY_ARTIST_DATE = formatDateAbbrev(E2E_DIRECTORY_ARTIST_LAST_PUB_DATE_ISO, 'en-US');
 
 test.describe('Artists list date and view', () => {
@@ -28,8 +28,11 @@ test.describe('Artists list date and view', () => {
 
     await test.step('The public Artists directory shows the seeded title and formatted date', async () => {
       await page.goto(ARTISTS_URL);
-      await expect(page).toHaveURL(/\/artists\/?$/);
-      await expect(page.getByRole('heading', { name: 'Artists', exact: true })).toBeVisible();
+      await expect(page).toHaveURL(/\/browse\?tab=artists$/);
+      await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
+      await expect(
+        page.getByTestId('media-list-chips').getByRole('button', { name: 'Artists', exact: true })
+      ).toHaveAttribute('aria-pressed', 'true');
       await expect(artistTitle).toBeVisible();
       await expect(artistDate).toBeVisible();
 
@@ -47,8 +50,13 @@ test.describe('Artists list date and view', () => {
       'Podcasts is switched to grid so its view is stored on its own scope.',
       async () => {
         await page.goto(PODCASTS_URL);
-        await expect(page).toHaveURL(/\/podcasts\/?$/);
-        await expect(page.getByRole('heading', { name: 'Podcasts', exact: true })).toBeVisible();
+        await expect(page).toHaveURL(/\/browse\/?$/);
+        await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
+        await expect(
+          page
+            .getByTestId('media-list-chips')
+            .getByRole('button', { name: 'Podcasts', exact: true })
+        ).toHaveAttribute('aria-pressed', 'true');
 
         await layoutButton.click();
         await page.getByRole('menuitem', { name: 'Grid View' }).click();
@@ -64,7 +72,7 @@ test.describe('Artists list date and view', () => {
       'Switching Artists to list view keeps the seeded date on the row.',
       async () => {
         await page.goto(ARTISTS_URL);
-        await expect(page).toHaveURL(/\/artists\/?$/);
+        await expect(page).toHaveURL(/\/browse\?tab=artists$/);
         await expect(artistTitle).toBeVisible();
         await expect(artistDate).toBeVisible();
 
@@ -72,7 +80,7 @@ test.describe('Artists list date and view', () => {
         await page.getByRole('menuitem', { name: 'List View' }).click();
         await expect(artistTitle).toBeVisible();
         await expect(artistDate).toBeVisible();
-        await expect(page).toHaveURL(/\/artists\/?$/);
+        await expect(page).toHaveURL(/\/browse\?tab=artists$/);
       },
       artistDate
     );
@@ -83,8 +91,13 @@ test.describe('Artists list date and view', () => {
       'Podcasts still opens in grid after Artists was switched to rows.',
       async () => {
         await page.goto(PODCASTS_URL);
-        await expect(page).toHaveURL(/\/podcasts\/?$/);
-        await expect(page.getByRole('heading', { name: 'Podcasts', exact: true })).toBeVisible();
+        await expect(page).toHaveURL(/\/browse\/?$/);
+        await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
+        await expect(
+          page
+            .getByTestId('media-list-chips')
+            .getByRole('button', { name: 'Podcasts', exact: true })
+        ).toHaveAttribute('aria-pressed', 'true');
 
         await layoutButton.click();
         await expect(gridViewItem).toBeVisible();

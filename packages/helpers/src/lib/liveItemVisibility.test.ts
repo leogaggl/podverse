@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { LiveItemStatusEnum } from '../dtos/liveItem/liveItem.js';
 import {
+  compareChannelLiveItems,
+  compareUpcomingLiveItems,
   getEndedLiveItemVisibilityCutoff,
   isLiveItemEndedAndStale,
+  isUpcomingLiveItemStatus,
   LIVE_ITEM_ENDED_VISIBILITY_MAX_AGE_MS,
 } from './liveItemVisibility.js';
 
@@ -98,5 +101,91 @@ describe('isLiveItemEndedAndStale', () => {
         NOW
       )
     ).toBe(true);
+  });
+});
+
+describe('compareUpcomingLiveItems', () => {
+  it('sorts a live item before a scheduled item even when the live item starts later', () => {
+    const liveLater = { statusId: LiveItemStatusEnum.Live, startTimeMs: 2_000 };
+    const scheduledEarlier = { statusId: LiveItemStatusEnum.Pending, startTimeMs: 1_000 };
+    expect(compareUpcomingLiveItems(liveLater, scheduledEarlier)).toBeLessThan(0);
+    expect(compareUpcomingLiveItems(scheduledEarlier, liveLater)).toBeGreaterThan(0);
+  });
+
+  it('sorts scheduled items by the earliest start, with a missing start after a dated one', () => {
+    const earlier = { statusId: LiveItemStatusEnum.Pending, startTimeMs: 1_000 };
+    const later = { statusId: LiveItemStatusEnum.Pending, startTimeMs: 3_000 };
+    const missing = { statusId: LiveItemStatusEnum.Pending, startTimeMs: null };
+    expect(compareUpcomingLiveItems(earlier, later)).toBeLessThan(0);
+    expect(compareUpcomingLiveItems(missing, earlier)).toBeGreaterThan(0);
+    expect(
+      compareUpcomingLiveItems(missing, {
+        statusId: LiveItemStatusEnum.Pending,
+        startTimeMs: null,
+      })
+    ).toBe(0);
+  });
+});
+
+describe('compareChannelLiveItems', () => {
+  it('keeps live before a later-starting scheduled item, then ended', () => {
+    const live = { endTimeMs: null, startTimeMs: 1_000, statusId: LiveItemStatusEnum.Live };
+    const scheduledLater = {
+      endTimeMs: null,
+      startTimeMs: 5_000,
+      statusId: LiveItemStatusEnum.Pending,
+    };
+    const ended = { endTimeMs: 4_000, startTimeMs: 500, statusId: LiveItemStatusEnum.Ended };
+
+    expect(compareChannelLiveItems(live, scheduledLater)).toBeLessThan(0);
+    expect(compareChannelLiveItems(scheduledLater, live)).toBeGreaterThan(0);
+    expect(compareChannelLiveItems(scheduledLater, ended)).toBeLessThan(0);
+    expect(compareChannelLiveItems(live, ended)).toBeLessThan(0);
+  });
+
+  it('puts the later live start first, and the later end first', () => {
+    const liveEarlier = { endTimeMs: null, startTimeMs: 1_000, statusId: LiveItemStatusEnum.Live };
+    const liveLater = { endTimeMs: null, startTimeMs: 3_000, statusId: LiveItemStatusEnum.Live };
+    expect(compareChannelLiveItems(liveLater, liveEarlier)).toBeLessThan(0);
+
+    const endedLaterEnd = {
+      endTimeMs: 8_000,
+      startTimeMs: 1_000,
+      statusId: LiveItemStatusEnum.Ended,
+    };
+    const endedEarlierEnd = {
+      endTimeMs: 6_000,
+      startTimeMs: 5_000,
+      statusId: LiveItemStatusEnum.Ended,
+    };
+    expect(compareChannelLiveItems(endedLaterEnd, endedEarlierEnd)).toBeLessThan(0);
+  });
+
+  it('puts a missing start or end after a dated item of that status', () => {
+    const datedLive = { endTimeMs: null, startTimeMs: 2_000, statusId: LiveItemStatusEnum.Live };
+    const missingStart = { endTimeMs: null, startTimeMs: null, statusId: LiveItemStatusEnum.Live };
+    expect(compareChannelLiveItems(missingStart, datedLive)).toBeGreaterThan(0);
+
+    const datedEnded = {
+      endTimeMs: 5_000,
+      startTimeMs: 1_000,
+      statusId: LiveItemStatusEnum.Ended,
+    };
+    const missingEnd = {
+      endTimeMs: null,
+      startTimeMs: 9_000,
+      statusId: LiveItemStatusEnum.Ended,
+    };
+    expect(compareChannelLiveItems(missingEnd, datedEnded)).toBeGreaterThan(0);
+  });
+});
+
+describe('isUpcomingLiveItemStatus', () => {
+  it('is true for live and pending, and false for ended, null, and undefined', () => {
+    expect(isUpcomingLiveItemStatus(LiveItemStatusEnum.Live)).toBe(true);
+    expect(isUpcomingLiveItemStatus(LiveItemStatusEnum.Pending)).toBe(true);
+    expect(isUpcomingLiveItemStatus(LiveItemStatusEnum.Ended)).toBe(false);
+    expect(isUpcomingLiveItemStatus(null)).toBe(false);
+    expect(isUpcomingLiveItemStatus(undefined)).toBe(false);
   });
 });

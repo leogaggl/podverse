@@ -6,9 +6,14 @@ import { convertParsedRSSFeedToCompat } from '@podverse/parser-mapping';
 
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
 import type { LocalAddByRssFeedLookup } from './localResourceData';
-import { resolveLocalAddByRssResourceData } from './localResourceData';
+import {
+  addByRssEpisodeItemKey,
+  resolveAddByRssNowPlayingItemSource,
+  resolveLocalAddByRssResourceData,
+} from './localResourceData';
 
 const FEED_URL = 'https://example.com/feed.xml';
+const CHAPTERS_URL = 'https://example.com/chapters.json';
 const LOCAL_ENCLOSURE = 'https://cdn.example.com/episode-2-local.mp3';
 
 const localRecord: MobileAddByRSSFeedRecord = {
@@ -40,6 +45,7 @@ const mappedFeed: AddByRSSMappedFeed = convertParsedRSSFeedToCompat({
       enclosure: { length: 100, type: 'audio/mpeg', url: LOCAL_ENCLOSURE },
       explicit: false,
       guid: 'episode-guid-2',
+      podcastChapters: { type: 'application/json+chapters', url: CHAPTERS_URL },
       pubDate: new Date('2026-01-02T00:00:00.000Z'),
       title: 'Episode Two',
     },
@@ -97,5 +103,102 @@ describe('resolveLocalAddByRssResourceData', () => {
 
     expect(resolved.feed_url).toBe(FEED_URL);
     expect(resolved.channel_id_text).toBe('phone-channel-7');
+  });
+});
+
+describe('addByRssEpisodeItemKey', () => {
+  const feedIdText = 'phone-channel-7';
+  const guidlessFeed: AddByRSSMappedFeed = convertParsedRSSFeedToCompat({
+    explicit: false,
+    items: [
+      {
+        duration: 30,
+        enclosure: {
+          length: 100,
+          type: 'audio/mpeg',
+          url: 'https://cdn.example.com/has-guid.mp3',
+        },
+        explicit: false,
+        guid: 'kept-guid',
+        pubDate: new Date('2026-01-01T00:00:00.000Z'),
+        title: 'Has Guid',
+      },
+      {
+        duration: 60,
+        enclosure: { length: 100, type: 'audio/mpeg', url: LOCAL_ENCLOSURE },
+        explicit: false,
+        pubDate: new Date('2026-01-02T00:00:00.000Z'),
+        title: 'No Guid',
+      },
+    ],
+    link: FEED_URL,
+    title: 'Show Name',
+  });
+
+  it('returns the item guid when the resource guid is that guid', () => {
+    expect(addByRssEpisodeItemKey(mappedFeed, { guid: 'episode-guid-1' })).toBe('episode-guid-1');
+  });
+
+  it('returns the index when a guidless item is matched by enclosure', () => {
+    expect(
+      addByRssEpisodeItemKey(guidlessFeed, {
+        enclosure_url: LOCAL_ENCLOSURE,
+        guid: `${feedIdText}-1`,
+      })
+    ).toBe('1');
+  });
+
+  it('returns null for a livestream', () => {
+    expect(addByRssEpisodeItemKey(mappedFeed, { liveItem: {} })).toBe(null);
+  });
+
+  it('returns null when the guid and enclosure are not in the feed', () => {
+    expect(
+      addByRssEpisodeItemKey(mappedFeed, {
+        enclosure_url: 'https://cdn.example.com/missing.mp3',
+        guid: 'not-in-the-feed',
+      })
+    ).toBe(null);
+  });
+});
+
+describe('resolveAddByRssNowPlayingItemSource', () => {
+  it('returns this device’s copy of Episode Two, including its chapters URL', async () => {
+    const resolved = await resolveAddByRssNowPlayingItemSource(
+      webRow,
+      lookup(localRecord, mappedFeed)
+    );
+
+    expect(resolved?.feedUrl).toBe(FEED_URL);
+    expect(resolved?.itemIdText).toBe('phone-channel-7-episode-guid-2');
+    expect(resolved?.sectionUrls?.chaptersFeedUrl).toBe(CHAPTERS_URL);
+  });
+
+  it('returns null when this device has not parsed the feed', async () => {
+    const resolved = await resolveAddByRssNowPlayingItemSource(webRow, lookup(null, null));
+
+    expect(resolved).toBeNull();
+  });
+
+  it('returns null for a livestream', async () => {
+    const resolved = await resolveAddByRssNowPlayingItemSource(
+      { ...webRow, liveItem: {} },
+      lookup(localRecord, mappedFeed)
+    );
+
+    expect(resolved).toBeNull();
+  });
+
+  it('returns null when the guid and enclosure are not in the feed', async () => {
+    const resolved = await resolveAddByRssNowPlayingItemSource(
+      {
+        ...webRow,
+        enclosure_url: 'https://cdn.example.com/missing.mp3',
+        guid: 'not-in-the-feed',
+      },
+      lookup(localRecord, mappedFeed)
+    );
+
+    expect(resolved).toBeNull();
   });
 });

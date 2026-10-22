@@ -14,7 +14,7 @@ alwaysApply: false
 # About / Summary web–mobile alignment
 
 Channel **About** and item **Summary** must carry the **same information** on web and mobile.
-Vocabulary for description / About / Summary lives in **abcmemory-vocabulary**.
+Vocabulary for description / About / Summary lives in **domain-terms**.
 
 ## Required content
 

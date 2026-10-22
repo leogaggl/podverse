@@ -19,7 +19,7 @@ import { useProfilesPageContext } from './ProfilesPageContext';
 import { getProfilesPageDropdownConfig } from './ProfilesPageDropdownConfig';
 
 export const ProfilesPageHeader: React.FC = () => {
-  const { filterParams, setFilterParams } = useProfilesPageContext();
+  const { filterParams, listScope, setFilterParams } = useProfilesPageContext();
   const { type, sort, range } = filterParams;
   const tFeatures = useTranslations('features');
   const tFilters = useTranslations('filters');
@@ -90,7 +90,9 @@ export const ProfilesPageHeader: React.FC = () => {
 
   const buttonsNode = (
     <>
-      <Dropdown key="type" value={type} menuItems={typeMenuItems} onChange={handleTypeChange} />
+      {listScope === 'page' ? (
+        <Dropdown key="type" value={type} menuItems={typeMenuItems} onChange={handleTypeChange} />
+      ) : null}
       <Dropdown key="sort" value={sort} menuItems={sortMenuItems} onChange={handleSortChange} />
       {showRangeDropdown && range && (
         <Dropdown
@@ -103,5 +105,7 @@ export const ProfilesPageHeader: React.FC = () => {
     </>
   );
 
-  return <MainHeader title={tFeatures('profiles')} buttonsNode={buttonsNode} />;
+  const title = listScope === 'browse' ? tFeatures('browse.browse') : tFeatures('profiles');
+
+  return <MainHeader title={title} buttonsNode={buttonsNode} />;
 };

@@ -178,6 +178,26 @@ name: Anonymous Subscriptions Persist
     id: "home-feed-row-updated-.*"
 - takeScreenshot: home-view-grid-subscribed
 
+# Holding a tile opens the list row's swipe action in the bottom sheet. Cancel keeps the follow.
+- longPressOn:
+    id: "home-feed-cell-.*"
+- extendedWaitUntil:
+    visible:
+      id: "home-feed-cell-.*-menu-remove"
+      text: Unsubscribe
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: "home-feed-cell-.*-menu-cancel"
+- takeScreenshot: home-grid-long-press-menu
+- tapOn:
+    id: "home-feed-cell-.*-menu-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "home-feed-cell-.*-menu-remove"
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: "home-feed-cell-.*"
+
 - tapOn:
     id: home-overflow-trigger
 - tapOn:

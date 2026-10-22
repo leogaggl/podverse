@@ -31,23 +31,9 @@ async function loadPlayingNonLiveEpisode(page: Page): Promise<void> {
   await waitForAudioReadyAtLeast(page, 2);
 }
 
-async function expandPodcastsSidebarAccordion(page: Page): Promise<void> {
-  const sidebar = page.locator('#sidebar');
-  const podcastsLink = sidebar.locator('a[href="/podcasts"]');
-  const podcastsSection = sidebar.locator('details').filter({
-    has: page.locator('a[href="/podcasts"]'),
-  });
-  const isOpen = await podcastsSection.evaluate((el) => el.hasAttribute('open'));
-  if (!isOpen) {
-    await podcastsSection.locator('summary').click();
-  }
-  await expect(podcastsLink).toBeVisible();
-}
-
-async function navigateToPodcastsViaSidebar(page: Page): Promise<void> {
-  await expandPodcastsSidebarAccordion(page);
-  await page.locator('#sidebar a[href="/podcasts"]').click();
-  await expect(page.getByRole('heading', { name: 'Podcasts' })).toBeVisible();
+async function navigateToBrowseViaSidebar(page: Page): Promise<void> {
+  await page.locator('#sidebar a[href="/browse"]').click();
+  await expect(page.getByRole('heading', { name: 'Browse' })).toBeVisible();
 }
 
 async function clickEmptyMainOuterWrapper(page: Page): Promise<void> {
@@ -119,22 +105,22 @@ test.describe('Media player Space shortcut', () => {
     });
   });
 
-  test('Pressing Space toggles play and pause after clicking empty main content on /podcasts', async ({
+  test('Pressing Space toggles play and pause after clicking empty main content on Browse', async ({
     page,
   }, testInfo) => {
     await test.step('Load seeded podcast episode into the persistent player', async () => {
       await loadPlayingNonLiveEpisode(page);
     });
 
-    await test.step('Click empty main area on /podcasts then Space toggles play', async () => {
-      await navigateToPodcastsViaSidebar(page);
+    await test.step('Click empty main area on Browse then Space toggles play', async () => {
+      await navigateToBrowseViaSidebar(page);
       await expectPersistentPlayerPlaying(page, true);
       await waitForAudioReadyAtLeast(page, 2);
 
       await actionAndCapture(
         page,
         testInfo,
-        'Click empty padding inside #mainOuterWrapper on /podcasts.',
+        'Click empty padding inside #mainOuterWrapper on Browse.',
         async () => {
           await clickEmptyMainOuterWrapper(page);
         },
@@ -150,26 +136,26 @@ test.describe('Media player Space shortcut', () => {
       await capturePageLoad(
         page,
         testInfo,
-        'Space toggles play and pause after clicking empty main content on /podcasts.',
+        'Space toggles play and pause after clicking empty main content on Browse.',
         page.locator('#mainOuterWrapper')
       );
     });
   });
 
-  test('Pressing Space does not toggle play when a sidebar Podcasts link is focused', async ({
+  test('Pressing Space does not toggle play when the sidebar Browse link is focused', async ({
     page,
   }, testInfo) => {
     await test.step('Load seeded podcast episode into the persistent player', async () => {
       await loadPlayingNonLiveEpisode(page);
     });
 
-    await test.step('Space with sidebar link focused leaves play state unchanged', async () => {
-      await navigateToPodcastsViaSidebar(page);
+    await test.step('Space with the sidebar Browse link focused leaves play state unchanged', async () => {
+      await navigateToBrowseViaSidebar(page);
       await expectPersistentPlayerPlaying(page, true);
 
-      const podcastsSidebarLink = page.locator('#sidebar a[href="/podcasts"]');
-      await expect(podcastsSidebarLink).toBeVisible();
-      await podcastsSidebarLink.focus();
+      const browseSidebarLink = page.locator('#sidebar a[href="/browse"]');
+      await expect(browseSidebarLink).toBeVisible();
+      await browseSidebarLink.focus();
 
       await page.keyboard.press('Space');
       await expectPersistentPlayerPlaying(page, true);
@@ -177,8 +163,8 @@ test.describe('Media player Space shortcut', () => {
       await capturePageLoad(
         page,
         testInfo,
-        'Space does not toggle play when the sidebar Podcasts link has focus.',
-        podcastsSidebarLink
+        'Space does not toggle play when the sidebar Browse link has focus.',
+        browseSidebarLink
       );
     });
   });

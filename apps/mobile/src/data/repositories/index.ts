@@ -32,6 +32,7 @@ export type { ChannelSeenUnseen } from './channelSeenRepository';
 export { clipRepository } from './clipRepository';
 export type { CreateClipInput, UpdateClipInput } from './clipRepository';
 export { homeClipsCacheRepository } from './homeClipsCacheRepository';
+export { homeLivestreamsCacheRepository } from './homeLivestreamsCacheRepository';
 export { itemDescriptionCacheRepository } from './itemDescriptionCacheRepository';
 export type {
   ItemDescriptionCacheEntry,

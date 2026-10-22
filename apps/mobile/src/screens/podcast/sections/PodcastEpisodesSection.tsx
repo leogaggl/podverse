@@ -1,11 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import type { DTOItem } from '@podverse/helpers';
 import { matchesTitleFilter } from '@podverse/helpers';
-import { LiveItemStatusEnum } from '@podverse/helpers/dto';
+import type { LiveItemStatusEnum } from '@podverse/helpers/dto';
 
 import { requestWithMobileAuthRefresh } from '../../../auth';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -14,6 +13,7 @@ import {
   extendDirectoryChannelOrDropGone,
   syncDirectoryChannelOrDropGone,
 } from '../../../data/repositories/directoryChannelGone';
+import { toChannelLiveRow } from '../../../lib/rows/liveItemRows';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../../membership/MembershipGateProvider';
 import type { ChannelBrowseStackParamList } from '../../../navigation';
@@ -21,7 +21,6 @@ import { CHANNEL_BROWSE_STACK_ROUTES } from '../../../navigation';
 import type { HomeFeedRowData } from '../../home/homeFeedData';
 import { mapItemsToHomeFeedRows, mapItemToHomeFeedRow } from '../../home/homeFeedData';
 import { HomeFeedRow } from '../../home/HomeFeedRow';
-import type { HomeRowMetadata } from '../../home/homeRowMetadata';
 import type { QueueActionPosition } from '../../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../../home/useHomeRowPlayback';
 import { useAddToPlaylist } from '../../library/useAddToPlaylist';
@@ -33,30 +32,13 @@ type PodcastLiveRow = HomeFeedRowData & {
   liveStatusId: LiveItemStatusEnum | null;
 };
 
-/**
- * Said in the subtitle for the two statuses a badge would misrepresent. A stream that is on the air
- * is marked as such by the badge instead, so the word is not printed twice.
- */
-const LIVE_STATUS_KEYS: Record<LiveItemStatusEnum, string> = {
-  [LiveItemStatusEnum.Ended]: 'media.livestream.ended',
-  [LiveItemStatusEnum.Live]: 'media.livestream.live',
-  [LiveItemStatusEnum.Pending]: 'media.livestream.pending',
-};
-
-/** What a broadcasting row claims about itself: on the air, and nothing else a subscription says. */
-const LIVE_ROW_METADATA: HomeRowMetadata = {
-  downloadedCount: 0,
-  isLive: true,
-  latestItemPubDateMs: null,
-  unseenBadge: null,
-};
-
 const episodeRowKeyExtractor = (row: HomeFeedRowData): string => row.id;
 
 type PodcastEpisodeRowProps = {
   channel: PodcastSectionPaneProps['channel'];
   index: number;
   item: DTOItem | undefined;
+  itemLastSeenAtMs: number | null | undefined;
   onAddToPlaylist: (row: HomeFeedRowData) => void;
   onMarkAsPlayed: (row: HomeFeedRowData) => void;
   onPlay: (row: HomeFeedRowData) => void;
@@ -70,6 +52,7 @@ function PodcastEpisodeRow({
   channel,
   index,
   item,
+  itemLastSeenAtMs,
   onAddToPlaylist,
   onMarkAsPlayed,
   onPlay,
@@ -92,6 +75,7 @@ function PodcastEpisodeRow({
     <HomeFeedRow
       downloadItem={downloadItem}
       downloadTestID={`podcast-episode-download-${index}`}
+      itemLastSeenAtMs={itemLastSeenAtMs}
       mediaType="episodes"
       onAddToPlaylistPress={onAddToPlaylist}
       onMarkAsPlayedPress={onMarkAsPlayed}
@@ -108,10 +92,9 @@ function PodcastEpisodeRow({
 
 const toLiveRows = (items: DTOItem[]): PodcastLiveRow[] => {
   return items
-    .map((item) => ({
-      ...mapItemToHomeFeedRow(item),
-      liveStatusId: item.live_item?.live_item_status_id ?? null,
-    }))
+    .map((item) =>
+      toChannelLiveRow(mapItemToHomeFeedRow(item), item.live_item?.live_item_status_id)
+    )
     .filter((row) => row.id.length > 0);
 };
 
@@ -120,7 +103,8 @@ const toLiveRows = (items: DTOItem[]): PodcastLiveRow[] => {
  *
  * Anything the podcast is broadcasting sits at the top of the same list rather than under a heading of
  * its own: a live episode is the most current episode, and the reader came here for the newest thing
- * first. The badge is what separates it from the rows below.
+ * first. A stream on the air carries the Live badge; a scheduled or ended one states its status
+ * on the row.
  */
 export function PodcastEpisodesSection({
   channel,
@@ -129,8 +113,8 @@ export function PodcastEpisodesSection({
   listHeader,
   onRefreshChannel,
   sort,
+  visitLastSeenAtMs,
 }: PodcastSectionPaneProps) {
-  const { t } = useTranslation();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const [storedItems, setStoredItems] = useState<DTOItem[]>([]);
   const [liveItems, setLiveItems] = useState<DTOItem[]>([]);
@@ -345,6 +329,7 @@ export function PodcastEpisodesSection({
         channel={channel}
         index={index}
         item={itemsById.get(row.id)}
+        itemLastSeenAtMs={visitLastSeenAtMs}
         onAddToPlaylist={handleAddToPlaylist}
         onMarkAsPlayed={handleMarkAsPlayed}
         onPlay={handlePlayPress}
@@ -363,41 +348,19 @@ export function PodcastEpisodesSection({
       handleQueuePress,
       handleShare,
       itemsById,
+      visitLastSeenAtMs,
     ]
   );
 
   /**
-   * Broadcasting rows, ready to sit above the stored ones.
-   *
-   * A live episode that has already been written to the device would otherwise appear twice, so the
-   * stored ids are subtracted first. Only a stream actually on the air is badged; one that is
-   * scheduled or over says so in its subtitle, where it reads as a fact rather than an invitation.
+   * A live episode already written to the device would appear twice, so stored ids are subtracted.
+   * Only a stream on the air gets the Live badge, and a scheduled or ended one states its status
+   * on its row.
    */
   const liveDisplayRows = useMemo<HomeFeedRowData[]>(() => {
     const storedIds = new Set(episodeRows.map((row) => row.id));
-
-    return liveRows
-      .filter((liveRow) => !storedIds.has(liveRow.id))
-      .map((liveRow) => {
-        const isOnAir = liveRow.liveStatusId === LiveItemStatusEnum.Live;
-        const statusLabel =
-          liveRow.liveStatusId === null || isOnAir
-            ? null
-            : t(LIVE_STATUS_KEYS[liveRow.liveStatusId]);
-        const subtitle =
-          statusLabel === null
-            ? liveRow.subtitle
-            : liveRow.subtitle === null
-              ? statusLabel
-              : `${statusLabel} • ${liveRow.subtitle}`;
-
-        return {
-          ...liveRow,
-          metadata: isOnAir ? LIVE_ROW_METADATA : undefined,
-          subtitle,
-        };
-      });
-  }, [episodeRows, liveRows, t]);
+    return liveRows.filter((liveRow) => !storedIds.has(liveRow.id));
+  }, [episodeRows, liveRows]);
 
   const visibleRows = useMemo(
     () =>

@@ -14,6 +14,7 @@ export const ADD_BY_RSS_LIBRARY_MEDIA_TYPES = [
   'artists',
   'albums',
   'tracks',
+  'livestreams',
 ] as const;
 
 export type AddByRssLibraryMediaType = (typeof ADD_BY_RSS_LIBRARY_MEDIA_TYPES)[number];
@@ -34,6 +35,13 @@ export const DEFAULT_ADD_BY_RSS_LIBRARY_VIEW_MODE: AddByRssLibraryViewMode = 'li
 
 export const isAddByRssLibraryMediaType = (value: string): value is AddByRssLibraryMediaType => {
   return ADD_BY_RSS_LIBRARY_MEDIA_TYPES.some((mediaType) => mediaType === value);
+};
+
+/** Livestreams has no sort. Every other library chip offers A-Z and Recent. */
+export const isAddByRssLibrarySortableMediaType = (
+  mediaType: AddByRssLibraryMediaType
+): boolean => {
+  return mediaType !== 'livestreams';
 };
 
 /** Channel chips can draw as an artwork grid; item chips share covers across rows. */

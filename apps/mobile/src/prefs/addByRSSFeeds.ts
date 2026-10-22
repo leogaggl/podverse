@@ -35,4 +35,6 @@ export type MobileAddByRSSFeedRecord = {
    * record being written leaves the stored value as it is.
    */
   lastAuthFailure?: AddByRssAuthFailure | null;
+  /** Set once a stored parse has carried a live item; never cleared. Absent on older records. */
+  mayHaveLivestreams?: boolean;
 };

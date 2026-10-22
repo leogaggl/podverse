@@ -22,7 +22,7 @@ import { getPlaylistsPageDropdownConfig } from './PlaylistsPageDropdownConfig';
 import styles from '../../styles/app/playlists/PlaylistsListHeader.module.scss';
 
 export const PlaylistsPageListHeader: React.FC = () => {
-  const { filterParams, setFilterParams } = usePlaylistsPageContext();
+  const { filterParams, listScope, setFilterParams } = usePlaylistsPageContext();
   const { type, sort, range } = filterParams;
   const tFilters = useTranslations('filters');
   const tMedia = useTranslations('media');
@@ -130,7 +130,9 @@ export const PlaylistsPageListHeader: React.FC = () => {
 
   return (
     <ListHeader
-      tabs={<Tabs tabData={tabData} selectedKey={type ?? ''} />}
+      tabs={
+        listScope === 'browse' ? undefined : <Tabs tabData={tabData} selectedKey={type ?? ''} />
+      }
       belowButtons={
         <div className={styles.belowButtonsWrapper}>
           <div className={styles.tabsWrapper}>

@@ -15,12 +15,14 @@ interface Params {
   items: DTOItem[];
   viewSelected: ViewSelectedOption;
   showChannelInfo?: boolean;
+  showLiveItemStatus?: boolean;
 }
 
 export function ListLiveItemNodes({
   items,
   viewSelected,
   showChannelInfo,
+  showLiveItemStatus,
 }: Params): React.ReactNode {
   const filteredItems = items.filter(
     (item): item is DTOItem & { channel: DTOChannel } => !!item.channel
@@ -39,6 +41,7 @@ export function ListLiveItemNodes({
                   item={item}
                   live_item={item.live_item}
                   showChannelInfo={showChannelInfo}
+                  showLiveItemStatus={showLiveItemStatus}
                 />
               )}
               {idx < items.length - 1 && <Divider />}

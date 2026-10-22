@@ -81,7 +81,7 @@ export const AddByRSSLivestreamRow: React.FC<AddByRSSLivestreamRowProps> = ({
   };
 
   return (
-    <div className={styles.row}>
+    <div className={styles.row} data-testid="add-by-rss-livestream-row">
       <ImagesPerView
         candidates={imageCandidates}
         alt={title || tMedia('livestream.livestream_image')}

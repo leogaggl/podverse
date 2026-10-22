@@ -1,0 +1,173 @@
+appId: com.podverse.app.next
+name: Add By RSS Livestream Flow
+---
+# Fixture feed https://e2e-seed-addbyrss.example/podcast-live.xml has one live and one scheduled
+# livestream.
+#
+# Needs flow_needs_e2e_api + flow_needs_test_assets.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+- tapOn:
+    id: tab-my-library
+- tapOn:
+    id: library-nav-add-by-rss
+- tapOn:
+    id: rss-add-button
+- tapOn:
+    id: rss-url-input
+- inputText: https://e2e-seed-addbyrss.example/podcast-live.xml
+- tapOn:
+    id: rss-add-submit
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_SLOWER}
+- runFlow:
+    file: shared/reveal-chip-row-trailing.yaml
+    env:
+      CHIP_ROW_ID: rss-media-type-selector
+      TRAILING_ID: rss-media-type-livestreams
+- tapOn:
+    id: rss-media-type-livestreams
+- extendedWaitUntil:
+    visible:
+      text: "E2E Add-by-RSS Live Now"
+    timeout: ${TIMEOUT_SLOWER}
+- assertVisible:
+    text: "E2E Add-by-RSS Scheduled Live"
+- assertNotVisible:
+    id: "home-row-more-.*"
+- takeScreenshot: add-by-rss-livestream-rows
+- tapOn:
+    text: "E2E Add-by-RSS Scheduled Live"
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-livestream-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: add-by-rss-livestream-detail-summary
+- assertNotVisible:
+    id: add-by-rss-livestream-detail-play-chrome
+- takeScreenshot: add-by-rss-livestream-scheduled-page
+- runFlow: shared/stack-back.yaml
+- tapOn:
+    text: "E2E Add-by-RSS Live Now"
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-livestream-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: "home-row-play-.*"
+- assertNotVisible:
+    id: "home-row-more-.*"
+- takeScreenshot: add-by-rss-livestream-live-page
+- runFlow: shared/stack-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: "home-row-play-.*"
+- extendedWaitUntil:
+    visible:
+      id: mini-player
+    timeout: ${TIMEOUT_SLOWER}
+- takeScreenshot: add-by-rss-livestream-playing
+# The full player's livestream title opens the feed page and then the livestream page on Home.
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-title-link
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: full-player-title-link
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-livestream-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: add-by-rss-livestream-detail-title
+    text: "E2E Add-by-RSS Live Now"
+- takeScreenshot: add-by-rss-livestream-player-title-opens-page
+- tapOn:
+    id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: home-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: tab-my-library
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_FAST}
+- runFlow:
+    file: shared/reveal-chip-row-leading.yaml
+    env:
+      CHIP_ROW_ID: rss-media-type-selector
+      LEADING_ID: rss-media-type-podcasts
+- tapOn:
+    id: rss-media-type-podcasts
+- tapOn:
+    text: "E2E Add-by-RSS Live Channel"
+    childOf:
+      id: rss-feed-list
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    visible:
+      id: "add-by-rss-home-live-.*live-guid/now"
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: "add-by-rss-home-live-.*live-guid/scheduled"
+    below:
+      id: "add-by-rss-home-live-.*live-guid/now"
+# Inside a channel the scheduled row states its status on the date line.
+- assertVisible:
+    id: "home-feed-row-live-status-.*live-guid/scheduled"
+    text: Scheduled
+- assertNotVisible:
+    id: "home-feed-row-live-status-.*live-guid/now"
+- assertVisible:
+    text: "E2E Add-by-RSS Live Channel Episode"
+    below:
+      id: "add-by-rss-home-live-.*live-guid/scheduled"
+- assertVisible:
+    id: "add-by-rss-home-play-live-.*live-guid/now"
+- assertNotVisible:
+    id: "add-by-rss-home-play-live-.*live-guid/scheduled"
+- takeScreenshot: add-by-rss-feed-live-rows
+- tapOn:
+    text: "E2E Add-by-RSS Scheduled Live"
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-livestream-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: add-by-rss-feed-live-row-opens-page
+- runFlow: shared/stack-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: add-by-rss-home-remove
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    notVisible:
+      text: "E2E Add-by-RSS Live Channel"
+      childOf:
+        id: rss-feed-list
+    timeout: ${TIMEOUT_SLOW}

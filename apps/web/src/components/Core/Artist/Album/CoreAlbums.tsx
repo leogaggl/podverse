@@ -11,6 +11,8 @@ import { useModals } from '../../../../contexts/Modals';
 import { checkBackNavFlag } from '../../../../contexts/Navigation';
 import { useSkipInitialEffect } from '../../../../hooks/useSkipInitialEffect';
 import { scrollMainToTop } from '../../../../utils/scroll';
+import { CommonAlbumListNodes } from '../../../Common/Artist/Album/CommonAlbumNodes';
+import type { AlbumListItem } from '../../../Common/Artist/Album/types';
 import { Pagination } from '../../../Pagination/Pagination';
 import type { ViewSelectedOption } from '../../../ViewSelector/ViewSelector';
 import { CoreAlbumNodes } from './CoreAlbumNodes';
@@ -25,6 +27,8 @@ type Props = {
   showSubscribeMessage: boolean;
   type: QueryParamsSubscribedMusicType;
   viewSelected: ViewSelectedOption;
+  /** When set, these rows replace the channel mapping. */
+  items?: AlbumListItem[];
 };
 
 export const CoreAlbums: React.FC<Props> = ({
@@ -34,6 +38,7 @@ export const CoreAlbums: React.FC<Props> = ({
   totalPages,
   showSubscribeMessage,
   viewSelected,
+  items,
 }) => {
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
@@ -42,6 +47,8 @@ export const CoreAlbums: React.FC<Props> = ({
   // Skip scroll on the first effect run when returning via back navigation.
   const skipScrollOnceRef = useRef(checkBackNavFlag());
 
+  const scrollTarget = items ?? channels;
+
   useSkipInitialEffect(() => {
     // Skip scroll-to-top once if this is a back navigation
     if (skipScrollOnceRef.current) {
@@ -49,12 +56,17 @@ export const CoreAlbums: React.FC<Props> = ({
       return;
     }
     scrollMainToTop();
-  }, [channels]);
+  }, [scrollTarget]);
 
   const showCallToAction = showSubscribeMessage;
   const showPagination = !showSubscribeMessage;
 
-  const listNodes = CoreAlbumNodes({ channels, viewSelected });
+  const listNodes =
+    items === undefined ? (
+      <CoreAlbumNodes channels={channels} viewSelected={viewSelected} />
+    ) : (
+      <CommonAlbumListNodes items={items} viewSelected={viewSelected} />
+    );
 
   return (
     <>

@@ -44,6 +44,7 @@ import {
   enqueueAddByRSSParseWithStoredCredentials,
   pollAddByRSSParseStatus,
 } from '../../../utils/addByRSS/actions';
+import { selectChannelOrderedLiveItems } from '../../../utils/addByRSS/channelLiveItems';
 import {
   buildAddByRSSItemsIndex,
   buildAddByRSSLivestreamIndex,
@@ -288,11 +289,7 @@ export const AddByRSSPodcastPageDetailClient: React.FC<AddByRSSPodcastPageDetail
     tFeatures,
   ]);
 
-  const sortedLiveItems = useMemo(() => {
-    const next = [...liveItems];
-    next.sort((a, b) => b.startTimeMs - a.startTimeMs);
-    return next;
-  }, [liveItems]);
+  const sortedLiveItems = useMemo(() => selectChannelOrderedLiveItems(liveItems), [liveItems]);
 
   const showLiveItems = activeTab === 'episodes' && currentPage === 1 && sortedLiveItems.length > 0;
   const isAwaitingFirstEpisodes =

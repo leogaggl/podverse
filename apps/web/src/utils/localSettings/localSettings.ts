@@ -1,8 +1,6 @@
 import type {
   CategoryMappingKeys,
-  LiveItemStatus,
   MediaTypePreference,
-  QueryParamsMedium,
   QueryParamsQueueMedium,
   SortPrefScope,
   SortPrefValue,
@@ -10,7 +8,6 @@ import type {
 import { buildSortPrefScopeKey, DEFAULT_MEDIA_TYPE_PREFERENCE } from '@podverse/helpers';
 import { clearCookie, readCookie, writeCookie } from '@podverse/helpers-browser';
 import type {
-  QueryParamsHomeSort,
   QueryParamsPlaylistsType,
   QueryParamsStatsRange,
   QueryParamsSubscribedFullSort,
@@ -44,13 +41,15 @@ LocalSettingsState Legend:
   - aqc = autoQueueConfig
     - rp = repeat
     - rd = random
-  - sba = sidebarAccordion (open/closed accordion sections; cookie-backed for SSR on first paint)
+  - sba = sidebarAccordion (Library accordion open or closed; cookie-backed for SSR on first paint)
   - fd = filterDefaults (per-page filter preferences)
   - metd = dismissal key of the last dismissed expiring-soon notice
   - bfd = boostFormDefaults (per value type: send to creator, send to app, your name)
   - cc = cookieConsent (device-level cookie banner choice)
   - pmt = preferredMediaType (default media player enclosure preference: 'audio' | 'video')
   - sp = sortPrefs (per-instance list preferences, MRU-ordered — see ./sortPrefs.ts)
+  - bae = backgroundActivityExpanded (bottom-right activity overlay open;
+    collapsed when unset)
 */
 
 export type CookieConsentChoice = 'all' | 'essential' | 'none';
@@ -68,24 +67,6 @@ export interface BoostFormDefaultsForValueKey {
 }
 
 export type BoostFormDefaultsByValueKey = Record<string, BoostFormDefaultsForValueKey>;
-
-export type FilterDefaultsPage =
-  | 'home'
-  | 'playlists'
-  | 'podcasts'
-  | 'podcasts-livestreams'
-  | 'music-livestreams'
-  | 'episodes'
-  | 'tracks'
-  | 'albums'
-  | 'artists'
-  | 'clips'
-  | 'profiles';
-
-export interface HomeFilterDefaults {
-  medium: QueryParamsMedium;
-  sort: QueryParamsHomeSort;
-}
 
 export interface PlaylistsFilterDefaults {
   type: QueryParamsPlaylistsType;
@@ -139,77 +120,49 @@ export interface ProfilesFilterDefaults {
   range: QueryParamsStatsRange | null;
 }
 
-export interface PodcastsLivestreamsFilterDefaults {
-  type: QueryParamsSubscribedType;
-  sort: QueryParamsSubscribedPartialSort;
-  range: QueryParamsStatsRange | null;
-  category: CategoryMappingKeys | null;
-  liveItemType: LiveItemStatus;
-}
-
-export interface MusicLivestreamsFilterDefaults {
-  type: QueryParamsSubscribedMusicType;
-  sort: QueryParamsSubscribedPartialSort;
-  range: QueryParamsStatsRange | null;
-  liveItemType: LiveItemStatus;
-}
-
 export interface FilterDefaults {
-  home?: HomeFilterDefaults;
   playlists?: PlaylistsFilterDefaults;
   podcasts?: PodcastsFilterDefaults;
-  'podcasts-livestreams'?: PodcastsLivestreamsFilterDefaults;
-  'music-livestreams'?: MusicLivestreamsFilterDefaults;
   episodes?: EpisodesFilterDefaults;
   tracks?: TracksFilterDefaults;
   albums?: AlbumsFilterDefaults;
   artists?: ArtistsFilterDefaults;
   clips?: ClipsFilterDefaults;
   profiles?: ProfilesFilterDefaults;
+  'subscribed-podcasts'?: PodcastsFilterDefaults;
+  'subscribed-episodes'?: EpisodesFilterDefaults;
+  'subscribed-clips'?: ClipsFilterDefaults;
+  'subscribed-artists'?: ArtistsFilterDefaults;
+  'subscribed-albums'?: AlbumsFilterDefaults;
+  'subscribed-tracks'?: TracksFilterDefaults;
+  'browse-playlists'?: PlaylistsFilterDefaults;
+  'browse-users'?: ProfilesFilterDefaults;
 }
 
+export type FilterDefaultsPage = keyof FilterDefaults;
+
 export interface SidebarAccordionState {
-  podcasts: boolean;
-  music: boolean;
-  addByRSS: boolean;
   library: boolean;
 }
 
-/** Sidebar nav sections start open. A saved close in the local-settings cookie (`sba`) stays closed. */
-export const DEFAULT_SIDEBAR_ACCORDION_STATE: SidebarAccordionState = {
-  podcasts: true,
-  music: true,
-  addByRSS: true,
-  library: true,
-};
+/** The Library accordion starts open. A saved close in the local-settings cookie (`sba`) stays closed. */
+export const DEFAULT_SIDEBAR_ACCORDION_STATE: SidebarAccordionState = { library: true };
 
 function isSidebarAccordionState(value: unknown): value is SidebarAccordionState {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  if (
-    !('podcasts' in value) ||
-    !('music' in value) ||
-    !('addByRSS' in value) ||
-    !('library' in value)
-  ) {
+  if (!('library' in value)) {
     return false;
   }
-  return (
-    typeof value.podcasts === 'boolean' &&
-    typeof value.music === 'boolean' &&
-    typeof value.addByRSS === 'boolean' &&
-    typeof value.library === 'boolean'
-  );
+  return typeof value.library === 'boolean';
 }
 
-/** Saved section flags override the expanded default. A missing accordion stays expanded. */
+/** A saved Library flag overrides the expanded default. A missing accordion stays expanded. */
 function resolveSidebarAccordion(stored: unknown): SidebarAccordionState {
-  const defaults = { ...DEFAULT_SIDEBAR_ACCORDION_STATE };
-  if (!isSidebarAccordionState(stored)) {
-    return defaults;
-  }
-  return { ...defaults, ...stored };
+  return {
+    library: isSidebarAccordionState(stored) ? stored.library : true,
+  };
 }
 
 export interface LocalSettingsState {
@@ -227,6 +180,7 @@ export interface LocalSettingsState {
   cc?: CookieConsentState;
   pmt?: MediaTypePreference; // preferredMediaType (default media player enclosure preference)
   sp?: SortPrefStore; // sortPrefs (per-instance list preferences, MRU-ordered)
+  bae?: boolean; // backgroundActivityExpanded
 }
 
 export function handleLocalSettingsUpdate(newState: LocalSettingsState) {
@@ -285,6 +239,7 @@ function getDefaultLocalSettings(): LocalSettingsState {
     bfd: {},
     pmt: DEFAULT_MEDIA_TYPE_PREFERENCE,
     sp: [],
+    bae: false,
   };
 }
 
@@ -310,15 +265,13 @@ function isValidLocalSettings(settings: unknown): settings is LocalSettingsState
     (sba === undefined ||
       (typeof sba === 'object' &&
         sba !== null &&
-        typeof sba.podcasts === 'boolean' &&
-        typeof sba.music === 'boolean' &&
-        typeof sba.addByRSS === 'boolean' &&
-        typeof sba.library === 'boolean')) &&
+        (sba.library === undefined || typeof sba.library === 'boolean'))) &&
     (s.fd === undefined || (typeof s.fd === 'object' && s.fd !== null)) &&
     (s.metd === undefined || typeof s.metd === 'string') &&
     (s.bfd === undefined || (typeof s.bfd === 'object' && s.bfd !== null)) &&
     (s.cc === undefined || isValidCookieConsentState(s.cc)) &&
-    (s.pmt === undefined || isValidMediaTypePreference(s.pmt))
+    (s.pmt === undefined || isValidMediaTypePreference(s.pmt)) &&
+    (s.bae === undefined || typeof s.bae === 'boolean')
   );
 }
 
@@ -387,29 +340,7 @@ export function getParsedLocalSettings(cookieStore?: CookieStore): LocalSettings
   }
 }
 
-export type FilterDefaultsForPage<T extends FilterDefaultsPage> = T extends 'home'
-  ? HomeFilterDefaults
-  : T extends 'playlists'
-    ? PlaylistsFilterDefaults
-    : T extends 'podcasts'
-      ? PodcastsFilterDefaults
-      : T extends 'podcasts-livestreams'
-        ? PodcastsLivestreamsFilterDefaults
-        : T extends 'music-livestreams'
-          ? MusicLivestreamsFilterDefaults
-          : T extends 'episodes'
-            ? EpisodesFilterDefaults
-            : T extends 'tracks'
-              ? TracksFilterDefaults
-              : T extends 'albums'
-                ? AlbumsFilterDefaults
-                : T extends 'artists'
-                  ? ArtistsFilterDefaults
-                  : T extends 'clips'
-                    ? ClipsFilterDefaults
-                    : T extends 'profiles'
-                      ? ProfilesFilterDefaults
-                      : never;
+export type FilterDefaultsForPage<T extends FilterDefaultsPage> = NonNullable<FilterDefaults[T]>;
 
 /**
  * The `fd` bucket key for a global list, derived by the shared builder.
@@ -433,8 +364,8 @@ export function getFilterDefaultsForPage<T extends FilterDefaultsPage>(
 /**
  * Persist a global list's filter and sort selections.
  *
- * Generic over the page so the stored value is checked against that page's own shape: the eleven
- * lists do not share a control set, and a plain record here would let `albums` be written with a
+ * Generic over the page so the stored value is checked against that page's own shape. Lists do
+ * not share one control set, and a plain record here would let `albums` be written with a
  * `category` no reader ever looks for.
  */
 export function updateFilterDefaults<T extends FilterDefaultsPage>(

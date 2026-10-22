@@ -2,6 +2,8 @@ import type { QueryParamsStatsRange } from '@podverse/helpers-requests';
 import { getValidQueryParam } from '@podverse/helpers-requests';
 import type { DropdownOption } from '@podverse/ui';
 
+import type { MediaListScope } from './mediaListChips';
+
 export function getRangeDropdownItems(tFilters: (key: string) => string) {
   return [
     { label: tFilters('range.day'), param: 'range', value: 'day' },
@@ -101,6 +103,8 @@ type BuildSubscribedListFilterParamsBase<TType extends string, TSort extends str
   isValidAuthSession: boolean;
   page: number;
   range: QueryParamsStatsRange | null;
+  /** Account list, directory list, or the session default when omitted. */
+  scope?: MediaListScope;
   sort: TSort | null;
   subscribedSortValues: readonly TSort[];
   type: TType | null;
@@ -172,14 +176,37 @@ export function buildSubscribedListFilterParams<
     isValidAuthSession,
     page,
     range,
+    scope,
     sort,
     subscribedSortValues,
-    type,
+    type: requestedType,
   } = args;
 
-  let currentType: TType;
+  if (scope === 'subscribed') {
+    const currentType = 'subscribed' as TType;
+    const currentSort = getValidQueryParam(subscribedSortValues, sort, defaultSubscribedSort);
+    if (args.supportsCategory) {
+      return {
+        currentCategory: null,
+        currentPage: page,
+        currentRange: range,
+        currentSort,
+        currentType,
+      };
+    }
+    return { currentPage: page, currentRange: range, currentSort, currentType };
+  }
+
+  let type = requestedType;
   let currentSort = sort;
   let currentRange = range;
+  if (scope === 'browse' && type === 'subscribed') {
+    type = 'global' as TType;
+    currentSort = defaultGlobalSort;
+    currentRange = null;
+  }
+
+  let currentType: TType;
   let currentPage = page;
 
   if (args.supportsCategory) {

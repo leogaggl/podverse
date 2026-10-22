@@ -181,12 +181,10 @@ Grok 4.7 and move up only for sensitive or complex work (open design, money / en
 correctness, destructive migrations, native work, concurrency). Do not recommend Auto or any
 other model.
 
-| Reasoning | Use when |
-| --------- | -------- |
-| **high** | Default for Codex 5.3 and Opus 5.5 |
-| **extra high** | Every Cursor Grok 4.7 prompt, with Fast on; Opus 5.5 on billing, concurrency, or safety-critical design |
-
-**low** and **medium** are not used for these three models.
+Cursor Grok 4.7 takes the lowest reasoning that reliably completes each prompt (low, medium,
+high, or extra high; high is the default), with Fast off. The level table is in
+**copy-pasta-recommend-model** § Reasoning. Codex 5.3 and Opus 5.5 default to **high**; Opus 5.5
+goes to **extra high** only for billing, concurrency, or safety-critical design.
 
 Put a **phase-level summary table** (prompt, model, reasoning, why) at the top of COPY-PASTA so the
 operator sees the whole mix at once, plus the per-prompt line above each fence.
@@ -212,7 +210,7 @@ Example per prompt (model/reasoning **outside** the fence):
 ```markdown
 - [ ] **Prompt 3** complete
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 \`\`\`
 Read and execute .llm/plans/active/feature/migration-03.md
@@ -261,7 +259,7 @@ Read and execute .llm/plans/active/feature/migration-06-critical.md
 
 ### Agent 2A: Group A
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
 \`\`\`
 Read and execute .llm/plans/active/feature/migration-08-group-a.md
@@ -358,6 +356,9 @@ running at once will both edit them:
 | `apps/api/openapi.yml`                      | Any API surface change                            |
 | The set's own `COPY-PASTA.md`               | Each agent checks its own prompt off              |
 | The screen or navigator a feature lives on  | Later prompts mount into what earlier ones built  |
+| `release-notes/scratchpad.md`               | Every prompt that changes a shipped surface       |
+| `apps/mobile/vitest.config.ts`              | Mobile prompts that add a test directory or alias |
+| `apps/mobile/src/navigation/index.tsx`      | Any prompt that adds a mobile screen or route     |
 
 Two mitigations, in order of preference:
 
@@ -372,6 +373,14 @@ Two mitigations, in order of preference:
 Give every parallel agent an explicit **ownership boundary** in its prompt: the files it owns, the
 files it must not touch, and the contract (component name, props, file path) another agent left for
 it to build on. Agents cannot see each other's prompts, so an unstated boundary is an unenforced one.
+
+Every prompt that runs alongside another follows these rules:
+
+- Edit only the files you own.
+- Run type-check, unit tests, and formatters on your own files or workspace, never on broad globs.
+- Report errors in files you don't own in your final message; don't fix them.
+- Put your release-notes entry in your final message under "Release notes entry" instead of
+  writing `release-notes/scratchpad.md` (**release-notes-scratchpad**).
 
 ## Anti-Patterns to Avoid
 

@@ -34,6 +34,7 @@ type ChannelDto = {
   medium_id: MediumEnum;
   has_podcast_index_value?: boolean;
   has_value_time_splits?: boolean;
+  may_have_live_items?: boolean;
 };
 
 export const channelGetManyRelations: FindOptionsRelations<Channel> =

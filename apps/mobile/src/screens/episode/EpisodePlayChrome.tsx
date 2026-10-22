@@ -1,13 +1,11 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOItem } from '@podverse/helpers';
-import { formatDateAbbrev, itemHeaderLightboxArtworkCandidates } from '@podverse/helpers';
+import { itemHeaderLightboxArtworkCandidates } from '@podverse/helpers';
 
-import { DownloadRowControl } from '../../components/download/DownloadRowControl';
-import { buildMediaRowMoreActions, MediaRowActions } from '../../components/player/MediaRowActions';
-import { CoverImage } from '../../components/primitives';
+import { itemDetailDateLabel, ItemDetailHeader } from '../../components/content';
+import { buildMediaRowMoreActions } from '../../components/player/MediaRowActions';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
 import { downloadActionLabelKey, runDownloadAction } from '../../downloads/downloadAction';
 import { useDownloadAction } from '../../downloads/useDownloads';
@@ -15,8 +13,6 @@ import { useActionError } from '../../feedback/ActionErrorProvider';
 import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLabel';
 import { playbackTargetRowMediaId } from '../../lib/playback/buildPlaybackTarget';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
-import { typography } from '../../theme/typography';
-import { useTheme } from '../../theme/useTheme';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import type { EpisodePlaybackProgress } from './episodePlaybackProgress';
@@ -39,8 +35,6 @@ type TranslateProgress = (
   key: string,
   options?: { count?: number; timePosition?: string; timeRemaining?: string }
 ) => string;
-
-const EPISODE_ARTWORK_SIZE = 96;
 
 const formatProgressTimeLabel = (
   progress: EpisodePlaybackProgress,
@@ -88,7 +82,6 @@ export function EpisodePlayChrome({
   podcastTitle,
 }: EpisodePlayChromeProps) {
   const { t, i18n } = useTranslation();
-  const { styles: themeStyles, tokens } = useTheme();
   const { stored } = useEpisodeStoredProgress(episode);
   const { activeTarget, enclosureSelectedParams } = usePlaybackSession();
   const activeMediaId = activeTarget !== null ? playbackTargetRowMediaId(activeTarget) : null;
@@ -106,58 +99,10 @@ export function EpisodePlayChrome({
   const viewerUri = itemHeaderLightboxArtworkCandidates(episode.item_images)[0] ?? artworkUri;
   const episodeTitle = episode.title ?? episode.id_text;
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        artwork: {
-          height: EPISODE_ARTWORK_SIZE,
-          width: EPISODE_ARTWORK_SIZE,
-        },
-        artworkRow: {
-          alignItems: 'flex-start',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          width: '100%',
-        },
-        date: {
-          ...typography.caption,
-          color: tokens.text.accent,
-        },
-        playChrome: {
-          marginTop: tokens.spacing.sm,
-        },
-        podcastTitle: {
-          ...typography.label,
-          color: themeStyles.textSecondary.color,
-        },
-        root: {
-          gap: tokens.spacing.md,
-        },
-        title: {
-          ...typography.title,
-          color: themeStyles.textPrimary.color,
-        },
-        titles: {
-          gap: tokens.spacing.xs,
-        },
-      }),
-    [themeStyles, tokens]
+  const dateLabel = useMemo(
+    () => itemDetailDateLabel(episode.pub_date, i18n.language),
+    [episode.pub_date, i18n.language]
   );
-
-  const dateLabel = useMemo(() => {
-    if (
-      episode.pub_date === undefined ||
-      episode.pub_date === null ||
-      episode.pub_date.length === 0
-    ) {
-      return null;
-    }
-    const parsed = new Date(episode.pub_date);
-    if (Number.isNaN(parsed.getTime())) {
-      return null;
-    }
-    return formatDateAbbrev(parsed, i18n.language);
-  }, [episode.pub_date, i18n.language]);
 
   const durationLabel = formatProgressTimeLabel(stored, t, episodeRow.duration ?? null);
 
@@ -218,65 +163,22 @@ export function EpisodePlayChrome({
     ]
   );
 
-  const podcastName =
-    onPodcastPress === undefined ? (
-      <Text style={styles.podcastTitle} testID="episode-detail-podcast-title">
-        {podcastTitle}
-      </Text>
-    ) : (
-      <Pressable
-        accessibilityLabel={podcastTitle}
-        accessibilityRole="link"
-        onPress={onPodcastPress}
-        testID="episode-detail-podcast-title"
-      >
-        <Text style={styles.podcastTitle}>{podcastTitle}</Text>
-      </Pressable>
-    );
-
   return (
-    <View style={styles.root} testID="episode-detail-header">
-      <View style={styles.artworkRow}>
-        <CoverImage
-          accessibilityLabel={episodeTitle}
-          style={styles.artwork}
-          testID="episode-detail-artwork"
-          uri={artworkUri}
-          viewerUri={viewerUri}
-        />
-        <DownloadRowControl
-          completeTestID="episode-detail-download-complete"
-          item={episode}
-          testID="episode-detail-download"
-        />
-      </View>
-      <View style={styles.titles}>
-        {podcastName}
-        <Text accessibilityRole="header" style={styles.title} testID="episode-detail-title">
-          {episodeTitle}
-        </Text>
-        {dateLabel !== null ? (
-          <Text style={styles.date} testID="episode-detail-date">
-            {dateLabel}
-          </Text>
-        ) : null}
-      </View>
-      <View style={styles.playChrome} testID="episode-detail-play-chrome">
-        <MediaRowActions
-          appearance="icons"
-          durationLabel={durationLabel}
-          durationTestID={`home-feed-row-duration-${episode.id_text}`}
-          idSuffix={`-${episode.id_text}`}
-          moreActions={moreActions}
-          moreTestID={`home-row-more-${episode.id_text}`}
-          onPlayPress={() => {
-            onPlayPress(episodeRow);
-          }}
-          playbackMediaId={episode.id_text}
-          playLabel={t('media_player.play')}
-          playTestID={`home-row-play-${episode.id_text}`}
-        />
-      </View>
-    </View>
+    <ItemDetailHeader
+      artworkUri={artworkUri}
+      channelTitle={podcastTitle}
+      dateLabel={dateLabel}
+      downloadItem={episode}
+      durationLabel={durationLabel}
+      mediaIdText={episode.id_text}
+      moreActions={moreActions}
+      onChannelPress={onPodcastPress}
+      onPlayPress={() => {
+        onPlayPress(episodeRow);
+      }}
+      testIDPrefix="episode-detail"
+      title={episodeTitle}
+      viewerUri={viewerUri}
+    />
   );
 }

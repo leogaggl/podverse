@@ -386,14 +386,34 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
   /**
    * Opening the channel is what marks it seen — there is no per-episode seen state.
    *
+   * The value kept for this visit is the timestamp stored before that write. Episode rows use it
+   * to decide which items were new, and null means nothing is new. A later open of the same
+   * channel reads the newer timestamp.
+   *
    * Written straight to the device rather than through the sync queue, so the badge clears as the
    * screen appears whatever the network is doing. The next reconciliation carries the timestamp to
    * the account, and because seen state only moves forward, a failed one costs nothing.
    *
    * Keyed on the channel alone so returning from an episode does not re-stamp it.
    */
+  const [visitSeen, setVisitSeen] = useState<
+    { lastSeenAtMs: number | null; podcastId: string } | undefined
+  >(undefined);
+  const visitLastSeenAtMs =
+    visitSeen !== undefined && visitSeen.podcastId === podcastId
+      ? visitSeen.lastSeenAtMs
+      : undefined;
   useEffect(() => {
-    void channelSeenRepository.markSeen(podcastId, 'channel');
+    let cancelled = false;
+    void (async () => {
+      const previous = await channelSeenRepository.markSeen(podcastId, 'channel');
+      if (!cancelled) {
+        setVisitSeen({ lastSeenAtMs: previous, podcastId });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [podcastId]);
 
   const { handleGateError, openGate } = useMembershipGate();
@@ -706,6 +726,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       onRefreshChannel={loadChannel}
       range={range}
       sort={sort}
+      visitLastSeenAtMs={visitLastSeenAtMs}
     />
   );
   const sectionBody = settingsOpen ? settingsBody : sectionListBody;

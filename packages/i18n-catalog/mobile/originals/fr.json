@@ -38,8 +38,7 @@
       "expand_category": "Afficher les sous-catégories de {name}",
       "empty": "Rien à afficher pour le moment",
       "range_all_time": "Tout le temps",
-      "sort_popularity": "Popularité",
-      "users": "Utilisateurs"
+      "sort_popularity": "Popularité"
     },
     "download": {
       "queued": "En file d'attente",

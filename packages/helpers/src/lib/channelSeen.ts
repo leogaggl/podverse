@@ -143,6 +143,19 @@ export const capUnseenCount = (
 };
 
 /**
+ * Whether one publish instant counts as unseen against a last-seen timestamp.
+ *
+ * A `null` timestamp means the subscription has never been opened, which is nothing new rather
+ * than everything new. A missing publish instant is not new. An equal instant is already seen.
+ */
+export const isUnseenPubDate = (pubDateMs: number | null, lastSeenAtMs: number | null): boolean => {
+  if (lastSeenAtMs === null || pubDateMs === null) {
+    return false;
+  }
+  return pubDateMs > lastSeenAtMs;
+};
+
+/**
  * Count how many of a channel's publish dates fall after the moment it was last seen.
  *
  * Stops at one past the cap. Mobile runs this over the window it stores locally, so a signed-out
@@ -150,7 +163,7 @@ export const capUnseenCount = (
  *
  * A `null` timestamp means the channel has never been opened, which reads as nothing unseen rather
  * than everything unseen — following a show should not immediately claim its whole back catalogue
- * is new.
+ * is new. Each date is counted only when `isUnseenPubDate` says it is unseen.
  */
 export const countUnseenByPubDate = ({
   lastSeenAtMs,
@@ -165,7 +178,7 @@ export const countUnseenByPubDate = ({
 
   let raw = 0;
   for (const pubDateMs of pubDatesMs) {
-    if (pubDateMs === null || pubDateMs <= lastSeenAtMs) {
+    if (!isUnseenPubDate(pubDateMs, lastSeenAtMs)) {
       continue;
     }
     raw += 1;

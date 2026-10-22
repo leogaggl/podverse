@@ -4,15 +4,14 @@ import type { DTOItem } from '@podverse/helpers/dto';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import type { QueueMutationKind, QueueMutationMediaType } from '../../hooks/useQueueMutations';
+import { isAddByRssLivestreamResourceData } from '../../lib/addByRss/resourceData';
 
 export const FULL_PLAYER_JUMP_BACK_SECONDS = MEDIA_JUMP_BACK_SECONDS;
 export const FULL_PLAYER_JUMP_FORWARD_SECONDS = MEDIA_JUMP_FORWARD_SECONDS;
 
-export type FullPlayerQueueMutationTarget = {
-  idText: string;
-  kind: QueueMutationKind;
-  mediaType: QueueMutationMediaType;
-};
+export type FullPlayerQueueMutationTarget =
+  | { idText: string; kind: QueueMutationKind; mediaType: QueueMutationMediaType }
+  | { kind: 'add-by-rss'; medium: 'av' | 'music'; resourceData: AddByRSSResourceData };
 
 export type FullPlayerAddToPlaylistTarget = {
   medium: 'av' | 'music';
@@ -161,6 +160,12 @@ export const resolveQueueMutationTarget = (
         ? { idText: target.item.id_text, kind: 'item', mediaType: 'episodes' }
         : null;
     case 'add-by-rss':
-      return null;
+      return isAddByRssLivestreamResourceData(target.resourceData)
+        ? null
+        : {
+            kind: 'add-by-rss',
+            medium: addToPlaylistMediumFromChannel(target),
+            resourceData: target.resourceData,
+          };
   }
 };

@@ -74,10 +74,10 @@ const buildCacheKey = (params: FullSubscribedChannelsParams, accountKey: string)
 /**
  * The account's whole subscribed channel list, in the order the server would paginate it.
  *
- * `/podcasts` pages server-side, so filtering only what is on screen would narrow page 3 of 5 and
- * report nothing found while the match sat on page 1. Reading the list end to end is what lets the
- * filter answer for the whole subscription list, and holding server order means a filtered list
- * still reads in the order the user chose to sort by.
+ * The subscribed Podcasts list is paged on the server, so filtering only what is on screen would
+ * narrow page 3 of 5 and report nothing found while the match sat on page 1. Reading the list
+ * end to end is what lets the filter answer for the whole subscription list, and holding server
+ * order means a filtered list still reads in the order the user chose to sort by.
  *
  * Fetched lazily — nothing is read until a filter is actually in use, so the ordinary visit that
  * never touches the input pays nothing for it. The result is kept until the sort, range, or account

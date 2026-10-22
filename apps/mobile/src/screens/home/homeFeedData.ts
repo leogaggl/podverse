@@ -3,39 +3,51 @@ import {
   getDescriptionPreviewText,
   primaryListArtworkUrl,
 } from '@podverse/helpers';
-import type { DTOItem } from '@podverse/helpers/dto';
+import type { DTOItem, LiveItemStatusEnum } from '@podverse/helpers/dto';
 import { getNonEmptyTrimmedStringProperty, isObjectLike } from '@podverse/helpers/guards';
 
 import type { SubscribedChannel, SubscriptionSource } from '../../data/repositories';
 import {
+  addByRssRepository,
   channelItemsRepository,
   channelLiveStatusRepository,
   channelSeenRepository,
   downloadsRepository,
   homeClipsCacheRepository,
+  homeLivestreamsCacheRepository,
   subscriptionChannelKindFromMediumId,
   subscriptionsRepository,
 } from '../../data/repositories';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
+import type { AddByRssLiveTarget } from '../../lib/addByRss/liveRows';
 import {
   clipHomeRowSourceFromUnknown,
   clipToHomeRow,
   MIXED_SOURCE_CLIP_ROW_OPTIONS,
 } from '../../lib/rows/homeRowMappers';
+import type { UpcomingLiveRow } from '../../lib/rows/liveItemRows';
+import { sortUpcomingLiveRows, toUpcomingLiveRow } from '../../lib/rows/liveItemRows';
 import type { HomeRangeOption, HomeSortOption } from '../../prefs/homeListPrefs';
 import { DEFAULT_HOME_SORT } from '../../prefs/homeListPrefs';
 import type { HomeMediaType } from '../../prefs/preferredMediaType';
+import type { AddByRssItemRow } from './addByRssItemRows';
+import { listAddByRssItemRows, toAddByRssItemHomeRow } from './addByRssItemRows';
+import { listAddByRssUpcomingLiveRows } from './addByRssLiveRows';
 import {
   appendHomeFeedReadFailure,
   HOME_FEED_METADATA_TIMEOUT_CODE,
   HOME_FEED_METADATA_TIMEOUT_MS,
   withHomeFeedReadBudget,
 } from './homeFeedReadLog';
+import type { HomeItemMergeEntry } from './homeItemMerge';
+import { mergeHomeItemRows, readItemPubDateMs } from './homeItemMerge';
 import type { HomeRowMetadata } from './homeRowMetadata';
 import { buildHomeRowMetadata } from './homeRowMetadata';
 
 export type HomeFeedRowData = {
   id: string;
+  /** The id playback reports for this row when it differs from `id` (Add by RSS: the item hash). */
+  playbackMediaId?: string;
   imageUrl: string | null;
   /** Source-local identity for detail routing; directory rows use their channel id text. */
   sourceId?: string;
@@ -95,6 +107,10 @@ export type HomeFeedRowData = {
   channelId?: string;
   /** Which go-to label and destination to use for `channelId`. */
   channelKind?: 'albums' | 'artists';
+  /**
+   * Set on livestream rows. Drives the Scheduled prefix on the context line.
+   */
+  liveStatusId?: LiveItemStatusEnum | null;
 };
 
 /** Identity of the playable resource behind a row. */
@@ -449,6 +465,20 @@ export const mapItemsToHomeFeedRows = (
     .filter((row) => row.id.length > 0);
 };
 
+/** Upcoming livestream rows from directory items, live first; ended items are dropped. */
+export const mapItemsToUpcomingLiveRows = (items: readonly DTOItem[]): UpcomingLiveRow[] => {
+  return sortUpcomingLiveRows(
+    items.flatMap((item) => {
+      const row = toUpcomingLiveRow(
+        mapItemToHomeFeedRow(item),
+        item.live_item?.live_item_status_id,
+        item.live_item?.start_time
+      );
+      return row === null || row.id.length === 0 ? [] : [row];
+    })
+  );
+};
+
 const applyHomeSort = (rows: HomeFeedRowData[], sort: HomeSortOption): HomeFeedRowData[] => {
   if (sort !== 'alphabetical') {
     return rows;
@@ -586,10 +616,56 @@ export const fetchDownloadedHomeFeedRows = async (
     });
 };
 
-export const fetchHomeFeedRows = async (
+export type HomeFeedRead = {
+  /** Add by RSS rows on the Episodes and Tracks chips, by row id, for play and More. */
+  addByRssItemsById: ReadonlyMap<string, AddByRssItemRow>;
+  /** Add by RSS livestream rows, by row id, for play and the livestream page. */
+  addByRssLiveItemsById: ReadonlyMap<string, AddByRssLiveTarget>;
+  /** Stored directory items on Episodes and Tracks, by row id, for the download control. */
+  directoryItemsById: ReadonlyMap<string, DTOItem>;
+  rows: HomeFeedRowData[];
+};
+
+export const EMPTY_HOME_ADD_BY_RSS_ITEMS: ReadonlyMap<string, AddByRssItemRow> = new Map();
+
+export const EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS: ReadonlyMap<string, AddByRssLiveTarget> = new Map();
+
+export const EMPTY_HOME_DIRECTORY_ITEMS: ReadonlyMap<string, DTOItem> = new Map();
+
+export const homeFeedReadFromRows = (rows: HomeFeedRowData[]): HomeFeedRead => ({
+  addByRssItemsById: EMPTY_HOME_ADD_BY_RSS_ITEMS,
+  addByRssLiveItemsById: EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
+  directoryItemsById: EMPTY_HOME_DIRECTORY_ITEMS,
+  rows,
+});
+
+/**
+ * Completed downloads as Home Episodes or Tracks rows, plus the stored item each row can offer
+ * for download. A download with no stored item stays in the list without a download control.
+ */
+export const readDownloadedHomeItemFeed = async (
+  mediaType: 'episodes' | 'tracks'
+): Promise<HomeFeedRead> => {
+  const rows = await fetchDownloadedHomeFeedRows(mediaType);
+  const directoryItemsById = new Map<string, DTOItem>();
+  for (const row of rows) {
+    const item = await channelItemsRepository.getByIdText(row.id);
+    if (item !== null) {
+      directoryItemsById.set(row.id, item);
+    }
+  }
+  return {
+    addByRssItemsById: EMPTY_HOME_ADD_BY_RSS_ITEMS,
+    addByRssLiveItemsById: EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
+    directoryItemsById,
+    rows,
+  };
+};
+
+export const fetchHomeFeed = async (
   mediaType: HomeMediaType,
   options: HomeFeedOptions = {}
-): Promise<HomeFeedRowData[]> => {
+): Promise<HomeFeedRead> => {
   const sort = options.sort ?? DEFAULT_HOME_SORT;
   const ensureCurrent = (): void => {
     if (options.isCurrent !== undefined && !options.isCurrent()) {
@@ -598,51 +674,79 @@ export const fetchHomeFeedRows = async (
   };
 
   if (mediaType === 'podcasts' || mediaType === 'artists' || mediaType === 'albums') {
-    // Channel chips read local directory follows only. Kind splits podcasts / artists / albums so a
-    // music follow never appears under Podcasts and the reverse. Popularity ranks arrive from the
-    // sync queue; this path never waits on the network to paint. Add by RSS feeds live on the Add
-    // by RSS library screen.
+    // Channel chips list directory and Add by RSS follows together. Kind splits podcasts / artists /
+    // albums so a music follow never appears under Podcasts and the reverse. Feeds waiting on a
+    // username and password stay off Home; the Add by RSS library lists them. Popularity ranks
+    // arrive from the sync queue; this path never waits on the network to paint.
     const kind =
       mediaType === 'podcasts' ? 'podcasts' : mediaType === 'artists' ? 'artists' : 'albums';
     const subscribed = await subscriptionsRepository.list({
-      filter: 'directory',
+      credentials: 'ready',
+      filter: 'all',
       kind,
       sort,
     });
     ensureCurrent();
-    return attachSubscriptionMetadataOrBare(subscribed, mediaType);
+    return homeFeedReadFromRows(await attachSubscriptionMetadataOrBare(subscribed, mediaType));
   }
 
-  if (mediaType === 'episodes') {
-    // Episodes for subscribed directory channels come from the device. An empty window stays empty
-    // until the channel-items job writes rows — Home does not fill the gap over the network.
-    const podcastChannels = await subscriptionsRepository.list({
-      filter: 'directory',
-      kind: 'podcasts',
-      sort,
-    });
+  if (mediaType === 'episodes' || mediaType === 'tracks') {
+    // Episodes and Tracks list stored directory items plus ready Add by RSS items. Each source
+    // keeps its own newest window, and nothing waits on the network.
+    const compact = mediaType === 'tracks';
+    const subscribed =
+      mediaType === 'episodes'
+        ? await subscriptionsRepository.list({
+            filter: 'directory',
+            kind: 'podcasts',
+            sort,
+          })
+        : await subscriptionsRepository.list({ filter: 'directory', sort });
     ensureCurrent();
-    const podcastChannelIds = podcastChannels.map((channel) => channel.idText);
+    const channelIdTexts =
+      mediaType === 'episodes'
+        ? subscribed.map((channel) => channel.idText)
+        : subscribed
+            .filter((channel) => channel.kind === 'artists' || channel.kind === 'albums')
+            .map((channel) => channel.idText);
     const stored = await channelItemsRepository.listSubscribed({
-      channelIdTexts: podcastChannelIds,
+      channelIdTexts,
       sort,
     });
     ensureCurrent();
-    return mapItemsToHomeFeedRows(stored);
-  }
+    const { ready } = await addByRssRepository.listFeedsByCredentials();
+    ensureCurrent();
+    const items = await listAddByRssItemRows(mediaType, ready);
+    ensureCurrent();
 
-  if (mediaType === 'tracks') {
-    const musicChannels = await subscriptionsRepository.list({ filter: 'directory', sort });
-    ensureCurrent();
-    const musicChannelIds = musicChannels
-      .filter((channel) => channel.kind === 'artists' || channel.kind === 'albums')
-      .map((channel) => channel.idText);
-    const stored = await channelItemsRepository.listSubscribed({
-      channelIdTexts: musicChannelIds,
-      sort,
-    });
-    ensureCurrent();
-    return mapItemsToHomeFeedRows(stored, { compact: true });
+    const directoryItemsById = new Map<string, DTOItem>();
+    const directory: HomeItemMergeEntry[] = [];
+    for (const item of stored) {
+      if (item.id_text.length === 0) {
+        continue;
+      }
+      directoryItemsById.set(item.id_text, item);
+      const row = mapItemToHomeFeedRow(item, { compact });
+      if (row.id.length === 0) {
+        continue;
+      }
+      directory.push({
+        pubDateMs: readItemPubDateMs(item.pub_date),
+        row,
+      });
+    }
+
+    const addByRss: HomeItemMergeEntry[] = items.map((item) => ({
+      pubDateMs: readItemPubDateMs(item.updatedAt),
+      row: toAddByRssItemHomeRow(item, { compact }),
+    }));
+
+    return {
+      addByRssItemsById: new Map(items.map((item) => [item.id, item])),
+      addByRssLiveItemsById: EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
+      directoryItemsById,
+      rows: mergeHomeItemRows({ addByRss, directory, sort }),
+    };
   }
 
   if (mediaType === 'clips') {
@@ -650,8 +754,25 @@ export const fetchHomeFeedRows = async (
     // are empty; the screen chooses Login vs Browse from that.
     const stored = await homeClipsCacheRepository.listPayload();
     ensureCurrent();
-    return applyHomeSort(normalizeClipRows(stored), sort);
+    return homeFeedReadFromRows(applyHomeSort(normalizeClipRows(stored), sort));
   }
 
-  return [];
+  if (mediaType === 'livestreams') {
+    // The directory half comes from the home-livestreams job's cache, and nothing here waits
+    // on the network.
+    const stored = await homeLivestreamsCacheRepository.listItems();
+    ensureCurrent();
+    const { ready } = await addByRssRepository.listFeedsByCredentials();
+    ensureCurrent();
+    const addByRss = await listAddByRssUpcomingLiveRows(ready);
+    ensureCurrent();
+    return {
+      addByRssItemsById: EMPTY_HOME_ADD_BY_RSS_ITEMS,
+      addByRssLiveItemsById: new Map(addByRss.map((row) => [row.id, row.target])),
+      directoryItemsById: EMPTY_HOME_DIRECTORY_ITEMS,
+      rows: sortUpcomingLiveRows([...mapItemsToUpcomingLiveRows(stored), ...addByRss]),
+    };
+  }
+
+  return homeFeedReadFromRows([]);
 };

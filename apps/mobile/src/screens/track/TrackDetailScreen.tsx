@@ -2,10 +2,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FlatList } from 'react-native';
-import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOChannel, DTOItem } from '@podverse/helpers';
-import { formatDateAbbrev, primaryChannelListArtworkUrl } from '@podverse/helpers';
+import { primaryChannelListArtworkUrl } from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
@@ -13,14 +13,15 @@ import { ChannelHeader } from '../../components/channel';
 import {
   DescriptionText,
   FundingLinksSection,
+  itemDetailDateLabel,
   PeoplePane,
   toAboutPersonFromItem,
+  TrackDetailHeader,
 } from '../../components/content';
-import { DownloadRowControl } from '../../components/download/DownloadRowControl';
 import type { SectionChipItem } from '../../components/form';
 import { SectionChipRow } from '../../components/form';
-import { buildMediaRowMoreActions, MediaRowActions } from '../../components/player/MediaRowActions';
-import { CoverImage, FillList } from '../../components/primitives';
+import { buildMediaRowMoreActions } from '../../components/player/MediaRowActions';
+import { FillList } from '../../components/primitives';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
@@ -59,6 +60,7 @@ import type { HomeFeedRowData } from '../home/homeFeedData';
 import { mapItemToHomeFeedRow } from '../home/homeFeedData';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { useAddToPlaylist } from '../library/useAddToPlaylist';
+import { TRACK_TAB_LABEL_KEYS } from './trackTabs';
 
 type TrackDetailScreenProps = NativeStackScreenProps<ChannelBrowseStackParamList, 'TrackDetail'>;
 
@@ -66,15 +68,6 @@ type TrackTabRow = { id: string };
 const EMPTY_TRACK_TAB_ROWS: TrackTabRow[] = [];
 const trackTabRowKeyExtractor = (row: TrackTabRow): string => row.id;
 const renderTrackTabItem = (): null => null;
-
-const TRACK_TAB_LABEL_KEYS: Record<TrackTab, string> = {
-  funding: 'info.funding',
-  people: 'info.people.people',
-  summary: 'info.summary.summary',
-  transcript: 'info.transcript.lyrics',
-};
-
-const TRACK_ARTWORK_SIZE = 96;
 
 const formatProgressTimeLabel = (
   progress: EpisodePlaybackProgress,
@@ -127,7 +120,6 @@ function TrackPlayChrome({
   onSharePress: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { styles: themeStyles, tokens } = useTheme();
   const { activeTarget, enclosureSelectedParams } = usePlaybackSession();
   const { stored } = useEpisodeStoredProgress(item);
 
@@ -151,16 +143,10 @@ function TrackPlayChrome({
 
   const artworkUri = getItemPrimaryImageUrl(item);
   const trackTitle = item.title ?? item.id_text;
-  const dateLabel = useMemo(() => {
-    if (item.pub_date === undefined || item.pub_date === null || item.pub_date.length === 0) {
-      return null;
-    }
-    const parsed = new Date(item.pub_date);
-    if (Number.isNaN(parsed.getTime())) {
-      return null;
-    }
-    return formatDateAbbrev(parsed, i18n.language);
-  }, [i18n.language, item.pub_date]);
+  const dateLabel = useMemo(
+    () => itemDetailDateLabel(item.pub_date, i18n.language),
+    [i18n.language, item.pub_date]
+  );
 
   const durationLabel = formatProgressTimeLabel(stored, t, itemRow.duration ?? null);
 
@@ -215,103 +201,22 @@ function TrackPlayChrome({
     ]
   );
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        artwork: {
-          height: TRACK_ARTWORK_SIZE,
-          width: TRACK_ARTWORK_SIZE,
-        },
-        artworkRow: {
-          alignItems: 'flex-start',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          width: '100%',
-        },
-        date: {
-          ...typography.caption,
-          color: tokens.text.accent,
-        },
-        playChrome: {
-          marginTop: tokens.spacing.sm,
-        },
-        root: {
-          gap: tokens.spacing.md,
-          marginTop: tokens.spacing.md,
-        },
-        subtitleLink: {
-          ...typography.label,
-          color: tokens.text.accent,
-        },
-        subtitleMuted: {
-          ...typography.label,
-          color: themeStyles.textSecondary.color,
-        },
-        title: {
-          ...typography.title,
-          color: themeStyles.textPrimary.color,
-        },
-        titles: {
-          gap: tokens.spacing.xs,
-        },
-      }),
-    [themeStyles, tokens]
-  );
-
   return (
-    <View accessible={false} style={styles.root} testID="track-detail-playback-chrome">
-      <View style={styles.artworkRow}>
-        <CoverImage
-          accessibilityLabel={trackTitle}
-          style={styles.artwork}
-          testID="track-detail-artwork"
-          uri={artworkUri}
-        />
-        <DownloadRowControl
-          completeTestID="track-detail-download-complete"
-          item={item}
-          testID="track-detail-download"
-        />
-      </View>
-      <View style={styles.titles}>
-        {onAlbumPress !== undefined && channel !== null ? (
-          <Pressable
-            accessibilityLabel={channel.title ?? channel.id_text}
-            accessibilityRole="link"
-            onPress={onAlbumPress}
-            testID="track-detail-album-title"
-          >
-            <Text style={styles.subtitleLink}>{channel.title ?? channel.id_text}</Text>
-          </Pressable>
-        ) : (
-          <Text style={styles.subtitleMuted} testID="track-detail-album-title">
-            {channel?.title ?? itemRow.subtitle ?? ''}
-          </Text>
-        )}
-        <Text accessibilityRole="header" style={styles.title} testID="track-detail-title">
-          {trackTitle}
-        </Text>
-        {dateLabel !== null ? (
-          <Text style={styles.date} testID="track-detail-date">
-            {dateLabel}
-          </Text>
-        ) : null}
-      </View>
-      <View style={styles.playChrome}>
-        <MediaRowActions
-          appearance="icons"
-          durationLabel={durationLabel}
-          durationTestID={`track-detail-duration-${item.id_text}`}
-          idSuffix={`-${item.id_text}`}
-          moreActions={moreActions}
-          moreTestID={`track-detail-more-${item.id_text}`}
-          onPlayPress={onPlayPress}
-          playbackMediaId={item.id_text}
-          playLabel={t('media_player.play')}
-          playTestID={`track-detail-play-${item.id_text}`}
-        />
-      </View>
-    </View>
+    <TrackDetailHeader
+      albumTitle={
+        channel !== null ? (channel.title ?? channel.id_text) : (itemRow.subtitle ?? '')
+      }
+      artworkUri={artworkUri}
+      dateLabel={dateLabel}
+      downloadItem={item}
+      durationLabel={durationLabel}
+      mediaIdText={item.id_text}
+      moreActions={moreActions}
+      onAlbumPress={channel !== null ? onAlbumPress : undefined}
+      onPlayPress={onPlayPress}
+      testIDPrefix="track-detail"
+      title={trackTitle}
+    />
   );
 }
 

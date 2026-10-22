@@ -233,7 +233,7 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
         channelIdText: feed.idText,
       });
       setLoggedInAccount(nextAccount);
-      router.push(ROUTES.ADD_BY_RSS_PODCASTS);
+      router.push(ROUTES.ADD_BY_RSS);
     } catch (error) {
       console.error(error);
       setErrorMessage(tFeatures('add_by_rss.credentials_check_failed'));
@@ -332,7 +332,7 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
           </p>
         )}
 
-        <Link href={ROUTES.ADD_BY_RSS_PODCASTS}>
+        <Link href={ROUTES.ADD_BY_RSS}>
           {tFeatures('add_by_rss.credentials_back_to_list')}
         </Link>
       </div>

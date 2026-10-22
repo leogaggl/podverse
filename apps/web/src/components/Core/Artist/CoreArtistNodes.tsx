@@ -3,12 +3,9 @@
 import React from 'react';
 
 import type { DTOChannel } from '@podverse/helpers';
-import { buildDTOChannelImageLoadCandidates } from '@podverse/helpers';
 
-import { IMAGES } from '../../../constants/images';
-import { ROUTES } from '../../../constants/routes';
+import { artistListItemFromChannel } from '../../../utils/subscribed/channelListItems';
 import { CommonArtistListNodes } from '../../Common/Artist/CommonArtistNodes';
-import type { ArtistListItem } from '../../Common/Artist/types';
 import type { ViewSelectedOption } from '../../ViewSelector/ViewSelector';
 
 interface Params {
@@ -17,22 +14,7 @@ interface Params {
 }
 
 export function CoreArtistNodes({ channels, viewSelected }: Params): React.ReactNode {
-  const items: ArtistListItem[] = channels.map((channel) => {
-    const imageCandidates = buildDTOChannelImageLoadCandidates(
-      channel.channel_images,
-      IMAGES.LIST.PODCASTS.SIZE_FIND_TARGET,
-      'lesser'
-    );
-
-    return {
-      id: String(channel.id),
-      title: channel.title ?? '',
-      imageCandidates,
-      href: `${ROUTES.ARTIST}/${channel.id_text}`,
-      lastPubDate: channel.channel_about?.last_pub_date ?? null,
-      showSubtitle: Boolean(channel.channel_about?.last_pub_date),
-    };
-  });
+  const items = channels.map((channel) => artistListItemFromChannel(channel));
 
   return <CommonArtistListNodes items={items} viewSelected={viewSelected} />;
 }

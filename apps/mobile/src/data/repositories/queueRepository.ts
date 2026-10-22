@@ -799,13 +799,14 @@ export const queueRepository = {
   markAsPlayed: async (
     context: MobileAuthRequestContext,
     queueIdText: string,
-    target: { completed?: boolean; kind: 'item' | 'clip' | 'soundbite'; idText: string }
+    target: MoveNowPlayingToHistoryTarget
   ): Promise<void> => {
-    await addResourceToHistory(context, queueIdText, {
-      completed: target.completed ?? true,
-      idText: target.idText,
-      kind: target.kind,
-    });
+    const completed = target.completed ?? true;
+    if (target.kind === 'add_by_rss') {
+      await addResourceToHistory(context, queueIdText, { ...target, completed });
+      return;
+    }
+    await addResourceToHistory(context, queueIdText, { ...target, completed });
   },
 
   /**

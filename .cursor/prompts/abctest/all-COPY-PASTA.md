@@ -11,10 +11,10 @@ When the run pauses, fix the cause and continue the same agent:
 
 - [ ] **01 — Unit tier**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 01 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 01 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run tier 1 only (unit, packages and apps except API, management-api, and mobile):
 npm run test:unit
@@ -22,10 +22,10 @@ npm run test:unit
 
 - [ ] **02 — Mobile unit tier**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 02 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 02 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run tier 2 only (mobile unit):
 npm --prefix apps/mobile run test
@@ -35,10 +35,10 @@ npm --prefix apps/mobile run test
 
 - [ ] **03 — API and management-api integration**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 03 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 03 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run tier 3 only. Build packages first, because earlier steps may have changed them:
 npm run build:packages
@@ -48,10 +48,10 @@ npm run test:e2e:api
 
 - [ ] **04 — Workers broker integration**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 04 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 04 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run tier 4 only:
 make test_deps_mq
@@ -62,10 +62,10 @@ PODVERSE_RUN_MQ_INTEGRATION=1 npm run test -w apps/workers -- src/commands/mq/rs
 
 - [ ] **05 — Web Playwright**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 05 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 05 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run the base web Playwright suite only. Build packages first:
 npm run build:packages
@@ -76,10 +76,10 @@ Rerun one failing spec with make e2e_test_web_report_spec SPEC=<path>.
 
 - [ ] **06 — Web Playwright variants**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 06 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 06 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run the web variants only, in this order. Seed once first, and reseed before a variant when an
 earlier variant's failure may have left data behind:
@@ -96,10 +96,10 @@ Rerun one failing spec with the same variant script plus the spec path.
 
 - [ ] **07 — Management-web Playwright**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 07 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps.
+You are step 07 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps.
 
 Run management-web only, in this order:
 make e2e_test_management_web
@@ -116,10 +116,10 @@ Metro** tab, leave `npm run mobile:dev:e2e` running first. Port 8081 must be tha
 
 - [ ] **08 — iOS Maestro prep and areas a–d**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 08 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps and
+You are step 08 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps and
 § iOS Maestro.
 
 Prepare the mobile services, then run every iOS area in apps/mobile/e2e/HOW-TO-RUN.md
@@ -128,10 +128,10 @@ Prepare the mobile services, then run every iOS area in apps/mobile/e2e/HOW-TO-R
 
 - [ ] **09 — iOS Maestro areas e–o**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 09 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps and
+You are step 09 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps and
 § iOS Maestro.
 
 Confirm the mobile services are healthy, then run every iOS area in
@@ -141,10 +141,10 @@ at a time.
 
 - [ ] **10 — iOS Maestro areas p**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 10 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps and
+You are step 10 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps and
 § iOS Maestro.
 
 Confirm the mobile services are healthy, then run every iOS area in
@@ -153,10 +153,10 @@ apps/mobile/e2e/HOW-TO-RUN.md § Complete area list whose name starts with p, on
 
 - [ ] **11 — iOS Maestro areas q–z**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 11 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps and
+You are step 11 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps and
 § iOS Maestro.
 
 Confirm the mobile services are healthy, then run every iOS area in
@@ -166,10 +166,10 @@ at a time.
 
 - [ ] **12 — iOS Maestro unlisted flows and tablet**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
-You are step 12 of abctestall run {{SET}}. Follow the abctestall skill § Runner steps and
+You are step 12 of abctestall run {{SET}}. Follow .cursor/skills/abctestall/SKILL.md § Runner steps and
 § iOS Maestro.
 
 Confirm the mobile services are healthy. Run every top-level apps/mobile/e2e/*.yaml phone flow
@@ -181,13 +181,13 @@ that HOW-TO-RUN.md § Complete area list does not name, one at a time. Then run 
 
 - [ ] **Close — Sweep summary**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** low
 
 ```
 You are the last step of abctestall run {{SET}}. Do not run tests or change code.
 
 Read every final message this run saved (01 through 12) and
-.llm/plans/active/abctestall-deferred.md. Write the summary the abctestall skill § Done
+.llm/plans/active/abctestall-deferred.md. Write the summary .cursor/skills/abctestall/SKILL.md § Done
 describes: passes per tier, fixes (file, cause, rerun command, result), and deferred entries.
 Name any tier whose post-fix rerun did not pass. If the deferred file has entries, end by telling
 the operator to run ./scripts/abctest/run.sh deferred.

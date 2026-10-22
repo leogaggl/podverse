@@ -1475,23 +1475,7 @@
         "title": "",
         "description": ""
       },
-      "podcasts": {
-        "title": "",
-        "description": ""
-      },
-      "episodes": {
-        "title": "",
-        "description": ""
-      },
-      "artists": {
-        "title": "",
-        "description": ""
-      },
-      "albums": {
-        "title": "",
-        "description": ""
-      },
-      "tracks": {
+      "browse": {
         "title": "",
         "description": ""
       },
@@ -1504,10 +1488,6 @@
         "description": ""
       },
       "playlists": {
-        "title": "",
-        "description": ""
-      },
-      "clips": {
         "title": "",
         "description": ""
       },

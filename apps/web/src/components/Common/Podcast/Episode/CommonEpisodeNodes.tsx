@@ -12,6 +12,39 @@ import type { EpisodeListNodesProps } from './types';
 
 import styles from '../../../../styles/components/Common/List/ListNodes.module.scss';
 
+type CommonEpisodeListItemRowProps = {
+  channel: DTOChannel;
+  item: DTOItem;
+  showChannelInfo?: boolean;
+};
+
+export const CommonEpisodeListItemRow: React.FC<CommonEpisodeListItemRowProps> = ({
+  channel,
+  item,
+  showChannelInfo,
+}) => {
+  if (item.live_item) {
+    return (
+      <ListLiveItemRow
+        channel={channel}
+        item={item}
+        live_item={item.live_item}
+        showChannelInfo={showChannelInfo}
+        showLiveItemStatus
+      />
+    );
+  }
+
+  return (
+    <CommonEpisodeListRow
+      channel={channel}
+      item={item}
+      showChannelInfo={showChannelInfo}
+      playlist_id_text={null}
+    />
+  );
+};
+
 export const CommonEpisodeListNodes: React.FC<EpisodeListNodesProps> = ({
   channel,
   items,
@@ -29,22 +62,11 @@ export const CommonEpisodeListNodes: React.FC<EpisodeListNodesProps> = ({
           const rowChannel = channel || item.channel;
           return (
             <React.Fragment key={item.id}>
-              {item.live_item ? (
-                <ListLiveItemRow
-                  channel={rowChannel}
-                  item={item}
-                  live_item={item.live_item}
-                  showChannelInfo={showChannelInfo}
-                  showLiveItemStatus
-                />
-              ) : (
-                <CommonEpisodeListRow
-                  channel={rowChannel}
-                  item={item}
-                  showChannelInfo={showChannelInfo}
-                  playlist_id_text={null}
-                />
-              )}
+              <CommonEpisodeListItemRow
+                channel={rowChannel}
+                item={item}
+                showChannelInfo={showChannelInfo}
+              />
               {idx < items.length - 1 && <Divider />}
             </React.Fragment>
           );

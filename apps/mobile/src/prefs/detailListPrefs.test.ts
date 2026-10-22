@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_ADD_BY_RSS_EPISODE_SORT,
+  DEFAULT_ADD_BY_RSS_TRACK_SORT,
   DEFAULT_ALBUM_DETAIL_RANGE,
   DEFAULT_ALBUM_TRACK_SORT,
   DEFAULT_EPISODE_CLIP_SORT,
   DEFAULT_PODCAST_DETAIL_RANGE,
   DEFAULT_PODCAST_DETAIL_SORT,
-  readAddByRssDetailPrefs,
+  readAddByRssEpisodeSort,
+  readAddByRssTrackSort,
   readAlbumDetailPrefs,
   readEpisodeDetailPrefs,
   readPodcastDetailPrefs,
@@ -56,9 +58,8 @@ describe('detailListPrefs', () => {
     await expect(readEpisodeDetailPrefs('episode-a')).resolves.toEqual({
       clipSort: DEFAULT_EPISODE_CLIP_SORT,
     });
-    await expect(readAddByRssDetailPrefs('feed-a')).resolves.toEqual({
-      sort: DEFAULT_ADD_BY_RSS_EPISODE_SORT,
-    });
+    await expect(readAddByRssEpisodeSort('feed-a')).resolves.toBe(DEFAULT_ADD_BY_RSS_EPISODE_SORT);
+    await expect(readAddByRssTrackSort('feed-a')).resolves.toBe(DEFAULT_ADD_BY_RSS_TRACK_SORT);
   });
 
   it('keeps one podcast sort from speaking for another', async () => {
@@ -154,13 +155,23 @@ describe('detailListPrefs', () => {
     });
   });
 
-  it('reads a title order for an add-by-RSS feed, which the podcast union omits', async () => {
-    await writeAddByRssDetailSort('feed-a', 'alphabetical');
+  it('treats a stored title order as the default for an add-by-RSS feed', async () => {
+    inMemoryStore.set('sort.channel:feed-a', JSON.stringify({ sort: 'alphabetical' }));
 
-    await expect(readAddByRssDetailPrefs('feed-a')).resolves.toEqual({ sort: 'alphabetical' });
+    await expect(readAddByRssEpisodeSort('feed-a')).resolves.toBe('recent');
+    await expect(readAddByRssTrackSort('feed-a')).resolves.toBe('forward');
     await expect(readPodcastDetailPrefs('feed-a')).resolves.toMatchObject({
       sort: DEFAULT_PODCAST_DETAIL_SORT,
     });
+  });
+
+  it('remembers episode order and track order for one add-by-RSS feed', async () => {
+    await writeAddByRssDetailSort('feed-a', 'oldest');
+    await expect(readAddByRssEpisodeSort('feed-a')).resolves.toBe('oldest');
+
+    await writeAddByRssDetailSort('feed-a', 'backward');
+    await expect(readAddByRssTrackSort('feed-a')).resolves.toBe('backward');
+    await expect(readAddByRssEpisodeSort('feed-a')).resolves.toBe('recent');
   });
 
   it('reads an album sort written for the same channel, since an album is a channel', async () => {

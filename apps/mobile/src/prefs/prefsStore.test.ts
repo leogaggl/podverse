@@ -48,6 +48,8 @@ describe('prefsStore', () => {
     await expect(getPref('uit')).resolves.toBeNull();
     await expect(getPref('pmt')).resolves.toBeNull();
     await expect(getPref('preferred_media_type')).resolves.toBeNull();
+    inMemoryStore.set('preferred_media_type', 'livestreams');
+    await expect(getPref('preferred_media_type')).resolves.toBe('livestreams');
     await expect(getPref('home.subscriptionFilter')).resolves.toBeNull();
     await expect(getPref('library.subscriptionFilter')).resolves.toBeNull();
   });

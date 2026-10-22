@@ -1,9 +1,9 @@
 ---
 name: abcagentoptimize
-description: Review how agent work on plans is going and recommend changes that make it faster without lowering quality. Use when the operator says abcagentoptimize.
+description: Review how agent work on plans is going and recommend changes that make it faster without lowering quality. Use when the operator runs /abcagentoptimize or says abcagentoptimize.
 ---
 
-# abcagentoptimize
+# `abcagentoptimize`
 
 The goal is shorter plan work at the same quality. Speed comes from fewer tool calls, fewer
 operator round trips, and less context per request — never from skipping verification, tests a
@@ -68,8 +68,23 @@ that were applied or rejected so the next run starts from open items.
 - **Verification once per set** — intermediate prompts carry no operator test commands; the
   operator tests after the last prompt (**response-ending-make-verify** § Plan sets).
 - **Large files** — **large-file-reading** sends agents to Grep instead of paging.
-- **Reasoning depth** — Cursor Grok 4.7 is fixed at extra high with Fast on; cost is not a
-  concern, so do not recommend lowering it.
+- **Reasoning depth** — each Cursor Grok 4.7 prompt runs at the lowest reasoning that reliably
+  completes it, with Fast off (**copy-pasta-recommend-model** § Reasoning). A prompt that needed
+  a rerun one level up is a signal its kind of work is under-leveled.
 - **Test sweeps** — **abctestall** and **abctestdeferred** run under plan-runner through
   `scripts/abctest/run.sh`, one fresh agent per tier or per deferred group.
+- **Large requests** — **abcplan** plans and implements under plan-runner through
+  `scripts/abcplan/run.sh`, so no single chat holds the whole request. Both runs pass
+  `--parallel`: planning areas run in waves, and implementation phases hold only prompts that
+  edit disjoint files.
+- **Decision review** — the abcplan Review step collects planner decisions once, before Close, so
+  the set is not reassembled for each correction.
+- **Scoped planning reads** — planning steps grep `## Notes for later prompts` and read full
+  messages and plans only for their named dependencies.
+- **Fixed plan sections** — `## Rows`, `## Runs after`, `## Files`, `## Tests`, and
+  `## Release scratchpad` let Close grep instead of rereading every plan.
+- **One change per plan** — replaced the 300-line limit, so plans are not trimmed or split only
+  to fit a length.
 - **Always-on size** — scope domain rules to globs or descriptions; keep an index of triggers.
+  `AGENTS.md` stays under 8 KB, with lookups in `docs/development/AGENTS-REFERENCE.md`; vocabulary
+  entries stay at one or two lines, with domain terms in **domain-terms**.

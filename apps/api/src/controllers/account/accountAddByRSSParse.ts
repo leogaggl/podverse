@@ -65,6 +65,15 @@ type E2eParsedFeedFixture = {
   enclosureUrl: string;
   itemImageUrl: string;
   pubDate: string;
+  chaptersUrl?: string;
+  transcriptUrl?: string;
+  medium?: string;
+  liveItems?: {
+    guid: string;
+    startOffsetMs: number;
+    status: 'live' | 'pending';
+    title: string;
+  }[];
 };
 
 const E2E_DEFAULT_PARSED_FEED: E2eParsedFeedFixture = {
@@ -91,6 +100,76 @@ const E2E_TEST_ASSETS_PARSED_FEED: E2eParsedFeedFixture = {
   pubDate: '2025-07-02T11:21:52.000Z',
 };
 
+const E2E_ADD_BY_RSS_SECTIONS_FEED_URL = 'https://e2e-seed-addbyrss.example/podcast-sections.xml';
+
+/** A feed whose item links chapters and a transcript, for the mobile episode sections flow. */
+const E2E_ADD_BY_RSS_SECTIONS_PARSED_FEED: E2eParsedFeedFixture = {
+  channelTitle: 'E2E Add-by-RSS Sections Channel',
+  link: E2E_DEFAULT_PARSED_FEED.link,
+  channelImageUrl: E2E_DEFAULT_PARSED_FEED.channelImageUrl,
+  itemTitle: 'E2E Add-by-RSS Sections Episode',
+  itemGuid: 'https://e2e-seed-addbyrss.example/item-guid/sections',
+  itemDurationSeconds: E2E_DEFAULT_PARSED_FEED.itemDurationSeconds,
+  enclosureUrl: E2E_DEFAULT_PARSED_FEED.enclosureUrl,
+  itemImageUrl: E2E_DEFAULT_PARSED_FEED.itemImageUrl,
+  pubDate: E2E_DEFAULT_PARSED_FEED.pubDate,
+  chaptersUrl: 'http://localhost:2111/chapters/chapters-feed-podcast-1-item-0.json',
+  transcriptUrl: 'http://localhost:2111/transcripts/transcript-feed-podcast-1-item-0-0.vtt',
+};
+
+const E2E_ADD_BY_RSS_MUSIC_FEED_URL = 'https://e2e-seed-addbyrss.example/album.xml';
+
+/** A music album whose track links a transcript, for the mobile track flow. */
+const E2E_ADD_BY_RSS_MUSIC_PARSED_FEED: E2eParsedFeedFixture = {
+  channelTitle: 'E2E Add-by-RSS Album',
+  link: E2E_DEFAULT_PARSED_FEED.link,
+  channelImageUrl: E2E_DEFAULT_PARSED_FEED.channelImageUrl,
+  itemTitle: 'E2E Add-by-RSS Track',
+  itemGuid: 'https://e2e-seed-addbyrss.example/item-guid/track',
+  itemDurationSeconds: E2E_DEFAULT_PARSED_FEED.itemDurationSeconds,
+  enclosureUrl: E2E_DEFAULT_PARSED_FEED.enclosureUrl,
+  itemImageUrl: E2E_DEFAULT_PARSED_FEED.itemImageUrl,
+  pubDate: E2E_DEFAULT_PARSED_FEED.pubDate,
+  medium: 'music',
+  transcriptUrl: 'http://localhost:2111/transcripts/transcript-feed-podcast-1-item-0-0.vtt',
+};
+
+const E2E_ADD_BY_RSS_LIVE_FEED_URL = 'https://e2e-seed-addbyrss.example/podcast-live.xml';
+
+/** A feed with one live and one scheduled livestream, for the mobile Add by RSS livestream flow. */
+const E2E_ADD_BY_RSS_LIVE_PARSED_FEED: E2eParsedFeedFixture = {
+  channelTitle: 'E2E Add-by-RSS Live Channel',
+  link: E2E_DEFAULT_PARSED_FEED.link,
+  channelImageUrl: E2E_DEFAULT_PARSED_FEED.channelImageUrl,
+  itemTitle: 'E2E Add-by-RSS Live Channel Episode',
+  itemGuid: 'https://e2e-seed-addbyrss.example/item-guid/live-channel',
+  itemDurationSeconds: E2E_DEFAULT_PARSED_FEED.itemDurationSeconds,
+  enclosureUrl: E2E_DEFAULT_PARSED_FEED.enclosureUrl,
+  itemImageUrl: E2E_DEFAULT_PARSED_FEED.itemImageUrl,
+  pubDate: E2E_DEFAULT_PARSED_FEED.pubDate,
+  liveItems: [
+    {
+      guid: 'https://e2e-seed-addbyrss.example/live-guid/now',
+      startOffsetMs: -60 * 60 * 1000,
+      status: 'live',
+      title: 'E2E Add-by-RSS Live Now',
+    },
+    {
+      guid: 'https://e2e-seed-addbyrss.example/live-guid/scheduled',
+      startOffsetMs: 24 * 60 * 60 * 1000,
+      status: 'pending',
+      title: 'E2E Add-by-RSS Scheduled Live',
+    },
+  ],
+};
+
+const E2E_PARSED_FEEDS_BY_URL: Record<string, E2eParsedFeedFixture> = {
+  [E2E_TEST_ASSETS_FEED_URL]: E2E_TEST_ASSETS_PARSED_FEED,
+  [E2E_ADD_BY_RSS_SECTIONS_FEED_URL]: E2E_ADD_BY_RSS_SECTIONS_PARSED_FEED,
+  [E2E_ADD_BY_RSS_MUSIC_FEED_URL]: E2E_ADD_BY_RSS_MUSIC_PARSED_FEED,
+  [E2E_ADD_BY_RSS_LIVE_FEED_URL]: E2E_ADD_BY_RSS_LIVE_PARSED_FEED,
+};
+
 /**
  * Minimal partytime-shaped payload so mobile `convertParsedRSSFeedToCompat` yields a mapped bundle
  * with one playable item. Cast via unknown: fixture is intentionally not a full FeedObject.
@@ -98,10 +177,10 @@ const E2E_TEST_ASSETS_PARSED_FEED: E2eParsedFeedFixture = {
 const buildE2eParsedFeedPayload = (
   feedUrl: string
 ): NonNullable<AddByRSSParseCacheEntry['payload']> => {
-  const source =
-    feedUrl === E2E_TEST_ASSETS_FEED_URL ? E2E_TEST_ASSETS_PARSED_FEED : E2E_DEFAULT_PARSED_FEED;
+  const source = E2E_PARSED_FEEDS_BY_URL[feedUrl] ?? E2E_DEFAULT_PARSED_FEED;
   const fixture = {
     title: source.channelTitle,
+    ...(source.medium !== undefined ? { medium: source.medium } : {}),
     link: source.link,
     description: 'E2E add-by-RSS fixture',
     explicit: false,
@@ -119,8 +198,43 @@ const buildE2eParsedFeedPayload = (
         },
         image: source.itemImageUrl,
         pubDate: source.pubDate,
+        ...(source.chaptersUrl !== undefined
+          ? {
+              podcastChapters: {
+                url: source.chaptersUrl,
+                type: 'application/json+chapters',
+              },
+            }
+          : {}),
+        ...(source.transcriptUrl !== undefined
+          ? {
+              podcastTranscripts: [
+                {
+                  url: source.transcriptUrl,
+                  type: 'text/vtt',
+                  language: 'en',
+                  rel: 'captions',
+                },
+              ],
+            }
+          : {}),
       },
     ],
+    ...(source.liveItems !== undefined
+      ? {
+          podcastLiveItems: source.liveItems.map((liveItem) => ({
+            title: liveItem.title,
+            guid: liveItem.guid,
+            status: liveItem.status,
+            start: new Date(Date.now() + liveItem.startOffsetMs).toISOString(),
+            enclosure: {
+              url: 'http://localhost:2111/audio/audio-001.mp3',
+              type: 'audio/mpeg',
+              length: 0,
+            },
+          })),
+        }
+      : {}),
   };
   return fixture as unknown as NonNullable<AddByRSSParseCacheEntry['payload']>;
 };

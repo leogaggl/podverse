@@ -293,6 +293,10 @@ section has one — see **mobile-chapter-artwork**. Chapters for chrome come fro
 The player region reads as one centered column, and the transport it presents is the app's largest
 touch target because it is the one a listener reaches for without looking.
 
+- **No queue actions.** The full player never offers Add to Queue, Play Next, or Play Last,
+  because the item is already playing. Mark as Played is the only list-row action it carries.
+  `resolveQueueMutationTarget` serves Mark as Played; despite its name, it is not for queue
+  actions.
 - **Centered text.** Segment, episode title, and channel title are centered. Episode + channel share
   one title block (`FULL_PLAYER_TITLE_BLOCK_HEIGHT`) with a tight internal gap — not two bands
   separated by `FULL_PLAYER_REGION_GAP`. The title is a `MarqueeText align="center"`, so it centers

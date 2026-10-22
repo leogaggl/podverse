@@ -42,7 +42,6 @@ import { MainWrapper } from '../../Main/MainWrapper';
 import { NoResults } from '../../NoResults/NoResults';
 import { AddByRSSArtistHeader } from '../Artist/AddByRSSArtistHeader';
 import { AddByRSSTrackHeader } from '../Artist/Album/Track/AddByRSSTrackHeader';
-import { AddByRSSLivestreamHeader } from '../Livestream/AddByRSSLivestreamHeader';
 
 import styles from '../../../styles/components/AddByRSS/Detail/AddByRSSDetail.module.scss';
 
@@ -175,8 +174,6 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
         return tMedia('music.artists');
       case 'tracks':
         return tMedia('music.tracks');
-      case 'livestreams':
-        return tMedia('livestream.livestreams');
       default:
         return tMedia('podcast.episodes');
     }
@@ -187,8 +184,6 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
   const headerNode =
     resourceType === 'artists' ? (
       <AddByRSSArtistHeader feed={feed} />
-    ) : resourceType === 'livestreams' ? (
-      <AddByRSSLivestreamHeader feed={feed} />
     ) : resourceType === 'tracks' ? (
       <AddByRSSTrackHeader feed={feed} />
     ) : null;

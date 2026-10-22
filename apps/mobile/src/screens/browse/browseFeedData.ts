@@ -5,6 +5,7 @@ import type { MobileAuthRequestContext } from '../../data/repositories';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import {
   mapItemsToHomeFeedRows,
+  mapItemsToUpcomingLiveRows,
   normalizeChannelRows,
   normalizeClipRows,
 } from '../home/homeFeedData';
@@ -113,6 +114,17 @@ export const fetchBrowseFeedRows = async (
       })
     );
     return { kind: 'media', rows: normalizeClipRows(response.data) };
+  }
+
+  if (mediaType === 'livestreams') {
+    const response = await requestWithMobileAuthRefresh(authDeps, async (api) =>
+      api.reqLiveItemGetManyUpcoming({
+        medium: 'all',
+        page: BROWSE_FEED_PAGE,
+        type: 'global',
+      })
+    );
+    return { kind: 'media', rows: mapItemsToUpcomingLiveRows(response.data) };
   }
 
   if (mediaType === 'episodes' || mediaType === 'tracks') {

@@ -58,6 +58,11 @@ name: Browse Tab And Tab Bar Pref
     from:
       id: browse-media-type-selector
     direction: LEFT
+# Livestreams sits before Playlists, so the trailing pair needs one more swipe.
+- swipe:
+    from:
+      id: browse-media-type-selector
+    direction: LEFT
 - assertVisible:
     id: browse-media-type-playlists
 - assertVisible:
@@ -82,6 +87,58 @@ name: Browse Tab And Tab Bar Pref
 - assertNotVisible:
     id: "home-feed-row-.*"
 - takeScreenshot: browse-screen-users
+# Livestreams is the chip before Playlists. The row is at its trailing edge here.
+- runFlow:
+    file: shared/reveal-chip-row-leading.yaml
+    env:
+      CHIP_ROW_ID: browse-media-type-selector
+      LEADING_ID: browse-media-type-livestreams
+- tapOn:
+    id: browse-media-type-livestreams
+- extendedWaitUntil:
+    visible:
+      text: "E2E Live Audio Stream"
+    timeout: ${TIMEOUT_SLOWER}
+- assertVisible:
+    text: "E2E Scheduled Livestream"
+- assertNotVisible:
+    id: browse-sort-button
+- assertNotVisible:
+    id: browse-category-button
+- takeScreenshot: browse-media-type-livestreams
+- tapOn:
+    id: home-row-more-e2eLiveStrm01
+- extendedWaitUntil:
+    visible:
+      id: media-row-menu-e2eLiveStrm01
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: media-row-action-share-e2eLiveStrm01
+- assertNotVisible:
+    id: media-row-action-queue-next-e2eLiveStrm01
+- assertNotVisible:
+    id: media-row-action-queue-last-e2eLiveStrm01
+- assertNotVisible:
+    id: media-row-action-add-to-playlist-e2eLiveStrm01
+- assertNotVisible:
+    id: media-row-action-mark-as-played-e2eLiveStrm01
+- takeScreenshot: browse-livestream-row-more-menu
+- tapOn:
+    id: media-row-menu-e2eLiveStrm01-cancel
+- tapOn:
+    text: "E2E Live Audio Stream"
+- extendedWaitUntil:
+    visible:
+      id: episode-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: browse-livestream-detail
+- runFlow: shared/stack-back.yaml
+- assertVisible:
+    id: browse-screen
+- swipe:
+    from:
+      id: browse-media-type-selector
+    direction: RIGHT
 - swipe:
     from:
       id: browse-media-type-selector

@@ -71,7 +71,7 @@ test.describe('Add by RSS with a rejected password', () => {
     const credentialsUrl = page.url();
 
     await test.step('The podcasts list shows the feed as rejected in the needs-credentials section', async () => {
-      await page.goto('/add-by-rss/podcasts');
+      await page.goto('/add-by-rss');
       const section = page.getByTestId('add-by-rss-needs-credentials-section');
       await expect(section).toBeVisible({ timeout: 15_000 });
       await expect(section.getByText('Username or password was rejected')).toBeVisible();

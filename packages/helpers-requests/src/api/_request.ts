@@ -195,7 +195,12 @@ import {
 import { reqItemTranscriptGet } from './itemTranscript/itemTranscript.js';
 import { reqLegalPopularityTracking } from './legal/popularityTracking.js';
 import { reqLegalTerms } from './legal/terms.js';
-import { reqLiveItemGetMany, reqLiveItemGetManyByChannel } from './liveItem/liveItem.js';
+import type { QueryParamsLiveItemUpcoming } from './liveItem/liveItem.js';
+import {
+  reqLiveItemGetMany,
+  reqLiveItemGetManyByChannel,
+  reqLiveItemGetManyUpcoming,
+} from './liveItem/liveItem.js';
 import { reqManagedCopyGet } from './managedCopy/managedCopy.js';
 import { reqMembershipGetPricing, reqProductMembershipGet } from './membership/membership.js';
 import {
@@ -1097,6 +1102,10 @@ export class ApiRequestService {
 
   reqLiveItemGetManyByChannel(channelIdOrIdText: string) {
     return reqLiveItemGetManyByChannel(this, channelIdOrIdText);
+  }
+
+  reqLiveItemGetManyUpcoming(params: QueryParamsLiveItemUpcoming) {
+    return reqLiveItemGetManyUpcoming(this, params);
   }
 
   /* MEMBERSHIP */

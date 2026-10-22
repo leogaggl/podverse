@@ -246,6 +246,31 @@ name: Player screen flow
       id: full-player-screen
     timeout: ${TIMEOUT_SLOW}
 
+- tapOn:
+    id: full-player-title-link
+- extendedWaitUntil:
+    visible:
+      id: episode-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: podcast-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: mini-player
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-screen
+    timeout: ${TIMEOUT_SLOW}
+
 - runFlow:
     when:
       platform: iOS

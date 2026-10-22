@@ -2,7 +2,7 @@
 
 import type { AccountSignupMode } from '@podverse/helpers';
 import { DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS } from '@podverse/helpers';
-import { optionalEnvString, parseSidebarGroupOrder } from '@podverse/helpers-config';
+import { optionalEnvString } from '@podverse/helpers-config';
 import { buildObservabilityConfigFromEnv } from '@podverse/observability/config';
 
 import { ASSETS } from '../constants/assets';
@@ -144,9 +144,6 @@ const buildConfig = () => {
       },
       nextImageOptimization: {
         enabled: env.NEXT_PUBLIC_NEXT_IMAGE_OPTIMIZATION_ENABLED === 'true',
-      },
-      sidebar: {
-        groupOrder: parseSidebarGroupOrder(optionalEnvString(env.NEXT_PUBLIC_SIDEBAR_GROUP_ORDER)),
       },
     },
     proxy: {

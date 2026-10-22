@@ -31,4 +31,6 @@ export type AddByRSSFeedRecord = AddByRSSFeedRecordBase & {
   requiresCredentials?: boolean;
   /** Why the most recent parse failed; cleared by the next successful parse. */
   lastFailureReason?: AddByRSSParseFailureReason | null;
+  /** Set once a stored parse has carried a live item; never cleared. Absent on older records. */
+  mayHaveLivestreams?: boolean;
 };

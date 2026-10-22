@@ -6,6 +6,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { AccessibilityInfo, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { matchesTitleFilter } from '@podverse/helpers';
+import type { DTOItem } from '@podverse/helpers/dto';
 
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
@@ -22,14 +23,18 @@ import {
 } from '../../data/repositories';
 import { downloadManager } from '../../downloads/downloadManager';
 import { downloadStore } from '../../downloads/downloadStore';
+import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
+import { addByRssLiveItemKey } from '../../lib/addByRss/liveItemDetail';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import {
   isHomeClipsUnavailableOffline,
   isHomeDownloadedItemsOnly,
+  isHomeLivestreamsUnavailableOffline,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
 } from '../../lib/offlineModeViews';
 import { beginPerfChipSample, endPerfChipSample, stampPerfFrame } from '../../lib/perf/perfFrames';
 import { perfMark } from '../../lib/perf/perfSpans';
+import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import type { HomeStackParamList } from '../../navigation';
 import {
   BROWSE_STACK_ROUTES,
@@ -71,13 +76,19 @@ import { useTheme } from '../../theme/useTheme';
 import type { BrowseMediaType } from '../browse/browseTypes';
 import { HOME_MEDIA_TYPE_ORDER, MEDIA_TYPE_LABEL_KEYS } from '../browse/browseTypes';
 import { useAddToPlaylist } from '../library/useAddToPlaylist';
+import type { AddByRssItemActionTarget } from './addByRss/useAddByRssItemActions';
+import { useAddByRssItemActions } from './addByRss/useAddByRssItemActions';
 import type { HomeFeedRowData } from './homeFeedData';
 import {
-  fetchDownloadedHomeFeedRows,
-  fetchHomeFeedRows,
+  EMPTY_HOME_ADD_BY_RSS_ITEMS,
+  EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
+  EMPTY_HOME_DIRECTORY_ITEMS,
+  fetchHomeFeed,
   fetchUnsubscribedDownloadHomeRows,
   isHomeFeedStaleRead,
+  readDownloadedHomeItemFeed,
 } from './homeFeedData';
+import type { HomeFeedGridCellRemoveAction } from './HomeFeedGridCell';
 import { HomeFeedGridCell } from './HomeFeedGridCell';
 import type { HomeFeedLoadSource } from './homeFeedLoadPolicy';
 import { homeFeedKeepsVisibleRowsOnError, homeFeedShowsRefreshControl } from './homeFeedLoadPolicy';
@@ -89,6 +100,7 @@ import {
 } from './homeFeedReadLog';
 import { HomeFeedRow } from './HomeFeedRow';
 import { readHomeFilterTerm, writeHomeFilterTerm } from './homeFilterSession';
+import { homeItemDownloadItem, homeItemShareResource } from './homeItemRowActions';
 import { HomeOverflowMenu } from './HomeOverflowMenu';
 import { mergeDownloadedCountsIntoHomeRows } from './homeRowMetadata';
 import { HomeSortChip } from './HomeSortChip';
@@ -114,40 +126,67 @@ const homeFeedRowKeyExtractor = (row: HomeFeedRowData): string => row.id;
 const EMPTY_HOME_FEED_ROWS: readonly HomeFeedRowData[] = [];
 
 function HomeFeedListItem({
+  addByRssItemsById,
   addToPlaylistPress,
   artworkEdge,
   cellStyle,
+  directoryItemsById,
   goToChannel,
   goToTrack,
   isGridView,
   mediaType,
+  onMarkAsPlayed,
   onPlay,
   onPress,
   onQueue,
+  onShare,
   onUnsubscribe,
   row,
+  unsubscribeAction,
   unsubscribeLabel,
 }: {
+  addByRssItemsById: ReadonlyMap<string, { downloadItem: DTOItem | null }>;
   addToPlaylistPress?: (row: HomeFeedRowData) => void;
   artworkEdge: number;
   cellStyle: StyleProp<ViewStyle>;
+  directoryItemsById: ReadonlyMap<string, DTOItem>;
   goToChannel?: (row: HomeFeedRowData) => void;
   goToTrack?: (row: HomeFeedRowData) => void;
   isGridView: boolean;
   mediaType: HomeMediaType;
+  onMarkAsPlayed: (row: HomeFeedRowData) => void;
   onPlay: (row: HomeFeedRowData) => void;
   onPress: (row: HomeFeedRowData) => void;
-  onQueue: (row: HomeFeedRowData, position: QueueActionPosition) => void;
+  onQueue?: (row: HomeFeedRowData, position: QueueActionPosition) => void;
+  onShare: (row: HomeFeedRowData) => void;
   onUnsubscribe: (row: HomeFeedRowData) => void;
   row: HomeFeedRowData;
+  unsubscribeAction: HomeFeedGridCellRemoveAction;
   unsubscribeLabel: string;
 }) {
   const handleRemove = useCallback(() => {
     onUnsubscribe(row);
   }, [onUnsubscribe, row]);
 
+  let downloadItem: DTOItem | undefined;
+  let shareResource: 'episode' | 'track' | null = null;
+  const itemMediaType = mediaType === 'episodes' || mediaType === 'tracks' ? mediaType : null;
+  const isItemListRow = !isGridView && itemMediaType !== null;
+  const isLivestreamListRow = !isGridView && mediaType === 'livestreams';
+  if (itemMediaType !== null && isItemListRow) {
+    downloadItem = homeItemDownloadItem(row, { addByRssItemsById, directoryItemsById });
+    shareResource = homeItemShareResource(row, itemMediaType);
+  } else if (isLivestreamListRow) {
+    shareResource = homeItemShareResource(row, 'livestreams');
+  }
+
   const feedRow = isGridView ? (
-    <HomeFeedGridCell artworkEdge={artworkEdge} onPress={onPress} row={row} />
+    <HomeFeedGridCell
+      artworkEdge={artworkEdge}
+      onPress={onPress}
+      removeAction={isHomeFilterMediaType(mediaType) ? unsubscribeAction : undefined}
+      row={row}
+    />
   ) : (
     <HomeFeedRow
       mediaType={mediaType}
@@ -158,6 +197,22 @@ function HomeFeedListItem({
       onPress={onPress}
       onQueuePress={onQueue}
       row={row}
+      {...(isLivestreamListRow
+        ? {
+            onSharePress: shareResource !== null ? onShare : undefined,
+          }
+        : isItemListRow
+          ? {
+              onMarkAsPlayedPress: onMarkAsPlayed,
+              onSharePress: shareResource !== null ? onShare : undefined,
+              ...(downloadItem !== undefined
+                ? {
+                    downloadItem,
+                    downloadTestID: `home-item-download-${row.id}`,
+                  }
+                : {}),
+            }
+          : {})}
     />
   );
 
@@ -234,6 +289,12 @@ export function HomeScreen() {
   const pendingSwitchFrameRef = useRef<number | null>(null);
   const [listPrefs, setListPrefs] = useState<HomeListPrefsState | null>(null);
   const [feedRows, setFeedRows] = useState<HomeFeedRowData[]>([]);
+  const [addByRssItemsById, setAddByRssItemsById] = useState(EMPTY_HOME_ADD_BY_RSS_ITEMS);
+  const [addByRssLiveItemsById, setAddByRssLiveItemsById] = useState(
+    EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS
+  );
+  const [directoryItemsById, setDirectoryItemsById] = useState(EMPTY_HOME_DIRECTORY_ITEMS);
+  const [addByRssPlaybackNoticeKey, setAddByRssPlaybackNoticeKey] = useState<string | null>(null);
   const [unsubscribedDownloadRows, setUnsubscribedDownloadRows] = useState<HomeFeedRowData[]>([]);
   const [hasPodcastSubscriptions, setHasPodcastSubscriptions] = useState<boolean>(false);
   const [filterTerm, setFilterTerm] = useState<string>(readHomeFilterTerm);
@@ -245,7 +306,18 @@ export function HomeScreen() {
   const hasLoadedFeedOnceRef = useRef(false);
   const isFeedRefreshingRef = useRef(false);
   const unsubscribingIdsRef = useRef<Set<string>>(new Set());
-  const { playbackNoticeKey, runPlayAction, runQueueAction } = useHomeRowPlayback();
+  const { playbackNoticeKey, runMarkAsPlayedAction, runPlayAction, runQueueAction } =
+    useHomeRowPlayback();
+  const { playItem: playAddByRssItem, playLiveItem: playAddByRssLiveItem } = useAddByRssPlayback({
+    onNotice: setAddByRssPlaybackNoticeKey,
+  });
+  const {
+    actionNoticeKey: addByRssActionNoticeKey,
+    addToPlaylist: addAddByRssToPlaylist,
+    addToPlaylistSheet: addByRssAddToPlaylistSheet,
+    markAsPlayed: markAddByRssAsPlayed,
+    queue: queueAddByRssItem,
+  } = useAddByRssItemActions();
   const { addToPlaylistSheet, requestAddToPlaylist } = useAddToPlaylist();
 
   // Layout applies only on eligible chips; the overflow trigger always sits in the title bar.
@@ -414,6 +486,10 @@ export function HomeScreen() {
     setPendingMediaType(null);
     setSelectedMediaType(mediaType);
     setFeedRows([]);
+    setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
+    setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
+    setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
+    setAddByRssPlaybackNoticeKey(null);
     setUnsubscribedDownloadRows([]);
     setFeedErrorKey(null);
     setHasCompletedFeedRead(false);
@@ -526,18 +602,25 @@ export function HomeScreen() {
         setFeedErrorKey(null);
       }
       try {
-        if (offlineModeEnabled && isHomeClipsUnavailableOffline(selectedMediaType)) {
+        if (
+          offlineModeEnabled &&
+          (isHomeClipsUnavailableOffline(selectedMediaType) ||
+            isHomeLivestreamsUnavailableOffline(selectedMediaType))
+        ) {
           if (requestId !== feedRequestIdRef.current) {
             return;
           }
           setFeedRows([]);
+          setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
+          setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
+          setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
           setUnsubscribedDownloadRows([]);
           setHasCompletedFeedRead(true);
         } else {
-          const rows = await withHomeFeedReadBudget(
+          const read = await withHomeFeedReadBudget(
             offlineModeEnabled && isHomeDownloadedItemsOnly(selectedMediaType)
-              ? fetchDownloadedHomeFeedRows(selectedMediaType)
-              : fetchHomeFeedRows(selectedMediaType, {
+              ? readDownloadedHomeItemFeed(selectedMediaType)
+              : fetchHomeFeed(selectedMediaType, {
                   isCurrent: () => requestId === feedRequestIdRef.current,
                   range: resolvedPrefs.range,
                   sort: resolvedPrefs.sort,
@@ -550,7 +633,10 @@ export function HomeScreen() {
             return;
           }
           perfMark('home.rows.set', selectedMediaType);
-          setFeedRows(rows);
+          setFeedRows(read.rows);
+          setAddByRssItemsById(read.addByRssItemsById);
+          setAddByRssLiveItemsById(read.addByRssLiveItemsById);
+          setDirectoryItemsById(read.directoryItemsById);
           setHasCompletedFeedRead(true);
           if (selectedMediaType === 'podcasts') {
             const unsubscribed = await withHomeFeedReadBudget(
@@ -562,7 +648,7 @@ export function HomeScreen() {
               return;
             }
             setUnsubscribedDownloadRows(unsubscribed);
-            setHasPodcastSubscriptions(rows.length > 0);
+            setHasPodcastSubscriptions(read.rows.length > 0);
           } else {
             setUnsubscribedDownloadRows([]);
             if (selectedMediaType === 'clips') {
@@ -595,6 +681,9 @@ export function HomeScreen() {
           return;
         }
         setFeedRows([]);
+        setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
+        setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
+        setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
         setUnsubscribedDownloadRows([]);
         setFeedErrorKey('errors.generic');
       } finally {
@@ -804,13 +893,38 @@ export function HomeScreen() {
 
   const handleRowPress = useCallback(
     (row: HomeFeedRowData) => {
-      if (selectedMediaType === 'podcasts') {
-        if (row.source === 'addByRss') {
-          navigation.navigate(HOME_STACK_ROUTES.AddByRssPodcastDetail, {
-            feedIdText: row.sourceId ?? row.id,
+      if (
+        row.source === 'addByRss' &&
+        (selectedMediaType === 'podcasts' ||
+          selectedMediaType === 'artists' ||
+          selectedMediaType === 'albums')
+      ) {
+        navigation.navigate(HOME_STACK_ROUTES.AddByRssPodcastDetail, {
+          feedIdText: row.sourceId ?? row.id,
+        });
+        return;
+      }
+
+      if (
+        row.source === 'addByRss' &&
+        (selectedMediaType === 'episodes' || selectedMediaType === 'tracks')
+      ) {
+        const item = addByRssItemsById.get(row.id);
+        if (item === undefined) {
+          return;
+        }
+        if (selectedMediaType === 'episodes') {
+          navigation.navigate(HOME_STACK_ROUTES.AddByRssEpisodeDetail, {
+            feedIdText: item.feed.idText,
+            itemKey: item.itemKey,
           });
           return;
         }
+        void playAddByRssItem(item.feed, item.mappedFeed, item.itemBundle, item.itemIndex);
+        return;
+      }
+
+      if (selectedMediaType === 'podcasts') {
         navigation.navigate(
           HOME_STACK_ROUTES.PodcastDetail,
           buildPodcastDetailParams({
@@ -863,13 +977,66 @@ export function HomeScreen() {
         return;
       }
 
+      if (selectedMediaType === 'livestreams') {
+        if (row.source !== 'addByRss') {
+          navigation.navigate(HOME_STACK_ROUTES.EpisodeDetail, { episodeId: row.id });
+          return;
+        }
+        const target = addByRssLiveItemsById.get(row.id);
+        if (target === undefined) {
+          return;
+        }
+        navigation.navigate(HOME_STACK_ROUTES.AddByRssLivestreamDetail, {
+          feedIdText: target.feed.idText,
+          liveItemKey: addByRssLiveItemKey(target.liveBundle, target.liveIndex),
+        });
+        return;
+      }
+
       runPlayAction(row, 'tracks');
     },
-    [navigation, runPlayAction, selectedMediaType]
+    [
+      addByRssItemsById,
+      addByRssLiveItemsById,
+      navigation,
+      playAddByRssItem,
+      runPlayAction,
+      selectedMediaType,
+    ]
+  );
+
+  const findAddByRssTarget = useCallback(
+    (row: HomeFeedRowData): AddByRssItemActionTarget | null => {
+      if (row.source !== 'addByRss') {
+        return null;
+      }
+      const item = addByRssItemsById.get(row.id);
+      if (item === undefined) {
+        return null;
+      }
+      return {
+        feed: item.feed,
+        itemBundle: item.itemBundle,
+        itemIndex: item.itemIndex,
+        mappedFeed: item.mappedFeed,
+      };
+    },
+    [addByRssItemsById]
   );
 
   const handleGoToTrack = useCallback(
     (row: HomeFeedRowData) => {
+      if (row.source === 'addByRss') {
+        const item = addByRssItemsById.get(row.id);
+        if (item === undefined) {
+          return;
+        }
+        navigation.navigate(HOME_STACK_ROUTES.AddByRssTrackDetail, {
+          feedIdText: item.feed.idText,
+          itemKey: item.itemKey,
+        });
+        return;
+      }
       navigation.navigate(
         HOME_STACK_ROUTES.TrackDetail,
         buildTrackDetailParams({
@@ -879,7 +1046,7 @@ export function HomeScreen() {
         })
       );
     },
-    [navigation]
+    [addByRssItemsById, navigation]
   );
 
   const handleGoToChannel = useCallback(
@@ -911,16 +1078,93 @@ export function HomeScreen() {
   const handlePlayPress = useCallback(
     (nextRow: HomeFeedRowData) => {
       perfMark('home.play.tap', selectedMediaType);
+      if (selectedMediaType === 'livestreams') {
+        if (nextRow.source === 'addByRss') {
+          const target = addByRssLiveItemsById.get(nextRow.id);
+          if (target !== undefined) {
+            void playAddByRssLiveItem(
+              target.feed,
+              target.mappedFeed,
+              target.liveBundle,
+              target.liveIndex
+            );
+          }
+          return;
+        }
+        runPlayAction(nextRow, 'episodes');
+        return;
+      }
+      if (nextRow.source === 'addByRss') {
+        const target = findAddByRssTarget(nextRow);
+        if (target !== null) {
+          void playAddByRssItem(
+            target.feed,
+            target.mappedFeed,
+            target.itemBundle,
+            target.itemIndex
+          );
+        }
+        return;
+      }
       runPlayAction(nextRow, selectedMediaType);
     },
-    [runPlayAction, selectedMediaType]
+    [
+      addByRssLiveItemsById,
+      findAddByRssTarget,
+      playAddByRssItem,
+      playAddByRssLiveItem,
+      runPlayAction,
+      selectedMediaType,
+    ]
+  );
+
+  const handleMarkAsPlayedPress = useCallback(
+    (row: HomeFeedRowData) => {
+      if (selectedMediaType !== 'episodes' && selectedMediaType !== 'tracks') {
+        return;
+      }
+      if (row.source === 'addByRss') {
+        const target = findAddByRssTarget(row);
+        if (target !== null) {
+          markAddByRssAsPlayed(target);
+        }
+        return;
+      }
+      runMarkAsPlayedAction(row, selectedMediaType);
+    },
+    [findAddByRssTarget, markAddByRssAsPlayed, runMarkAsPlayedAction, selectedMediaType]
+  );
+
+  const handleSharePress = useCallback(
+    (row: HomeFeedRowData) => {
+      if (
+        selectedMediaType !== 'episodes' &&
+        selectedMediaType !== 'tracks' &&
+        selectedMediaType !== 'livestreams'
+      ) {
+        return;
+      }
+      const resource = homeItemShareResource(row, selectedMediaType);
+      if (resource === null) {
+        return;
+      }
+      shareResolvedUrl(buildPublicShareUrl(resource, row.id));
+    },
+    [selectedMediaType]
   );
 
   const handleQueuePress = useCallback(
     (nextRow: HomeFeedRowData, position: QueueActionPosition) => {
+      if (nextRow.source === 'addByRss') {
+        const target = findAddByRssTarget(nextRow);
+        if (target !== null) {
+          queueAddByRssItem(target, position);
+        }
+        return;
+      }
       runQueueAction(nextRow, selectedMediaType, position);
     },
-    [runQueueAction, selectedMediaType]
+    [findAddByRssTarget, queueAddByRssItem, runQueueAction, selectedMediaType]
   );
 
   const handlePodcastPlayPress = useCallback(
@@ -939,6 +1183,13 @@ export function HomeScreen() {
 
   const handleAddToPlaylistPress = useCallback(
     (nextRow: HomeFeedRowData) => {
+      if (nextRow.source === 'addByRss') {
+        const target = findAddByRssTarget(nextRow);
+        if (target !== null) {
+          addAddByRssToPlaylist(target);
+        }
+        return;
+      }
       if (addToPlaylistTarget === null) {
         return;
       }
@@ -948,7 +1199,7 @@ export function HomeScreen() {
         medium: addToPlaylistTarget.medium,
       });
     },
-    [addToPlaylistTarget, requestAddToPlaylist]
+    [addAddByRssToPlaylist, addToPlaylistTarget, findAddByRssTarget, requestAddToPlaylist]
   );
 
   const handleRetryFeed = useCallback(() => {
@@ -1073,17 +1324,19 @@ export function HomeScreen() {
   // Browse; nothing matching is answered by editing the term. Offline-only download channels still
   // count as content on Podcasts, so they suppress the empty discovery CTA. Clips with local
   // podcast follows while signed out need Login — the subscribed clip list is account-backed.
-  // Offline Mode parks Clips entirely (account-backed network list).
-  const showClipsOfflineUnavailable =
-    offlineModeEnabled && isHomeClipsUnavailableOffline(selectedMediaType);
+  // Offline Mode parks Clips and Livestreams (account-backed network lists).
+  const showNetworkListOfflineUnavailable =
+    offlineModeEnabled &&
+    (isHomeClipsUnavailableOffline(selectedMediaType) ||
+      isHomeLivestreamsUnavailableOffline(selectedMediaType));
   const showClipsLogin =
-    !showClipsOfflineUnavailable &&
+    !showNetworkListOfflineUnavailable &&
     selectedMediaType === 'clips' &&
     status !== 'authenticated' &&
     hasPodcastSubscriptions;
   const showNoSubscriptions =
     !isFeedBusy &&
-    !showClipsOfflineUnavailable &&
+    !showNetworkListOfflineUnavailable &&
     showFeedRows &&
     feedRows.length === 0 &&
     (selectedMediaType !== 'podcasts' || unsubscribedDownloadRows.length === 0);
@@ -1157,10 +1410,21 @@ export function HomeScreen() {
         <VerticalCenter testID="home-feed-loading">
           <ListLoading testID="home-feed-loading-indicator" />
         </VerticalCenter>
-      ) : showClipsOfflineUnavailable ? (
+      ) : showNetworkListOfflineUnavailable ? (
         <ListEmpty
           messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
-          testID="home-clips-offline-unavailable"
+          testID={
+            selectedMediaType === 'livestreams'
+              ? 'home-livestreams-offline-unavailable'
+              : 'home-clips-offline-unavailable'
+          }
+        />
+      ) : showNoSubscriptions &&
+        selectedMediaType === 'livestreams' &&
+        status === 'authenticated' ? (
+        <ListEmpty
+          messageKey="media.livestream.no_livestreams_found"
+          testID="home-livestreams-empty"
         />
       ) : showNoSubscriptions && showClipsLogin ? (
         <CallToActionSection
@@ -1195,14 +1459,24 @@ export function HomeScreen() {
       handleEmptySearch,
       isFeedBusy,
       onRequestLogin,
+      selectedMediaType,
       showClipsLogin,
-      showClipsOfflineUnavailable,
+      showNetworkListOfflineUnavailable,
       showNoSubscriptions,
       showSearchOnEmpty,
+      status,
     ]
   );
 
   const unsubscribedDownloadCount = unsubscribedDownloadRows.length;
+  const homeNoticeKey = addByRssActionNoticeKey ?? addByRssPlaybackNoticeKey ?? playbackNoticeKey;
+  const deleteAllAction = useMemo<HomeFeedGridCellRemoveAction>(
+    () => ({
+      label: t('features.download.delete_all'),
+      onRemove: handleDeleteUnsubscribedDownloads,
+    }),
+    [handleDeleteUnsubscribedDownloads, t]
+  );
 
   const listFooter = useMemo(
     () => (
@@ -1235,6 +1509,7 @@ export function HomeScreen() {
                     <HomeFeedGridCell
                       artworkEdge={cellWidth}
                       onPress={handleRowPress}
+                      removeAction={deleteAllAction}
                       row={row}
                       testID={`home-unsubscribed-download-cell-${row.id}`}
                     />
@@ -1255,19 +1530,18 @@ export function HomeScreen() {
             )}
           </View>
         ) : null}
-        {playbackNoticeKey !== null ? (
-          <Text style={styles.feedNotice}>{t(playbackNoticeKey)}</Text>
-        ) : null}
+        {homeNoticeKey !== null ? <Text style={styles.feedNotice}>{t(homeNoticeKey)}</Text> : null}
       </>
     ),
     [
+      deleteAllAction,
       feedRows.length,
       handleDeleteUnsubscribedDownloads,
       handlePodcastPlayPress,
       handlePodcastQueuePress,
       handleRowPress,
+      homeNoticeKey,
       isGridView,
-      playbackNoticeKey,
       selectedMediaType,
       showFeedRows,
       styles.columnCell,
@@ -1301,38 +1575,52 @@ export function HomeScreen() {
   const rowGoToChannel = selectedMediaType === 'tracks' ? handleGoToChannel : undefined;
   const rowGoToTrack = selectedMediaType === 'tracks' ? handleGoToTrack : undefined;
   const unsubscribeLabel = t('features.unsubscribe');
+  const unsubscribeAction = useMemo<HomeFeedGridCellRemoveAction>(
+    () => ({ label: unsubscribeLabel, onRemove: handleUnsubscribe }),
+    [handleUnsubscribe, unsubscribeLabel]
+  );
   const feedCellStyle = columns > 1 ? styles.columnCell : undefined;
 
   const renderItem = useCallback(
     ({ item: row }: { item: HomeFeedRowData }) => (
       <HomeFeedListItem
+        addByRssItemsById={addByRssItemsById}
         addToPlaylistPress={rowAddToPlaylistPress}
         artworkEdge={cellWidth}
         cellStyle={feedCellStyle}
+        directoryItemsById={directoryItemsById}
         goToChannel={rowGoToChannel}
         goToTrack={rowGoToTrack}
         isGridView={isGridView}
         mediaType={selectedMediaType}
+        onMarkAsPlayed={handleMarkAsPlayedPress}
         onPlay={handlePlayPress}
         onPress={handleRowPress}
-        onQueue={handleQueuePress}
+        onQueue={selectedMediaType === 'livestreams' ? undefined : handleQueuePress}
+        onShare={handleSharePress}
         onUnsubscribe={handleUnsubscribe}
         row={row}
+        unsubscribeAction={unsubscribeAction}
         unsubscribeLabel={unsubscribeLabel}
       />
     ),
     [
+      addByRssItemsById,
       cellWidth,
+      directoryItemsById,
       feedCellStyle,
+      handleMarkAsPlayedPress,
       handlePlayPress,
       handleQueuePress,
       handleRowPress,
+      handleSharePress,
       handleUnsubscribe,
       isGridView,
       rowAddToPlaylistPress,
       rowGoToChannel,
       rowGoToTrack,
       selectedMediaType,
+      unsubscribeAction,
       unsubscribeLabel,
     ]
   );
@@ -1437,6 +1725,7 @@ export function HomeScreen() {
         ) : null}
       </View>
       {addToPlaylistSheet}
+      {addByRssAddToPlaylistSheet}
     </View>
   );
 }

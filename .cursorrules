@@ -91,6 +91,9 @@ User vocabulary **abcmemory** / **abcremember**: see `.cursor/rules/abcmemory-vo
 
 ## PLAN MANAGEMENT
 
-**Plans must be under 300 lines.** Plans live in `.llm/plans/active/` (not `.cursor/plans/`).
+Plans live in `.llm/plans/active/` (not `.cursor/plans/`).
 
-If over 300: STOP, split into sub-plans, save, then work sequentially.
+**One change per plan.** A plan holds one coherent change one agent can finish. Split it when it
+holds changes that could ship separately, or when its files span unrelated areas. Never trim a
+plan to hit a length. Past about 500 lines, check whether it is really two changes; that is a
+check, not a stop. `00-*` index files have no length limit.

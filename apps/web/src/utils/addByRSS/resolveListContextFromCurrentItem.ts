@@ -4,6 +4,7 @@ import type {
   AddByRSSListContextState,
   AddByRSSListSortOrder,
 } from '../../contexts/AddByRSSListContext';
+import { selectChannelOrderedLiveItems } from './channelLiveItems';
 import {
   getAddByRSSItemByIdText,
   getAddByRSSLivestreamByIdText,
@@ -56,10 +57,8 @@ export async function resolveAddByRSSListContextFromCurrentItem(
     const forChannel = all.filter(
       (item: AddByRSSLivestreamIndexItem) => item.channelIdText === channelIdText
     );
-    forChannel.sort((a, b) =>
-      sortOrder === 'recent' ? b.startTimeMs - a.startTimeMs : a.startTimeMs - b.startTimeMs
-    );
-    itemIdTexts = forChannel.map((item: AddByRSSLivestreamIndexItem) => item.idText);
+    // Livestreams follow the channel order; sortOrder orders episodes and tracks.
+    itemIdTexts = selectChannelOrderedLiveItems(forChannel).map((item) => item.idText);
   } else {
     const all = await getAllAddByRSSItems();
     const forChannel = all.filter(

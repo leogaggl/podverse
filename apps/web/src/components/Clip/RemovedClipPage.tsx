@@ -6,10 +6,10 @@ import { useTranslations } from 'next-intl';
 import type { DTOClip } from '@podverse/helpers';
 import { Button, MainColumnStack } from '@podverse/ui';
 
-import { ROUTES } from '../../constants/routes';
 import { useConfig } from '../../contexts/Config';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { useMembershipGate } from '../../hooks/useMembershipGate';
+import { buildMediaListChipPath } from '../../utils/mediaListChips';
 import { MainWrapper } from '../Main/MainWrapper';
 import { ReadableTimeRange } from '../Time/ReadableTimeRange';
 
@@ -50,7 +50,7 @@ export function RemovedClipPage(props: RemovedClipPageProps) {
     }
     try {
       await getApiRequestService().reqClipDelete(clip.id_text);
-      router.push(ROUTES.CLIPS);
+      router.push(buildMediaListChipPath('browse', 'clips'));
     } catch (error) {
       if (!tryHandleMembershipGateError(error)) {
         throw error;

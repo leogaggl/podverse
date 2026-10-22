@@ -1,6 +1,6 @@
 ---
 name: abce2efulltestdebug
-description: Debug all supplied Podverse web, management-web, and mobile E2E failures one unit and platform at a time. Use when the operator invokes abce2efulltestdebug with a suite output or multiple targets.
+description: Debug all supplied Podverse web, management-web, and mobile E2E failures one unit and platform at a time. Use when the operator runs /abce2efulltestdebug or says abce2efulltestdebug, with a suite output or multiple targets.
 ---
 
 # `abce2efulltestdebug`

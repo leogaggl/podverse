@@ -1,6 +1,6 @@
 # Add-by-RSS
 
-Add-by-RSS lets users follow RSS feeds (podcasts, music) that are not in the main directory. Feeds are parsed by workers and kept in each device's add-by-RSS library; the account's follow list syncs which feeds a user follows across devices. On mobile, that library is My Library → Add by RSS (chips for podcasts, episodes, artists, albums, and tracks; plus to add). Home lists directory follows only. On web, the add-by-RSS sidebar routes keep the same separation from Home. CarPlay and Android Auto keep add-by-RSS follows in the native library index.
+Add-by-RSS lets users follow RSS feeds (podcasts, music) that are not in the main directory. Feeds are parsed by workers and kept in each device's add-by-RSS library; the account's follow list syncs which feeds a user follows across devices. On mobile, that library is My Library → Add by RSS (chips for podcasts, episodes, artists, albums, and tracks; plus to add). Mobile Home lists those feeds beside directory follows. Home shows no Needs username and password section; feeds still waiting on a username and password stay in the Add by RSS library. Web Subscribed (`/`) does the same with this browser's feeds, and the web library is one page, `/add-by-rss`, with the same chips. CarPlay and Android Auto keep add-by-RSS follows in the native library index.
 
 ## Basic Auth (private feeds)
 
@@ -61,7 +61,7 @@ Every surface uses `resolveCredentialScope` from `@podverse/helpers`:
 
 ### Feeds that need credentials on this device
 
-A followed feed that has `requires_credentials` and no stored credentials on this device (or whose stored credentials were last rejected) appears as a **partial row** in a **Needs username and password** section at the end of the Add by RSS library list (mobile Library → Add by RSS, and the web add-by-RSS library routes). Home does not include that section. Its subtitle says whether credentials are missing or were rejected. The row opens a credentials screen (web `/add-by-rss/credentials/<idText>` or channel Settings; mobile `AddByRssCredentials`) that explains the credentials stay on this device, saves them, and checks the feed right away.
+A followed feed that has `requires_credentials` and no stored credentials on this device (or whose stored credentials were last rejected) appears as a **partial row** in a **Needs username and password** section at the end of the Add by RSS library list (mobile Library → Add by RSS, and the web Add by RSS page, `/add-by-rss`). Home does not include that section. Its subtitle says whether credentials are missing or were rejected. The row opens a credentials screen (web `/add-by-rss/credentials/<idText>` or channel Settings; mobile `AddByRssCredentials`) that explains the credentials stay on this device, saves them, and checks the feed right away.
 
 ### Environment
 
@@ -81,5 +81,8 @@ Usernames, passwords, `Authorization` headers, and envelopes never appear in API
 
 - **Fixtures:** `tools/test-assets` serves a gated feed, a gated feed with public media, a gated feed with media on another host, a cross-host redirect, and an `Authorization` probe. See [TOOLS-TEST-ASSETS.md § Credential fixtures](/tools/test-assets/TOOLS-TEST-ASSETS.md#credential-fixtures) and `tools/test-assets/scripts/verify-basic-auth.sh`.
 - **Web E2E:** `apps/web/e2e/add-by-rss-credentials-*.spec.ts` (add, partial row, rejected, media message). The web E2E stack has no broker, so parse outcomes are stubbed.
-- **Mobile E2E:** `apps/mobile/e2e/add-by-rss-credentials.yaml` (add with credentials, sign out, partial row, re-enter, play).
+- **Mobile E2E:** `apps/mobile/e2e/add-by-rss-credentials.yaml` (add with credentials, sign out,
+  partial row, re-enter, play). `apps/mobile/e2e/add-by-rss-episode-sections.yaml` (an item's
+  Chapters and Transcript on the episode page and in the full player).
+  `apps/mobile/e2e/add-by-rss-track.yaml` (a music feed's track page and Lyrics).
 - **API:** `apps/api/src/test/add-by-rss-parse-credentials.test.ts`.

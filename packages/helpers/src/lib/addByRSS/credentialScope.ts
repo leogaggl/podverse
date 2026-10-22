@@ -86,6 +86,23 @@ export function resolveCredentialScope(
   return feedDomain === targetDomain ? 'send' : 'withheld_other_domain';
 }
 
+/**
+ * Whether device-held credentials for `feedUrl` may usefully go with a request for these URLs:
+ * true when at least one non-empty URL is on the feed's credential scope. Insecure schemes count
+ * as in scope here because the server that fetches the URLs owns that rule.
+ */
+export function hasUrlInCredentialScope(
+  feedUrl: string,
+  urls: readonly (string | null | undefined)[]
+): boolean {
+  return urls.some(
+    (url) =>
+      typeof url === 'string' &&
+      url.trim() !== '' &&
+      resolveCredentialScope(feedUrl, url, { allowInsecure: true }) !== 'withheld_other_domain'
+  );
+}
+
 export type CredentialScopeHost = {
   /** Registrable domain (`match: 'domain'`) or the exact hostname (`match: 'exact'`). */
   host: string;

@@ -1,9 +1,9 @@
 ---
 name: abcmemory
-description: User vocabulary abcmemory and abcremember — where Cursor guidance lives and how to persist new instructions. Use when the user says abcmemory or abcremember.
+description: User vocabulary abcmemory and abcremember — where Cursor guidance lives and how to persist new instructions. Use when the user runs /abcmemory or /abcremember, or says abcmemory or abcremember.
 ---
 
-# abcmemory / abcremember
+# `abcmemory` / `abcremember`
 
 ## One rule (Cursor-only)
 
@@ -15,6 +15,7 @@ description: User vocabulary abcmemory and abcremember — where Cursor guidance
 
 - User says **abcmemory** — they mean the repo's Cursor guidance files (skills, rules, prompts, hooks, etc.).
 - User says **abcremember** — create or update abcmemory with what they told you, then apply it going forward.
+- Both also arrive as `/abcmemory` and `/abcremember`; `/abcremember` is a thin skill that points here.
 
 ## Where abcmemory lives
 
@@ -57,6 +58,7 @@ Use this table to choose where to **create or update** abcmemory:
 | Always-on repo convention                   | `.cursorrules` or new/updated always-applied `.cursor/rules/*.mdc`                     |
 | Applies to specific paths/file types        | Scoped `.cursor/rules/*.mdc` with `globs`                                              |
 | Domain/task workflow (API, E2E, K8s, etc.)  | New or extended `.cursor/skills/<topic>/SKILL.md`                                      |
+| Operator shorthand command (`/abc<name>`)   | `.cursor/skills/abc<name>/SKILL.md`; not `.cursor/commands/`                           |
 | Reusable prompt block for agents            | `.cursor/prompts/<topic>.md`                                                           |
 | Cursor event automation (shell gates, etc.) | `.cursor/hooks.json` + `.cursor/hooks/*`                                               |
 | Path ignores for Cursor indexing            | `.cursorignore`                                                                        |

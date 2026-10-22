@@ -50,6 +50,17 @@ test.describe('Add by RSS parses on its own', () => {
     test.setTimeout(60_000);
     await loginSeedUser(page);
 
+    const feedUrlIndexErrors: string[] = [];
+    page.on('console', (message) => {
+      const text = message.text();
+      if (
+        message.type() === 'error' &&
+        (text.includes('ConstraintError') || text.includes('uniqueness'))
+      ) {
+        feedUrlIndexErrors.push(text);
+      }
+    });
+
     let releaseStatus: () => void = () => undefined;
     const statusReleased = new Promise<void>((resolve) => {
       releaseStatus = resolve;
@@ -62,8 +73,8 @@ test.describe('Add by RSS parses on its own', () => {
     const parseAll = await stubAddByRSSParseAll(page);
 
     let feedPath = '';
-    await test.step('The podcasts list names the followed feed by its title, not its URL', async () => {
-      await page.goto('/add-by-rss/podcasts');
+    await test.step('The Add by RSS podcasts chip names the followed feed by its title, not its URL', async () => {
+      await page.goto('/add-by-rss');
       const feedLink = page
         .locator('a[href*="/add-by-rss/podcast/"]')
         .filter({ hasText: E2E_ADD_BY_RSS_TEST_ASSETS_FEED_TITLE })
@@ -136,6 +147,10 @@ test.describe('Add by RSS parses on its own', () => {
         'Home loads after the refresh; reloading within the interval does not refresh again.',
         page.locator('body')
       );
+    });
+
+    await test.step('No follow sync collided on the stored feed URL index', async () => {
+      expect(feedUrlIndexErrors).toEqual([]);
     });
   });
 });

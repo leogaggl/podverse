@@ -1,9 +1,9 @@
 ---
 name: abcdeploysteps
-description: When the operator says abcdeploysteps plus a repo and an environment (abcdeploysteps podverse alpha), check deploy blockers and, if alpha is clear and there is something to ship, write a local step-by-step deploy checklist. Use only for that keyword, and only when the repo word is podverse.
+description: When the operator runs /abcdeploysteps or says abcdeploysteps, plus a repo and an environment (abcdeploysteps podverse alpha), check deploy blockers and, if alpha is clear and there is something to ship, write a local step-by-step deploy checklist. Use only for that keyword, and only when the repo word is podverse.
 ---
 
-# abcdeploysteps
+# `abcdeploysteps`
 
 The operator is asking for a deploy checklist, not for the agent to deploy. Investigate, warn,
 and write the steps. Do not run publish, push, EAS, Argo, or kubectl apply.
@@ -158,8 +158,8 @@ The number is one terminal. Letters in that number run there, in order. Do not p
 different terminal, and do not paste it until `1a` in that terminal has finished.
 
 A different number is a different terminal. It can run beside the others when the start condition
-on its first letter says so. Put that start condition on the first letter (`2a` starts when `1b`
-prints the Linux `node_modules` line).
+on its first letter says so. Put that start condition on the first letter (`2a` starts with `1a`
+when its lane allows it). GitOps starts when the sync script has printed the staging tag.
 
 The recipes below use `1.` `2.` `3.` as content order. Those are not the labels in the file or the
 reply. Translate them into `1a`, `1b`, `2a`, and so on when writing the checklist.
@@ -203,31 +203,21 @@ Commits: <range>
 
 Put this table in the file, dropping rows for lanes you omitted.
 
-| Lane               | Starts when                                       | Terminal                             |
-| ------------------ | ------------------------------------------------- | ------------------------------------ |
-| Publish (staging)  | `develop` is clean, pushed, notes committed       | **Root**                             |
-| Mac `node_modules` | Sync script printed the Linux `node_modules` line | Second **Root**. Not the sync shell. |
-| iOS build          | Before publish; publish waits for the EAS upload  | **Mobile**                           |
-| Android build      | Same moment as the iOS build                      | Second **Mobile**                    |
-| GitOps pin         | Publish (staging) succeeded and the tag exists    | `k.podcastdj.com` repo root          |
-| iOS submit         | That iOS build finished                           | **Mobile** (after the build)         |
-| Android submit     | That Android build finished                       | Second **Mobile**                    |
+| Lane              | Starts when                                    | Terminal                    |
+| ----------------- | ---------------------------------------------- | --------------------------- |
+| Publish (staging) | `develop` is clean, pushed, notes committed    | **Root**                    |
+| iOS build         | Any time, including during Publish (staging)   | **Mobile**                  |
+| Android build     | Same moment as the iOS build                   | Second **Mobile**           |
+| GitOps pin        | Publish (staging) succeeded and the tag exists | `k.podcastdj.com` repo root |
+| iOS submit        | That iOS build finished                        | **Mobile** (after the build) |
+| Android submit    | That Android build finished                    | Second **Mobile**           |
 
 GitOps push and the two store submits may overlap. Do not start GitOps before the tag exists.
 Do not sync Argo by hand while auto-sync is rolling out a later wave ahead of ops.
 
-The Mac reinstall may start when the sync script prints
-`node_modules now matches Linux optional deps`. Docker has exited by then. The script keeps
-going (push `staging`, wait for the workflow). Do not reinstall in that same shell. `apps/mobile`
-`node_modules` is not touched by this script. Do not run `npm run mobile:install` unless a version
-bump ran `update-lockfile-linux.sh`.
-
-A store build cannot start while the sync runs. The sync replaces root `node_modules` with Linux
-binaries and switches branches in the same checkout, so EAS fails at
-`expo/bin/cli config --json exited with non-zero code: 1` (`build:version:get command failed`).
-Order the steps: start `make mobile_eas_*_build` first, answer its prompts, and start the sync
-only after EAS prints that the project upload finished and the build is queued. If the build
-was not started first, start it after the Mac reinstall finishes.
+The sync script publishes from a temporary worktree. It does not switch branches in this checkout
+and it does not change `node_modules`. The iOS build and the Android build may start at any time,
+including while that script runs.
 
 ### Server steps (only if server changed)
 
@@ -239,26 +229,14 @@ git status
 git push origin develop
 ```
 
-2. **Root.** Publish images. This fast-forwards `staging`, pushes, and waits for
-   **Publish (staging)**. It bind-mounts the repo into Docker for `npm ci`.
+2. **Root.** Publish images. This fast-forwards `staging` from `origin/develop`, pushes, and waits
+   for **Publish (staging)**. The checkout and its `node_modules` stay as they are. When it exits
+   0, it prints `Tags at <sha>:` and then the tags on that commit. The staging tag is the line
+   matching `X.Y.Z-staging.N`. Stop if that line is missing, appears more than once, or ends in
+   `.N`.
 
 ```bash
 ./scripts/publish/sync-develop-to-staging.sh
-```
-
-3. **Second Root**, after the Linux `node_modules` line:
-
-```bash
-rm -rf node_modules && npm install
-```
-
-4. **Root**, after the sync exits 0. This prints the immutable tag, one line such as
-   `5.5.3-staging.9`. It is the Git tag and every GHCR image tag. Stop if it prints nothing, more
-   than one line, or anything ending in `.N`.
-
-```bash
-git fetch origin
-git tag --list 'X.Y.Z-staging.*' --points-at origin/staging
 ```
 
 The checklist is a stop point here. The operator reports that tag, or the agent reads it from the

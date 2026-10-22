@@ -1,45 +1,33 @@
-import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
-
 import { addByRssRepository, subscriptionsRepository } from '../../data/repositories';
 import type { AddByRssNeedsCredentialsFeed } from '../../lib/addByRss/credentials';
+import type { AddByRssLiveTarget } from '../../lib/addByRss/liveRows';
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
 import type {
   AddByRssLibraryMediaType,
   AddByRssLibrarySortOption,
 } from '../../prefs/addByRssListPrefs';
-import type { AddByRssHomeEpisode } from '../home/addByRssHomeDetailData';
-import {
-  buildAddByRssHomeDetailData,
-  sortAddByRssHomeEpisodes,
-} from '../home/addByRssHomeDetailData';
+import { sortAddByRssHomeEpisodes } from '../home/addByRssHomeDetailData';
+import type { AddByRssItemRow } from '../home/addByRssItemRows';
+import { listAddByRssItemRows, toAddByRssItemHomeRow } from '../home/addByRssItemRows';
+import { listAddByRssUpcomingLiveRows } from '../home/addByRssLiveRows';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { attachSubscriptionMetadataOrBare } from '../home/homeFeedData';
-
-export type AddByRssLibraryItemRow = AddByRssHomeEpisode & {
-  feed: MobileAddByRSSFeedRecord;
-  mappedFeed: AddByRSSMappedFeed;
-};
 
 export type AddByRssLibraryFeedResult = {
   needsCredentials: AddByRssNeedsCredentialsFeed<MobileAddByRSSFeedRecord>[];
   rows: HomeFeedRowData[];
   /** Present when the chip is episodes or tracks, keyed by row id for play. */
-  itemRowsById: ReadonlyMap<string, AddByRssLibraryItemRow>;
+  itemRowsById: ReadonlyMap<string, AddByRssItemRow>;
+  /** Present when the chip is livestreams, keyed by row id for play and the livestream page. */
+  liveItemsById: ReadonlyMap<string, AddByRssLiveTarget>;
 };
+
+const EMPTY_LIVE_ITEMS: ReadonlyMap<string, AddByRssLiveTarget> = new Map();
 
 const channelKindForMediaType = (
   mediaType: Extract<AddByRssLibraryMediaType, 'podcasts' | 'artists' | 'albums'>
 ): 'podcasts' | 'artists' | 'albums' => {
   return mediaType;
-};
-
-const itemResourceKinds = (
-  mediaType: 'episodes' | 'tracks'
-): ReadonlyArray<MobileAddByRSSFeedRecord['resourceType']> => {
-  if (mediaType === 'episodes') {
-    return ['podcasts', 'episodes', 'livestreams'];
-  }
-  return ['artists', 'albums', 'tracks'];
 };
 
 /**
@@ -51,6 +39,16 @@ export const fetchAddByRssLibraryFeed = async (
   sort: AddByRssLibrarySortOption
 ): Promise<AddByRssLibraryFeedResult> => {
   const { needsCredentials, ready } = await addByRssRepository.listFeedsByCredentials();
+
+  if (mediaType === 'livestreams') {
+    const rows = await listAddByRssUpcomingLiveRows(ready);
+    return {
+      itemRowsById: new Map(),
+      liveItemsById: new Map(rows.map((row) => [row.id, row.target])),
+      needsCredentials: [],
+      rows,
+    };
+  }
 
   if (mediaType === 'podcasts' || mediaType === 'artists' || mediaType === 'albums') {
     const kind = channelKindForMediaType(mediaType);
@@ -70,40 +68,21 @@ export const fetchAddByRssLibraryFeed = async (
             : 'podcasts';
       return resourceKind === kind;
     });
-    return { itemRowsById: new Map(), needsCredentials: filteredNeeds, rows };
+    return {
+      itemRowsById: new Map(),
+      liveItemsById: EMPTY_LIVE_ITEMS,
+      needsCredentials: filteredNeeds,
+      rows,
+    };
   }
 
-  const allowed = new Set(itemResourceKinds(mediaType));
-  const feeds = ready.filter((feed) => allowed.has(feed.resourceType));
-  const itemRows: AddByRssLibraryItemRow[] = [];
-
-  for (const feed of feeds) {
-    const mappedFeed = await addByRssRepository.getMappedFeedByUrl(feed.feedUrl);
-    if (mappedFeed === null) {
-      continue;
-    }
-    const { episodeRows } = buildAddByRssHomeDetailData(feed, mappedFeed);
-    for (const episode of episodeRows) {
-      itemRows.push({ ...episode, feed, mappedFeed });
-    }
-  }
-
+  const itemRows = await listAddByRssItemRows(mediaType, ready);
   const sorted = sortAddByRssHomeEpisodes(itemRows, sort);
-  const itemRowsById = new Map<string, AddByRssLibraryItemRow>();
+  const itemRowsById = new Map<string, AddByRssItemRow>();
   const rows: HomeFeedRowData[] = sorted.map((row) => {
     itemRowsById.set(row.id, row);
-    return {
-      description: row.description,
-      duration: row.duration,
-      id: row.id,
-      imageUrl: row.imageUrl,
-      source: 'addByRss',
-      sourceId: row.feed.idText,
-      subtitle: row.subtitle,
-      title: row.title,
-      updatedAt: row.updatedAt,
-    };
+    return toAddByRssItemHomeRow(row);
   });
 
-  return { itemRowsById, needsCredentials: [], rows };
+  return { itemRowsById, liveItemsById: EMPTY_LIVE_ITEMS, needsCredentials: [], rows };
 };

@@ -4,7 +4,10 @@ import { Item } from '@orm/entities/item/item.js';
 import { ItemFlagStatusStatusEnum } from '@orm/entities/item/itemFlagStatus.js';
 import type { ItemValueTimeSplit } from '@orm/entities/item/itemValueTimeSplit.js';
 import type { LiveItem } from '@orm/entities/liveItem/liveItem.js';
-import { getLiveItemStatusEnumValue } from '@orm/entities/liveItem/liveItemStatus.js';
+import {
+  getLiveItemStatusEnumValue,
+  LiveItemStatusEnum,
+} from '@orm/entities/liveItem/liveItemStatus.js';
 import type { StatsAggregatedItem } from '@orm/entities/stats/statsAggregatedItem.js';
 import { applyProperties } from '@orm/lib/applyProperties.js';
 import { getChannelCategoryWhere } from '@orm/lib/categoryFilterWhere.js';
@@ -917,6 +920,50 @@ export class ItemService {
     return this.repositoryRead.find({
       ...options,
       where,
+    });
+  }
+
+  /**
+   * Live and scheduled live items, live first. `channelIds` null lists public channels;
+   * an empty array lists nothing.
+   */
+  async getManyUpcomingLiveItems(
+    config: FindManyOptions<Item>,
+    params: { channelIds: number[] | null; mediumType: QueryParamsMedium | null }
+  ): Promise<Item[]> {
+    const { channelIds, mediumType } = params;
+    if (channelIds !== null && channelIds.length === 0) {
+      return [];
+    }
+
+    const mediumIds =
+      channelIds === null && mediumType ? getMediumIdArrayFromType(mediumType) : null;
+    const channelWhere: FindOptionsWhere<Channel> =
+      channelIds === null
+        ? {
+            channel_about: { id: Not(IsNull()) },
+            feed: { feed_policy: { public_visible: true } },
+            ...(mediumIds ? { medium_id: In(mediumIds) } : {}),
+          }
+        : {
+            channel_about: { id: Not(IsNull()) },
+            id: In(channelIds),
+          };
+
+    return this.repositoryRead.find({
+      ...config,
+      where: {
+        channel: channelWhere,
+        live_item: {
+          live_item_status_id: In([LiveItemStatusEnum.Live, LiveItemStatusEnum.Pending]),
+        },
+        item_flag_status: { id: ItemFlagStatusStatusEnum.Active },
+      },
+      // Live (2) sorts before Pending (1).
+      order: {
+        live_item: { live_item_status_id: 'DESC', start_time: 'ASC' },
+        id: 'ASC',
+      },
     });
   }
 

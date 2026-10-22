@@ -124,6 +124,10 @@
       "media_other_domain": "Ce média est hébergé sur un autre domaine que le flux protégé, ce qui n'est pas pris en charge.",
       "media_needs_credentials": "Ce média peut exiger un identifiant et un mot de passe, que les navigateurs ne peuvent pas envoyer aux fichiers audio et vidéo. Utilisez plutôt l'app mobile. Le flux continue de se mettre à jour sur le web."
     },
+    "browse": {
+      "browse": "Parcourir",
+      "users": "Utilisateurs"
+    },
     "my_library": "Ma bibliothèque",
     "queue": {
       "queue": "File d'attente",
@@ -410,6 +414,11 @@
       "playlist_entry_removed": "Cet élément a été supprimé de {brand_name}.",
       "show_not_in_directory": "Cette émission n'est plus dans le répertoire {brand_name}."
     }
+  },
+  "background_activity": {
+    "title": "Activité en arrière-plan",
+    "add_by_rss_refresh": "Mise à jour de vos flux RSS",
+    "progress": "{completed} sur {total}"
   },
   "media_player": {
     "play": "Jouer",
@@ -801,6 +810,7 @@
   },
   "subscriptions": {
     "subscriptions": "Abonnements",
+    "subscribed": "Abonnements",
     "how_to_start_message": "Essayez <searchLink>de rechercher</searchLink> votre contenu préféré, ou parcourez <podcastsLink>les podcasts</podcastsLink>, <videosLink>les vidéos</videosLink> ou <musicLink>la musique</musicLink>. Vos abonnements apparaîtront ici.",
     "empty_message": "Vous n'avez encore aucun abonnement.",
     "no_filter_matches": "Aucun abonnement ne correspond à votre filtre.",
@@ -1475,41 +1485,13 @@
         "title": "{brand_name}",
         "description": "Découvrez des podcasts, de la musique et des livestreams sur {brand_name}."
       },
-      "podcasts": {
-        "title": "Podcasts",
-        "description": "Parcourez les flux et les émissions de podcasts sur {brand_name}."
-      },
-      "episodes": {
-        "title": "Épisodes",
-        "description": "Parcourez les épisodes de podcast sur {brand_name}."
-      },
-      "artists": {
-        "title": "Artistes",
-        "description": "Découvrez des artistes musicaux sur {brand_name}."
-      },
-      "albums": {
-        "title": "Albums",
-        "description": "Parcourez des albums de musique sur {brand_name}."
-      },
-      "tracks": {
-        "title": "Pistes",
-        "description": "Découvrez des pistes musicales sur {brand_name}."
-      },
-      "podcastsLivestreams": {
-        "title": "Livestreams de podcasts",
-        "description": "Regardez des streams de podcasts en direct sur {brand_name}."
-      },
-      "musicLivestreams": {
-        "title": "Livestreams de musique",
-        "description": "Regardez des streams de musique en direct sur {brand_name}."
+      "browse": {
+        "title": "Parcourir",
+        "description": "Parcourez des podcasts, des épisodes, des extraits, de la musique, des playlists et des profils sur {brand_name}."
       },
       "playlists": {
         "title": "Playlists",
         "description": "Explorez des playlists communautaires sur {brand_name}."
-      },
-      "clips": {
-        "title": "Clips",
-        "description": "Explorez des clips de podcasts et de musique sur {brand_name}."
       },
       "videos": {
         "title": "Vidéos",

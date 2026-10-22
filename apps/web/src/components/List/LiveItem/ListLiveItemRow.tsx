@@ -83,7 +83,7 @@ export const ListLiveItemRow: React.FC<Props> = ({
   };
 
   return (
-    <div className={styles.row}>
+    <div className={styles.row} data-testid="list-live-item-row">
       <ImagesPerView
         candidates={liveArtworkCandidates}
         alt={item.title || tMedia('livestream.livestream_image')}

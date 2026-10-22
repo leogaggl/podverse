@@ -207,13 +207,14 @@ describe('homeListPrefs', () => {
     unsubscribe();
   });
 
-  it('offers the same three orders on every Home list', () => {
+  it('offers the same three orders on every Home list except Livestreams', () => {
     expect(isHomeSortableMediaType('podcasts')).toBe(true);
     expect(isHomeSortableMediaType('episodes')).toBe(true);
     expect(isHomeSortableMediaType('clips')).toBe(true);
     expect(isHomeSortableMediaType('artists')).toBe(true);
     expect(isHomeSortableMediaType('albums')).toBe(true);
     expect(isHomeSortableMediaType('tracks')).toBe(true);
+    expect(isHomeSortableMediaType('livestreams')).toBe(false);
   });
 
   it('offers the grid on channel and album lists, where artwork identifies the row', () => {
@@ -223,6 +224,7 @@ describe('homeListPrefs', () => {
     expect(isHomeViewModeMediaType('episodes')).toBe(false);
     expect(isHomeViewModeMediaType('tracks')).toBe(false);
     expect(isHomeViewModeMediaType('clips')).toBe(false);
+    expect(isHomeViewModeMediaType('livestreams')).toBe(false);
   });
 
   it('offers Filter only on complete local channel lists', () => {
@@ -232,5 +234,6 @@ describe('homeListPrefs', () => {
     expect(isHomeFilterMediaType('episodes')).toBe(false);
     expect(isHomeFilterMediaType('tracks')).toBe(false);
     expect(isHomeFilterMediaType('clips')).toBe(false);
+    expect(isHomeFilterMediaType('livestreams')).toBe(false);
   });
 });

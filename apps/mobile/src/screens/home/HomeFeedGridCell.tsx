@@ -1,15 +1,30 @@
-import { memo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Badge, CountBadge, CoverImage, UnseenIndicator } from '../../components/primitives';
+import { shouldMountRowMoreMenu } from '../../components/player/rowMoreMenuMount';
+import type { MoreMenuSection } from '../../components/primitives';
+import {
+  Badge,
+  CountBadge,
+  CoverImage,
+  MoreMenu,
+  UnseenIndicator,
+} from '../../components/primitives';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from './homeFeedData';
 
+export type HomeFeedGridCellRemoveAction = {
+  /** Already localized. Names the sheet item and the accessibility action. */
+  label: string;
+  onRemove: (row: HomeFeedRowData) => void | Promise<void>;
+};
+
 type HomeFeedGridCellProps = {
   artworkEdge?: number;
   onPress: (row: HomeFeedRowData) => void;
+  removeAction?: HomeFeedGridCellRemoveAction;
   row: HomeFeedRowData;
   testID?: string;
 };
@@ -51,11 +66,13 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
  * Live sits top-right, unseen is a presence dot bottom-right, and the downloaded count sits
  * bottom-left so the three can show together without stacking. Titles stay off the tile — the
  * list view is where full metadata lives — but each marker folds into the accessible name so a
- * screen reader is not left with blank squares.
+ * screen reader is not left with blank squares. With `removeAction`, holding the tile opens the
+ * bottom sheet with the one action a list row's swipe reveals, plus Cancel.
  */
 export const HomeFeedGridCell = memo(function HomeFeedGridCell({
   artworkEdge,
   onPress,
+  removeAction,
   row,
   testID,
 }: HomeFeedGridCellProps) {
@@ -76,48 +93,109 @@ export const HomeFeedGridCell = memo(function HomeFeedGridCell({
     .filter((part) => part !== null)
     .join(', ');
 
+  const cellTestID = testID ?? `home-feed-cell-${row.id}`;
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [hasOpenedMenu, setHasOpenedMenu] = useState(false);
+
+  const runRemove = useCallback(() => {
+    if (removeAction === undefined) {
+      return;
+    }
+    const result = removeAction.onRemove(row);
+    if (result instanceof Promise) {
+      // The screen shows the failure; the rejection only matters to a swipe row's spinner.
+      void result.catch(() => undefined);
+    }
+  }, [removeAction, row]);
+
+  const openMenu = useCallback(() => {
+    setHasOpenedMenu(true);
+    setIsMenuVisible(true);
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setIsMenuVisible(false);
+  }, []);
+
+  const menuSections = useMemo<MoreMenuSection[]>(
+    () =>
+      removeAction === undefined
+        ? []
+        : [
+            {
+              items: [
+                { key: 'remove', label: removeAction.label, onPress: runRemove, tone: 'danger' },
+              ],
+              key: 'actions',
+            },
+          ],
+    [removeAction, runRemove]
+  );
+
   return (
-    <Pressable
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="imagebutton"
-      accessible
-      onPress={() => {
-        onPress(row);
-      }}
-      style={styles.cell}
-      testID={testID ?? `home-feed-cell-${row.id}`}
-    >
-      <View style={styles.tile}>
-        {/* Artwork is decorative here: the Pressable owns the accessible name (title + badges). */}
-        <CoverImage
-          decodeEdge={artworkEdge}
-          opensViewer={false}
-          style={styles.artwork}
-          uri={row.imageUrl}
+    <>
+      <Pressable
+        accessibilityActions={
+          removeAction === undefined ? undefined : [{ label: removeAction.label, name: 'remove' }]
+        }
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="imagebutton"
+        accessible
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'remove') {
+            runRemove();
+          }
+        }}
+        onLongPress={removeAction === undefined ? undefined : openMenu}
+        onPress={() => {
+          onPress(row);
+        }}
+        style={styles.cell}
+        testID={cellTestID}
+      >
+        <View style={styles.tile}>
+          {/*
+            Artwork is decorative here: the Pressable owns the accessible name (title + badges).
+          */}
+          <CoverImage
+            decodeEdge={artworkEdge}
+            opensViewer={false}
+            style={styles.artwork}
+            uri={row.imageUrl}
+          />
+          {liveLabel !== null ? (
+            <Badge
+              label={liveLabel}
+              style={styles.liveBadge}
+              testID={`home-feed-cell-live-${row.id}`}
+              tone="danger"
+            />
+          ) : null}
+          {downloadedCount > 0 ? (
+            <CountBadge
+              count={downloadedCount}
+              style={styles.downloadedBadge}
+              testID={`home-feed-cell-downloaded-${row.id}`}
+              tone="muted"
+            />
+          ) : null}
+          {unseenBadge !== null ? (
+            <UnseenIndicator
+              style={styles.unseenIndicator}
+              testID={`home-feed-cell-unseen-${row.id}`}
+            />
+          ) : null}
+        </View>
+      </Pressable>
+      {shouldMountRowMoreMenu(removeAction !== undefined, hasOpenedMenu) ? (
+        <MoreMenu
+          cancelLabel={t('misc.cancel')}
+          onCancel={closeMenu}
+          sections={menuSections}
+          testID={`${cellTestID}-menu`}
+          visible={isMenuVisible}
         />
-        {liveLabel !== null ? (
-          <Badge
-            label={liveLabel}
-            style={styles.liveBadge}
-            testID={`home-feed-cell-live-${row.id}`}
-            tone="danger"
-          />
-        ) : null}
-        {downloadedCount > 0 ? (
-          <CountBadge
-            count={downloadedCount}
-            style={styles.downloadedBadge}
-            testID={`home-feed-cell-downloaded-${row.id}`}
-            tone="muted"
-          />
-        ) : null}
-        {unseenBadge !== null ? (
-          <UnseenIndicator
-            style={styles.unseenIndicator}
-            testID={`home-feed-cell-unseen-${row.id}`}
-          />
-        ) : null}
-      </View>
-    </Pressable>
+      ) : null}
+    </>
   );
 });

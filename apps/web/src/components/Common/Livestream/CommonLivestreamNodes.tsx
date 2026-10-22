@@ -11,6 +11,7 @@ type CommonLivestreamListNodesProps = {
   items: DTOItem[];
   viewSelected: ViewSelectedOption;
   showChannelInfo?: boolean;
+  showLiveItemStatus?: boolean;
 };
 
 export const CommonLivestreamListNodes: React.FC<CommonLivestreamListNodesProps> = (props) => {

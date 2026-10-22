@@ -18,6 +18,7 @@ import { LoadingSection } from '../../components/state/LoadingSection';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { stampPerfFrame } from '../../lib/perf/perfFrames';
 import { perfMark } from '../../lib/perf/perfSpans';
+import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import type { BrowseStackParamList } from '../../navigation';
 import {
   BROWSE_STACK_ROUTES,
@@ -90,6 +91,10 @@ type BrowsePlayMediaType = 'clips' | 'episodes' | 'tracks';
 
 const browseListRowKeyExtractor = (item: BrowseListRow): string => `${item.kind}:${item.id}`;
 const EMPTY_BROWSE_LIST_ROWS: readonly BrowseListRow[] = [];
+
+const shareLivestreamRow = (row: HomeFeedRowData): void => {
+  shareResolvedUrl(buildPublicShareUrl('episode', row.id));
+};
 
 function browsePlayMediaType(mediaType: BrowseMediaType): BrowsePlayMediaType {
   if (mediaType === 'clips') {
@@ -202,6 +207,7 @@ function BrowseFeedItem({
   onPress,
   onQueue,
   row,
+  share,
 }: {
   addToPlaylistPress?: (row: HomeFeedRowData) => void;
   artworkEdge: number;
@@ -212,8 +218,9 @@ function BrowseFeedItem({
   mediaType: BrowseMediaType;
   onPlay: (row: HomeFeedRowData) => void;
   onPress: (row: HomeFeedRowData) => void;
-  onQueue: (row: HomeFeedRowData, position: QueueActionPosition) => void;
+  onQueue?: (row: HomeFeedRowData, position: QueueActionPosition) => void;
   row: HomeFeedRowData;
+  share?: (row: HomeFeedRowData) => void;
 }) {
   if (isGridView) {
     return (
@@ -233,6 +240,7 @@ function BrowseFeedItem({
         onPlayPress={onPlay}
         onPress={onPress}
         onQueuePress={onQueue}
+        onSharePress={share}
         row={row}
       />
     </View>
@@ -674,6 +682,10 @@ export function BrowseScreen() {
         navigation.navigate(BROWSE_STACK_ROUTES.EpisodeDetail, { episodeId: row.id });
         return;
       }
+      if (selectedMediaType === 'livestreams') {
+        navigation.navigate(BROWSE_STACK_ROUTES.EpisodeDetail, { episodeId: row.id });
+        return;
+      }
       if (selectedMediaType === 'clips') {
         navigation.navigate(BROWSE_STACK_ROUTES.ClipDetail, { clipId: row.id });
         return;
@@ -943,9 +955,16 @@ export function BrowseScreen() {
       ) : isFeedLoading && !isCategoryView ? (
         <LoadingSection testID="browse-list-loading" />
       ) : showEmptyDirectory ? (
-        <ListEmpty messageKey="features.browse.empty" testID="browse-list-empty" />
+        <ListEmpty
+          messageKey={
+            selectedMediaType === 'livestreams'
+              ? 'media.livestream.no_livestreams_found'
+              : 'features.browse.empty'
+          }
+          testID="browse-list-empty"
+        />
       ) : null,
-    [isCategoryView, isFeedLoading, showCategoryLoading, showEmptyDirectory]
+    [isCategoryView, isFeedLoading, selectedMediaType, showCategoryLoading, showEmptyDirectory]
   );
 
   const listFooter = useMemo(
@@ -1036,8 +1055,9 @@ export function BrowseScreen() {
           mediaType={selectedMediaType}
           onPlay={handlePlayPress}
           onPress={handleRowPress}
-          onQueue={handleQueuePress}
+          onQueue={selectedMediaType === 'livestreams' ? undefined : handleQueuePress}
           row={item.row}
+          share={selectedMediaType === 'livestreams' ? shareLivestreamRow : undefined}
         />
       );
     },

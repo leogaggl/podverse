@@ -41,16 +41,24 @@ lands on Search root instead of the channel they just opened).
 ## Add-by-RSS surface ownership
 
 My Library's Add by RSS screen is the **library for those feeds**: chips for podcasts, episodes,
-artists, albums, and tracks; a plus that opens the add form; pull-to-refresh that refreshes only
-add-by-RSS feeds. Channel detail and credentials editing stay on the **Library** stack
-(`AddByRssPodcastDetail`, `AddByRssCredentials`, `AddByRssAdd`).
+artists, albums, tracks, and livestreams; a plus that opens the add form; pull-to-refresh that
+refreshes only add-by-RSS feeds. Channel detail and credentials editing stay on the **Library**
+stack (`AddByRssPodcastDetail`, `AddByRssCredentials`, `AddByRssAdd`).
 
-- Do **not** merge add-by-RSS follows into Home. Home lists directory follows only.
+- Home lists directory follows and ready add-by-RSS follows together on every chip. Home shows
+  no Needs username and password section; a feed waiting on a username and password shows only in
+  the Add by RSS library. An add-by-RSS row on Home opens Home's own `AddByRssPodcastDetail`,
+  `AddByRssEpisodeDetail` for an episode, or `AddByRssLivestreamDetail` for a livestream. The
+  library opens those same screens on the Library stack.
 - Do **not** jump to the Home stack to open an add-by-RSS feed's detail from Library.
 - The full player's item title and channel title are the exception. A directory follow opens on
   Home. Content this device does not follow opens on Browse. Add by RSS is a follow, so those
-  links open Home's add-by-RSS detail. A flow that starts in Search, Library, or Browse still
-  pushes on that tab's own stack.
+  links open Home's add-by-RSS detail. The item title opens the channel page and then the item
+  page on that same stack, so Back from the item returns to the channel. The channel title opens
+  the channel page only. A flow that starts in Search, Library, or Browse still pushes on that
+  tab's own stack.
 - CarPlay and Android Auto keep add-by-RSS follows in the native library index (no separate Add by
   RSS screen there).
-- Web keeps add-by-RSS on its own sidebar library routes; those pages stay separate from Home.
+- Web Subscribed (`/`) lists directory follows and this browser's ready add-by-RSS follows
+  together; Clips stays directory only. The web Add by RSS library is one page, `/add-by-rss`,
+  linked from the sidebar's Library section.

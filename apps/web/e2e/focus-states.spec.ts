@@ -8,7 +8,7 @@ const topChromeNav = (page: Page) => page.locator('nav[data-appearance="web"]');
 /**
  * Focus-state consistency: keyboard Tab shows --box-shadow-focus; mouse click does not.
  *
- * Flow: navigate to /episodes → click first episode link → dismiss any auto-opened
+ * Flow: navigate to Browse Episodes → click first episode link → dismiss any auto-opened
  * modal → Tab through key chrome and assert box-shadow is applied on :focus-visible.
  */
 test.describe('Focus state consistency', () => {
@@ -18,8 +18,8 @@ test.describe('Focus state consistency', () => {
     test.setTimeout(45_000);
     await page.setViewportSize({ width: 1280, height: 720 });
 
-    await test.step('Navigate to /episodes and open the first episode', async () => {
-      await page.goto('/episodes');
+    await test.step('Navigate to Browse Episodes and open the first episode', async () => {
+      await page.goto('/browse?tab=episodes');
       await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
 
       const firstEpisodeLink = page.getByRole('link').filter({ hasText: /.+/ }).first();

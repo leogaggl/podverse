@@ -36,6 +36,7 @@ import type { PlaybackTarget } from '@podverse/playback-core';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
 import { requestWithMobileAuthRefresh, useAuth } from '../../auth';
+import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { nativePlaybackBridge } from '../../bridge/nativePlaybackBridge';
 import { useBoostSheet } from '../../components/boost/useBoostSheet';
 import {
@@ -72,6 +73,7 @@ import {
 } from '../../components/primitives/listVirtualization';
 import { MarqueeText } from '../../components/primitives/MarqueeText';
 import { HEADER_BAR_HEIGHT } from '../../components/screen/HeaderBar';
+import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
@@ -88,6 +90,9 @@ import { useItemDescription } from '../../hooks/useItemDescription';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueMutations } from '../../hooks/useQueueMutations';
 import { useQueueResources } from '../../hooks/useQueueResources';
+import { resolveAddByRssLiveItemKey } from '../../lib/addByRss/liveItemDetail';
+import { addByRssEpisodeItemKey } from '../../lib/addByRss/localResourceData';
+import { isAddByRssLivestreamResourceData } from '../../lib/addByRss/resourceData';
 import { toggleAutoQueueShuffle } from '../../lib/autoQueue/autoQueue';
 import { getChannelActionChrome } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
@@ -101,12 +106,16 @@ import { buildNowPlayingShareUrl, shareResolvedUrl } from '../../lib/share/share
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { ROOT_SLIDE_UP_ANIMATION_MS } from '../../navigation/slideUpScreen';
+import {
+  nowPlayingAddByRssSections,
+  useNowPlayingAddByRssSections,
+} from '../../playback/nowPlayingAddByRssSections';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { hasEpisodeChaptersForTrackButtons } from '../../playback/previousAction';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import { useNowPlayingChapters } from '../../playback/useNowPlayingChapters';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
-import { EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
+import { DEFAULT_EPISODE_TAB, EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { isLightUiTheme } from '../../theme/lightUiThemes';
 import { listChipRowBottomGap } from '../../theme/screenLayout';
@@ -119,11 +128,23 @@ import {
   resolveEpisodeTabForItem,
 } from '../episode/episodeTabs';
 import { useEpisodeSectionPanes } from '../episode/useEpisodeSectionPanes';
+import { resolveAddByRssEpisodeTabs } from '../home/addByRss/addByRssEpisodeTabs';
+import { toAddByRssAboutPeople } from '../home/addByRssHomeDetailData';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { useAddToPlaylist } from '../library/useAddToPlaylist';
-import type { FullPlayerContentTarget, FullPlayerOpenRequest } from './fullPlayerContentLink';
+import {
+  addByRssPaneSummary,
+  addByRssResourceDataLinksChapters,
+  resolveFullPlayerAddByRssPaneState,
+  shouldLoadFullPlayerAddByRssSections,
+} from './fullPlayerAddByRssPanes';
+import type {
+  FullPlayerContentTarget,
+  FullPlayerItemOpenRequest,
+  FullPlayerOpenRequest,
+} from './fullPlayerContentLink';
 import {
   fullPlayerOpenScreenLabelKey,
   playerContentStack,
@@ -152,6 +173,7 @@ import {
 type FullPlayerScreenProps = {
   onClose: () => void;
   onOpenContent: (request: FullPlayerOpenRequest) => void;
+  onOpenItem: (request: FullPlayerItemOpenRequest) => void;
   onOpenMakeClip: (params: { mode: 'create' } | { mode: 'edit'; clipId: string }) => void;
   /** Navigate to the Library queue screen. */
   onOpenQueue: () => void;
@@ -172,6 +194,7 @@ const CLIP_SORT_LABEL_KEYS: Record<EpisodeClipSort, string> = {
 };
 
 const EMPTY_PANE_ROWS: FullPlayerPaneRow[] = [];
+const EMPTY_CHAPTER_ROWS: DTOItemChapter[] = [];
 
 // Outer ScrollView + height-locked inner FlatList is intentional; RN's nest warning is structural.
 ignoreFullPlayerBoundedNestedListWarning();
@@ -254,7 +277,7 @@ const hasSectionsForTarget = (target: PlaybackTarget | null): boolean => {
     return false;
   }
   if (target.kind === 'add-by-rss') {
-    return false;
+    return !isAddByRssLivestreamResourceData(target.resourceData);
   }
   if (target.kind === 'livestream' && target.item === null) {
     return false;
@@ -265,6 +288,7 @@ const hasSectionsForTarget = (target: PlaybackTarget | null): boolean => {
 export function FullPlayerScreen({
   onClose,
   onOpenContent,
+  onOpenItem,
   onOpenMakeClip,
   onOpenQueue,
   onOpenV4v,
@@ -288,7 +312,7 @@ export function FullPlayerScreen({
   const loadAutoQueueResources = useAutoQueueLoadResources();
   const { fetchPrimaryQueue } = usePrimaryQueue();
   const { fetchUpcoming } = useQueueResources();
-  const { markAsPlayed } = useQueueMutations();
+  const { markAddByRssAsPlayed, markAsPlayed } = useQueueMutations();
   const { evaluateFeature, isTierKnown } = useAccessTier();
   const { handleGateError, openGate } = useMembershipGate();
   const { openPlaybackError } = useActionError();
@@ -337,6 +361,7 @@ export function FullPlayerScreen({
   const [isSavingSubscription, setIsSavingSubscription] = useState(false);
   const [isMarkingPlayed, setIsMarkingPlayed] = useState(false);
   const [addByRssFeedIdText, setAddByRssFeedIdText] = useState<string | null>(null);
+  const [addByRssItemKey, setAddByRssItemKey] = useState<string | null>(null);
 
   const isV4vEnabled = getMobileConfig().isV4vEnabled;
   const authContext = useMemo(
@@ -368,9 +393,21 @@ export function FullPlayerScreen({
   const channel = channelFromTarget(activeTarget);
   const onDescriptionClock = useItemDescriptionClock(currentItem, channel);
   const hasSections = hasSectionsForTarget(activeTarget);
+  const addByRssItemResourceData =
+    activeTarget?.kind === 'add-by-rss' &&
+    !isAddByRssLivestreamResourceData(activeTarget.resourceData)
+      ? activeTarget.resourceData
+      : null;
+  const addByRssSections = useNowPlayingAddByRssSections(addByRssItemResourceData);
+  const addByRssSource = addByRssSections.source;
+  const { onRequestLogin } = useAuthPrompt();
   const isPlaybackActive = activeTarget !== null && nowPlaying !== null;
   const shareUrl = activeTarget !== null ? buildNowPlayingShareUrl(activeTarget) : null;
   const addToPlaylistTarget = resolveAddToPlaylistTarget(activeTarget);
+  const queueMutationTarget = useMemo(
+    () => resolveQueueMutationTarget(activeTarget),
+    [activeTarget]
+  );
   const showV4v = shouldShowV4vAction(activeTarget, isV4vEnabled);
   const canShowBoost = getBoostEligibilityForContent({
     channel,
@@ -382,53 +419,66 @@ export function FullPlayerScreen({
   const visibleTitle = nowPlaying?.title ?? null;
   const visibleChannelTitle = nowPlaying?.channelTitle ?? null;
   const titleLink = useMemo(
-    () => resolveFullPlayerTitleLink(activeTarget, visibleTitle),
-    [activeTarget, visibleTitle]
+    () =>
+      resolveFullPlayerTitleLink(activeTarget, visibleTitle, {
+        feedIdText: addByRssFeedIdText,
+        itemKey: addByRssItemKey,
+      }),
+    [activeTarget, addByRssFeedIdText, addByRssItemKey, visibleTitle]
   );
   const channelLink = useMemo(
     () => resolveFullPlayerChannelLink(activeTarget, visibleChannelTitle, addByRssFeedIdText),
     [activeTarget, addByRssFeedIdText, visibleChannelTitle]
   );
 
-  const addByRssChannelIdText =
-    activeTarget?.kind === 'add-by-rss' &&
-    typeof activeTarget.resourceData.channel_id_text === 'string'
-      ? activeTarget.resourceData.channel_id_text
-      : null;
-  const addByRssFeedUrl =
-    activeTarget?.kind === 'add-by-rss' && typeof activeTarget.resourceData.feed_url === 'string'
-      ? activeTarget.resourceData.feed_url
-      : null;
+  const addByRssResourceData =
+    activeTarget?.kind === 'add-by-rss' ? activeTarget.resourceData : null;
 
   useEffect(() => {
-    if (addByRssChannelIdText === null && addByRssFeedUrl === null) {
+    const resourceData = addByRssResourceData;
+    if (resourceData === null) {
       setAddByRssFeedIdText(null);
+      setAddByRssItemKey(null);
       return;
     }
-    const resourceData = {
-      ...(addByRssChannelIdText !== null ? { channel_id_text: addByRssChannelIdText } : {}),
-      ...(addByRssFeedUrl !== null ? { feed_url: addByRssFeedUrl } : {}),
-    };
     let isCurrent = true;
     setAddByRssFeedIdText(null);
+    setAddByRssItemKey(null);
     void resolveLocalAddByRssFeedIdText(resourceData, {
       getFeedByIdText: (idText) => addByRssRepository.getFeedByIdText(idText),
       getFeedByUrl: (feedUrl) => addByRssRepository.getFeedByUrl(feedUrl),
     })
-      .then((idText) => {
-        if (isCurrent) {
-          setAddByRssFeedIdText(idText);
+      .then(async (feedIdText) => {
+        if (!isCurrent) {
+          return;
         }
+        setAddByRssFeedIdText(feedIdText);
+        if (feedIdText === null) {
+          return;
+        }
+        const record = await addByRssRepository.getFeedByIdText(feedIdText);
+        if (!isCurrent || record === null) {
+          return;
+        }
+        const mappedFeed = await addByRssRepository.getMappedFeedByUrl(record.feedUrl);
+        if (!isCurrent || mappedFeed === null) {
+          return;
+        }
+        const itemKey = isAddByRssLivestreamResourceData(resourceData)
+          ? resolveAddByRssLiveItemKey(mappedFeed, resourceData, feedIdText)
+          : addByRssEpisodeItemKey(mappedFeed, resourceData);
+        setAddByRssItemKey(itemKey);
       })
       .catch(() => {
         if (isCurrent) {
           setAddByRssFeedIdText(null);
+          setAddByRssItemKey(null);
         }
       });
     return () => {
       isCurrent = false;
     };
-  }, [addByRssChannelIdText, addByRssFeedUrl]);
+  }, [addByRssResourceData]);
 
   const openLinkedContent = useCallback(
     (target: FullPlayerContentTarget) => {
@@ -442,6 +492,23 @@ export function FullPlayerScreen({
     },
     [channel, onOpenContent]
   );
+  const openTitleContent = useCallback(() => {
+    if (titleLink === null) {
+      return;
+    }
+    if (channelLink === null) {
+      openLinkedContent(titleLink);
+      return;
+    }
+    const channelIdText = channel?.id_text;
+    const isSubscribed =
+      channelIdText !== undefined && getChannelActionChrome(channelIdText)?.isSubscribed === true;
+    onOpenItem({
+      channel: channelLink,
+      item: titleLink,
+      stack: playerContentStack({ isSubscribed, kind: titleLink.kind }),
+    });
+  }, [channel, channelLink, onOpenItem, openLinkedContent, titleLink]);
   const contentLinkLabel = useCallback(
     (request: FullPlayerContentTarget) =>
       t('media_player.open_named_screen', {
@@ -474,8 +541,78 @@ export function FullPlayerScreen({
     offlineModeEnabled,
     previewFlags,
   });
+  const addByRssPeople = useMemo(
+    () => toAddByRssAboutPeople(addByRssSource?.itemBundle.people ?? []),
+    [addByRssSource]
+  );
+  const addByRssTabs = useMemo(
+    () =>
+      addByRssItemResourceData === null
+        ? null
+        : resolveAddByRssEpisodeTabs({
+            hasChapters: addByRssSource?.sectionUrls?.chaptersFeedUrl !== undefined,
+            hasPeople: addByRssPeople.length > 0,
+            hasTranscript: addByRssSource?.sectionUrls?.transcriptUrl !== undefined,
+          }),
+    [addByRssItemResourceData, addByRssPeople.length, addByRssSource]
+  );
+  const addByRssPaneState =
+    addByRssItemResourceData === null
+      ? null
+      : resolveFullPlayerAddByRssPaneState({
+          activeTab,
+          authStatus: status,
+          offlineModeEnabled,
+          snapshot: addByRssSections,
+        });
+  const addByRssSummary = useMemo(
+    () => addByRssPaneSummary(addByRssSource?.itemBundle ?? null),
+    [addByRssSource]
+  );
+  const paneChapterRows =
+    addByRssItemResourceData === null
+      ? chapterRows
+      : addByRssPaneState === 'content'
+        ? (addByRssSections.sections?.chapters ?? EMPTY_CHAPTER_ROWS)
+        : EMPTY_CHAPTER_ROWS;
+  const paneTranscriptText =
+    addByRssItemResourceData === null
+      ? transcriptText
+      : (addByRssSections.sections?.transcriptText ?? '');
+  const paneResetKey = addByRssSections.key ?? currentItemIdText;
+
+  useEffect(() => {
+    if (addByRssSections.key !== null) {
+      selectTab(DEFAULT_EPISODE_TAB);
+    }
+  }, [addByRssSections.key, selectTab]);
+
+  useEffect(() => {
+    if (
+      shouldLoadFullPlayerAddByRssSections({
+        activeTab,
+        authStatus: status,
+        offlineModeEnabled,
+        snapshot: addByRssSections,
+      })
+    ) {
+      void nowPlayingAddByRssSections.load(authContext);
+    }
+  }, [activeTab, addByRssSections, authContext, offlineModeEnabled, status]);
+
+  const retryAddByRssSections = useCallback(() => {
+    void nowPlayingAddByRssSections.load(authContext);
+  }, [authContext]);
+
+  const handleAddByRssDescriptionClock = useCallback(
+    (seconds: number) => {
+      seekTo(Math.max(0, seconds));
+    },
+    [seekTo]
+  );
+
   const playerChapters = chapterRows.length > 0 ? chapterRows : chapters;
-  const chapterListShowsImages = chapterSectionHasImages(chapterRows);
+  const chapterListShowsImages = chapterSectionHasImages(paneChapterRows);
   const chapterFallbackImageUrl =
     currentItem !== null ? getItemPrimaryImageUrl(currentItem) : (nowPlaying?.imageUrl ?? null);
 
@@ -498,12 +635,21 @@ export function FullPlayerScreen({
     activeTarget?.kind === 'soundbite' ||
     activeTarget?.kind === 'chapter' ||
     (currentItem !== null && itemHasChapters(currentItem)) ||
+    (addByRssItemResourceData !== null &&
+      addByRssResourceDataLinksChapters(addByRssItemResourceData)) ||
+    addByRssSource?.sectionUrls?.chaptersFeedUrl !== undefined ||
     chapters.length > 0;
 
   // Music cannot be clipped, so the player drops the Clips chip. Episode detail keeps it.
+  // Add by RSS items take their chips from the parsed item.
   const playerTabs = useMemo(
-    () => (isMusicNowPlaying ? supportedTabs.filter((tab) => tab !== 'clips') : supportedTabs),
-    [isMusicNowPlaying, supportedTabs]
+    () =>
+      addByRssTabs !== null
+        ? addByRssTabs
+        : isMusicNowPlaying
+          ? supportedTabs.filter((tab) => tab !== 'clips')
+          : supportedTabs,
+    [addByRssTabs, isMusicNowPlaying, supportedTabs]
   );
   useEffect(() => {
     if (playerTabs.length === 0) {
@@ -532,14 +678,16 @@ export function FullPlayerScreen({
     }));
   }, [t]);
   const listRows = useMemo((): FullPlayerPaneRow[] => {
-    if (isTabLoading) {
+    // Directory rows wait on the episode loader. Add by RSS rows follow the pane, which stays
+    // empty until chapters are ready to show.
+    if (addByRssItemResourceData === null && isTabLoading) {
       return [];
     }
     if (activeTab === 'clips') {
       return clipRows.map((clip) => ({ clip, id: clip.id_text, type: 'clip' }));
     }
     if (activeTab === 'chapters') {
-      return chapterRows.map((chapter) => ({ chapter, id: chapter.id_text, type: 'chapter' }));
+      return paneChapterRows.map((chapter) => ({ chapter, id: chapter.id_text, type: 'chapter' }));
     }
     if (activeTab === 'soundbites') {
       return soundbiteRows.map((soundbite, index) => ({
@@ -550,7 +698,7 @@ export function FullPlayerScreen({
       }));
     }
     return [];
-  }, [activeTab, chapterRows, clipRows, isTabLoading, soundbiteRows]);
+  }, [activeTab, addByRssItemResourceData, clipRows, isTabLoading, paneChapterRows, soundbiteRows]);
   const paneRows =
     !hasSections || !isPrefsHydrated || playerTabs.length === 0 ? EMPTY_PANE_ROWS : listRows;
 
@@ -996,7 +1144,7 @@ export function FullPlayerScreen({
   ]);
 
   const handleMarkAsPlayed = useCallback(() => {
-    const target = resolveQueueMutationTarget(activeTarget);
+    const target = queueMutationTarget;
     if (target === null || isMarkingPlayed) {
       return;
     }
@@ -1014,12 +1162,10 @@ export function FullPlayerScreen({
       setIsMarkingPlayed(true);
       setActionNoticeKey(null);
       try {
-        const marked = await markAsPlayed(
-          target.idText,
-          target.kind,
-          target.mediaType,
-          nextCompleted
-        );
+        const marked =
+          target.kind === 'add-by-rss'
+            ? await markAddByRssAsPlayed(target.resourceData, target.medium, nextCompleted)
+            : await markAsPlayed(target.idText, target.kind, target.mediaType, nextCompleted);
         if (!marked) {
           setActionNoticeKey('features.history.mark_as_played_error');
           return;
@@ -1040,14 +1186,15 @@ export function FullPlayerScreen({
       }
     })();
   }, [
-    activeTarget,
     evaluateFeature,
     handleGateError,
     isMarkedPlayed,
     isMarkingPlayed,
     isTierKnown,
+    markAddByRssAsPlayed,
     markAsPlayed,
     openGate,
+    queueMutationTarget,
   ]);
 
   const handleChapterPress = useCallback(
@@ -1068,7 +1215,45 @@ export function FullPlayerScreen({
 
     let body: ReactNode = null;
 
-    if (isTabLoading) {
+    if (addByRssPaneState !== null) {
+      if (addByRssPaneState === 'offline') {
+        body = (
+          <View style={styles.pane}>
+            <View style={styles.column}>
+              <ListEmpty
+                messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
+                testID="full-player-offline-unavailable"
+              />
+            </View>
+          </View>
+        );
+      } else if (addByRssPaneState === 'auth-required') {
+        body = (
+          <View style={styles.pane}>
+            <View style={styles.column}>
+              <CallToActionSection
+                actionLabelKey="authentication.login"
+                messageKey="authentication.login_required"
+                onAction={onRequestLogin}
+                testID="full-player-auth-required"
+              />
+            </View>
+          </View>
+        );
+      } else if (addByRssPaneState === 'error') {
+        body = (
+          <View style={styles.paneError}>
+            <ListError
+              messageKey="errors.generic"
+              onRetry={retryAddByRssSections}
+              testID={`full-player-pane-error-${activeTab}`}
+            />
+          </View>
+        );
+      } else if (addByRssPaneState === 'loading') {
+        body = <LoadingSection testID={`full-player-pane-loading-${activeTab}`} />;
+      }
+    } else if (isTabLoading) {
       body = <LoadingSection testID={`full-player-pane-loading-${activeTab}`} />;
     } else if (tabErrorKey !== null) {
       body = (
@@ -1110,18 +1295,24 @@ export function FullPlayerScreen({
               collapseLength={summaryPreview?.collapseLength}
               collapsedMaxLines={summaryPreview?.collapsedMaxLines}
               emptyLabel={t('info.summary.no_summary')}
-              html={summaryHtml}
+              html={addByRssItemResourceData === null ? summaryHtml : addByRssSummary.html}
               linkStyle={styles.showMore}
-              onDescriptionClock={onDescriptionClock}
-              resetKey={currentItemIdText}
+              onDescriptionClock={
+                addByRssItemResourceData === null
+                  ? onDescriptionClock
+                  : handleAddByRssDescriptionClock
+              }
+              resetKey={paneResetKey}
               showMoreStyle={styles.showMore}
               testID="full-player-summary-text"
               textStyle={styles.paneText}
               toggleTestID="full-player-summary-toggle"
               truncation={
-                summaryDescription?.isTruncated === true
-                  ? { kind: 'item', linkUrl: summaryDescription.linkUrl }
-                  : undefined
+                addByRssItemResourceData === null
+                  ? summaryDescription?.isTruncated === true
+                    ? { kind: 'item', linkUrl: summaryDescription.linkUrl }
+                    : undefined
+                  : addByRssSummary.truncation
               }
             />
             {activePaneNoticeKey !== null ? (
@@ -1137,9 +1328,13 @@ export function FullPlayerScreen({
         <View style={styles.pane} testID="full-player-people-pane">
           <View style={styles.column}>
             <PeoplePane
-              isLoading={currentItem === null}
+              isLoading={addByRssItemResourceData === null && currentItem === null}
               layout="inline"
-              people={(currentItem?.item_persons ?? []).map(toAboutPersonFromItem)}
+              people={
+                addByRssItemResourceData === null
+                  ? (currentItem?.item_persons ?? []).map(toAboutPersonFromItem)
+                  : addByRssPeople
+              }
               testIDPrefix="full-player"
             />
           </View>
@@ -1158,20 +1353,20 @@ export function FullPlayerScreen({
       body = (
         <View style={styles.paneProse} testID="full-player-transcript-pane">
           <View style={styles.column}>
-            {transcriptText.length === 0 ? (
+            {paneTranscriptText.length === 0 ? (
               <ListEmpty
                 messageKey="info.transcript.no_transcript"
                 testID="full-player-empty-transcript"
               />
             ) : (
               <Text style={styles.paneText} testID="full-player-transcript-text">
-                {transcriptText}
+                {paneTranscriptText}
               </Text>
             )}
           </View>
         </View>
       );
-    } else if (body === null && activeTab === 'chapters' && chapterRows.length === 0) {
+    } else if (body === null && activeTab === 'chapters' && paneChapterRows.length === 0) {
       body = (
         <View style={styles.pane}>
           <View style={styles.column}>
@@ -1223,11 +1418,16 @@ export function FullPlayerScreen({
   }, [
     activePaneNoticeKey,
     activeTab,
+    addByRssItemResourceData,
+    addByRssPaneState,
+    addByRssPeople,
+    addByRssSummary.html,
+    addByRssSummary.truncation,
     chapterRows.length,
     clipHasMore,
     clipRows.length,
     currentItem,
-    currentItemIdText,
+    handleAddByRssDescriptionClock,
     hasSections,
     isLoadingMoreClips,
     isPrefsHydrated,
@@ -1236,6 +1436,11 @@ export function FullPlayerScreen({
     loadTab,
     offlineModeEnabled,
     onDescriptionClock,
+    onRequestLogin,
+    paneChapterRows.length,
+    paneResetKey,
+    paneTranscriptText,
+    retryAddByRssSections,
     soundbiteRows.length,
     styles.actionNotice,
     styles.column,
@@ -1291,9 +1496,7 @@ export function FullPlayerScreen({
               <Pressable
                 accessibilityLabel={contentLinkLabel(titleLink)}
                 accessibilityRole="link"
-                onPress={() => {
-                  openLinkedContent(titleLink);
-                }}
+                onPress={openTitleContent}
                 style={({ pressed }) => [styles.titleLink, pressed ? { opacity: 0.6 } : null]}
                 testID="full-player-title-link"
               >
@@ -1473,7 +1676,7 @@ export function FullPlayerScreen({
                   alwaysBounceVertical={false}
                   bounces={false}
                   data={paneRows}
-                  extraData={`${activeTab}-${isTabLoading}`}
+                  extraData={`${activeTab}-${isTabLoading}-${addByRssPaneState ?? 'none'}`}
                   keyExtractor={(row) => row.id}
                   nestedScrollEnabled
                   overScrollMode="never"
@@ -1570,6 +1773,7 @@ export function FullPlayerScreen({
       <FullPlayerSleepTimer onCancel={handleCloseSheet} visible={openSheet === 'sleep'} />
       <FullPlayerSpeedControl onCancel={handleCloseSheet} visible={openSheet === 'speed'} />
       <FullPlayerMoreSheet
+        canTogglePlayed={queueMutationTarget !== null}
         canToggleSubscription={canToggleSubscription}
         enclosureSelectedParams={enclosureSelectedParams}
         itemLabeledEnclosures={itemLabeledEnclosures}

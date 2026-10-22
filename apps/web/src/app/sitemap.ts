@@ -4,15 +4,8 @@ import { getWebOrigin } from '../config';
 
 const STATIC_SITEMAP_PATHS = [
   '/',
-  '/podcasts',
-  '/episodes',
-  '/artists',
-  '/albums',
-  '/tracks',
-  '/podcasts/livestreams',
-  '/music/livestreams',
+  '/browse',
   '/playlists',
-  '/clips',
   '/videos',
   '/profiles',
   '/about',

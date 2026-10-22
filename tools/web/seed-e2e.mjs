@@ -264,6 +264,8 @@ const E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT = 'e2eLiveAud001';
 const E2E_LIVE_AV_AUDIO_ITEM_TITLE = 'E2E Live Audio Stream';
 const E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT = 'e2eLiveVid001';
 const E2E_LIVE_AV_VIDEO_ITEM_TITLE = 'E2E Live Video Stream';
+const E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched01';
+const E2E_LIVE_AV_SCHEDULED_ITEM_TITLE = 'E2E Scheduled Livestream';
 
 const E2E_EMBED_VIDEO_ITEM_ID_TEXT = 'e2eEmbVidItem01';
 
@@ -826,6 +828,8 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
      VALUES ($1, (SELECT id FROM live_item_status WHERE status = 'live' LIMIT 1), NOW())`,
     [itemId]
   );
+
+  await client.query(`UPDATE channel SET may_have_live_items = true WHERE id = $1`, [channelId]);
 
   console.log(
     `Seeded livestream E2E channel ${E2E_LIVESTREAM_CHANNEL_ID_TEXT} (item ${E2E_LIVESTREAM_ITEM_ID_TEXT})`
@@ -1955,7 +1959,15 @@ async function seedLiveAvFixtures(client) {
     [channelId, E2E_FIXTURE_CHANNEL_IMAGE_URL]
   );
 
-  async function insertLiveItem({ idText, guidSlug, title, enclosureType, enclosureUrl }) {
+  async function insertLiveItem({
+    idText,
+    guidSlug,
+    title,
+    enclosureType,
+    enclosureUrl,
+    statusName = 'live',
+    startsInDays = 0,
+  }) {
     const itemResult = await client.query(
       `INSERT INTO item (
          id_text,
@@ -1984,8 +1996,9 @@ async function seedLiveAvFixtures(client) {
 
     await client.query(
       `INSERT INTO live_item (item_id, live_item_status_id, start_time)
-       VALUES ($1, (SELECT id FROM live_item_status WHERE status = 'live' LIMIT 1), NOW())`,
-      [itemId]
+       VALUES ($1, (SELECT id FROM live_item_status WHERE status = $2 LIMIT 1),
+               NOW() + ($3::int * INTERVAL '1 day'))`,
+      [itemId, statusName, startsInDays]
     );
 
     const enclosureResult = await client.query(
@@ -2016,9 +2029,20 @@ async function seedLiveAvFixtures(client) {
     enclosureType: 'video/mp4',
     enclosureUrl: E2E_VIDEO_SHORT_ENCLOSURE_URL,
   });
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT,
+    guidSlug: 'scheduled',
+    title: E2E_LIVE_AV_SCHEDULED_ITEM_TITLE,
+    enclosureType: 'audio/mpeg',
+    enclosureUrl: E2E_PODCAST_SHORT_ENCLOSURE_URL,
+    statusName: 'pending',
+    startsInDays: 1,
+  });
+
+  await client.query(`UPDATE channel SET may_have_live_items = true WHERE id = $1`, [channelId]);
 
   console.log(
-    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT})`
+    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT})`
   );
 }
 

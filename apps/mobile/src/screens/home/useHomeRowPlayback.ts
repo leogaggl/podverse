@@ -51,6 +51,27 @@ const resolveRowTarget = (
 export type QueueActionPosition = 'next' | 'last';
 
 /**
+ * Opens the gate when the account queue and history are out of reach; true means stop. While the
+ * tier is unknown the request runs and the server decides.
+ */
+export function useQueueHistoryGate(): () => boolean {
+  const { openGate } = useMembershipGate();
+  const { evaluateFeature, isTierKnown } = useAccessTier();
+
+  return useCallback((): boolean => {
+    if (!isTierKnown) {
+      return false;
+    }
+    const access = evaluateFeature('queue_history_sync');
+    if (access.allowed) {
+      return false;
+    }
+    openGate(access.reason);
+    return true;
+  }, [evaluateFeature, isTierKnown, openGate]);
+}
+
+/**
  * Home/detail row actions. `runPlayAction` starts real audio playback through the playback
  * orchestrator (episodes/tracks → item, clips → bounded clip); `runQueueAction` performs a real
  * add-to-queue via `useQueueMutations`, honoring the requested `position` (`next` inserts after
@@ -67,8 +88,8 @@ export type QueueActionPosition = 'next' | 'last';
 export function useHomeRowPlayback() {
   const [actionNoticeKey, setActionNoticeKey] = useState<RowActionNoticeKey | null>(null);
   const { addToQueueLast, addToQueueNext, markAsPlayed } = useQueueMutations();
-  const { handleGateError, openGate } = useMembershipGate();
-  const { evaluateFeature, isTierKnown } = useAccessTier();
+  const { handleGateError } = useMembershipGate();
+  const didOpenQueueHistoryGate = useQueueHistoryGate();
   const {
     activeTarget,
     noticeKey: playbackNoticeKeyFromEngine,
@@ -78,22 +99,6 @@ export function useHomeRowPlayback() {
     resume,
   } = usePlaybackRow();
   const isPlaying = usePlaybackIsPlaying();
-
-  /**
-   * Open the gate when the account-backed queue and history are out of reach, and report whether the
-   * caller should stop. While the tier is unknown the request runs and the server decides.
-   */
-  const didOpenQueueHistoryGate = useCallback((): boolean => {
-    if (!isTierKnown) {
-      return false;
-    }
-    const access = evaluateFeature('queue_history_sync');
-    if (access.allowed) {
-      return false;
-    }
-    openGate(access.reason);
-    return true;
-  }, [evaluateFeature, isTierKnown, openGate]);
 
   const runPlayAction = useCallback(
     (row: HomeFeedRowData, mediaType: HomeMediaType) => {

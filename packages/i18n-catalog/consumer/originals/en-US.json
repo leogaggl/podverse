@@ -124,6 +124,10 @@
       "media_needs_credentials": "This media may require a username and password, which browsers cannot send to audio and video files. Try our mobile app instead. The feed itself still updates on the web.",
       "login_prompt": "Log in to use this feature."
     },
+    "browse": {
+      "browse": "Browse",
+      "users": "Users"
+    },
     "my_library": "My Library",
     "queue": {
       "queue": "Queue",
@@ -410,6 +414,11 @@
       "playlist_entry_removed": "This item was removed from {brand_name}.",
       "show_not_in_directory": "This show is no longer in the {brand_name} directory."
     }
+  },
+  "background_activity": {
+    "title": "Background Activity",
+    "add_by_rss_refresh": "Updating Your RSS Feeds",
+    "progress": "{completed} of {total}"
   },
   "media_player": {
     "play": "Play",
@@ -801,6 +810,7 @@
   },
   "subscriptions": {
     "subscriptions": "Subscriptions",
+    "subscribed": "Subscribed",
     "how_to_start_message": "Try <searchLink>searching</searchLink> for your favorite content, or browse <podcastsLink>podcasts</podcastsLink>, <videosLink>videos</videosLink>, or <musicLink>music</musicLink>. Your subscriptions will appear here.",
     "empty_message": "You are not subscribed to anything yet.",
     "no_filter_matches": "No subscriptions match your filter.",
@@ -1475,41 +1485,13 @@
         "title": "{brand_name}",
         "description": "Discover podcasts, music, and livestreams on {brand_name}."
       },
-      "podcasts": {
-        "title": "Podcasts",
-        "description": "Browse podcast feeds and shows on {brand_name}."
-      },
-      "episodes": {
-        "title": "Episodes",
-        "description": "Browse podcast episodes across {brand_name}."
-      },
-      "artists": {
-        "title": "Artists",
-        "description": "Discover music artists on {brand_name}."
-      },
-      "albums": {
-        "title": "Albums",
-        "description": "Browse music albums on {brand_name}."
-      },
-      "tracks": {
-        "title": "Tracks",
-        "description": "Discover music tracks on {brand_name}."
-      },
-      "podcastsLivestreams": {
-        "title": "Podcast Livestreams",
-        "description": "Watch live podcast streams on {brand_name}."
-      },
-      "musicLivestreams": {
-        "title": "Music Livestreams",
-        "description": "Watch live music streams on {brand_name}."
+      "browse": {
+        "title": "Browse",
+        "description": "Browse podcasts, episodes, clips, music, playlists, and profiles on {brand_name}."
       },
       "playlists": {
         "title": "Playlists",
         "description": "Explore community playlists on {brand_name}."
-      },
-      "clips": {
-        "title": "Clips",
-        "description": "Explore podcast and music clips on {brand_name}."
       },
       "videos": {
         "title": "Videos",

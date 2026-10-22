@@ -1,17 +1,57 @@
+import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
+import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
 import { ItemController } from '@api/controllers/item.js';
+import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
+import { getFollowedChannelIds } from '@api/lib/followed.js';
 import { getParamRequired } from '@api/lib/params.js';
-import { validateQueryObject } from '@api/lib/validation/index.js';
+import { mediumPageQuerySchema, validateQueryObject } from '@api/lib/validation/index.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
-import { isLiveItemEndedAndStale, LIVE_ITEM_STATUSES } from '@podverse/helpers';
+import type { ChannelLiveItemSortKey, QueryParamsMedium } from '@podverse/helpers';
+import {
+  compareChannelLiveItems,
+  isLiveItemEndedAndStale,
+  LIVE_ITEM_STATUSES,
+} from '@podverse/helpers';
+import type { ApiListResponse } from '@podverse/helpers-requests';
+import { emptyApiListResponse } from '@podverse/helpers-requests';
 import type { Item } from '@podverse/orm';
 import {
   ChannelService,
   itemGetManyRelations,
+  itemGetManyRelationsWithChannel,
   ItemService,
   LiveItemStatusEnum,
 } from '@podverse/orm';
+
+const toColumnTimeMs = (value: Date | null | undefined): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return new Date(value).getTime();
+};
+
+const listedChannelLiveStatus = (
+  statusId: number | null | undefined
+): LiveItemStatusEnum | null => {
+  switch (statusId) {
+    case LiveItemStatusEnum.Live:
+      return LiveItemStatusEnum.Live;
+    case LiveItemStatusEnum.Pending:
+      return LiveItemStatusEnum.Pending;
+    case LiveItemStatusEnum.Ended:
+      return LiveItemStatusEnum.Ended;
+    default:
+      return null;
+  }
+};
+
+const toChannelLiveItemSortKey = (item: Item): ChannelLiveItemSortKey => ({
+  endTimeMs: toColumnTimeMs(item.live_item?.end_time),
+  startTimeMs: toColumnTimeMs(item.live_item?.start_time),
+  statusId: listedChannelLiveStatus(item.live_item?.live_item_status?.id),
+});
 
 export class LiveItemController {
   private static itemService = new ItemService();
@@ -89,6 +129,70 @@ export class LiveItemController {
     });
   }
 
+  static async getManyGlobalUpcoming(req: Request, res: Response): Promise<void> {
+    validateQueryObject(Joi.object(mediumPageQuerySchema).unknown(true), req, res, async () => {
+      try {
+        const { page, limit, offset } = getPaginationParams(req);
+        const { medium } = req.query as { medium: QueryParamsMedium };
+        const data = await LiveItemController.itemService.getManyUpcomingLiveItems(
+          {
+            skip: offset,
+            take: limit,
+            relations: itemGetManyRelationsWithChannel,
+          },
+          { channelIds: null, mediumType: medium }
+        );
+        const response: ApiListResponse<Item> = {
+          data,
+          meta: { page, count: null, limit },
+        };
+        res.json(response);
+      } catch (error) {
+        handleGenericErrorResponse(res, error);
+      }
+    });
+  }
+
+  static async getManySubscribedUpcoming(req: Request, res: Response): Promise<void> {
+    validateQueryObject(Joi.object(mediumPageQuerySchema).unknown(true), req, res, async () => {
+      ensureAuthenticated(
+        req,
+        res,
+        async (): Promise<void> => {
+          try {
+            const { page, limit, offset } = getPaginationParams(req);
+            const { medium } = req.query as { medium: QueryParamsMedium };
+            const jwtUser = getAuthenticatedUser(req);
+            const account_id = jwtUser.id;
+            const channelIds = await getFollowedChannelIds(account_id, medium);
+            if (!channelIds.length) {
+              const response: ApiListResponse<Item> = emptyApiListResponse;
+              res.json(response);
+              return;
+            }
+
+            const data = await LiveItemController.itemService.getManyUpcomingLiveItems(
+              {
+                skip: offset,
+                take: limit,
+                relations: itemGetManyRelationsWithChannel,
+              },
+              { channelIds, mediumType: medium }
+            );
+            const response: ApiListResponse<Item> = {
+              data,
+              meta: { page, count: null, limit },
+            };
+            res.json(response);
+          } catch (error) {
+            handleGenericErrorResponse(res, error);
+          }
+        },
+        { skipMembershipStatus: true }
+      );
+    });
+  }
+
   static async getManyByChannel(req: Request, res: Response): Promise<void> {
     const channelIdOrIdText = getParamRequired(req, 'channelIdOrIdText');
 
@@ -109,42 +213,12 @@ export class LiveItemController {
       (item) => !item.live_item || !isLiveItemEndedAndStale(item.live_item)
     );
 
-    const live: typeof items = [];
-    const pending: typeof items = [];
-    const ended: typeof items = [];
+    const sorted = items
+      .filter((item) => listedChannelLiveStatus(item.live_item?.live_item_status?.id) !== null)
+      .sort((left, right) =>
+        compareChannelLiveItems(toChannelLiveItemSortKey(left), toChannelLiveItemSortKey(right))
+      );
 
-    for (const item of items) {
-      const status = item.live_item?.live_item_status;
-      if (!status) {
-        continue;
-      }
-      if (status.id === LiveItemStatusEnum.Live) {
-        live.push(item);
-      } else if (status.id === LiveItemStatusEnum.Pending) {
-        pending.push(item);
-      } else if (status.id === LiveItemStatusEnum.Ended) {
-        ended.push(item);
-      }
-    }
-
-    live.sort(
-      (a: Item, b: Item) =>
-        new Date(b.live_item?.start_time ?? 0).getTime() -
-        new Date(a.live_item?.start_time ?? 0).getTime()
-    );
-    pending.sort(
-      (a: Item, b: Item) =>
-        new Date(b.live_item?.start_time ?? 0).getTime() -
-        new Date(a.live_item?.start_time ?? 0).getTime()
-    );
-    ended.sort(
-      (a: Item, b: Item) =>
-        new Date(b.live_item?.end_time ?? 0).getTime() -
-        new Date(a.live_item?.end_time ?? 0).getTime()
-    );
-
-    const combined = [...live, ...pending, ...ended];
-
-    res.json(combined);
+    res.json(sorted);
   }
 }
