@@ -1,3 +1,4 @@
+import { CommonActions } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +41,34 @@ type MakeClipStackParamList = {
 };
 
 type MakeClipScreenProps = NativeStackScreenProps<MakeClipStackParamList, 'MakeClip'>;
+
+/**
+ * Header back closes this screen and shows a new full player card when that card is the one
+ * underneath. A close from any other screen just pops.
+ */
+function closeMakeClipToFullPlayer(navigation: MakeClipScreenProps['navigation']) {
+  navigation.dispatch((state) => {
+    const under = state.routes[state.index - 1];
+    const underName: string | undefined = under?.name;
+    if (under === undefined || underName !== 'FullPlayer') {
+      return CommonActions.goBack();
+    }
+
+    const player = {
+      key: `FullPlayer-${Date.now()}`,
+      name: under.name,
+      params: under.params,
+    };
+    const routes = state.routes.slice(0, state.index - 1).concat(player);
+    // Kept routes still hold nested navigator state, so the reset is the current stack with
+    // the card underneath replaced by a new full player.
+    return CommonActions.reset({
+      ...state,
+      index: routes.length - 1,
+      routes,
+    });
+  });
+}
 
 const VALIDATION_REASON_COPY_KEYS: Record<MakeClipValidationReason, string> = {
   end_must_be_after_start: 'features.clip.end_must_be_after_start',
@@ -249,7 +278,7 @@ export function MakeClipScreen({ navigation, route }: MakeClipScreenProps) {
         backAccessibilityLabel={t('misc.back')}
         backTestID="make-clip-close"
         onBack={() => {
-          navigation.goBack();
+          closeMakeClipToFullPlayer(navigation);
         }}
         right={
           <HeaderBarAction

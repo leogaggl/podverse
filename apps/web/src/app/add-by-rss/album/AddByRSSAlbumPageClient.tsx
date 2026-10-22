@@ -44,6 +44,7 @@ import {
   enqueueAddByRSSParseWithStoredCredentials,
   pollAddByRSSParseStatus,
 } from '../../../utils/addByRSS/actions';
+import { selectChannelOrderedLiveItems } from '../../../utils/addByRSS/channelLiveItems';
 import {
   buildAddByRSSItemsIndex,
   buildAddByRSSLivestreamIndex,
@@ -294,11 +295,7 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
     tFeatures,
   ]);
 
-  const sortedLiveItems = useMemo(() => {
-    const next = [...liveItems];
-    next.sort((a, b) => b.startTimeMs - a.startTimeMs);
-    return next;
-  }, [liveItems]);
+  const sortedLiveItems = useMemo(() => selectChannelOrderedLiveItems(liveItems), [liveItems]);
 
   const showLiveItems = activeTab === 'tracks' && currentPage === 1 && sortedLiveItems.length > 0;
   const handleTabSelect = useCallback(

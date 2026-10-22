@@ -73,9 +73,9 @@ export const DEFAULT_HOME_VIEW_MODE: HomeViewMode = 'list';
 /** Screen-wide list/grid value used when a media type has no viewMode of its own. */
 const HOME_VIEW_MODE_SCOPE: SortPrefScope = { kind: 'list', name: 'home-layout' };
 
-/** Every Home list offers the same three orders. */
-export const isHomeSortableMediaType = (_mediaType: HomeMediaType): boolean => {
-  return true;
+/** Every Home list except Livestreams offers the same three orders. */
+export const isHomeSortableMediaType = (mediaType: HomeMediaType): boolean => {
+  return mediaType !== 'livestreams';
 };
 
 /**

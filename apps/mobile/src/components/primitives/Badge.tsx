@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
@@ -89,8 +89,9 @@ const createNeutralStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme)
  *
  * Presentational and deliberately unlabelled for assistive tech: a badge is a fragment of a
  * sentence about the thing it sits on, so its row composes it into one `accessibilityLabel` rather
- * than leaving a screen reader to announce "3" on its own. Callers that want it read separately
- * wrap it and say so there.
+ * than leaving a screen reader to announce the pill on its own. Callers that want it read
+ * separately wrap it and say so there. The test id sits on an overlay the screen reader skips, so
+ * UI tests can still find the pill.
  */
 export const Badge = memo(function Badge({ label, style, testID, tone = 'neutral' }: BadgeProps) {
   const styles = useThemedStyles(
@@ -104,13 +105,24 @@ export const Badge = memo(function Badge({ label, style, testID, tone = 'neutral
   );
 
   return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no"
-      style={[styles.badge, styles.tone, style]}
-      testID={testID}
-    >
-      <Text style={[styles.label, styles.toneLabel]}>{label}</Text>
+    <View style={[styles.badge, styles.tone, style]}>
+      <Text
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+        style={[styles.label, styles.toneLabel]}
+      >
+        {label}
+      </Text>
+      {testID !== undefined ? (
+        <View
+          accessibilityLabel={label}
+          accessible={false}
+          collapsable={false}
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          testID={testID}
+        />
+      ) : null}
     </View>
   );
 });

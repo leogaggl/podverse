@@ -25,6 +25,7 @@ import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLab
 import { perfCount } from '../../lib/perf/perfSpans';
 import { playbackTargetRowMediaId } from '../../lib/playback/buildPlaybackTarget';
 import { clipListTimeRangeLabel } from '../../lib/rows/homeRowMappers';
+import { liveStatusWordKey } from '../../lib/rows/liveItemRows';
 import { usePlaybackRow } from '../../playback/PlaybackProvider';
 import {
   LIST_ROW_ARTWORK_SIZE,
@@ -40,12 +41,14 @@ import { isPlayableDirectoryMediaType } from '../browse/browseTypes';
 import type { HomeFeedRowData } from './homeFeedData';
 import { resolveHomeFeedRowDownload } from './homeFeedRowDownload';
 import type { HomeRowMetadata } from './homeRowMetadata';
+import { epochMsFromRowUpdatedAt, itemRowShowsUnseenDot } from './itemUnseen';
 import type { QueueActionPosition } from './useHomeRowPlayback';
 
 type HomeFeedRowProps = {
   mediaType: DirectoryMediaType;
   onPress: (row: HomeFeedRowData) => void;
-  onQueuePress: (row: HomeFeedRowData, position: QueueActionPosition) => void;
+  /** Omit for rows that cannot be queued. */
+  onQueuePress?: (row: HomeFeedRowData, position: QueueActionPosition) => void;
   onPlayPress: (row: HomeFeedRowData) => void;
   /** Optional action controls for locally-backed resources with a different playback path. */
   customActions?: ReactNode;
@@ -69,7 +72,15 @@ type HomeFeedRowProps = {
   downloadItem?: DTOItem;
   downloadTestID?: string;
   row: HomeFeedRowData;
+  /**
+   * Timestamp stored before this visit marked the subscription seen. Undefined or null shows no
+   * item dots. A number shows the new-content dot on items published after it. Channel rows
+   * ignore it; their dot stays in the side rail.
+   */
+  itemLastSeenAtMs?: number | null;
   testID?: string;
+  /** Play button testID in the default action band; defaults to `home-row-play-${row.id}`. */
+  playTestID?: string;
   /**
    * When true (default), show list artwork and, unless `showContextLine` says otherwise, the
    * channel/context line above the title. When false, omit artwork so an in-channel screen does
@@ -90,6 +101,9 @@ type HomeFeedRowProps = {
   trailing?: ReactNode;
 };
 
+/** Title line box. The item-row unseen slot uses the same height so the dot sits on that line. */
+const TITLE_LINE_HEIGHT = 26;
+
 const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
   StyleSheet.create({
     artworkWrap: {
@@ -100,18 +114,16 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       ...typography.body,
       color: themeStyles.textPrimary.color,
     },
-    date: {
-      ...typography.caption,
-      color: tokens.text.accent,
-    },
     dateRow: {
       alignItems: 'center',
       flexDirection: 'row',
       gap: tokens.spacing.sm,
     },
     description: {
-      ...typography.caption,
       color: themeStyles.textSecondary.color,
+      fontSize: 14,
+      fontWeight: '400',
+      lineHeight: 20,
     },
     image: {
       height: LIST_ROW_ARTWORK_SIZE,
@@ -124,12 +136,14 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     },
     identityText: {
       flex: 1,
-      gap: tokens.spacing.base,
+      gap: tokens.spacing.xs,
       justifyContent: 'center',
       minWidth: 0,
     },
-    showIdentityText: {
-      gap: tokens.spacing.xs,
+    itemUnseenSlot: {
+      height: TITLE_LINE_HEIGHT,
+      justifyContent: 'flex-start',
+      width: UNSEEN_INDICATOR_SIZE,
     },
     liveBadge: {
       alignSelf: 'center',
@@ -149,6 +163,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     },
     rowActions: {
       marginTop: tokens.spacing.sm,
+    },
+    rowActionsEnd: {
+      alignItems: 'flex-end',
     },
     rowBody: {
       flex: 1,
@@ -182,11 +199,22 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
     showTitle: {
       fontWeight: '400',
     },
+    textGroup: {
+      gap: tokens.spacing.xs,
+    },
     title: {
       ...typography.subheading,
       color: themeStyles.textPrimary.color,
       fontSize: 19,
-      lineHeight: 26,
+      lineHeight: TITLE_LINE_HEIGHT,
+    },
+    titleFlex: {
+      flex: 1,
+    },
+    titleLine: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      gap: tokens.spacing.sm,
     },
     trailing: {
       alignSelf: 'center',
@@ -270,17 +298,12 @@ const useUpdatedLabel = (
   return useMemo(() => {
     const source =
       updatedAt !== undefined && updatedAt !== null && updatedAt !== '' ? updatedAt : fallbackMs;
-    if (source === undefined || source === null) {
+    const epochMs = epochMsFromRowUpdatedAt(source);
+    if (epochMs === null) {
       return null;
     }
 
-    const parsed =
-      typeof source === 'number' && source < 1e12 ? new Date(source * 1000) : new Date(source);
-    if (Number.isNaN(parsed.getTime())) {
-      return null;
-    }
-
-    return formatDateAbbrev(parsed, i18n.language);
+    return formatDateAbbrev(new Date(epochMs), i18n.language);
   }, [fallbackMs, i18n.language, updatedAt]);
 };
 
@@ -320,10 +343,13 @@ const useClipRangeLabel = (row: HomeFeedRowData): string | null => {
  *
  * Episode and clip rows use three bands (identity + download, description, play/duration/more) so a
  * Home Episodes list can show channel context without stacking every control in one column, and an
- * in-channel list can drop artwork without inventing a second row component. `showContextLine`
- * keeps a parent title when that artwork stays hidden.
+ * in-channel list can drop artwork without inventing a second row component. The identity row and
+ * the description share `textGroup` (`spacing.xs`). The play, duration, and progress band stays
+ * under that group. `showContextLine` keeps a parent title when that artwork stays hidden.
  * Track rows omit the play band: More sits in the identity row, vertically centered with the
- * artwork and text. The row press still starts playback.
+ * artwork and text. The row press still starts playback. A livestream row states Scheduled or
+ * Ended in its context line, or at the start of its date line when that line is hidden, where
+ * the Live badge sits inside a channel.
  */
 export const HomeFeedRow = memo(function HomeFeedRow({
   mediaType,
@@ -340,7 +366,9 @@ export const HomeFeedRow = memo(function HomeFeedRow({
   downloadItem,
   downloadTestID,
   row,
+  itemLastSeenAtMs,
   testID,
+  playTestID,
   showChannelContext = true,
   showContextLine,
   style,
@@ -384,12 +412,24 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       ? row.description
       : null;
   const isChannelList = isChannelListMediaType(mediaType);
+  const showItemDot = itemRowShowsUnseenDot(isChannelList, row.updatedAt, itemLastSeenAtMs);
   const showArtwork = showChannelContext && row.removed !== true;
   const contextLineVisible = showContextLine ?? showChannelContext;
+  const liveStatusWord = useMemo(() => {
+    const key = liveStatusWordKey(row.liveStatusId);
+    return key === null ? null : t(key);
+  }, [row.liveStatusId, t]);
+  const contextSubtitle = row.subtitle !== null && row.subtitle.length > 0 ? row.subtitle : null;
   const channelLabel =
-    !isChannelList && contextLineVisible && row.subtitle !== null && row.subtitle.length > 0
-      ? row.subtitle
-      : null;
+    isChannelList || !contextLineVisible
+      ? null
+      : liveStatusWord === null
+        ? contextSubtitle
+        : contextSubtitle === null
+          ? liveStatusWord
+          : `${liveStatusWord} • ${contextSubtitle}`;
+  /** Inside a channel the context line is hidden, so the date line states the status instead. */
+  const dateLineStatus = !isChannelList && !contextLineVisible ? liveStatusWord : null;
   const channelFooter = isChannelList
     ? channelListFooter(mediaType, row, (count) =>
         t('subscriptions.row.downloaded_count', { count })
@@ -401,27 +441,35 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       : null;
 
   const moreActions = useMemo(() => {
+    // A livestream has no fixed length to queue behind or finish. Share is the only more action.
+    const isLivestreamRow = mediaType === 'livestreams';
     const standardActions = buildMediaRowMoreActions(
       t,
       {
         onAddToPlaylist:
-          onAddToPlaylistPress !== undefined
+          !isLivestreamRow && onAddToPlaylistPress !== undefined
             ? () => {
                 onAddToPlaylistPress(row);
               }
             : undefined,
         onMarkAsPlayed:
-          onMarkAsPlayedPress !== undefined
+          !isLivestreamRow && onMarkAsPlayedPress !== undefined
             ? () => {
                 onMarkAsPlayedPress(row);
               }
             : undefined,
-        onQueueLast: () => {
-          onQueuePress(row, 'last');
-        },
-        onQueueNext: () => {
-          onQueuePress(row, 'next');
-        },
+        onQueueLast:
+          !isLivestreamRow && onQueuePress !== undefined
+            ? () => {
+                onQueuePress(row, 'last');
+              }
+            : undefined,
+        onQueueNext:
+          !isLivestreamRow && onQueuePress !== undefined
+            ? () => {
+                onQueuePress(row, 'next');
+              }
+            : undefined,
         onGoToTrack:
           mediaType === 'tracks' && onGoToTrackPress !== undefined
             ? () => {
@@ -446,15 +494,16 @@ export const HomeFeedRow = memo(function HomeFeedRow({
                 onGoToChannelPress(row);
               }
             : undefined,
-        onDownload: isDownloadable
-          ? () => {
-              runDownloadAction({
-                remove: removeDownload,
-                start: startDownload,
-                status: downloadStatus,
-              });
-            }
-          : undefined,
+        onDownload:
+          !isLivestreamRow && isDownloadable
+            ? () => {
+                runDownloadAction({
+                  remove: removeDownload,
+                  start: startDownload,
+                  status: downloadStatus,
+                });
+              }
+            : undefined,
         onShare:
           onSharePress !== undefined
             ? () => {
@@ -468,6 +517,9 @@ export const HomeFeedRow = memo(function HomeFeedRow({
         idSuffix: `-${row.id}`,
       }
     );
+    if (isLivestreamRow) {
+      return standardActions;
+    }
     return extraMoreActions !== undefined
       ? [...extraMoreActions, ...standardActions]
       : standardActions;
@@ -487,12 +539,22 @@ export const HomeFeedRow = memo(function HomeFeedRow({
     startDownload,
     t,
   ]);
+  const showPlayBand = mediaType !== 'tracks' && isPlayable;
+  const showScheduledLivestreamMore =
+    mediaType === 'livestreams' && !isPlayable && moreActions.length > 0;
 
   const dateLine = (dateStyle: TextStyle) =>
-    updatedLabel !== null || (!showArtwork && liveLabel !== null) ? (
+    updatedLabel !== null || (!showArtwork && liveLabel !== null) || dateLineStatus !== null ? (
       <View style={styles.dateRow}>
         {!showArtwork && liveLabel !== null ? (
           <Badge label={liveLabel} testID={`home-feed-row-live-${row.id}`} tone="danger" />
+        ) : null}
+        {dateLineStatus !== null ? (
+          <Badge
+            label={dateLineStatus}
+            testID={`home-feed-row-live-status-${row.id}`}
+            tone="neutral"
+          />
         ) : null}
         {updatedLabel !== null ? (
           <Text numberOfLines={1} style={dateStyle} testID={`home-feed-row-updated-${row.id}`}>
@@ -513,7 +575,9 @@ export const HomeFeedRow = memo(function HomeFeedRow({
         description,
         durationLabel,
         liveLabel,
+        dateLineStatus,
         unseenSpoken,
+        showItemDot ? t('subscriptions.row.unseen_indicator_aria') : null,
       ]
         .filter((part) => part !== null && part.length > 0)
         .join(', ')}
@@ -525,109 +589,130 @@ export const HomeFeedRow = memo(function HomeFeedRow({
       testID={testID ?? `home-feed-row-${row.id}`}
     >
       <View style={[styles.rowBody, isChannelList ? styles.showRowBody : null]}>
-        <View style={styles.identityRow}>
-          {showArtwork ? (
-            <View style={styles.artworkWrap}>
-              <CoverImage
-                decodeEdge={LIST_ROW_ARTWORK_SIZE}
-                opensViewer={false}
-                style={styles.image}
-                uri={row.imageUrl}
-              />
-              {liveLabel !== null ? (
-                <View pointerEvents="none" style={styles.liveOnArtwork}>
-                  <Badge
-                    label={liveLabel}
-                    style={styles.liveBadge}
-                    testID={`home-feed-row-live-${row.id}`}
-                    tone="danger"
-                  />
+        <View style={styles.textGroup}>
+          <View style={styles.identityRow}>
+            {showArtwork ? (
+              <View style={styles.artworkWrap}>
+                <CoverImage
+                  decodeEdge={LIST_ROW_ARTWORK_SIZE}
+                  opensViewer={false}
+                  style={styles.image}
+                  uri={row.imageUrl}
+                />
+                {liveLabel !== null ? (
+                  <View pointerEvents="none" style={styles.liveOnArtwork}>
+                    <Badge
+                      label={liveLabel}
+                      style={styles.liveBadge}
+                      testID={`home-feed-row-live-${row.id}`}
+                      tone="danger"
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+            <View style={styles.identityText}>
+              {isChannelList ? dateLine(styles.showDate) : null}
+              {channelLabel !== null ? (
+                <Text
+                  numberOfLines={1}
+                  style={styles.channelTitle}
+                  testID={`home-feed-row-subtitle-${row.id}`}
+                >
+                  {channelLabel}
+                </Text>
+              ) : null}
+              {removedLabel !== null ? (
+                <Text
+                  numberOfLines={1}
+                  style={styles.channelTitle}
+                  testID={`home-feed-row-removed-${row.id}`}
+                >
+                  {removedLabel}
+                </Text>
+              ) : null}
+              {showItemDot ? (
+                <View style={styles.titleLine}>
+                  <Text
+                    numberOfLines={2}
+                    style={[
+                      styles.title,
+                      isChannelList ? styles.showTitle : null,
+                      styles.titleFlex,
+                    ]}
+                    testID={`home-feed-row-title-${row.id}`}
+                  >
+                    {row.title}
+                  </Text>
+                  <View pointerEvents="none" style={styles.itemUnseenSlot}>
+                    <UnseenIndicator testID={`home-feed-row-unseen-${row.id}`} />
+                  </View>
                 </View>
+              ) : (
+                <Text
+                  numberOfLines={2}
+                  style={[styles.title, isChannelList ? styles.showTitle : null]}
+                  testID={`home-feed-row-title-${row.id}`}
+                >
+                  {row.title}
+                </Text>
+              )}
+              {isChannelList ? null : dateLine(styles.showDate)}
+              {channelFooter !== null && channelFooter.kind === 'count' ? (
+                <Text
+                  numberOfLines={1}
+                  style={styles.showFooter}
+                  testID={`home-feed-row-downloaded-${row.id}`}
+                >
+                  {channelFooter.label}
+                </Text>
+              ) : null}
+              {channelFooter !== null && channelFooter.kind === 'author' ? (
+                <Text
+                  numberOfLines={1}
+                  style={styles.showFooter}
+                  testID={`home-feed-row-subtitle-${row.id}`}
+                >
+                  {channelFooter.label}
+                </Text>
+              ) : null}
+              {channelFooter !== null && channelFooter.kind === 'reserve' ? (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={styles.showFooterReserve}
+                />
               ) : null}
             </View>
-          ) : null}
-          <View style={[styles.identityText, isChannelList ? styles.showIdentityText : null]}>
-            {isChannelList ? dateLine(styles.showDate) : null}
-            {channelLabel !== null ? (
-              <Text
-                numberOfLines={1}
-                style={styles.channelTitle}
-                testID={`home-feed-row-subtitle-${row.id}`}
-              >
-                {channelLabel}
-              </Text>
+            {download !== undefined && mediaType !== 'livestreams' ? (
+              <DownloadRowControl item={download.item} testID={download.testID} />
             ) : null}
-            {removedLabel !== null ? (
-              <Text
-                numberOfLines={1}
-                style={styles.channelTitle}
-                testID={`home-feed-row-removed-${row.id}`}
-              >
-                {removedLabel}
-              </Text>
-            ) : null}
-            <Text
-              numberOfLines={2}
-              style={[styles.title, isChannelList ? styles.showTitle : null]}
-              testID={`home-feed-row-title-${row.id}`}
-            >
-              {row.title}
-            </Text>
-            {isChannelList ? null : dateLine(styles.date)}
-            {channelFooter !== null && channelFooter.kind === 'count' ? (
-              <Text
-                numberOfLines={1}
-                style={styles.showFooter}
-                testID={`home-feed-row-downloaded-${row.id}`}
-              >
-                {channelFooter.label}
-              </Text>
-            ) : null}
-            {channelFooter !== null && channelFooter.kind === 'author' ? (
-              <Text
-                numberOfLines={1}
-                style={styles.showFooter}
-                testID={`home-feed-row-subtitle-${row.id}`}
-              >
-                {channelFooter.label}
-              </Text>
-            ) : null}
-            {channelFooter !== null && channelFooter.kind === 'reserve' ? (
-              <View
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={styles.showFooterReserve}
+            {showInlineTrackMore ? (
+              <MediaRowActions
+                appearance="icons"
+                idSuffix={`-${row.id}`}
+                moreActions={moreActions}
+                moreTestID={`home-row-more-${row.id}`}
+                showPlayButton={false}
               />
             ) : null}
           </View>
-          {download !== undefined ? (
-            <DownloadRowControl item={download.item} testID={download.testID} />
-          ) : null}
-          {showInlineTrackMore ? (
-            <MediaRowActions
-              appearance="icons"
-              idSuffix={`-${row.id}`}
-              moreActions={moreActions}
-              moreTestID={`home-row-more-${row.id}`}
-              showPlayButton={false}
-            />
+
+          {description !== null ? (
+            <Text
+              numberOfLines={2}
+              style={styles.description}
+              testID={`home-feed-row-description-${row.id}`}
+            >
+              {description}
+            </Text>
           ) : null}
         </View>
 
-        {description !== null ? (
-          <Text
-            numberOfLines={2}
-            style={styles.description}
-            testID={`home-feed-row-description-${row.id}`}
-          >
-            {description}
-          </Text>
-        ) : null}
-
         {customActions !== undefined ? (
           customActions
-        ) : isPlayable && mediaType !== 'tracks' ? (
-          <View style={styles.rowActions}>
+        ) : showPlayBand || showScheduledLivestreamMore ? (
+          <View style={[styles.rowActions, showPlayBand ? null : styles.rowActionsEnd]}>
             <MediaRowActions
               appearance="icons"
               durationLabel={durationLabel}
@@ -638,14 +723,15 @@ export const HomeFeedRow = memo(function HomeFeedRow({
               onPlayPress={() => {
                 onPlayPress(row);
               }}
-              playbackMediaId={row.id}
+              playbackMediaId={row.playbackMediaId ?? row.id}
               playLabel={t('media_player.play')}
-              playTestID={`home-row-play-${row.id}`}
+              playTestID={playTestID ?? `home-row-play-${row.id}`}
+              showPlayButton={showPlayBand}
             />
           </View>
         ) : null}
       </View>
-      {unseenBadge !== null ? (
+      {isChannelList && unseenBadge !== null ? (
         <View pointerEvents="none" style={styles.unseenRail}>
           <UnseenIndicator testID={`home-feed-row-unseen-${row.id}`} />
         </View>

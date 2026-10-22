@@ -40,6 +40,12 @@ Name the surfaces (api, web, mobile, workers, management-api, management-web, k8
 changed, who would notice, and any step someone running the software must take. Leave out
 secrets, account ids, and anything else **public-repo-no-secrets** forbids.
 
+## Plan prompts that run at the same time
+
+A plan-set prompt that shares a phase with other prompts does not write the scratchpad. It puts
+its entry in its final message under "Release notes entry". The set's last prompt, which always
+runs alone, appends every such entry from `.artifacts/plan-runner/<set>/`.
+
 ## Keeping it clean
 
 - Never edit or remove another change's entry, except during abcreleasenotes.

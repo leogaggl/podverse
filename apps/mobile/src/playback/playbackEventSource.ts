@@ -1,10 +1,10 @@
-import { getAddByRSSHashId } from '@podverse/helpers';
 import { isObjectLike } from '@podverse/helpers/guards';
 import { MediumEnum } from '@podverse/helpers/medium';
 import type { PlaybackEventKind } from '@podverse/helpers/playbackEvents';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import {
+  addByRssPlaybackMediaId,
   isAddByRssLivestreamResourceData,
   withCanonicalAddByRssFeedUrl,
 } from '../lib/addByRss/resourceData';
@@ -80,7 +80,7 @@ export const nowPlayingResourceFromTarget = (
         return null;
       }
       return {
-        resourceIdText: getAddByRSSHashId(withCanonicalAddByRssFeedUrl(target.resourceData)),
+        resourceIdText: addByRssPlaybackMediaId(target.resourceData),
         resourceKind: 'add_by_rss',
       };
     case 'livestream':

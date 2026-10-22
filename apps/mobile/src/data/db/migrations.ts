@@ -391,6 +391,18 @@ export const MIGRATIONS: Migration[] = [
         ON item_description_cache (pinned, fetched_at);`,
     ],
   },
+  {
+    version: 24,
+    statements: [
+      // Whether an Add by RSS feed has carried a live item in any stored parse. Never cleared, so it
+      // outlasts a live item that has left the feed. Seeded from the bundles already on the device.
+      `ALTER TABLE add_by_rss_feed ADD COLUMN may_have_livestreams INTEGER NOT NULL DEFAULT 0;`,
+      `UPDATE add_by_rss_feed SET may_have_livestreams = 1
+        WHERE mapped_feed_json IS NOT NULL
+          AND json_valid(mapped_feed_json)
+          AND json_array_length(mapped_feed_json, '$.liveItems') > 0;`,
+    ],
+  },
 ];
 
 export const LATEST_MIGRATION_VERSION: number = MIGRATIONS.reduce(

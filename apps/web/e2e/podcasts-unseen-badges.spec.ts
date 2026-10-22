@@ -11,7 +11,7 @@ const API_LOGIN_URL = 'http://localhost:4030/api/v2/auth/login';
 const LOGIN_EMAIL = 'e2e-user@example.com';
 const LOGIN_PASSWORD = 'Test!1Aa';
 
-const SUBSCRIBED_PODCASTS_URL = '/podcasts?type=subscribed&sort=a_z';
+const SUBSCRIBED_PODCASTS_URL = '/?sort=a_z';
 
 async function loginSeedUser(page: Page): Promise<void> {
   const loginResponse = await page.request.post(API_LOGIN_URL, {

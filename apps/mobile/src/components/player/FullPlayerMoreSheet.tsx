@@ -11,6 +11,7 @@ import { MoreMenu } from '../primitives/MoreMenu';
 import { EnclosureSourcePickerSheet } from './EnclosureSourcePickerSheet';
 
 type FullPlayerMoreSheetProps = {
+  canTogglePlayed: boolean;
   canToggleSubscription: boolean;
   itemLabeledEnclosures: LabeledItemEnclosure[];
   enclosureSelectedParams: EnclosureSelectedParams;
@@ -25,6 +26,7 @@ type FullPlayerMoreSheetProps = {
 };
 
 export function FullPlayerMoreSheet({
+  canTogglePlayed,
   canToggleSubscription,
   itemLabeledEnclosures,
   enclosureSelectedParams,
@@ -73,20 +75,25 @@ export function FullPlayerMoreSheet({
                 },
               ]
             : []),
-          {
-            key: 'mark-played',
-            disabled: isMarkingPlayed,
-            label: isMarkedPlayed
-              ? t('features.history.mark_as_unplayed')
-              : t('features.history.mark_as_played'),
-            onPress: onTogglePlayed,
-            testID: 'full-player-more-mark-played',
-          },
+          ...(canTogglePlayed
+            ? [
+                {
+                  key: 'mark-played',
+                  disabled: isMarkingPlayed,
+                  label: isMarkedPlayed
+                    ? t('features.history.mark_as_unplayed')
+                    : t('features.history.mark_as_played'),
+                  onPress: onTogglePlayed,
+                  testID: 'full-player-more-mark-played',
+                },
+              ]
+            : []),
         ],
         key: 'actions',
       },
     ],
     [
+      canTogglePlayed,
       canToggleSubscription,
       hasSourcePicker,
       isMarkedPlayed,

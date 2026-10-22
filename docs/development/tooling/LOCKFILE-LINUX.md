@@ -17,38 +17,26 @@ From the repo root (requires Docker):
 ./scripts/development/update-lockfile-linux.sh
 ```
 
-This runs `npm install --include=optional` inside a Node 24 Linux x64 container and writes
-the resulting `package-lock.json` into the repo. Forcing Linux x64 keeps optional native
+This runs `npm install --include=optional` inside a Node 24 Linux x64 container. The script
+copies the working tree to a temporary directory, installs there, and copies back only
+`package-lock.json`. Host `node_modules` is not changed. Forcing Linux x64 keeps optional native
 dependency resolution aligned with GitHub Actions runners. Commit the updated lockfile so CI
 and Docker builds use it.
-
-### After running on macOS
-
-The script runs `npm install` inside a Linux container with the repo bind-mounted, so any
-`node_modules` the container creates would land on the host. The script removes that
-container-created `node_modules` before exiting; the host's previous `node_modules` is no
-longer trustworthy either way.
-
-On macOS, run `npm install` on the host so darwin native binaries are restored:
-
-```bash
-npm install
-```
-
-This does **not** modify `package-lock.json` – the lockfile already lists every platform's
-optional dependencies (darwin-arm64, darwin-x64, linux-x64, etc.). `npm install` simply
-materializes the entries matching your host platform.
 
 ## Troubleshooting
 
 ### `Cannot find module @<scope>/<pkg>-darwin-arm64` (or similar)
 
-The lockfile lists the package, but `node_modules` is missing the macOS native binary. This
-usually means you recently ran `update-lockfile-linux.sh`. Fix:
+The lockfile lists the package, but `node_modules` is missing the macOS native binary. Restore
+it on the host:
 
 ```bash
 npm install
 ```
+
+This does **not** modify `package-lock.json`. The lockfile already lists every platform's
+optional dependencies. `npm install` materializes the entries for the host platform.
+`update-lockfile-linux.sh` does not cause this; it never writes host `node_modules`.
 
 ### `Bus error` during `node postinstall.js` (e.g. under `@swc/core`)
 

@@ -1,8 +1,9 @@
 appId: com.podverse.app.next
 name: Add By RSS Flow
 ---
-# Add-by-RSS library in My Library: plus opens the add form; the list is feeds only. Detail and
-# playback stay on the Library stack. Fixture URL matches web e2e seed constants.
+# Add-by-RSS library in My Library: plus opens the add form; the library lists Add by RSS feeds
+# only, and Home lists them too. Detail and playback stay on the Library stack. Fixture URL
+# matches web e2e seed constants.
 #
 # Needs flow_needs_e2e_api + flow_needs_test_assets.
 
@@ -54,16 +55,131 @@ name: Add By RSS Flow
 - assertVisible: E2E Add-by-RSS Channel
 - takeScreenshot: add-by-rss-feed-listed
 
+# Home lists Add by RSS follows beside directory follows, so the new feed is on its Podcasts chip.
+- tapOn:
+    id: tab-home
+- assertVisible:
+    id: home-screen
+- runFlow:
+    file: shared/restore-chip-row-start.yaml
+    env:
+      CHIP_ROW_ID: home-media-type-selector
+- tapOn:
+    id: home-media-type-podcasts
+- extendedWaitUntil:
+    visible:
+      text: E2E Add-by-RSS Channel
+      childOf:
+        id: home-feed-list
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: add-by-rss-home-listed
+# Episodes merges Add by RSS items with directory episodes; the row opens Home's episode page.
+- tapOn:
+    id: home-media-type-episodes
+- scrollUntilVisible:
+    element:
+      text: E2E Add-by-RSS Episode
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: add-by-rss-home-episode-listed
+# Download is on the row and in More. Neither tap runs: a tap would start the download.
+- assertVisible:
+    id: "home-item-download-.*item-guid/fresh"
+- tapOn:
+    id: "home-row-more-.*"
+    index: 0
+    below:
+      text: E2E Add-by-RSS Episode
+- extendedWaitUntil:
+    visible:
+      id: "media-row-menu-.*"
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: "media-row-action-mark-as-played-.*"
+- assertVisible:
+    id: "media-row-action-download-.*item-guid/fresh"
+- assertNotVisible:
+    id: "media-row-action-share-.*"
+- takeScreenshot: add-by-rss-home-episode-more-menu
+- tapOn:
+    id: "media-row-menu-.*-cancel"
+- assertNotVisible:
+    id: "media-row-menu-.*"
+- tapOn:
+    text: E2E Add-by-RSS Episode
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-episode-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- runFlow: shared/stack-back.yaml
+- tapOn:
+    id: home-media-type-podcasts
+- tapOn:
+    id: tab-my-library
+- assertVisible:
+    id: rss-root-screen
+
 # The keyboard is already gone once the form has popped. hideKeyboard on Android sends Back when
 # there is nothing to dismiss, which leaves this screen.
 - tapOn:
     text: E2E Add-by-RSS Channel
 - assertVisible:
     id: add-by-rss-home-detail-screen
+- assertVisible:
+    id: add-by-rss-home-header
+- assertVisible:
+    id: add-by-rss-home-section-episodes
+- assertVisible:
+    id: add-by-rss-home-sort-button
+- tapOn:
+    id: add-by-rss-home-section-about
+- assertVisible:
+    id: add-by-rss-home-section-downloaded
+- tapOn:
+    id: add-by-rss-home-section-episodes
 - assertVisible: E2E Add-by-RSS Channel
 - assertVisible:
     id: add-by-rss-home-play-first
 - takeScreenshot: add-by-rss-library-detail
+
+# Tapping the row opens the episode page; only the play button plays.
+- tapOn:
+    id: "home-feed-row-title-.*"
+    text: E2E Add-by-RSS Episode
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-episode-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: add-by-rss-episode-detail-title
+    text: E2E Add-by-RSS Episode
+- assertVisible:
+    id: add-by-rss-episode-detail-podcast-title
+- assertVisible:
+    id: add-by-rss-episode-detail-summary
+- tapOn:
+    id: "home-row-more-.*"
+- extendedWaitUntil:
+    visible:
+      id: "media-row-menu-.*"
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: "media-row-action-queue-next-.*"
+- assertVisible:
+    id: "media-row-action-add-to-playlist-.*"
+- assertVisible:
+    id: "media-row-action-mark-as-played-.*"
+- assertNotVisible:
+    id: "media-row-action-share-.*"
+- takeScreenshot: add-by-rss-episode-detail-more-menu
+- tapOn:
+    id: "media-row-menu-.*-cancel"
+- takeScreenshot: add-by-rss-episode-detail
+- runFlow: shared/stack-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-play-first
+    timeout: ${TIMEOUT_SLOW}
 
 # Real media: enclosure localhost:2111 → 127.0.0.1 (iOS) / 10.0.2.2 (Android) in E2E. Sign-in
 # loads the seeded queue head into the mini player, so the title proves playback switched to this
@@ -80,6 +196,12 @@ name: Add By RSS Flow
       id: playback-active-e2e
       text: playing
     timeout: ${TIMEOUT_SLOW}
+# The playing row shows pause and its progress bar, as a podcast episode row does.
+- assertVisible:
+    id: add-by-rss-home-play-first
+    text: "Pause"
+- assertVisible:
+    id: "home-feed-row-duration-.*-progress"
 - takeScreenshot: add-by-rss-playback-active
 
 # The phone records Add by RSS listening: the account's server now-playing row is this episode,
@@ -89,6 +211,57 @@ name: Add By RSS Flow
     env:
       E2E_ADD_BY_RSS_FEED_URL: https://e2e-seed-addbyrss.example/podcast.xml
       E2E_ADD_BY_RSS_TITLE: E2E Add-by-RSS Episode
+
+# The episode title opens that episode on Home, with the feed under it. This library detail
+# stays on My Library, which Remove expects.
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-title-link
+    timeout: ${TIMEOUT_FAST}
+
+# Mark as Played works for an Add by RSS episode: the next open offers Mark as Unplayed, which
+# the player shows only after the history write succeeds.
+- tapOn:
+    id: full-player-more
+- extendedWaitUntil:
+    visible:
+      id: full-player-more-mark-played
+      text: "Mark as Played"
+    timeout: ${TIMEOUT_FASTER}
+- tapOn:
+    id: full-player-more-mark-played
+- tapOn:
+    id: full-player-more
+- extendedWaitUntil:
+    visible:
+      id: full-player-more-mark-played
+      text: "Mark as Unplayed"
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: add-by-rss-full-player-marked-played
+- tapOn:
+    id: full-player-more-sheet-cancel
+- assertNotVisible:
+    id: full-player-more-sheet
+- tapOn:
+    id: full-player-title-link
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-episode-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: tab-my-library
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
 
 - tapOn:
     id: add-by-rss-home-remove
@@ -104,3 +277,38 @@ name: Add By RSS Flow
       childOf:
         id: rss-feed-list
     timeout: ${TIMEOUT_SLOW}
+
+# Swiping a library row left reveals Unsubscribe, as on Home. Swiping back closes it.
+- assertVisible:
+    id: "rss-feed-row-.*-swipe"
+- swipe:
+    from:
+      id: "rss-feed-row-.*-swipe"
+    direction: LEFT
+- extendedWaitUntil:
+    visible:
+      id: "rss-feed-row-.*-unsubscribe"
+    timeout: ${TIMEOUT_FASTEST}
+- takeScreenshot: add-by-rss-library-swipe-unsubscribe
+- swipe:
+    from:
+      id: "rss-feed-row-.*-swipe"
+    direction: RIGHT
+- extendedWaitUntil:
+    notVisible:
+      id: "rss-feed-row-.*-unsubscribe"
+    timeout: ${TIMEOUT_FASTER}
+
+# Seeded Add by RSS feeds carry no live items, so Livestreams is an empty list with no sort chip.
+- runFlow:
+    file: shared/reveal-chip-row-trailing.yaml
+    env:
+      CHIP_ROW_ID: rss-media-type-selector
+      TRAILING_ID: rss-media-type-livestreams
+- tapOn:
+    id: rss-media-type-livestreams
+- assertVisible:
+    id: rss-livestreams-empty
+- assertNotVisible:
+    id: rss-sort
+- takeScreenshot: add-by-rss-livestreams-empty

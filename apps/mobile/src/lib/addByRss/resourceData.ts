@@ -1,3 +1,4 @@
+import { getAddByRSSHashId } from '@podverse/helpers';
 import type { AddByRSSResourceData } from '@podverse/helpers/dto';
 import { canonicalAddByRSSFeedUrl } from '@podverse/helpers-validation/client';
 
@@ -14,6 +15,14 @@ export function withCanonicalAddByRssFeedUrl<T extends object>(resourceData: T):
     return resourceData;
   }
   return { ...resourceData, feed_url: feedUrl ?? undefined };
+}
+
+/**
+ * The id playback uses for an Add by RSS episode or track: its `add_by_rss_hash_id`, the same on
+ * every device. Rows, the engine source, the journal, and the queue all match on it.
+ */
+export function addByRssPlaybackMediaId(resourceData: AddByRSSResourceData): string {
+  return getAddByRSSHashId(withCanonicalAddByRssFeedUrl(resourceData));
 }
 
 /** True when the resource data describes a livestream rather than an episode or track. */

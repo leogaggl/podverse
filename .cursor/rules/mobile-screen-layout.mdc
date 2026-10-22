@@ -152,11 +152,11 @@ the 78pt mark is a 98pt row. Episode, clip, and track rows pad with
 **`spacing.lg`**. Row artwork is **`LIST_ROW_ARTWORK_SIZE`** (78). Mini-player art is
 **`MINI_PLAYER_ARTWORK_SIZE`** (60).
 
-Stack the date, title, and footer on a podcast, album, or artist row with a column **`gap`** of
-**`spacing.sm`**, so those three lines sit inside the artwork and the row stays 98pt. Episode,
-clip, and track identity lines keep a column **`gap`** of **`spacing.base`**. **`ListRow`**
-keeps **`spacing.sm`** between its title and subtitle. Do not use `marginTop` / `marginBottom`
-on each line, so a missing line adds no leftover space.
+Stack every `HomeFeedRow` identity line — channel date, title, and footer, and item show name,
+title, and date — with a column **`gap`** of **`spacing.xs`**. A podcast, album, or artist row
+stays 98pt because the artwork inset sets the height, and those three lines sit inside the 78pt
+mark. **`ListRow`** keeps **`spacing.sm`** between its title and subtitle. Do not use
+`marginTop` / `marginBottom` on each line, so a missing line adds no leftover space.
 The text stack uses `justifyContent: 'center'` so it stays vertically centered on the artwork.
 The gap between artwork and text is **`listRowArtworkGap(tokens.spacing)`** (`spacing.base`) on
 `HomeFeedRow` and `ListRow`, not a per-screen `spacing.md` or a leading `marginLeft`. The
@@ -164,18 +164,22 @@ channel header mark is also 78. Its art→title gap stays **`spacing.lg`**, the 
 seam. The title row and the action row share that 78pt height.
 
 A Home show row is the date, then the title, then "{count} downloaded", including zero. That
-title is regular weight (`400`) at 19pt. A Browse
-podcast or album row is the date, then the title, then the author. That date is only the date,
-in **`tokens.text.link`**. Episode, clip, and track rows stay show name, title, then date. An
-Add by RSS show row has the date and the title and no download count, and it does not reserve
-that line.
+title is regular weight (`400`) at 19pt. A Browse podcast or album row is the date, then the
+title, then the author. Episode, clip, and track rows stay show name, title, then date. Item
+and channel pub dates use the same type: 14pt, weight 700, line height 20,
+**`tokens.text.link`**. An item description under that identity is 14pt, weight 400, line
+height 20, in secondary color, and it shares a **`spacing.xs`** gap with the identity row. The
+play, duration, and progress band keeps the wider gap below that text. An Add by RSS show row
+has the date and the title and no download count, and it does not reserve that line.
 
 Home subscription markers stay on those shared row/cell components: list live is centered on
-the artwork, the downloaded count is the line under the title, and unseen is a numberless
-`UnseenIndicator` in a slim full-height rail at the far right of the row (dot centered on the
-whole row height).
-Grid is live top-right, unseen bottom-right, downloaded bottom-left. See
-**mobile-reusable-components**.
+the artwork, the downloaded count is the line under the title, and unseen on a channel row is a
+numberless `UnseenIndicator` in a slim full-height rail at the far right of the row (dot
+centered on the whole row height). On a channel-detail item row the same indicator sits at the
+trailing top of the title line. Grid is live top-right, unseen bottom-right, downloaded
+bottom-left. Inside a channel (no artwork) a livestream row's status starts the date line, the
+Live badge while on the air and a neutral Scheduled or Ended badge otherwise. Outside a channel
+Scheduled leads the context line. See **mobile-reusable-components**.
 
 Icon-only controls share **`LIST_ROW_ACTION_SIZE`** (44) and bare glyphs use
 **`LIST_ROW_ACTION_ICON_SIZE`** (26); Play’s triangle uses **`LIST_ROW_PLAY_ICON_SIZE`** (16)
@@ -206,8 +210,7 @@ color, description **`typography.prose`** in primary color. The directory explai
 **`HelperNote`** with `scale="reading"` (`typography.body`, `HELPER_NOTE_READING_ICON_SIZE`).
 Adding, error, and notice lines on that screen use **`typography.body`**.
 
-A podcast, album, or artist row keeps its identity lines on `spacing.sm`. Episode, clip, and
-track identity lines stay on a column `gap` of `spacing.base`. **`ListRow`** title and
+Every `HomeFeedRow` identity stack uses a column `gap` of `spacing.xs`. **`ListRow`** title and
 subtitle stay on `spacing.sm`. **`ChannelHeader`** stays the side-by-side header. The next
 screen with this stack uses these helpers. Screens that already exist keep their current
 spacing and type.

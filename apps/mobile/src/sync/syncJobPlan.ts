@@ -75,6 +75,7 @@ export const planSyncRun = ({ isAuthenticated, trigger }: SyncPlanInput): Planne
   // the device asking for work the server would refuse.
   planned.push({ kind: 'add-by-rss-refresh', priority });
   planned.push({ kind: 'home-clips', priority });
+  planned.push({ kind: 'home-livestreams', priority });
 
   // Device registration is a per-session handshake, not reconciliation. Repeating it on every
   // foreground would spend a request to tell the server something it already knows.

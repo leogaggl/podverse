@@ -1,7 +1,6 @@
 import type { AddByRSSParseStatus } from '../addByRSSParseCache.js';
 
-export type AddByRSSResourceType =
-  'podcasts' | 'episodes' | 'artists' | 'albums' | 'tracks' | 'livestreams';
+export type AddByRSSResourceType = 'podcasts' | 'episodes' | 'artists' | 'albums' | 'tracks';
 
 export type AddByRSSCache = {
   feedHash?: string;

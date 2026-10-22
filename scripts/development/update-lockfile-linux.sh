@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # Regenerate package-lock.json under Linux (Docker) so optional deps match CI.
-# Run from repo root when adding/updating deps or as part of bump-version.
+# Copies the working tree to a temporary directory, installs there, and copies
+# back only package-lock.json. Host node_modules is not touched.
+# Run from repo root when adding or updating deps, or from bump-version.sh.
 # Requires: Docker.
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+TEMP_WORKTREE=""
+
+# shellcheck disable=SC1091
+source "$REPO_ROOT/scripts/lib/temp-worktree.sh"
+
 cd "$REPO_ROOT"
 
-if ! command -v docker &>/dev/null; then
+if ! command -v docker >/dev/null 2>&1; then
   echo "Error: Docker is required. Install Docker and run this script again." >&2
   exit 1
 fi
@@ -31,30 +38,49 @@ if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" && "$DOCKER_PLATFORM
   echo ""
 fi
 
-echo "Removing existing package-lock.json before Linux regeneration..."
-rm -f "$REPO_ROOT/package-lock.json"
+copy_working_tree() {
+  local dest="$1"
+  git ls-files -z --cached --others --exclude-standard |
+    while IFS= read -r -d '' path; do
+      if [[ -e "$path" || -L "$path" ]]; then
+        printf '%s\0' "$path"
+      fi
+    done |
+    tar --null -T - -cf - |
+    tar -C "$dest" -xf -
+}
+
+trap temp_worktree_cleanup EXIT
+trap 'exit 130' INT TERM
+temp_worktree_prune_stale
+TEMP_WORKTREE="$(mktemp -d "$(temp_worktree_prefix)XXXXXX")"
+
+echo "Copying the working tree to ${TEMP_WORKTREE}..."
+copy_working_tree "$TEMP_WORKTREE"
+rm -f "$TEMP_WORKTREE/package-lock.json"
 
 echo "Regenerating package-lock.json under Linux ($NODE_IMAGE, platform $DOCKER_PLATFORM)..."
-# Remove every node_modules tree (root and nested workspaces). Stale nested
-# node_modules can cause npm to emit incomplete lockfile stubs (e.g. missing
-# version on nested devDependencies) that break npm ci on other platforms.
 if ! docker run --rm \
   --platform "$DOCKER_PLATFORM" \
-  -v "$REPO_ROOT:/app" \
+  --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
+  -e npm_config_cache=/tmp/.npm \
+  -v "$TEMP_WORKTREE:/app" \
   -w /app \
   "$NODE_IMAGE" \
-  sh -c "find . -name node_modules -type d -prune -exec rm -rf '{}' + \
-    && npm install --include=optional \
-    && find . -name node_modules -type d -prune -exec rm -rf '{}' +"; then
+  sh -c "npm install --include=optional"; then
   echo "" >&2
   echo "Docker/npm install failed. On Apple Silicon + linux/amd64, try Rosetta for amd64 in Docker Desktop," >&2
   echo "or: LOCKFILE_DOCKER_PLATFORM=linux/arm64 $0 (see docs/development/tooling/LOCKFILE-LINUX.md)." >&2
   exit 1
 fi
 
-echo "Done. package-lock.json is now Linux-canonical; commit it so CI uses it."
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  echo ""
-  echo "Next on macOS: run 'npm install' on the host to repopulate node_modules"
-  echo "with darwin native binaries (rollup, next swc, parcel watcher, sharp, etc.)."
+if [[ ! -f "$TEMP_WORKTREE/package-lock.json" ]]; then
+  echo "Error: Docker npm install did not write package-lock.json." >&2
+  exit 1
 fi
+
+cp "$TEMP_WORKTREE/package-lock.json" "$REPO_ROOT/package-lock.json"
+
+echo "Done. package-lock.json is now Linux-canonical; commit it so CI uses it."
+echo "Host node_modules was not changed."

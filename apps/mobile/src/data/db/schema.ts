@@ -118,6 +118,7 @@ export const addByRssFeed = sqliteTable('add_by_rss_feed', {
   updatedAt: text('updated_at').notNull(),
   requiresCredentials: integer('requires_credentials').notNull().default(0),
   lastAuthFailure: text('last_auth_failure'),
+  mayHaveLivestreams: integer('may_have_livestreams').notNull().default(0),
 });
 
 export type AddByRssFeedRow = typeof addByRssFeed.$inferSelect;

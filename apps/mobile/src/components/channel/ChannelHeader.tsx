@@ -29,6 +29,10 @@ type ChannelHeaderSettings = {
 export type ChannelHeaderProps = {
   /** List-size artwork. Missing art uses the shared headphone placeholder. */
   artworkUri: string | null;
+  /** Feed URL for protected add-by-RSS artwork. Forwarded to `CoverImage`. */
+  artworkAddByRssFeedUrl?: string | null;
+  /** Request headers for that artwork. Forwarded to `CoverImage`. */
+  artworkHeaders?: Record<string, string>;
   /** Already-localized. Truncated, with the full text living on the About section. */
   description?: string | null;
   /** Lines of description before truncation. */
@@ -203,6 +207,8 @@ function ChannelHeaderActionRow({ children }: { children: ReactNode }) {
  */
 export function ChannelHeader({
   actions,
+  artworkAddByRssFeedUrl,
+  artworkHeaders,
   artworkUri,
   description,
   descriptionLines = 4,
@@ -262,7 +268,9 @@ export function ChannelHeader({
       <View style={styles.row}>
         <CoverImage
           accessibilityLabel={title}
+          addByRssFeedUrl={artworkAddByRssFeedUrl}
           decodeEdge={CHANNEL_HEADER_ARTWORK_EDGE}
+          headers={artworkHeaders}
           style={styles.artwork}
           uri={artworkUri}
           viewerUri={viewerUri}

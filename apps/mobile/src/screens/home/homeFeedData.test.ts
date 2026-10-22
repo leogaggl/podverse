@@ -4,9 +4,13 @@ import type { DTOItem } from '@podverse/helpers/dto';
 import { MediumEnum } from '@podverse/helpers/medium';
 
 import type { SubscribedChannel } from '../../data/repositories';
-import { channelItemsRepository, subscriptionsRepository } from '../../data/repositories';
 import {
-  fetchHomeFeedRows,
+  addByRssRepository,
+  channelItemsRepository,
+  subscriptionsRepository,
+} from '../../data/repositories';
+import {
+  fetchHomeFeed,
   HomeFeedStaleReadError,
   isHomeFeedStaleRead,
   mapItemsToHomeFeedRows,
@@ -22,6 +26,10 @@ vi.mock('../../data/repositories', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../data/repositories')>();
   return {
     ...actual,
+    addByRssRepository: {
+      ...actual.addByRssRepository,
+      listFeedsByCredentials: vi.fn(),
+    },
     channelItemsRepository: {
       ...actual.channelItemsRepository,
       listSubscribed: vi.fn(),
@@ -452,7 +460,7 @@ describe('normalizeClipRows', () => {
   });
 });
 
-describe('fetchHomeFeedRows isCurrent', () => {
+describe('fetchHomeFeed isCurrent', () => {
   const followedPodcast = (): SubscribedChannel => ({
     idText: 'show-1',
     imageUrl: null,
@@ -476,14 +484,19 @@ describe('fetchHomeFeedRows isCurrent', () => {
   beforeEach(() => {
     vi.mocked(subscriptionsRepository.list).mockReset();
     vi.mocked(channelItemsRepository.listSubscribed).mockReset();
+    vi.mocked(addByRssRepository.listFeedsByCredentials).mockReset();
     vi.mocked(subscriptionsRepository.list).mockResolvedValue([followedPodcast()]);
     vi.mocked(channelItemsRepository.listSubscribed).mockResolvedValue([storedEpisode]);
+    vi.mocked(addByRssRepository.listFeedsByCredentials).mockResolvedValue({
+      needsCredentials: [],
+      ready: [],
+    });
   });
 
   it('abandons a superseded read before mapping rows', async () => {
-    const error = await fetchHomeFeedRows('episodes', { isCurrent: () => false }).then(
+    const error = await fetchHomeFeed('episodes', { isCurrent: () => false }).then(
       () => {
-        throw new Error('expected fetchHomeFeedRows to reject');
+        throw new Error('expected fetchHomeFeed to reject');
       },
       (reason: unknown) => reason
     );
@@ -494,15 +507,24 @@ describe('fetchHomeFeedRows isCurrent', () => {
   });
 
   it('matches a read that omits isCurrent when isCurrent stays true', async () => {
-    const withoutOption = await fetchHomeFeedRows('episodes');
-    const withCurrent = await fetchHomeFeedRows('episodes', { isCurrent: () => true });
+    const withoutOption = await fetchHomeFeed('episodes');
+    const withCurrent = await fetchHomeFeed('episodes', { isCurrent: () => true });
 
     expect(withCurrent).toEqual(withoutOption);
-    expect(withCurrent).toEqual(mapItemsToHomeFeedRows([storedEpisode]));
+    expect(withCurrent.rows).toEqual(mapItemsToHomeFeedRows([storedEpisode]));
   });
 
-  it('requests directory follows only for channel chips and item channel ids', async () => {
-    await fetchHomeFeedRows('podcasts');
+  it('requests every ready follow for channel chips and directory follows for item channel ids', async () => {
+    await fetchHomeFeed('podcasts');
+    expect(subscriptionsRepository.list).toHaveBeenCalledWith({
+      credentials: 'ready',
+      filter: 'all',
+      kind: 'podcasts',
+      sort: 'alphabetical',
+    });
+
+    vi.mocked(subscriptionsRepository.list).mockClear();
+    await fetchHomeFeed('episodes');
     expect(subscriptionsRepository.list).toHaveBeenCalledWith({
       filter: 'directory',
       kind: 'podcasts',
@@ -510,15 +532,7 @@ describe('fetchHomeFeedRows isCurrent', () => {
     });
 
     vi.mocked(subscriptionsRepository.list).mockClear();
-    await fetchHomeFeedRows('episodes');
-    expect(subscriptionsRepository.list).toHaveBeenCalledWith({
-      filter: 'directory',
-      kind: 'podcasts',
-      sort: 'alphabetical',
-    });
-
-    vi.mocked(subscriptionsRepository.list).mockClear();
-    await fetchHomeFeedRows('tracks');
+    await fetchHomeFeed('tracks');
     expect(subscriptionsRepository.list).toHaveBeenCalledWith({
       filter: 'directory',
       sort: 'alphabetical',

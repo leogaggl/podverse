@@ -22,15 +22,8 @@ export const SEO_ROUTE_POLICIES: SeoRoutePolicy[] = [
 
   // B — Product/listing/marketing
   { class: 'product_listing', pathPattern: '/' },
-  { class: 'product_listing', pathPattern: '/podcasts' },
-  { class: 'product_listing', pathPattern: '/episodes' },
-  { class: 'product_listing', pathPattern: '/artists' },
-  { class: 'product_listing', pathPattern: '/albums' },
-  { class: 'product_listing', pathPattern: '/tracks' },
-  { class: 'product_listing', pathPattern: '/podcasts/livestreams' },
-  { class: 'product_listing', pathPattern: '/music/livestreams' },
+  { class: 'product_listing', pathPattern: '/browse' },
   { class: 'product_listing', pathPattern: '/playlists' },
-  { class: 'product_listing', pathPattern: '/clips' },
   { class: 'product_listing', pathPattern: '/videos' },
   { class: 'product_listing', pathPattern: '/profiles' },
   { class: 'product_listing', pathPattern: '/about' },

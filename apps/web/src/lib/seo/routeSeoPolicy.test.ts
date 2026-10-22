@@ -14,8 +14,7 @@ describe('SEO_ROUTE_POLICIES', () => {
 
   it('maps major product/listing routes to product_listing', () => {
     expect(classFor('/')).toBe('product_listing');
-    expect(classFor('/podcasts')).toBe('product_listing');
-    expect(classFor('/episodes')).toBe('product_listing');
+    expect(classFor('/browse')).toBe('product_listing');
   });
 
   it('maps conditional public routes to conditional_public', () => {

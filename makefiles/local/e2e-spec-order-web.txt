@@ -1,6 +1,8 @@
 apps/web/e2e/smoke.spec.ts
 apps/web/e2e/navbar-chrome.spec.ts
+apps/web/e2e/background-activity-overlay.spec.ts
 apps/web/e2e/focus-states.spec.ts
+apps/web/e2e/media-list-chips.spec.ts
 apps/web/e2e/membership-page-trial-limitations.spec.ts
 apps/web/e2e/podcast-index-feed-add-trial-blocked.spec.ts
 apps/web/e2e/set-password-invite-session.spec.ts

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { flattenBrowseCategories, visibleBrowseCategories } from './browseCategories';
 import {
+  BROWSE_MEDIA_TYPE_ORDER,
   isBrowseCategoryMediaType,
   isBrowseRangeOption,
   isPlayableDirectoryMediaType,
@@ -10,6 +11,11 @@ import {
 } from './browseTypes';
 
 describe('browseTypes', () => {
+  it('lists Livestreams immediately after Tracks', () => {
+    const tracksIndex = BROWSE_MEDIA_TYPE_ORDER.indexOf('tracks');
+    expect(BROWSE_MEDIA_TYPE_ORDER[tracksIndex + 1]).toBe('livestreams');
+  });
+
   it('offers categories on podcasts, episodes, and clips only', () => {
     expect(isBrowseCategoryMediaType('podcasts')).toBe(true);
     expect(isBrowseCategoryMediaType('episodes')).toBe(true);
@@ -17,6 +23,7 @@ describe('browseTypes', () => {
     expect(isBrowseCategoryMediaType('artists')).toBe(false);
     expect(isBrowseCategoryMediaType('albums')).toBe(false);
     expect(isBrowseCategoryMediaType('tracks')).toBe(false);
+    expect(isBrowseCategoryMediaType('livestreams')).toBe(false);
     expect(isBrowseCategoryMediaType('playlists')).toBe(false);
     expect(isBrowseCategoryMediaType('users')).toBe(false);
   });
@@ -34,12 +41,14 @@ describe('browseTypes', () => {
     expect(shouldShowBrowseCategoryChip('podcasts')).toBe(true);
     expect(shouldShowBrowseCategoryChip('episodes')).toBe(true);
     expect(shouldShowBrowseCategoryChip('artists')).toBe(false);
+    expect(shouldShowBrowseCategoryChip('livestreams')).toBe(false);
     expect(shouldShowBrowseCategoryChip('playlists')).toBe(false);
   });
 
   it('hides the range chip while the category picker is open', () => {
     expect(shouldShowBrowseSortChip('podcasts', false)).toBe(true);
     expect(shouldShowBrowseSortChip('artists', false)).toBe(true);
+    expect(shouldShowBrowseSortChip('livestreams', false)).toBe(false);
     expect(shouldShowBrowseSortChip('podcasts', true)).toBe(false);
   });
 
@@ -47,6 +56,7 @@ describe('browseTypes', () => {
     expect(isPlayableDirectoryMediaType('episodes')).toBe(true);
     expect(isPlayableDirectoryMediaType('clips')).toBe(true);
     expect(isPlayableDirectoryMediaType('tracks')).toBe(true);
+    expect(isPlayableDirectoryMediaType('livestreams')).toBe(true);
     expect(isPlayableDirectoryMediaType('podcasts')).toBe(false);
     expect(isPlayableDirectoryMediaType('playlists')).toBe(false);
     expect(isPlayableDirectoryMediaType('users')).toBe(false);

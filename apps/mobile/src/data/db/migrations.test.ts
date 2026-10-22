@@ -53,6 +53,20 @@ describe('migration 23 item description cache', () => {
   });
 });
 
+describe('migration 24 add-by-RSS livestreams flag', () => {
+  it('adds may_have_livestreams on version 23 and seeds it from stored bundles', async () => {
+    const { database, executed } = createRecordingDatabase(23);
+
+    await runMigrations(database);
+
+    const sql = executed.join('\n').toLowerCase();
+    expect(sql).toContain('alter table add_by_rss_feed add column may_have_livestreams');
+    expect(sql).toContain('update add_by_rss_feed set may_have_livestreams = 1');
+    expect(executed).toContain('PRAGMA user_version = 24;');
+    expect(executed).not.toContain('PRAGMA user_version = 23;');
+  });
+});
+
 describe('migration 20 add-by-RSS credentials', () => {
   it('adds the credential flag and index without a column for secrets', () => {
     const migration20 = MIGRATIONS.find((migration) => migration.version === 20);

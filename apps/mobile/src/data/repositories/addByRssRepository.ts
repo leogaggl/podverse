@@ -5,6 +5,11 @@ import type {
   DTOAccountFollowingAddByRSSChannel,
 } from '@podverse/helpers';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
+import {
+  addByRSSFeedMayHaveLivestreams,
+  getAddByRSSResourceTypeFromMappedFeed,
+  toAddByRSSResourceType,
+} from '@podverse/parser-mapping';
 
 // Import directly from the request module (not the auth barrel) to avoid a cycle, mirroring
 // accountRepository (AuthProvider → accountRepository → auth barrel → AuthProvider).
@@ -38,22 +43,11 @@ import { channelSeenRepository } from './channelSeenRepository';
 import { syncEventLogRepository } from './syncEventLogRepository';
 import type { MobileAuthRequestContext } from './types';
 
-const isResourceType = (value: string): value is MobileAddByRSSFeedRecord['resourceType'] => {
-  return (
-    value === 'podcasts' ||
-    value === 'episodes' ||
-    value === 'artists' ||
-    value === 'albums' ||
-    value === 'tracks' ||
-    value === 'livestreams'
-  );
-};
-
 const rowToRecord = (row: AddByRssFeedRow): MobileAddByRSSFeedRecord => {
   return {
     id: row.id,
     idText: row.idText,
-    resourceType: isResourceType(row.resourceType) ? row.resourceType : 'podcasts',
+    resourceType: toAddByRSSResourceType(row.resourceType),
     feedUrl: row.feedUrl,
     title: row.title,
     imageUrl: row.imageUrl,
@@ -63,6 +57,7 @@ const rowToRecord = (row: AddByRssFeedRow): MobileAddByRSSFeedRecord => {
     playbackPosition: row.playbackPosition,
     requiresCredentials: row.requiresCredentials === 1,
     lastAuthFailure: isAddByRssAuthFailure(row.lastAuthFailure) ? row.lastAuthFailure : null,
+    mayHaveLivestreams: row.mayHaveLivestreams === 1,
   };
 };
 
@@ -231,7 +226,10 @@ export const addByRssRepository = {
    * and a followed-list merge that wrote a null over a known date would drop a followed feed to the
    * bottom of a recency-ordered list until the next parse landed. The feed's live status is derived
    * at the same moment and for the same reason — reading it when the list is drawn would mean
-   * deserializing a whole feed per row.
+   * deserializing a whole feed per row. The livestreams flag is derived at the same moment and is
+   * never cleared. The resource type is derived from that same bundle with
+   * `getAddByRSSResourceTypeFromMappedFeed`, the helper web uses after a parse. Opening the
+   * database uses that helper once to set `resource_type` from bundles already stored.
    */
   upsertFeed: async (
     record: MobileAddByRSSFeedRecord,
@@ -240,7 +238,10 @@ export const addByRssRepository = {
     await initializeDatabase();
 
     const existingRows = await getDb()
-      .select({ feedUrl: schema.addByRssFeed.feedUrl })
+      .select({
+        feedUrl: schema.addByRssFeed.feedUrl,
+        mayHaveLivestreams: schema.addByRssFeed.mayHaveLivestreams,
+      })
       .from(schema.addByRssFeed)
       .where(eq(schema.addByRssFeed.feedUrl, record.feedUrl))
       .limit(1);
@@ -263,6 +264,16 @@ export const addByRssRepository = {
       const parsedValues = {
         latestItemPubDateMs: record.latestItemPubDateMs,
         mappedFeedJson: mappedFeed === null ? null : JSON.stringify(mappedFeed),
+        resourceType:
+          mappedFeed === null
+            ? record.resourceType
+            : getAddByRSSResourceTypeFromMappedFeed(mappedFeed),
+        mayHaveLivestreams: addByRSSFeedMayHaveLivestreams(
+          existingRows[0]?.mayHaveLivestreams === 1,
+          mappedFeed
+        )
+          ? 1
+          : 0,
       };
       await getDb()
         .insert(schema.addByRssFeed)

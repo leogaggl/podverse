@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  hasUrlInCredentialScope,
   resolveCredentialScope,
   resolveCredentialScopeHost,
   splitFeedUrlUserinfo,
@@ -151,6 +152,46 @@ describe('resolveCredentialScope', () => {
       'withheld_other_domain'
     );
     expect(resolveCredentialScope('https://example.com/f', '')).toBe('withheld_other_domain');
+  });
+});
+
+describe('hasUrlInCredentialScope', () => {
+  const rows: Array<[string, string, readonly (string | null | undefined)[], boolean]> = [
+    [
+      'a subdomain of the feed domain',
+      'https://feeds.example.com/feed.xml',
+      ['https://media.example.com/chapters.json'],
+      true,
+    ],
+    [
+      'every URL on another domain',
+      'https://feeds.example.com/feed.xml',
+      ['https://cdn.other.net/chapters.json', 'https://cdn.other.net/episode.vtt'],
+      false,
+    ],
+    [
+      'an http URL on the feed domain with an https feed',
+      'https://example.com/feed.xml',
+      ['http://example.com/chapters.json'],
+      true,
+    ],
+    [
+      'one other-domain URL and one in-scope URL',
+      'https://example.com/feed.xml',
+      ['https://cdn.other.net/chapters.json', 'https://media.example.com/episode.vtt'],
+      true,
+    ],
+    ['an empty list', 'https://example.com/feed.xml', [], false],
+    [
+      'only blank or missing URLs',
+      'https://example.com/feed.xml',
+      ['', '  ', null, undefined],
+      false,
+    ],
+  ];
+
+  it.each(rows)('%s', (_label, feedUrl, urls, expected) => {
+    expect(hasUrlInCredentialScope(feedUrl, urls)).toBe(expected);
   });
 });
 

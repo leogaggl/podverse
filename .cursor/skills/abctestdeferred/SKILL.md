@@ -1,6 +1,6 @@
 ---
 name: abctestdeferred
-description: Resolve every entry in abctestall-deferred.md, remove each one after it passes, and delete the file when empty. Use when the operator invokes abctestdeferred, and in every step of an abctestdeferred plan-runner run.
+description: Resolve every entry in abctestall-deferred.md, remove each one after it passes, and delete the file when empty. Use when the operator runs /abctestdeferred or says abctestdeferred, and in every step of an abctestdeferred plan-runner run.
 ---
 
 # `abctestdeferred`
@@ -8,8 +8,8 @@ description: Resolve every entry in abctestall-deferred.md, remove each one afte
 ## When the operator invokes it
 
 Do not work the entries in that chat. The queue runs under plan-runner: one fresh agent per
-group of entries, one at a time, each on Cursor Grok 4.7 extra high Fast. Reply with the command,
-labeled **Root**:
+group of entries, one at a time, each on Cursor Grok 4.7 at the reasoning its template line
+names, with Fast off. Reply with the command, labeled **Root**:
 
 ```bash
 ./scripts/abctest/run.sh deferred

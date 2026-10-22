@@ -10,7 +10,9 @@ import { useModals } from '../../../contexts/Modals';
 import { checkBackNavFlag } from '../../../contexts/Navigation';
 import { useSkipInitialEffect } from '../../../hooks/useSkipInitialEffect';
 import { scrollMainToTop } from '../../../utils/scroll';
+import type { SubscribedLivestreamEntry } from '../../../utils/subscribed/mergeSubscribedLivestreams';
 import { Pagination } from '../../Pagination/Pagination';
+import { SubscribedLivestreamNodes } from '../../Subscribed/SubscribedLivestreamNodes';
 import type { ViewSelectedOption } from '../../ViewSelector/ViewSelector';
 import { CoreLivestreamNodes } from './CoreLivestreamNodes';
 
@@ -24,6 +26,10 @@ type Props = {
   showSubscribeMessage?: boolean;
   viewSelected: ViewSelectedOption;
   showChannelInfo?: boolean;
+  showLiveItemStatus?: boolean;
+  entries?: readonly SubscribedLivestreamEntry[];
+  /** While true, an empty page does not show the no-livestreams message. */
+  deferEmpty?: boolean;
 };
 
 export const CoreLivestreams: React.FC<Props> = ({
@@ -34,11 +40,15 @@ export const CoreLivestreams: React.FC<Props> = ({
   showSubscribeMessage,
   viewSelected,
   showChannelInfo,
+  showLiveItemStatus,
+  entries,
+  deferEmpty = false,
 }) => {
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
   const tMedia = useTranslations('media');
   const { setModalAuthLogin } = useModals();
+  const listed = entries ?? items;
 
   // Skip scroll on the first effect run when returning via back navigation.
   const skipScrollOnceRef = useRef(checkBackNavFlag());
@@ -50,14 +60,16 @@ export const CoreLivestreams: React.FC<Props> = ({
       return;
     }
     scrollMainToTop();
-  }, [items]);
+  }, [listed]);
 
   const showCallToAction = showSubscribeMessage;
   const showPagination = !showSubscribeMessage;
 
-  const showNoContentFound = page <= 1 && items.length === 0;
+  const showNoContentFound = page <= 1 && listed.length === 0 && !deferEmpty;
 
-  if (showNoContentFound) {
+  // A signed-out subscribed list explains itself with the login message. An empty
+  // directory or signed-in list says there are no livestreams.
+  if (showNoContentFound && !showSubscribeMessage) {
     return (
       <InfoWrapper>
         <p>{tMedia('livestream.no_livestreams_found')}</p>
@@ -81,11 +93,16 @@ export const CoreLivestreams: React.FC<Props> = ({
           setPage={setPage}
           paginationControlsClassName={styles.paginationControls}
         >
-          <CoreLivestreamNodes
-            items={items}
-            viewSelected={viewSelected}
-            showChannelInfo={showChannelInfo}
-          />
+          {entries !== undefined ? (
+            <SubscribedLivestreamNodes entries={entries} showChannelInfo={showChannelInfo} />
+          ) : (
+            <CoreLivestreamNodes
+              items={items}
+              viewSelected={viewSelected}
+              showChannelInfo={showChannelInfo}
+              showLiveItemStatus={showLiveItemStatus}
+            />
+          )}
         </Pagination>
       )}
     </>

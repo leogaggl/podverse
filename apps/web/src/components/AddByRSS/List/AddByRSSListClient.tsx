@@ -41,41 +41,19 @@ import { dismissToast, showToast, showToastLoading } from '../../Toast/Toast';
 import { AddByRSSArtistNodes } from '../Artist/AddByRSSArtistNodes';
 import { AddByRSSAlbumNodes } from '../Artist/Album/AddByRSSAlbumNodes';
 import { AddByRSSTrackNodes } from '../Artist/Album/Track/AddByRSSTrackNodes';
-import { AddByRSSLivestreamFeedNodes } from '../Livestream/AddByRSSLivestreamFeedNodes';
 import { AddByRSSPodcastListNodes } from '../Podcast/AddByRSSPodcastListNodes';
 import { AddByRSSEpisodeNodes } from '../Podcast/Episode/AddByRSSEpisodeNodes';
 import { AddByRSSListHeader } from './AddByRSSListHeader';
 import { AddByRSSNeedsCredentialsSection } from './AddByRSSNeedsCredentialsSection';
 
 type AddByRSSListClientProps = {
+  chipsNode: React.ReactNode;
   resourceType: AddByRSSResourceType;
 };
 
 type ListSort = 'recent' | 'oldest';
 
 const FEED_CHANGED_REFRESH_DELAY_MS = 250;
-
-const getResourceLabel = (
-  resourceType: AddByRSSResourceType,
-  tMedia: ReturnType<typeof useTranslations>
-) => {
-  switch (resourceType) {
-    case 'podcasts':
-      return tMedia('podcast.podcasts');
-    case 'episodes':
-      return tMedia('podcast.episodes');
-    case 'artists':
-      return tMedia('music.artists');
-    case 'albums':
-      return tMedia('music.albums');
-    case 'tracks':
-      return tMedia('music.tracks');
-    case 'livestreams':
-      return tMedia('livestream.livestreams');
-    default:
-      return resourceType;
-  }
-};
 
 const upsertFeedInState = (
   feeds: AddByRSSFeedRecord[],
@@ -90,9 +68,11 @@ const upsertFeedInState = (
   return next;
 };
 
-export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resourceType }) => {
+export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
+  chipsNode,
+  resourceType,
+}) => {
   const tFeatures = useTranslations('features');
-  const tMedia = useTranslations('media');
   const tFilters = useTranslations('filters');
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
@@ -133,11 +113,6 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
     const nextSort: ListSort = value === 'oldest' ? 'oldest' : 'recent';
     setListSort(nextSort);
   };
-
-  const headerTitle = useMemo(
-    () => `${tFeatures('add_by_rss.label')} · ${getResourceLabel(resourceType, tMedia)}`,
-    [resourceType, tFeatures, tMedia]
-  );
 
   const sortMenuItems = useMemo(
     () => [
@@ -239,8 +214,6 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
         return (
           <AddByRSSTrackNodes items={trackItems} viewSelected={viewSelected} sortOrder={listSort} />
         );
-      case 'livestreams':
-        return <AddByRSSLivestreamFeedNodes feeds={readyFeeds} viewSelected={viewSelected} />;
       default:
         return null;
     }
@@ -402,7 +375,7 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
   return (
     <>
       <AddByRSSListHeader
-        title={headerTitle}
+        title={tFeatures('add_by_rss.label')}
         isUpdating={isUpdating}
         onCheckUpdates={handleCheckForUpdates}
         checkUpdatesLabel={tFeatures('add_by_rss.check_updates')}
@@ -413,6 +386,7 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({ resource
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
+            {chipsNode}
             {!loggedInAccount && (
               <CallToActionMessage
                 message={tInstructions('login_for_subscriptions')}

@@ -1,6 +1,8 @@
 export { AboutPersonRow } from './AboutPersonRow';
 export { ChapterListRow } from './ChapterListRow';
 export type { ChapterListRowProps } from './ChapterListRow';
+export { ItemChapterRow } from './ItemChapterRow';
+export type { ItemChapterRowProps } from './ItemChapterRow';
 export { PlaylistListRow } from './PlaylistListRow';
 export type { PlaylistListRowProps } from './PlaylistListRow';
 export { ProfileListRow } from './ProfileListRow';
@@ -13,5 +15,10 @@ export { DescriptionText, DESCRIPTION_PROSE_COLLAPSE_LENGTH } from './Descriptio
 export type { DescriptionTextProps } from './DescriptionText';
 export { FundingLinksSection } from './FundingLinksSection';
 export type { FundingLinksSectionProps } from './FundingLinksSection';
+export { ItemDetailHeader } from './ItemDetailHeader';
+export type { ItemDetailHeaderProps } from './ItemDetailHeader';
+export { itemDetailDateLabel } from './itemDetailDateLabel';
 export { PeoplePane } from './PeoplePane';
 export type { PeoplePaneProps } from './PeoplePane';
+export { TrackDetailHeader } from './TrackDetailHeader';
+export type { TrackDetailHeaderProps } from './TrackDetailHeader';

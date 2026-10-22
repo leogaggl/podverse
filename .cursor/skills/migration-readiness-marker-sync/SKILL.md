@@ -28,11 +28,16 @@ When a new latest migration is added:
      - `API_EXPECTED_MIGRATION_FILENAME`
    - `infra/k8s/base/management-api/source/management-api.env`:
      - `MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME`
-3. Verify initContainer SQL checks in:
+   - `infra/k8s/base/ops/kustomization.yaml`, in the `podverse-ops-migration-scripts` literals:
+     - `API_EXPECTED_MIGRATION_FILENAME` and `MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME`
+3. List the new SQL file under `files` in `infra/k8s/base/ops/kustomization.yaml`, in
+   `podverse-ops-app-linear-migrations` or `podverse-ops-management-linear-migrations`. A file
+   missing from that list never reaches the migration job.
+4. Verify initContainer SQL checks in:
    - `infra/k8s/base/api/deployment.yaml`
    - `infra/k8s/base/management-api/deployment.yaml`
      They must reference the marker env vars, not hardcoded stale filenames.
-4. Keep overlays/Kustomize wiring intact so updated env values reach Deployments.
+5. Keep overlays/Kustomize wiring intact so updated env values reach Deployments.
 
 ## Related skills
 

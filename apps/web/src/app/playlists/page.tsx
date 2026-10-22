@@ -1,17 +1,11 @@
 import { cookies } from 'next/headers';
-import { z } from 'zod';
 
 import type { DTOPlaylist, QueryParamsQueueMedium } from '@podverse/helpers';
-import { getTotalPages, QUERY_PARAMS_QUEUE_MEDIUMS } from '@podverse/helpers';
+import { getTotalPages } from '@podverse/helpers';
 import type {
   QueryParamsPlaylistsType,
   QueryParamsStatsRange,
   QueryParamsSubscribedFullSort,
-} from '@podverse/helpers-requests';
-import {
-  QUERY_PARAMS_PLAYLISTS_TYPE_VALUES,
-  QUERY_PARAMS_STATS_RANGE_VALUES,
-  QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
 } from '@podverse/helpers-requests';
 
 import { getCuratedStaticPageMetadata } from '../../lib/seo/curatedPageMetadata';
@@ -22,25 +16,13 @@ import {
   getFilterDefaultsForPage,
   getParsedLocalSettings,
 } from '../../utils/localSettings/localSettings';
+import type { PlaylistsPageSearchParams } from './playlistsListSsr';
+import { searchParamsSchema } from './playlistsListSsr';
 import { PlaylistsPageClient } from './PlaylistsPageClient';
 import { getPlaylistsPageFilterParams } from './PlaylistsPageDropdownConfig';
 
-const searchParamsSchema = z.object({
-  page: z
-    .string()
-    .transform((v) => parseInt(v, 10))
-    .optional()
-    .default(1),
-  type: z.enum(QUERY_PARAMS_PLAYLISTS_TYPE_VALUES).optional().nullable().default(null),
-  sort: z.enum(QUERY_PARAMS_SUBSCRIBED_FULL_SORT).optional().nullable().default(null),
-  range: z.enum(QUERY_PARAMS_STATS_RANGE_VALUES).optional().nullable().default(null),
-  medium: z.enum(QUERY_PARAMS_QUEUE_MEDIUMS).optional().nullable().default(null),
-});
-
-type SearchParams = z.infer<typeof searchParamsSchema>;
-
 export type PlaylistsPageProps = {
-  searchParams: Promise<SearchParams>;
+  searchParams: Promise<PlaylistsPageSearchParams>;
 };
 
 export async function generateMetadata() {
@@ -104,7 +86,7 @@ type ParseSearchParams = {
 };
 
 function parseSearchParams(
-  queryParams: SearchParams,
+  queryParams: PlaylistsPageSearchParams,
   isAuthenticated: boolean,
   cookieDefaults?: PlaylistsFilterDefaults
 ): ParseSearchParams {

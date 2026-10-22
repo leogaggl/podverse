@@ -124,6 +124,10 @@
       "media_other_domain": "Este contenido está en un dominio distinto al del feed protegido, y eso no es compatible.",
       "media_needs_credentials": "Este contenido puede exigir usuario y contraseña, que los navegadores no pueden enviar a archivos de audio y vídeo. Prueba la app móvil. El feed sí se actualiza en la web."
     },
+    "browse": {
+      "browse": "Explorar",
+      "users": "Usuarios"
+    },
     "my_library": "Mi biblioteca",
     "queue": {
       "queue": "Cola",
@@ -410,6 +414,11 @@
       "playlist_entry_removed": "Este elemento se eliminó de {brand_name}.",
       "show_not_in_directory": "Este programa ya no está en el directorio de {brand_name}."
     }
+  },
+  "background_activity": {
+    "title": "Actividad en segundo plano",
+    "add_by_rss_refresh": "Actualizando tus fuentes RSS",
+    "progress": "{completed} de {total}"
   },
   "media_player": {
     "play": "Reproducir",
@@ -801,6 +810,7 @@
   },
   "subscriptions": {
     "subscriptions": "Suscripciones",
+    "subscribed": "Suscritos",
     "how_to_start_message": "Prueba <searchLink>buscar</searchLink> tu contenido favorito, o explora <podcastsLink>podcasts</podcastsLink>, <videosLink>videos</videosLink>, o <musicLink>música</musicLink>. Tus suscripciones aparecerán aquí.",
     "empty_message": "Aún no tienes suscripciones.",
     "no_filter_matches": "Ninguna suscripción coincide con tu filtro.",
@@ -1475,41 +1485,13 @@
         "title": "{brand_name}",
         "description": "Descubre podcasts, música y transmisiones en vivo en {brand_name}."
       },
-      "podcasts": {
-        "title": "Podcasts",
-        "description": "Explora feeds y programas de podcasts en {brand_name}."
-      },
-      "episodes": {
-        "title": "Episodios",
-        "description": "Explora episodios de podcasts en todo {brand_name}."
-      },
-      "artists": {
-        "title": "Artistas",
-        "description": "Descubre artistas de música en {brand_name}."
-      },
-      "albums": {
-        "title": "Álbumes",
-        "description": "Explora álbumes de música en {brand_name}."
-      },
-      "tracks": {
-        "title": "Pistas",
-        "description": "Descubre pistas de música en {brand_name}."
-      },
-      "podcastsLivestreams": {
-        "title": "Transmisiones en vivo de podcasts",
-        "description": "Mira transmisiones en vivo de podcasts en {brand_name}."
-      },
-      "musicLivestreams": {
-        "title": "Transmisiones en vivo de música",
-        "description": "Mira transmisiones en vivo de música en {brand_name}."
+      "browse": {
+        "title": "Explorar",
+        "description": "Explora podcasts, episodios, clips, música, listas de reproducción y perfiles en {brand_name}."
       },
       "playlists": {
         "title": "Listas de reproducción",
         "description": "Explora listas de reproducción de la comunidad en {brand_name}."
-      },
-      "clips": {
-        "title": "Clips",
-        "description": "Explora clips de podcasts y música en {brand_name}."
       },
       "videos": {
         "title": "Videos",

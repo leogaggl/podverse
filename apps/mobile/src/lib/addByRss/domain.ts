@@ -12,6 +12,7 @@ import {
   buildAddByRSSResourceData,
   convertParsedRSSFeedToCompat,
   toIndexItem,
+  toLiveIndexItem,
 } from '@podverse/parser-mapping';
 
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
@@ -256,6 +257,39 @@ export function toAddByRssItemPlaybackResourceData(
   };
 }
 
+/**
+ * Build playback data for one livestream in a persisted add-by-RSS bundle.
+ *
+ * The index item shape is shared with the add-by-RSS queue and playlist mapping, so livestream
+ * playback uses the same enclosure and metadata conversion as an episode.
+ */
+export function toAddByRssLiveItemPlaybackResourceData(
+  record: MobileAddByRSSFeedRecord,
+  mappedFeed: AddByRSSMappedFeed,
+  liveBundle: AddByRSSMappedFeed['liveItems'][number],
+  liveIndex: number
+): AddByRSSResourceData {
+  const feedForIndex = {
+    id: record.id,
+    idText: record.idText,
+    feedUrl: record.feedUrl,
+    title: record.title,
+    imageUrl: record.imageUrl,
+    mappedFeed,
+  };
+
+  const indexItem = toLiveIndexItem(feedForIndex, liveBundle, liveIndex, record.idText);
+  const mappedResourceData = buildAddByRSSResourceData(indexItem);
+  // Canonical so the hash matches every other device, and userinfo never leaves the device.
+  const feedUrl = canonicalAddByRSSFeedUrl(record.feedUrl);
+
+  return {
+    ...mappedResourceData,
+    ...(feedUrl !== null ? { feed_url: feedUrl } : {}),
+    playback_position: record.playbackPosition ?? '0',
+  };
+}
+
 export function mergeLocalAndRemoteAddByRssFeeds(
   localFeeds: MobileAddByRSSFeedRecord[],
   remoteFeeds: FollowedAddByRssFeed[]
@@ -279,7 +313,8 @@ export function mergeLocalAndRemoteAddByRssFeeds(
       // The account's flag is what tells a second device that this feed needs credentials.
       requiresCredentials:
         remoteFeed.requires_credentials ?? localFeed?.requiresCredentials ?? false,
-      resourceType: 'podcasts' as const,
+      // The follow list carries no medium, so the type comes from this device's last parse.
+      resourceType: localFeed?.resourceType ?? 'podcasts',
       // Follow metadata is written at add time, often as the URL, before parse fills the title.
       // A later list fetch must not replace a parsed local title with that placeholder.
       title: localFeed?.title ?? remoteFeed.title ?? remoteFeed.feed_url,
@@ -314,6 +349,7 @@ export function localFeedForServerFollow(
     imageUrl: follow.image_url,
     latestItemPubDateMs: null,
     playbackPosition: null,
+    // This device has no row yet, so there is no parsed medium to keep.
     resourceType: 'podcasts',
     title: follow.title ?? follow.feed_url,
     updatedAt: new Date().toISOString(),
@@ -334,7 +370,8 @@ export function buildAddByRssFeedRecord(
     imageUrl: preview.imageUrl ?? existingFeed?.imageUrl ?? null,
     latestItemPubDateMs: preview.latestItemPubDateMs ?? existingFeed?.latestItemPubDateMs ?? null,
     playbackPosition: preview.playbackPosition ?? existingFeed?.playbackPosition ?? null,
-    resourceType: 'podcasts',
+    // A preview carries no medium, so the type stays what this device already stored.
+    resourceType: existingFeed?.resourceType ?? 'podcasts',
     title: preview.title ?? existingFeed?.title ?? feedUrl,
     updatedAt: new Date().toISOString(),
   };

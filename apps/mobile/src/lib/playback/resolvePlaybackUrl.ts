@@ -36,7 +36,7 @@ export async function resolvePlaybackUrl(
   selectedParams: EnclosureSelectedParams,
   labeledItemEnclosures?: LabeledItemEnclosure[]
 ): Promise<string | null> {
-  const localUrl = await resolveLocalDownloadUrl(item.id_text);
+  const localUrl = await resolveLocalDownloadPlaybackUrl(item.id_text);
   if (localUrl !== null) {
     return localUrl;
   }
@@ -47,7 +47,13 @@ export async function resolvePlaybackUrl(
   return resolveItemEnclosureUrl({ labeledItemEnclosures: labeled, selectedParams });
 }
 
-const resolveLocalDownloadUrl = async (itemIdText: string): Promise<string | null> => {
+/**
+ * The `file://` path of a completed download whose file is still on disk, else `null`. A complete
+ * row whose file is gone is marked failed so the UI offers a re-download.
+ */
+export const resolveLocalDownloadPlaybackUrl = async (
+  itemIdText: string
+): Promise<string | null> => {
   let record: DownloadRecord | null;
   try {
     await downloadManager.hydrate();
@@ -74,8 +80,8 @@ const resolveLocalDownloadUrl = async (itemIdText: string): Promise<string | nul
     return null;
   }
 
-  // Row says complete but the file is gone — treat as failed so the episode screen offers a
-  // re-download, and fall back to remote for this play. Best-effort; never block playback on it.
+  // The row says complete but the file is gone. Mark it failed so the episode screen offers a
+  // re-download. Best-effort; a bookkeeping failure still returns null.
   try {
     await downloadManager.markFileMissing(itemIdText);
   } catch {

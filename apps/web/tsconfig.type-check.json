@@ -1,0 +1,6 @@
+{
+  // Type-check reads source only. Generated .next types can name pages that no longer exist;
+  // next build checks routes against freshly generated types through tsconfig.json.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
+}

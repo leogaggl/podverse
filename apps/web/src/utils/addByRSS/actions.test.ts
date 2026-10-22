@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAddByRSSFeedByUrlMock, upsertAddByRSSFeedMock } = vi.hoisted(() => ({
-  getAddByRSSFeedByUrlMock: vi.fn(),
-  upsertAddByRSSFeedMock: vi.fn(),
+const { getAddByRSSFeedByUrlMock, getAddByRSSParseStatusMock, upsertAddByRSSFeedMock } = vi.hoisted(
+  () => ({
+    getAddByRSSFeedByUrlMock: vi.fn(),
+    getAddByRSSParseStatusMock: vi.fn(),
+    upsertAddByRSSFeedMock: vi.fn(),
+  })
+);
+
+vi.mock('./api', () => ({
+  enqueueAddByRSSParse: vi.fn(),
+  followAddByRSSChannel: vi.fn(),
+  getAddByRSSParseStatus: getAddByRSSParseStatusMock,
+  unfollowAddByRSSChannel: vi.fn(),
 }));
 
 vi.mock('./storage', () => ({
@@ -10,8 +20,42 @@ vi.mock('./storage', () => ({
   upsertAddByRSSFeed: upsertAddByRSSFeedMock,
 }));
 
-import { applyAddByRSSParseStatus } from './actions';
-import type { AddByRSSFeedRecord } from './types';
+import { FeedType, Phase5Blocked } from 'podverse-partytime';
+import { Phase4LiveStatus } from 'podverse-partytime/dist/parser/phase/phase-4.js';
+
+import { getBackgroundActivitySnapshot } from '../backgroundActivity/backgroundActivityStore';
+import { applyAddByRSSParseStatus, pollAddByRSSParseStatus } from './actions';
+import type { AddByRSSFeedRecord, AddByRSSParsedFeed } from './types';
+
+const parsedFeed = (withLiveItem: boolean): AddByRSSParsedFeed => ({
+  type: FeedType.RSS,
+  title: 'Test Feed',
+  link: 'https://example.com',
+  description: 'A feed',
+  explicit: false,
+  itunesBlock: false,
+  itunesComplete: false,
+  pc20support: {},
+  items: [],
+  lastUpdate: new Date('2024-01-01T00:00:00.000Z'),
+  podcastBlocked: Phase5Blocked.No,
+  podcastLiveItems: withLiveItem
+    ? [
+        {
+          guid: 'live-1',
+          title: 'Live now',
+          enclosure: {
+            url: 'https://example.com/live.mp3',
+            length: 1,
+            type: 'audio/mpeg',
+          },
+          status: Phase4LiveStatus.Live,
+          start: new Date('2024-06-01T12:00:00.000Z'),
+          contentLinks: [],
+        },
+      ]
+    : undefined,
+});
 
 const baseRecord: AddByRSSFeedRecord = {
   id: 1,
@@ -150,6 +194,38 @@ describe('applyAddByRSSParseStatus', () => {
     );
   });
 
+  it('stores mayHaveLivestreams for a live item and keeps resourceType', async () => {
+    await applyAddByRSSParseStatus({
+      feedUrl: baseRecord.feedUrl,
+      parsedFeed: parsedFeed(true),
+      status: 'parsed',
+    });
+
+    expect(upsertAddByRSSFeedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mayHaveLivestreams: true,
+        resourceType: 'podcasts',
+      })
+    );
+  });
+
+  it('keeps mayHaveLivestreams after a parse that has no live items', async () => {
+    getAddByRSSFeedByUrlMock.mockResolvedValue({
+      ...baseRecord,
+      mayHaveLivestreams: true,
+    });
+
+    await applyAddByRSSParseStatus({
+      feedUrl: baseRecord.feedUrl,
+      parsedFeed: parsedFeed(false),
+      status: 'parsed',
+    });
+
+    expect(upsertAddByRSSFeedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ mayHaveLivestreams: true })
+    );
+  });
+
   it('preserves lastFailedParseAt on non-failure statuses', async () => {
     getAddByRSSFeedByUrlMock.mockResolvedValue({
       ...baseRecord,
@@ -167,5 +243,47 @@ describe('applyAddByRSSParseStatus', () => {
         lastFailedParseAt: '2024-05-01T00:00:00.000Z',
       })
     );
+  });
+});
+
+describe('pollAddByRSSParseStatus', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+    getAddByRSSParseStatusMock.mockReset();
+  });
+
+  it('counts the pending poll and clears it once parsed', async () => {
+    let resolveStatus: (value: { status: 'parsed' }) => void = () => {
+      throw new Error('Parse status request was not pending.');
+    };
+    const pendingStatus = new Promise<{ status: 'parsed' }>((resolve) => {
+      resolveStatus = resolve;
+    });
+    getAddByRSSParseStatusMock.mockReturnValueOnce(pendingStatus);
+
+    const poll = pollAddByRSSParseStatus({
+      requestId: 'req-1',
+      onStatusUpdate: vi.fn(),
+    });
+
+    expect(getBackgroundActivitySnapshot()).toEqual([
+      { kind: 'add_by_rss_refresh', completed: 0, total: 1 },
+    ]);
+
+    resolveStatus({ status: 'parsed' });
+    await expect(poll).resolves.toBe('parsed');
+    expect(getBackgroundActivitySnapshot()).toEqual([]);
+  });
+
+  it('clears the snapshot when the status request rejects', async () => {
+    getAddByRSSParseStatusMock.mockRejectedValueOnce(new Error('status failed'));
+
+    await expect(
+      pollAddByRSSParseStatus({
+        requestId: 'req-1',
+        onStatusUpdate: vi.fn(),
+      })
+    ).rejects.toThrow('status failed');
+    expect(getBackgroundActivitySnapshot()).toEqual([]);
   });
 });

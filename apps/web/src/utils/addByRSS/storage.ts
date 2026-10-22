@@ -1,3 +1,5 @@
+import { toAddByRSSResourceType } from '@podverse/parser-mapping';
+
 import type {
   AddByRSSFeedRecord,
   AddByRSSItemIndexItem,
@@ -96,12 +98,20 @@ const withStore = async <T>(
   });
 };
 
+const withKnownResourceType = (record: AddByRSSFeedRecord): AddByRSSFeedRecord => {
+  const resourceType = toAddByRSSResourceType(record.resourceType);
+  return resourceType === record.resourceType ? record : { ...record, resourceType };
+};
+
 export const getAllAddByRSSFeeds = async (): Promise<AddByRSSFeedRecord[]> => {
   if (!isIndexedDbAvailable()) {
     return [];
   }
 
-  return withStore(FEEDS_STORE, 'readonly', async (store) => requestToPromise(store.getAll()));
+  return withStore(FEEDS_STORE, 'readonly', async (store) => {
+    const records = await requestToPromise(store.getAll());
+    return records.map(withKnownResourceType);
+  });
 };
 
 export const getAddByRSSFeedsByResourceType = async (
@@ -111,10 +121,7 @@ export const getAddByRSSFeedsByResourceType = async (
     return [];
   }
 
-  return withStore(FEEDS_STORE, 'readonly', async (store) => {
-    const index = store.index('resourceType');
-    return requestToPromise(index.getAll(resourceType));
-  });
+  return (await getAllAddByRSSFeeds()).filter((feed) => feed.resourceType === resourceType);
 };
 
 export const getAddByRSSFeedByIdText = async (
@@ -124,7 +131,13 @@ export const getAddByRSSFeedByIdText = async (
     return null;
   }
 
-  return withStore(FEEDS_STORE, 'readonly', async (store) => requestToPromise(store.get(idText)));
+  return withStore(FEEDS_STORE, 'readonly', async (store) => {
+    const record = await requestToPromise(store.get(idText));
+    if (record === null || record === undefined) {
+      return record;
+    }
+    return withKnownResourceType(record);
+  });
 };
 
 export const getAddByRSSFeedByUrl = async (feedUrl: string): Promise<AddByRSSFeedRecord | null> => {
@@ -134,7 +147,11 @@ export const getAddByRSSFeedByUrl = async (feedUrl: string): Promise<AddByRSSFee
 
   return withStore(FEEDS_STORE, 'readonly', async (store) => {
     const index = store.index('feedUrl');
-    return requestToPromise(index.get(feedUrl));
+    const record = await requestToPromise(index.get(feedUrl));
+    if (record === null || record === undefined) {
+      return record;
+    }
+    return withKnownResourceType(record);
   });
 };
 
@@ -148,13 +165,25 @@ export const upsertAddByRSSFeed = async (record: AddByRSSFeedRecord): Promise<vo
   });
 };
 
-export const bulkUpsertAddByRSSFeeds = async (records: AddByRSSFeedRecord[]): Promise<void> => {
-  if (!isIndexedDbAvailable()) {
+/**
+ * Stores each record whose feed URL has no row yet and skips the rest. The lookup and the write
+ * share one readwrite transaction, and the browser runs those one at a time per store across
+ * tabs, so two syncs that both saw a feed as missing cannot both insert it.
+ */
+export const insertMissingAddByRSSFeeds = async (
+  records: readonly AddByRSSFeedRecord[]
+): Promise<void> => {
+  if (!isIndexedDbAvailable() || records.length === 0) {
     return;
   }
 
   await withStore(FEEDS_STORE, 'readwrite', async (store) => {
+    const index = store.index('feedUrl');
     for (const record of records) {
+      const existingKey = await requestToPromise(index.getKey(record.feedUrl));
+      if (existingKey !== undefined) {
+        continue;
+      }
       await requestToPromise(store.put(record));
     }
   });

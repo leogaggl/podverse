@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SubscribedChannel } from '../../data/repositories';
 import {
+  addByRssRepository,
   channelItemsRepository,
   channelLiveStatusRepository,
   channelSeenRepository,
@@ -10,10 +11,13 @@ import {
   subscriptionsRepository,
   syncEventLogRepository,
 } from '../../data/repositories';
-import { fetchHomeFeedRows } from './homeFeedData';
+import { fetchHomeFeed } from './homeFeedData';
 import { HOME_FEED_METADATA_TIMEOUT_CODE, HOME_FEED_METADATA_TIMEOUT_MS } from './homeFeedReadLog';
 
 vi.mock('../../data/repositories', () => ({
+  addByRssRepository: {
+    listFeedsByCredentials: vi.fn(),
+  },
   channelItemsRepository: {
     listSubscribed: vi.fn(),
     hasPopularityRanks: vi.fn(),
@@ -52,8 +56,13 @@ const followedShow = (): SubscribedChannel => ({
   title: 'Example Show',
 });
 
-describe('fetchHomeFeedRows local paint', () => {
+describe('fetchHomeFeed local paint', () => {
   beforeEach(() => {
+    vi.mocked(addByRssRepository.listFeedsByCredentials).mockReset();
+    vi.mocked(addByRssRepository.listFeedsByCredentials).mockResolvedValue({
+      needsCredentials: [],
+      ready: [],
+    });
     vi.mocked(subscriptionsRepository.list).mockReset();
     vi.mocked(subscriptionsRepository.hasPopularityRanks).mockReset();
     vi.mocked(subscriptionsRepository.refreshPopularityRanks).mockReset();
@@ -77,9 +86,9 @@ describe('fetchHomeFeedRows local paint', () => {
     vi.mocked(downloadsRepository.countCompletedByChannel).mockResolvedValue(new Map());
     vi.mocked(channelSeenRepository.listUnseen).mockResolvedValue([]);
 
-    const rows = await fetchHomeFeedRows('podcasts', { sort: 'popularity' });
+    const read = await fetchHomeFeed('podcasts', { sort: 'popularity' });
 
-    expect(rows).toEqual([
+    expect(read.rows).toEqual([
       expect.objectContaining({
         id: 'show-1',
         title: 'Example Show',
@@ -93,9 +102,9 @@ describe('fetchHomeFeedRows local paint', () => {
     vi.mocked(subscriptionsRepository.list).mockResolvedValue([followedShow()]);
     vi.mocked(channelItemsRepository.listSubscribed).mockResolvedValue([]);
 
-    const rows = await fetchHomeFeedRows('episodes');
+    const read = await fetchHomeFeed('episodes');
 
-    expect(rows).toEqual([]);
+    expect(read.rows).toEqual([]);
     expect(channelItemsRepository.hasPopularityRanks).not.toHaveBeenCalled();
     expect(channelItemsRepository.refreshPopularityRanks).not.toHaveBeenCalled();
   });
@@ -105,9 +114,9 @@ describe('fetchHomeFeedRows local paint', () => {
       { id_text: 'clip-1', title: 'A clip', podcast_title: 'Example Show' },
     ]);
 
-    const rows = await fetchHomeFeedRows('clips');
+    const read = await fetchHomeFeed('clips');
 
-    expect(rows).toEqual([
+    expect(read.rows).toEqual([
       expect.objectContaining({
         id: 'clip-1',
         subtitle: 'Example Show',
@@ -123,11 +132,11 @@ describe('fetchHomeFeedRows local paint', () => {
     vi.mocked(downloadsRepository.countCompletedByChannel).mockResolvedValue(new Map());
     vi.mocked(channelSeenRepository.listUnseen).mockReturnValue(new Promise(() => undefined));
 
-    const pending = fetchHomeFeedRows('podcasts');
+    const pending = fetchHomeFeed('podcasts');
     await vi.advanceTimersByTimeAsync(HOME_FEED_METADATA_TIMEOUT_MS);
-    const rows = await pending;
+    const read = await pending;
 
-    expect(rows).toEqual([
+    expect(read.rows).toEqual([
       expect.objectContaining({
         id: 'show-1',
         title: 'Example Show',

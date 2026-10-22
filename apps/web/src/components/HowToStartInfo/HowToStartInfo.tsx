@@ -4,6 +4,7 @@ import { InfoWrapper } from '@podverse/ui';
 
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
+import { buildMediaListChipPath } from '../../utils/mediaListChips';
 import { Link } from '../Link/Link';
 
 type HowToStartInfoProps = {
@@ -26,7 +27,7 @@ export const HowToStartInfo = ({ rows, totalPages }: HowToStartInfoProps) => {
               </Link>
             ),
             podcastsLink: (chunks) => (
-              <Link fullPageLoad href={`${ROUTES.PODCASTS}?type=global&sort=recent`}>
+              <Link fullPageLoad href={ROUTES.BROWSE}>
                 {chunks}
               </Link>
             ),
@@ -36,7 +37,7 @@ export const HowToStartInfo = ({ rows, totalPages }: HowToStartInfoProps) => {
               </Link>
             ),
             musicLink: (chunks) => (
-              <Link fullPageLoad href={`${ROUTES.ARTISTS}?type=global&sort=recent`}>
+              <Link fullPageLoad href={buildMediaListChipPath('browse', 'artists')}>
                 {chunks}
               </Link>
             ),

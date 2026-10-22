@@ -32,7 +32,7 @@ test.describe('Add by RSS protected feed followed on another device', () => {
       requiresCredentials: true,
     });
 
-    await page.goto('/add-by-rss/podcasts');
+    await page.goto('/add-by-rss');
 
     let idText = '';
     await test.step('The podcasts list shows the feed in the needs-credentials section', async () => {

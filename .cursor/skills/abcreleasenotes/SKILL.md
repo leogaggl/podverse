@@ -1,9 +1,9 @@
 ---
 name: abcreleasenotes
-description: Turn release-notes/scratchpad.md entries into the GitHub, store, and web release notes for the current version, then empty the scratchpad. Use when the operator says abcreleasenotes, or before a staging sync or a mobile store build when the scratchpad has entries.
+description: Turn release-notes/scratchpad.md entries into the GitHub, store, and web release notes for the current version, then empty the scratchpad. Use when the operator runs /abcreleasenotes or says abcreleasenotes, or before a staging sync or a mobile store build when the scratchpad has entries.
 ---
 
-# abcreleasenotes
+# `abcreleasenotes`
 
 The scratchpad is the raw record; release notes are what a reader of each audience gets. This
 skill decides, for every scratchpad entry, which notes it belongs in, writes those notes, and

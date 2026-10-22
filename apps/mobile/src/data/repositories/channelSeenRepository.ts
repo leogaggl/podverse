@@ -115,6 +115,9 @@ export const channelSeenRepository = {
   /**
    * Record that the user has opened a subscription.
    *
+   * Returns the timestamp stored before this write. Callers that mark on open use it to decide
+   * which items were new, and null means nothing is new.
+   *
    * Local-first and unqueued: the badge must clear the instant the screen opens, whatever the
    * network is doing. Telling the account happens separately, on the sync queue.
    */
@@ -122,9 +125,15 @@ export const channelSeenRepository = {
     subscriptionKey: string,
     kind: SubscriptionKind,
     seenAtMs: number = Date.now()
-  ): Promise<void> => {
+  ): Promise<number | null> => {
     await initializeDatabase();
+    const existing = await getDb()
+      .select({ lastSeenAt: schema.channelSeen.lastSeenAt })
+      .from(schema.channelSeen)
+      .where(eq(schema.channelSeen.subscriptionKey, subscriptionKey));
+    const previousLastSeenAtMs = existing[0]?.lastSeenAt ?? null;
     await upsertSeen([{ kind, lastSeenAtMs: seenAtMs, subscriptionKey }]);
+    return previousLastSeenAtMs;
   },
 
   /**

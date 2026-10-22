@@ -347,7 +347,8 @@ Each COPY-PASTA prompt must include:
   agent work (operator verifies once, after the set; only the last prompt carries the
   cumulative verification list)
 
-Keep each numbered plan file **under 300 lines**; split if larger.
+Each numbered plan file holds **one change** one agent can finish (`.cursorrules` § Plan
+Management); split it when it holds changes that could ship separately.
 
 ### After detailing — update master plan
 

@@ -16,6 +16,7 @@ import { getMobileConfig } from '../config';
 // the auth barrel.
 import { accountRepository } from '../data/repositories/accountRepository';
 import { addByRssCredentialStore } from '../data/repositories/addByRssCredentialStore';
+import { homeLivestreamsCacheRepository } from '../data/repositories/homeLivestreamsCacheRepository';
 import { playlistRepository } from '../data/repositories/playlistRepository';
 import { queueRepository } from '../data/repositories/queueRepository';
 import { resolveSupportedLocale } from '../i18n/locale';
@@ -131,12 +132,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        // Account data goes with the session: the account snapshot, queue data, and playlists.
-        // Subscriptions and add-by-RSS feeds are the device's data; a signed-out user keeps browsing and
-        // playing them.
+        // Account data goes with the session: the account snapshot, queue data, playlists, and
+        // the subscribed livestreams page Home paints from. Subscriptions and add-by-RSS feeds
+        // are the device's data; a signed-out user keeps browsing and playing them.
         await accountRepository.clearSnapshot();
         await queueRepository.clearAll();
         await playlistRepository.clearAll();
+        await homeLivestreamsCacheRepository.clear();
       } catch (snapshotError) {
         console.warn('Failed to clear cached account data during session reset', snapshotError);
       }

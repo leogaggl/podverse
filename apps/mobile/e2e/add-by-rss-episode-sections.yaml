@@ -1,0 +1,105 @@
+appId: com.podverse.app.next
+name: Add By RSS Episode Sections Flow
+---
+# The fixture item links the test-assets chapters and transcript, and the API fetches both.
+# The flow also checks the full player.
+#
+# Needs flow_needs_e2e_api + flow_needs_test_assets.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+- tapOn:
+    id: tab-my-library
+- tapOn:
+    id: library-nav-add-by-rss
+- tapOn:
+    id: rss-add-button
+- tapOn:
+    id: rss-url-input
+- inputText: https://e2e-seed-addbyrss.example/podcast-sections.xml
+- tapOn:
+    id: rss-add-submit
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_SLOWER}
+- tapOn:
+    text: E2E Add-by-RSS Sections Channel
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: "home-feed-row-title-.*"
+    text: E2E Add-by-RSS Sections Episode
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-episode-detail-tab-chapters
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: add-by-rss-episode-detail-tab-transcript
+- tapOn:
+    id: add-by-rss-episode-detail-tab-chapters
+# The chapter title is a nested text node, so it is asserted apart from the row id.
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-episode-detail-chapter-row
+    timeout: ${TIMEOUT_SLOWER}
+- assertVisible: "Pauci celer taceo."
+- takeScreenshot: add-by-rss-episode-sections-chapters
+- tapOn:
+    id: add-by-rss-episode-detail-tab-transcript
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-episode-detail-tab-transcript-content
+      text: ".*Magni valetudo odio.*"
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: add-by-rss-episode-sections-transcript
+- tapOn:
+    id: "home-row-play-.*"
+- extendedWaitUntil:
+    visible:
+      id: mini-player
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-section-chapters
+    timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    visible:
+      id: full-player-segment-title
+    timeout: ${TIMEOUT_SLOWER}
+- tapOn:
+    id: full-player-section-chapters
+- extendedWaitUntil:
+    visible:
+      id: "full-player-chapter-row-.*"
+    timeout: ${TIMEOUT_FAST}
+# The sheet peeks under the player, and the second chapter starts below that sliver. Swipes on
+# the chip strip raise the outer column. Playback keeps the clock moving, so each swipe settles
+# on a bound instead of a still frame. The row is one accessible element, so the title is part
+# of its name rather than a separate text node.
+- swipe:
+    from:
+      id: full-player-sections
+    direction: UP
+    waitToSettleTimeoutMs: 1000
+- swipe:
+    from:
+      id: full-player-sections
+    direction: UP
+    waitToSettleTimeoutMs: 1000
+- assertVisible:
+    id: "full-player-chapter-row-.*sections-ch-1"
+    text: ".*Pauci celer taceo.*"
+- takeScreenshot: add-by-rss-full-player-chapters
+- tapOn:
+    id: full-player-section-transcript
+- extendedWaitUntil:
+    visible:
+      id: full-player-transcript-text
+      text: ".*Magni valetudo odio.*"
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: add-by-rss-full-player-transcript

@@ -46,6 +46,10 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
  * List row that reveals a danger action on swipe-left. The same action is exposed via
  * accessibilityActions so VoiceOver / TalkBack users are not swipe-only.
  *
+ * The revealed control sits under the row until the swipe opens. It stays out of the
+ * accessibility tree while covered, so a screen reader uses the row's remove action and
+ * does not land on a button the row is covering.
+ *
  * While an async `onRemove` runs, the label stays in layout at zero opacity and a spinner overlays
  * it, so the revealed button does not change width when the text is hidden.
  */
@@ -60,6 +64,13 @@ export function SwipeActionRow({
   const styles = useThemedStyles(createStyles);
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const revealAction = useCallback(() => {
+    setIsRevealed(true);
+  }, []);
+  const coverAction = useCallback(() => {
+    setIsRevealed(false);
+  }, []);
 
   const close = useCallback(() => {
     swipeableRef.current?.close();
@@ -90,10 +101,12 @@ export function SwipeActionRow({
   const renderRightActions = useCallback(() => {
     return (
       <Pressable
+        accessibilityElementsHidden={!isRevealed}
         accessibilityLabel={removeLabel}
         accessibilityRole="button"
         accessibilityState={{ busy: isActionLoading, disabled: isActionLoading }}
         disabled={isActionLoading}
+        importantForAccessibility={isRevealed ? 'auto' : 'no-hide-descendants'}
         onPress={handleRemove}
         style={styles.action}
         testID={actionTestID ?? (testID !== undefined ? `${testID}-remove` : undefined)}
@@ -112,6 +125,7 @@ export function SwipeActionRow({
     actionTestID,
     handleRemove,
     isActionLoading,
+    isRevealed,
     removeLabel,
     styles.action,
     styles.actionLabel,
@@ -123,6 +137,8 @@ export function SwipeActionRow({
 
   return (
     <ReanimatedSwipeable
+      onSwipeableClose={coverAction}
+      onSwipeableWillOpen={revealAction}
       overshootRight={false}
       ref={swipeableRef}
       renderRightActions={renderRightActions}

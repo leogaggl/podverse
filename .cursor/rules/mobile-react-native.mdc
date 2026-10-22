@@ -118,7 +118,7 @@ alwaysApply: false
   when a screen orchestrator wraps a resource hook:
   - `fetch<Resource>` — pure data fetch (returns DTOs/rows; **no** `setState` / loading/error ownership).
     Use in resource hooks and pure helpers (e.g. `fetchPrimaryQueue`, `fetchHistoryPage`,
-    `fetchHomeFeedRows`).
+    `fetchHomeFeed`).
   - `load<Resource>` — stateful orchestrator that sets `isLoading` / `errorKey` / local data (and may
     call one or more `fetch*` helpers). Prefer this name on screens and content-load hooks.
   - `reload<Resource>` / `refresh<Resource>` — re-run a loader (retry, pull-to-refresh, after mutate).

@@ -23,6 +23,7 @@ import { NoResults } from '../../../components/NoResults/NoResults';
 import { useAccount } from '../../../contexts/Account';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
+import { selectChannelOrderedLiveItems } from '../../../utils/addByRSS/channelLiveItems';
 import {
   buildAddByRSSItemsIndex,
   buildAddByRSSLivestreamIndex,
@@ -242,11 +243,7 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
     return next;
   }, [trackItems, sort]);
 
-  const sortedLiveItems = useMemo(() => {
-    const next = [...liveItems];
-    next.sort((a, b) => b.startTimeMs - a.startTimeMs);
-    return next;
-  }, [liveItems]);
+  const sortedLiveItems = useMemo(() => selectChannelOrderedLiveItems(liveItems), [liveItems]);
 
   const description = feed?.mappedFeed?.channel?.description?.value ?? null;
   const hasAlbums = sortedAlbums.length > 0;

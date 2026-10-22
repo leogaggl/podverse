@@ -43,5 +43,9 @@ parses, followed-list merges with an existing bundle, and missing or malformed o
 Use a forward-only SQLite migration for scalar column changes. Do not store Add-by-RSS items in
 `channel_item`; that table is the bounded cache for directory-channel items.
 
+- Resource types are `ADD_BY_RSS_RESOURCE_TYPES` (`@podverse/parser-mapping`). A stored value
+  outside that list reads as `'podcasts'` through `toAddByRSSResourceType`. Whether a feed
+  carries livestreams is the `mayHaveLivestreams` flag, never a resource type.
+
 Related: [`dto-changes-are-device-data-migrations`](/.cursor/rules/dto-changes-are-device-data-migrations.mdc)
 — persisted DTOs remain device data migrations even when the SQLite shape differs from the server.

@@ -124,6 +124,10 @@
       "media_other_domain": "Αυτό το μέσο φιλοξενείται σε διαφορετικό τομέα από την προστατευμένη ροή και αυτό δεν υποστηρίζεται.",
       "media_needs_credentials": "Αυτό το μέσο μπορεί να απαιτεί όνομα χρήστη και κωδικό, τα οποία τα προγράμματα περιήγησης δεν μπορούν να στείλουν σε αρχεία ήχου και βίντεο. Δοκιμάστε την εφαρμογή για κινητά. Η ροή συνεχίζει να ενημερώνεται στον ιστό."
     },
+    "browse": {
+      "browse": "Περιήγηση",
+      "users": "Χρήστες"
+    },
     "my_library": "Η βιβλιοθήκη μου",
     "queue": {
       "queue": "Ουρά",
@@ -410,6 +414,11 @@
       "playlist_entry_removed": "Αυτό το στοιχείο αφαιρέθηκε από το {brand_name}.",
       "show_not_in_directory": "Αυτή η εκπομπή δεν βρίσκεται πλέον στον κατάλογο του {brand_name}."
     }
+  },
+  "background_activity": {
+    "title": "Δραστηριότητα στο παρασκήνιο",
+    "add_by_rss_refresh": "Ενημέρωση των ροών RSS σας",
+    "progress": "{completed} από {total}"
   },
   "media_player": {
     "play": "Αναπαραγωγή",
@@ -801,6 +810,7 @@
   },
   "subscriptions": {
     "subscriptions": "Συνδρομές",
+    "subscribed": "Συνδρομές",
     "how_to_start_message": "Δοκιμάστε <searchLink>αναζητώντας</searchLink> το αγαπημένο σας περιεχόμενο, ή περιηγηθείτε σε <podcastsLink>podcasts</podcastsLink>, <videosLink>βίντεο</videosLink>, ή <musicLink>μουσική</musicLink>. Οι συνδρομές σας θα εμφανιστούν εδώ.",
     "empty_message": "Δεν έχετε ακόμη συνδρομές.",
     "no_filter_matches": "Καμία συνδρομή δεν ταιριάζει με το φίλτρο σας.",
@@ -1475,41 +1485,13 @@
         "title": "{brand_name}",
         "description": "Ανακαλύψτε podcasts, μουσική και livestreams στο {brand_name}"
       },
-      "podcasts": {
-        "title": "Podcasts",
-        "description": "Περιηγηθείτε σε podcast feeds και shows στο {brand_name}"
-      },
-      "episodes": {
-        "title": "Επεισόδια",
-        "description": "Περιηγηθείτε σε επεισόδια podcast στο {brand_name}"
-      },
-      "artists": {
-        "title": "Καλλιτέχνες",
-        "description": "Ανακαλύψτε καλλιτέχνες μουσικής στο {brand_name}"
-      },
-      "albums": {
-        "title": "Άλμπουμ",
-        "description": "Περιηγηθείτε σε μουσικά άλμπουμ στο {brand_name}"
-      },
-      "tracks": {
-        "title": "Τραγούδια",
-        "description": "Ανακαλύψτε μουσικά τραγούδια στο {brand_name}"
-      },
-      "podcastsLivestreams": {
-        "title": "Ζωντανές μεταδόσεις podcast",
-        "description": "Δείτε ζωντανά podcasts στο {brand_name}"
-      },
-      "musicLivestreams": {
-        "title": "Ζωντανές μουσικές μεταδόσεις",
-        "description": "Δείτε ζωντανές μουσικές εκπομπές στο {brand_name}"
+      "browse": {
+        "title": "Περιήγηση",
+        "description": "Περιηγηθείτε σε podcasts, επεισόδια, αποσπάσματα, μουσική, λίστες αναπαραγωγής και προφίλ στο {brand_name}"
       },
       "playlists": {
         "title": "Playlist",
         "description": "Εξερευνήστε playlists της κοινότητας στο {brand_name}"
-      },
-      "clips": {
-        "title": "Κλιπ",
-        "description": "Εξερευνήστε κλιπ podcast και μουσικής στο {brand_name}"
       },
       "videos": {
         "title": "Βίντεο",

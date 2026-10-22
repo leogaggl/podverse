@@ -11,6 +11,8 @@ import { useModals } from '../../../contexts/Modals';
 import { checkBackNavFlag } from '../../../contexts/Navigation';
 import { useSkipInitialEffect } from '../../../hooks/useSkipInitialEffect';
 import { scrollMainToTop } from '../../../utils/scroll';
+import { CommonPodcastListNodes } from '../../Common/Podcast/CommonPodcastNodes';
+import type { PodcastListItem } from '../../Common/Podcast/types';
 import { Pagination } from '../../Pagination/Pagination';
 import type { ViewSelectedOption } from '../../ViewSelector/ViewSelector';
 import { CorePodcastNodes } from './CorePodcastNodes';
@@ -26,6 +28,8 @@ type Props = {
   type: QueryParamsSubscribedType;
   category: CategoryMappingKeys | null;
   viewSelected: ViewSelectedOption;
+  /** When set, these rows replace the channel mapping. */
+  items?: PodcastListItem[];
   /** Keyed by channel id_text. Empty unless this is the subscribed list for a signed-in account. */
   unseenBadges?: ReadonlyMap<string, ChannelUnseenBadge>;
 };
@@ -38,6 +42,7 @@ export const CorePodcasts: React.FC<Props> = ({
   showSubscribeMessage,
   unseenBadges,
   viewSelected,
+  items,
 }) => {
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
@@ -47,6 +52,8 @@ export const CorePodcasts: React.FC<Props> = ({
   // Check synchronously during render to capture the flag before it's cleared
   const skipScrollOnceRef = useRef(checkBackNavFlag());
 
+  const scrollTarget = items ?? channels;
+
   useSkipInitialEffect(() => {
     // Skip scroll-to-top once if this is a back navigation
     if (skipScrollOnceRef.current) {
@@ -54,12 +61,21 @@ export const CorePodcasts: React.FC<Props> = ({
       return;
     }
     scrollMainToTop();
-  }, [channels]);
+  }, [scrollTarget]);
 
   const showCallToAction = showSubscribeMessage;
   const showPagination = !showSubscribeMessage;
 
-  const listNodes = CorePodcastNodes({ channels, unseenBadges, viewSelected });
+  const listNodes =
+    items === undefined ? (
+      <CorePodcastNodes
+        channels={channels}
+        unseenBadges={unseenBadges}
+        viewSelected={viewSelected}
+      />
+    ) : (
+      <CommonPodcastListNodes items={items} viewSelected={viewSelected} />
+    );
 
   return (
     <>

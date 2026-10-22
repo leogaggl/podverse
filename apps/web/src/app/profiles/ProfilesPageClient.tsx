@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import type { DTOAccount } from '@podverse/helpers';
 import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
 
@@ -10,17 +12,28 @@ import { ProfilesPageHeader } from './ProfilesPageHeader';
 import { ProfilesPageList } from './ProfilesPageList';
 
 interface ProfilesPageClientProps {
+  chipsNode?: ReactNode;
   initialQueryParams: ProfilesPageQueryParams;
+  listScope?: 'page' | 'browse';
   ssrAccounts: DTOAccount[];
   ssrTotalPages: number;
 }
 
+export type ProfilesListProps = Omit<ProfilesPageClientProps, 'chipsNode'>;
+
 export function ProfilesPageClient(props: ProfilesPageClientProps) {
-  const { initialQueryParams, ssrAccounts, ssrTotalPages } = props;
+  const {
+    chipsNode = null,
+    initialQueryParams,
+    listScope = 'page',
+    ssrAccounts,
+    ssrTotalPages,
+  } = props;
 
   return (
     <ProfilesPageContextProvider
       initialQueryParams={initialQueryParams}
+      listScope={listScope}
       ssrAccounts={ssrAccounts}
       ssrTotalPages={ssrTotalPages}
     >
@@ -29,6 +42,7 @@ export function ProfilesPageClient(props: ProfilesPageClientProps) {
         <MainSidebarLayout>
           <SideContent />
           <MainColumnStack>
+            {chipsNode}
             <ProfilesPageList />
           </MainColumnStack>
         </MainSidebarLayout>

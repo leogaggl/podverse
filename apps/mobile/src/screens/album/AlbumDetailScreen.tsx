@@ -38,6 +38,7 @@ import { useChannelNotifications } from '../../hooks/useChannelNotifications';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import { toChannelLiveRow } from '../../lib/rows/liveItemRows';
 import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
@@ -69,7 +70,6 @@ import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import { mapItemToHomeFeedRow } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
-import type { HomeRowMetadata } from '../home/homeRowMetadata';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { channelHasFunding, channelHasPeople, channelHasPodroll } from '../podcast/podcastSections';
@@ -82,13 +82,6 @@ type PodrollEntry = {
   subtitle: string | null;
   target: { idText: string; kind: 'channel' | 'episode' };
   title: string;
-};
-
-const LIVE_ROW_METADATA: HomeRowMetadata = {
-  downloadedCount: 0,
-  isLive: true,
-  latestItemPubDateMs: null,
-  unseenBadge: null,
 };
 
 const FIRST_PAGE = 1;
@@ -193,13 +186,13 @@ const toTrackRows = (
   return items
     .map((item) => {
       const compact = mapItemToHomeFeedRow(item, { compact: true });
-      return {
+      const base = {
         ...compact,
         channelId: compact.channelId ?? albumId,
         channelKind: compact.channelKind ?? 'albums',
-        metadata: item.live_item ? LIVE_ROW_METADATA : undefined,
         subtitle: albumTitle,
       };
+      return item.live_item ? toChannelLiveRow(base, item.live_item.live_item_status_id) : base;
     })
     .filter((row) => row.id.length > 0);
 };

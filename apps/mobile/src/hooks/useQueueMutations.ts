@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { getAddByRSSHashId } from '@podverse/helpers';
+import type { AddByRSSResourceData } from '@podverse/helpers/dto';
 import { MediumEnum } from '@podverse/helpers/medium';
 import { getQueueForMedium } from '@podverse/helpers/queue';
 
@@ -31,7 +33,8 @@ const mediumIdForMutation = (
  * store through the load-active hook. Screens call this — never `req*` directly. Anonymous callers
  * are no-ops because server-backed queues require authentication.
  *
- * Add and mark-as-played are keyed in-flight so a double-tap cannot fire parallel writes.
+ * Add and mark-as-played are keyed in-flight so a double-tap cannot fire parallel writes. Add by
+ * RSS items are written with their resource data, because they have no catalog id.
  */
 export function useQueueMutations() {
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
@@ -93,6 +96,49 @@ export function useQueueMutations() {
     [addToQueue]
   );
 
+  const addAddByRssToQueue = useCallback(
+    async (
+      position: 'next' | 'last',
+      resourceData: AddByRSSResourceData,
+      medium: 'av' | 'music'
+    ): Promise<boolean> => {
+      if (status !== 'authenticated') {
+        return false;
+      }
+
+      const hashId = getAddByRSSHashId(resourceData);
+      const result = await guard.run(`add:${position}:add-by-rss:${hashId}`, async () => {
+        const mediumId = medium === 'music' ? MediumEnum.Music : MediumEnum.Podcast;
+        const queue = getQueueForMedium(queues, mediumId);
+        if (queue === null) {
+          return false;
+        }
+
+        const context = buildContext();
+        await (position === 'next'
+          ? queueRepository.addAddByRssNext(context, queue.id_text, resourceData)
+          : queueRepository.addAddByRssLast(context, queue.id_text, resourceData));
+
+        await loadActive(mediumId);
+        return true;
+      });
+      return result === false ? false : result;
+    },
+    [buildContext, guard, loadActive, queues, status]
+  );
+
+  const addAddByRssToQueueNext = useCallback(
+    (resourceData: AddByRSSResourceData, medium: 'av' | 'music') =>
+      addAddByRssToQueue('next', resourceData, medium),
+    [addAddByRssToQueue]
+  );
+
+  const addAddByRssToQueueLast = useCallback(
+    (resourceData: AddByRSSResourceData, medium: 'av' | 'music') =>
+      addAddByRssToQueue('last', resourceData, medium),
+    [addAddByRssToQueue]
+  );
+
   const markAsPlayed = useCallback(
     async (
       idText: string,
@@ -124,6 +170,37 @@ export function useQueueMutations() {
     [buildContext, guard, loadActive, queues, status]
   );
 
+  const markAddByRssAsPlayed = useCallback(
+    async (
+      resourceData: AddByRSSResourceData,
+      medium: 'av' | 'music',
+      completed = true
+    ): Promise<boolean> => {
+      if (status !== 'authenticated') {
+        return false;
+      }
+
+      const hashId = getAddByRSSHashId(resourceData);
+      const result = await guard.run(`mark:add-by-rss:${hashId}`, async () => {
+        const mediumId = medium === 'music' ? MediumEnum.Music : MediumEnum.Podcast;
+        const queue = getQueueForMedium(queues, mediumId);
+        if (queue === null) {
+          return false;
+        }
+
+        await queueRepository.markAsPlayed(buildContext(), queue.id_text, {
+          completed,
+          kind: 'add_by_rss',
+          resourceData,
+        });
+        await loadActive(mediumId);
+        return true;
+      });
+      return result === false ? false : result;
+    },
+    [buildContext, guard, loadActive, queues, status]
+  );
+
   const moveNowPlayingToHistory = useCallback(
     async (target: MoveNowPlayingToHistoryTarget): Promise<boolean> => {
       if (status !== 'authenticated' || activeQueue === null) {
@@ -138,8 +215,11 @@ export function useQueueMutations() {
   );
 
   return {
+    addAddByRssToQueueLast,
+    addAddByRssToQueueNext,
     addToQueueLast,
     addToQueueNext,
+    markAddByRssAsPlayed,
     markAsPlayed,
     moveNowPlayingToHistory,
   };

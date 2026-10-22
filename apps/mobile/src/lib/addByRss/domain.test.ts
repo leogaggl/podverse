@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { convertParsedRSSFeedToCompat } from '@podverse/parser-mapping';
+import { getAddByRSSHashId } from '@podverse/helpers';
+import { convertParsedRSSFeedToCompat, Phase4LiveStatus } from '@podverse/parser-mapping';
 
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
 import {
+  buildAddByRssFeedRecord,
   extractPreviewFromParsePayload,
   localFeedForServerFollow,
   mapParsedFeedToPreview,
   mergeLocalAndRemoteAddByRssFeeds,
+  toAddByRssLiveItemPlaybackResourceData,
 } from './domain';
+import { addByRssPlaybackMediaId } from './resourceData';
 
 const localFeed = (
   overrides: Partial<MobileAddByRSSFeedRecord> = {}
@@ -91,6 +95,42 @@ describe('mergeLocalAndRemoteAddByRssFeeds', () => {
     expect(rejectedHere?.requiresCredentials).toBe(true);
     expect(rejectedHere?.lastAuthFailure).toBe('credentials_rejected');
   });
+
+  it('keeps a stored album type and treats an unparsed follow as a podcast', () => {
+    const feedUrl = 'https://example.com/album.xml';
+    const [kept] = mergeLocalAndRemoteAddByRssFeeds(
+      [localFeed({ feedUrl, resourceType: 'albums' })],
+      [{ feed_url: feedUrl, image_url: null, title: 'Album' }]
+    );
+    expect(kept?.resourceType).toBe('albums');
+
+    const [remoteOnly] = mergeLocalAndRemoteAddByRssFeeds(
+      [],
+      [{ feed_url: 'https://example.com/new.xml', image_url: null, title: 'New' }]
+    );
+    expect(remoteOnly?.resourceType).toBe('podcasts');
+  });
+});
+
+describe('buildAddByRssFeedRecord', () => {
+  const preview = {
+    enclosureUrl: null,
+    imageUrl: null,
+    latestItemPubDateMs: null,
+    playbackPosition: null,
+    title: 'Artist',
+  };
+
+  it('keeps an existing artists type and defaults a new record to podcasts', () => {
+    const existing = localFeed({ resourceType: 'artists' });
+
+    expect(buildAddByRssFeedRecord(existing.feedUrl, existing, preview).resourceType).toBe(
+      'artists'
+    );
+    expect(
+      buildAddByRssFeedRecord('https://example.com/new.xml', undefined, preview).resourceType
+    ).toBe('podcasts');
+  });
 });
 
 const rawParsePayload = {
@@ -132,6 +172,43 @@ describe('add-by-RSS parse previews', () => {
   it('falls back to the first episode title when the feed has no channel title', () => {
     expect(extractPreviewFromParsePayload({ ...rawParsePayload, title: '  ' }).title).toBe(
       'Episode One'
+    );
+  });
+});
+
+describe('toAddByRssLiveItemPlaybackResourceData', () => {
+  it('keeps the canonical feed url and the stored playback position, and hashes like a livestream row', () => {
+    const record = localFeed({
+      feedUrl: 'https://user:secret@example.com/show.xml',
+      playbackPosition: '125',
+    });
+    const mappedFeed = convertParsedRSSFeedToCompat({
+      explicit: false,
+      items: [],
+      link: 'https://example.com',
+      podcastLiveItems: [
+        {
+          contentLinks: [],
+          enclosure: { length: 1, type: 'audio/mpeg', url: 'https://example.com/live.mp3' },
+          guid: 'studio-live',
+          start: new Date('2026-06-01T15:00:00.000Z'),
+          status: Phase4LiveStatus.Live,
+        },
+      ],
+      title: 'Show',
+    });
+    const liveBundle = mappedFeed.liveItems[0];
+    expect(liveBundle).toBeDefined();
+    if (liveBundle === undefined) {
+      return;
+    }
+
+    const data = toAddByRssLiveItemPlaybackResourceData(record, mappedFeed, liveBundle, 0);
+
+    expect(data.feed_url).toBe('https://example.com/show.xml');
+    expect(data.playback_position).toBe('125');
+    expect(addByRssPlaybackMediaId(data)).toBe(
+      getAddByRSSHashId({ feed_url: 'https://example.com/show.xml', guid: 'studio-live' })
     );
   });
 });

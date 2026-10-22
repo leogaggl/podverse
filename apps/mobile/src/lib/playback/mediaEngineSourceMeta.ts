@@ -2,6 +2,7 @@ import { primaryListArtworkUrl } from '@podverse/helpers';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import type { MediaEngineSourceMeta } from '../../../modules/podverse-media-engine';
+import { addByRssPlaybackMediaId } from '../addByRss/resourceData';
 import { resolveEngineAudioProfile } from './engineAudioProfile';
 
 const queueMediumFromTarget = (target: PlaybackTarget): 'av' | 'music' => {
@@ -23,6 +24,10 @@ const metaKindFromTarget = (target: PlaybackTarget): MediaEngineSourceMeta['kind
   }
 };
 
+/**
+ * Engine source id for this target. It must return what `playbackTargetRowMediaId` returns,
+ * because the provider compares the engine's `meta.idText` with it.
+ */
 const idTextFromTarget = (target: PlaybackTarget): string | null => {
   switch (target.kind) {
     case 'clip':
@@ -35,10 +40,8 @@ const idTextFromTarget = (target: PlaybackTarget): string | null => {
     case 'item-video':
     case 'item-music':
       return target.item.id_text;
-    case 'add-by-rss': {
-      const idText = target.resourceData.id_text;
-      return typeof idText === 'string' && idText.length > 0 ? idText : null;
-    }
+    case 'add-by-rss':
+      return addByRssPlaybackMediaId(target.resourceData);
     case 'livestream':
       return target.item?.id_text ?? target.channel.id_text;
     default:

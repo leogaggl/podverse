@@ -40,6 +40,9 @@ type LocalSettingsContextType = {
   setCookieConsent: (choice: CookieConsentChoice) => void;
   preferredMediaType: MediaTypePreference;
   setPreferredMediaType: (pmt: MediaTypePreference) => void;
+  /** Background activity overlay open; collapsed by default (`bae` in the cookie). */
+  backgroundActivityExpanded: boolean;
+  setBackgroundActivityExpanded: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 type LocalSettingsProps = {
@@ -73,6 +76,9 @@ export const LocalSettingsProvider: React.FC<LocalSettingsProps> = ({
   const [preferredMediaType, setPreferredMediaType] = useState<MediaTypePreference>(
     ssrLocalSettings.pmt ?? DEFAULT_MEDIA_TYPE_PREFERENCE
   );
+  const [backgroundActivityExpanded, setBackgroundActivityExpanded] = useState<boolean>(
+    ssrLocalSettings.bae ?? false
+  );
 
   const setCookieConsent = (choice: CookieConsentChoice) => {
     if (choice === 'none') {
@@ -102,6 +108,7 @@ export const LocalSettingsProvider: React.FC<LocalSettingsProps> = ({
       cc: cookieConsent !== undefined ? cookieConsent : existingSettings.cc,
       pmt: preferredMediaType,
       sp: existingSettings.sp,
+      bae: backgroundActivityExpanded,
     });
   }, [
     uiTheme,
@@ -112,6 +119,7 @@ export const LocalSettingsProvider: React.FC<LocalSettingsProps> = ({
     boostFormDefaults,
     cookieConsent,
     preferredMediaType,
+    backgroundActivityExpanded,
   ]);
 
   return (
@@ -135,6 +143,8 @@ export const LocalSettingsProvider: React.FC<LocalSettingsProps> = ({
         setCookieConsent,
         preferredMediaType,
         setPreferredMediaType,
+        backgroundActivityExpanded,
+        setBackgroundActivityExpanded,
       }}
     >
       {children}

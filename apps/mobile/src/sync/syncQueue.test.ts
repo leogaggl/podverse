@@ -280,6 +280,7 @@ describe('planSyncRun', () => {
     );
 
     expect(kinds).toEqual(['identity-remap', 'channel-items-scan']);
+    expect(kinds).not.toContain('home-livestreams');
   });
 
   it('adds the account-backed work once signed in', () => {
@@ -293,6 +294,7 @@ describe('planSyncRun', () => {
     expect(kinds).toContain('queue-hydrate');
     expect(kinds).toContain('add-by-rss-refresh');
     expect(kinds).toContain('home-clips');
+    expect(kinds).toContain('home-livestreams');
   });
 
   it('registers the push device on start and sign-in but not on every foreground', () => {

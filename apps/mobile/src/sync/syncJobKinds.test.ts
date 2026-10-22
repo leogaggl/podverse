@@ -6,6 +6,7 @@ describe('getSyncLogLabelKey', () => {
   it('returns the queue label for a planned job kind', () => {
     expect(getSyncLogLabelKey('popularity-ranks')).toBe('sync.job.subscriptions');
     expect(getSyncLogLabelKey('home-clips')).toBe('sync.job.clips');
+    expect(getSyncLogLabelKey('home-livestreams')).toBe('sync.job.live_status');
   });
 
   it('returns the Home diagnostic label so a hung cache read is readable in More', () => {

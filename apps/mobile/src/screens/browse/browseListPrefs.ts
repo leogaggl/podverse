@@ -28,7 +28,8 @@ export type BrowseListPrefs = {
 /**
  * Media types that can draw as an artwork grid on Browse.
  *
- * Episodes, tracks, clips, playlists, and users are list-only — a tile cannot name the row.
+ * Episodes, tracks, clips, livestreams, playlists, and users are list-only — a tile cannot name
+ * the row.
  */
 export const isBrowseViewModeMediaType = (mediaType: BrowseMediaType): boolean => {
   return isChannelListViewModeType(mediaType);

@@ -18,7 +18,7 @@ describe('buildStaticPageMetadata', () => {
     const metadata = buildStaticPageMetadata({
       title: 'Podcasts',
       descriptionPlain: 'Browse podcast episodes, channels, and creators.',
-      pathname: '/podcasts',
+      pathname: '/browse',
       imageUrl: 'https://img.example/podcasts.png',
     });
 
@@ -26,11 +26,11 @@ describe('buildStaticPageMetadata', () => {
       title: 'Podcasts',
       description: 'Browse podcast episodes, channels, and creators.',
       alternates: {
-        canonical: 'https://podverse.example/podcasts',
+        canonical: 'https://podverse.example/browse',
       },
       openGraph: {
         type: 'website',
-        url: 'https://podverse.example/podcasts',
+        url: 'https://podverse.example/browse',
         images: [{ url: 'https://img.example/podcasts.png' }],
       },
       twitter: {

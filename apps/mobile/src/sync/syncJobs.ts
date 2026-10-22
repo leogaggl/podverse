@@ -18,6 +18,7 @@ import { channelLiveStatusRepository } from '../data/repositories/channelLiveSta
 import { channelSeenRepository } from '../data/repositories/channelSeenRepository';
 import { syncDirectoryChannelOrDropGone } from '../data/repositories/directoryChannelGone';
 import { homeClipsCacheRepository } from '../data/repositories/homeClipsCacheRepository';
+import { homeLivestreamsCacheRepository } from '../data/repositories/homeLivestreamsCacheRepository';
 import { identityRemapRepository } from '../data/repositories/identityRemapRepository';
 import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import { queueRepository } from '../data/repositories/queueRepository';
@@ -330,6 +331,12 @@ const createHomeClipsJob = (deps: SyncJobDeps, priority: SyncJobPriority): SyncJ
   });
 };
 
+const createHomeLivestreamsJob = (deps: SyncJobDeps, priority: SyncJobPriority): SyncJob => {
+  return buildJob('home-livestreams', priority, 'home-livestreams', async () => {
+    await homeLivestreamsCacheRepository.refreshFromAccount(deps.getAuthContext());
+  });
+};
+
 const createPopularityRanksJob = (deps: SyncJobDeps, priority: SyncJobPriority): SyncJob => {
   return buildJob('popularity-ranks', priority, 'popularity-ranks', async () => {
     const context = deps.getAuthContext();
@@ -541,6 +548,8 @@ export const buildSyncJobs = (planned: PlannedSyncJob[], deps: SyncJobDeps): Syn
         return createAddByRssRefreshJob(deps, priority);
       case 'home-clips':
         return createHomeClipsJob(deps, priority);
+      case 'home-livestreams':
+        return createHomeLivestreamsJob(deps, priority);
       case 'auto-download-evaluate':
         return createAutoDownloadEvaluateJob(priority);
       default:

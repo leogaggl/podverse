@@ -30,6 +30,8 @@ export interface DTOChannel {
   medium_id: number;
   has_podcast_index_value: boolean;
   has_value_time_splits: boolean;
+  /** True once the feed has carried a live item; never cleared. Absent on older stored payloads. */
+  may_have_live_items?: boolean;
   feed?: DTOFeed;
   channel_about?: DTOChannelAbout;
   channel_categories?: DTOChannelCategory[];

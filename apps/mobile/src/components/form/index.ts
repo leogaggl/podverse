@@ -31,7 +31,5 @@ export { SettingsRowDescription, SettingsSwitchRow } from './SettingsSwitchRow';
 export type { SettingsSwitchRowProps } from './SettingsSwitchRow';
 export { SortPill } from './SortPill';
 export type { SortPillProps } from './SortPill';
-export { SortSelectRow } from './SortSelectRow';
-export type { SortSelectRowProps } from './SortSelectRow';
 export { TextField } from './TextField';
 export type { TextFieldProps } from './TextField';

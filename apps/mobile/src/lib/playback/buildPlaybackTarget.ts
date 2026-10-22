@@ -10,7 +10,10 @@ import type { MusicItemPlaybackIntent, PlaybackTarget } from '@podverse/playback
 
 import type { MediaEngineSource } from '../../../modules/podverse-media-engine';
 import type { MoveNowPlayingToHistoryTarget, PlaybackStatsTargets } from '../../data';
-import { isAddByRssLivestreamResourceData } from '../addByRss/resourceData';
+import {
+  addByRssPlaybackMediaId,
+  isAddByRssLivestreamResourceData,
+} from '../addByRss/resourceData';
 import { resolveEngineAudioProfile } from './engineAudioProfile';
 
 /**
@@ -178,7 +181,8 @@ export function playbackTargetToStatsTargets(target: PlaybackTarget): PlaybackSt
 /**
  * Stable id for matching a list row to the active playback target (episode/item, clip, soundbite,
  * chapter). Prefixed home-feed ids (`item-` / `clip-` / `soundbite-`) should be normalized with
- * `normalizeHomeFeedPlaybackMediaId` before comparison.
+ * `normalizeHomeFeedPlaybackMediaId` before comparison. An Add by RSS target uses
+ * `addByRssPlaybackMediaId`, the same value the engine source records as `meta.idText`.
  */
 export function playbackTargetRowMediaId(target: PlaybackTarget): string | null {
   switch (target.kind) {
@@ -192,10 +196,8 @@ export function playbackTargetRowMediaId(target: PlaybackTarget): string | null 
     case 'item-video':
     case 'item-music':
       return target.item.id_text;
-    case 'add-by-rss': {
-      const idText = target.resourceData.id_text;
-      return typeof idText === 'string' && idText.length > 0 ? idText : null;
-    }
+    case 'add-by-rss':
+      return addByRssPlaybackMediaId(target.resourceData);
     case 'livestream':
       return target.item?.id_text ?? target.channel.id_text;
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DTOChannel, DTOClip, DTOItem } from '@podverse/helpers';
+import { MediumEnum } from '@podverse/helpers';
 import type { DTOItemSoundbite } from '@podverse/helpers/dto';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
@@ -10,6 +11,7 @@ import {
   FULL_PLAYER_JUMP_FORWARD_SECONDS,
   hasNextQueueItem,
   resolveAddToPlaylistTarget,
+  resolveQueueMutationTarget,
   shouldClearNowPlayingAfterAdvance,
   shouldDismissFullPlayerOnEmptySession,
   shouldShowV4vAction,
@@ -247,6 +249,69 @@ describe('fullPlayerRows', () => {
         channel_title: 'RSS channel',
         title: 'RSS item',
       },
+    });
+  });
+
+  it('resolves queue mutation targets for Add by RSS', () => {
+    const avResourceData = {
+      feed_url: 'https://example.com/feed.xml',
+      guid: 'episode-guid',
+      title: 'RSS episode',
+    };
+    const avTarget: PlaybackTarget = {
+      kind: 'add-by-rss',
+      resourceData: avResourceData,
+    };
+    const avResolved = resolveQueueMutationTarget(avTarget);
+    expect(avResolved).toEqual({
+      kind: 'add-by-rss',
+      medium: 'av',
+      resourceData: avResourceData,
+    });
+    expect(avResolved !== null && avResolved.kind === 'add-by-rss' && avResolved.resourceData).toBe(
+      avResourceData
+    );
+
+    const musicResourceData = {
+      feed_url: 'https://example.com/music.xml',
+      guid: 'track-guid',
+      medium_id: MediumEnum.Music,
+      title: 'RSS track',
+    };
+    expect(
+      resolveQueueMutationTarget({
+        kind: 'add-by-rss',
+        resourceData: musicResourceData,
+      })
+    ).toEqual({
+      kind: 'add-by-rss',
+      medium: 'music',
+      resourceData: musicResourceData,
+    });
+
+    expect(
+      resolveQueueMutationTarget({
+        kind: 'add-by-rss',
+        resourceData: {
+          feed_url: 'https://example.com/live.xml',
+          guid: 'live-guid',
+          liveItem: {},
+          title: 'RSS live',
+        },
+      })
+    ).toBeNull();
+
+    expect(
+      resolveQueueMutationTarget({
+        channel: channel('album'),
+        intent: 'explicit_play',
+        item: item('track-1', false),
+        kind: 'item-music',
+      })
+    ).toEqual({
+      idText: 'track-1',
+      kind: 'item',
+      mediaType: 'tracks',
     });
   });
 });

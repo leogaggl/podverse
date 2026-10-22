@@ -43,7 +43,7 @@ Layout arithmetic, copy, and policy are not in that list. Put those on a cheaper
 
 ## Area smoke versus area full
 
-`apps/mobile/e2e/` holds **54** top-level flows (`mobile:e2e:test:all` runs 51; `tablet` is
+`apps/mobile/e2e/` holds **62** top-level flows (`mobile:e2e:test:all` runs 59; `tablet` is
 opt-in, and `perf-chip-switch` / `perf-scroll` stay out of that suite). Running them all to learn
 whether one change broke something is the most expensive possible way to find out.
 
@@ -55,7 +55,7 @@ run passed and you need the second as proof.
 | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Boot and shell      | `hello-world`      | `api-health`, `deep-link`, `locale-switch-home-smoke`, `popularity-tracking` (`tablet` is opt-in only)                                                                                                                     |
 | Auth and membership | `auth-login`       | `auth-logout`, `membership-gate`, `terms-account-access`, `terms-popularity`                                                                                                                                               |
-| Discovery           | `home`             | `browse`, `search`, `search-unparsed`, `podcast-episode`, `artist`, `album`, `add-by-rss`, `subscriptions-anonymous`, `detail-sort-prefs`                                                                                  |
+| Discovery           | `home`             | `browse`, `search`, `search-unparsed`, `podcast-episode`, `artist`, `album`, `add-by-rss`, `add-by-rss-episode-sections`, `add-by-rss-track`, `add-by-rss-livestream`, `subscriptions-anonymous`, `detail-sort-prefs`      |
 | Library and queue   | `queue-screen`     | `queue-add`, `library-playlists`, `library-downloads`                                                                                                                                                                      |
 | Playback            | `play-mini-player` | `player-screen`, `track`, `playback-resume-on-relaunch`, `playback-multi-device-handoff`, `auto-queue-advance`, `video-transition`, `make-clip`, `alternate-enclosure`, `engine-audio-spike`, `tab-switch-playback`, `v4v` |
 | Sync and offline    | `offline-mode`     | `playback-offline-reconciliation`, `error-log`, `opml`                                                                                                                                                                     |

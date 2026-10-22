@@ -35,3 +35,84 @@ export function isLiveItemEndedAndStale(
 
   return toTime(reference) < cutoff;
 }
+
+export type UpcomingLiveItemSortKey = {
+  statusId: LiveItemStatusEnum | null | undefined;
+  startTimeMs: number | null;
+};
+
+/** On the air now or scheduled; ended items are not upcoming. */
+export const isUpcomingLiveItemStatus = (
+  statusId: LiveItemStatusEnum | null | undefined
+): boolean => statusId === LiveItemStatusEnum.Live || statusId === LiveItemStatusEnum.Pending;
+
+function upcomingLiveItemRank(statusId: LiveItemStatusEnum | null | undefined): number {
+  if (statusId === LiveItemStatusEnum.Live) {
+    return 0;
+  }
+  if (statusId === LiveItemStatusEnum.Pending) {
+    return 1;
+  }
+  return 2;
+}
+
+/**
+ * The upcoming-livestreams order: live before scheduled; within each, the earliest start first,
+ * and no start time after every dated one. Matches `ItemService.getManyUpcomingLiveItems`.
+ */
+export const compareUpcomingLiveItems = (
+  a: UpcomingLiveItemSortKey,
+  b: UpcomingLiveItemSortKey
+): number => {
+  const rankDiff = upcomingLiveItemRank(a.statusId) - upcomingLiveItemRank(b.statusId);
+  if (rankDiff !== 0) {
+    return rankDiff;
+  }
+  if (a.startTimeMs === null && b.startTimeMs === null) {
+    return 0;
+  }
+  if (a.startTimeMs === null) {
+    return 1;
+  }
+  if (b.startTimeMs === null) {
+    return -1;
+  }
+  return a.startTimeMs - b.startTimeMs;
+};
+
+export type ChannelLiveItemSortKey = {
+  statusId: LiveItemStatusEnum | null | undefined;
+  startTimeMs: number | null;
+  endTimeMs: number | null;
+};
+
+const channelLiveItemRank = (statusId: LiveItemStatusEnum | null | undefined): number => {
+  if (statusId === LiveItemStatusEnum.Live) {
+    return 0;
+  }
+  if (statusId === LiveItemStatusEnum.Pending) {
+    return 1;
+  }
+  if (statusId === LiveItemStatusEnum.Ended) {
+    return 2;
+  }
+  return 3;
+};
+
+/**
+ * A channel's livestream order: live, then scheduled, then ended. Live and scheduled show the
+ * latest start first; ended shows the latest end first. A missing time sorts last.
+ */
+export const compareChannelLiveItems = (
+  a: ChannelLiveItemSortKey,
+  b: ChannelLiveItemSortKey
+): number => {
+  const rankDiff = channelLiveItemRank(a.statusId) - channelLiveItemRank(b.statusId);
+  if (rankDiff !== 0) {
+    return rankDiff;
+  }
+  if (a.statusId === LiveItemStatusEnum.Ended) {
+    return (b.endTimeMs ?? 0) - (a.endTimeMs ?? 0);
+  }
+  return (b.startTimeMs ?? 0) - (a.startTimeMs ?? 0);
+};

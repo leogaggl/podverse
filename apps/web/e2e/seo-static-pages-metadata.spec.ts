@@ -23,20 +23,13 @@ test.describe('Web SEO static page metadata', () => {
       );
     });
 
-    await test.step('Fetch podcasts page SSR HTML and assert curated podcasts metadata.', async () => {
-      const html = await fetchSsrHtml(request, '/podcasts');
-      expect(html).toContain('<title>Podcasts');
-      expectMetaDescriptionContains(html, 'Browse podcast feeds and shows on PodverseE2E.');
-      expectHeadDoesNotContain(
+    await test.step('Fetch Browse page SSR HTML and assert curated Browse metadata.', async () => {
+      const html = await fetchSsrHtml(request, '/browse');
+      expect(html).toContain('<title>Browse');
+      expectMetaDescriptionContains(
         html,
-        'E2E seeded channel for deterministic media-player podcast tests.'
+        'Browse podcasts, episodes, clips, music, playlists, and profiles on PodverseE2E.'
       );
-    });
-
-    await test.step('Fetch episodes page SSR HTML and assert curated episodes metadata.', async () => {
-      const html = await fetchSsrHtml(request, '/episodes');
-      expect(html).toContain('<title>Episodes');
-      expectMetaDescriptionContains(html, 'Browse podcast episodes across PodverseE2E.');
       expectHeadDoesNotContain(
         html,
         'E2E seeded channel for deterministic media-player podcast tests.'

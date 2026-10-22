@@ -12956,6 +12956,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /live-item/global/upcoming:
+    get:
+      operationId: apiGetLiveItemGlobalUpcoming
+      tags:
+        - live-item
+      summary: GET /live-item/global/upcoming
+      description: Live items on the air now, then scheduled ones, by start time. Ended live items are never listed.
+      security: []
+      parameters:
+        - in: query
+          name: medium
+          required: true
+          schema:
+            type: string
+            enum:
+              - all
+              - podcasts
+              - videos
+              - music
+              - av
+              - publisher-podcasts
+              - publisher-videos
+              - publisher-music
+              - publisher-av
+        - $ref: "#/components/parameters/PageQueryRequired"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemListResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /live-item/subscribed/recent:
     get:
       operationId: apiGetLiveItemSubscribedRecent
@@ -13066,6 +13128,70 @@ paths:
               - pending
               - live
               - ended
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemListResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /live-item/subscribed/upcoming:
+    get:
+      operationId: apiGetLiveItemSubscribedUpcoming
+      tags:
+        - live-item
+      summary: GET /live-item/subscribed/upcoming
+      description: Live items on the air now, then scheduled ones, by start time, from channels the account follows. Ended live items are never listed.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: medium
+          required: true
+          schema:
+            type: string
+            enum:
+              - all
+              - podcasts
+              - videos
+              - music
+              - av
+              - publisher-podcasts
+              - publisher-videos
+              - publisher-music
+              - publisher-av
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response

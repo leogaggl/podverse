@@ -349,3 +349,31 @@ name: Home Media Types
     id: tab-home
 - assertVisible:
     id: home-screen
+
+# Livestreams follows Tracks. Home fills it from the livestreams sync job after sign-in.
+# A sliver of the chip counts as visible, and the tap uses the chip center. One more
+# swipe brings that center inside the row. At the end of the row the swipe does not move.
+- runFlow:
+    file: shared/restore-chip-row-start.yaml
+    env:
+      CHIP_ROW_ID: home-media-type-selector
+- runFlow:
+    file: shared/reveal-chip-row-trailing.yaml
+    env:
+      CHIP_ROW_ID: home-media-type-selector
+      TRAILING_ID: home-media-type-livestreams
+- swipe:
+    from:
+      id: home-media-type-selector
+    direction: LEFT
+- tapOn:
+    id: home-media-type-livestreams
+- extendedWaitUntil:
+    visible:
+      text: "E2E Livestream Item"
+    timeout: ${TIMEOUT_SLOWEST}
+- assertNotVisible:
+    id: home-sort-button
+- assertNotVisible:
+    text: "E2E Scheduled Livestream"
+- takeScreenshot: home-media-type-livestreams

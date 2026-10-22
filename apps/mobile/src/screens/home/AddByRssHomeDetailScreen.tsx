@@ -1,472 +1,584 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ComponentType } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 
-import {
-  addByRSSFeedListArtworkCandidates,
-  ARTWORK_LIST_SIZE_FIND_TARGET,
-  primaryChannelLightboxArtworkUrl,
-} from '@podverse/helpers';
+import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
+import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
 import { useAuth } from '../../auth/AuthProvider';
-import { SettingsOptionNavRow, SortSelectRow } from '../../components/form';
-import { MediaRowActions } from '../../components/player/MediaRowActions';
-import { Button, CoverImage, LIST_REMOVE_CLIPPED_SUBVIEWS } from '../../components/primitives';
-import { ListEmpty } from '../../components/state/ListEmpty';
+import { useBoostSheet } from '../../components/boost/useBoostSheet';
+import { ChannelDetailShell, ChannelHeader } from '../../components/channel';
+import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
+import { ListFilterField, MenuSelectChip } from '../../components/form';
+import { Button } from '../../components/primitives/Button';
+import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { ListError } from '../../components/state/ListError';
-import { ListLoading } from '../../components/state/ListLoading';
+import { LoadingSection } from '../../components/state/LoadingSection';
 import {
   addByRssRepository,
   channelSeenRepository,
   subscriptionsRepository,
 } from '../../data/repositories';
 import { useAddByRssArtworkHeaders } from '../../hooks/useAddByRssArtworkHeaders';
-import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
-import type { AddByRssEpisodeSort } from '../../prefs/detailListPrefs';
-import {
-  ADD_BY_RSS_EPISODE_SORT_OPTIONS,
-  DEFAULT_ADD_BY_RSS_EPISODE_SORT,
-  readAddByRssDetailPrefs,
-  writeAddByRssDetailSort,
+import type {
+  AddByRssDetailTab,
+  AddByRssEpisodeSort,
+  AddByRssTrackSort,
 } from '../../prefs/detailListPrefs';
 import {
-  BottomChromeScrollSpacer,
-  useBottomChromeScrollIndicatorInsets,
-} from '../../theme/bottomChromeOverlayInset';
+  ADD_BY_RSS_EPISODE_SORT_OPTIONS,
+  ADD_BY_RSS_TRACK_SORT_OPTIONS,
+  DEFAULT_ADD_BY_RSS_EPISODE_SORT,
+  DEFAULT_ADD_BY_RSS_TRACK_SORT,
+  readAddByRssEpisodeSort,
+  readAddByRssTrackSort,
+  writeAddByRssDetailSort,
+} from '../../prefs/detailListPrefs';
+import { isOfflineModeEnabled, useOfflineMode } from '../../prefs/offlineMode';
 import { useTheme } from '../../theme/useTheme';
+import { AddByRssAboutSection } from './addByRss/AddByRssAboutSection';
+import {
+  ADD_BY_RSS_SECTION_LABEL_KEYS,
+  addByRssItemsTab,
+  isAddByRssFilterableSection,
+  isAddByRssMusicFeed,
+  isAddByRssSortableSection,
+  resolveAddByRssInitialSection,
+  resolveAddByRssSections,
+} from './addByRss/addByRssDetailSections';
+import { AddByRssDownloadedSection } from './addByRss/AddByRssDownloadedSection';
+import { AddByRssEpisodesSection } from './addByRss/AddByRssEpisodesSection';
+import { AddByRssFundingSection } from './addByRss/AddByRssFundingSection';
+import { AddByRssPeopleSection } from './addByRss/AddByRssPeopleSection';
+import type { AddByRssSectionPaneProps } from './addByRss/addByRssSectionPane';
+import { AddByRssSettingsPane } from './addByRss/AddByRssSettingsPane';
+import type { AddByRssDetailStackParamList } from './addByRss/addByRssStackParams';
+import { useAddByRssFeedCheck } from './addByRss/useAddByRssFeedCheck';
 import type { AddByRssHomeDetailData } from './addByRssHomeDetailData';
-import { buildAddByRssHomeDetailData, sortAddByRssHomeEpisodes } from './addByRssHomeDetailData';
-import type { HomeFeedRowData } from './homeFeedData';
-import { HomeFeedRow } from './HomeFeedRow';
-import type { QueueActionPosition } from './useHomeRowPlayback';
-
-/** Home and Library stacks both register this screen with the same param shape. */
-type AddByRssDetailStackParamList = {
-  AddByRssCredentials: { feedIdText: string };
-  AddByRssPodcastDetail: { feedIdText: string };
-};
+import { addByRssFeedHeaderArtwork, buildAddByRssHomeDetailData } from './addByRssHomeDetailData';
 
 type AddByRssHomeDetailScreenProps = NativeStackScreenProps<
   AddByRssDetailStackParamList,
   'AddByRssPodcastDetail'
 >;
 
-const SORT_LABEL_KEYS: Record<AddByRssEpisodeSort, string> = {
-  alphabetical: 'filters.sort.a_z',
+type AddByRssDetailSort = AddByRssEpisodeSort | AddByRssTrackSort;
+
+const EPISODE_SORT_LABEL_KEYS: Record<AddByRssEpisodeSort, string> = {
+  oldest: 'filters.sort.oldest',
   recent: 'filters.sort.recent',
 };
 
-const addByRssEpisodeKeyExtractor = (row: HomeFeedRowData): string => row.id;
+const TRACK_SORT_LABEL_KEYS: Record<AddByRssTrackSort, string> = {
+  backward: 'filters.sort.backward',
+  forward: 'filters.sort.forward',
+};
 
-const noopQueuePress = (_row: HomeFeedRowData, _position: QueueActionPosition): void => undefined;
+/** One component per section. Episodes and tracks share the items list. */
+const SECTION_COMPONENTS: Record<AddByRssDetailTab, ComponentType<AddByRssSectionPaneProps>> = {
+  about: AddByRssAboutSection,
+  downloaded: AddByRssDownloadedSection,
+  episodes: AddByRssEpisodesSection,
+  funding: AddByRssFundingSection,
+  people: AddByRssPeopleSection,
+  tracks: AddByRssEpisodesSection,
+};
 
-function AddByRssEpisodeRow({
-  index,
-  onPlay,
-  row,
-}: {
-  index: number;
-  onPlay: (row: HomeFeedRowData) => void;
-  row: HomeFeedRowData;
-}) {
-  const { t } = useTranslation();
-  const handlePlay = useCallback(() => {
-    onPlay(row);
-  }, [onPlay, row]);
+const isEpisodeSort = (sort: AddByRssDetailSort): sort is AddByRssEpisodeSort =>
+  sort === 'oldest' || sort === 'recent';
 
-  const customActions = useMemo(
-    () => (
-      <MediaRowActions
-        appearance="icons"
-        durationLabel={null}
-        idSuffix={`-${row.id}`}
-        onPlayPress={handlePlay}
-        playLabel={t('media_player.play')}
-        playTestID={index === 0 ? 'add-by-rss-home-play-first' : `add-by-rss-home-play-${row.id}`}
-      />
-    ),
-    [handlePlay, index, row.id, t]
-  );
+const isTrackSort = (sort: AddByRssDetailSort): sort is AddByRssTrackSort =>
+  sort === 'backward' || sort === 'forward';
 
-  return (
-    <HomeFeedRow
-      customActions={customActions}
-      mediaType="episodes"
-      onPlayPress={handlePlay}
-      onPress={onPlay}
-      onQueuePress={noopQueuePress}
-      row={row}
-      showChannelContext={false}
-      testID={`add-by-rss-home-episode-${row.id}`}
-    />
-  );
-}
-
+/**
+ * An add-by-RSS feed, as one column at every width.
+ *
+ * The screen owns identity and controls. Each section owns its list. Podcast feeds offer
+ * Episodes, Downloaded, and About, then Funding and People when the parsed feed lists them.
+ * Music feeds offer Tracks and About, then Funding and People, and no Downloaded. Clips and
+ * Official Clips are server rows keyed to a server item id, so this screen does not offer them.
+ * Podroll resolves remote items against server channels, so it is not offered. Boosts is a
+ * web-only tab, and the podcast screen has no Boosts chip either. Chips come from the parsed
+ * bundle already on the device. Unsubscribe removes the feed from the device. The page is not
+ * shareable, and notifications need a server channel, so this screen has neither share nor a
+ * bell. Settings holds the feed check and the username and password, which stay on this device.
+ * Notifications and auto-download are keyed to a server channel, so Settings does not show them.
+ */
 export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDetailScreenProps) {
   const { t } = useTranslation();
+  const { enabled: offlineModeEnabled } = useOfflineMode();
   const { styles: themeStyles, tokens } = useTheme();
-  const scrollIndicatorInsets = useBottomChromeScrollIndicatorInsets();
+  const { boostSheet, openBoost } = useBoostSheet();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const feedIdText = route.params.feedIdText;
+  const [activeFeedId, setActiveFeedId] = useState(feedIdText);
   const [detail, setDetail] = useState<AddByRssHomeDetailData | null>(null);
-  const [sort, setSort] = useState<AddByRssEpisodeSort>(DEFAULT_ADD_BY_RSS_EPISODE_SORT);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRemoving, setIsRemoving] = useState<boolean>(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  const [noticeKey, setNoticeKey] = useState<string | null>(null);
-  const { playItem } = useAddByRssPlayback({ onNotice: setNoticeKey });
+  const [removeErrorKey, setRemoveErrorKey] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState<boolean>(false);
+  const [section, setSection] = useState<AddByRssDetailTab>('episodes');
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [sort, setSort] = useState<AddByRssDetailSort>(DEFAULT_ADD_BY_RSS_EPISODE_SORT);
+  const [isSortHydrated, setIsSortHydrated] = useState<boolean>(false);
+  const [filterTerm, setFilterTerm] = useState<string>('');
+  const [visitLastSeenAtMs, setVisitLastSeenAtMs] = useState<number | null | undefined>(undefined);
+  const loadGenerationRef = useRef(0);
+  const feedIdTextRef = useRef(feedIdText);
+  /** The feed-change effect just chose the section; the fallback must not overwrite it. */
+  const skipSectionFallbackRef = useRef(false);
+  feedIdTextRef.current = feedIdText;
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        content: {
-          padding: tokens.spacing.lg,
-          paddingBottom: tokens.spacing['2xl'],
-        },
-        header: {
-          backgroundColor: tokens.background.secondary,
-          borderColor: themeStyles.border.borderColor,
-          borderRadius: tokens.radii.md,
-          borderWidth: 1,
-          marginBottom: tokens.spacing.lg,
-          padding: tokens.spacing.lg,
-        },
-        headerImage: {
-          height: 96,
-          marginBottom: tokens.spacing.md,
-          width: 96,
-        },
-        headerTitle: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 24,
-          fontWeight: '700',
-        },
-        headerUrl: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginTop: tokens.spacing.xs,
-        },
-        notice: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginBottom: tokens.spacing.sm,
-        },
-        credentialsButton: {
-          marginTop: tokens.spacing.md,
-        },
-        removeButton: {
-          marginTop: tokens.spacing.md,
-        },
-        sectionTitle: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 20,
-          fontWeight: '700',
-          marginBottom: tokens.spacing.sm,
-        },
-      }),
-    [themeStyles, tokens]
-  );
-
-  const loadDetail = useCallback(async () => {
+  if (activeFeedId !== feedIdText) {
+    setActiveFeedId(feedIdText);
+    setDetail(null);
     setIsLoading(true);
     setErrorKey(null);
-    try {
-      const feed = await addByRssRepository.getFeedByIdText(route.params.feedIdText);
-      if (feed === null) {
-        setErrorKey('errors.generic');
-        return;
-      }
+    setRemoveErrorKey(null);
+    setSettingsOpen(false);
+    setFilterTerm('');
+    setIsSortHydrated(false);
+    setVisitLastSeenAtMs(undefined);
+  }
 
-      const mappedFeed = await addByRssRepository.getMappedFeedByUrl(feed.feedUrl);
-      const { sort: storedSort } = await readAddByRssDetailPrefs(feed.idText);
-      setSort(storedSort);
-      setDetail(
-        mappedFeed === null
-          ? { episodeRows: [], feed, mappedFeed: null }
-          : buildAddByRssHomeDetailData(feed, mappedFeed)
-      );
-      await channelSeenRepository.markSeen(feed.feedUrl, 'add-by-rss');
-    } catch {
-      setErrorKey('errors.generic');
-    } finally {
-      setIsLoading(false);
+  const screenStyle = useMemo(
+    () => ({
+      backgroundColor: themeStyles.screen.backgroundColor,
+      flex: 1,
+    }),
+    [themeStyles.screen.backgroundColor]
+  );
+
+  const loadDetail = useCallback(
+    async ({ silent }: { silent: boolean }) => {
+      const generation = ++loadGenerationRef.current;
+      if (!silent) {
+        setErrorKey(null);
+      }
+      try {
+        const feed = await addByRssRepository.getFeedByIdText(feedIdText);
+        if (generation !== loadGenerationRef.current) {
+          return;
+        }
+        if (feed === null) {
+          if (!silent) {
+            setDetail(null);
+            setErrorKey('errors.generic');
+          }
+          return;
+        }
+
+        const mappedFeed = await addByRssRepository.getMappedFeedByUrl(feed.feedUrl);
+        if (generation !== loadGenerationRef.current) {
+          return;
+        }
+        setDetail(buildAddByRssHomeDetailData(feed, mappedFeed));
+      } catch {
+        if (generation !== loadGenerationRef.current) {
+          return;
+        }
+        if (!silent) {
+          setDetail(null);
+          setErrorKey('errors.generic');
+        }
+      } finally {
+        if (!silent && generation === loadGenerationRef.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [feedIdText]
+  );
+
+  const reloadDetailSilently = useCallback(async () => {
+    // A check started on the previous feed must not load that feed over the one on screen.
+    if (feedIdTextRef.current !== feedIdText) {
+      return;
     }
-  }, [route.params.feedIdText]);
+    await loadDetail({ silent: true });
+  }, [feedIdText, loadDetail]);
+
+  const detailFeedUrl =
+    detail !== null && detail.feed.idText === feedIdText ? detail.feed.feedUrl : null;
+  const feedCheck = useAddByRssFeedCheck({
+    feedUrl: detailFeedUrl,
+    onChecked: reloadDetailSilently,
+  });
 
   useEffect(() => {
-    void loadDetail();
+    setIsLoading(true);
+    void loadDetail({ silent: false });
   }, [loadDetail]);
 
+  const loadedFeedId = detail?.feed.idText;
+  const loadedResourceType = detail?.feed.resourceType;
+
+  useEffect(() => {
+    if (
+      loadedFeedId === undefined ||
+      loadedResourceType === undefined ||
+      loadedFeedId !== feedIdText
+    ) {
+      return;
+    }
+
+    const isMusic = isAddByRssMusicFeed(loadedResourceType);
+    skipSectionFallbackRef.current = true;
+    setSection(
+      resolveAddByRssInitialSection({
+        isMusicFeed: isMusic,
+        offline: isOfflineModeEnabled(),
+      })
+    );
+    setSettingsOpen(false);
+    let cancelled = false;
+
+    void (async () => {
+      const nextSort = isMusic
+        ? await readAddByRssTrackSort(loadedFeedId)
+        : await readAddByRssEpisodeSort(loadedFeedId);
+      if (!cancelled) {
+        setSort(nextSort);
+        setIsSortHydrated(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [feedIdText, loadedFeedId, loadedResourceType]);
+
+  /**
+   * Opening the feed marks it seen. The timestamp kept for this visit is the one stored before
+   * that write, and episode rows use it to decide which items are new. Keyed on the feed URL so
+   * a reload does not stamp the channel again.
+   */
+  const seenFeedUrl =
+    detail !== null && detail.feed.idText === feedIdText ? detail.feed.feedUrl : null;
+  useEffect(() => {
+    if (seenFeedUrl === null) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const previous = await channelSeenRepository.markSeen(seenFeedUrl, 'add-by-rss');
+      if (!cancelled) {
+        setVisitLastSeenAtMs(previous);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seenFeedUrl]);
+
+  const detailForRoute = detail !== null && detail.feed.idText === feedIdText ? detail : null;
+  const isMusicFeed =
+    detailForRoute !== null && isAddByRssMusicFeed(detailForRoute.feed.resourceType);
+
+  const availableSections = useMemo(
+    () =>
+      resolveAddByRssSections({
+        hasFunding: (detailForRoute?.fundings.length ?? 0) > 0,
+        hasPeople: (detailForRoute?.people.length ?? 0) > 0,
+        isMusicFeed,
+      }),
+    [detailForRoute, isMusicFeed]
+  );
+
+  /**
+   * A selected section still has to exist on this feed. Funding or people that left the parsed
+   * bundle cannot stay selected. Falls back to the items chip.
+   */
+  useEffect(() => {
+    if (detailForRoute === null) {
+      return;
+    }
+    if (skipSectionFallbackRef.current) {
+      skipSectionFallbackRef.current = false;
+      return;
+    }
+    if (!availableSections.includes(section)) {
+      setSection(addByRssItemsTab(isMusicFeed));
+    }
+  }, [availableSections, detailForRoute, isMusicFeed, section]);
+
+  /**
+   * Turning Offline Mode on while this screen is open selects Downloaded when that chip is
+   * offered. Turning it off leaves the section alone. A tap while Offline Mode is on still
+   * changes the section.
+   */
+  useEffect(() => {
+    if (!offlineModeEnabled || isMusicFeed) {
+      return;
+    }
+    setSection('downloaded');
+  }, [feedIdText, isMusicFeed, offlineModeEnabled]);
+
+  const boostChannel = useMemo(() => {
+    if (detailForRoute === null) {
+      return null;
+    }
+    return buildAddByRssBoostChannel({
+      ...detailForRoute.feed,
+      mappedFeed: detailForRoute.mappedFeed ?? undefined,
+    });
+  }, [detailForRoute]);
+
+  const canShowBoost =
+    boostChannel !== null &&
+    getBoostEligibilityForContent({ channel: boostChannel }).canShowBoostAction;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => {
+        if (boostChannel === null || !canShowBoost) {
+          return null;
+        }
+        const channel = boostChannel;
+        return (
+          <HeaderBarActions>
+            <HeaderBarAction
+              accessibilityLabel={t('value.boost')}
+              icon="cash-outline"
+              iconColor={tokens.text.warning}
+              onPress={() => {
+                openBoost({ channel, item: null });
+              }}
+              testID="add-by-rss-home-boost"
+            />
+          </HeaderBarActions>
+        );
+      },
+    });
+  }, [boostChannel, canShowBoost, navigation, openBoost, t, tokens.text.warning]);
+
   const handleRemove = useCallback(async () => {
-    if (detail === null || isRemoving) {
+    if (detailForRoute === null || isRemoving) {
       return;
     }
 
     setIsRemoving(true);
-    setErrorKey(null);
+    setRemoveErrorKey(null);
     try {
       await subscriptionsRepository.unsubscribe({
         accountSync:
           status === 'authenticated'
             ? { accessToken, clearSession, refreshToken, setTokens }
             : undefined,
-        idText: detail.feed.feedUrl,
+        idText: detailForRoute.feed.feedUrl,
         source: 'addByRss',
       });
       homeFeedRefresh.notify();
       navigation.goBack();
     } catch {
-      setErrorKey('errors.generic');
+      setRemoveErrorKey('errors.generic');
     } finally {
       setIsRemoving(false);
     }
-  }, [accessToken, clearSession, detail, isRemoving, navigation, refreshToken, setTokens, status]);
-
-  const handlePlay = useCallback(
-    (row: HomeFeedRowData) => {
-      if (detail === null || detail.mappedFeed === null) {
-        setNoticeKey('features.add_by_rss.status_processing');
-        return;
-      }
-
-      const episode = detail.episodeRows.find((candidate) => candidate.id === row.id);
-      if (episode === undefined) {
-        setNoticeKey('features.add_by_rss.status_processing');
-        return;
-      }
-
-      void playItem(detail.feed, detail.mappedFeed, episode.itemBundle, episode.itemIndex);
-    },
-    [detail, playItem]
-  );
-
-  const sortedEpisodes = useMemo(() => {
-    if (detail === null) {
-      return [];
-    }
-    return sortAddByRssHomeEpisodes(detail.episodeRows, sort);
-  }, [detail, sort]);
-
-  const sortOptions = useMemo(
-    () =>
-      ADD_BY_RSS_EPISODE_SORT_OPTIONS.map((option) => ({
-        label: t(SORT_LABEL_KEYS[option]),
-        testID: `add-by-rss-home-sort-${option}`,
-        value: option,
-      })),
-    [t]
-  );
-
-  const headerArtwork = useMemo(() => {
-    if (detail === null) {
-      return { listUrl: null, viewerUrl: null };
-    }
-
-    const listUrl =
-      addByRSSFeedListArtworkCandidates({
-        channelImages: detail.mappedFeed?.channel.images,
-        comparison: 'lesser',
-        feedImageUrl: detail.feed.imageUrl,
-        sizeFindTarget: ARTWORK_LIST_SIZE_FIND_TARGET,
-      })[0] ?? null;
-
-    return {
-      listUrl,
-      viewerUrl: primaryChannelLightboxArtworkUrl(detail.mappedFeed?.channel.images) ?? listUrl,
-    };
-  }, [detail]);
-
-  const headerArtworkHeaders = useAddByRssArtworkHeaders(
-    detail?.feed.feedUrl ?? null,
-    headerArtwork.listUrl
-  );
+  }, [
+    accessToken,
+    clearSession,
+    detailForRoute,
+    isRemoving,
+    navigation,
+    refreshToken,
+    setTokens,
+    status,
+  ]);
 
   const handleRemovePress = useCallback(() => {
     void handleRemove();
   }, [handleRemove]);
 
   const handleRetryDetail = useCallback(() => {
-    void loadDetail();
+    setIsLoading(true);
+    void loadDetail({ silent: false });
   }, [loadDetail]);
 
+  const handleSectionSelect = useCallback((next: AddByRssDetailTab) => {
+    setSettingsOpen(false);
+    setSection(next);
+  }, []);
+
+  const handleSettingsPress = useCallback(() => {
+    setSettingsOpen((open) => !open);
+  }, []);
+
   const handleSortSelect = useCallback(
-    (nextSort: AddByRssEpisodeSort) => {
-      setSort(nextSort);
-      if (detail !== null) {
-        void writeAddByRssDetailSort(detail.feed.idText, nextSort);
+    (next: AddByRssDetailSort) => {
+      setSort(next);
+      if (detailForRoute !== null) {
+        void writeAddByRssDetailSort(detailForRoute.feed.idText, next);
       }
     },
-    [detail]
+    [detailForRoute]
   );
 
-  const handleCredentialsPress = useCallback(() => {
-    if (detail === null) {
-      return;
-    }
-    navigation.navigate('AddByRssCredentials', { feedIdText: detail.feed.idText });
-  }, [detail, navigation]);
-
-  const episodeCount = sortedEpisodes.length;
-  const isMusicFeed =
-    detail !== null &&
-    (detail.feed.resourceType === 'artists' ||
-      detail.feed.resourceType === 'albums' ||
-      detail.feed.resourceType === 'tracks');
-  const itemsSectionTitle = isMusicFeed ? t('media.music.tracks') : t('media.podcast.episodes');
-
-  const listHeader = useMemo(
+  const sectionChips = useMemo<SectionChipItem<AddByRssDetailTab>[]>(
     () =>
-      detail === null ? null : (
-        <View style={styles.header}>
-          <CoverImage
-            accessibilityLabel={
-              detail.mappedFeed?.channel.channel.title ??
-              detail.feed.title ??
-              t('features.add_by_rss.label')
-            }
-            addByRssFeedUrl={detail.feed.feedUrl}
-            headers={headerArtworkHeaders}
-            style={styles.headerImage}
-            uri={headerArtwork.listUrl}
-            viewerUri={headerArtwork.viewerUrl}
+      availableSections.map((available) => ({
+        key: available,
+        label: t(ADD_BY_RSS_SECTION_LABEL_KEYS[available]),
+        testID: `add-by-rss-home-section-${available}`,
+      })),
+    [availableSections, t]
+  );
+
+  const episodeSortOptions = useMemo<MenuSelectChipOption<AddByRssEpisodeSort>[]>(
+    () =>
+      ADD_BY_RSS_EPISODE_SORT_OPTIONS.map((option) => ({
+        label: t(EPISODE_SORT_LABEL_KEYS[option]),
+        value: option,
+      })),
+    [t]
+  );
+
+  const trackSortOptions = useMemo<MenuSelectChipOption<AddByRssTrackSort>[]>(
+    () =>
+      ADD_BY_RSS_TRACK_SORT_OPTIONS.map((option) => ({
+        label: t(TRACK_SORT_LABEL_KEYS[option]),
+        value: option,
+      })),
+    [t]
+  );
+
+  const headerArtwork = useMemo(
+    () =>
+      detailForRoute === null
+        ? { listUrl: null, viewerUrl: null }
+        : addByRssFeedHeaderArtwork(detailForRoute.feed, detailForRoute.mappedFeed),
+    [detailForRoute]
+  );
+
+  const headerArtworkHeaders = useAddByRssArtworkHeaders(
+    detailForRoute?.feed.feedUrl ?? null,
+    headerArtwork.listUrl
+  );
+
+  if (detailForRoute === null) {
+    return (
+      <View style={screenStyle} testID="add-by-rss-home-detail-screen">
+        {errorKey !== null && !isLoading ? (
+          <ListError
+            messageKey={errorKey}
+            onRetry={handleRetryDetail}
+            testID="add-by-rss-home-error"
           />
-          <Text style={styles.headerTitle}>
-            {detail.mappedFeed?.channel.channel.title ?? detail.feed.title ?? detail.feed.feedUrl}
-          </Text>
-          <Text style={styles.headerUrl}>{detail.feed.feedUrl}</Text>
-          <Text style={styles.headerUrl}>
-            {t('misc.items')}: {episodeCount}
-          </Text>
-          <View style={styles.credentialsButton}>
-            <SettingsOptionNavRow
-              description={t('features.add_by_rss.credentials_page_device_note')}
-              onPress={handleCredentialsPress}
-              testID="add-by-rss-home-credentials"
-              title={t('features.add_by_rss.credentials_page_title')}
-              valueLabel={t('features.add_by_rss.needs_credentials_missing')}
-            />
-          </View>
-          <View style={styles.removeButton}>
-            <Button
-              disabled={isRemoving}
-              label={t('features.unsubscribe')}
-              loading={isRemoving}
-              onPress={handleRemovePress}
-              testID="add-by-rss-home-remove"
-              variant="secondary"
-            />
-          </View>
-        </View>
-      ),
-    [
-      detail,
-      episodeCount,
-      handleCredentialsPress,
-      handleRemovePress,
-      headerArtwork.listUrl,
-      headerArtwork.viewerUrl,
-      headerArtworkHeaders,
-      isRemoving,
-      styles.credentialsButton,
-      styles.header,
-      styles.headerImage,
-      styles.headerTitle,
-      styles.headerUrl,
-      styles.removeButton,
-      t,
-    ]
-  );
+        ) : (
+          <LoadingSection testID="add-by-rss-home-loading" />
+        )}
+      </View>
+    );
+  }
 
-  const listEmpty = useMemo(
-    () =>
-      !isLoading && errorKey === null ? (
-        <ListEmpty
-          messageKey="features.add_by_rss.status_processing"
-          testID="add-by-rss-home-empty"
+  const headerTitle =
+    detailForRoute.mappedFeed?.channel.channel.title ??
+    detailForRoute.feed.title ??
+    detailForRoute.feed.feedUrl;
+
+  const channelHeader = (
+    <ChannelHeader
+      actions={
+        <Button
+          label={t('features.unsubscribe')}
+          loading={isRemoving}
+          onPress={handleRemovePress}
+          size="sm"
+          testID="add-by-rss-home-remove"
+          variant="outline"
         />
-      ) : undefined,
-    [errorKey, isLoading]
+      }
+      artworkAddByRssFeedUrl={detailForRoute.feed.feedUrl}
+      artworkHeaders={headerArtworkHeaders}
+      artworkUri={headerArtwork.listUrl}
+      notice={removeErrorKey === null ? null : t(removeErrorKey)}
+      settings={{
+        accessibilityLabel: t('settings.settings'),
+        onPress: handleSettingsPress,
+        selected: settingsOpen,
+        testID: 'add-by-rss-home-header-settings',
+      }}
+      testID="add-by-rss-home-header"
+      title={headerTitle}
+      viewerUri={headerArtwork.viewerUrl}
+    />
   );
 
-  const listFooter = useMemo(
-    () =>
-      noticeKey !== null || errorKey !== null ? (
-        <View>
-          {noticeKey !== null ? (
-            <Text style={styles.notice} testID="add-by-rss-home-notice">
-              {t(noticeKey)}
-            </Text>
-          ) : null}
-          {errorKey !== null ? (
-            <ListError
-              messageKey={errorKey}
-              onRetry={handleRetryDetail}
-              testID="add-by-rss-home-error"
-            />
-          ) : null}
-        </View>
-      ) : null,
-    [errorKey, handleRetryDetail, noticeKey, styles.notice, t]
+  const listHeader = isAddByRssFilterableSection(section) ? (
+    <ListFilterField
+      clearLabel={t('filters.list.clear')}
+      label={t('filters.list.title_label')}
+      onChangeTerm={setFilterTerm}
+      placeholder={t('filters.list.placeholder')}
+      term={filterTerm}
+      testID="add-by-rss-home-filter"
+    />
+  ) : null;
+
+  const SectionPane = SECTION_COMPONENTS[section];
+  const sectionBody = settingsOpen ? (
+    <AddByRssSettingsPane
+      detail={detailForRoute}
+      feedCheck={feedCheck}
+      onCredentialsSaved={() => {
+        void loadDetail({ silent: true });
+      }}
+    />
+  ) : (
+    <SectionPane
+      detail={detailForRoute}
+      filterTerm={filterTerm}
+      isMusicFeed={isMusicFeed}
+      listHeader={listHeader}
+      onRefresh={() => feedCheck.checkFeed('pull')}
+      refreshNoticeKey={feedCheck.noticeKey}
+      sort={sort}
+      visitLastSeenAtMs={visitLastSeenAtMs}
+    />
   );
 
-  const listHeaderComponent = useMemo(
-    () => (
-      <>
-        {isLoading ? <ListLoading testID="add-by-rss-home-loading" /> : null}
-        {listHeader}
-        {detail !== null && errorKey === null ? (
-          <>
-            <Text style={styles.sectionTitle}>{itemsSectionTitle}</Text>
-            <SortSelectRow
-              heading={t('filters.screen.sort_heading')}
-              onSelect={handleSortSelect}
-              options={sortOptions}
-              testID="add-by-rss-home-sort"
-              value={sort}
-            />
-          </>
-        ) : null}
-      </>
-    ),
-    [
-      detail,
-      errorKey,
-      handleSortSelect,
-      isLoading,
-      itemsSectionTitle,
-      listHeader,
-      sort,
-      sortOptions,
-      styles.sectionTitle,
-      t,
-    ]
-  );
-
-  const renderItem = useCallback(
-    ({ index, item: row }: { index: number; item: HomeFeedRowData }) => (
-      <AddByRssEpisodeRow index={index} onPlay={handlePlay} row={row} />
-    ),
-    [handlePlay]
-  );
+  const episodeSortValue = isEpisodeSort(sort) ? sort : DEFAULT_ADD_BY_RSS_EPISODE_SORT;
+  const trackSortValue = isTrackSort(sort) ? sort : DEFAULT_ADD_BY_RSS_TRACK_SORT;
+  const chipTrailing =
+    settingsOpen || !isAddByRssSortableSection(section) ? undefined : isMusicFeed ? (
+      <MenuSelectChip
+        heading={t('filters.screen.sort_heading')}
+        onSelect={handleSortSelect}
+        options={trackSortOptions}
+        testID="add-by-rss-home-sort"
+        value={trackSortValue}
+      />
+    ) : (
+      <MenuSelectChip
+        heading={t('filters.screen.sort_heading')}
+        onSelect={handleSortSelect}
+        options={episodeSortOptions}
+        testID="add-by-rss-home-sort"
+        value={episodeSortValue}
+      />
+    );
 
   return (
-    <FlatList
-      ListEmptyComponent={listEmpty}
-      ListFooterComponent={
-        <>
-          {listFooter}
-          <BottomChromeScrollSpacer />
-        </>
-      }
-      ListHeaderComponent={listHeaderComponent}
-      scrollIndicatorInsets={scrollIndicatorInsets}
-      contentContainerStyle={styles.content}
-      data={errorKey === null && !isLoading ? sortedEpisodes : []}
-      keyExtractor={addByRssEpisodeKeyExtractor}
-      removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
-      renderItem={renderItem}
-      testID="add-by-rss-home-detail-screen"
-    />
+    <>
+      <ChannelDetailShell
+        channelHeader={channelHeader}
+        chipTrailing={chipTrailing}
+        isSectionHydrated={isSortHydrated}
+        loadingTestID="add-by-rss-home-section-loading"
+        onSelectSection={handleSectionSelect}
+        sectionBody={sectionBody}
+        sectionChips={sectionChips}
+        sectionsTestID="add-by-rss-home-sections"
+        selectedSection={settingsOpen ? null : section}
+        testID="add-by-rss-home-detail-screen"
+      />
+      {boostSheet}
+    </>
   );
 }

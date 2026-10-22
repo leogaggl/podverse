@@ -26,6 +26,7 @@ export type ProfilesPageQueryParams = {
 };
 
 interface ProfilesPageContextType {
+  listScope: 'page' | 'browse';
   filterParams: ProfilesPageQueryParams;
   setFilterParams: (params: ProfilesPageQueryParams) => void;
   accounts: DTOAccount[];
@@ -43,6 +44,7 @@ const ProfilesPageContext = createContext<ProfilesPageContextType | undefined>(u
 interface ProfilesPageContextProviderProps {
   children: ReactNode;
   initialQueryParams: ProfilesPageQueryParams;
+  listScope: 'page' | 'browse';
   ssrAccounts: DTOAccount[];
   ssrTotalPages: number;
 }
@@ -50,6 +52,7 @@ interface ProfilesPageContextProviderProps {
 export const ProfilesPageContextProvider = ({
   children,
   initialQueryParams,
+  listScope,
   ssrAccounts,
   ssrTotalPages,
 }: ProfilesPageContextProviderProps) => {
@@ -63,7 +66,7 @@ export const ProfilesPageContextProvider = ({
     setTotalPages,
     shouldSkipFetch,
   } = useListPageCache<ProfilesPageQueryParams, DTOAccount[]>({
-    routeKey: 'profiles',
+    routeKey: listScope === 'browse' ? 'browse-users' : 'profiles',
     initialParams: initialQueryParams,
     ssrData: ssrAccounts ?? [],
     ssrTotalPages,
@@ -74,7 +77,7 @@ export const ProfilesPageContextProvider = ({
   const { loggedInAccount } = useAccount();
   const apiRequestService = getApiRequestService();
 
-  useFilterDefaults('profiles', filterParams);
+  useFilterDefaults(listScope === 'browse' ? 'browse-users' : 'profiles', filterParams);
 
   useSkipInitialEffect(() => {
     // Skip fetch if we just restored from cache - data is already correct
@@ -128,6 +131,7 @@ export const ProfilesPageContextProvider = ({
   return (
     <ProfilesPageContext.Provider
       value={{
+        listScope,
         filterParams,
         setFilterParams,
         accounts,

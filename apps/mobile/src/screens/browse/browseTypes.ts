@@ -10,6 +10,7 @@ export const HOME_MEDIA_TYPE_ORDER: HomeMediaType[] = [
   'artists',
   'albums',
   'tracks',
+  'livestreams',
 ];
 
 export const BROWSE_MEDIA_TYPE_ORDER = [
@@ -19,6 +20,7 @@ export const BROWSE_MEDIA_TYPE_ORDER = [
   'artists',
   'albums',
   'tracks',
+  'livestreams',
   'playlists',
   'users',
 ] as const;
@@ -32,6 +34,7 @@ export const MEDIA_TYPE_LABEL_KEYS: Record<BrowseMediaType, string> = {
   artists: 'media.music.artists',
   clips: 'features.clip.clips',
   episodes: 'media.podcast.episodes',
+  livestreams: 'media.livestream.livestreams',
   playlists: 'features.playlist.playlists',
   podcasts: 'media.podcast.podcasts',
   tracks: 'media.music.tracks',
@@ -49,9 +52,9 @@ export const isBrowseCategoryMediaType = (mediaType: BrowseMediaType): boolean =
   return BROWSE_CATEGORY_MEDIA_TYPES.includes(mediaType);
 };
 
-/** Every Browse directory list is popularity-ranked, so the range chip applies. */
-export const isBrowseSortableMediaType = (_mediaType: BrowseMediaType): boolean => {
-  return true;
+/** Every Browse directory list except Livestreams is popularity-ranked, so the range chip applies. */
+export const isBrowseSortableMediaType = (mediaType: BrowseMediaType): boolean => {
+  return mediaType !== 'livestreams';
 };
 
 /** The category picker is not a ranked list, so the range chip stays off while it is open. */
@@ -89,7 +92,12 @@ export const BROWSE_RANGE_MENU_LABEL_KEYS: Record<BrowseRangeOption, string> = {
 };
 
 export const isPlayableDirectoryMediaType = (mediaType: DirectoryMediaType): boolean => {
-  return mediaType === 'episodes' || mediaType === 'clips' || mediaType === 'tracks';
+  return (
+    mediaType === 'episodes' ||
+    mediaType === 'clips' ||
+    mediaType === 'tracks' ||
+    mediaType === 'livestreams'
+  );
 };
 
 export const isBrowseMediaType = (value: string): value is BrowseMediaType => {

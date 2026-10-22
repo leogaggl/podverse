@@ -6,15 +6,8 @@ import { buildStaticPageMetadata } from './buildStaticPageMetadata';
 
 const CURATED_PAGE_PATHS = {
   home: '/',
-  podcasts: '/podcasts',
-  episodes: '/episodes',
-  artists: '/artists',
-  albums: '/albums',
-  tracks: '/tracks',
-  podcastsLivestreams: '/podcasts/livestreams',
-  musicLivestreams: '/music/livestreams',
+  browse: '/browse',
   playlists: '/playlists',
-  clips: '/clips',
   videos: '/videos',
   profiles: '/profiles',
   faq: '/faq',

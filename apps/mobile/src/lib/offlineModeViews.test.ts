@@ -5,6 +5,7 @@ import {
   isHomeChannelListOfflineCompatible,
   isHomeClipsUnavailableOffline,
   isHomeDownloadedItemsOnly,
+  isHomeLivestreamsUnavailableOffline,
   isPodcastSectionUnavailableOffline,
   resolvePodcastSectionForOfflineMode,
 } from './offlineModeViews';
@@ -26,6 +27,11 @@ describe('offlineModeViews', () => {
   it('marks home clips as unavailable offline', () => {
     expect(isHomeClipsUnavailableOffline('clips')).toBe(true);
     expect(isHomeClipsUnavailableOffline('episodes')).toBe(false);
+  });
+
+  it('marks home livestreams as unavailable offline', () => {
+    expect(isHomeLivestreamsUnavailableOffline('livestreams')).toBe(true);
+    expect(isHomeLivestreamsUnavailableOffline('clips')).toBe(false);
   });
 
   it('defaults podcast detail to Downloaded, overriding remembered About or Episodes', () => {

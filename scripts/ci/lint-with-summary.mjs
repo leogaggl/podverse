@@ -4,6 +4,12 @@
  * summary of errors/warnings at the end. When Prettier fails, prints a unified
  * diff for each failed file so you can see what would change.
  *
+ * Before type-check, every package named by `build:packages` is checked for a
+ * build at least as new as its source. When any package build is older than its
+ * source, both type-check steps are skipped, the packages are named, and the
+ * run asks for `npm run build:packages`. ESLint and Prettier still run, and the
+ * run exits 1.
+ *
  * i18n:compile runs first because apps/web and apps/management-web type-check
  * import generated apps/<app>/i18n/compiled/*.json (gitignored).
  *
@@ -20,6 +26,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
+import { findStalePackageBuilds } from './package-build-freshness.mjs';
 
 /** Non-workspace paths covered by root eslint.config.mjs (not workspace lint scripts). */
 const REPO_SCRIPT_LINT_PATHS = ['tools/web', 'tools/management-web', 'scripts'];
@@ -55,8 +63,18 @@ const steps = [
   // Generated catalogs are gitignored; web/management-web type-check imports
   // apps/<app>/i18n/compiled/*.json, so compile before tsc (local + CI).
   { name: 'i18n:compile', cmd: 'npm', args: ['run', 'i18n:compile'] },
-  { name: 'type-check', cmd: 'node', args: runWorkspacesArgs('type-check') },
-  { name: 'type-check:mobile', cmd: 'npm', args: ['run', 'type-check:mobile'] },
+  {
+    name: 'type-check',
+    cmd: 'node',
+    args: runWorkspacesArgs('type-check'),
+    skipWhenPackagesStale: true,
+  },
+  {
+    name: 'type-check:mobile',
+    cmd: 'npm',
+    args: ['run', 'type-check:mobile'],
+    skipWhenPackagesStale: true,
+  },
   { name: 'lint', cmd: 'node', args: runWorkspacesArgs(mode) },
   { name: 'lint:mobile', cmd: 'npx', args: eslintPathArgs(MOBILE_LINT_PATHS) },
   { name: 'lint:repo-scripts', cmd: 'npx', args: eslintPathArgs(REPO_SCRIPT_LINT_PATHS) },
@@ -165,19 +183,63 @@ function summarize(output) {
   return summary;
 }
 
+/** Output before run-workspaces.mjs reprints failed workspaces' tails, so nothing counts twice. */
+const withoutWorkspaceSummaryTail = (output) => {
+  const index = output.search(/^=== .+ summary ===$/m);
+  return index === -1 ? output : output.slice(0, index);
+};
+
+const packageBuildReport = findStalePackageBuilds({ repoRoot: process.cwd() });
+const packagesStale = packageBuildReport.warning === null && packageBuildReport.stale.length > 0;
+
+if (packageBuildReport.warning !== null) {
+  console.log(packageBuildReport.warning);
+} else if (packagesStale) {
+  console.log('--- Package builds are out of date ---');
+  console.log("Type-check reads each package's dist/. These builds are older than their source:");
+  for (const pkg of packageBuildReport.stale) {
+    console.log(`  - ${pkg.dir} (${pkg.name}): ${pkg.reason}`);
+  }
+  console.log('Run `npm run build:packages`, then lint again. Type-check is skipped this run.');
+}
+
 const results = [];
 for (const step of steps) {
+  if (packagesStale && step.skipWhenPackagesStale === true) {
+    results.push({ step: step.name, code: null, skipped: true, output: '' });
+    continue;
+  }
   const result = await runStep(step);
   results.push(result);
 }
 
 const resultByName = (name) => results.find((r) => r.step === name);
 
-const allOutput = results.map((r) => r.output).join('');
+const allOutput = results.map((r) => withoutWorkspaceSummaryTail(r.output)).join('');
 const summary = summarize(allOutput);
 const i18nCompileFailed = resultByName('i18n:compile')?.code !== 0;
+const typeCheckStepFailed = (name) => {
+  const result = resultByName(name);
+  return result?.skipped === true || result?.code !== 0;
+};
 const typeCheckFailed =
-  resultByName('type-check')?.code !== 0 || resultByName('type-check:mobile')?.code !== 0;
+  typeCheckStepFailed('type-check') || typeCheckStepFailed('type-check:mobile');
+const typeCheckSkipped =
+  resultByName('type-check')?.skipped === true ||
+  resultByName('type-check:mobile')?.skipped === true;
+let typeCheckStatus = 'passed';
+if (typeCheckSkipped) {
+  typeCheckStatus = 'skipped';
+} else if (typeCheckFailed) {
+  typeCheckStatus = 'failed';
+}
+let packagesStatus = 'up to date';
+if (packageBuildReport.warning !== null) {
+  packagesStatus = 'not checked (tsc --build --dry failed)';
+} else if (packageBuildReport.stale.length > 0) {
+  const dirs = packageBuildReport.stale.map((pkg) => pkg.dir).join(', ');
+  packagesStatus = `out of date (${dirs}) — run npm run build:packages`;
+}
 const workspaceLintFailed = resultByName('lint')?.code !== 0;
 const mobileLintFailed = resultByName('lint:mobile')?.code !== 0;
 const repoScriptsLintFailed = resultByName('lint:repo-scripts')?.code !== 0;
@@ -186,8 +248,9 @@ const lintFailed = workspaceLintFailed || mobileLintFailed || repoScriptsLintFai
 
 console.log('\n--- Lint summary ---');
 console.log(`i18n:compile: ${i18nCompileFailed ? 'failed' : 'passed'}`);
+console.log(`Packages:   ${packagesStatus}`);
 console.log(
-  `Type-check: ${typeCheckFailed ? 'failed' : 'passed'}${summary.tsErrors ? ` (${summary.tsErrors} TS error(s))` : ''}`
+  `Type-check: ${typeCheckStatus}${summary.tsErrors ? ` (${summary.tsErrors} TS error(s))` : ''}`
 );
 console.log(
   `Lint:      ${lintFailed ? 'failed' : 'passed'}${summary.eslintErrors || summary.eslintWarnings ? ` (${summary.eslintErrors} error(s), ${summary.eslintWarnings} warning(s))` : ''}`

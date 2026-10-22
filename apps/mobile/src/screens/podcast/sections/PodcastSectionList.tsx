@@ -26,7 +26,10 @@ export type PodcastSectionListProps<TRow> = {
   keyExtractor: (row: TRow) => string;
   /** Title filter (and any other scrolling chrome). Pull-to-refresh sits above this. */
   listHeader: ReactNode;
-  /** A passing remark under the list, already keyed for translation. */
+  /**
+   * A passing remark under the list. A catalog key is translated. A sentence (no catalog key
+   * contains a space) is already translated, which is how a rate-limit line arrives.
+   */
   noticeKey?: string | null;
   onLoadMore?: () => void;
   onRefresh?: () => void;
@@ -164,7 +167,9 @@ export function PodcastSectionList<TRow>({
             <ListError messageKey={errorKey} onRetry={onRetry} testID={`${prefix}-error`} />
           ) : null}
           {isSettled && noticeKey !== null && noticeKey !== undefined ? (
-            <Text style={styles.statusNotice}>{t(noticeKey)}</Text>
+            <Text style={styles.statusNotice}>
+              {noticeKey.includes(' ') ? noticeKey : t(noticeKey)}
+            </Text>
           ) : null}
         </>
       }

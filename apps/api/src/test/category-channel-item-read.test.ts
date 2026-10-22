@@ -56,6 +56,7 @@ const {
   itemGetManyForQueueByPubDateMock,
   itemGetManyForQueueBySeasonMock,
   itemGetManyByChannelWithLiveItemMock,
+  itemGetManyUpcomingLiveItemsMock,
   statsItGetManyMock,
   statsItGetManyByChannelsAndCountMock,
   statsItCountRankedMock,
@@ -120,6 +121,7 @@ const {
     [{ id: 15, id_text: 'q-pd' }] as Record<string, unknown>[];
   const defaultItemGetManyForQueueBySeason = async () =>
     [{ id: 16, id_text: 'q-se' }] as Record<string, unknown>[];
+  const defaultItemGetManyUpcomingLiveItems = async () => [] as Record<string, unknown>[];
   const defaultItemGetManyByChannelWithLiveItem = async () =>
     [
       {
@@ -238,6 +240,7 @@ const {
     itemGetManyForQueueByPubDateMock: vi.fn(defaultItemGetManyForQueueByPubDate),
     itemGetManyForQueueBySeasonMock: vi.fn(defaultItemGetManyForQueueBySeason),
     itemGetManyByChannelWithLiveItemMock: vi.fn(defaultItemGetManyByChannelWithLiveItem),
+    itemGetManyUpcomingLiveItemsMock: vi.fn(defaultItemGetManyUpcomingLiveItems),
     statsItGetManyMock: vi.fn(defaultStatsItGetMany),
     statsItGetManyByChannelsAndCountMock: vi.fn(defaultStatsItGetManyByChannelsAndCount),
     statsItCountRankedMock: vi.fn(defaultStatsItCountRanked),
@@ -268,6 +271,7 @@ const {
       itemGetManyForQueueByPubDate: defaultItemGetManyForQueueByPubDate,
       itemGetManyForQueueBySeason: defaultItemGetManyForQueueBySeason,
       itemGetManyByChannelWithLiveItem: defaultItemGetManyByChannelWithLiveItem,
+      itemGetManyUpcomingLiveItems: defaultItemGetManyUpcomingLiveItems,
       statsItGetMany: defaultStatsItGetMany,
       statsItGetManyByChannelsAndCount: defaultStatsItGetManyByChannelsAndCount,
       statsItCountRanked: defaultStatsItCountRanked,
@@ -325,6 +329,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getManyForQueueByPubDate = itemGetManyForQueueByPubDateMock;
     getManyForQueueBySeason = itemGetManyForQueueBySeasonMock;
     getManyByChannelWithLiveItem = itemGetManyByChannelWithLiveItemMock;
+    getManyUpcomingLiveItems = itemGetManyUpcomingLiveItemsMock;
   }
 
   class MockStatsAggregatedItemService {
@@ -527,6 +532,8 @@ describe('category, channel, item, chapters, soundbites, transcripts, live, podr
     itemGetManyByChannelWithLiveItemMock.mockImplementation(
       defaultImpls.itemGetManyByChannelWithLiveItem
     );
+    itemGetManyUpcomingLiveItemsMock.mockReset();
+    itemGetManyUpcomingLiveItemsMock.mockImplementation(defaultImpls.itemGetManyUpcomingLiveItems);
     statsItGetManyMock.mockReset();
     statsItGetManyMock.mockImplementation(defaultImpls.statsItGetMany);
     statsItGetManyByChannelsAndCountMock.mockReset();
@@ -955,6 +962,37 @@ describe('category, channel, item, chapters, soundbites, transcripts, live, podr
       expect(ids).not.toContain(303);
     });
 
+    it('GET /live-item/channel/:id orders live, then scheduled, then ended', async () => {
+      const hourMs = 60 * 60 * 1000;
+      itemGetManyByChannelWithLiveItemMock.mockResolvedValueOnce([
+        buildLiveItemMock(412, LiveItemStatusEnum.Live, {
+          startAgoMs: 3 * hourMs,
+          endAgoMs: null,
+        }),
+        buildLiveItemMock(415, LiveItemStatusEnum.Ended, {
+          startAgoMs: 2 * hourMs,
+          endAgoMs: 5 * hourMs,
+        }),
+        buildLiveItemMock(413, LiveItemStatusEnum.Pending, {
+          startAgoMs: 2 * hourMs,
+          endAgoMs: null,
+        }),
+        buildLiveItemMock(411, LiveItemStatusEnum.Live, {
+          startAgoMs: hourMs,
+          endAgoMs: null,
+        }),
+        buildLiveItemMock(414, LiveItemStatusEnum.Ended, {
+          startAgoMs: 10 * hourMs,
+          endAgoMs: hourMs,
+        }),
+      ]);
+
+      const res = await request(app).get(`${liveItemBase}/channel/ch-1`);
+      expect(res.status).toBe(200);
+      const ids: number[] = res.body.map((entry: { id: number }) => entry.id);
+      expect(ids).toEqual([411, 412, 413, 414, 415]);
+    });
+
     it('GET /item/:idOrIdText still returns a stale ended live item (direct link)', async () => {
       itemGetByIdOrIdTextMock.mockResolvedValueOnce({
         id: 999,
@@ -991,6 +1029,54 @@ describe('category, channel, item, chapters, soundbites, transcripts, live, podr
     it('GET /live-item/subscribed/recent returns 401 without auth', async () => {
       const res = await request(app).get(`${liveItemBase}/subscribed/recent?${liveQ('live')}`);
       expect(res.status).toBe(401);
+    });
+
+    it('GET /live-item/global/upcoming returns the mock items in the mock order', async () => {
+      const items = [
+        buildLiveItemMock(501, LiveItemStatusEnum.Pending, {
+          startAgoMs: -3_600_000,
+          endAgoMs: null,
+        }),
+        buildLiveItemMock(502, LiveItemStatusEnum.Live, {
+          startAgoMs: 3_600_000,
+          endAgoMs: null,
+        }),
+      ];
+      itemGetManyUpcomingLiveItemsMock.mockResolvedValueOnce(items);
+
+      const res = await request(app).get(`${liveItemBase}/global/upcoming?medium=all&page=1`);
+      expect(res.status).toBe(200);
+      const ids: number[] = res.body.data.map((entry: { id: number }) => entry.id);
+      expect(ids).toEqual([501, 502]);
+      expect(itemGetManyUpcomingLiveItemsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0 }),
+        { channelIds: null, mediumType: 'all' }
+      );
+    });
+
+    it('GET /live-item/global/upcoming without medium returns 400', async () => {
+      const res = await request(app).get(`${liveItemBase}/global/upcoming?page=1`);
+      expect(res.status).toBe(400);
+    });
+
+    it('GET /live-item/subscribed/upcoming returns 401 when signed out', async () => {
+      const res = await request(app).get(`${liveItemBase}/subscribed/upcoming?medium=all&page=1`);
+      expect(res.status).toBe(401);
+    });
+
+    it('GET /live-item/subscribed/upcoming returns 200 when signed in', async () => {
+      getAccountMock.mockResolvedValueOnce({
+        id: TEST_USER_ID,
+        id_text: TEST_USER_ACCOUNT_ID_TEXT,
+        account_credentials: { email: TEST_EMAIL },
+        account_membership_status: {
+          membership_expires_at: new Date(Date.now() + 86400000 * 365),
+        },
+      });
+      const res = await request(app)
+        .get(`${liveItemBase}/subscribed/upcoming?medium=all&page=1`)
+        .set(auth());
+      expect(res.status).toBe(200);
     });
   });
 

@@ -139,7 +139,10 @@ import {
   resolveSelectedItemEnclosureMediaType,
   resolveSessionEnclosureSelectedParams,
 } from '../lib/playback/resolveEnclosureUrl';
-import { resolvePlaybackUrl } from '../lib/playback/resolvePlaybackUrl';
+import {
+  resolveLocalDownloadPlaybackUrl,
+  resolvePlaybackUrl,
+} from '../lib/playback/resolvePlaybackUrl';
 import { shouldPostSeekEventNow } from '../lib/playback/seekEventCoalescing';
 import { isSeekHoldSampleLanded, SEEK_HOLD_MAX_MS } from '../lib/playback/seekPositionHold';
 import { isEffectivelyOffline, subscribeConnectivity } from '../net/connectivity';
@@ -160,6 +163,7 @@ import {
   subscribePlaybackReconcileConflicts,
 } from '../sync/playbackReconcileConflict';
 import { addByRssCredentialsStateForUrl, withAddByRssPlaybackAuth } from './addByRssMediaAuth';
+import { resolveNowPlayingAddByRssChapters } from './nowPlayingAddByRssSections';
 import { buildPlaybackErrorLog, playbackErrorLogSignature } from './playbackErrorLog';
 import {
   nowPlayingResourceFromTarget,
@@ -456,7 +460,7 @@ export type PlaybackContextValue = {
   playChapter: (chapter: DTOItemChapter, item: DTOItem, channel: DTOChannel) => Promise<void>;
   playAddByRssResourceData: (
     resourceData: AddByRSSResourceData,
-    options?: { explicitPlaybackSeconds?: number }
+    options?: { explicitPlaybackSeconds?: number; localDownloadItemIdText?: string }
   ) => Promise<void>;
   playItemById: (idText: string) => Promise<void>;
   playClipById: (idText: string) => Promise<void>;
@@ -1758,6 +1762,10 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     [playClipByIdWithDirective, playItemByIdWithIntent]
   );
 
+  /**
+   * A finished download plays from the device when the caller names it, and with Offline Mode on
+   * there is no remote fallback.
+   */
   const startAddByRssPlayback = useCallback(
     async (
       resourceData: AddByRSSResourceData,
@@ -1765,9 +1773,15 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         autoPlayOverride?: boolean;
         autoQueue: AutoQueueDirective;
         explicitPlaybackSeconds?: number;
+        localDownloadItemIdText?: string;
       }
     ): Promise<void> => {
-      const url = resolveAddByRssPlaybackUrl(resourceData);
+      const localUrl =
+        options.localDownloadItemIdText !== undefined
+          ? await resolveLocalDownloadPlaybackUrl(options.localDownloadItemIdText)
+          : null;
+      const url =
+        localUrl ?? (isOfflineModeEnabled() ? null : resolveAddByRssPlaybackUrl(resourceData));
       if (url === null) {
         setNoticeKey('media_player.no_media');
         return;
@@ -1792,11 +1806,12 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   const playAddByRssResourceData = useCallback(
     async (
       resourceData: AddByRSSResourceData,
-      options?: { explicitPlaybackSeconds?: number }
+      options?: { explicitPlaybackSeconds?: number; localDownloadItemIdText?: string }
     ): Promise<void> => {
       await startAddByRssPlayback(resourceData, {
         autoQueue: { mode: 'clear' },
         explicitPlaybackSeconds: options?.explicitPlaybackSeconds,
+        localDownloadItemIdText: options?.localDownloadItemIdText,
       });
     },
     [startAddByRssPlayback]
@@ -3216,6 +3231,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 
   const resolveChaptersForTarget = useCallback(
     async (target: PlaybackTarget): Promise<DTOItemChapter[]> => {
+      if (target.kind === 'add-by-rss') {
+        return resolveNowPlayingAddByRssChapters(buildContext(), target.resourceData);
+      }
       const item = itemFromTarget(target);
       const fallbackChapter = target.kind === 'chapter' ? target.chapter : null;
       if (item === null) {

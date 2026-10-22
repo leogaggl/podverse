@@ -1,9 +1,9 @@
 ---
 name: abcaicast
-description: Write or update two-voice training episodes about Podverse features, for an AI audio service that publishes them as an RSS course. Use when the operator says abcaicast.
+description: Write or update two-voice training episodes about Podverse features, for an AI audio service that publishes them as an RSS course. Use when the operator runs /abcaicast or says abcaicast.
 ---
 
-# abcaicast
+# `abcaicast`
 
 A cast is a script for an AI voice service. Two hosts talk through one feature so a contributor
 can learn it by listening. It is training material, not a show.

@@ -2,6 +2,7 @@ import type { AddByRSSBasicAuthCredentials } from '@podverse/helpers-validation/
 import { canonicalAddByRSSFeedUrl } from '@podverse/helpers-validation/client';
 import { buildCacheMaps } from '@podverse/parser-mapping';
 
+import { trackBackgroundActivity } from '../backgroundActivity/backgroundActivityStore';
 import { pollAddByRSSParseStatus } from './actions';
 import type { AddByRSSParseStatusResponse } from './api';
 import { enqueueAddByRSSParseAll } from './api';
@@ -55,13 +56,19 @@ export const runAddByRSSParseAll = async ({
   onStatusUpdate,
 }: RunAddByRSSParseAllParams): Promise<RunAddByRSSParseAllResult> => {
   const { feedHashesByUrl, etagsByUrl, lastModifiedByUrl } = buildCacheMaps(feeds);
-  const credentialsByUrl = await buildCredentialsByUrl(accountId, feeds);
-  const response = await enqueueAddByRSSParseAll({
-    feedHashesByUrl,
-    etagsByUrl,
-    lastModifiedByUrl,
-    credentialsByUrl,
-  });
+  const response = await trackBackgroundActivity(
+    'add_by_rss_refresh',
+    { counted: false },
+    async () => {
+      const credentialsByUrl = await buildCredentialsByUrl(accountId, feeds);
+      return enqueueAddByRSSParseAll({
+        feedHashesByUrl,
+        etagsByUrl,
+        lastModifiedByUrl,
+        credentialsByUrl,
+      });
+    }
+  );
 
   const requestIds = response.request_ids.map(({ request_id, feed_url }) => ({
     requestId: request_id,

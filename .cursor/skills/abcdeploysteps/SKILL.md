@@ -1,9 +1,9 @@
 ---
 name: abcdeploysteps
-description: When the operator says abcdeploysteps plus a repo and an environment (abcdeploysteps podverse alpha), check deploy blockers and, if alpha is clear and there is something to ship, write a local step-by-step deploy checklist. Use only for that keyword, and only when the repo word is podverse.
+description: When the operator runs /abcdeploysteps or says abcdeploysteps, plus a repo and an environment (abcdeploysteps podverse alpha), check deploy blockers and, if alpha is clear and there is something to ship, write a local step-by-step deploy checklist. Use only for that keyword, and only when the repo word is podverse.
 ---
 
-# abcdeploysteps
+# `abcdeploysteps`
 
 The operator is asking for a deploy checklist, not for the agent to deploy. Investigate, warn,
 and write the steps. Do not run publish, push, EAS, Argo, or kubectl apply.
@@ -106,6 +106,11 @@ git fetch origin
 git log --oneline <pinned-tag>..origin/develop
 ```
 
+If the pinned value is not a real tag (`git rev-parse --verify '<pinned>^{commit}'` fails, for
+example a literal `5.5.3-staging.N`), the pin was committed with a placeholder. Say so, compare from
+the last real tag in `k.podcastdj.com` `git log -- apps/podverse-alpha`, and have the pin step
+replace that placeholder.
+
 Split that log:
 
 - **Server** — anything that ships in GHCR images or in `infra/k8s/base/` (apps other than mobile,
@@ -133,8 +138,9 @@ The chat reply is the same checklist, with the blockers (or "clear") first.
 
 Short headings, ordered steps, copy-paste commands. Almost no explanation. Fill in the real pin,
 version, and commit range. The new staging number does not exist until **Publish (staging)**
-finishes. Until then write `<X.Y.Z-staging.N from the Publish (staging) log>` and use that same
-placeholder in the GitOps steps.
+finishes, so the file stops after the step that prints the tag and lists the GitOps steps with
+`<tag from the previous step>` in prose only. Once the tag is known, the agent gives those steps
+with the real value written into every command and commit message.
 
 Operator commands are fish-safe (**fish-operator-commands**): fence labeled `bash`, no heredoc,
 no `VAR=value command`, no `[[ ]]`. One command per fence when the command prompts (every
@@ -152,8 +158,8 @@ The number is one terminal. Letters in that number run there, in order. Do not p
 different terminal, and do not paste it until `1a` in that terminal has finished.
 
 A different number is a different terminal. It can run beside the others when the start condition
-on its first letter says so. Put that start condition on the first letter (`2a` starts when `1b`
-prints the Linux `node_modules` line).
+on its first letter says so. Put that start condition on the first letter (`2a` starts with `1a`
+when its lane allows it). GitOps starts when the sync script has printed the staging tag.
 
 The recipes below use `1.` `2.` `3.` as content order. Those are not the labels in the file or the
 reply. Translate them into `1a`, `1b`, `2a`, and so on when writing the checklist.
@@ -197,24 +203,21 @@ Commits: <range>
 
 Put this table in the file, dropping rows for lanes you omitted.
 
-| Lane               | Starts when                                       | Terminal                             |
-| ------------------ | ------------------------------------------------- | ------------------------------------ |
-| Publish (staging)  | `develop` is clean, pushed, notes committed       | **Root**                             |
-| Mac `node_modules` | Sync script printed the Linux `node_modules` line | Second **Root**. Not the sync shell. |
-| iOS build          | Same moment as publish, if mobile changed         | **Mobile**                           |
-| Android build      | Same moment as the iOS build                      | Second **Mobile**                    |
-| GitOps pin         | Publish (staging) succeeded and the tag exists    | `k.podcastdj.com` repo root          |
-| iOS submit         | That iOS build finished                           | **Mobile** (after the build)         |
-| Android submit     | That Android build finished                       | Second **Mobile**                    |
+| Lane              | Starts when                                    | Terminal                     |
+| ----------------- | ---------------------------------------------- | ---------------------------- |
+| Publish (staging) | `develop` is clean, pushed, notes committed    | **Root**                     |
+| iOS build         | Any time, including during Publish (staging)   | **Mobile**                   |
+| Android build     | Same moment as the iOS build                   | Second **Mobile**            |
+| GitOps pin        | Publish (staging) succeeded and the tag exists | `k.podcastdj.com` repo root  |
+| iOS submit        | That iOS build finished                        | **Mobile** (after the build) |
+| Android submit    | That Android build finished                    | Second **Mobile**            |
 
 GitOps push and the two store submits may overlap. Do not start GitOps before the tag exists.
 Do not sync Argo by hand while auto-sync is rolling out a later wave ahead of ops.
 
-The Mac reinstall may start when the sync script prints
-`node_modules now matches Linux optional deps`. Docker has exited by then. The script keeps
-going (push `staging`, wait for the workflow). Do not reinstall in that same shell. `apps/mobile`
-`node_modules` is not touched by this script. Do not run `npm run mobile:install` unless a version
-bump ran `update-lockfile-linux.sh`.
+The sync script publishes from a temporary worktree. It does not switch branches in this checkout
+and it does not change `node_modules`. The iOS build and the Android build may start at any time,
+including while that script runs.
 
 ### Server steps (only if server changed)
 
@@ -226,21 +229,20 @@ git status
 git push origin develop
 ```
 
-2. **Root.** Publish images. This fast-forwards `staging`, pushes, and waits for
-   **Publish (staging)**. It bind-mounts the repo into Docker for `npm ci`.
+2. **Root.** Publish images. This fast-forwards `staging` from `origin/develop`, pushes, and waits
+   for **Publish (staging)**. The checkout and its `node_modules` stay as they are. When it exits
+   0, it prints `Tags at <sha>:` and then the tags on that commit. The staging tag is the line
+   matching `X.Y.Z-staging.N`. Stop if that line is missing, appears more than once, or ends in
+   `.N`.
 
 ```bash
 ./scripts/publish/sync-develop-to-staging.sh
 ```
 
-3. **Second Root**, after the Linux `node_modules` line:
-
-```bash
-rm -rf node_modules && npm install
-```
-
-4. Read the immutable tag from the workflow log (`X.Y.Z-staging.N`). That string is the Git tag
-   and every GHCR image tag.
+The checklist is a stop point here. The operator reports that tag, or the agent reads it from the
+terminal, and the agent then gives the GitOps commands with the real tag written in. Never ask
+the operator to edit a placeholder inside a command. A pasted placeholder lands in the files, and
+a committed placeholder passes the version contract check because every file agrees.
 
 ### GitOps steps (only after that tag exists)
 
@@ -256,6 +258,23 @@ In one commit, set all of these to the new tag:
   `extension-prometheus`)
 - `READINESS_API_EXPECTED_RELEASE` in `apps/podverse-alpha/web/source/web-sidecar.env` and
   `apps/podverse-alpha/management-web/source/management-web-sidecar.env`
+- `API_RELEASE` in `apps/podverse-alpha/api/source/api.env` and
+  `apps/podverse-alpha/management-api/source/management-api.env`
+
+Every one of those holds the same old tag, so one replace of the old pin with the new tag covers
+them all. Write both literal values into the command:
+
+```bash
+perl -pi -e 's/OLD_PIN/NEW_TAG/g' (git grep -l 'OLD_PIN' -- apps/podverse-alpha)
+```
+
+Before the contract checks, both of these must print nothing. A hit means a placeholder or the old
+pin survived. Stop and fix it.
+
+```bash
+git grep -nE 'staging\.N|REPLACE_WITH|X\.Y\.Z' -- apps/podverse-alpha
+git grep -n 'OLD_PIN' -- apps/podverse-alpha
+```
 
 Leave Postgres, Valkey, and ActiveMQ tags as they are. If this release changes env or overlays
 beyond the pin, include those file edits in the same commit. Skip secret generators unless a new
@@ -272,7 +291,7 @@ Then the operator commits and pushes `main`. Fish-safe message, with the real ta
 
 ```bash
 git add apps/podverse-alpha
-git commit -m 'Pin podverse-alpha to X.Y.Z-staging.N.'
+git commit -m 'Pin podverse-alpha to NEW_TAG.'
 git push
 ```
 
@@ -303,11 +322,46 @@ kubectl wait -n argocd application/podverse-alpha-db application/podverse-alpha-
 
 ```bash
 kubectl -n podverse-alpha create job --from=cronjob/ops-db-verify-bootstrap-contract ops-db-verify-bootstrap-contract-manual
-kubectl -n podverse-alpha logs -f job/ops-db-verify-bootstrap-contract-manual
+kubectl -n podverse-alpha logs -f --pod-running-timeout=5m job/ops-db-verify-bootstrap-contract-manual
 ```
 
 Expect `Bootstrap contract verification passed for app and management databases.` If it fails,
 the deploy is not done. Do not delete the PVC as the next step.
+
+Every `logs -f` right after `create job` passes `--pod-running-timeout=5m`. The default is 20s,
+and a pod still in `ContainerCreating` makes `logs` exit with `is waiting to start`. When that
+happens anyway, the job is fine. Rerun the same `logs -f`.
+
+#### App and management migrations (when the range adds them)
+
+Syncing ops does not apply new linear migrations to an existing database. PostSync
+`ops-db-bootstrap-migrations` runs once per fresh database. After that, `ops-db-migrate-app` and
+`ops-db-migrate-management` are suspended CronJobs that run only when triggered. Without them, the
+new API pod waits forever in init container `wait-app-migrations`
+(`waiting for app migration <file>`). Web then waits in `wait-api-version-contract`, and Argo
+shows api and web Degraded while the old pods keep serving.
+
+Check the range while writing the checklist:
+
+```bash
+git diff --name-only <pinned-tag>..origin/develop -- infra/k8s/base/ops/source/database/linear-migrations/app infra/k8s/base/ops/source/database/linear-migrations/management
+```
+
+For each directory with new files, add its step after the bootstrap check and before the public
+app waits. Name the migration files that will apply. These are forward schema updates, not a
+wipe. Do not re-run one after a failure; stop and read the log.
+
+```bash
+kubectl -n podverse-alpha create job --from=cronjob/ops-db-migrate-app ops-db-migrate-app-manual
+kubectl -n podverse-alpha logs -f --pod-running-timeout=5m job/ops-db-migrate-app-manual
+```
+
+```bash
+kubectl -n podverse-alpha create job --from=cronjob/ops-db-migrate-management ops-db-migrate-management-manual
+kubectl -n podverse-alpha logs -f --pod-running-timeout=5m job/ops-db-migrate-management-manual
+```
+
+Expect `Linear migration run completed.` with an `APPLY <file>` line for each new migration.
 
 Before smoke, the same pair of waits for the public apps. Run the curls only after both return.
 
@@ -318,6 +372,26 @@ kubectl wait -n argocd application/podverse-alpha-api application/podverse-alpha
 ```bash
 kubectl wait -n argocd application/podverse-alpha-api application/podverse-alpha-management-api application/podverse-alpha-web application/podverse-alpha-management-web --for=jsonpath='{.status.health.status}'=Healthy --timeout=20m
 ```
+
+That wait prints nothing until every app is Healthy. A few minutes is normal for image pulls and
+probes. When the operator asks whether it is stuck, the agent checks rather than guessing. These
+reads are safe for the agent to run with network access:
+
+```bash
+kubectl get applications -n argocd -o custom-columns=NAME:.metadata.name,HEALTH:.status.health.status
+kubectl get pods -n podverse-alpha
+kubectl get pod -n podverse-alpha <new-pod> -o jsonpath='{range .status.initContainerStatuses[*]}{.name}{" ready="}{.ready}{"\n"}{end}'
+kubectl logs -n podverse-alpha <new-pod> -c <waiting-init-container> --tail=15
+```
+
+A new pod parked in `Init:` for more than a few minutes is a blocker, not slowness.
+`wait-app-migrations` means the migration step above was skipped. Errors from cron Job pods
+that started before the pin are older problems. Report them separately.
+
+One web or management-web restart is expected right now. The `web` container can start before
+its `runtime-config` sidecar listens on 3001. The log then shows `An error occurred while loading
+instrumentation hook: fetch failed` with `ECONNREFUSED 127.0.0.1:3001`, liveness returns 500,
+and the container restarts once and comes up ready. More than one restart is a real failure.
 
 Smoke:
 

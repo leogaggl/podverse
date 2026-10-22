@@ -12,6 +12,39 @@ import { CommonTrackListRow } from './CommonTrackListRow';
 
 import styles from '../../../../../styles/components/Common/List/ListNodes.module.scss';
 
+type CommonTrackListItemRowProps = {
+  channel: DTOChannel;
+  item: DTOItem;
+  showChannelInfo?: boolean;
+};
+
+export const CommonTrackListItemRow: React.FC<CommonTrackListItemRowProps> = ({
+  channel,
+  item,
+  showChannelInfo,
+}) => {
+  if (item.live_item) {
+    return (
+      <ListLiveItemRow
+        channel={channel}
+        item={item}
+        live_item={item.live_item}
+        showChannelInfo={showChannelInfo}
+        showLiveItemStatus
+      />
+    );
+  }
+
+  return (
+    <CommonTrackListRow
+      channel={channel}
+      item={item}
+      showChannelInfo={showChannelInfo}
+      playlist_id_text={null}
+    />
+  );
+};
+
 type CommonTrackListNodesProps = {
   channel: DTOChannel | null;
   items: DTOItem[];
@@ -36,22 +69,11 @@ export const CommonTrackListNodes: React.FC<CommonTrackListNodesProps> = ({
           const rowChannel = channel || item.channel;
           return (
             <React.Fragment key={item.id}>
-              {item.live_item ? (
-                <ListLiveItemRow
-                  channel={rowChannel}
-                  item={item}
-                  live_item={item.live_item}
-                  showChannelInfo={showChannelInfo}
-                  showLiveItemStatus
-                />
-              ) : (
-                <CommonTrackListRow
-                  channel={rowChannel}
-                  item={item}
-                  showChannelInfo={showChannelInfo}
-                  playlist_id_text={null}
-                />
-              )}
+              <CommonTrackListItemRow
+                channel={rowChannel}
+                item={item}
+                showChannelInfo={showChannelInfo}
+              />
               {idx < items.length - 1 && <Divider />}
             </React.Fragment>
           );

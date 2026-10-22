@@ -34,6 +34,7 @@ import {
   reportUserNetworkAction,
   subscribeConnectivity,
 } from '../net/connectivity';
+import { nowPlayingAddByRssSections } from '../playback/nowPlayingAddByRssSections';
 import {
   hydrateOfflineMode,
   isOfflineModeEnabled,
@@ -216,12 +217,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
   }, [requestSync]);
 
   // Signing out drops queued account work, the in-memory queue, and pending playback conflicts.
-  // Those conflicts name queue ids the next account does not own.
+  // Those conflicts name queue ids the next account does not own. It also drops the now-playing
+  // Add by RSS chapters and transcript, which this account's saved feed credentials may have
+  // fetched.
   useEffect(() => {
     if (status !== 'anonymous') {
       return;
     }
     syncQueue.reset();
+    nowPlayingAddByRssSections.reset();
     publishPlaybackReconcileConflicts([]);
     publishPlaybackPositionAdoptions([]);
     setQueues([]);

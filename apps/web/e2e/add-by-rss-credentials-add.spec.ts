@@ -101,7 +101,7 @@ test.describe('Add by RSS with a username and password', () => {
     });
 
     await test.step('The podcasts list shows the feed as ready, not as needing credentials', async () => {
-      await page.goto('/add-by-rss/podcasts');
+      await page.goto('/add-by-rss');
       const feedLink = page.locator(`a[href$="/add-by-rss/podcast/${idText}"]`).first();
       await expect(feedLink).toBeVisible({ timeout: 15_000 });
       await expect(page.getByTestId('add-by-rss-needs-credentials-section')).toHaveCount(0);

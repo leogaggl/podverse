@@ -1,6 +1,6 @@
 ---
 name: abctestall
-description: Run every Podverse monorepo test from lightest to heaviest, fix clear failures, and defer unclear ones. Use when the operator invokes abctestall, and in every step of an abctestall plan-runner run.
+description: Run every Podverse monorepo test from lightest to heaviest, fix clear failures, and defer unclear ones. Use when the operator runs /abctestall or says abctestall, and in every step of an abctestall plan-runner run.
 ---
 
 # `abctestall`
@@ -8,7 +8,8 @@ description: Run every Podverse monorepo test from lightest to heaviest, fix cle
 ## When the operator invokes it
 
 Do not run tests in that chat. The sweep runs under plan-runner: one fresh agent per step, one
-step at a time, each on Cursor Grok 4.7 extra high Fast. Reply with the command, labeled **Root**:
+step at a time, each on Cursor Grok 4.7 at the reasoning its template line names, with Fast off.
+Reply with the command, labeled **Root**:
 
 ```bash
 ./scripts/abctest/run.sh all

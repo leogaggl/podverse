@@ -1,4 +1,4 @@
-import { resolveCredentialScope } from '@podverse/helpers';
+import { hasUrlInCredentialScope } from '@podverse/helpers';
 import type {
   AddByRSSChapterResponse,
   ReqAccountAddByRSSChaptersTranscriptParams,
@@ -33,10 +33,7 @@ export async function getAddByRSSChaptersTranscriptCredentials(params: {
     return {};
   }
 
-  const inScope = resourceUrls.some(
-    (url) =>
-      resolveCredentialScope(feedUrl, url, { allowInsecure: true }) !== 'withheld_other_domain'
-  );
+  const inScope = hasUrlInCredentialScope(feedUrl, resourceUrls);
   if (!inScope) {
     return {};
   }

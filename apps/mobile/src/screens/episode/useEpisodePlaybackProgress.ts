@@ -73,7 +73,7 @@ export function useEpisodeStoredProgress(episode: DTOItem | null): {
   }, [accessToken, clearSession, episode, refreshToken, setTokens, status]);
 
   return useMemo(() => {
-    const itemDurationSeconds = parsePlaybackSeconds(episode?.item_about.duration);
+    const itemDurationSeconds = parsePlaybackSeconds(episode?.item_about?.duration);
     const durationSeconds =
       stored.durationSeconds > 0 ? stored.durationSeconds : itemDurationSeconds;
 

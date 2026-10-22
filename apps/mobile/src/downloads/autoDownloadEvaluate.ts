@@ -1,11 +1,11 @@
 import NetInfo from '@react-native-community/netinfo';
 
 import type { DTOItem } from '@podverse/helpers/dto';
-import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
 import { addByRssRepository } from '../data/repositories/addByRssRepository';
 import { autoDownloadRepository } from '../data/repositories/autoDownloadRepository';
 import { channelItemsRepository } from '../data/repositories/channelItemsRepository';
+import { addByRssDownloadItem } from '../lib/addByRss/downloadItem';
 import { readAutoDownloadCatchUpLimit } from '../prefs/downloadPrefs';
 import { isOfflineModeEnabled } from '../prefs/offlineMode';
 import type { AutoDownloadChannelSettings, AutoDownloadPlanMode } from './autoDownloadPlanner';
@@ -30,44 +30,6 @@ export type AutoDownloadEvaluateOptions = {
   channelIdTexts?: readonly string[];
 };
 
-/**
- * Build a downloadable DTOItem-shaped object from an add-by-RSS mapped item. The id_text is the
- * feed-scoped guid so the downloads index stays unique across feeds.
- */
-const mappedAddByRssItemToDto = (
-  feedUrl: string,
-  itemBundle: AddByRSSMappedFeed['items'][number],
-  index: number
-): DTOItem | null => {
-  const guid = itemBundle.item.guid ?? itemBundle.item.guid_enclosure_url ?? String(index);
-  const idText = `${feedUrl}::${guid}`;
-  const enclosures = itemBundle.enclosures ?? [];
-  if (enclosures.length === 0) {
-    return null;
-  }
-
-  const pubDate =
-    itemBundle.item.pub_date instanceof Date
-      ? itemBundle.item.pub_date.toISOString()
-      : itemBundle.item.pub_date !== null && itemBundle.item.pub_date !== undefined
-        ? String(itemBundle.item.pub_date)
-        : null;
-
-  return {
-    id_text: idText,
-    pub_date: pubDate,
-    title: itemBundle.item.title ?? null,
-    live_item: null,
-    channel: { id_text: feedUrl },
-    item_enclosures: enclosures.map((enclosure) => ({
-      type: enclosure.item_enclosure?.type ?? null,
-      item_enclosure_sources: (enclosure.item_enclosure_sources ?? []).map((source) => ({
-        uri: source.uri,
-      })),
-    })),
-  } as DTOItem;
-};
-
 const loadItemsForChannels = async (channelIdTexts: readonly string[]): Promise<DTOItem[]> => {
   const byId = new Map<string, DTOItem>();
 
@@ -79,7 +41,7 @@ const loadItemsForChannels = async (channelIdTexts: readonly string[]): Promise<
         continue;
       }
       mapped.items.forEach((itemBundle, index) => {
-        const dto = mappedAddByRssItemToDto(channelIdText, itemBundle, index);
+        const dto = addByRssDownloadItem(channelIdText, itemBundle, index);
         if (dto !== null) {
           byId.set(dto.id_text, dto);
         }

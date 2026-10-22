@@ -177,3 +177,42 @@ describe('buildSubscribedListFilterParams', () => {
     expect(guest.currentRange).toBe(null);
   });
 });
+
+describe('scope', () => {
+  const base = {
+    page: 2,
+    range: 'week' as const,
+    sort: 'top' as const,
+  };
+
+  it('keeps type subscribed when scope is subscribed, even without a session', () => {
+    const out = buildSubscribedListFilterParams({
+      ...base,
+      defaultGlobalSort: 'recent',
+      defaultSubscribedSort: 'a_z',
+      globalSortValues: QUERY_PARAMS_GLOBAL_SORT_VALUES,
+      isValidAuthSession: false,
+      scope: 'subscribed',
+      subscribedSortValues: QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
+      supportsCategory: false,
+      type: null,
+    });
+    expect(out.currentType).toBe('subscribed');
+  });
+
+  it('treats a subscribed type as global when scope is browse', () => {
+    const out = buildSubscribedListFilterParams({
+      ...base,
+      defaultGlobalSort: 'recent',
+      defaultSubscribedSort: 'a_z',
+      globalSortValues: QUERY_PARAMS_GLOBAL_SORT_VALUES,
+      isValidAuthSession: true,
+      scope: 'browse',
+      subscribedSortValues: QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
+      supportsCategory: false,
+      type: 'subscribed',
+    });
+    expect(out.currentType).toBe('global');
+    expect(out.currentSort).toBe('recent');
+  });
+});

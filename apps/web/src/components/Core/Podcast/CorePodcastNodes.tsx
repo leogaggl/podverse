@@ -3,12 +3,9 @@
 import React from 'react';
 
 import type { ChannelUnseenBadge, DTOChannel } from '@podverse/helpers';
-import { buildDTOChannelImageLoadCandidates } from '@podverse/helpers';
 
-import { IMAGES } from '../../../constants/images';
-import { ROUTES } from '../../../constants/routes';
+import { podcastListItemFromChannel } from '../../../utils/subscribed/channelListItems';
 import { CommonPodcastListNodes } from '../../Common/Podcast/CommonPodcastNodes';
-import type { PodcastListItem } from '../../Common/Podcast/types';
 import type { ViewSelectedOption } from '../../ViewSelector/ViewSelector';
 
 interface Params {
@@ -23,22 +20,9 @@ export function CorePodcastNodes({
   unseenBadges,
   viewSelected,
 }: Params): React.ReactNode {
-  const items: PodcastListItem[] = channels.map((channel) => {
-    const imageCandidates = buildDTOChannelImageLoadCandidates(
-      channel.channel_images,
-      IMAGES.LIST.PODCASTS.SIZE_FIND_TARGET,
-      'lesser'
-    );
-
-    return {
-      id: String(channel.id),
-      title: channel.title ?? '',
-      imageCandidates,
-      href: `${ROUTES.PODCAST}/${channel.id_text}`,
-      lastPubDate: channel.channel_about?.last_pub_date ?? null,
-      unseenBadge: unseenBadges?.get(channel.id_text) ?? null,
-    };
-  });
+  const items = channels.map((channel) =>
+    podcastListItemFromChannel(channel, unseenBadges?.get(channel.id_text) ?? null)
+  );
 
   return <CommonPodcastListNodes items={items} viewSelected={viewSelected} />;
 }

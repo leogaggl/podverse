@@ -3,19 +3,18 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { DTOChannel } from '@podverse/helpers';
-
 import { screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { FillList } from '../primitives';
 import { ListEmpty } from '../state/ListEmpty';
 import { LoadingSection } from '../state/LoadingSection';
+import type { ChannelAboutSource } from './channelAboutCells';
 import { buildChannelAboutCells } from './channelAboutCells';
 import { DescriptionText } from './DescriptionText';
 
 export type ChannelAboutSectionProps = {
-  channel: DTOChannel | null;
+  channel: (ChannelAboutSource & { id?: number | string | null }) | null;
   isChannelLoading: boolean;
   /** Title filter or other chrome that scrolls with the About rows. */
   listHeader?: ReactNode;

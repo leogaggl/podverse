@@ -7,6 +7,10 @@ alwaysApply: false
 
 # Markdown Formatting
 
+**Scope:** files under `.llm/plans/` are exempt. `.prettierignore` and `eslint.config.mjs` skip
+that tree, so nothing checks line width or table alignment there; plan tables need valid pipes,
+not padding.
+
 When creating or editing markdown (`.md`) files, follow these formatting rules to match the project's Prettier configuration:
 
 ## Line Width

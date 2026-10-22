@@ -46,7 +46,8 @@ Local pre-push hooks enforce allowed prefixes; see [BRANCH-PROTECTION.md](/docs/
 ## Plans
 
 - **Plans:** active work under `.llm/plans/active/`; completed sets under `.llm/plans/completed/`.
-  Keep individual plan files under 300 lines. When you finish a plan, move it per
+  Each plan file holds one change one agent can finish (see `.cursorrules` § Plan Management).
+  When you finish a plan, move it per
   `.cursor/skills/plan-completion/SKILL.md`.
 - **Layout overview:** [.llm/LLM.md](/.llm/LLM.md).
 

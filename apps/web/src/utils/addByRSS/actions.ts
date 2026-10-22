@@ -1,8 +1,13 @@
 import type { AddByRSSParseStatus, DTOAccount } from '@podverse/helpers';
 import { createAddByRSSId, createAddByRSSIdText, sleep } from '@podverse/helpers';
 import type { AddByRSSBasicAuthCredentials } from '@podverse/helpers-validation/client';
-import { convertParsedRSSFeedToCompat, getAddByRSSChannelMetadata } from '@podverse/parser-mapping';
+import {
+  addByRSSFeedMayHaveLivestreams,
+  convertParsedRSSFeedToCompat,
+  getAddByRSSChannelMetadata,
+} from '@podverse/parser-mapping';
 
+import { trackBackgroundActivity } from '../backgroundActivity/backgroundActivityStore';
 import type { AddByRSSParseStatusResponse } from './api';
 import {
   enqueueAddByRSSParse,
@@ -218,6 +223,7 @@ export const applyAddByRSSParseStatus = async ({
     mappedFeed,
     title: mappedTitle ?? nextBase.title,
     imageUrl: mappedImageUrl ?? nextBase.imageUrl,
+    mayHaveLivestreams: addByRSSFeedMayHaveLivestreams(nextBase.mayHaveLivestreams, mappedFeed),
   };
   await upsertAddByRSSFeed(updated);
   onUpdated?.(updated);
@@ -229,20 +235,22 @@ export const pollAddByRSSParseStatus = async ({
   requestId,
   onStatusUpdate,
 }: PollAddByRSSParseStatusParams): Promise<AddByRSSParseStatusResponse['status']> => {
-  for (let attempt = 0; attempt < STATUS_POLL_MAX_ATTEMPTS; attempt += 1) {
-    const statusResponse = await getAddByRSSParseStatus(requestId);
-    await onStatusUpdate(statusResponse);
+  return trackBackgroundActivity('add_by_rss_refresh', { counted: true }, async () => {
+    for (let attempt = 0; attempt < STATUS_POLL_MAX_ATTEMPTS; attempt += 1) {
+      const statusResponse = await getAddByRSSParseStatus(requestId);
+      await onStatusUpdate(statusResponse);
 
-    if (
-      statusResponse.status === 'parsed' ||
-      statusResponse.status === 'not_modified' ||
-      statusResponse.status === 'failed'
-    ) {
-      return statusResponse.status;
+      if (
+        statusResponse.status === 'parsed' ||
+        statusResponse.status === 'not_modified' ||
+        statusResponse.status === 'failed'
+      ) {
+        return statusResponse.status;
+      }
+
+      await sleep(STATUS_POLL_DELAY_MS);
     }
 
-    await sleep(STATUS_POLL_DELAY_MS);
-  }
-
-  throw new Error(`Parse status timed out. Request ID: ${requestId}`);
+    throw new Error(`Parse status timed out. Request ID: ${requestId}`);
+  });
 };

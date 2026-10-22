@@ -1,5 +1,5 @@
+import type { AddByRSSResourceType } from '@podverse/helpers';
 import {
-  type AddByRSSResourceType,
   isAlbumMediumId,
   isArtistMediumId,
   isPodcastMediumId,
@@ -7,6 +7,22 @@ import {
 } from '@podverse/helpers';
 
 import type { AddByRSSMappedFeed } from './types.js';
+
+/** Every Add by RSS resource type. Livestreams are a per-feed flag, not a type. */
+export const ADD_BY_RSS_RESOURCE_TYPES: readonly AddByRSSResourceType[] = [
+  'podcasts',
+  'episodes',
+  'artists',
+  'albums',
+  'tracks',
+];
+
+export const isAddByRSSResourceType = (value: string): value is AddByRSSResourceType =>
+  ADD_BY_RSS_RESOURCE_TYPES.some((resourceType) => resourceType === value);
+
+/** A stored resource type; any value outside the list reads as podcasts. */
+export const toAddByRSSResourceType = (value: string): AddByRSSResourceType =>
+  isAddByRSSResourceType(value) ? value : 'podcasts';
 
 export const getAddByRSSResourceTypeFromMappedFeed = (
   mappedFeed: AddByRSSMappedFeed | null | undefined
@@ -36,8 +52,6 @@ export const getAddByRSSDetailRouteSegment = (resourceType: AddByRSSResourceType
       return 'podcast';
     case 'episodes':
       return 'episode';
-    case 'livestreams':
-      return 'livestream';
     default:
       return 'podcast';
   }

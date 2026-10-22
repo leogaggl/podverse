@@ -39,4 +39,10 @@ export type PodcastSectionPaneProps = {
   /** The popularity window, which only means something while `sort` is `top`. */
   range: PodcastDetailRange;
   sort: PodcastDetailSort;
+  /**
+   * Timestamp stored before this visit marked the channel seen. Undefined until that read
+   * finishes. Null means the channel had never been opened, so no item is new. A number is the
+   * previous open. Episode rows pass it through; other sections ignore it.
+   */
+  visitLastSeenAtMs?: number | null;
 };

@@ -24,6 +24,7 @@ import { useMediaPlayerCurrentTime } from '../../contexts/MediaPlayerCurrentTime
 import { useModals } from '../../contexts/Modals';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { useMembershipGate } from '../../hooks/useMembershipGate';
+import { buildMediaListChipPath } from '../../utils/mediaListChips';
 import { MediaHeaderMini } from '../MediaHeaderMini/MediaHeaderMini';
 import { ClipEditorPlayer } from './ClipEditorPlayer';
 
@@ -106,7 +107,7 @@ export const ClipForm: React.FC<ClipFormProps> = ({
     if (edit_clip_id_text && window.confirm(tFeatures('clip.delete_clip_confirm'))) {
       try {
         await apiRequestService.reqClipDelete(edit_clip_id_text);
-        router.push('/clips');
+        router.push(buildMediaListChipPath('browse', 'clips'));
       } catch (error) {
         if (!tryHandleMembershipGateError(error)) {
           throw error;

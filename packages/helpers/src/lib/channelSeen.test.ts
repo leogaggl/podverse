@@ -6,6 +6,7 @@ import {
   countUnseenByPubDate,
   describeUnseenBadge,
   isLaterLastSeenAt,
+  isUnseenPubDate,
   mergeLastSeenAt,
 } from './channelSeen.js';
 
@@ -37,6 +38,26 @@ describe('capUnseenCount', () => {
   it('treats a negative or unusable count as nothing unseen', () => {
     expect(capUnseenCount(-1).unseen_count).toBe(0);
     expect(capUnseenCount(Number.NaN).unseen_count).toBe(0);
+  });
+});
+
+describe('isUnseenPubDate', () => {
+  const seenAt = at('2026-08-20T00:00:00.000Z');
+
+  it('treats a publish instant after last seen as unseen', () => {
+    expect(isUnseenPubDate(at('2026-08-21T00:00:00.000Z'), seenAt)).toBe(true);
+  });
+
+  it('treats an equal instant as seen', () => {
+    expect(isUnseenPubDate(seenAt, seenAt)).toBe(false);
+  });
+
+  it('treats a null last seen as not unseen', () => {
+    expect(isUnseenPubDate(at('2026-08-21T00:00:00.000Z'), null)).toBe(false);
+  });
+
+  it('treats a null publish instant as not unseen', () => {
+    expect(isUnseenPubDate(null, seenAt)).toBe(false);
   });
 });
 

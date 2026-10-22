@@ -1,14 +1,8 @@
 import { cookies } from 'next/headers';
-import { z } from 'zod';
 
 import type { DTOAccount } from '@podverse/helpers';
 import { getTotalPages } from '@podverse/helpers';
 import type { QueryParamsSubscribedFullSort } from '@podverse/helpers-requests';
-import {
-  QUERY_PARAMS_STATS_RANGE_VALUES,
-  QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
-  QUERY_PARAMS_SUBSCRIBED_TYPE,
-} from '@podverse/helpers-requests';
 
 import { getCuratedStaticPageMetadata } from '../../lib/seo/curatedPageMetadata';
 import { getSSRAuthService } from '../../utils/auth/ssrAuth';
@@ -18,25 +12,14 @@ import {
   getFilterDefaultsForPage,
   getParsedLocalSettings,
 } from '../../utils/localSettings/localSettings';
+import type { ProfilesPageSearchParams } from './profilesListSsr';
+import { searchParamsSchema } from './profilesListSsr';
 import { ProfilesPageClient } from './ProfilesPageClient';
 import type { ProfilesPageDropdownConfigCurrentParams } from './ProfilesPageDropdownConfig';
 import { getProfilesPageFilterParams } from './ProfilesPageDropdownConfig';
 
-const searchParamsSchema = z.object({
-  page: z
-    .string()
-    .transform((v) => parseInt(v, 10))
-    .optional()
-    .default(1),
-  type: z.enum(QUERY_PARAMS_SUBSCRIBED_TYPE).optional().nullable().default(null),
-  sort: z.enum(QUERY_PARAMS_SUBSCRIBED_FULL_SORT).optional().nullable().default(null),
-  range: z.enum(QUERY_PARAMS_STATS_RANGE_VALUES).optional().nullable().default(null),
-});
-
-type SearchParams = z.infer<typeof searchParamsSchema>;
-
 export type ProfilesPageProps = {
-  searchParams: Promise<SearchParams>;
+  searchParams: Promise<ProfilesPageSearchParams>;
 };
 
 export async function generateMetadata() {
@@ -93,7 +76,7 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
 }
 
 function parseSearchParams(
-  queryParams: SearchParams,
+  queryParams: ProfilesPageSearchParams,
   isAuthenticated: boolean,
   cookieDefaults?: ProfilesFilterDefaults
 ): ProfilesPageDropdownConfigCurrentParams {

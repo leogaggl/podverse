@@ -23,7 +23,7 @@ nothing useful for the agent.
 ```markdown
 - [ ] **01 — Example step**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 \`\`\`
 Read and execute .llm/plans/active/feature/01-example.md
@@ -60,9 +60,12 @@ Metro switches, a value to paste), put one optional line above Phase 1:
 ```markdown
 **Optional — one chat runs the whole set:** paste
 `Orchestrate .llm/plans/active/<set>/ with .cursor/prompts/plan-orchestrator.md.`
-(Cursor Grok 4.7 · extra high). It stops at the first blocker. Use the prompts below instead when
+(Cursor Grok 4.7 · medium). It stops at the first blocker. Use the prompts below instead when
 you want to read each result before the next prompt starts.
 ```
+
+The orchestrator only launches subagents and reads results, so it runs at medium. Each subagent
+uses its own prompt's reasoning.
 
 **abcagentoptimize** tracks the trial and decides whether this extends to other sets.
 
@@ -82,6 +85,11 @@ plan-runner README to resume.
 The runner parses this page, so keep the shapes it reads exact:
 
 - `## <heading>` per phase; prompts that may run together share one heading.
+
+A phase is **parallel-safe** when its prompts edit disjoint files, counting the shared files in
+**parallel-plan-execution**. When every phase with several prompts is parallel-safe, the runner
+line includes `--parallel`, which runs every pending prompt under the first pending heading at
+once. This applies to every set, not only abcplan.
 - `- [ ] **NN — Title**`, then `**Cursor model:** <model> · **Reasoning:** <level>`, then the
   fence.
 - The fence starts with `Read and execute .llm/plans/active/<set>/<NN-plan>.md`.
@@ -153,21 +161,41 @@ Most to least expensive:
 split it instead. The relative strengths of Codex 5.3 and Cursor Grok 4.7 are not measured here,
 so do not route routine work to Codex 5.3 on a hunch.
 
-Reasoning: Cursor Grok 4.7 is always **extra high** with **Fast** on, for every prompt including
-docs and mechanical edits. Its cost is not a concern, so never lower it. In the Cursor picker that
-is Grok 4.7, extra high, Fast; plan-runner pins the same in its `models.json`. Codex 5.3 →
-**high**. Opus 5.5 → **high**, **extra high** only for billing, concurrency, or safety-critical
-design.
+## Reasoning
+
+For Cursor Grok 4.7, pick the **lowest reasoning that reliably completes the prompt**, per prompt. A set's prompts do
+not need to share a level. **Fast stays off**: it costs more and only buys speed, which an
+unattended run does not need. Turn it on only when the operator asks for speed.
+
+| Reasoning | Use for |
+| --- | --- |
+| **low** | Archive-only or close-only prompts; one-line config or copy edits |
+| **medium** | Mechanical edits: file moves with import fixes, docs and guidance, E2E specs and fixtures that follow an existing spec, a small change in one or two files |
+| **high** | Default: pattern-following features, UI across several files, data plumbing with a precise plan |
+| **extra high** | Persisted data (SQL or SQLite migrations, rewriting stored device data), credentials, auth, or security scope; playback, sync, or concurrency; an invariant several later prompts rely on; edits inside very large files or files many earlier prompts in the set changed |
+
+Judge by risk, not length: a long plan of mechanical edits is still medium. Prompts in a long set
+that runs tests only at the end lean one level up when a mistake would be built on by later
+prompts.
+
+plan-runner's `models.json` pins one entry per level, each with Fast off. Codex 5.3 → **high**.
+Opus 5.5 → **high**, **extra high** only for billing, concurrency, or safety-critical design.
 
 **Plans written for a cheaper model are more explicit.** When a prompt goes to Cursor Grok 4.7,
 its numbered plan resolves every either/or choice and names exact paths, so the model transcribes
 decisions instead of making them.
 
-**Escalation:** if a Cursor Grok 4.7 prompt stalls or produces the same wrong result twice, rerun
-it on Codex 5.3; escalate to Opus 5.5 only when the failure is a design question. Record the
-change on the prompt in COPY-PASTA.
+**Plans written for Opus 5.5 can be shorter.** They fix the product decisions, what must stay
+true, the files, and the tests. They may leave line-level anchors and step-by-step edits to the
+implementer, who researches the code anyway. Choose the model by what kind of change it is, not by
+how detailed the plan is.
 
-Do not recommend Auto or any model outside this table. When the operator changes the eligible
+**Escalation:** if a Cursor Grok 4.7 prompt stalls or produces the same wrong result twice, rerun
+it one reasoning level higher. If it already ran at extra high, rerun it on Codex 5.3; escalate to
+Opus 5.5 only when the failure is a design question. Record the change on the prompt in
+COPY-PASTA.
+
+Do not recommend Auto or any model outside the eligible models table. When the operator changes the eligible
 list, update this table and the pointers in **parallel-plan-execution** and
 **mobile-master-plan-phasing**.
 

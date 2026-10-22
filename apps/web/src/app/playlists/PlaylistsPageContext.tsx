@@ -15,6 +15,7 @@ import { useSkipInitialEffect } from '../../hooks/useSkipInitialEffect';
 import { getPlaylistsPageFilterParams } from './PlaylistsPageDropdownConfig';
 
 interface PlaylistsPageContextType {
+  listScope: 'page' | 'browse';
   filterParams: QueryParamsPlaylists;
   setFilterParams: (params: QueryParamsPlaylists) => void;
   playlists: DTOPlaylist[];
@@ -32,6 +33,7 @@ const PlaylistsPageContext = createContext<PlaylistsPageContextType | undefined>
 interface PlaylistsPageContextProviderProps {
   children: ReactNode;
   initialQueryParams: QueryParamsPlaylists;
+  listScope: 'page' | 'browse';
   ssrPlaylists: DTOPlaylist[];
   ssrTotalPages: number;
 }
@@ -39,6 +41,7 @@ interface PlaylistsPageContextProviderProps {
 export const PlaylistsPageContextProvider = ({
   children,
   initialQueryParams,
+  listScope,
   ssrPlaylists,
   ssrTotalPages,
 }: PlaylistsPageContextProviderProps) => {
@@ -52,7 +55,7 @@ export const PlaylistsPageContextProvider = ({
     setTotalPages,
     shouldSkipFetch,
   } = useListPageCache<QueryParamsPlaylists, DTOPlaylist[]>({
-    routeKey: 'playlists',
+    routeKey: listScope === 'browse' ? 'browse-playlists' : 'playlists',
     initialParams: initialQueryParams,
     ssrData: ssrPlaylists ?? [],
     ssrTotalPages,
@@ -62,7 +65,7 @@ export const PlaylistsPageContextProvider = ({
   const [showLoginMessage, setShowLoginMessage] = useState<boolean>(false);
   const { loggedInAccount } = useAccount();
 
-  useFilterDefaults('playlists', filterParams);
+  useFilterDefaults(listScope === 'browse' ? 'browse-playlists' : 'playlists', filterParams);
 
   useSkipInitialEffect(() => {
     // Skip fetch if we just restored from cache - data is already correct
@@ -121,6 +124,7 @@ export const PlaylistsPageContextProvider = ({
   return (
     <PlaylistsPageContext.Provider
       value={{
+        listScope,
         filterParams,
         setFilterParams,
         playlists,

@@ -20,6 +20,7 @@ export type OfflineUnavailableSurface =
   | 'browse'
   | 'search'
   | 'home_clips'
+  | 'home_livestreams'
   | 'playlists'
   | 'profile_other'
   | 'opml_import'
@@ -47,6 +48,9 @@ export const isHomeDownloadedItemsOnly = (
 
 export const isHomeClipsUnavailableOffline = (mediaType: HomeMediaType): boolean =>
   mediaType === 'clips';
+
+export const isHomeLivestreamsUnavailableOffline = (mediaType: HomeMediaType): boolean =>
+  mediaType === 'livestreams';
 
 /**
  * Podcast section to show while Offline Mode is on. Always prefers Downloaded when that chip

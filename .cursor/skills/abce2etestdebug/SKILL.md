@@ -1,6 +1,6 @@
 ---
 name: abce2etestdebug
-description: Debug one specifically named Podverse web, management-web, or mobile E2E test flow/spec at a time. Use when the operator invokes abce2etestdebug with a single target.
+description: Debug one specifically named Podverse web, management-web, or mobile E2E test flow/spec at a time. Use when the operator runs /abce2etestdebug or says abce2etestdebug, with a single target.
 ---
 
 # `abce2etestdebug`

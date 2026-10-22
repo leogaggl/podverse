@@ -1,32 +1,25 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, StyleSheet, Text, View } from 'react-native';
-
-import { canSubmitAddByRssCredentials } from '@podverse/helpers-validation/client';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { CustomApiNotice } from '../../components/feedback/CustomApiNotice';
-import { FormActions, TextField } from '../../components/form';
+import { FormActions } from '../../components/form';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { LoadingSection } from '../../components/state/LoadingSection';
-import { getMobileConfig } from '../../config';
-import { addByRssCredentialStore, addByRssRepository } from '../../data';
-import { syncEventLogRepository } from '../../data/repositories';
-import { buildAddByRssParseFailureLog } from '../../lib/addByRss/addByRssErrorLog';
-import { credentialNoticeKeyForParse, toAddByRssCredentials } from '../../lib/addByRss/credentials';
+import { addByRssRepository } from '../../data';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
-import { useMembershipGate } from '../../membership/MembershipGateProvider';
-import { useAccessTier } from '../../membership/useAccessTier';
 import type { LibraryStackParamList } from '../../navigation';
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
-import { ADD_BY_RSS_ADD_LOG_KIND } from '../../sync/syncJobKinds';
 import { formActionsGap, formActionsTopGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
+import { AddByRssCredentialsFields } from './AddByRssCredentialsFields';
+import { useAddByRssCredentialsForm } from './useAddByRssCredentialsForm';
 
 type AddByRssCredentialsScreenProps = NativeStackScreenProps<
   LibraryStackParamList,
@@ -42,23 +35,17 @@ type AddByRssCredentialsScreenProps = NativeStackScreenProps<
 export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredentialsScreenProps) {
   const { feedIdText } = route.params;
   const { t } = useTranslation();
-  const { isE2e } = getMobileConfig();
   const { styles: themeStyles, tokens } = useTheme();
-  const { accessToken, account, clearSession, refreshToken, setTokens } = useAuth();
-  const { handleGateError, openGate } = useMembershipGate();
-  const { evaluateFeature } = useAccessTier();
+  const { accessToken, clearSession, refreshToken, setTokens } = useAuth();
   const [feed, setFeed] = useState<MobileAddByRSSFeedRecord | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [noticeKey, setNoticeKey] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isRemoving, setIsRemoving] = useState<boolean>(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState<boolean>(false);
   const isBusyRef = useRef(false);
-
-  // Checking the feed is a server-side parse, the same membership tier as adding one.
-  const checkAccess = evaluateFeature('add_by_rss_add');
+  const onSaved = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+  const form = useAddByRssCredentialsForm({ feed, onSaved });
 
   const styles = useMemo(
     () =>
@@ -81,17 +68,11 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
           marginTop: tokens.spacing.xs,
         },
         fields: {
-          gap: tokens.spacing.lg,
           marginTop: tokens.spacing.lg,
         },
         intro: {
           gap: tokens.spacing.sm,
           marginTop: tokens.spacing.lg,
-        },
-        notice: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 14,
-          marginTop: tokens.spacing.md,
         },
         removeAction: {
           marginTop: formActionsGap(tokens.spacing),
@@ -104,19 +85,10 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
     let cancelled = false;
     void (async () => {
       const record = await addByRssRepository.getFeedByIdText(feedIdText);
-      const stored =
-        record === null ? null : await addByRssCredentialStore.getForCurrentAccount(record.feedUrl);
       if (cancelled) {
         return;
       }
       setFeed(record);
-      if (stored !== null) {
-        setUsername(stored.username);
-        setPassword(stored.password);
-      }
-      if (record?.lastAuthFailure === 'credentials_rejected') {
-        setNoticeKey('features.add_by_rss.credentials_rejected');
-      }
       setIsLoading(false);
     })();
     return () => {
@@ -129,77 +101,8 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
     [accessToken, clearSession, refreshToken, setTokens]
   );
 
-  const handleSaveAndCheck = useCallback(async () => {
-    if (feed === null || isBusyRef.current) {
-      return;
-    }
-    if (!checkAccess.allowed) {
-      openGate(checkAccess.reason);
-      return;
-    }
-    const credentials = toAddByRssCredentials(username, password);
-    if (credentials === null) {
-      setNoticeKey('features.add_by_rss.basic_auth_required_both');
-      return;
-    }
-    const accountIdText = account?.id_text;
-    if (accountIdText === undefined) {
-      setNoticeKey('features.add_by_rss.credentials_check_failed');
-      return;
-    }
-
-    Keyboard.dismiss();
-    isBusyRef.current = true;
-    setIsSaving(true);
-    setNoticeKey(null);
-    try {
-      await addByRssCredentialStore.set(accountIdText, feed.feedUrl, credentials);
-      const { requestId, result } = await addByRssRepository.parseNow(
-        authContext,
-        feed.feedUrl,
-        credentials
-      );
-      // Home stays mounted under its tab, so it will not pick up the new state on its own.
-      homeFeedRefresh.notify();
-
-      const failureLog = buildAddByRssParseFailureLog({
-        feedUrl: feed.feedUrl,
-        jobKind: ADD_BY_RSS_ADD_LOG_KIND,
-        occurredAt: Date.now(),
-        requestId,
-        result,
-      });
-      if (failureLog === null) {
-        navigation.goBack();
-        return;
-      }
-      void syncEventLogRepository.append(failureLog);
-      setNoticeKey(
-        credentialNoticeKeyForParse(result) ?? 'features.add_by_rss.credentials_check_failed'
-      );
-    } catch (error) {
-      if (handleGateError(error)) {
-        return;
-      }
-      setNoticeKey('features.add_by_rss.credentials_check_failed');
-    } finally {
-      isBusyRef.current = false;
-      setIsSaving(false);
-    }
-  }, [
-    account?.id_text,
-    authContext,
-    checkAccess,
-    feed,
-    handleGateError,
-    navigation,
-    openGate,
-    password,
-    username,
-  ]);
-
   const handleRemove = useCallback(async () => {
-    if (feed === null || isBusyRef.current) {
+    if (feed === null || isBusyRef.current || form.isSaving) {
       return;
     }
     isBusyRef.current = true;
@@ -220,9 +123,9 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
       setIsRemoving(false);
       setShowRemoveConfirm(false);
     }
-  }, [authContext, feed, navigation]);
+  }, [authContext, feed, form.isSaving, navigation]);
 
-  if (isLoading) {
+  if (isLoading || (feed !== null && !form.isReady)) {
     return (
       <MobileScreenContainer testID="rss-credentials-screen">
         <LoadingSection testID="rss-credentials-loading" />
@@ -238,8 +141,7 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
     );
   }
 
-  const isBusy = isSaving || isRemoving;
-  const canSave = canSubmitAddByRssCredentials(username, password);
+  const isBusy = form.isSaving || isRemoving;
 
   return (
     <MobileScreenContainer testID="rss-credentials-screen">
@@ -262,52 +164,17 @@ export function AddByRssCredentialsScreen({ navigation, route }: AddByRssCredent
       </View>
 
       <View style={styles.fields}>
-        <TextField
-          accessibilityLabel={t('features.add_by_rss.basic_auth_username')}
-          autoCapitalize="none"
-          autoComplete="username"
-          autoCorrect={false}
-          eyebrow={t('features.add_by_rss.basic_auth_username')}
-          onChangeText={setUsername}
-          placeholder={t('misc.required')}
-          testID="rss-credentials-username"
-          textContentType="username"
-          value={username}
-        />
-        <TextField
-          accessibilityLabel={t('features.add_by_rss.basic_auth_password')}
-          autoCapitalize="none"
-          autoComplete={isE2e ? 'off' : 'current-password'}
-          autoCorrect={false}
-          eyebrow={t('features.add_by_rss.basic_auth_password')}
-          onChangeText={setPassword}
-          placeholder={t('misc.required')}
-          // iOS Autofill plus a secure field blocks Maestro inputText. E2E shows the password in plaintext.
-          secureTextEntry={!isE2e}
-          testID="rss-credentials-password"
-          textContentType={isE2e ? 'none' : 'password'}
-          value={password}
-        />
+        <AddByRssCredentialsFields form={form} testIDPrefix="rss-credentials" />
       </View>
-
-      {noticeKey !== null ? (
-        <Text
-          accessibilityLiveRegion="polite"
-          style={styles.notice}
-          testID="rss-credentials-notice"
-        >
-          {t(noticeKey)}
-        </Text>
-      ) : null}
 
       <FormActions
         actions={[
           {
-            disabled: isBusy || !canSave,
+            disabled: isBusy || !form.canSave,
             label: t('features.add_by_rss.credentials_save_and_check'),
-            loading: isSaving,
+            loading: form.isSaving,
             onPress: () => {
-              void handleSaveAndCheck();
+              void form.saveAndCheck();
             },
             testID: 'rss-credentials-save',
           },

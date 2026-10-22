@@ -19,3 +19,4 @@ export * from './addByRSS/boost.js';
 export * from './addByRSS/queuePlaylistHelpers.js';
 export * from './addByRSS/itemIndexPure.js';
 export * from './addByRSS/itemIndex.js';
+export * from './addByRSS/liveItems.js';

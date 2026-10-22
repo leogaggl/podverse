@@ -11,19 +11,15 @@ import type {
   DTOItemChapter,
   DTOItemSoundbite,
 } from '@podverse/helpers';
-import {
-  chapterSectionHasImages,
-  primaryChannelListArtworkUrl,
-  resolveChapterRowArtwork,
-} from '@podverse/helpers';
+import { chapterSectionHasImages, primaryChannelListArtworkUrl } from '@podverse/helpers';
 import { formatHHMMSS } from '@podverse/helpers/time';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import {
-  ChapterListRow,
   DescriptionText,
   FundingLinksSection,
+  ItemChapterRow,
   PeoplePane,
   toAboutPersonFromItem,
 } from '../../components/content';
@@ -103,33 +99,6 @@ const toSoundbiteRow = (
 };
 
 const episodePaneRowKeyExtractor = (row: EpisodePaneRow): string => row.id;
-
-function EpisodeChapterRow({
-  chapter,
-  fallbackImageUrl,
-  showImages,
-}: {
-  chapter: DTOItemChapter;
-  fallbackImageUrl: string | null;
-  showImages: boolean;
-}) {
-  const { t } = useTranslation();
-  const artwork = resolveChapterRowArtwork(chapter, fallbackImageUrl, showImages);
-
-  return (
-    <ChapterListRow
-      artworkAccessibilityLabel={t('info.chapter.chapter_image')}
-      artworkUri={artwork.show ? artwork.uri : null}
-      showArtwork={artwork.show}
-      testID="episode-detail-chapter-row"
-      timeRange={t('features.clip.clip_time_range', {
-        hhmmssEnd: formatHHMMSS(Number(chapter.end_time)),
-        hhmmssStart: formatHHMMSS(Number(chapter.start_time)),
-      })}
-      title={chapter.title ?? chapter.id_text}
-    />
-  );
-}
 
 function EpisodeSoundbiteRow({
   onPlay,
@@ -818,10 +787,11 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     ({ item: row }: { item: EpisodePaneRow }) => {
       if (row.type === 'chapter') {
         return (
-          <EpisodeChapterRow
+          <ItemChapterRow
             chapter={row.chapter}
             fallbackImageUrl={chapterFallbackImageUrl}
             showImages={chapterListShowsImages}
+            testID="episode-detail-chapter-row"
           />
         );
       }

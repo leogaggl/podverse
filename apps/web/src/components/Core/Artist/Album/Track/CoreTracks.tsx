@@ -10,7 +10,9 @@ import { useModals } from '../../../../../contexts/Modals';
 import { checkBackNavFlag } from '../../../../../contexts/Navigation';
 import { useSkipInitialEffect } from '../../../../../hooks/useSkipInitialEffect';
 import { scrollMainToTop } from '../../../../../utils/scroll';
+import type { SubscribedItemEntry } from '../../../../../utils/subscribed/mergeSubscribedItems';
 import { Pagination } from '../../../../Pagination/Pagination';
+import { SubscribedTrackNodes } from '../../../../Subscribed/SubscribedTrackNodes';
 import type { ViewSelectedOption } from '../../../../ViewSelector/ViewSelector';
 import { CoreTrackNodes } from './CoreTrackNodes';
 
@@ -25,6 +27,7 @@ type Props = {
   showSubscribeMessage?: boolean;
   viewSelected: ViewSelectedOption;
   showChannelInfo?: boolean;
+  entries?: readonly SubscribedItemEntry[];
 };
 
 export const CoreTracks: React.FC<Props> = ({
@@ -36,6 +39,7 @@ export const CoreTracks: React.FC<Props> = ({
   showSubscribeMessage,
   viewSelected,
   showChannelInfo,
+  entries,
 }) => {
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
@@ -51,7 +55,7 @@ export const CoreTracks: React.FC<Props> = ({
       return;
     }
     scrollMainToTop();
-  }, [items]);
+  }, [entries ?? items]);
 
   const showCallToAction = showSubscribeMessage;
   const showPagination = !showSubscribeMessage;
@@ -72,12 +76,20 @@ export const CoreTracks: React.FC<Props> = ({
           setPage={setPage}
           paginationControlsClassName={styles.paginationControls}
         >
-          <CoreTrackNodes
-            channel={channel}
-            items={items}
-            viewSelected={viewSelected}
-            showChannelInfo={showChannelInfo}
-          />
+          {entries !== undefined ? (
+            <SubscribedTrackNodes
+              entries={entries}
+              viewSelected={viewSelected}
+              showChannelInfo={showChannelInfo}
+            />
+          ) : (
+            <CoreTrackNodes
+              channel={channel}
+              items={items}
+              viewSelected={viewSelected}
+              showChannelInfo={showChannelInfo}
+            />
+          )}
         </Pagination>
       )}
     </>
