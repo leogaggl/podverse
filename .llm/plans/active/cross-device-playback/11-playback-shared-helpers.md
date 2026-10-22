@@ -12,7 +12,7 @@ and report.
 
 ## Rows
 
-R14, R15, R18, R24, R35, R63
+R14, R15, R18, R24, R35, R63, R76, R86
 
 ## Runs after
 
@@ -31,8 +31,27 @@ packages/helpers/package.json
   it received, at the published rate, only while status is `playing`, clamped to
   `[0, duration_seconds]`. It never advances for `paused` or `loading`, and returns null for a
   live item (no progress bar, R16, R17).
-- **Live controls** (R14, R18, R24): a live item allows `play`, `pause`, `play_item`, `take_over`.
-  It does not allow `seek` (so no skip forward or back) or `set_rate`, and shows no progress.
+- **Live controls** (R14, R18, R24): a live item allows `play`, `pause`, `next`, `previous`,
+  `play_item`, `take_over`. It does not allow `seek` (so no skip forward or back) or `set_rate`,
+  and shows no progress.
+- **Next and previous on a live item are allowed** (R76), because the local players act on them
+  today:
+  - Web shows Next and Previous for a live item (`MediaPlayerControlsDesktop.tsx` renders them
+    unconditionally). Next moves now-playing to history and loads the next queue item
+    (`useTrackNextButtonActions.ts`). Previous loads the previous item by pub date or season,
+    since a live item's `currentTime` stays under the 3 s restart threshold
+    (`useTrackPreviousButtonActions.ts`).
+  - Mobile shows both in `FullPlayerTransportRow`. A tap on either does nothing for a live item
+    (`skipToNext` and `skipToPrevious` in `apps/mobile/src/playback/PlaybackProvider.tsx` return
+    early for `kind === 'livestream'`). A hold on Next and the lock-screen Next both advance the
+    queue (`skipToNextTrack`), and Previous stays a no-op.
+
+  A remote Next or Previous runs the playing device's own handler, so it does what a press on
+  that device does, including nothing. The helper allows both for live and non-live items; it
+  does not encode a per-platform difference, which belongs to the playing device's handler
+  (plans 23 and 33). Whether a remote view disables either button, for example with nothing
+  ahead in the queue, is area D's and E's call.
+- **One device owns playback events** (R86): see § Only the playing device fires playback events.
 - **Transfer is always allowed** (R15), live or not.
 - **Device menu order** (R39, R40, R63): this device first, then the other devices by
   `session_created_at` ascending, then `session_id_text` to break ties. The playing device is
@@ -43,6 +62,32 @@ packages/helpers/package.json
   group by client type (all label-less web sessions share a group). Each UI formats the number
   through its own i18n (`iPhone · iOS (2)` is a UI choice, not this helper's).
 - **Icon visibility** (R37, R38): shown when two or more devices are present.
+
+## Only the playing device fires playback events
+
+This contract rule holds on every surface. Web plan 23 and mobile plan 33 state how each runtime
+enforces it.
+
+- Only the playing device fires end reached, auto-advance, history writes, and position writes.
+  The playing device is the one whose `session_id_text` equals `active_session_id_text`, role
+  `active`. Position writes include the queue now-playing position saves, the mobile playback
+  journal and outbox, and the device-local last-playback snapshot. It fires them from its own local
+  media element or engine, exactly as it does with no other device connected.
+- A device in role `remote` fires none of them. Its local engine is stopped, and the remote view
+  is display only (**playback-meaningful-events**: a remote progress bar advancing is not
+  "the audio advanced"). A device in role `idle` that plays locally is a local player. It claims
+  and becomes `active`, and its events are its own playback, not the shared state.
+- The estimate functions below are display math. Reaching `duration_seconds` clamps the value and
+  nothing else: there is no end callback, and a remote view whose estimate reaches the duration
+  shows the end of the bar and waits for the playing device's next `playback.state` (the next
+  item, or paused).
+- A remote view reads the duration for its progress bar, duration label, segment strip, and
+  chapter highlight only from `state.duration_seconds`. It never reads a local media file
+  length, a native engine duration, or a stored `item_about.duration` hint for the item another
+  device is playing. Dynamic ad insertion can give the same enclosure a different length on each
+  device, so only the playing device's own file length is meaningful for the shared position.
+  When `duration_seconds` is null and the item is not live, the remote bar shows the elapsed
+  estimate with no end, as the local player does before metadata loads.
 
 ## `packages/helpers/src/lib/crossDevicePlayback.ts`
 
@@ -73,7 +118,8 @@ export function estimatePlaybackPositionAtServerTime(
 /**
  * Client estimate, free of clock skew: the age of the state when it was sent
  * (`sent_at_ms - updated_at_ms`, both server clock) plus the time since this client received it
- * (`nowMs - receivedAtMs`, both client clock).
+ * (`nowMs - receivedAtMs`, both client clock). Display only: reaching `duration_seconds` clamps
+ * the value and fires nothing; only the playing device's own media reports an end.
  */
 export function estimatePlaybackPositionSeconds(params: {
   state: PlaybackPositionBase & Pick<DTOPlaybackState, 'sent_at_ms'>;
@@ -92,6 +138,8 @@ clamped to `>= 0` first, and calls the shared math; keep one private function fo
 export const PLAYBACK_COMMANDS_ALLOWED_FOR_LIVE: readonly PlaybackCommandType[] = [
   'play',
   'pause',
+  'next',
+  'previous',
   'play_item',
   'take_over',
 ];
@@ -108,13 +156,20 @@ export interface PlaybackRemoteControls {
   canSetRate: boolean;
   showsProgress: boolean;
   canTransfer: boolean;
+  /** Next button: sends `next`. */
+  canTrackNext: boolean;
+  /** Previous button: sends `previous`. */
+  canTrackPrevious: boolean;
 }
 
 export function getPlaybackRemoteControls(params: { isLive: boolean }): PlaybackRemoteControls;
 ```
 
 `getPlaybackRemoteControls` derives every flag from `isPlaybackCommandAllowed` (`canSkip` and
-`showsProgress` follow `seek`), so the two cannot disagree.
+`showsProgress` follow `seek`, `canTrackNext` follows `next`, `canTrackPrevious` follows
+`previous`), so the two cannot disagree. `canSkip` is the jump-back and jump-forward buttons;
+`canTrackNext` and `canTrackPrevious` are the Next and Previous buttons. The names match the web
+`TrackNextButton` and `TrackPreviousButton`.
 
 ```typescript
 /** 'active': this device plays. 'remote': another device plays. 'idle': no device is active. */
@@ -184,9 +239,14 @@ Add the subpath `./crossDevicePlayback` in the same form as plan 10's `./account
     a negative client elapsed time (clock moved back) counts as 0; live returns null; null
     position returns null. The server-time variant agrees with the client variant when
     `sent_at_ms` equals the server time and no client time has passed.
+  - Duration comes only from the state: a playing state at rate 1 with `position_seconds` 590,
+    `duration_seconds` 600, and 60 s elapsed returns exactly 600 and keeps returning 600 as more
+    time passes; the same state with `duration_seconds` null returns 650.
   - Live rules: `seek` and `set_rate` disallowed for live and allowed otherwise; `take_over`,
-    `play`, `pause`, `play_item` allowed for both; `getPlaybackRemoteControls({ isLive: true })`
-    has `showsProgress`, `canSeek`, `canSkip`, `canSetRate` false and `canTransfer` true.
+    `play`, `pause`, `next`, `previous`, `play_item` allowed for both;
+    `getPlaybackRemoteControls({ isLive: true })` has `showsProgress`, `canSeek`, `canSkip`,
+    `canSetRate` false and `canTransfer`, `canTrackNext`, `canTrackPrevious` true;
+    `getPlaybackRemoteControls({ isLive: false })` has every flag true.
   - Role: null active is `idle` even when this session is null; equal ids are `active`; different
     ids are `remote`.
   - Device list: this device first; others by `session_created_at`; the active device keeps its

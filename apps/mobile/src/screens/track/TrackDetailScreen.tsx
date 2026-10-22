@@ -203,9 +203,7 @@ function TrackPlayChrome({
 
   return (
     <TrackDetailHeader
-      albumTitle={
-        channel !== null ? (channel.title ?? channel.id_text) : (itemRow.subtitle ?? '')
-      }
+      albumTitle={channel !== null ? (channel.title ?? channel.id_text) : (itemRow.subtitle ?? '')}
       artworkUri={artworkUri}
       dateLabel={dateLabel}
       downloadItem={item}

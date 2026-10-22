@@ -10,11 +10,7 @@ import {
   selectUpcomingAddByRSSLivestreams,
 } from './mergeSubscribedLivestreams';
 
-const serverItem = (
-  id: number,
-  statusId: LiveItemStatusEnum,
-  startTimeMs: number
-): DTOItem => ({
+const serverItem = (id: number, statusId: LiveItemStatusEnum, startTimeMs: number): DTOItem => ({
   id,
   id_text: `server-${id}`,
   channel_id: 1,

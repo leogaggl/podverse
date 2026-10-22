@@ -34,11 +34,9 @@ describe('markChannelMayHaveLiveItems', () => {
   it('does not rewrite a flag that is already true', async () => {
     const update = vi.fn();
 
-    const wrote = await markChannelMayHaveLiveItems(
-      { ...channel, may_have_live_items: true },
-      2,
-      { update }
-    );
+    const wrote = await markChannelMayHaveLiveItems({ ...channel, may_have_live_items: true }, 2, {
+      update,
+    });
 
     expect(wrote).toBe(false);
     expect(update).not.toHaveBeenCalled();

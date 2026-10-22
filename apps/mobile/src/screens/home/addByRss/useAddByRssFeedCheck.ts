@@ -127,12 +127,11 @@ export function useAddByRssFeedCheck({
         setNoticeKey(handleRateLimitMessage(error, t) ?? 'errors.generic');
       } finally {
         isBusyRef.current = false;
-        if (!isMountedRef.current) {
-          return;
-        }
-        setIsChecking(false);
-        if (feedUrlRef.current === feedUrl) {
-          await onChecked();
+        if (isMountedRef.current) {
+          setIsChecking(false);
+          if (feedUrlRef.current === feedUrl) {
+            await onChecked();
+          }
         }
       }
     },

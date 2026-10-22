@@ -11,7 +11,7 @@ and `crossDevicePlaybackRepository.ts` exist. If not, stop and report.
 
 ## Rows
 
-R3, R34, R53
+R3, R34, R53, R71
 
 ## Runs after
 
@@ -21,6 +21,8 @@ R3, R34, R53
 
 apps/mobile/src/playback/crossDevice/crossDevicePlaybackPublisher.ts
 apps/mobile/src/playback/crossDevice/crossDevicePlaybackPublisher.test.ts
+apps/mobile/src/playback/crossDevice/crossDevicePlaybackPolicy.ts
+apps/mobile/src/playback/crossDevice/crossDevicePlaybackPolicy.test.ts
 apps/mobile/src/playback/crossDevice/useCrossDevicePlayback.ts
 apps/mobile/src/playback/PlaybackProvider.tsx
 apps/mobile/vitest.config.ts
@@ -61,6 +63,33 @@ apps/mobile/vitest.config.ts
   again when audio still plays, and do nothing when it does not.
 - **403 for membership** latches the feature off through plan 31's controller. Other failures go
   to `console.warn` and are not shown, like every background sync failure.
+- **Medium on the summary (R71).** The phone, as the publishing device, fills
+  `resource.medium` on every summary it sends (plan 10). It is the medium of the target's
+  channel, read from the target the phone already holds, so publishing never waits on a request:
+  `channel.medium_id` for every database target (item, clip, soundbite, chapter, and a livestream
+  with or without an item), and `resourceData.medium_id` for Add by RSS, including Add by RSS
+  episodes, tracks, and livestreams. Both go through plan 10's `toPlaybackMedium`, so a missing or
+  unknown id (an Add by RSS feed this device has not parsed a medium for writes `medium_id: null`)
+  publishes `MediumEnum.Podcast` and never fails the server's guard. A released state
+  (`resource: null`) carries no medium.
+
+## `crossDevicePlaybackPolicy.ts` (plan 30's file)
+
+Add next to `playbackResourceRefFromTarget`:
+
+```typescript
+/** The channel medium of what this device plays, for `DTOPlaybackResourceSummary.medium`. */
+export function playbackMediumFromTarget(target: PlaybackTarget): MediumEnum;
+```
+
+- `add-by-rss` → `toPlaybackMedium(target.resourceData.medium_id)`; every other kind →
+  `toPlaybackMedium(target.channel.medium_id)`. The `livestream` variant always carries `channel`,
+  even when `item` is null.
+- Import `toPlaybackMedium` from `@podverse/helpers/accountPlaybackStream` and `MediumEnum` as a
+  type from `@podverse/helpers/medium` (the subpaths mobile uses; never the barrel).
+- In `buildPlaybackStatePublishBody`, set `resource.medium = playbackMediumFromTarget(target)`
+  wherever the body has a resource. The null-resource branch is unchanged.
+  `LocalPlaybackPublishSnapshot` gains no field: the target is already in it.
 
 ## `crossDevicePlaybackPublisher.ts` (pure, injected I/O)
 
@@ -211,6 +240,15 @@ the store set up per test):
   success and failure.
 - A clear (`target: null`) while active sends `resource: null`.
 
+`crossDevicePlaybackPolicy.test.ts` (add to plan 30's file):
+
+- `playbackMediumFromTarget`: an `item-music` target whose channel has `MediumEnum.Music` returns
+  Music; a clip, a chapter, and a livestream with `item: null` return their channel's medium; an
+  Add by RSS episode with `medium_id: MediumEnum.Music` returns Music; an Add by RSS livestream
+  with `medium_id: null` and one with `medium_id: 999` return `MediumEnum.Podcast`.
+- Publish body: a body with a resource carries `resource.medium`, and the summary passes plan
+  10's `isDTOPlaybackResourceSummary`; the null-resource body has no medium.
+
 ## Release scratchpad
 
 ```markdown
@@ -221,7 +259,9 @@ the store set up per test):
   status to their other devices (on every play, pause, seek, rate change, and item change, and every
   10 seconds while playing, including in the background). Starting audio on the phone from the
   app, the lock screen, a headset, or the car makes it the active device. When another device starts
-  playing, the phone's audio stops on its own, without changing the queue or history.
+  playing, the phone's audio stops on its own, without changing the queue or history. What the
+  phone publishes includes the medium of what it plays (podcast, music, video, and so on, Add by
+  RSS included), so the member's other devices can link to it and share it.
 - Who notices: members who play on more than one device
 - Operator steps: none
 ```

@@ -332,9 +332,7 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
           </p>
         )}
 
-        <Link href={ROUTES.ADD_BY_RSS}>
-          {tFeatures('add_by_rss.credentials_back_to_list')}
-        </Link>
+        <Link href={ROUTES.ADD_BY_RSS}>{tFeatures('add_by_rss.credentials_back_to_list')}</Link>
       </div>
     );
   };

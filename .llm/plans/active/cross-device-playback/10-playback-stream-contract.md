@@ -21,12 +21,13 @@ Other work is landing in the tree. Before editing, confirm that:
   10). If the guard has another name, import that one; if there is no guard, define
   `isPlaybackDeviceClientType` locally in this file from the exported values array.
 - `packages/helpers/src/dtos/addByRSSResourceData.ts` still exports `AddByRSSResourceData`.
+- `packages/helpers/src/lib/medium.ts` still exports `MediumEnum` as a numeric enum.
 
 If the first two files are missing, stop and report: realtime and auth-sessions must land first.
 
 ## Rows
 
-R14, R15, R18, R20, R23, R24, R25, R26, R30, R31, R32, R43, R54
+R14, R15, R18, R20, R23, R24, R25, R26, R30, R31, R32, R43, R54, R69, R76
 
 ## Runs after
 
@@ -37,6 +38,8 @@ none
 packages/helpers/src/lib/accountPlaybackStream.ts
 packages/helpers/src/lib/accountPlaybackStream.test.ts
 packages/helpers/src/lib/accountEventStream.ts
+packages/helpers/src/lib/medium.ts
+packages/helpers/src/lib/medium.test.ts
 packages/helpers/src/index.ts
 packages/helpers/package.json
 
@@ -49,6 +52,19 @@ packages/helpers/package.json
   `set_rate` to a value, `play_item`, and `take_over`. No toggle. Skip forward and skip back are
   `seek` commands whose position the sender computes from its current estimate (R24), so two
   devices skipping at once land on the same target instead of stacking.
+- **Next and previous** (R76). `{ type: 'next' }` and `{ type: 'previous' }` carry nothing else.
+  The playing device runs each exactly as a press of its own Next or Previous button, on its own
+  queue, auto-queue, chapters, and Add by RSS list context. The server only relays them; it never
+  reads or edits a queue for them (plan 13). They are the only relative commands: two devices
+  pressing Next in the same instant advance twice, the same as two presses on the playing device.
+  Neither is a toggle, so R30 still holds.
+- **Medium on the resource summary** (R69). `medium` is required and holds a `MediumEnum` value,
+  the same numeric medium id the API and web carry as `DTOChannel.medium_id`. It is the medium of
+  the resource's channel: for an item, clip, or soundbite, `channel.medium_id`; for Add by RSS, the
+  resource data's `medium_id`. The publishing device fills it (web plan 22, mobile plan 32)
+  through `toPlaybackMedium`, which falls back to `MediumEnum.Podcast` when the device cannot
+  tell, the same default `getMediumEnumValue` and `getChannelRouteKind` use. Other devices use it
+  to pick the route for title links and share links, and to choose music or other controls.
 - **Commands are one-shot** (R31): the server stamps `command_id`, `issued_at_ms`, and
   `expires_at_ms = issued_at_ms + PLAYBACK_COMMAND_TTL_MS`. No SSE `id:`, never stored for replay.
   The hub drops a command that reaches it after `expires_at_ms` (server clocks). The receiving
@@ -61,8 +77,9 @@ packages/helpers/package.json
   always starts playing. Choosing "this device" in the menu needs no command: the device takes
   over locally the same way and claims (plan 13).
 - **Live items** (R14, R18): state carries `is_live: true`, `position_seconds: null`,
-  `duration_seconds: null`, `rate: 1`. Allowed commands are `play`, `pause`, `play_item`,
-  `take_over`; `seek` and `set_rate` are not (plan 11's `isPlaybackCommandAllowed`). Liveness is a
+  `duration_seconds: null`, `rate: 1`. Allowed commands are `play`, `pause`, `next`, `previous`,
+  `play_item`, `take_over`; `seek` and `set_rate` are not (plan 11's `isPlaybackCommandAllowed`,
+  which also explains why `next` and `previous` are allowed). Liveness is a
   flag on an item resource, never a resource kind or medium (**abcmemory-vocabulary** §
   livestreams).
 - **Snapshots replace, revisions order the rest.** `playback.state` and `playback.devices` each
@@ -85,8 +102,9 @@ packages/helpers/package.json
 ## `packages/helpers/src/lib/accountPlaybackStream.ts`
 
 Imports: `import type { AddByRSSResourceData } from '../dtos/addByRSSResourceData.js';`, the client
-type union and guard from `./accountSession.js`. Nothing Node-only, nothing from the barrel; mobile
-imports this file through a subpath.
+type union and guard from `./accountSession.js`, `import { MediumEnum, isMediumEnumValue } from
+'./medium.js';` (a value import: `toPlaybackMedium` returns `MediumEnum.Podcast`). Nothing
+Node-only, nothing from the barrel; mobile imports this file through a subpath.
 
 ### Event names
 
@@ -120,7 +138,12 @@ export const PLAYBACK_STATE_DRIFT_TOLERANCE_SECONDS = 2;
 export const PLAYBACK_PRESENCE_CHECK_IN_INTERVAL_MS = 15_000;
 /** Presence lasts this long after the last check-in or state publish. */
 export const PLAYBACK_PRESENCE_TTL_MS = 40_000;
-/** After a stream closes, presence is kept this long so a quick reconnect does not flicker the menu. */
+/**
+ * Product leave grace after a stream closes, so a quick reconnect does not flicker the menu.
+ * The API does not read this constant for the timer. It reads the required env
+ * `PLAYBACK_PRESENCE_LEAVE_GRACE_MS` (plan 14): 5000 everywhere except the web E2E API, which
+ * sets 500.
+ */
 export const PLAYBACK_PRESENCE_LEAVE_GRACE_MS = 5_000;
 /** A command not delivered and acted on within this window is dropped (R31). */
 export const PLAYBACK_COMMAND_TTL_MS = 5_000;
@@ -147,17 +170,27 @@ export type DTOPlaybackResourceRef =
 
 export interface DTOPlaybackResourceSummary {
   ref: DTOPlaybackResourceRef;
+  /** The resource's channel medium, the same values as `DTOChannel.medium_id`. */
+  medium: MediumEnum;
   title: string | null;
   channel_title: string | null;
   image_url: string | null;
 }
+
+/** A known `MediumEnum` value as is; anything else (missing, unknown id) is `MediumEnum.Podcast`. */
+export function toPlaybackMedium(value: unknown): MediumEnum;
 ```
 
 The kinds are the server queue's resource kinds (`packages/helpers/src/dtos/queue/queueResourceAbridged.ts`):
 item, clip, item soundbite, Add by RSS. A chapter plays as its item with a start position; a live
 item is an `item` with `is_live` on the state. The display fields let a device that has never
 loaded the item show its title and artwork (R6, R7) without a request; clients fetch more by id
-when they need it.
+when they need it. `medium` with the ref is enough to build the item's and channel's web route
+and share link (`getChannelRouteKind`, `APP_ROUTES` builders) without a request.
+
+`toPlaybackMedium` is the one place a publisher turns what it holds into `medium`. Web and mobile
+pass `channel.medium_id` for database content and `resourceData.medium_id` (typed `unknown` on
+`AddByRSSResourceData`) for Add by RSS.
 
 ### State
 
@@ -175,7 +208,10 @@ export interface DTOPlaybackState {
   is_live: boolean;
   /** Null when `is_live` or nothing is loaded. */
   position_seconds: number | null;
-  /** Null when unknown or `is_live`. */
+  /**
+   * The playing device's media duration; null when unknown or `is_live`. Other devices display
+   * this, never their own file length, which dynamic ads can make differ (plan 11).
+   */
   duration_seconds: number | null;
   rate: number;
   /** Server clock when the server accepted this position. */
@@ -226,6 +262,10 @@ export type DTOPlaybackCommand =
   | { type: 'pause' }
   | { type: 'seek'; position_seconds: number }
   | { type: 'set_rate'; rate: number }
+  /** Runs the playing device's own Next button handler. */
+  | { type: 'next' }
+  /** Runs the playing device's own Previous button handler. */
+  | { type: 'previous' }
   | {
       type: 'play_item';
       resource: DTOPlaybackResourceRef;
@@ -378,6 +418,10 @@ Guard rules, so every side rejects the same bad shapes:
   `PLAYBACK_TEXT_FIELD_MAX_LENGTH`.
 - `title`, `channel_title`: string at most `PLAYBACK_TEXT_FIELD_MAX_LENGTH`, or null.
   `image_url`: string at most `PLAYBACK_IMAGE_URL_MAX_LENGTH`, or null.
+- `isDTOPlaybackResourceSummary`: `medium` passes `isMediumEnumValue`; missing, null, a string, or
+  an id outside `MediumEnum` fails. The guard does not fall back; `toPlaybackMedium` is for
+  publishers only. A new `MediumEnum` member therefore reaches clients in the same helpers release
+  that lets a publisher send it.
 - Numbers are finite. `position_seconds`, `duration_seconds`, `start_seconds` are `>= 0`.
   `rate` is in `[PLAYBACK_RATE_MIN, PLAYBACK_RATE_MAX]`. `revision` and `*_ms` are non-negative
   safe integers.
@@ -386,8 +430,10 @@ Guard rules, so every side rejects the same bad shapes:
 - `isDTOPlaybackCommand`: `play_item` with an `add_by_rss` resource requires an object
   `add_by_rss_resource_data` (check it is a non-null object; its own shape is validated where it is
   used, as the queue routes do); any other kind requires null.
+- `isDTOPlaybackCommand`: `next` and `previous` need only `type`; extra properties are ignored
+  like everywhere else.
 - `isDTOPlaybackCommandEnvelope`: `state` is a valid state when `command.type` is `take_over`, and
-  null otherwise. `expires_at_ms > issued_at_ms`.
+  null otherwise (including `next` and `previous`). `expires_at_ms > issued_at_ms`.
 - Unknown `kind`, `type`, `status`, or `reason` values fail. Extra properties are allowed and
   ignored, so a newer server can add fields.
 - `parseAccountPlaybackStreamEvent` returns null for an unknown event name, invalid JSON, or data
@@ -400,6 +446,21 @@ plan 10 put the namespace list): `playback.*` is in use, defined in `./accountPl
 with `playback.snapshot`, `playback.state`, and `playback.devices` as latest-value events and
 `playback.command` and `playback.start_failed` as one-shot events, none with an SSE `id:`. No
 code change.
+
+## `packages/helpers/src/lib/medium.ts`
+
+Add one guard next to `parseMediumId`, the first membership check for `MediumEnum` in the
+package:
+
+```typescript
+/** True when `value` is a number that names a `MediumEnum` member. */
+export const isMediumEnumValue = (value: unknown): value is MediumEnum =>
+  typeof value === 'number' && Number.isInteger(value) && typeof MediumEnum[value] === 'string';
+```
+
+`MediumEnum` is numeric, so its reverse mapping makes `MediumEnum[2]` the string `'Podcast'` and
+`MediumEnum[999]` undefined. The file is already exported from the barrel and the `./medium`
+subpath; no export change.
 
 ## `packages/helpers/src/index.ts`
 
@@ -427,15 +488,25 @@ Mobile cannot import values from the barrel; it imports `@podverse/helpers/accou
     each return null.
   - State: a live state with a number `position_seconds` fails; a live state with rate 1.5 fails; a
     null resource with `playing` fails; a valid paused item state passes; `rate` 0.25 and 3.5 fail.
-  - Command: each of the six types passes with valid fields; `seek` with a negative position
-    fails; `play_item` with `add_by_rss` and null data fails, and with an `item` and non-null data
-    fails; `{ type: 'toggle' }` fails.
-  - Envelope: `take_over` with null `state` fails; `pause` with a non-null `state` fails;
-    `expires_at_ms` equal to `issued_at_ms` fails.
+  - Command: each of the eight types passes with valid fields (`{ type: 'next' }` and
+    `{ type: 'previous' }` with nothing else); `seek` with a negative position fails; `play_item`
+    with `add_by_rss` and null data fails, and with an `item` and non-null data fails;
+    `{ type: 'toggle' }` and `{ type: 'next_chapter' }` fail.
+  - Envelope: `take_over` with null `state` fails; `pause` with a non-null `state` fails; `next`
+    with null `state` passes and with a non-null `state` fails; `expires_at_ms` equal to
+    `issued_at_ms` fails.
+  - Resource summary: `medium` `MediumEnum.Music` passes; a summary without `medium`, with
+    `medium: null`, `medium: '3'`, `medium: 2.5`, or `medium: 999` fails. A state whose resource
+    lacks `medium` fails the state guard.
+  - `toPlaybackMedium`: `MediumEnum.Video` returns it; `undefined`, `null`, `'3'`, and `999`
+    return `MediumEnum.Podcast`.
   - Start failed: an unknown reason fails.
   - Snapshot: an empty device list with null state passes; a snapshot whose state fails the state
     guard fails.
   - Extra unknown properties on state still pass.
+- `packages/helpers/src/lib/medium.test.ts` (add to the existing file): `isMediumEnumValue` is true
+  for `MediumEnum.Podcast` and `MediumEnum.PublisherAV`, and false for `0`, `999`, `2.5`, `'2'`,
+  `'Podcast'`, `null`, and `undefined`.
 
 ## Release scratchpad
 

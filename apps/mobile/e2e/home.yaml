@@ -351,6 +351,8 @@ name: Home Media Types
     id: home-screen
 
 # Livestreams follows Tracks. Home fills it from the livestreams sync job after sign-in.
+# A sliver of the chip counts as visible, and the tap uses the chip center. One more
+# swipe brings that center inside the row. At the end of the row the swipe does not move.
 - runFlow:
     file: shared/restore-chip-row-start.yaml
     env:
@@ -360,6 +362,10 @@ name: Home Media Types
     env:
       CHIP_ROW_ID: home-media-type-selector
       TRAILING_ID: home-media-type-livestreams
+- swipe:
+    from:
+      id: home-media-type-selector
+    direction: LEFT
 - tapOn:
     id: home-media-type-livestreams
 - extendedWaitUntil:

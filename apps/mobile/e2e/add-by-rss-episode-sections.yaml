@@ -77,7 +77,23 @@ name: Add By RSS Episode Sections Flow
     visible:
       id: "full-player-chapter-row-.*"
     timeout: ${TIMEOUT_FAST}
-- assertVisible: "Pauci celer taceo."
+# The sheet peeks under the player, and the second chapter starts below that sliver. Swipes on
+# the chip strip raise the outer column. Playback keeps the clock moving, so each swipe settles
+# on a bound instead of a still frame. The row is one accessible element, so the title is part
+# of its name rather than a separate text node.
+- swipe:
+    from:
+      id: full-player-sections
+    direction: UP
+    waitToSettleTimeoutMs: 1000
+- swipe:
+    from:
+      id: full-player-sections
+    direction: UP
+    waitToSettleTimeoutMs: 1000
+- assertVisible:
+    id: "full-player-chapter-row-.*sections-ch-1"
+    text: ".*Pauci celer taceo.*"
 - takeScreenshot: add-by-rss-full-player-chapters
 - tapOn:
     id: full-player-section-transcript

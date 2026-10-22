@@ -5,7 +5,8 @@
 One pure module decides what the phone's player shows: its own playback, or the playback of
 another device on the account. A hooks module exposes those answers to the mini player, the full
 player, the device menu, the failure notices, and list rows (plans 51–56). This plan also adds
-every catalog key area E uses, so later plans only read keys.
+every mobile-only catalog key area E uses, so later plans only read keys. The status line reads
+the shared `media_player.cross_device` keys that plan 40 adds for web and mobile.
 
 Nothing here renders. Nothing here sends a command; plan 34 routes controls.
 
@@ -25,25 +26,34 @@ report:
   `settings.account.sessions.client_type_mobile` (auth-sessions plan 32). When they are missing,
   add those two keys here with the same values that plan lists (`Web Browser`, `Mobile App`, and
   its `es`, `fr`, `el-GR` text), and say so in the final message.
+- The consumer catalog's `media_player.cross_device` object (plan 40) has `playing_on_device`,
+  `paused_on_device`, `starting_on_device`, and `sending_to_device`, each with a `{device}`
+  placeholder.
+- `apps/mobile/src/lib/addByRss/localResourceData.ts` exports
+  `findLocalAddByRssResourceDataByHash(hashId, lookup)` (plan 33).
 
 ## Rows
 
-R7, R40, R59, R67
+R7, R40, R59, R67, R83, R90
 
 ## Runs after
 
-30
+30, 33, 40
 
 ## Files
 
 apps/mobile/src/playback/crossDevice/crossDevicePlayerDisplay.ts
 apps/mobile/src/playback/crossDevice/crossDevicePlayerDisplay.test.ts
 apps/mobile/src/playback/crossDevice/useCrossDevicePlayerDisplay.ts
+apps/mobile/src/playback/crossDevice/useDisplayedAddByRssResourceData.ts
 apps/mobile/vitest.config.ts
 packages/i18n-catalog/consumer/originals/en-US.json
 packages/i18n-catalog/consumer/originals/es.json
 packages/i18n-catalog/consumer/originals/fr.json
 packages/i18n-catalog/consumer/originals/el-GR.json
+packages/i18n-catalog/consumer/overrides/es.json
+packages/i18n-catalog/consumer/overrides/fr.json
+packages/i18n-catalog/consumer/overrides/el-GR.json
 
 ## Decisions this plan fixes
 
@@ -67,8 +77,19 @@ packages/i18n-catalog/consumer/originals/el-GR.json
   client type through `settings.account.sessions.client_type_web` / `client_type_mobile`. When
   `sameLabelNumber` is set, the name gets a number: "iPhone · iOS (2)". When the active device is
   not in the device list (a stale list), the name is "Another Device".
-- **Status copy is sentence case.** "Playing on {device}" is a status line, not a label
-  (**ui-copy-casing**). Titles and buttons are title case.
+- **One status line, shared copy (R90).** The status line reads plan 40's
+  `media_player.cross_device` keys, the same strings web shows: "Playing on {device}", "Paused on
+  {device}", "Starting on {device}", and "Sending to {device}…". Mobile adds no status keys of its
+  own and does not use the web-only `playing_in_another_tab`.
+- **A pending transfer shows "Sending to {device}…" (R90).** While `view.transfer` targets another
+  session, the status line names that target, in the local display as well as the remote one, so
+  the mini player says where playback is going from the tap until the target claims it. A transfer
+  that targets this phone (taking playback over) has no sending line; the player keeps drawing the
+  other device until the claim lands.
+- **The remote item's Add by RSS data (R75, R83).** A remote `add_by_rss` reference carries only
+  the hash. The phone looks it up once per hash in its own Add by RSS feeds through plan 33's
+  `findLocalAddByRssResourceDataByHash`. Found data feeds the remote chapters (plan 51), the title
+  link, and Add to Playlist (plan 55). No data means none of those for that item.
 
 ## `crossDevicePlayerDisplay.ts` (pure)
 
@@ -112,10 +133,21 @@ export function selectPlaybackDeviceEntries(view: CrossDevicePlaybackView): Play
 export function selectCanTransferPlayback(view: CrossDevicePlaybackView): boolean;
 
 export function remotePlaybackTransportState(status: PlaybackStatus): PlaybackTransportState;
-export function remotePlaybackStatusLabelKey(status: PlaybackStatus):
-  | 'media_player.devices.playing_on'
-  | 'media_player.devices.paused_on'
-  | 'media_player.devices.starting_on';
+
+export type PlayerStatusLine =
+  | { kind: 'sending'; device: PlaybackDeviceListEntry | null }
+  | { kind: 'remote'; status: PlaybackStatus; device: PlaybackDeviceListEntry | null };
+
+export function resolvePlayerStatusLine(params: {
+  view: CrossDevicePlaybackView;
+  display: CrossDevicePlayerDisplay;
+}): PlayerStatusLine | null;
+
+export function playerStatusLineKey(line: PlayerStatusLine):
+  | 'media_player.cross_device.sending_to_device'
+  | 'media_player.cross_device.playing_on_device'
+  | 'media_player.cross_device.paused_on_device'
+  | 'media_player.cross_device.starting_on_device';
 
 export type PlaybackDeviceLabelKey =
   | 'settings.account.sessions.client_type_web'
@@ -162,6 +194,17 @@ Rules:
   thisSessionIdText, activeSessionIdText })` over the view.
 - `remotePlaybackTransportState`: `playing` → `'playing'`, `paused` → `'paused'`, `loading` →
   `'loading'`. Exhaustive `switch`, no `default`.
+- `resolvePlayerStatusLine`, first match wins:
+  1. `view.availability !== 'ready'` → null.
+  2. `view.transfer !== null` and `view.transfer.targetSessionIdText !== view.thisSessionIdText` →
+     `{ kind: 'sending', device }`, where `device` is the entry of
+     `selectPlaybackDeviceEntries(view)` whose `device.session_id_text` is the target, or null.
+  3. `display.kind === 'remote'` → `{ kind: 'remote', status, device: display.activeDevice }`, with
+     `status` from `view.state.status`.
+  4. Otherwise null.
+- `playerStatusLineKey`: `sending` → `sending_to_device`; `remote` by status, with an exhaustive
+  `switch` and no `default`: `playing` → `playing_on_device`, `paused` → `paused_on_device`,
+  `loading` → `starting_on_device`.
 - `formatPlaybackDeviceLabel`: null → `translate('media_player.devices.another_device')`. Else base =
   trimmed `device_label` when non-empty, otherwise the client-type key (exhaustive `switch` on
   `client_type`, no `default`). With `sameLabelNumber !== null`, return
@@ -190,6 +233,8 @@ export function usePlaybackRowDisplay(): {
 };
 /** Binds `formatPlaybackDeviceLabel` to `useTranslation().t`. */
 export function usePlaybackDeviceLabel(): (entry: PlaybackDeviceListEntry | null) => string;
+/** The translated status line for the mini player and the remote full player; null for none. */
+export function usePlayerStatusText(display: CrossDevicePlayerDisplay): string | null;
 ```
 
 - `useCrossDevicePlaybackView`: `useSyncExternalStore(subscribeCrossDevicePlaybackView,
@@ -211,6 +256,35 @@ export function usePlaybackDeviceLabel(): (entry: PlaybackDeviceListEntry | null
   authoring hold: the Make Clip screen covers every list while the hold is on.
 - `usePlaybackDeviceLabel`: `useTranslation()`; return a `useCallback` that calls
   `formatPlaybackDeviceLabel(entry, (key, values) => t(key, values))`.
+- `usePlayerStatusText`: the view, `resolvePlayerStatusLine({ view, display })`, then
+  `t(playerStatusLineKey(line), { device: label(line.device) })` with the bound device label; null
+  when the line is null. Memoize on the view, the display, and `t`.
+
+## `useDisplayedAddByRssResourceData.ts`
+
+```typescript
+/** The phone's own Add by RSS data for a shared hash; null while looking or when not found. */
+export function useRemoteAddByRssResourceData(hashId: string | null): AddByRSSResourceData | null;
+/** Add by RSS data for the item the player shows: the remote item's local copy, or this phone's target. */
+export function useDisplayedAddByRssResourceData(): AddByRSSResourceData | null;
+```
+
+- `useRemoteAddByRssResourceData`: a module-level single entry `{ hashId, data }` plus a listener
+  set, read through `useSyncExternalStore`. When `hashId` is non-null and differs from the entry,
+  an effect calls `findLocalAddByRssResourceDataByHash(hashId, addByRssRepository)` (the lookup
+  plan 33's executor uses), then stores `{ hashId, data }` (data null when not found) and notifies.
+  A result for a hash that is no longer requested is dropped. The snapshot is the entry's data when
+  its `hashId` matches the argument, else null. A null argument returns null and starts nothing.
+- `useDisplayedAddByRssResourceData`: `useCrossDevicePlayerDisplay()` and
+  `usePlaybackRow().activeTarget`. The remote hash is `display.resource.ref.add_by_rss_hash_id` when
+  the display is remote with an `add_by_rss` reference, else null; always call
+  `useRemoteAddByRssResourceData(remoteHash)`. Remote display → that result (null for every other
+  reference kind). Local display → `activeTarget.resourceData` when the target kind is
+  `add-by-rss`, else null.
+
+Every reader of "which Add by RSS item is playing" for chapters and sections calls
+`useDisplayedAddByRssResourceData` (plans 51 and 55), so the single-entry chapter cache and the
+`nowPlayingAddByRssSections` store never get two different items from two mounted hooks.
 
 ## Catalog keys
 
@@ -226,9 +300,6 @@ apostrophe in `en-US`, as the surrounding English strings do.
 | `this_device_entry` | {device} (This Device) | {device} (este dispositivo) | {device} (cet appareil) | {device} (αυτή η συσκευή) |
 | `same_label_number` | {device} ({number}) | {device} ({number}) | {device} ({number}) | {device} ({number}) |
 | `another_device` | Another Device | Otro dispositivo | Un autre appareil | Άλλη συσκευή |
-| `playing_on` | Playing on {device} | Reproduciendo en {device} | Lecture sur {device} | Αναπαραγωγή σε {device} |
-| `paused_on` | Paused on {device} | En pausa en {device} | En pause sur {device} | Σε παύση σε {device} |
-| `starting_on` | Starting on {device} | Iniciando en {device} | Démarrage sur {device} | Έναρξη σε {device} |
 | `transfer_failed_title` | Playback Didn't Start | La reproducción no se inició | La lecture n’a pas démarré | Η αναπαραγωγή δεν ξεκίνησε |
 | `transfer_failed_load_failed` | {device} couldn't load this media. | {device} no pudo cargar este contenido. | {device} n’a pas pu charger ce média. | Η συσκευή {device} δεν μπόρεσε να φορτώσει αυτό το μέσο. |
 | `transfer_failed_autoplay_blocked` | {device} needs a tap to start playback. Press Play there. | {device} necesita un toque para empezar a reproducir. Pulsa Reproducir allí. | {device} a besoin d’un appui pour lancer la lecture. Appuyez sur Lecture sur cet appareil. | Η συσκευή {device} χρειάζεται ένα πάτημα για να ξεκινήσει την αναπαραγωγή. Πατήστε Αναπαραγωγή εκεί. |
@@ -242,8 +313,14 @@ When an area D plan already added a `media_player.devices` object with keys of t
 keep its keys, add only the ones above that are missing, and use its names in this plan's code.
 Report every name you mapped in the final message so plans 51–57 use the same names.
 
+In the es, fr, and el-GR consumer overrides files, add the same `devices` object in the same
+position with every leaf set to `""`, the way plan 40 mirrors `cross_device`. `i18n:validate`
+fails when an overrides file's keys differ from its originals.
+
 Reused, not added: `media.livestream.live` (Live label), `misc.dismiss`, `misc.cancel`,
-`settings.account.sessions.client_type_web` / `client_type_mobile`.
+`settings.account.sessions.client_type_web` / `client_type_mobile`, and plan 40's
+`media_player.cross_device.playing_on_device`, `paused_on_device`, `starting_on_device`, and
+`sending_to_device`. Add no `playing_on`, `paused_on`, or `starting_on` key under `devices`.
 
 ## `apps/mobile/vitest.config.ts`
 
@@ -260,7 +337,13 @@ device's playback, device names, and failure copy
   local: `off`, `pending`, `unavailable`, `role: 'active'`, `role: 'idle'`, a null resource, and
   `isAuthoringHold: true`. Local returns the same `LOCAL_PLAYER_DISPLAY` object.
 - A live remote state gives `controls.canSeek === false` and `controls.canSetRate === false`;
-  `paused` maps to `'paused'` and `paused_on`, and `loading` maps to `'loading'` and `starting_on`.
+  `paused` maps to `'paused'` and `loading` maps to `'loading'`.
+- `resolvePlayerStatusLine`: null when not ready; `sending` with the target's entry while a
+  transfer targets another session, in a local display and in a remote one; `sending` with a null
+  device when the target is not in the list; no `sending` line when the transfer targets this
+  session; `remote` with the status and active device for a remote display; null for a local
+  display with no transfer. `playerStatusLineKey` gives `sending_to_device`, `playing_on_device`,
+  `paused_on_device`, and `starting_on_device` for the four cases.
 - `activeDevice` is null when the active id is not in the device list.
 - `playbackResourceRefRowMediaId` returns each kind's id; `selectRemoteRowMediaId` is null for a
   `pending` view; `selectRemoteRowIsPlaying` is true for `loading` and false for `paused`.

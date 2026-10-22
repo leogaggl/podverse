@@ -1,21 +1,26 @@
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 # 43 — Remote progress bar that advances locally and seeks the playing device
 
 In the remote view (plan 42) the progress bar shows the playing device's position, moving forward
 on its own between state updates, and dragging it seeks the playing device. The playing device
-publishes position, rate, and timestamps (area A); this tab extrapolates with the store's
-`getEstimatedPositionSeconds()` (plan 21, using plan 11's estimate), so the bar is smooth without
+publishes position, rate, and timestamps (area A); this tab extrapolates through plan 49's shared
+position clock (`useRemotePlaybackPositionSeconds`, which reads the store's
+`getEstimatedPositionSeconds()` from plan 21 and plan 11's estimate), so the bar is smooth without
 an event per second.
+
+**Duration comes from the shared state.** The bar's length and its duration label read
+`remote.state.duration_seconds`, the playing device's own file length (plan 10's field, plan 11's
+rule). It never reads this tab's media element or `mpDuration`: dynamic ads can give devices
+different file lengths, and this tab has no file loaded in the remote role.
 
 The bar is display only (**playback-meaningful-events**): it never writes the MediaPlayer context,
 `MediaPlayerCurrentTime`, history, or a saved position. A drag sends one `seek` command when the
 pointer is released, through plan 25's transport.
 
-Before editing, confirm `apps/web/src/hooks/useRemotePlayerDisplay.ts` (plan 42) and
-`apps/web/src/hooks/usePlayerTransport.ts` with `seekTo` (plan 25) exist, and that
-`crossDevicePlaybackStore` in `apps/web/src/lib/crossDevicePlayback/crossDevicePlaybackStore.ts`
-has `getEstimatedPositionSeconds()` (plan 21). If not, stop and report.
+Before editing, confirm `apps/web/src/hooks/useRemotePlayerDisplay.ts` (plan 42),
+`apps/web/src/hooks/useRemotePlaybackPositionSeconds.ts` (plan 49), and
+`apps/web/src/hooks/usePlayerTransport.ts` with `seekTo` (plan 25) exist. If not, stop and report.
 
 ## Rows
 
@@ -27,55 +32,23 @@ R4, R16
 
 ## Files
 
-apps/web/src/hooks/useRemotePlaybackPositionSeconds.ts
-apps/web/src/hooks/__tests__/useRemotePlaybackPositionSeconds.test.tsx
 apps/web/src/components/MediaPlayer/Sliders/MediaPlayerProgress.tsx
 apps/web/src/components/MediaPlayer/Sliders/RemoteMediaPlayerProgress.tsx
 
 ## Decisions this plan fixes
 
-- **Tick.** 250 ms interval while the displayed status is `playing`, rounded down to whole
-  seconds, and a state update only when the whole second changes. Paused or loading → no
-  interval; the value updates when the state changes.
+- **Tick.** Plan 49's clock: whole seconds, one shared 250 ms interval while the displayed status
+  is `playing`, a re-render only when the whole second changes. Paused or loading → no interval;
+  the value updates when the state changes.
 - **Seek on release.** Dragging shows a local preview position; one `seekTo` on mouseup. A plain
   click (mousedown then mouseup) is a seek to that point. No continuous seeking, since each move
   would be a command over the network.
-- **No chapter markers, chapter tooltip, or clip/soundbite highlight** in the remote view: the
-  state carries none of that.
+- **No chapter markers, chapter tooltip, or clip/soundbite highlight on the remote bar.** The
+  segment strip above the bar names the chapter or clip instead (plan 42).
 - **Unknown duration** (`duration_seconds` null or 0): the bar shows the position, an empty
   duration, no fill, and does not seek.
 - **Clip editor and embed stay local.** `MediaPlayerProgress` routes to the remote bar only when
   `isClipForm` is not set and `layoutVariant !== 'embed'`.
-
-## `useRemotePlaybackPositionSeconds.ts`
-
-```typescript
-/**
- * Whole-second estimate of the displayed remote position, advancing while it plays.
- * Null when disabled, live, or unknown.
- */
-export function useRemotePlaybackPositionSeconds(enabled: boolean): number | null;
-```
-
-```typescript
-const readWholeSeconds = (): number | null => {
-  const value = crossDevicePlaybackStore.getEstimatedPositionSeconds();
-  return value === null ? null : Math.floor(value);
-};
-```
-
-- `const displayState = useCrossDevicePlaybackSnapshot((s) => s.displayState);`
-- `const [position, setPosition] = useState<number | null>(() => (enabled ? readWholeSeconds() : null));`
-- One `useEffect` on `[enabled, displayState]`:
-  - `!enabled` → `setPosition(null)` and return.
-  - `setPosition(readWholeSeconds())`.
-  - When `displayState?.status === 'playing'`, start
-    `setInterval(() => { const next = readWholeSeconds(); setPosition((prev) => (prev === next ? prev : next)); }, 250)`
-    and clear it in the cleanup.
-- Return `enabled ? position : null`.
-
-The 250 ms constant is file-local (`REMOTE_POSITION_TICK_MS`). Plan 46's row progress calls this
-hook with `enabled` true only for the matching row, so at most a few intervals run.
 
 ## `RemoteMediaPlayerProgress.tsx`
 
@@ -97,7 +70,9 @@ Leave out the highlight, chapter markers, and tooltip.
 - `const duration = remote.state.duration_seconds !== null && remote.state.duration_seconds > 0 ? remote.state.duration_seconds : 0;`
 - `const [dragSeconds, setDragSeconds] = useState<number | null>(null);` and a `dragSecondsRef`
   mirroring it for the window listeners.
-- `const shown = dragSeconds ?? estimated;` `const ratio = duration > 0 ? clampRatio(shown / duration) : 0;`
+- `const shown = Math.min(dragSeconds ?? estimated, duration > 0 ? duration : Number.POSITIVE_INFINITY);`
+  (plan 11's estimate already clamps at the shared duration; this keeps a drag preview inside it
+  too). `const ratio = duration > 0 ? clampRatio(shown / duration) : 0;`
   (`clampRatio` from `@podverse/helpers/math`, as `PlayButtonRow` uses).
 - `const { seekTo } = usePlayerTransport();`
 - `secondsFromClientX(clientX)`: null when `barRef.current` is null or `duration === 0`; else
@@ -149,22 +124,14 @@ false anyway, render nothing.
 - The local bar's behavior, markup, and test ids are unchanged.
 - The remote bar never calls `seek` from `useMediaPlayerControls`, `setMPCurrentTime`, or any
   queue or history hook.
+- The remote bar's duration is `remote.state.duration_seconds` only.
 - One drag sends at most one `seek`.
 
 ## Tests
 
-Vitest, `apps/web/src/hooks/__tests__/useRemotePlaybackPositionSeconds.test.tsx`
-(`renderHook`, fake timers; mock `crossDevicePlaybackStore.getEstimatedPositionSeconds` and
-`useCrossDevicePlaybackSnapshot` with `vi.mock` on their modules, the way existing hook tests mock
-contexts):
-
-- Playing: estimate 10.2, then 10.9 after 250 ms → still 10 and no extra render; 11.1 after
-  another 250 ms → 11.
-- Paused: no interval runs (advancing timers does not call the estimate again).
-- `enabled` false → null and no interval.
-- A new `displayState` object re-reads immediately.
-
-Plan 47's Playwright spec checks the remote bar advances and that a drag seeks the playing tab.
+No new unit test: plan 49's `remotePlaybackClock.test.ts` covers the estimate and tick, and this
+component is markup over it and plan 25's transport. Plan 47's Playwright spec checks the remote
+bar advances and that a click on it seeks the playing browser.
 
 ## Release scratchpad
 
@@ -173,8 +140,9 @@ Plan 47's Playwright spec checks the remote bar advances and that a drag seeks t
 
 - Surfaces: web
 - Change: While another device or tab plays, the web player's progress bar shows that device's
-  position and moves forward on its own between updates. Clicking or dragging the bar seeks the
-  playing device when released. Chapter marks are not shown on that remote bar.
+  position and moves forward on its own between updates, with that device's duration. Clicking or
+  dragging the bar seeks the playing device when released. Chapter marks are not shown on that
+  remote bar; the strip above the player names the current chapter instead.
 - Who notices: members with more than one device or tab open
 - Operator steps: none
 ```

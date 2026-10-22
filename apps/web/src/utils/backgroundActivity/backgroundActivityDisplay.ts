@@ -1,7 +1,4 @@
-import type {
-  BackgroundActivityKind,
-  BackgroundActivitySnapshot,
-} from './backgroundActivityStore';
+import type { BackgroundActivityKind, BackgroundActivitySnapshot } from './backgroundActivityStore';
 
 /** Key under the `background_activity` catalog namespace for each kind's message. */
 export const BACKGROUND_ACTIVITY_LABEL_KEYS: Record<BackgroundActivityKind, 'add_by_rss_refresh'> =

@@ -22,8 +22,7 @@ export function useAddByRssDetailMoreActions(input: {
   onMarkAsPlayedPress: () => void;
   onQueuePress: (position: QueueActionPosition) => void;
 }): MediaRowMoreAction[] {
-  const { downloadItem, idSuffix, onAddToPlaylistPress, onMarkAsPlayedPress, onQueuePress } =
-    input;
+  const { downloadItem, idSuffix, onAddToPlaylistPress, onMarkAsPlayedPress, onQueuePress } = input;
   const { t } = useTranslation();
   const {
     errorReason,

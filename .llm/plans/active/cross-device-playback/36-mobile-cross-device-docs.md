@@ -65,9 +65,14 @@ adoption`, in the skill's terse do-and-don't style:
 - **Remote to idle:** load the shared item paused, with no events. Do nothing on a cold open.
 - **Background:** no grace period. Do not drive background work from `setTimeout` or
   `setInterval`; Android does not fire them there. Use progress samples or request settles.
-- **Don't:** add a second stream, write remote positions anywhere, or add next or previous
-  commands without changing the shared contract in `@podverse/helpers/accountPlaybackStream`
-  first.
+- **Next and previous** commands run on the playing phone as taps of its own Next and Previous
+  buttons, on its own queue. A phone in the remote role sends them instead of moving locally.
+- **Commanded starts:** when `take_over`, `play_item`, or `seek` lands at or past the length of
+  the file this phone loaded, start 5 s before that length (`clampCommandStartToFileEnd`).
+- **Late end on a remote phone:** a phone that is no longer the playing device does not
+  auto-advance when its own file ends; only the playing device fires end reached, auto-advance,
+  history, journal, and position events.
+- **Don't:** add a second stream, or write remote positions anywhere.
 
 Also add one line to the end of `## Same-item multi-device adoption`: while another device is
 active, the live control replaces the prompt; see the new section.

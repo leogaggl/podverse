@@ -36,6 +36,11 @@ R29, R31, R36, R57
 apps/api/src/lib/accountEventStream/accountEventStreamHub.ts
 apps/api/src/lib/accountEventStream/accountEventStreamHub.test.ts
 apps/api/src/test/account-events.test.ts
+apps/api/src/config/index.ts
+apps/api/src/lib/startup/validation.ts
+apps/api/.env.example
+infra/k8s/base/api/source/api.env
+packages/helpers-config/src/podverseTestEnv.ts
 
 ## Decisions this plan fixes
 
@@ -52,11 +57,22 @@ apps/api/src/test/account-events.test.ts
   the progress bar and remote controls lag.
 - **Commands go only to the target's streams, and only before they expire** (R31). A command
   whose `expires_at_ms` has passed when it reaches the hub is dropped with a `debug` log.
+- **Leave grace comes from env, not the helper constant.** `PLAYBACK_PRESENCE_LEAVE_GRACE_MS` in
+  `@podverse/helpers` stays `5_000` (the product value, plan 10). The hub timer reads
+  `config.playback.presenceLeaveGraceMs`, parsed from the required env
+  `PLAYBACK_PRESENCE_LEAVE_GRACE_MS` with no code fallback (`process.env.PLAYBACK_PRESENCE_LEAVE_GRACE_MS!`,
+  validated at startup as a positive integer). Set `"5000"` in `apps/api/.env.example` (double
+  quotes) and `5000` in `infra/k8s/base/api/source/api.env` (unquoted). Push `validateRequired`
+  in the same order as `.env.example` (**startup-validation-env-order**). In
+  `packages/helpers-config/src/podverseTestEnv.ts`, export
+  `WEB_E2E_PLAYBACK_PRESENCE_LEAVE_GRACE_MS = 500` and set the env to `'500'` on `apiWebE2e`
+  only. `apiVitest` and `apiMobileE2e` set `'5000'`. The mobile handoff flow waits out the
+  product grace, so the mobile E2E API keeps 5 s.
 - **How a stream's end changes presence** (R57):
 
 | Why the stream ended | Presence |
 | --- | --- |
-| client closed the connection, or a write failed or hit backpressure | shortened to now + `PLAYBACK_PRESENCE_LEAVE_GRACE_MS` |
+| client closed the connection, or a write failed or hit backpressure | shortened to now + `config.playback.presenceLeaveGraceMs` |
 | its session ended (`session.ended`) | removed at once, and devices published |
 | 30-minute cap, token expiry, hub shutdown | unchanged (the client reconnects and keeps checking in) |
 
@@ -90,8 +106,8 @@ existing call site (the close listener, the write-failure and backpressure paths
 the reason is `client_closed` or `write_failed` and no other non-ended stream of that account on
 this pod has the same `sessionIdText`:
 
-1. `shortenPlaybackPresence({ accountId, sessionIdText, expiresAtMs: now + PLAYBACK_PRESENCE_LEAVE_GRACE_MS })`.
-1. A one-shot `setTimeout` at `PLAYBACK_PRESENCE_LEAVE_GRACE_MS + 250` ms that runs
+1. `shortenPlaybackPresence({ accountId, sessionIdText, expiresAtMs: now + config.playback.presenceLeaveGraceMs })`.
+1. A one-shot `setTimeout` at `config.playback.presenceLeaveGraceMs + 250` ms that runs
    `prunePlaybackPresence` then `handlePlaybackPresenceChange` for the account, so the departure
    is published promptly even if no sweep covers the account (the timer is `unref`'d and tracked
    so `closeAccountEventStreamHub` clears it).
@@ -164,7 +180,8 @@ removal comes back through Redis like every other event.
 ## Reuse
 
 `formatSseEvent` from `sseWire.ts` (realtime plan 12); `toAccountPlaybackStreamEvent` and the
-`PLAYBACK_*` constants from `@podverse/helpers` (plan 10); `readPlaybackSnapshot`,
+`PLAYBACK_*` constants from `@podverse/helpers` (plan 10) except the leave grace, which is
+`config.playback.presenceLeaveGraceMs`; `readPlaybackSnapshot`,
 `handlePlaybackPresenceChange`, and the presence functions from plan 12. Do not query the
 database.
 

@@ -26,9 +26,7 @@ export type UpcomingLiveRow = HomeFeedRowData & {
  * A finite number above zero is already milliseconds. An ISO string or a `Date` is parsed. Anything
  * else, including a missing value or a time at or before the epoch, is null.
  */
-const startTimeMsFrom = (
-  startTime: Date | string | number | null | undefined
-): number | null => {
+const startTimeMsFrom = (startTime: Date | string | number | null | undefined): number | null => {
   if (startTime === null || startTime === undefined) {
     return null;
   }

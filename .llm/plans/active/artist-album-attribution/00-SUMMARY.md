@@ -8,65 +8,71 @@ order are in `COPY-PASTA.md` once the set is assembled.
 One row per distinct ask, quoting the request. A row listed under several areas is planned by
 each area for its own surface or layer; Close fills Plan from every plan's `## Rows`.
 
-- **R1** (area A) "I'm wondering how Podverse is set up to handle the artist's albums, tracks feature" — Plan: (pending)
-- **R2** (areas A, B) "there are references going on that may make it difficult for us to query for, let's say, all the tracks by an artist" — Plan: (pending)
-- **R3** (area A) "while we can count on there always being an album feed, there may not even be an artist feed that corresponds with that album feed" — Plan: (pending)
-- **R4** (area A) "in order to maintain integrity so that artists cannot wrongfully claim that they are the creator of an album, there needs to be some cross-referencing of IDs that are within the feeds, so that we can verify that they both represent a relationship that should exist" — Plan: (pending)
-- **R5** (area A) "I believe the podcast index's specs should already explain how to handle this scenario" — Plan: (pending)
-- **R6** (areas F, G) "on the player screen, if an artist's name is available, we may want to add yet another row of text above the album title, which will be smaller text and it will represent the artist's name" — Plan: (pending)
-- **R7** (area B) "that will somehow have to go up the chain from item to album to artist. And we, as I said, need to make sure we verify the integrity of these cross references" — Plan: (pending)
-- **R8** (all areas) "it is very important that you bear in mind both web and mobile experiences, as well as add by RSS and non-add by RSS" — Plan: (pending)
-- **R9** (area A) "I want answer A only when both feeds point at each other ... regardless, it seems important that we have this cross feed verification" — Plan: (pending)
-- **R10** (area A) "guids match both ways, and when the album's pointer has a `feedUrl` it must match the artist feed's URL (http/https and known redirects allowed)" — Plan: (pending)
-- **R11** (area A) "Guid-only matching is not enough: `channel.podcast_guid` is unique and the first feed parsed keeps it, so a feed can squat a real artist's guid" — Plan: (pending)
-- **R12** (area A) "Store the result as verified link rows, many-to-many: publisher channel, album channel, and an optional item for a future track-level credit" — Plan: (pending)
-- **R13** (area A) "Recompute an album's links whenever the album or any publisher it involves is parsed, so a reference dropped from either feed removes the link" — Plan: (pending)
-- **R14** (area A) "Store publisher claims as lists. `channel_publisher_remote_item` allows one row per album today (unique on `channel_publisher_id`); relax that so several claims fit" — Plan: (pending)
-- **R15** (area A) "what if there are two valid artists for one album or two valid artists for one track? ... let's make sure our design is able to support that" (round 3: "many-to-many links now; only the parser changes later") — Plan: (pending)
-- **R16** (area A) "Record labels shown as artists: 'I would say yes, but I hope that whatever decision we go forward with could be potentially migrated and changed in the future for the publisher experience'" (settled: "Name the link generically ('verified publisher'), not 'artist'") — Plan: (pending)
-- **R17** (area A) "can't the artist feed contain content that is not just an album, but perhaps a direct reference to an item? Do we have a solution for how to handle this in the UI and database?" — Plan: (pending)
-- **R18** (areas B, D, E) "Item-level references in a directory artist feed are not shown; no spec mechanism can verify them." — Plan: (pending)
-- **R19** (areas C, H, I) "Item-level references in an Add by RSS artist feed show in its Tracks tab once their album is parsed." — Plan: (pending)
-- **R20** (areas B, D, E) "Artist Tracks tab: all tracks on the artist's verified albums." — Plan: (pending)
-- **R21** (areas B, F, G) "Every reader takes a list of publishers: the player's artist line, the track page byline, the OS artist field, and the artist page's Albums and Tracks tabs." — Plan: (pending)
-- **R22** (areas D, E) "Albums tab, top to bottom: 1. Verified albums. 2. Your Add by RSS Albums ... 3. Not Yet Added" — Plan: (pending)
-- **R23** (areas B, D, E) "Will a user be able to at least see in some way what those feeds are and be able to manually add it for parsing if they're a premium member, like other feeds? ... We need this experience to be thought through and nice and clean" (round 3: "a separate Not Yet Added section with a helper note") — Plan: (pending)
-- **R24** (areas D, E) "Tapping a row opens the Podcast Index preview" (web `/podcast-index/feed/[id]`, mobile `SearchResultDetail` on the current tab's stack) — Plan: (pending)
-- **R25** (area B) "Albums that are parsed but do not point back disappear from the artist page." — Plan: (pending)
-- **R26** (area B) "References Podcast Index does not know are hidden." — Plan: (pending)
-- **R27** (areas F, G) "Player line order: track title, then the artist (smaller), then the album" on the "mobile full player and web full-screen player modal" — Plan: (pending)
-- **R28** (areas F, G) "Artist line is a link: 'On the full player screens, yes.'" — Plan: (pending)
-- **R29** (area G) "on mobile, Home when followed, Browse otherwise, like the album line" — Plan: (pending)
-- **R30** (areas F, G) "No verified artist: the artist line is hidden." — Plan: (pending)
-- **R31** (areas F, G) "More than one artist in the player: the line shows 'A, B'; tapping opens a chooser listing each artist." — Plan: (pending)
-- **R32** (areas F, G) "for the mobile mini-player and the web-player bar, there may not be enough vertical real estate to put three lines in there" (settled: "The second line is 'Artist · Album' when there is an artist, else the album as today") — Plan: (pending)
-- **R33** (area G) "On mobile it scrolls in the same `MarqueeText` turn group as the title." — Plan: (pending)
-- **R34** (area G) "Lock screen, CarPlay, and Android Auto sound good, but if they are limited to only two rows, how would you recommend handling that?" (settled: "structured fields, not concatenated strings") — Plan: (pending)
-- **R35** (area G) "Lock screen, CarPlay, Android Auto with no verified artist: the album title goes in the artist field, as today, so the second line is never blank." — Plan: (pending)
-- **R36** (area G) "iOS has `MPMediaItemPropertyAlbumTitle` and Media3 has `setAlbumTitle`; this needs a native change and a rebuild, and a device check." — Plan: (pending)
-- **R37** (area G) "Mobile stores items and channels on disk (queue cache, channel items). The artist names ride in those payloads as an added field; older stored rows show no artist line until they refresh." — Plan: (pending)
-- **R38** (areas F, G) "yes on the track pages" (directory track pages, web and mobile, artist as a link in the byline) — Plan: (pending)
-- **R39** (areas F, G) "but not on the album pages right now" — Plan: (pending)
-- **R40** (areas C, H, I) "if somebody uses the AdByRSS, then we could just trust the input as it is" (settled: "Matching is by guid, on the device. Nothing from an Add by RSS feed changes a public page or server-side data anyone else sees.") — Plan: (pending)
-- **R41** (area C) "if a user parses an artist feed, or in other words, a publisher feed, all of the eligible items within it that fit within our schema should parse and be returned" — Plan: (pending)
-- **R42** (areas C, H, I) "returned in a way where the AdByRSSUX understands that this album was from this artist" — Plan: (pending)
-- **R43** (areas C, H, I) "One of those albums is already in the directory: 'Link to the directory album'" (settled: "Albums already in the directory are linked to the directory album instead of parsed again.") — Plan: (pending)
-- **R44** (areas H, I) "two ... publisher feeds are parsed and they both reference the same album. And in that case, they would appear under albums for both of those artist feeds locally" — Plan: (pending)
-- **R45** (areas H, I) "Add by RSS artist page Albums list: Add by RSS albums on this device whose guid the artist feed lists" — Plan: (pending)
-- **R46** (areas H, I) "Albums parsed because the member added an Add by RSS artist: they appear only under that artist. The member can follow each one separately." — Plan: (pending)
-- **R47** (areas H, I) "Add by RSS album that names a directory artist: link to the public artist page, and show a Your Add by RSS Albums section there, on that device only." — Plan: (pending)
-- **R48** (area H) "On web the artist page is server-rendered, so this section is a client-side part reading the browser's Add by RSS store; it never enters server HTML, SEO output, or anyone else's view." — Plan: (pending)
-- **R49** (areas H, I) "Tracks tab: tracks on verified albums, plus tracks from Your Add by RSS Albums with the marker." — Plan: (pending)
-- **R50** (areas H, I) "Artist line for an Add by RSS album: an Add by RSS artist on the device that lists it or that it names; otherwise a directory artist with that guid ...; otherwise hidden." — Plan: (pending)
-- **R51** (areas H, I) "I don't think we want to parse the artist feed as Add by RSS2" (settled: "Never parse the artist feed as Add by RSS just to fill the line.") — Plan: (pending)
-- **R52** (areas H, I) "Directory album with no verified artist, listed by an Add by RSS artist on the device: its player artist line shows that Add by RSS artist, on that device only." — Plan: (pending)
-- **R53** (areas H, I) "Track pages (web and mobile, directory and Add by RSS) show the artist as a link in the byline." (the Add by RSS track pages) — Plan: (pending)
-- **R54** (areas C, H, I) "Credentials are sent only to the artist feed's own domain (`resolveCredentialScope`). Albums hosted elsewhere are fetched without them, and private ones there land in the existing 'Needs username and password' state." — Plan: (pending)
-- **R55** (area J) "when a user unsubscribes from an artist and they are subscribed to albums within that artist, then we may want to pop up a prompt that asks them if they want to unsubscribe from all the albums too. And that should be the case whether it's an ad by RSS or non-ad by RSS." — Plan: (pending)
-- **R56** (area J) "Removing an Add by RSS artist: 'You should ask the user if they want to remove all the albums at that time as well.'" — Plan: (pending)
-- **R57** (area J) "For a directory artist, 'albums by the artist' are its verified albums. For an Add by RSS artist they are albums it lists or that name it." — Plan: (pending)
-- **R58** (area J) "Dialog: title 'Unsubscribe from [Artist]?', body 'You also follow 3 albums by this artist.', buttons Cancel, Artist Only, Artist and Albums. Use each surface's existing word for leaving a feed" — Plan: (pending)
-- **R59** (area J) "Albums the member never followed (albums shown only under an Add by RSS artist) go with the artist without asking." — Plan: (pending)
+- **R1** (area A) "I'm wondering how Podverse is set up to handle the artist's albums, tracks feature" — Plan: 02
+- **R2** (areas A, B) "there are references going on that may make it difficult for us to query for, let's say, all the tracks by an artist" — Plan: 02, 11
+- **R3** (area A) "while we can count on there always being an album feed, there may not even be an artist feed that corresponds with that album feed" — Plan: 02
+- **R4** (area A) "in order to maintain integrity so that artists cannot wrongfully claim that they are the creator of an album, there needs to be some cross-referencing of IDs that are within the feeds, so that we can verify that they both represent a relationship that should exist" — Plan: 02, 04, 05
+- **R5** (area A) "I believe the podcast index's specs should already explain how to handle this scenario" — Plan: 02
+- **R6** (areas F, G) "on the player screen, if an artist's name is available, we may want to add yet another row of text above the album title, which will be smaller text and it will represent the artist's name" — Plan: 50, 61
+- **R7** (area B) "that will somehow have to go up the chain from item to album to artist. And we, as I said, need to make sure we verify the integrity of these cross references" — Plan: 10, 12
+- **R8** (all areas) "it is very important that you bear in mind both web and mobile experiences, as well as add by RSS and non-add by RSS" — Plan: 01, 02, 10, 11, 12, 20, 22, 23, 30, 40, 50, 51, 60, 61, 62, 63, 64, 65, 66, 71, 72, 73, 74, 78, 80, 81, 82, 83, 84, 85, 86, 87, 88, 92, 93, 94, 95, 96, 97
+- **R9** (area A) "I want answer A only when both feeds point at each other ... regardless, it seems important that we have this cross feed verification" — Plan: 02, 04
+- **R10** (area A) "guids match both ways, and when the album's pointer has a `feedUrl` it must match the artist feed's URL (http/https and known redirects allowed)" — Plan: 02
+- **R11** (area A) "Guid-only matching is not enough: `channel.podcast_guid` is unique and the first feed parsed keeps it, so a feed can squat a real artist's guid" — Plan: 02
+- **R12** (area A) "Store the result as verified link rows, many-to-many: publisher channel, album channel, and an optional item for a future track-level credit" — Plan: 01, 02, 06
+- **R13** (area A) "Recompute an album's links whenever the album or any publisher it involves is parsed, so a reference dropped from either feed removes the link" — Plan: 02, 03, 05, 06
+- **R14** (area A) "Store publisher claims as lists. `channel_publisher_remote_item` allows one row per album today (unique on `channel_publisher_id`); relax that so several claims fit" — Plan: 01, 03
+- **R15** (area A) "what if there are two valid artists for one album or two valid artists for one track? ... let's make sure our design is able to support that" (round 3: "many-to-many links now; only the parser changes later") — Plan: 01, 02, 03
+- **R16** (area A) "Record labels shown as artists: 'I would say yes, but I hope that whatever decision we go forward with could be potentially migrated and changed in the future for the publisher experience'" (settled: "Name the link generically ('verified publisher'), not 'artist'") — Plan: 01, 02
+- **R17** (area A) "can't the artist feed contain content that is not just an album, but perhaps a direct reference to an item? Do we have a solution for how to handle this in the UI and database?" — Plan: 01
+- **R18** (areas B, D, E) "Item-level references in a directory artist feed are not shown; no spec mechanism can verify them." — Plan: 11, 30, 40, 41
+- **R19** (areas C, H, I) "Item-level references in an Add by RSS artist feed show in its Tracks tab once their album is parsed." — Plan: 20, 22, 23, 71, 72, 73, 78, 80, 82, 84, 88
+- **R20** (areas B, D, E) "Artist Tracks tab: all tracks on the artist's verified albums." — Plan: 11, 30, 40, 41
+- **R21** (areas B, F, G) "Every reader takes a list of publishers: the player's artist line, the track page byline, the OS artist field, and the artist page's Albums and Tracks tabs." — Plan: 10, 12, 50, 51, 60, 61, 63, 64
+- **R22** (areas D, E) "Albums tab, top to bottom: 1. Verified albums. 2. Your Add by RSS Albums ... 3. Not Yet Added" — Plan: 30, 40, 41
+- **R23** (areas B, D, E) "Will a user be able to at least see in some way what those feeds are and be able to manually add it for parsing if they're a premium member, like other feeds? ... We need this experience to be thought through and nice and clean" (round 3: "a separate Not Yet Added section with a helper note") — Plan: 11, 13, 30, 40, 41
+- **R24** (areas D, E) "Tapping a row opens the Podcast Index preview" (web `/podcast-index/feed/[id]`, mobile `SearchResultDetail` on the current tab's stack) — Plan: 30, 40, 41
+- **R25** (area B) "Albums that are parsed but do not point back disappear from the artist page." — Plan: 11, 13
+- **R26** (area B) "References Podcast Index does not know are hidden." — Plan: 11, 13
+- **R27** (areas F, G) "Player line order: track title, then the artist (smaller), then the album" on the "mobile full player and web full-screen player modal" — Plan: 50, 61, 66
+- **R28** (areas F, G) "Artist line is a link: 'On the full player screens, yes.'" — Plan: 50, 61, 66
+- **R29** (area G) "on mobile, Home when followed, Browse otherwise, like the album line" — Plan: 61
+- **R30** (areas F, G) "No verified artist: the artist line is hidden." — Plan: 50, 60, 61
+- **R31** (areas F, G) "More than one artist in the player: the line shows 'A, B'; tapping opens a chooser listing each artist." — Plan: 50, 60, 61
+- **R32** (areas F, G) "for the mobile mini-player and the web-player bar, there may not be enough vertical real estate to put three lines in there" (settled: "The second line is 'Artist · Album' when there is an artist, else the album as today") — Plan: 50, 62, 66
+- **R33** (area G) "On mobile it scrolls in the same `MarqueeText` turn group as the title." — Plan: 62
+- **R34** (area G) "Lock screen, CarPlay, and Android Auto sound good, but if they are limited to only two rows, how would you recommend handling that?" (settled: "structured fields, not concatenated strings") — Plan: 64, 65
+- **R35** (area G) "Lock screen, CarPlay, Android Auto with no verified artist: the album title goes in the artist field, as today, so the second line is never blank." — Plan: 64, 65
+- **R36** (area G) "iOS has `MPMediaItemPropertyAlbumTitle` and Media3 has `setAlbumTitle`; this needs a native change and a rebuild, and a device check." — Plan: 64, 65
+- **R37** (area G) "Mobile stores items and channels on disk (queue cache, channel items). The artist names ride in those payloads as an added field; older stored rows show no artist line until they refresh." — Plan: 60, 65
+- **R38** (areas F, G) "yes on the track pages" (directory track pages, web and mobile, artist as a link in the byline) — Plan: 51, 63, 66
+- **R39** (areas F, G) "but not on the album pages right now" — Plan: 51, 63
+- **R40** (areas C, H, I) "if somebody uses the AdByRSS, then we could just trust the input as it is" (settled: "Matching is by guid, on the device. Nothing from an Add by RSS feed changes a public page or server-side data anyone else sees.") — Plan: 20, 21, 22, 70, 71, 72, 80, 81, 82, 85, 86
+- **R41** (area C) "if a user parses an artist feed, or in other words, a publisher feed, all of the eligible items within it that fit within our schema should parse and be returned" — Plan: 20, 22, 23
+- **R42** (areas C, H, I) "returned in a way where the AdByRSSUX understands that this album was from this artist" — Plan: 20, 22, 23, 71, 72, 73, 78, 82, 84, 88
+- **R43** (areas C, H, I) "One of those albums is already in the directory: 'Link to the directory album'" (settled: "Albums already in the directory are linked to the directory album instead of parsed again.") — Plan: 20, 21, 22, 23, 71, 72, 73, 78, 80, 82, 84, 88
+- **R44** (areas H, I) "two ... publisher feeds are parsed and they both reference the same album. And in that case, they would appear under albums for both of those artist feeds locally" — Plan: 71, 72, 73, 80, 81, 82, 83, 84, 86
+- **R45** (areas H, I) "Add by RSS artist page Albums list: Add by RSS albums on this device whose guid the artist feed lists" — Plan: 72, 73, 84, 88
+- **R46** (areas H, I) "Albums parsed because the member added an Add by RSS artist: they appear only under that artist. The member can follow each one separately." — Plan: 71, 73, 74, 78, 80, 82, 83, 84
+- **R47** (areas H, I) "Add by RSS album that names a directory artist: link to the public artist page, and show a Your Add by RSS Albums section there, on that device only." — Plan: 72, 75, 78, 81, 85, 87
+- **R48** (area H) "On web the artist page is server-rendered, so this section is a client-side part reading the browser's Add by RSS store; it never enters server HTML, SEO output, or anyone else's view." — Plan: 75, 78
+- **R49** (areas H, I) "Tracks tab: tracks on verified albums, plus tracks from Your Add by RSS Albums with the marker." — Plan: 75, 85
+- **R50** (areas H, I) "Artist line for an Add by RSS album: an Add by RSS artist on the device that lists it or that it names; otherwise a directory artist with that guid ...; otherwise hidden." — Plan: 70, 72, 76, 78, 81, 82, 86, 87, 88
+- **R51** (areas H, I) "I don't think we want to parse the artist feed as Add by RSS2" (settled: "Never parse the artist feed as Add by RSS just to fill the line.") — Plan: 76, 81, 86
+- **R52** (areas H, I) "Directory album with no verified artist, listed by an Add by RSS artist on the device: its player artist line shows that Add by RSS artist, on that device only." — Plan: 72, 76, 81, 86
+- **R53** (areas H, I) "Track pages (web and mobile, directory and Add by RSS) show the artist as a link in the byline." (the Add by RSS track pages) — Plan: 77, 78, 87, 88
+- **R54** (areas C, H, I) "Credentials are sent only to the artist feed's own domain (`resolveCredentialScope`). Albums hosted elsewhere are fetched without them, and private ones there land in the existing 'Needs username and password' state." — Plan: 22, 71, 72, 73, 74, 82, 84
+- **R55** (area J) "when a user unsubscribes from an artist and they are subscribed to albums within that artist, then we may want to pop up a prompt that asks them if they want to unsubscribe from all the albums too. And that should be the case whether it's an ad by RSS or non-ad by RSS." — Plan: 90, 92, 94, 95, 96, 97
+- **R56** (area J) "Removing an Add by RSS artist: 'You should ask the user if they want to remove all the albums at that time as well.'" — Plan: 90, 93, 94, 95, 96
+- **R57** (area J) "For a directory artist, 'albums by the artist' are its verified albums. For an Add by RSS artist they are albums it lists or that name it." — Plan: 92, 93, 94, 96
+- **R58** (area J) "Dialog: title 'Unsubscribe from [Artist]?', body 'You also follow 3 albums by this artist.', buttons Cancel, Artist Only, Artist and Albums. Use each surface's existing word for leaving a feed" — Plan: 91, 92, 93, 94, 95, 96, 97
+- **R59** (area J) "Albums the member never followed (albums shown only under an Add by RSS artist) go with the artist without asking." — Plan: 93, 94, 96
+- **R60** (area H, planning step 12) "expand web plan 74 so listed-only albums behave like mobile before follow: show livestream rows and the Settings credentials section" — Plan: 74
+- **R61** (areas B, G, planning step 13) "The by-channel item list endpoint in plan 12 also attaches the album channel verified publishers to each item, in a field separate from the item-only list, so stored channel_item payloads carry them" — Plan: 12
+- **R62** (area G, planning step 13) "car plays started from album track lists show artist and album ... car library children entries get an artist field that native reads, following plan 65" — Plan: 65
+- **R63** (area G, planning step 13) "downloads show the artist too, in the car Downloads list and in phone playback from a download row, read from the stored album item through the existing download to channel_item join" — Plan: 67, 68
+- **R64** (area G, planning step 13) "add a SQLite column only if the planner finds the join cannot cover it" — Plan: 67, 68
+- **R65** (area G, planning step 13) "downloads of unsubscribed albums show none" — Plan: 67, 68
 
 ## Out of scope
 
@@ -252,11 +258,22 @@ Files more than one area will edit. Assemble serializes the plans that share the
 
 First planning pass: step 01 split the request into areas A–J in five waves.
 
+Second pass after the first review: the operator answered the decisions below (see
+`00-REQUEST.md` § Review of the first planning pass). D1 and D43 already matched plans 02, 50,
+and 51. Planning step 12 revises plan 74 for R60 (web listed-only albums get livestream rows and
+the Settings credentials section). Planning step 13 revises plans 12 and 65 and adds area G
+plans from 67 for R61–R65 (album artists on by-channel item lists, car album track lists, and
+downloads). Every other decision stands.
+
+Close assembled 57 plans into 12 phases plus a Close prompt ([00-EXECUTION-ORDER.md](00-EXECUTION-ORDER.md),
+[COPY-PASTA.md](COPY-PASTA.md)). Every ledger row maps to at least one plan.
+
 ## Decisions to review
 
 Product choices the area planners made that the request and answers did not settle, collected
 from each step's `## Decisions`. Each item names its step and plan, the choice made, and the
-main alternative. Answer by number; an item with no answer stands as planned.
+main alternative. Answered in `00-REQUEST.md` § Review of the first planning pass; changed:
+D49, D50, D59. Every other item stands as planned.
 
 ### Step 02 — area A, verified publisher links (plans 01–06)
 

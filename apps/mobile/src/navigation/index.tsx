@@ -94,13 +94,13 @@ import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScre
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
-import { playerItemStackRoutes } from '../screens/player/fullPlayerContentLink';
 import type {
   FullPlayerContentTarget,
   FullPlayerItemOpenRequest,
   FullPlayerOpenRequest,
   PlayerStackRoute,
 } from '../screens/player/fullPlayerContentLink';
+import { playerItemStackRoutes } from '../screens/player/fullPlayerContentLink';
 import { FullPlayerScreen } from '../screens/player/FullPlayerScreen';
 import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
 import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
@@ -290,8 +290,7 @@ const prefixScreenPaths = <Screens extends Record<string, string>>(
 
 const homeTabLinkScreens = {
   AddByRssEpisodeDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/item/:itemKey`,
-  AddByRssLivestreamDetail:
-    `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/livestream/:liveItemKey`,
+  AddByRssLivestreamDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/livestream/:liveItemKey`,
   AddByRssPodcastDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText`,
   AddByRssTrackDetail: `${MOBILE_HOME_TAB_SEGMENT}/add-by-rss/:feedIdText/track/:itemKey`,
   AlbumDetail: `${MOBILE_HOME_TAB_SEGMENT}${APP_ROUTES.ALBUM}/:albumId`,

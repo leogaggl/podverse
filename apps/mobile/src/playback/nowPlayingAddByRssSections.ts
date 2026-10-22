@@ -7,9 +7,9 @@ import { addByRssRepository, segmentsRepository } from '../data';
 import { resolveAddByRssNowPlayingItemSource } from '../lib/addByRss/localResourceData';
 import type { AddByRssNowPlayingSectionsSnapshot } from './addByRssNowPlayingSectionsStore';
 import {
-  IDLE_ADD_BY_RSS_NOW_PLAYING_SECTIONS,
   addByRssNowPlayingSectionsKey,
   createAddByRssNowPlayingSectionsStore,
+  IDLE_ADD_BY_RSS_NOW_PLAYING_SECTIONS,
 } from './addByRssNowPlayingSectionsStore';
 
 /** Chapters and transcript for the Add by RSS item now playing. Cleared on sign-out. */

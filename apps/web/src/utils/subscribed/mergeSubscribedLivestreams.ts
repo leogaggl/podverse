@@ -5,8 +5,7 @@ import type { AddByRSSLivestreamIndexItem } from '../addByRSS/types';
 import { toEpochMsOrNull } from './mergeSubscribedChannels';
 
 export type SubscribedLivestreamEntry =
-  | { source: 'server'; item: DTOItem }
-  | { source: 'add-by-rss'; item: AddByRSSLivestreamIndexItem };
+  { source: 'server'; item: DTOItem } | { source: 'add-by-rss'; item: AddByRSSLivestreamIndexItem };
 
 /** A start time of 0 or less is missing and sorts last in its group. */
 const addByRSSUpcomingSortKey = (item: AddByRSSLivestreamIndexItem): UpcomingLiveItemSortKey => ({
@@ -49,16 +48,18 @@ export const mergeSubscribedLivestreamEntries = (params: {
   addByRSSItems: readonly AddByRSSLivestreamIndexItem[];
   page: number;
 }): SubscribedLivestreamEntry[] => {
-  const serverEntries = params.serverItems.map(
-    (item): SubscribedLivestreamEntry => ({ source: 'server', item })
-  );
+  const serverEntries = params.serverItems.map((item): SubscribedLivestreamEntry => ({
+    source: 'server',
+    item,
+  }));
   if (params.page !== 1 || params.addByRSSItems.length === 0) {
     return serverEntries;
   }
 
-  const addByRSSEntries = params.addByRSSItems.map(
-    (item): SubscribedLivestreamEntry => ({ source: 'add-by-rss', item })
-  );
+  const addByRSSEntries = params.addByRSSItems.map((item): SubscribedLivestreamEntry => ({
+    source: 'add-by-rss',
+    item,
+  }));
   const merged = [...serverEntries, ...addByRSSEntries];
   merged.sort((a, b) =>
     compareUpcomingLiveItems(

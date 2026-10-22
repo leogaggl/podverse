@@ -56,8 +56,14 @@ export function AddByRssEpisodeDetailScreen({
   route,
 }: AddByRssEpisodeDetailScreenProps) {
   const { feedIdText } = route.params;
-  const { errorKey, feed, isLoading, item: episode, mappedFeed, reload: load } =
-    useAddByRssItemDetail(route.params);
+  const {
+    errorKey,
+    feed,
+    isLoading,
+    item: episode,
+    mappedFeed,
+    reload: load,
+  } = useAddByRssItemDetail(route.params);
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
   const [tab, setTab] = useState<AddByRssEpisodeTab>('summary');
@@ -258,9 +264,7 @@ export function AddByRssEpisodeDetailScreen({
       />
     );
   } else if (isSectionTab && sections === null) {
-    listFooter = (
-      <LoadingSection testID={`add-by-rss-episode-detail-tab-loading-${activeTab}`} />
-    );
+    listFooter = <LoadingSection testID={`add-by-rss-episode-detail-tab-loading-${activeTab}`} />;
   } else if (isSectionTab && activeTab === 'transcript' && sections !== null) {
     listFooter =
       sections.transcriptText === '' ? (
@@ -319,11 +323,7 @@ export function AddByRssEpisodeDetailScreen({
     <View style={styles.container} testID="add-by-rss-episode-detail-screen">
       {isLoading ? <LoadingSection testID="add-by-rss-episode-detail-loading" /> : null}
       {!isLoading && errorKey !== null ? (
-        <ListError
-          messageKey={errorKey}
-          onRetry={load}
-          testID="add-by-rss-episode-detail-error"
-        />
+        <ListError messageKey={errorKey} onRetry={load} testID="add-by-rss-episode-detail-error" />
       ) : null}
       {isReady && feed !== null && mappedFeed !== null && episode !== null ? (
         <FillList

@@ -25,8 +25,8 @@ import { listHeaderStackGap, screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { TRACK_TAB_LABEL_KEYS } from '../track/trackTabs';
-import { AddByRssTrackHeader } from './addByRss/AddByRssTrackHeader';
 import type { AddByRssDetailStackParamList } from './addByRss/addByRssStackParams';
+import { AddByRssTrackHeader } from './addByRss/AddByRssTrackHeader';
 import type { AddByRssTrackTab } from './addByRss/addByRssTrackTabs';
 import { resolveAddByRssTrackTabs } from './addByRss/addByRssTrackTabs';
 import { useAddByRssItemActions } from './addByRss/useAddByRssItemActions';
@@ -55,8 +55,14 @@ function renderAddByRssTrackDetailRow(): null {
  * Mode shows its message until it has loaded.
  */
 export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDetailScreenProps) {
-  const { errorKey, feed, isLoading, item: track, mappedFeed, reload } =
-    useAddByRssItemDetail(route.params);
+  const {
+    errorKey,
+    feed,
+    isLoading,
+    item: track,
+    mappedFeed,
+    reload,
+  } = useAddByRssItemDetail(route.params);
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
   const [tab, setTab] = useState<AddByRssTrackTab>('summary');
@@ -303,11 +309,7 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
     <View style={styles.container} testID="add-by-rss-track-detail-screen">
       {isLoading ? <LoadingSection testID="add-by-rss-track-detail-loading" /> : null}
       {!isLoading && errorKey !== null ? (
-        <ListError
-          messageKey={errorKey}
-          onRetry={reload}
-          testID="add-by-rss-track-detail-error"
-        />
+        <ListError messageKey={errorKey} onRetry={reload} testID="add-by-rss-track-detail-error" />
       ) : null}
       {isReady && feed !== null && mappedFeed !== null && track !== null ? (
         <FillList

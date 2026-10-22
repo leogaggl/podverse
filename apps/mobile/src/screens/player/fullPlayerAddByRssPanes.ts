@@ -4,18 +4,12 @@ import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
 import type { AuthStatus } from '../../auth/AuthProvider';
 import type { DescriptionTruncation } from '../../components/content/DescriptionText';
-import type {
-  AddByRssNowPlayingSectionsSnapshot,
-} from '../../playback/addByRssNowPlayingSectionsStore';
+import type { AddByRssNowPlayingSectionsSnapshot } from '../../playback/addByRssNowPlayingSectionsStore';
 import type { EpisodeTab } from '../../prefs/detailListPrefs';
 
 /** What the full player draws for an Add by RSS pane before the shared tab body. */
 export type FullPlayerAddByRssPaneState =
-  | 'auth-required'
-  | 'content'
-  | 'error'
-  | 'loading'
-  | 'offline';
+  'auth-required' | 'content' | 'error' | 'loading' | 'offline';
 
 /** Auth, Offline Mode, the open chip, and the now-playing sections snapshot. */
 export type FullPlayerAddByRssPaneInput = {
@@ -57,9 +51,7 @@ export const resolveFullPlayerAddByRssPaneState = (
 };
 
 /** True when Chapters or Transcript should start a load that has not run yet. */
-export const shouldLoadFullPlayerAddByRssSections = (
-  input: FullPlayerAddByRssPaneInput
-): boolean =>
+export const shouldLoadFullPlayerAddByRssSections = (input: FullPlayerAddByRssPaneInput): boolean =>
   (input.activeTab === 'chapters' || input.activeTab === 'transcript') &&
   input.authStatus === 'authenticated' &&
   !input.offlineModeEnabled &&

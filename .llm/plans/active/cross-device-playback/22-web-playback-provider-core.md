@@ -7,8 +7,10 @@ player. After this plan a web tab:
 
 - shows up as a device while the account stream is open (leader check-in every 15 s),
 - becomes the active device when it starts playback, and publishes its state (R33),
-- stops its own audio and clears its player when another device or tab becomes active (R2), and
-- never writes queue or position data while another device is active (R52).
+- stops its own audio and clears its player when another device or tab becomes active (R2),
+- never writes queue or position data while another device is active (R52), and
+- fills `medium` on every resource summary it publishes, so other devices can build title links
+  and share links without a request (R70).
 
 Commands (plan 23), transfer (plan 24), remote control routing (plan 25), and the handoff prompt
 (plan 26) build on this. Area D builds the visible controls from the store.
@@ -20,7 +22,7 @@ Before editing, confirm plans 13, 20, and 21 have landed (`reqAccountPlaybackChe
 
 ## Rows
 
-R2, R33, R52, R61
+R2, R33, R52, R61, R70
 
 ## Runs after
 
@@ -34,6 +36,8 @@ apps/web/src/lib/crossDevicePlayback/crossDevicePlaybackCheckIn.ts
 apps/web/src/lib/crossDevicePlayback/crossDevicePlaybackCheckIn.test.ts
 apps/web/src/lib/crossDevicePlayback/playbackClaim.ts
 apps/web/src/lib/crossDevicePlayback/playbackClaim.test.ts
+apps/web/src/lib/crossDevicePlayback/playbackResource.ts
+apps/web/src/lib/crossDevicePlayback/playbackResource.test.ts
 apps/web/src/providers/Providers.tsx
 apps/web/src/hooks/useQueueResourceUpdateNowPlaying.tsx
 apps/web/src/hooks/useQueueResourceMoveNowPlayingToHistory.tsx
@@ -107,6 +111,37 @@ apps/web/src/hooks/__tests__/useAddByRSSPositionSave.test.tsx
   has focus (`document.hasFocus()`) records and announces itself. On `pagehide` every tab sends
   `tab-gone`; a tab receiving it calls `noteFocusedTab(null)` when the departed tab was the last
   focused one. Plan 24 uses it to pick the tab that takes over.
+
+## Medium on the published summary (R70)
+
+Plan 10 makes `DTOPlaybackResourceSummary.medium` required. The publishing tab is the only web
+code that fills it; receiving tabs read `state.resource.medium` as is (area D builds links from
+it). Every publish body, claim, ordinary update, `audio-tab-gone` last state, and the leader's
+paused reconciliation body carries it, because all of them come from plan 21's
+`buildPlaybackResourceSummary`.
+
+In `apps/web/src/lib/crossDevicePlayback/playbackResource.ts`, `buildPlaybackResourceSummary`
+sets:
+
+```typescript
+medium: player.mpAddByRSS
+  ? toPlaybackMedium(player.mpAddByRSS.resourceData.medium_id)
+  : toPlaybackMedium(player.mpChannel?.medium_id),
+```
+
+- `toPlaybackMedium` comes from `@podverse/helpers/accountPlaybackStream` (value import on its
+  own line; type imports stay on a separate `import type` line).
+- Database content (item, clip, soundbite, chapter, live item): the loaded channel's
+  `medium_id`. Every web load path sets `mpChannel` with the item, so a null channel only happens
+  mid-clear; it reads as Podcast through `toPlaybackMedium`.
+- Add by RSS: `resourceData.medium_id`, which `buildAddByRSSResourceData`
+  (`@podverse/parser-mapping`) sets from the feed's medium. It is `unknown` on
+  `AddByRSSResourceData`; `toPlaybackMedium` narrows it, and a feed with no medium tag reads as
+  Podcast, the same default `usePlayAddByRSS` uses (`indexItem.mediumId ?? MediumEnum.Podcast`).
+- Never compute `medium` anywhere else, and never read it from a received state to publish.
+
+Plan 21 runs after plan 10, so its implementer may already have filled `medium` to make the
+builder type-check. If it is there, check it matches the rule above and keep it; otherwise add it.
 
 ## `crossDevicePlaybackCheckIn.ts`
 
@@ -234,6 +269,7 @@ if (!crossDevicePlaybackStore.isLocalPlaybackWriteAllowed()) {
 - At most one tab per browser profile holds audio once tab messages settle; two tabs never keep
   playing at once.
 - A pause caused by losing the active role writes nothing.
+- Every published resource summary carries a `MediumEnum` value from `toPlaybackMedium`.
 - No check-in, publish, or tab message blocks first paint or awaits in render.
 
 ## Tests
@@ -246,6 +282,11 @@ Vitest:
   unavailable; no overlap when a check-in is slow.
 - `playbackClaim.test.ts`: success applies the publish and confirms a claim; 409 with another
   session releases audio; 409 with null returns `lapsed`; 403 marks unavailable.
+- `playbackResource.test.ts` (plan 21's file, extend): an item whose channel has
+  `medium_id: MediumEnum.Music` gives `medium: MediumEnum.Music`; a clip under a
+  `MediumEnum.Video` channel gives Video; Add by RSS with `resourceData.medium_id:
+  MediumEnum.Video` gives Video; Add by RSS with no `medium_id`, and an item with `mpChannel:
+  null`, give `MediumEnum.Podcast`; every built summary passes `isDTOPlaybackResourceSummary`.
 - Save-hook tests (existing files, extend): with the store's role set to `remote` (drive
   `crossDevicePlaybackStore` through `reset`, `applyPresenceResponse`, and an event naming another
   session; `reset` in `afterEach`), each callback makes no request; with role `idle`, behavior is
@@ -265,7 +306,9 @@ The provider and publisher wiring is covered by area D's Playwright specs.
   pause, seek, speed, or item changes). When another device or another tab of the same browser
   starts playing, this tab stops its audio and clears its player, and stops writing queue and
   position updates. Tabs of one browser count as one device; the tab that last started playback
-  holds the audio. Closing the playing tab marks playback paused.
+  holds the audio. Closing the playing tab marks playback paused. Each published state names the
+  item's medium (podcast, music, video, and so on, from its channel or Add by RSS feed), so other
+  devices can link to it and share it without loading it.
 - Who notices: members who play on more than one device or tab
 - Operator steps: none; needs the account event stream and the playback routes deployed
 ```

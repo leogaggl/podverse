@@ -56,8 +56,10 @@ apps/api/ENV.md
   only devices with an open stream.
 - **When a device leaves the menu** (R57):
   - Its stream closes cleanly (tab closed, app stopped, network change the server sees): plan 14
-    shortens its presence to now + `PLAYBACK_PRESENCE_LEAVE_GRACE_MS` (5 s), so a reconnect within
-    5 s keeps it listed without a flicker. It leaves within about 5 s.
+    shortens its presence to now + the configured leave grace. The product value is 5 s
+    (`PLAYBACK_PRESENCE_LEAVE_GRACE_MS`), so a reconnect within 5 s keeps it listed without a
+    flicker. The web E2E API sets that env to 500 ms (plan 14). Vitest and the mobile E2E API
+    keep 5 s.
   - It vanishes silently (sleep, lost network): it leaves when its last check-in expires, at most
     about 40 s later, plus up to one sweep interval (plan 14, 10 s).
   - Its session ends (sign-out, password change, removed from the session list): removed at once.

@@ -16,9 +16,7 @@ import {
 import type { ClipsFilterDefaults } from '../../../utils/localSettings/localSettings';
 import { getFilterDefaultsForPage } from '../../../utils/localSettings/localSettings';
 import type { MediaListScope } from '../../../utils/mediaListChips';
-import type {
-  EpisodesPageDropdownConfigCurrentParams,
-} from '../episodes/EpisodesPageDropdownConfig';
+import type { EpisodesPageDropdownConfigCurrentParams } from '../episodes/EpisodesPageDropdownConfig';
 import { getEpisodesPageFilterParams } from '../episodes/EpisodesPageDropdownConfig';
 import type { MediaListSearchParams, MediaListSsr } from '../mediaListSsr';
 import { firstMediaListSearchParam } from '../mediaListSsr';

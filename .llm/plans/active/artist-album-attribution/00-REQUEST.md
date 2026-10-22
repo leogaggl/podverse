@@ -130,6 +130,49 @@ replaced answer says so.
 - **Directory album with no verified artist, listed by an Add by RSS artist on the device:** its
   player artist line shows that Add by RSS artist, on that device only.
 
+### Review of the first planning pass
+
+Answers to the planner decisions D1–D81 in `00-SUMMARY.md` § Decisions to review. Every decision
+not named here stands as planned.
+
+- **D1 (feed URL check):** "keep it; check feedUrl in both directions only when a reference
+  carries one, guid-only references link on guids." Plan 02's match rule (conditions 3 and 5)
+  and its tests already do this; no change.
+- **D7 (new-album notifications need a verified link):** "keep it."
+- **D46 (mini player second line always scrolls):** "keep it."
+- **D51, D62, D59 (listed-only Add by RSS albums):** "keep the storage split, but expand web plan
+  74 so listed-only albums behave like mobile before follow: show livestream rows and the
+  Settings credentials section." Web keeps separate stores (D51), mobile keeps the `followed`
+  column (D62), and D59's limits on web are replaced by mobile's behavior.
+- **D16 and D27 (caps):** "keep both caps": 500 artist tracks, 100 listed feeds per Add by RSS
+  artist.
+- **D43 (only artist-kind publishers show):** "keep it, on web and mobile." Web plan 50 already
+  filters with `isArtistMediumId`, and plan 51 reads through it; no change.
+- **D49 (car plays from album track lists), changed:** "car plays started from album track lists
+  show artist and album. The by-channel item list endpoint in plan 12 also attaches the album
+  channel verified publishers to each item, in a field separate from the item-only list, so
+  stored channel_item payloads carry them; car library children entries get an artist field
+  that native reads, following plan 65."
+- **D50 (downloads), changed:** "downloads show the artist too, in the car Downloads list and in
+  phone playback from a download row, read from the stored album item through the existing
+  download to channel_item join; add a SQLite column only if the planner finds the join cannot
+  cover it; downloads of unsubscribed albums show none."
+
+### Review of the second planning pass
+
+Answers to the choices planning step 13 recorded under `## Decisions`. Each one matches the
+plans already written, so no plan changes.
+
+- **Car track-list Now Playing:** "Always fill it: artist, else subtitle, else the album or
+  podcast title." Plan 65 already does this, including podcast track lists.
+- **Album unfollowed on another device:** "Show none. Unfollowed anywhere counts as
+  unsubscribed." Plans 67 and 68 already treat a missing `subscribed_channel` row that way.
+- **Queue or history copy after unfollow:** "Keep the artist on that saved copy. Only the
+  download row and car Downloads list show none." Plan 67 already gates only the download-row
+  fallback.
+- **Car Downloads row:** "Artist · Album when there is an artist; otherwise the album or podcast
+  title." Plan 68 already composes the row that way.
+
 ## Settled design
 
 The operator accepted these in the rounds above. Planners keep them; anything not listed here is

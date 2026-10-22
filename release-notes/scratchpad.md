@@ -478,3 +478,11 @@
 - Who notices: anyone who plays a livestream from an album on the phone
 - Operator steps: none
 
+## Episode page no longer crashes when About is missing
+
+- Surfaces: mobile
+- Change: Opening an episode whose About record is missing no longer hits a render error
+  (`Cannot read property 'duration' of null`). Duration falls back to the stored playback
+  position, or to no duration when that is missing too.
+- Who notices: anyone who opens an episode or livestream item that has no About row
+- Operator steps: none

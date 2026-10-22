@@ -4,12 +4,14 @@
 
 One Maestro flow covers area E on a device. Maestro drives a single phone, so a host script acts
 as the second device: it signs in with its own device label, checks in, and claims playback through
-the API. The flow checks the mini player, the device menu, the full player, a list row, bringing
-playback to the phone, and the notice when a transfer does not start.
+the API. The flow checks the mini player and its chapter strip, the device menu, the full player
+(title link, status line under the chapter, previous and next, Share, Add to Playlist), the
+playing chapter on the episode screen, a list row, bringing playback to the phone, and the notice
+when a transfer does not start.
 
 Before editing, confirm:
 
-- Plans 51, 52, 53, 55, and 56 are in (the test ids below exist in `apps/mobile/src`).
+- Plans 51, 52, 53, 55, 56, and 59 are in (the test ids below exist in `apps/mobile/src`).
 - `POST /auth/mobile/token` accepts `device_label`, and `GET /auth/sessions` and
   `DELETE /auth/sessions/:id_text` exist (auth-sessions plans 20 and 22), and
   `POST /account/playback/presence` and `POST /account/playback/state` exist (plan 13).
@@ -18,11 +20,11 @@ If any is missing, stop and report.
 
 ## Rows
 
-R5, R7, R9, R13, R40, R45, R65
+R5, R7, R9, R13, R40, R45, R65, R73, R75, R80, R83, R90
 
 ## Runs after
 
-55, 56, 53
+55, 56, 53, 59
 
 ## Files
 
@@ -46,6 +48,17 @@ apps/mobile/e2e/HOW-TO-RUN.md
 - **Anonymous users (R67) are covered by unit tests**, not by this flow: plan 50's selectors return
   local and hide the button whenever `availability` is not `ready`, and plan 31 keeps it `off` when
   signed out.
+- **The chaptered episode, paused first.** The other device claims `e2ePodChap0001` paused at 30 s,
+  inside the seeded "Topic A" chapter (21–60 s). A paused estimate does not move, so the strip,
+  the band, and the marked chapter row name "Topic A" however long the earlier steps take. The
+  script then publishes `playing` near the start for the list-row step, which needs a playing
+  remote item.
+- **"Sending to {device}…" is asserted during the transfer that never starts.** The script never
+  claims, so the pending transfer lasts until its timeout (about 8 s), long enough for one
+  assertion right after the tap. The match ends in `.*` so the ellipsis character does not have
+  to be typed.
+- **Not covered here:** the remote speed sheet, seeking, and the share sheet itself; they are left
+  to the unit tests and the screenshots.
 
 ## `apps/mobile/e2e/scripts/playback-other-device.js`
 
@@ -55,10 +68,11 @@ Host-JVM script modeled on `scripts/seed-playback-now-playing.js`: same header c
 
 Env:
 
-- `E2E_OTHER_DEVICE_ACTION` — `claim`, `check-in`, or `end`. Required.
-- `E2E_ITEM_ID_TEXT`, `E2E_ITEM_TITLE` — required for `claim`.
-- `E2E_CHANNEL_TITLE` — optional for `claim`, default `E2E Podcast`.
-- `E2E_PLAYBACK_POSITION` (default `30`) and `E2E_PLAYBACK_DURATION` (default `600`) — for `claim`.
+- `E2E_OTHER_DEVICE_ACTION` — `claim`, `publish`, `check-in`, or `end`. Required.
+- `E2E_ITEM_ID_TEXT`, `E2E_ITEM_TITLE` — required for `claim` and `publish`.
+- `E2E_CHANNEL_TITLE` — optional for `claim` and `publish`, default `E2E Podcast`.
+- `E2E_PLAYBACK_STATUS` (default `playing`), `E2E_PLAYBACK_POSITION` (default `30`), and
+  `E2E_PLAYBACK_DURATION` (default `600`) — for `claim` and `publish`.
 
 The label is the constant `const OTHER_DEVICE_LABEL = 'E2E Other Device';`.
 
@@ -76,12 +90,16 @@ Actions:
      whose `device_label` equals `OTHER_DEVICE_LABEL` (left over from an earlier failed run).
   3. `POST /account/playback/presence` with `{}`.
   4. `POST /account/playback/state` with `{ claim: true, resource: { ref: { kind: 'item',
-     item_id_text: E2E_ITEM_ID_TEXT }, title: E2E_ITEM_TITLE, channel_title: E2E_CHANNEL_TITLE,
-     image_url: null }, status: 'playing', is_live: false, position_seconds:
-     Number(E2E_PLAYBACK_POSITION), duration_seconds: Number(E2E_PLAYBACK_DURATION), rate: 1 }`.
-     Match the field names to `PlaybackStatePublishBody` and `DTOPlaybackResourceSummary` in
-     `packages/helpers/src/lib/accountPlaybackStream.ts`; when they differ from this list, the
-     helper file wins.
+     item_id_text: E2E_ITEM_ID_TEXT }, medium: 2, title: E2E_ITEM_TITLE, channel_title:
+     E2E_CHANNEL_TITLE, image_url: null }, status: E2E_PLAYBACK_STATUS, is_live: false,
+     position_seconds: Number(E2E_PLAYBACK_POSITION), duration_seconds:
+     Number(E2E_PLAYBACK_DURATION), rate: 1 }`. `2` is `MediumEnum.Podcast`; the script runs in
+     Maestro's JavaScript and cannot import the enum, so name it in a `const PODCAST_MEDIUM = 2;`
+     with a one-line comment. Match the field names to `PlaybackStatePublishBody` and
+     `DTOPlaybackResourceSummary` in `packages/helpers/src/lib/accountPlaybackStream.ts`; when they
+     differ from this list, the helper file wins.
+- `publish`: step 4 again with the stored token and `claim: false` (this session is already the
+  active device).
 - `check-in`: `POST /account/playback/presence` with `{}` and the stored token.
 - `end`: `DELETE /auth/sessions/<output.otherDeviceSessionIdText>` with the stored token. Ending the
   session removes the device from the list at once.
@@ -96,25 +114,41 @@ covers, that the host script is the second device, that it needs `flow_needs_e2e
 `shared/timeouts.env` (**mobile-maestro-timeouts**). Steps:
 
 1. `runFlow: shared/launch-and-connect.yaml`, then `runFlow: shared/login-seeded-user.yaml`.
-1. `runScript` the script with `E2E_OTHER_DEVICE_ACTION: claim`, `E2E_ITEM_ID_TEXT: e2ePodResume01`,
-   `E2E_ITEM_TITLE: "E2E Podcast Resume P > 0"`.
+1. `runScript` the script with `E2E_OTHER_DEVICE_ACTION: claim`, `E2E_ITEM_ID_TEXT: e2ePodChap0001`,
+   `E2E_ITEM_TITLE: "E2E Podcast With Chapters"`, `E2E_PLAYBACK_STATUS: paused`,
+   `E2E_PLAYBACK_POSITION: "30"`, `E2E_PLAYBACK_DURATION: "60"`.
 1. **Mini player.** `extendedWaitUntil` visible `id: mini-player-remote-status`, timeout
-   `${TIMEOUT_SLOWEST}`. `assertVisible` `{ id: mini-player-remote-status, text: "Playing on E2E
-   Other Device" }`, `{ id: mini-player-title, text: "E2E Podcast Resume P > 0" }`, and
-   `id: mini-player-devices`. `takeScreenshot: playback-cross-device-mini-player`.
+   `${TIMEOUT_SLOWEST}`. `assertVisible` `{ id: mini-player-remote-status, text: "Paused on E2E
+   Other Device" }`, `{ id: mini-player-title, text: "E2E Podcast With Chapters" }`, `{ id:
+   now-playing-segment-title, text: "Topic A" }`, and `id: mini-player-devices`.
+   `takeScreenshot: playback-cross-device-mini-player`.
 1. **Device menu.** `tapOn: id: mini-player-devices`. `assertVisible` `id:
    mini-player-devices-sheet`, `id: mini-player-devices-sheet-this-device`, and `text: "E2E Other
    Device"`. `takeScreenshot: playback-cross-device-menu`. `tapOn: id:
    mini-player-devices-sheet-cancel`.
-1. **Full player.** `tapOn: id: mini-player`. `assertVisible` `id: full-player-remote-region`, `{ id:
-   full-player-remote-title, text: "E2E Podcast Resume P > 0" }`, `id: full-player-remote-status`,
-   `id: full-player-devices`, and `id: full-player-speed`. `assertNotVisible` `id:
-   full-player-skip-next` and `id: full-player-sleep-timer`.
+1. **Full player.** `tapOn: id: mini-player`. `assertVisible` `id: full-player-remote-region`,
+   `id: full-player-remote-title-link`, `{ id: full-player-remote-title, text: "E2E Podcast With
+   Chapters" }`, `{ id: full-player-segment-title, text: "Topic A" }`, `{ id:
+   full-player-remote-status, text: "Paused on E2E Other Device" }`, `id:
+   full-player-skip-previous`, `id: full-player-skip-next`, `{ id: full-player-share, enabled:
+   true }`, `{ id: full-player-add-to-playlist, enabled: true }`, `id: full-player-devices`, and
+   `id: full-player-speed`. `assertNotVisible: id: full-player-sleep-timer`.
    `takeScreenshot: playback-cross-device-full-player`. `tapOn: id: full-player-close`.
-1. **List row.** `openLink: podverse-next://episode/e2ePodResume01`, `runFlow:
-   shared/confirm-ios-open-dialog.yaml`, `assertVisible: id: episode-detail-screen`, then
-   `assertVisible: { id: "home-row-play-.*", text: "Pause" }` (the row's accessible name while its
-   item plays). `takeScreenshot: playback-cross-device-row`.
+1. **Playing chapter on the episode screen.** `openLink:
+   podverse-next://podcast/e2ePodChnl001/episode/e2ePodChap0001`, `runFlow:
+   shared/confirm-ios-open-dialog.yaml`, `extendedWaitUntil` visible `id: episode-detail-screen`
+   (timeout `${TIMEOUT_SLOWER}`), `tapOn: id: episode-detail-tab-chapters`, then `assertVisible: {
+   id: episode-detail-chapter-row, selected: true, containsDescendants: [{ text: "Topic A" }] }`.
+   `takeScreenshot: playback-cross-device-chapter-row`. When Maestro does not report `selected`
+   for the row on a platform, report it in the final message and keep the screenshot as the
+   check; do not drop the rest of the flow.
+1. `runScript` with `E2E_OTHER_DEVICE_ACTION: publish`, the same item, title, and duration,
+   `E2E_PLAYBACK_STATUS: playing`, and `E2E_PLAYBACK_POSITION: "5"`. The seeded file is 60 s long
+   and the phone takes over at the estimated position, so starting near the beginning leaves the
+   take-over and failed-transfer steps time to finish before the episode ends.
+1. **List row.** On the same episode screen, `extendedWaitUntil` visible `{ id: "home-row-play-.*",
+   text: "Pause" }` (the row's accessible name while its item plays), timeout `${TIMEOUT_SLOW}`.
+   `takeScreenshot: playback-cross-device-row`.
 1. `runScript` with `E2E_OTHER_DEVICE_ACTION: check-in`.
 1. **Bring playback here.** `tapOn: id: mini-player-devices`, `tapOn: id:
    mini-player-devices-sheet-this-device`. `extendedWaitUntil` visible `id: playback-active-e2e`,
@@ -122,7 +156,9 @@ covers, that the host script is the second device, that it needs `flow_needs_e2e
    `takeScreenshot: playback-cross-device-taken-over`.
 1. `runScript` with `E2E_OTHER_DEVICE_ACTION: check-in`.
 1. **Transfer that does not start.** `tapOn: id: mini-player-devices`, then `tapOn: text: "E2E Other
-   Device"`. The script never claims, so the transfer times out. `extendedWaitUntil` visible `id:
+   Device"`. `assertVisible: { id: mini-player-remote-status, text: "Sending to E2E Other
+   Device.*" }`. `takeScreenshot: playback-cross-device-sending`. The script never claims, so the
+   transfer times out. `extendedWaitUntil` visible `id:
    playback-transfer-failed-dialog`, timeout `${TIMEOUT_SLOWEST}`. `assertVisible: text: "E2E
    Other Device didn't respond.*"`. `takeScreenshot: playback-cross-device-transfer-failed`.
    `tapOn: id: playback-transfer-failed-dismiss`. `assertNotVisible: id:

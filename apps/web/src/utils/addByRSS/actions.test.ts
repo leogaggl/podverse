@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAddByRSSFeedByUrlMock, getAddByRSSParseStatusMock, upsertAddByRSSFeedMock } =
-  vi.hoisted(() => ({
+const { getAddByRSSFeedByUrlMock, getAddByRSSParseStatusMock, upsertAddByRSSFeedMock } = vi.hoisted(
+  () => ({
     getAddByRSSFeedByUrlMock: vi.fn(),
     getAddByRSSParseStatusMock: vi.fn(),
     upsertAddByRSSFeedMock: vi.fn(),
-  }));
+  })
+);
 
 vi.mock('./api', () => ({
   enqueueAddByRSSParse: vi.fn(),

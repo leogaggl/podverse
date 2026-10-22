@@ -38,8 +38,8 @@ import { useChannelNotifications } from '../../hooks/useChannelNotifications';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
-import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
 import { toChannelLiveRow } from '../../lib/rows/liveItemRows';
+import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
@@ -192,9 +192,7 @@ const toTrackRows = (
         channelKind: compact.channelKind ?? 'albums',
         subtitle: albumTitle,
       };
-      return item.live_item
-        ? toChannelLiveRow(base, item.live_item.live_item_status_id)
-        : base;
+      return item.live_item ? toChannelLiveRow(base, item.live_item.live_item_status_id) : base;
     })
     .filter((row) => row.id.length > 0);
 };

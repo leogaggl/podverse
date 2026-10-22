@@ -57,3 +57,27 @@ Settle from the code where possible; ask the operator for product choices the an
 7. **Surfaces.** Which views show remote state: mini player, full player, item rows, the queue, lock screen and media notification, CarPlay and Android Auto.
 8. **Who gets it.** Signed-in only (the stream needs an account). Whether it needs a membership, and what anonymous mobile users see.
 9. **Remote item changes.** Picking a new item on a non-playing device plays it on the active device; confirm how that interacts with each device's queue.
+
+### Review of the first planning pass
+
+The operator reviewed the planner decisions D1–D71 in 00-SUMMARY.md § Decisions to review.
+"All other decisions stand as written."
+
+- **Status copy (D46, D56), changed:** "one shared title-case status set on web and mobile: Playing on {device}, Paused on {device}, Starting on {device}, Sending to {device}…, plus web-only Playing in Another Tab."
+- **No local item (D41, D58), kept:** "keep both as written; they agree."
+- **Failure notice (D50, D63), kept:** "keep the web toast and the mobile dialog; record it as an intentional divergence in plans 45 and 53."
+- **Add to Playlist and Share (D42, D68), changed:** "Add to Playlist and Share work on both surfaces while another device plays. Add medium to DTOPlaybackResourceSummary (plan 10), filled by the publishing device (plans 22, 32); use it to build share links and to restore title links in the remote view on web and mobile, which reverses D44 and the plain-text titles in plan 55. Add to Playlist is disabled only for an Add by RSS item whose data this device lacks."
+- **Next and previous (D26, D35), changed:** "add next and previous commands; the playing device runs them exactly as its own Next and Previous buttons, using its own queue; show the buttons on both surfaces (plans 10, 11, 13, 23, 25, 33, 34, 42, 55)."
+- **Web mobile-width remote controls (D43), changed:** "the web mobile-width remote view follows the local split by medium (music: previous and next; others: skip back and forward)."
+- **Segment strip and chapter rows (D51, D59), changed:** "while another device plays, show the segment strip and highlight chapter rows on both surfaces, from the estimated position of the playing device. The web strip comes from the web-player-marquee set (plan 21-player-bar-segment-strip), which must run before the web UI plans of this set; plan 42 wires it."
+- **New, landing past the end:** "when take_over, play_item, or seek lands at or past the duration of the local file on the receiving device, start at that duration minus 5 s, on web and mobile (plans 23, 24, 33)."
+- **New, one device owns playback events:** "state explicitly in plans 11, 23, and 33 that only the playing device fires end reached, auto-advance, history, and position events, and that the remote view uses duration_seconds from the shared state, because dynamic ads can give devices different file lengths."
+
+### Review after assembly
+
+Settled after Close. These replace the open questions in 00-SUMMARY.md.
+
+- **Share on the web player:** The web player has a Share button while this browser plays and while another device plays. It opens the existing share modal. It is not limited to remote playback. The device icon still appears whenever two or more devices are connected, including while this browser plays. Plan 44 is unchanged.
+- **Web end-to-end presence grace:** Real users, local API, vitest, and the mobile E2E API keep the leave grace at 5 seconds. The web E2E API (`apiWebE2e`) uses 500 ms, so a later web spec does not open as the non-playing device.
+- **Parallel Maestro:** Plan 57 stays as written. Only that flow notes it needs one phone at a time. This set does not add an account per phone.
+- **Handoff flow:** `playback-multi-device-handoff.yaml` still expects the switch-item prompt. After relaunch the prompt stays closed while this phone is the active device, and it shows once the 5-second grace has passed.

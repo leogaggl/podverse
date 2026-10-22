@@ -18,10 +18,10 @@ import { getFilterDefaultsForPage } from '../../../utils/localSettings/localSett
 import type { MediaListScope } from '../../../utils/mediaListChips';
 import type { MediaListSearchParams, MediaListSsr } from '../mediaListSsr';
 import { firstMediaListSearchParam } from '../mediaListSsr';
+import { clampFilterTerm } from './podcastsFilter';
 import type { PodcastsListProps } from './PodcastsPageClient';
 import type { PodcastsPageDropdownConfigCurrentParams } from './PodcastsPageDropdownConfig';
 import { getPodcastsPageFilterParams } from './PodcastsPageDropdownConfig';
-import { clampFilterTerm } from './podcastsFilter';
 
 const searchParamsSchema = z.object({
   page: z

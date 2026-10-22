@@ -130,8 +130,12 @@ Rules:
 - Ref from target: `clip` → clip; `soundbite` → soundbite; `chapter`, `item-*`, `livestream` →
   item; `add-by-rss` → hash as above.
 - Ref equality compares `kind` and the one id field.
-- Summary: `title` = `getMediaPlayerInfoResolution(...).displayItemTitle` (from
-  `../../utils/mediaPlayer/mediaPlayerInfoResolution`, with `currentTimeSeconds`); `channel_title`
+- Summary: `title` = `getMediaPlayerInfoResolution(...).itemTitle` (from
+  `../../utils/mediaPlayer/mediaPlayerInfoResolution`, with `currentTimeSeconds`), the episode or
+  track title, never a chapter, clip, or soundbite title, matching what mobile publishes;
+  `medium` follows plan 22's rule (`toPlaybackMedium(mpAddByRSS.resourceData.medium_id)` for Add
+  by RSS, else `toPlaybackMedium(mpChannel?.medium_id)`, from
+  `@podverse/helpers/accountPlaybackStream`); `channel_title`
   = its `channelTitle`; `image_url` = the first URL from
   `buildMediaPlayerArtworkImageCandidates` with the inputs `MediaPlayerInfoDesktop` uses
   (`getMediaPlayerArtworkSources`, chapter image when `shouldUseChapterArtwork`,

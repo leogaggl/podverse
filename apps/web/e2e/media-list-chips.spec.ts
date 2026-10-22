@@ -626,10 +626,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await test.step('The podcast page lists the live item, then the scheduled item, then the item that ended within the day', async () => {
         const liveRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_LIVESTREAM_TITLE);
         const scheduledRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_SCHEDULED_TITLE);
-        const endedRecentRow = addByRssLivestreamRow(
-          page,
-          E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE
-        );
+        const endedRecentRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE);
 
         await expect(page.getByTestId('add-by-rss-livestream-row')).toHaveCount(3);
         await expect(liveRow).toBeVisible();
@@ -654,10 +651,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       });
 
       await test.step('An ended livestream older than a day is not listed', async () => {
-        const endedRecentRow = addByRssLivestreamRow(
-          page,
-          E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE
-        );
+        const endedRecentRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE);
         await expect(page.getByText(E2E_CHIPS_ADD_BY_RSS_ENDED_OLD_TITLE)).toHaveCount(0);
 
         await capturePageLoad(
@@ -671,10 +665,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await test.step('Choosing Oldest leaves the livestream rows in the same vertical order', async () => {
         const liveRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_LIVESTREAM_TITLE);
         const scheduledRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_SCHEDULED_TITLE);
-        const endedRecentRow = addByRssLivestreamRow(
-          page,
-          E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE
-        );
+        const endedRecentRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE);
 
         await page.getByRole('button', { name: 'Recent', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Oldest', exact: true }).click();

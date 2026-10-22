@@ -1,9 +1,5 @@
-import {
-  AddByRSSArtistsPageClient,
-} from '../../components/AddByRSS/List/AddByRSSArtistsPageClient';
-import {
-  AddByRSSEpisodesPageClient,
-} from '../../components/AddByRSS/List/AddByRSSEpisodesPageClient';
+import { AddByRSSArtistsPageClient } from '../../components/AddByRSS/List/AddByRSSArtistsPageClient';
+import { AddByRSSEpisodesPageClient } from '../../components/AddByRSS/List/AddByRSSEpisodesPageClient';
 import { AddByRSSListClient } from '../../components/AddByRSS/List/AddByRSSListClient';
 import { AddByRSSLivestreamsPageClient } from '../../components/AddByRSS/List/AddByRSSLivestreamsPageClient';
 import { AddByRSSTracksPageClient } from '../../components/AddByRSS/List/AddByRSSTracksPageClient';

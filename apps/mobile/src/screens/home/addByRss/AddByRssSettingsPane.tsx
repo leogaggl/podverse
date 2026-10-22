@@ -43,10 +43,8 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
   });
 
 /** A catalog key has no spaces. Rate-limit copy is already translated and does. */
-const feedCheckNoticeText = (
-  noticeKey: string,
-  translate: (key: string) => string
-): string => (noticeKey.includes(' ') ? noticeKey : translate(noticeKey));
+const feedCheckNoticeText = (noticeKey: string, translate: (key: string) => string): string =>
+  noticeKey.includes(' ') ? noticeKey : translate(noticeKey);
 
 /**
  * Settings for one add-by-RSS feed: the feed check, then username and password.

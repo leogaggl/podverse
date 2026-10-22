@@ -2,9 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-import type {
-  BackgroundActivitySnapshot,
-} from '../utils/backgroundActivity/backgroundActivityStore';
+import type { BackgroundActivitySnapshot } from '../utils/backgroundActivity/backgroundActivityStore';
 import {
   getBackgroundActivitySnapshot,
   getServerBackgroundActivitySnapshot,

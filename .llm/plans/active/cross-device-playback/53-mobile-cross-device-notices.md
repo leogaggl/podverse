@@ -14,7 +14,7 @@ not, stop and report.
 
 ## Rows
 
-R45
+R45, R92
 
 ## Runs after
 
@@ -40,6 +40,25 @@ apps/mobile/App.tsx
   because the active device may have changed since.
 - **Signed out.** Plan 31 resets the store on sign-out, which clears both failures, so no dialog
   outlives the account.
+
+## Intentional divergence from web (R92)
+
+The failure notice differs by surface on purpose; the operator kept both.
+
+- **Mobile:** a `ConfirmDialog` with one Dismiss action. It stays until the person dismisses it,
+  and dismissing clears the failure in plan 30's store.
+- **Web:** a one-time error toast (`showToast(message, 'error')`, plan 45). It shows once, the
+  store clears the failure at once, and the toast goes away on its own.
+- **Why they need not match:** each surface uses the notice it already has for errors that arrive
+  after the action. Web has a toast system the player already uses. The phone has none, and its
+  existing late notices (the 744 prompt, the forced sign-out notice) are single-acknowledge
+  dialogs. The failure can arrive up to 8 s after the tap, often after the device menu has closed
+  or the person has moved to another screen, so on a phone a notice that disappears on its own
+  would often go unseen. What matters for parity matches: the same failure reasons, the same
+  device naming, and copy with the same meaning.
+
+When either side changes its notice, it updates this section and plan 45's matching note rather
+than converging the two (**cross-surface-change-impact**).
 
 ## `CrossDevicePlaybackNotice.tsx`
 

@@ -186,9 +186,7 @@ describe('findAddByRssLiveItemDetail', () => {
 describe('addByRssLiveStatusLabelKey', () => {
   it('names each livestream status', () => {
     expect(addByRssLiveStatusLabelKey(LiveItemStatusEnum.Live)).toBe('media.livestream.live');
-    expect(addByRssLiveStatusLabelKey(LiveItemStatusEnum.Pending)).toBe(
-      'media.livestream.pending'
-    );
+    expect(addByRssLiveStatusLabelKey(LiveItemStatusEnum.Pending)).toBe('media.livestream.pending');
     expect(addByRssLiveStatusLabelKey(LiveItemStatusEnum.Ended)).toBe('media.livestream.ended');
   });
 });

@@ -13,12 +13,12 @@ parts:
 The previous active device stops on its own when the claim lands (plan 22's stop on loss).
 
 Before editing, confirm plans 22 and 23 have landed (`usePlaybackResourceLoader`,
-`reportPlaybackStartFailed`, the executor's tap-to-play handling, `checkInNow` and
+`reportPlaybackStartFailed`, `stageCommandStartSeek` and the `onLoadedMetadata` seam, the executor's tap-to-play handling, `checkInNow` and
 `confirmTapToPlay` on the context). If not, stop and report.
 
 ## Rows
 
-R21, R48
+R21, R48, R84
 
 ## Runs after
 
@@ -44,6 +44,16 @@ apps/web/src/contexts/CrossDevicePlayback.tsx
 - **Start point.** Non-live: plan 11's `estimatePlaybackPositionSeconds({ state, receivedAtMs, nowMs })`
   on `envelope.state`, with this tab's receive time; null estimate → the item's saved position.
   Live: null, which loads the livestream at its live point (R48).
+- **Landing past the end of this file (R84).** The estimate is clamped to the playing device's
+  `duration_seconds` (plan 11), which can be longer than this tab's copy of the file (dynamic ad
+  insertion). This plan does not clamp it again. It passes the estimate to plan 23's loader as
+  `startSeconds`; the loader stages it, and when this tab's file reports its duration at
+  `loadedmetadata` the orchestrator starts at `clampCommandStartToFileEnd` of it: the estimate
+  as is below that duration, or that duration minus 5 s (never below 0) at or past it. This tab's
+  file duration is never known when the command lands (the item is not loaded yet), which is why
+  the clamp waits for metadata. When this tab already has the same item loaded, the loader's
+  same-item branch clamps at once if the file has metadata, and stages it otherwise. A null
+  estimate (saved position) is not a commanded position and loads through the normal path.
 - **Speed carries over.** After a non-live load, `setMPPlaybackSpeed(nearestPlaybackSpeedValue(state.rate))`.
 - **Add by RSS.** The take-over state carries only the hash. Resolve the resource data from this
   account's queues' now-playing rows (`reqQueueResourcesGetNowPlayingByQueueIdText` for each queue
@@ -65,7 +75,7 @@ apps/web/src/contexts/CrossDevicePlayback.tsx
   transfer replaces the pending one and clears an old failure.
 - **"This device".** `transferTo(thisSessionIdText)` and `takeOverHere()` take over locally from
   `displayState` (remote or idle role), with the same start point and speed rules and receive time
-  `stateReceivedAtMs`. The load is async, so the browser may block audio. When a
+  `stateReceivedAtMs`, through the same loader, so the same file-end clamp applies. The load is async, so the browser may block audio. When a
   `local_play_blocked` signal arrives within 15 s of a local take-over, `setMPIsPlaying(false)` and
   `setTapToPlay({ commandIdText: null })`; there is no command to report. When this session is
   already active and another tab holds audio, the local claim's audio-tab announcement moves the
@@ -153,6 +163,8 @@ type CrossDevicePlaybackContextValue = {
 
 - Exactly one tab of the target browser takes over when the tab channel works.
 - A livestream transfer never seeks to a stored position.
+- A take-over never seeks this tab's media at or past the end of its own file when that file
+  reports a duration (plan 23's seam); `resolveTakeOverStart` itself never reads a local duration.
 - A failed take-over leaves this tab's claim abandoned, so the previous device keeps playing.
 - The sender shows at most one pending transfer and one failure at a time.
 
@@ -163,7 +175,10 @@ Vitest:
 - `takeOverTabChoice.test.ts`: last focused tab handles it and the leader does not; no focused tab
   → leader; no channel → only a visible tab.
 - `resolveTakeOverStart.test.ts`: playing state 10 s old at rate 1.5 → position + 15 (plan 11's
-  estimate); live → `startSeconds: null` and `rate: null`; rate 1.1 → 1.12; null resource → null.
+  estimate); live → `startSeconds: null` and `rate: null`; rate 1.1 → 1.12; null resource → null;
+  a playing state at 595 with `duration_seconds` 600, 10 s old at rate 1 → 600 (clamped to the
+  shared duration only; the file-end clamp is plan 23's and is covered in
+  `commandStartSeek.test.ts`).
 
 The full transfer (two browser contexts, sender and target) is area D's Playwright spec.
 
@@ -175,8 +190,10 @@ The full transfer (two browser contexts, sender and target) is area D's Playwrig
 - Surfaces: web
 - Change: Choosing a device for playback sends one transfer command. The target browser's most
   recently focused tab loads the item where the other device was (livestreams at the live point),
-  at the same speed, starts it, and becomes the active device; the old device stops. Choosing
-  this device does the same locally. The sender sees a failure when the target reports it could
+  at the same speed, starts it, and becomes the active device; the old device stops. When that
+  position is at or past the end of the target's copy of the file (copies can differ in length
+  with dynamic ads), it starts 5 s before that file's end. Choosing this device does the same
+  locally. The sender sees a failure when the target reports it could
   not start, is not connected, or does not respond within 8 s. Add by RSS items resolve from the
   account's server queue.
 - Who notices: members moving playback between devices

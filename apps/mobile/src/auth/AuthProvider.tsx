@@ -15,8 +15,8 @@ import { getMobileConfig } from '../config';
 // Import the repository from its module (not the data barrel) to avoid an import cycle through
 // the auth barrel.
 import { accountRepository } from '../data/repositories/accountRepository';
-import { homeLivestreamsCacheRepository } from '../data/repositories/homeLivestreamsCacheRepository';
 import { addByRssCredentialStore } from '../data/repositories/addByRssCredentialStore';
+import { homeLivestreamsCacheRepository } from '../data/repositories/homeLivestreamsCacheRepository';
 import { playlistRepository } from '../data/repositories/playlistRepository';
 import { queueRepository } from '../data/repositories/queueRepository';
 import { resolveSupportedLocale } from '../i18n/locale';

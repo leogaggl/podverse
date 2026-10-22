@@ -1,4 +1,4 @@
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 # 40 — Playwright coverage for scrolling player titles
 

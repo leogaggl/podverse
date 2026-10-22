@@ -3,7 +3,7 @@
 # 34 — Mobile controls another device and moves playback
 
 When another device is active, the phone's controls drive that device: play, pause, seek, skip
-forward and back, speed, and picking an item. The phone can also move playback to another device
+forward and back, Next and Previous, speed, and picking an item. The phone can also move playback to another device
 or bring it to itself. This plan does the routing and the transfer bookkeeping. Area E draws the
 remote player, the device menu, and the failure messages from the store.
 
@@ -12,7 +12,7 @@ command runner exist. If not, stop and report.
 
 ## Rows
 
-R11, R22, R28, R49
+R11, R22, R28, R49, R78
 
 ## Runs after
 
@@ -31,23 +31,30 @@ apps/mobile/vitest.config.ts
 - **Routing by role.** A control is remote only when the store's `availability === 'ready'` and
   `role === 'remote'`, and no authoring hold is on. Otherwise it is local, and a local start claims
   (plan 32). `idle` plays locally and claims, as plan 11 says.
-- **What routes (R11, R28).** The session context's `pause`, `resume`, `seekTo`, `jumpBy`,
-  `setRate`, `playItem`, `playItemById`, `playClip`, `playClipById`, `playSoundbite`,
-  `playChapter`, `playAddByRssResourceData`, `playQueueResourceFromQueue`, and
-  `playPlaylistRowById`, and the row context's `pause`, `resume`, `playItemById`, and
-  `playClipById`. Internal callers inside the provider keep calling the local functions.
+- **What routes (R11, R28, R78).** The session context's `pause`, `resume`, `seekTo`, `jumpBy`,
+  `setRate`, `skipToNext`, `skipToNextTrack`, `skipToPrevious`, `skipToPreviousTrack`, `playItem`,
+  `playItemById`, `playClip`, `playClipById`, `playSoundbite`, `playChapter`,
+  `playAddByRssResourceData`, `playQueueResourceFromQueue`, and `playPlaylistRowById`, and the row
+  context's `pause`, `resume`, `playItemById`, and `playClipById`. Internal callers inside the
+  provider keep calling the local functions.
 - **What stays local.** `loadItemPausedAt` (clip screens load paused; it plays nothing),
   `previewWindow` and the authoring hold (making a clip is a local action and takes playback here
   when it plays), `retryPlayback`, `completeNowPlaying`, `switchEnclosureSelectedParams`, and
   `clearPauseBoundary`. Native lock-screen, headset, and car controls act on the local engine, as
   they do today; pressing play there plays locally and claims.
-- **No remote next or previous.** `skipToNext`, `skipToPrevious`, `skipToNextTrack`, and
-  `skipToPreviousTrack` do nothing in the remote role. The command set (plan 10) has no next or
-  previous, and the active device's queue decides what comes next. Area E hides those buttons
-  while remote.
+- **Next and Previous while remote (R78).** In the remote role the phone's Next sends the `next`
+  command and its Previous sends `previous` (plan 10). The playing device runs each as a tap on its
+  own Next or Previous button, on its own queue (plan 33 on a phone; web plan 23 in a browser), so
+  what comes next is that device's decision. The phone does not look at its own queue or chapters
+  first. The hold gestures (`skipToNextTrack`, `skipToPreviousTrack`) send the same two commands:
+  the command has no hold variant, and a hold that did nothing would read as a dead control. Both
+  commands are allowed for a live item (plan 11, `canTrackNext` and `canTrackPrevious` true), so
+  they are sent for one too; the playing device's handler decides, and a phone that plays a live
+  item does nothing. They are relative: two presses send two commands.
 - **Skip forward and back while remote** are absolute `seek` commands from the estimated remote
-  position (`resolveRemoteJumpSeekSeconds`). A live item has no seek or rate (plan 11): those
-  controls do nothing while remote.
+  position (`resolveRemoteJumpSeekSeconds`, which stops at the shared `duration_seconds`). The
+  playing device clamps a seek that lands past its own file's end (plan 33, R85). A live item has
+  no seek or rate (plan 11): those controls do nothing while remote.
 - **Seek coalescing.** At most one remote `seek` is in flight. A newer seek during it replaces the
   waiting one, and only the newest goes out when the first settles.
 - **Item picks** become `play_item` with a resource ref and `start_seconds`: the caller's explicit
@@ -156,8 +163,11 @@ export type CrossDevicePlaybackBindings = {
   - `routedResume` → `sendControl({ type: 'play' })`; on `'no_device'`, `takeOverHere()`.
   - `routedSeekTo` → `seekRemote`. `routedJumpBy` → `jumpRemote`.
   - `routedSetRate` → `sendControl({ type: 'set_rate', rate })` unless the shared state is live.
-  - `routedSkipToNext`, `routedSkipToPrevious`, `routedSkipToNextTrack`,
-    `routedSkipToPreviousTrack` → do nothing.
+  - `routedSkipToNext` and `routedSkipToNextTrack` → `void crossDevice.sendControl({ type: 'next'
+    })`. `routedSkipToPrevious` and `routedSkipToPreviousTrack` → `void crossDevice.sendControl({
+    type: 'previous' })`. Each returns a resolved `Promise<void>` so the context signatures stay
+    the same. On `'no_device'` or `'failed'`, `sendControl` records a command failure for area E
+    (`commandType` `next` or `previous`); nothing plays locally.
   - Item picks → `sendRemotePlayItem(resource, addByRssResourceData, startSeconds, playLocally)`,
     a local helper that sends `play_item` and calls `playLocally()` on `'no_device'`:
     - `playItem(item, channel, options)` → `{ kind: 'item', item_id_text: item.id_text }`,
@@ -193,7 +203,9 @@ control — seek coalescing, failure mapping, and the take-over result
 
 - Three seeks during one in-flight seek send two requests: the first and the newest.
 - `no_active_device` returns `'no_device'` and records no failure for `play`, and records one for
-  `pause`; a 503 returns `'failed'` and records one; a membership 403 calls `onMembershipRefusal`.
+  `pause` and for `next` (with `commandType: 'next'`); a 503 returns `'failed'` and records one; a
+  membership 403 calls `onMembershipRefusal`.
+- `sendControl({ type: 'previous' })` sends `{ command: { type: 'previous' } }` with no target.
 - `transferTo` begins a transfer with the server's command id; the target becoming active
   settles it with no failure; a matching `start_failed` (`load_failed`, `autoplay_blocked`) records
   that reason; another command id is ignored; 8 s with neither records `'timeout'`.
@@ -210,10 +222,11 @@ Maestro flows cover it on device.
 
 - Surfaces: mobile
 - Change: while another of a member's devices is playing, the phone's play, pause, seek, skip
-  forward and back, and speed controls drive that device, and picking an episode, clip, track, or
-  queue item plays it there. Livestreams offer play and pause only. Next and previous are not
-  offered while another device plays. A member can move playback from the phone to another
-  device, or bring it to the phone, at the current position or the live point.
+  forward and back, Next, Previous, and speed controls drive that device, and picking an episode,
+  clip, track, or queue item plays it there. Next and Previous do what those buttons do on the
+  playing device, using that device's queue. Livestreams offer play, pause, Next, and Previous; no
+  seek, skip, or speed. A member can move playback from the phone to another device, or bring it
+  to the phone, at the current position or the live point.
 - Who notices: members who play on more than one device
 - Operator steps: none
 ```

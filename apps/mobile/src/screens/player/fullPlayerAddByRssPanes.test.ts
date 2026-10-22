@@ -5,9 +5,7 @@ import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 import { convertParsedRSSFeedToCompat } from '@podverse/parser-mapping';
 
 import type { AddByRssNowPlayingItemSource } from '../../lib/addByRss/localResourceData';
-import type {
-  AddByRssNowPlayingSectionsSnapshot,
-} from '../../playback/addByRssNowPlayingSectionsStore';
+import type { AddByRssNowPlayingSectionsSnapshot } from '../../playback/addByRssNowPlayingSectionsStore';
 import type { FullPlayerAddByRssPaneInput } from './fullPlayerAddByRssPanes';
 import {
   addByRssPaneSummary,
@@ -86,9 +84,9 @@ describe('addByRssResourceDataLinksChapters', () => {
     expect(addByRssResourceDataLinksChapters(linked)).toBe(true);
     expect(addByRssResourceDataLinksChapters({})).toBe(false);
     expect(addByRssResourceDataLinksChapters({ bundle: { chaptersFeed: null } })).toBe(false);
-    expect(
-      addByRssResourceDataLinksChapters({ bundle: { chaptersFeed: { url: '   ' } } })
-    ).toBe(false);
+    expect(addByRssResourceDataLinksChapters({ bundle: { chaptersFeed: { url: '   ' } } })).toBe(
+      false
+    );
   });
 });
 

@@ -25,6 +25,7 @@ apps/mobile/src/playback/crossDevice/crossDevicePlaybackCommandRunner.ts
 apps/mobile/src/playback/crossDevice/crossDevicePlaybackPolicy.ts
 apps/mobile/src/playback/crossDevice/crossDevicePlaybackPolicy.test.ts
 apps/mobile/src/playback/PlaybackProvider.tsx
+apps/mobile/e2e/playback-multi-device-handoff.yaml
 
 ## Decisions this plan fixes
 
@@ -33,7 +34,10 @@ apps/mobile/src/playback/PlaybackProvider.tsx
     yet learned whether another device is active. The conflict waits in
     `playbackReconcileConflicts` and is evaluated again once the gate changes.
   - **`suppress`** while another device is active (`remote`) or this one is (`active`). An open
-    prompt closes without recording a dismissal, so it can return later if it still applies.
+    prompt closes without recording a dismissal. The conflict stays held. When the gate later
+    becomes `allow` (this phone's presence grace ended and nobody else is active), evaluate that
+    held conflict again, the same way a deferred conflict is evaluated when the gate changes. Do
+    not record a dismissal for the time the prompt was held closed.
   - **`allow`** when nobody is active, and whenever this phone cannot see the other devices
     (`off` or `unavailable`: signed out, no membership, Offline Mode, stream down). In those cases
     the 744 rules apply unchanged, including the case where the other device is offline.
@@ -132,9 +136,18 @@ The runner does not call them; the hook does.
   - Live state, null resource, local audio playing, authoring hold, `active` to `idle`, `idle` on
     a cold open (previous availability `pending`), and `remote` with `unavailable` → `none`.
 
-The gate itself is covered by plan 30's `resolvePlaybackHandoffGate` table. The prompt's existing
-Maestro coverage stays as it is: E2E accounts have one device, so the gate is `allow` and the
-prompt behaves as before.
+The gate itself is covered by plan 30's `resolvePlaybackHandoffGate` table. Extend that table:
+a conflict held while the gate is `suppress` is shown when the gate becomes `allow` and the
+server item is still a different item.
+
+`playback-multi-device-handoff.yaml` still expects `playback-handoff-dialog` after the phone
+plays, pauses, seeds the other item, and relaunches. The relaunch is often faster than the 5 s
+leave grace, and during that grace this phone is still the active device, so the prompt stays
+closed. The existing `extendedWaitUntil` for `playback-handoff-dialog` keeps
+`timeout: ${TIMEOUT_SLOWEST}` (20 s), which is longer than the grace. Add a comment above that
+wait: the dialog appears after this phone stops being the active device, about 5 s after
+relaunch. Do not shorten that timeout below the grace. The mobile E2E API keeps the 5 s grace
+(plan 14).
 
 ## Release scratchpad
 

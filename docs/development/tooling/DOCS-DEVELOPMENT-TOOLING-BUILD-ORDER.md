@@ -51,6 +51,14 @@ packages (for example `helpers`, `playback-core`, `observability`, request helpe
 
 These depend on already-built package outputs and should not run before packages/apps are ready.
 
+## Lint and type-check read package builds
+
+Workspace type-check resolves `@podverse/*` to each package's `dist/`. `npm run lint` and
+`npm run lint:fix` first check every `build:packages` package: `tsc --build --dry` for
+composite or incremental builds, and file times for the rest. When one is out of date they
+skip type-check, list the packages, and ask for `npm run build:packages`. CI runs
+`build:packages` before lint.
+
 ## Commands
 
 ```bash

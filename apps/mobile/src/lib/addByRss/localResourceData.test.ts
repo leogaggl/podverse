@@ -127,6 +127,7 @@ describe('addByRssEpisodeItemKey', () => {
         duration: 60,
         enclosure: { length: 100, type: 'audio/mpeg', url: LOCAL_ENCLOSURE },
         explicit: false,
+        guid: '',
         pubDate: new Date('2026-01-02T00:00:00.000Z'),
         title: 'No Guid',
       },

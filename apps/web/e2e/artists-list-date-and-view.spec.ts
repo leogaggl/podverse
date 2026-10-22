@@ -52,11 +52,16 @@ test.describe('Artists list date and view', () => {
         await page.goto(PODCASTS_URL);
         await expect(page).toHaveURL(/\/browse\/?$/);
         await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
+        const podcastsChip = page
+          .getByTestId('media-list-chips')
+          .getByRole('button', { name: 'Podcasts', exact: true });
+        // A plain Browse URL restores the Artists chip stored on the previous visit.
         await expect(
-          page
-            .getByTestId('media-list-chips')
-            .getByRole('button', { name: 'Podcasts', exact: true })
+          page.getByTestId('media-list-chips').getByRole('button', { name: 'Artists', exact: true })
         ).toHaveAttribute('aria-pressed', 'true');
+        await podcastsChip.click();
+        await expect(page).toHaveURL(/\/browse\/?$/);
+        await expect(podcastsChip).toHaveAttribute('aria-pressed', 'true');
 
         await layoutButton.click();
         await page.getByRole('menuitem', { name: 'Grid View' }).click();
@@ -93,11 +98,15 @@ test.describe('Artists list date and view', () => {
         await page.goto(PODCASTS_URL);
         await expect(page).toHaveURL(/\/browse\/?$/);
         await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
+        const podcastsChip = page
+          .getByTestId('media-list-chips')
+          .getByRole('button', { name: 'Podcasts', exact: true });
         await expect(
-          page
-            .getByTestId('media-list-chips')
-            .getByRole('button', { name: 'Podcasts', exact: true })
+          page.getByTestId('media-list-chips').getByRole('button', { name: 'Artists', exact: true })
         ).toHaveAttribute('aria-pressed', 'true');
+        await podcastsChip.click();
+        await expect(page).toHaveURL(/\/browse\/?$/);
+        await expect(podcastsChip).toHaveAttribute('aria-pressed', 'true');
 
         await layoutButton.click();
         await expect(gridViewItem).toBeVisible();

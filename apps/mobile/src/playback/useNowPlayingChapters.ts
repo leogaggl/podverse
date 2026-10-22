@@ -9,12 +9,12 @@ import type { MobileAuthRequestContext } from '../data';
 import { segmentsRepository } from '../data';
 import { warmItemDescription } from '../lib/content/itemDescriptionAccess';
 import { useOfflineMode } from '../prefs/offlineMode';
-import { usePlaybackProgress, usePlaybackSession } from './PlaybackProvider';
 import { shouldAutoLoadAddByRssNowPlayingChapters } from './addByRssNowPlayingSectionsStore';
 import {
   nowPlayingAddByRssSections,
   useNowPlayingAddByRssSections,
 } from './nowPlayingAddByRssSections';
+import { usePlaybackProgress, usePlaybackSession } from './PlaybackProvider';
 import { usePlaybackScrubPreview } from './playbackScrubPreviewStore';
 
 const itemFromTarget = (target: PlaybackTarget | null) => {

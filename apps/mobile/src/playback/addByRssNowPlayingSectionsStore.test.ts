@@ -10,9 +10,9 @@ import type { AddByRssItemSections } from '../lib/addByRss/itemSections';
 import type { AddByRssNowPlayingItemSource } from '../lib/addByRss/localResourceData';
 import type { AddByRssNowPlayingSectionsSnapshot } from './addByRssNowPlayingSectionsStore';
 import {
-  IDLE_ADD_BY_RSS_NOW_PLAYING_SECTIONS,
   addByRssNowPlayingSectionsKey,
   createAddByRssNowPlayingSectionsStore,
+  IDLE_ADD_BY_RSS_NOW_PLAYING_SECTIONS,
   shouldAutoLoadAddByRssNowPlayingChapters,
 } from './addByRssNowPlayingSectionsStore';
 

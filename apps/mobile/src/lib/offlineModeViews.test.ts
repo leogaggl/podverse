@@ -4,8 +4,8 @@ import {
   isEpisodeTabNetworkBody,
   isHomeChannelListOfflineCompatible,
   isHomeClipsUnavailableOffline,
-  isHomeLivestreamsUnavailableOffline,
   isHomeDownloadedItemsOnly,
+  isHomeLivestreamsUnavailableOffline,
   isPodcastSectionUnavailableOffline,
   resolvePodcastSectionForOfflineMode,
 } from './offlineModeViews';

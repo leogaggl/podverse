@@ -32,8 +32,13 @@ apps/mobile/src/components/player/FullPlayerScrubber.tsx
 - **The released position holds until the other device answers.** After a remote seek, the bar and
   clock stay at the chosen position until a newer shared state arrives or
   `PLAYBACK_COMMAND_TTL_MS` passes, so the thumb does not jump back while the command travels.
-- **No chapters or clip range remotely.** The shared state carries neither, so the remote scrubber
-  has no markers, tooltip, or highlight band.
+- **Remote duration is the shared state's.** The bar, the duration label, and the ratio read
+  `durationSeconds`, which plan 55 passes from `display.durationSeconds`, and plan 50 sets that from
+  `state.duration_seconds` (plan 11: a remote view reads duration only from the shared state). This
+  phone's own duration store is never read on the remote path.
+- **No chapter markers or clip range on the remote bar.** The phone loads the remote item's
+  chapters for the segment band (plans 51 and 55), but the remote bar stays plain, as web's remote
+  progress bar does. The summary carries no clip range.
 - **The local scrubber does not change.** Same hooks, same subscriptions, same test ids. The remote
   wrapper never mounts in local mode, so the local path never starts the remote clock.
 
@@ -70,6 +75,8 @@ Anchor: `export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProp
    - `seekTo` from `usePlaybackSession()` → `source.seekTo`
    - `clip` and `soundbite` derived from `activeTarget` → `source.clip` and `source.soundbite`
    Everything else (gestures, scrub preview store, chapter math, styles, test ids) stays as it is.
+   The remote track writes the same scrub preview store while held, so the remote segment band
+   (plan 55) names the chapter under the thumb, as the local band does.
 
 3. `export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps)` becomes the local
    wrapper: it calls the same hooks the body called before (`usePlaybackSession()` for

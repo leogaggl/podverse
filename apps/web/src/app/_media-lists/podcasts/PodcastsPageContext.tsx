@@ -146,16 +146,16 @@ export const PodcastsPageContextProvider = ({
 
       const { currentSort, currentRange, currentType, currentCategory } =
         getPodcastsPageFilterParams(
-        {
-          page: filterParams.page,
-          type: filterParams.type,
-          sort: filterParams.sort,
-          range: filterParams.range,
-          category: filterParams.category,
-        },
-        !!loggedInAccount,
-        scope
-      );
+          {
+            page: filterParams.page,
+            type: filterParams.type,
+            sort: filterParams.sort,
+            range: filterParams.range,
+            category: filterParams.category,
+          },
+          !!loggedInAccount,
+          scope
+        );
 
       const response = await getApiRequestService().reqChannelGetMany({
         page: filterParams.page,

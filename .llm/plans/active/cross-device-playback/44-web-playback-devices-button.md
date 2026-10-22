@@ -191,6 +191,10 @@ Copy `SettingsButton.module.scss`'s structure:
 
 ## Placements
 
+Leave plan 42's `ShareButton` where that plan placed it: after Add to Playlist on desktop and in
+the full-screen player, and after Settings on the mobile-width row. Insert the device button
+around it as follows.
+
 - `MediaPlayerButtonsDesktop.tsx`: first element of `endSection`, in both the local and remote
   branches plan 42 wrote: `<PlaybackDevicesButton />` before the volume controls.
 - `MediaPlayerButtonsMobile.tsx`: right after the `AlternateEnclosureButton` line, before the

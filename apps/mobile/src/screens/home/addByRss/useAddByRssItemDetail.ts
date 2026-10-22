@@ -44,11 +44,7 @@ const selectAddByRssLiveItem = (
 function useAddByRssFeedSelection<T>(input: {
   feedIdText: string;
   key: string;
-  select: (
-    feed: MobileAddByRSSFeedRecord,
-    mappedFeed: AddByRSSMappedFeed,
-    key: string
-  ) => T | null;
+  select: (feed: MobileAddByRSSFeedRecord, mappedFeed: AddByRSSMappedFeed, key: string) => T | null;
 }): AddByRssFeedSelection<T> {
   const feedIdText = input.feedIdText;
   const key = input.key;
@@ -164,10 +160,7 @@ export function useAddByRssItemDetail(input: { feedIdText: string; itemKey: stri
 /**
  * The feed, its parsed bundle, and one livestream of it, read from the device.
  */
-export function useAddByRssLiveItemDetail(input: {
-  feedIdText: string;
-  liveItemKey: string;
-}): {
+export function useAddByRssLiveItemDetail(input: { feedIdText: string; liveItemKey: string }): {
   errorKey: string | null;
   feed: MobileAddByRSSFeedRecord | null;
   isLoading: boolean;

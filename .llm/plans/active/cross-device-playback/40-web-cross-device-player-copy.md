@@ -10,9 +10,15 @@ The keys live in the **consumer** layer, which web and mobile both load, under
 `media_player.cross_device`. The mobile player UI (area E) can reuse the device-menu, caption, and
 failure keys as they are. `tap_to_play.*` is web-only wording ("this browser").
 
+**One status set for web and mobile (R89).** `playing_on_device` "Playing on {device}",
+`paused_on_device` "Paused on {device}", `starting_on_device` "Starting on {device}", and
+`sending_to_device` "Sending to {device}…" are the status line on both surfaces; mobile (area E)
+reads these keys and adds no status keys of its own. `playing_in_another_tab` "Playing in Another
+Tab" is web-only. All five are title case in English (**ui-copy-casing**: short status labels).
+
 ## Rows
 
-R8, R12, R39, R41, R44, R62
+R8, R12, R39, R41, R44, R62, R89
 
 ## Runs after
 
@@ -61,6 +67,8 @@ Use the Unicode ellipsis `…`, not three dots.
   "unnamed_mobile_device": "Mobile App",
   "unknown_device": "the other device",
   "playing_on_device": "Playing on {device}",
+  "paused_on_device": "Paused on {device}",
+  "starting_on_device": "Starting on {device}",
   "playing_in_another_tab": "Playing in Another Tab",
   "sending_to_device": "Sending to {device}…",
   "transfer_failed": {
@@ -95,6 +103,8 @@ messages and the prompt body are sentences.
   "unnamed_mobile_device": "Aplicación móvil",
   "unknown_device": "el otro dispositivo",
   "playing_on_device": "Reproduciendo en {device}",
+  "paused_on_device": "En pausa en {device}",
+  "starting_on_device": "Iniciando en {device}",
   "playing_in_another_tab": "Reproduciendo en otra pestaña",
   "sending_to_device": "Enviando a {device}…",
   "transfer_failed": {
@@ -126,6 +136,8 @@ messages and the prompt body are sentences.
   "unnamed_mobile_device": "Application mobile",
   "unknown_device": "l'autre appareil",
   "playing_on_device": "Lecture sur {device}",
+  "paused_on_device": "En pause sur {device}",
+  "starting_on_device": "Démarrage sur {device}",
   "playing_in_another_tab": "Lecture dans un autre onglet",
   "sending_to_device": "Envoi vers {device}…",
   "transfer_failed": {
@@ -160,6 +172,8 @@ a colon or in parentheses instead of inside a phrase.
   "unnamed_mobile_device": "Εφαρμογή κινητού",
   "unknown_device": "άλλη συσκευή",
   "playing_on_device": "Αναπαραγωγή σε: {device}",
+  "paused_on_device": "Παύση σε: {device}",
+  "starting_on_device": "Έναρξη σε: {device}",
   "playing_in_another_tab": "Αναπαραγωγή σε άλλη καρτέλα",
   "sending_to_device": "Αποστολή σε: {device}…",
   "transfer_failed": {
@@ -191,6 +205,8 @@ a colon or in parentheses instead of inside a phrase.
   "unnamed_mobile_device": "",
   "unknown_device": "",
   "playing_on_device": "",
+  "paused_on_device": "",
+  "starting_on_device": "",
   "playing_in_another_tab": "",
   "sending_to_device": "",
   "transfer_failed": {
@@ -215,6 +231,10 @@ structure, not the indent depth.
 ## How later plans use the keys
 
 - `useTranslations('media_player')` then `t('cross_device.playing_on_device', { device })`.
+- The status line picks its key from the shared state's `status` (plan 42): `playing` →
+  `playing_on_device`, `paused` → `paused_on_device`, `loading` → `starting_on_device`. A pending
+  transfer shows `sending_to_device`; another tab of this browser shows `playing_in_another_tab`
+  for every status.
 - `transfer_failed.<reason>` takes the reason values of plan 21's `TransferFailureReason`
   (`autoplay_blocked`, `load_failed`, `no_response`, `not_connected`, `request_failed`). Mobile's
   `timeout` maps to `no_response` and `send_failed` to `request_failed` if area E reuses them.

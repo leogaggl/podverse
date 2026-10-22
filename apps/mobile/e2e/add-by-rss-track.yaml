@@ -81,11 +81,35 @@ name: Add By RSS Track Flow
     timeout: ${TIMEOUT_FAST}
 - tapOn:
     id: full-player-section-transcript
+# The sheet peeks under the player. Swipes on the chip strip raise the outer column so the
+# transcript text is on screen. Playback keeps the clock moving, so each swipe settles on a bound.
+- swipe:
+    from:
+      id: full-player-sections
+    direction: UP
+    waitToSettleTimeoutMs: 1000
+- swipe:
+    from:
+      id: full-player-sections
+    direction: UP
+    waitToSettleTimeoutMs: 1000
 - extendedWaitUntil:
     visible:
       id: full-player-transcript-text
       text: ".*Magni valetudo odio.*"
-    timeout: ${TIMEOUT_SLOWER}
+    timeout: ${TIMEOUT_SLOW}
+# Swipes on the chip strip drive the outer scroller. Direction down brings the title back.
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: full-player-title-link
+    commands:
+      - swipe:
+          from:
+            id: full-player-sections
+          direction: DOWN
+          waitToSettleTimeoutMs: 1000
 - tapOn:
     id: full-player-title-link
 - extendedWaitUntil:

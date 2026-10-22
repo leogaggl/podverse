@@ -45,14 +45,9 @@ export function AddByRssLivestreamDetailScreen({
   route,
 }: AddByRssLivestreamDetailScreenProps) {
   const { feedIdText, liveItemKey } = route.params;
-  const {
-    errorKey,
-    feed,
-    isLoading,
-    liveItem,
-    mappedFeed,
-    reload,
-  } = useAddByRssLiveItemDetail(route.params);
+  const { errorKey, feed, isLoading, liveItem, mappedFeed, reload } = useAddByRssLiveItemDetail(
+    route.params
+  );
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
   const [tab, setTab] = useState<AddByRssLivestreamTab>('summary');

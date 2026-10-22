@@ -4,8 +4,7 @@ import type { AddByRSSItemIndexItem } from '../addByRSS/types';
 import { toEpochMsOrNull } from './mergeSubscribedChannels';
 
 export type SubscribedItemEntry =
-  | { source: 'server'; item: DTOItem }
-  | { source: 'add-by-rss'; item: AddByRSSItemIndexItem };
+  { source: 'server'; item: DTOItem } | { source: 'add-by-rss'; item: AddByRSSItemIndexItem };
 
 /**
  * One page of subscribed server rows plus this browser's Add by RSS items.
@@ -26,9 +25,10 @@ export const mergeSubscribedItemEntries = (params: {
   totalPages: number;
 }): SubscribedItemEntry[] => {
   const { serverItems, addByRSSItems, sort, page, totalPages } = params;
-  const serverEntries = serverItems.map(
-    (item): SubscribedItemEntry => ({ source: 'server', item })
-  );
+  const serverEntries = serverItems.map((item): SubscribedItemEntry => ({
+    source: 'server',
+    item,
+  }));
   const includeAddByRSS =
     (sort === 'recent' && page === 1) || (sort === 'top' && page === totalPages);
 

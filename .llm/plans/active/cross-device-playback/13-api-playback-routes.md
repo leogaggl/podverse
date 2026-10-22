@@ -20,7 +20,7 @@ If any is missing, stop and report.
 
 ## Rows
 
-R1, R19, R20, R23, R24, R25, R26, R29, R30, R31, R32, R43, R54, R66, R68
+R1, R19, R20, R23, R24, R25, R26, R29, R30, R31, R32, R43, R54, R66, R68, R69, R76
 
 ## Runs after
 
@@ -65,6 +65,13 @@ release-notes/scratchpad.md
   added: position saves also go through the now-playing routes, so hooking queue writes would fan
   out every few seconds. A playing device that auto-advances should refetch upcoming first so a
   remote "play next" is honored (note for areas B, C).
+- **R76, next and previous meet the queue the same way.** The server relays `next` and
+  `previous` to the active device and does nothing else: no queue read, no queue write, no check
+  that anything is ahead. The playing device runs its own Next or Previous button handler, on its
+  own queue, auto-queue, chapters, and Add by RSS list context. Any queue write that follows
+  (moving now-playing to history, the new now-playing row) goes through the existing queue routes,
+  exactly as a local press does. A press with nothing ahead does what the local button does,
+  which may be nothing; the sender sees the result only in the next `playback.state`.
 
 ## `Express.User` and the auth middleware
 
@@ -129,6 +136,13 @@ Shared steps:
 - Joi schemas mirror plan 10's guards exactly (same limits, same live rules); keep them in one
   `playbackSchemas` object at the top of the controller. After Joi, run plan 10's guard on the
   body as a second check so the two can never drift; a guard failure is a 400.
+  - Resource summary: `medium` is `Joi.number().integer().required()`. Plan 10's
+    `isDTOPlaybackResourceSummary`, run right after Joi, rejects an integer that is not a
+    `MediumEnum` member, so the Joi schema carries no copy of the enum's values. The controller
+    never applies `toPlaybackMedium`: a publish without a known medium is a 400.
+  - Command: `Joi.alternatives()` keyed on `type`, one branch per command type. The `next` and
+    `previous` branches are `{ type: Joi.string().valid('next') }` and
+    `{ type: Joi.string().valid('previous') }`, with unknown keys allowed as on the other branches.
 
 ### `checkIn` — `POST /account/playback/presence`
 
@@ -171,13 +185,14 @@ Body `PlaybackCommandSendBody`.
      play and claim). When it equals `current.activeSessionIdText` → 409
      `playback_target_already_active`. When `current.state` is null or its `resource` is null →
      409 `playback_nothing_to_transfer`.
-   - Every other type: `target_session_id_text` must be absent (400 otherwise). Target =
-     `current.activeSessionIdText`; null → 409 `playback_no_active_device`. The target may be the
-     caller's own session: tabs that share one session coordinate through their own stream
-     (area B).
+   - Every other type, including `next` and `previous`: `target_session_id_text` must be absent
+     (400 otherwise). Target = `current.activeSessionIdText`; null → 409
+     `playback_no_active_device`. The target may be the caller's own session: tabs that share one
+     session coordinate through their own stream (area B).
 1. `isPlaybackSessionPresent` for the target; false → 409 `playback_device_not_connected`.
 1. When `current.state?.is_live` and `!isPlaybackCommandAllowed(command.type, { isLive: true })` →
-   409 `playback_command_not_allowed_for_live`.
+   409 `playback_command_not_allowed_for_live`. Only `seek` and `set_rate` reach this; `next` and
+   `previous` are allowed for live items (plan 11).
 1. `command_id = randomUUID()` from `node:crypto`, `issued_at_ms = nowMs`, `expires_at_ms = nowMs +
    PLAYBACK_COMMAND_TTL_MS`.
 1. `savePlaybackCommand(command_id, { account_id, sender_session_id_text, target_session_id_text,
@@ -204,7 +219,9 @@ Body `PlaybackStartFailedBody`. Param `command_id`: a UUID string (Joi `.guid()`
 
 Any command that asks the target to start audio can fail this way (`play`, `play_item`,
 `take_over`); the record lives 60 s, longer than the command, because a tap-to-play prompt can
-take a while to fail visibly.
+take a while to fail visibly. `next` and `previous` keep the playing device's play or pause
+status, as its own buttons do, so they do not start audio on a device that was not already
+allowed to play; the route still accepts a report for any command it delivered.
 
 ## `@podverse/helpers-requests`
 
@@ -260,6 +277,16 @@ All tagged `account`, security bearer and cookie, with `400`, `401`, `403` (memb
 discriminator),
 `ApiPlaybackCommandEnvelope`, `ApiPlaybackStartFailed`, and the request and response bodies.
 
+- `ApiPlaybackResourceSummary`: `medium` is in `required`, `type: integer`, with a description
+  that it is the resource's channel medium id, the same values as a channel's `medium_id`, and
+  that an id the API does not know is a 400. List no `enum`, as the existing `medium_id`
+  properties in this file do not.
+- `ApiPlaybackCommand`: eight branches. `next` and `previous` are objects whose only required
+  property is `type` (`enum: [next]`, `enum: [previous]`). Their descriptions say the playing
+  device runs its own Next or Previous button and the server never edits a queue for them. The
+  route's `409 playback_command_not_allowed_for_live` description names `seek` and `set_rate`
+  only.
+
 On `/account/events`, update the description: `playback.*` is in use, list `playback.snapshot`
 (devices and state, sent after the notification snapshot on connect and after the API recovers
 its Redis subscription; it replaces the client's playback view), `playback.state` and
@@ -281,16 +308,24 @@ two plans do not collide.
     `playback.devices`. Check-in by B returns both devices; A's second check-in publishes nothing.
   - A publishes without a claim before anything is active → 409 `playback_not_active_device`
     with `active_session_id_text: null`.
-  - A claims → 200 revision 1, `playback.state` published with A active. B claims → A is no
-    longer active; A's next non-claim publish → 409 with B's id.
+  - A claims → 200 revision 1, `playback.state` published with A active and
+    `resource.medium` equal to the published `MediumEnum.Music`. B claims → A is no longer active;
+    A's next non-claim publish → 409 with B's id.
+  - A publish whose resource has no `medium` → 400; `medium: 999` → 400; `medium: '3'` → 400.
+    Nothing is published for any of them.
   - A periodic publish within the drift tolerance → 200 with the same revision and no event; a
     seek → a new revision and an event.
   - `pause` from B with A active → 202 and a `playback.command` envelope targeting A with
     `expires_at_ms - issued_at_ms` equal to `PLAYBACK_COMMAND_TTL_MS` and null `state`.
   - `{ type: 'toggle' }` → 400; `seek` with a negative position → 400; `target_session_id_text`
     on `pause` → 400.
-  - `seek` while the stored state is live → 409 `playback_command_not_allowed_for_live`; `pause`
-    while live → 202.
+  - `next` from B with A active → 202 and a `playback.command` envelope targeting A with
+    `command` `{ type: 'next' }` and null `state`; `previous` the same. The account's queue rows
+    are unchanged after each (read them with the queue service before and after).
+  - `next` with `target_session_id_text` → 400; `next` with nothing active → 409
+    `playback_no_active_device`.
+  - `seek` while the stored state is live → 409 `playback_command_not_allowed_for_live`; `pause`,
+    `next`, and `previous` while live → 202.
   - `take_over` to B with A active → envelope targeting B whose `state` is the stored state;
     to A (already active) → 409; to the caller itself → 400; to an absent session → 409
     `playback_device_not_connected`; with nothing loaded → 409 `playback_nothing_to_transfer`.
@@ -315,12 +350,14 @@ two plans do not collide.
 - Change: new membership-gated routes under `/account/playback` for exclusive active-device
   handoff. `POST /account/playback/presence` checks a device in (a device is a login session) and
   returns this device's session id, the connected devices, and the current playback state.
-  `POST /account/playback/state` lets the playing device publish its item, status, position, and
-  rate, or claim the active slot (one playing device per account; the last claim wins).
-  `POST /account/playback/commands` sends a target-state command (`play`, `pause`, `seek`,
-  `set_rate`, `play_item`, or `take_over` to move playback to another device) to the playing
+  `POST /account/playback/state` lets the playing device publish its item (with the item's
+  medium id, required), status, position, duration, and rate, or claim the active slot (one
+  playing device per account; the last claim wins).
+  `POST /account/playback/commands` sends a command (`play`, `pause`, `seek`, `set_rate`, `next`,
+  `previous`, `play_item`, or `take_over` to move playback to another device) to the playing
   device through the account event stream; commands expire after 5 seconds and are never
-  replayed. Live items accept only play, pause, play item, and take over.
+  replayed. `next` and `previous` make the playing device run its own Next or Previous button on
+  its own queue; the server never edits a queue for them. Live items reject seek and set rate.
   `POST /account/playback/commands/{command_id}/start-failed` lets the target report that it could
   not start audio, and the sending device is told. The account event stream now carries
   `playback.snapshot` (on connect), `playback.state`, `playback.devices`, `playback.command` (only

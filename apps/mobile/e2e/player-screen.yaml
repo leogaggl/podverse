@@ -109,8 +109,8 @@ name: Player screen flow
 # chapter is named yet, and a chapter starting cannot move the artwork or the transport.
 - assertVisible:
     id: full-player-segment-band
-# A named chapter makes the band one link. The title is part of that link's accessible name,
-# so the title id is not its own node.
+# A named chapter makes the band one link. The title text is part of that link's accessible
+# name. full-player-segment-title is the wrapper around the named row, not the title text.
 - assertVisible:
     id: full-player-chapter-link
     text: ".*Topic A.*"

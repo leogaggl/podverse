@@ -8,6 +8,8 @@ player's controls and item picks send commands instead of acting locally (R10, R
 - play and pause → `play` / `pause` (target state, never a toggle on the wire),
 - seek, skip forward and back, keyboard arrows → `seek` to an absolute position (not for live),
 - playback speed → `set_rate`,
+- Next and Previous track buttons → `next` / `previous`, which the playing device runs as its own
+  Next and Previous clicks on its own queue (R77; plan 23 on web, plan 33 on mobile),
 - picking an item anywhere (rows, headers, queue, playlists) → `play_item` on the active device,
   or play/pause when it is the item already playing there.
 
@@ -15,16 +17,18 @@ Nothing in this tab writes playback data in the remote role (R52, plan 22's guar
 and `active` roles everything behaves exactly as today.
 
 Area D decides which controls are visible in the remote role and renders progress from the store.
-Next and previous track are not routed; area D hides them in the remote role.
+It shows Next and Previous in the remote role from plan 11's
+`getPlaybackRemoteControls(...).canTrackNext` / `.canTrackPrevious` (true for live items too) and
+renders the existing track buttons, which this plan routes.
 
 Before editing, confirm plans 21–24 have landed (`crossDevicePlaybackStore`, `setOptimisticPatch`,
 `getEstimatedPositionSeconds`, `nearestPlaybackSpeedValue`, `buildPlaybackResourceRefFromTarget`,
-`playbackStartSecondsFromTarget`, and the final `CrossDevicePlaybackContextValue` from plan 24). If
-not, stop and report.
+`playbackStartSecondsFromTarget`, `runLocalClick` on both track button hooks from plan 23, and the
+final `CrossDevicePlaybackContextValue` from plan 24). If not, stop and report.
 
 ## Rows
 
-R10, R27, R52
+R10, R27, R52, R77
 
 ## Runs after
 
@@ -39,6 +43,8 @@ apps/web/src/lib/crossDevicePlayback/remotePlaybackRouting.ts
 apps/web/src/lib/crossDevicePlayback/remotePlaybackRouting.test.ts
 apps/web/src/contexts/CrossDevicePlayback.tsx
 apps/web/src/hooks/usePlayerTransport.ts
+apps/web/src/hooks/useTrackNextButtonActions.ts
+apps/web/src/hooks/useTrackPreviousButtonActions.ts
 apps/web/src/hooks/useMediaPlayerResourceUpdate.tsx
 apps/web/src/hooks/usePlayAddByRSS.tsx
 apps/web/src/hooks/__tests__/useMediaPlayerResourceUpdate.nearEndClamp.test.tsx
@@ -73,8 +79,21 @@ apps/web/src/components/MediaPlayer/Controller/mediaPlayerWindowKeyDown.test.ts
     `start_seconds` from `playbackStartSecondsFromTarget(target, input.explicitPlaybackSeconds)`
     (explicit seconds, else a chapter's start, else null).
 - **Optimistic display.** Before sending, the sender patches the displayed state (plan 21):
-  `play` → status `playing`, `pause` → `paused`, `seek` → position, `set_rate` → rate. `play_item`
-  has no patch. Any failure clears the patch.
+  `play` → status `playing`, `pause` → `paused`, `seek` → position, `set_rate` → rate.
+  `play_item`, `next`, and `previous` have no patch: only the playing device knows what they
+  load, and its next state shows it. Any failure clears the patch.
+- **Next and Previous in the remote role (R77).** A click on any of the four track buttons
+  (`TrackNextButton`, `TrackNextButtonMobile`, `TrackPreviousButton`,
+  `TrackPreviousButtonMobile`) sends `{ type: 'next' }` or `{ type: 'previous' }` through
+  `sendPlaybackCommand`, with no target session (the server sends it to the active device). The
+  routing lives in `useTrackNextButtonActions` and `useTrackPreviousButtonActions`, so the
+  buttons themselves do not change. A long press in the remote role sends the same command (the
+  wire has no long-press variant); in practice it cannot happen, because a remote tab's player is
+  cleared, so `hasEpisodeChaptersForTrackButtons` is false and the long-press props are not
+  attached. The remote tab never runs its local next or previous track code: that code moves
+  now-playing to history and loads media. Both commands are allowed for live items, so they are
+  sent for a live item too. Whether a remote button is disabled when nothing is ahead is area D's
+  call; this plan always sends.
 - **Errors.** `playback_no_active_device` or `playback_device_not_connected` → clear the patch and
   request an immediate check-in. `playback_command_not_allowed_for_live` → clear the patch. 403
   (`parseMembershipGateError`) → `markUnavailable()`. Anything else → clear the patch. Nothing is
@@ -185,6 +204,34 @@ labels, and `data-*` attributes:
   `{ hasResource, isLiveItem: isLive }`, `jumpBy`, and `togglePlayPause`. Remove `seekWithUiSync`
   and the time and duration refs when nothing else uses them.
 
+## `useTrackNextButtonActions.ts` and `useTrackPreviousButtonActions.ts`
+
+Plan 23 renamed each hook's click handler to `runLocalClick` and returns it; cross-device
+commands on the playing tab call it, so it must stay local. In each hook:
+
+1. Add a routed click handler and pass it to `useLongPress` in place of `runLocalClick`:
+
+   ```typescript
+   const handleClick = useCallback(async () => {
+     if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+       await sendPlaybackCommand({ type: 'next' });
+       return;
+     }
+     await runLocalClick();
+   }, [runLocalClick]);
+   ```
+
+   `{ type: 'previous' }` in `useTrackPreviousButtonActions`.
+1. Make the same role check the first statement of `handleLongPress`: in the remote role, `void
+   sendPlaybackCommand({ type: 'next' })` (or `previous`) and return; otherwise the existing
+   `void runNextTrack()` / `void runPreviousTrack()`.
+1. Return `onClick` (from `useLongPress`, now wrapping `handleClick`), `longPressProps`,
+   `hasEpisodeChaptersForTrackButtons`, and `runLocalClick` unchanged.
+
+Import `crossDevicePlaybackStore` from `../lib/crossDevicePlayback/crossDevicePlaybackStore` and
+`sendPlaybackCommand` from `../lib/crossDevicePlayback/sendPlaybackCommand`. The track button
+components are not edited.
+
 ## `useMediaPlayerResourceUpdate.tsx` and `usePlayAddByRSS.tsx`
 
 - `useMediaPlayerResourceUpdate`: the returned function's type becomes
@@ -202,9 +249,12 @@ labels, and `data-*` attributes:
 ## Must stay true
 
 - In `idle` and `active` roles every control and pick behaves exactly as before this plan.
-- A remote-role tab never loads media from a control or pick.
+- A remote-role tab never loads media from a control or pick, including Next and Previous.
 - No command is a toggle on the wire.
 - No seek is sent for a live item.
+- `runLocalClick` never sends a command; only the routed `onClick` and long press do.
+- A skip or seek sent near the end needs no sender-side change for R84: the sender clamps to
+  `duration_seconds`, and the playing tab backs off from the end of its own file (plan 23).
 
 ## Tests
 
@@ -216,7 +266,8 @@ Vitest:
   estimate of 100 with duration 110 → 110; jump −30 from 10 → 0; live → null.
 - `sendPlaybackCommand.test.ts` (mock `getApiRequestService`): `pause` patches status before the
   request resolves; `playback_no_active_device` clears the patch and calls the registered check-in
-  handler; 403 marks the store unavailable.
+  handler; 403 marks the store unavailable; `{ type: 'next' }` and `{ type: 'previous' }` are
+  sent as `{ command }` with no target and set no optimistic patch.
 - `mediaPlayerWindowKeyDown.test.ts`: update to the new signature; arrows call `jumpBy(∓10)`;
   arrows do nothing when live; Space does nothing without a resource.
 - `useMediaPlayerResourceUpdate.nearEndClamp.test.tsx` and `usePlayAddByRSS.test.tsx`: one case
@@ -230,8 +281,9 @@ Vitest:
 
 - Surfaces: web
 - Change: While another device or another tab is playing for the account, this tab's play,
-  pause, skip, seek, arrow keys, and speed controls, and picking an item anywhere on the site,
-  control the playing device instead of starting audio here. Picking the item that is already
+  pause, skip, seek, arrow keys, speed, and Next and Previous track buttons, and picking an item
+  anywhere on the site, control the playing device instead of starting audio here. Next and
+  Previous do on the playing device what its own buttons do, on its own queue. Picking the item that is already
   playing there toggles play and pause; another item plays there from its saved position, or
   from the chosen chapter. Seeking and skipping are not offered for livestreams.
 - Who notices: members with more than one device or tab open

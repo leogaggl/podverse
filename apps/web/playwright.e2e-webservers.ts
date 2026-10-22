@@ -46,8 +46,9 @@ export function buildE2eWebServers(options?: BuildE2eWebServersOptions) {
   };
 
   // Local test-asset server (port 2111) serves deterministic E2E fixtures (media, themes, etc.).
+  // Redirect fixtures hop between localhost and 127.0.0.1, so the process must accept IPv4.
   const testAssetsServer = {
-    command: 'npm run start -w podverse-test-assets',
+    command: 'env BIND_ADDRESS=0.0.0.0 npm run start -w podverse-test-assets',
     port: 2111,
     cwd: '../..',
     timeout: 30_000,

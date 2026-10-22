@@ -42,7 +42,7 @@ Phases run in order; prompts inside a phase run at once.
 | 1 | 10 | Cursor Grok 4.7 high |
 | 2 | 11 | Opus 5.5 high |
 | 3 | 12, 20, 21, 30 | Cursor Grok 4.7 high |
-| 4 | 40 | Cursor Grok 4.7 medium |
+| 4 | 40 | Cursor Grok 4.7 high |
 
 Why the expensive one: 11 is the web `MarqueeText`, its turn hook, and the turn constants. It
 carries open design (measurement, Web Animations, hover pause, reduced motion, `restInset` and
@@ -184,7 +184,7 @@ anything a later prompt needs.
 
 - [ ] **40 — Playwright coverage for scrolling player titles; then archive the set**
 
-**Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
+**Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
 ```
 Read and execute .llm/plans/active/web-player-marquee/40-player-marquee-e2e.md

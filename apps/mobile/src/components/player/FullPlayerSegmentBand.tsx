@@ -69,6 +69,9 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
           minWidth: 0,
           width: '100%',
         },
+        segmentTitleHost: {
+          width: '100%',
+        },
         segmentCluster: {
           alignItems: 'center',
           flexDirection: 'row',
@@ -160,7 +163,6 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
             <MarqueeText
               align={iconName === null ? 'center' : 'left'}
               style={styles.segmentText}
-              testID="full-player-segment-title"
               turnGroup="full-player"
               turnOrder={1}
             >
@@ -179,34 +181,41 @@ export function FullPlayerSegmentBand({ chapters }: FullPlayerSegmentBandProps) 
   return (
     <View pointerEvents="box-none" style={styles.segmentBand} testID="full-player-segment-band">
       {segment !== null && copy !== null ? (
-        showChapterLink ? (
-          <Pressable
-            accessibilityLabel={chapterLinkAccessibilityLabel}
-            accessibilityRole="link"
-            onPress={() => {
-              void openChapterLink();
-            }}
-            pointerEvents="auto"
-            style={({ pressed }) => [
-              styles.segmentCluster,
-              pressed ? styles.segmentClusterPressed : null,
-            ]}
-            testID="full-player-chapter-link"
-          >
-            {copy}
-            <ChapterLinkButton />
-          </Pressable>
-        ) : (
-          <View
-            accessibilityLabel={accessibilityLabel}
-            accessibilityRole="text"
-            accessible
-            pointerEvents="none"
-            style={styles.segmentCluster}
-          >
-            {copy}
-          </View>
-        )
+        <View
+          collapsable={false}
+          pointerEvents="box-none"
+          style={styles.segmentTitleHost}
+          testID="full-player-segment-title"
+        >
+          {showChapterLink ? (
+            <Pressable
+              accessibilityLabel={chapterLinkAccessibilityLabel}
+              accessibilityRole="link"
+              onPress={() => {
+                void openChapterLink();
+              }}
+              pointerEvents="auto"
+              style={({ pressed }) => [
+                styles.segmentCluster,
+                pressed ? styles.segmentClusterPressed : null,
+              ]}
+              testID="full-player-chapter-link"
+            >
+              {copy}
+              <ChapterLinkButton />
+            </Pressable>
+          ) : (
+            <View
+              accessibilityLabel={accessibilityLabel}
+              accessibilityRole="text"
+              accessible
+              pointerEvents="none"
+              style={styles.segmentCluster}
+            >
+              {copy}
+            </View>
+          )}
+        </View>
       ) : null}
     </View>
   );

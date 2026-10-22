@@ -174,6 +174,7 @@ function MediaRowActiveProgress({ testID }: { testID?: string }) {
       height={3}
       ratio={ratio}
       style={mediaRowProgressTrackStyle}
+      testID={testID}
     />
   );
 }

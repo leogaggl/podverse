@@ -18,7 +18,7 @@ not, stop and report.
 
 ## Rows
 
-R41, R44
+R41, R44, R91
 
 ## Runs after
 
@@ -43,6 +43,28 @@ apps/web/src/components/MediaPlayer/Controller/MediaPlayerController.tsx
   `idle` role.
 - **Mounted in `MediaPlayerController`,** which is always mounted with the app chrome, so the
   prompt works before the lazy player UI loads.
+
+## Intentional divergence from mobile: toast here, dialog there (R91)
+
+The operator kept both forms after review ("keep the web toast and the mobile dialog; record it
+as an intentional divergence in plans 45 and 53"), per **cross-surface-change-impact**.
+
+- **Web (this plan):** a one-time error toast (`showToast(message, 'error')`) with the reason's
+  copy and the device's name. It shows once, the store clears the failure at once, and the toast
+  goes away on its own. A device that already left the list reads as "Another Device".
+- **Mobile (plan 53):** a `ConfirmDialog` with one Dismiss action. It stays until the person
+  dismisses it, a transfer failure shows before a command failure, and it keeps the last name it
+  saw for a device that has left.
+- **Why they need not match:** each surface uses the notice it already has for errors that
+  arrive after the action. Web has a toast system the player and playlist actions already use,
+  and the browser tab that sent the transfer is normally still the one in view. The phone has no
+  toast system; its late notices are single-acknowledge dialogs, and the failure can arrive up to
+  8 s after the tap, often after the device menu has closed, so a notice that disappears on its
+  own would often go unseen there. What matters for parity matches: the same failure reasons,
+  the device named, and copy with the same meaning.
+
+When either side changes its notice, it updates this section and plan 53's matching section
+rather than converging the two.
 
 ## `CrossDevicePlaybackNotices.tsx`
 

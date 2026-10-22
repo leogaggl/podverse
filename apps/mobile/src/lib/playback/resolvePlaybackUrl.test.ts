@@ -2,9 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const isOfflineModeEnabled = vi.fn(() => false);
 const getInfoAsync = vi.fn();
-const resolveItemEnclosureUrl = vi.fn(
-  (..._args: unknown[]) => 'https://cdn.example.com/ep.mp3'
-);
+const resolveItemEnclosureUrl = vi.fn((..._args: unknown[]) => 'https://cdn.example.com/ep.mp3');
 const buildItemLabeledEnclosures = vi.fn((..._args: unknown[]): unknown[] => []);
 const downloadStoreGet = vi.fn();
 const hydrate = vi.fn(async (..._args: unknown[]) => undefined);

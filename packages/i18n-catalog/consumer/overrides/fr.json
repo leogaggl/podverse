@@ -124,6 +124,10 @@
       "media_other_domain": "",
       "media_needs_credentials": ""
     },
+    "browse": {
+      "browse": "",
+      "users": ""
+    },
     "my_library": "",
     "queue": {
       "queue": "",
@@ -410,6 +414,11 @@
       "playlist_entry_removed": "",
       "show_not_in_directory": ""
     }
+  },
+  "background_activity": {
+    "title": "",
+    "add_by_rss_refresh": "",
+    "progress": ""
   },
   "media_player": {
     "play": "",
@@ -801,6 +810,7 @@
   },
   "subscriptions": {
     "subscriptions": "",
+    "subscribed": "",
     "how_to_start_message": "",
     "empty_message": "",
     "no_filter_matches": "",
@@ -1476,14 +1486,6 @@
         "description": ""
       },
       "browse": {
-        "title": "",
-        "description": ""
-      },
-      "podcastsLivestreams": {
-        "title": "",
-        "description": ""
-      },
-      "musicLivestreams": {
         "title": "",
         "description": ""
       },
