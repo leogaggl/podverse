@@ -45,7 +45,9 @@ EXPO_NO_GIT_STATUS=1 CI=1 npx expo prebuild --platform android --clean --no-inst
 
 echo "=== Gradle release build ($ABI)"
 cd android
-./gradlew --no-daemon -PreactNativeArchitectures="$ABI" -Dorg.gradle.jvmargs=-Xmx6g assembleRelease
+# No SDK auto-download: every component is baked into the image
+./gradlew --no-daemon -PreactNativeArchitectures="$ABI" -Pandroid.builder.sdkDownload=false \
+  -Dorg.gradle.jvmargs=-Xmx6g assembleRelease
 
 BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
 APK=app/build/outputs/apk/release/app-release.apk

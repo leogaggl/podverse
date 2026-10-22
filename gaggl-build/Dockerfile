@@ -1,12 +1,17 @@
 # Build environment for a local Podverse Next Android release build (FOSS flavour).
 # Expo 58 / React Native 0.88: JDK 17, Node 24.15 (repo engines + eas.json base).
-# Only the SDK command-line tools and platform-tools are baked in. The Android Gradle Plugin
-# downloads the exact platform, build-tools and NDK it needs into /opt/android-sdk, which
-# build.sh mounts as a named volume so those downloads are kept between builds.
+# The SDK components are baked in with sdkmanager, one cached layer each. Gradle's own SDK
+# auto-download is switched off in the build (it stalled for 40 minutes on this network), so a
+# missing component fails fast. Versions match react-native/gradle/libs.versions.toml for 0.88.
 FROM eclipse-temurin:17-jdk-noble
 
 ARG NODE_VERSION=24.15.0
 ARG CMDLINE_TOOLS=11076708
+# sdkmanager names platforms by minor version from 36.1 on: compileSdk 37 is "android-37.0"
+ARG COMPILE_SDK=37.0
+ARG BUILD_TOOLS=37.0.0
+ARG NDK_VERSION=27.1.12297006
+ARG CMAKE_VERSION=3.22.1
 
 ENV ANDROID_HOME=/opt/android-sdk \
     ANDROID_SDK_ROOT=/opt/android-sdk \
@@ -30,6 +35,10 @@ RUN mkdir -p $ANDROID_HOME/cmdline-tools \
  && rm /tmp/tools.zip \
  && yes | sdkmanager --licenses > /dev/null \
  && sdkmanager --verbose "platform-tools"
+RUN sdkmanager --verbose "platforms;android-${COMPILE_SDK}" "platforms;android-36"
+RUN sdkmanager --verbose "build-tools;${BUILD_TOOLS}"
+RUN sdkmanager --verbose "cmake;${CMAKE_VERSION}"
+RUN sdkmanager --verbose "ndk;${NDK_VERSION}"
 
 COPY build-in-container.sh /usr/local/bin/build-in-container.sh
 RUN chmod +x /usr/local/bin/build-in-container.sh

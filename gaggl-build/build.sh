@@ -35,7 +35,6 @@ docker run --rm \
   -v "$REPO":/src:ro \
   -v "$REPO/gaggl-build/out":/out \
   -v "$(dirname "$KEYSTORE")":/keystore:ro \
-  -v podverse-gaggl-sdk:/opt/android-sdk \
   -v podverse-gaggl-gradle:/root/.gradle \
   -v podverse-gaggl-npm:/root/.npm \
   -e ABI="$ABI" -e KEYSTORE_FILE="$(basename "$KEYSTORE")" -e KEY_ALIAS="$KEY_ALIAS" \
