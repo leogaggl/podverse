@@ -19,7 +19,22 @@ gaggl-build/build.sh        # arm64-v8a, for current Pixels
 gaggl-build/install.sh      # adb install -r the newest APK
 ```
 
-`build.sh` asks for a keystore password and creates `~/.android/podverse-gaggl.jks` on first use. Keep that file and its password: updates must be signed with the same key.
+`build.sh` asks for a keystore password and creates `~/.android/podverse-gaggl.jks` on first use. Keep that file and its password: updates must be signed with the same key. `PODVERSE_KEYSTORE` can point somewhere else, but not into a temporary directory (`/tmp`, `/run` and so on): an earlier key was lost that way.
+
+### The signing password
+
+Once a password has been typed in and checked, `build.sh` saves it to the GNOME login keyring with `secret-tool`, and later builds read it from there without asking. To look at it or change it:
+
+```bash
+secret-tool lookup service podverse-gaggl-keystore keystore ~/.android/podverse-gaggl.jks
+secret-tool clear service podverse-gaggl-keystore keystore ~/.android/podverse-gaggl.jks
+```
+
+Setting `KEYSTORE_PASS` in the environment skips the keyring.
+
+### Backing up the key
+
+The keyring and `~/.android` are both on this machine, so they don't count as a backup. Keep a copy of `podverse-gaggl.jks` and its password together somewhere else, for example as an attachment to an entry in your password manager.
 
 In Android Auto's developer settings, turn on **Unknown sources**, or the car will hide the app, since it didn't come from the Play Store.
 
