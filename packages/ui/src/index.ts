@@ -476,6 +476,8 @@ export { EmptyStateText } from './components/layout/EmptyStateText/index';
 export type { EmptyStateTextProps } from './components/layout/EmptyStateText/index';
 export { EllipsisText } from './components/layout/EllipsisText/index';
 export type { EllipsisTextProps } from './components/layout/EllipsisText/index';
+export { MarqueeText } from './components/layout/MarqueeText/index';
+export type { MarqueeTextProps } from './components/layout/MarqueeText/index';
 export {
   ErrorBoundaryShell,
   GlobalErrorBoundaryShell,

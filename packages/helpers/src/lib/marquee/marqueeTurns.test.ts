@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createMarqueeTurnRegistry } from './marqueeTurns';
+import { createMarqueeTurnRegistry } from './marqueeTurns.js';
 
 describe('createMarqueeTurnRegistry', () => {
   it('gives a lone scrolling member a new token after each pass', () => {

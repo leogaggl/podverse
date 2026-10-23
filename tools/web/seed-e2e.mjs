@@ -98,7 +98,10 @@ const E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT = 'e2ePodResume01';
 const E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT = 'e2ePodResume02';
 const E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT = 'e2ePodResume03';
 const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
-/** Oldest episode in the podcast; its stored show notes are shortened (`is_truncated`). */
+/**
+ * Older than the episodes newest-first lists put in row 0. The marquee episodes are older than
+ * this one. Its stored show notes are shortened (`is_truncated`).
+ */
 const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
 const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
 const E2E_PODCAST_ITEM_LONG_NOTES_SOURCE_LENGTH = 18000;
@@ -125,6 +128,28 @@ const E2E_PODCAST_ITEM_LONG_NOTES_PREVIEW =
   'notes were shortened and the app links to the full notes on the episode website instead of ' +
   'showing everything inline. The second paragraph exists so the preview has to cut in the ' +
   'middle of running text at a word';
+
+const E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT = 'e2ePodMarqTi01';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT = 'e2ePodMarqCh01';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ROW_ID_TEXT = 'e2eChapMarq01';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_ROW_ID_TEXT = 'e2eChapMarq02';
+
+/** 215 characters. Wider than the full-size player title at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_TITLE = 'E2E Marquee Overflow Title '.repeat(8).trim();
+
+/** 207 characters. Wider than the player bar strip and the embed segment line at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE = 'E2E Marquee Chapter Title '.repeat(8).trim();
+
+/** 23 characters. Fits the player bar strip at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE = 'E2E Marquee Chapter Two';
+
+/** 27 characters. Fits the full-size player title and the player bar title at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE = 'E2E Marquee Chapter Episode';
+
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL = 'https://example.com/e2e-marquee-chapter';
+
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL =
+  'https://example.com/e2e-marquee-chapter-two';
 
 const E2E_CLIP_ID_TEXT = 'e2eClip00000001';
 /** Archived episode (`e2ePodArchEp01` = 14). Lists omit it; pages open it by id. */
@@ -1013,7 +1038,8 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     enclosureUrl: E2E_PODCAST_SHORT_ENCLOSURE_URL,
     pubDateOffsetSeconds: 10800,
   });
-  // Oldest in the channel so the newest-first lists and row-0 flows keep their order.
+  // Older than the episodes newest-first lists put in row 0. The marquee episodes are older than
+  // this one, so those lists keep their row-0 episode.
   const longNotesItemId = await insertPodcastItem({
     idText: E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT,
     guidSlug: 'long-show-notes',
@@ -1036,6 +1062,87 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     longNotesItemId,
     E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL,
   ]);
+
+  await insertPodcastItem({
+    idText: E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT,
+    guidSlug: 'marquee-title',
+    title: E2E_PODCAST_ITEM_MARQUEE_TITLE,
+    enclosureUrl: E2E_PODCAST_RESUME_ENCLOSURE_URL,
+    pubDateOffsetSeconds: 21600,
+  });
+  const marqueeChapterItemId = await insertPodcastItem({
+    idText: E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT,
+    guidSlug: 'marquee-chapter',
+    title: E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE,
+    enclosureUrl: E2E_PODCAST_RESUME_ENCLOSURE_URL,
+    pubDateOffsetSeconds: 25200,
+  });
+
+  // [1, 30) and [30, 60) do not overlap, so a playhead in each range names a different chapter.
+  const marqueeChaptersFeedResult = await client.query(
+    `INSERT INTO item_chapters_feed (item_id, url, type)
+     VALUES ($1, 'https://e2e-seed-podcast.example/marquee-chapters.json', 'application/json')
+     RETURNING id`,
+    [marqueeChapterItemId]
+  );
+  const marqueeChaptersFeedId = marqueeChaptersFeedResult.rows[0].id;
+
+  await client.query(`INSERT INTO item_chapters_feed_log (item_chapters_feed_id) VALUES ($1)`, [
+    marqueeChaptersFeedId,
+  ]);
+
+  const marqueeChaptersObjectResult = await client.query(
+    `INSERT INTO item_chapters_object (item_chapters_feed_id, title)
+     VALUES ($1, $2)
+     RETURNING id`,
+    [marqueeChaptersFeedId, E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE]
+  );
+  const marqueeChaptersObjectId = marqueeChaptersObjectResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO item_chapter (
+       id_text,
+       item_chapters_object_id,
+       data_hash,
+       start_time,
+       end_time,
+       title,
+       web_url,
+       table_of_contents
+     )
+     VALUES
+       (
+         $1,
+         $2,
+         '44444444444444444444444444444444',
+         $3,
+         30,
+         $4,
+         $5,
+         true
+       ),
+       (
+         $6,
+         $2,
+         '55555555555555555555555555555555',
+         30,
+         $7,
+         $8,
+         $9,
+         true
+       )`,
+    [
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ROW_ID_TEXT,
+      marqueeChaptersObjectId,
+      E2E_CHAPTER_ONE_START_SECONDS,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_ROW_ID_TEXT,
+      E2E_PODCAST_ITEM_RESUME_DURATION_SECONDS,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL,
+    ]
+  );
 
   // Older than the other seeded episodes, and flagged archived, so channel lists leave it out.
   const archivedClipItemResult = await client.query(
@@ -1121,7 +1228,8 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
 
   // Subscriptions, so the /podcasts subscribed list has rows to render. The podcast channel's items
   // sit at 0, 1, 2, 3, and 4 hours old and its timestamp lands at ninety minutes, which leaves part
-  // of the channel unseen and part of it caught up; the livestream follow is fully caught up.
+  // of the channel unseen and part of it caught up. The marquee episodes at 6 and 7 hours are caught
+  // up, like the episodes older than ninety minutes. The livestream follow is fully caught up.
   await client.query(
     `INSERT INTO account_following_channel (account_id, channel_id, last_seen_at)
      VALUES
@@ -1266,7 +1374,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   );
 
   console.log(
-    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}, ${E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT})`
+    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}, ${E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT}, ${E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT}, ${E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT})`
   );
 
   await client.query(`DELETE FROM feed WHERE podcast_index_id = $1 OR url = $2`, [
