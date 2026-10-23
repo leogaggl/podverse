@@ -1,6 +1,7 @@
 import type { QueueResourcesAbridgedIndex } from '@podverse/helpers';
 
 import { clampNearEndSeconds } from './clampNearEndSeconds.js';
+import type { ListenSessionDirective } from './listenSession.js';
 import { parsePlaybackSeconds } from './parsePlaybackSeconds.js';
 import type { PlaybackLoadRequest } from './playbackLoadRequest.js';
 import { resumeSeekFromAbridged } from './resumeSeekFromAbridged.js';
@@ -14,8 +15,8 @@ export type PlaybackLoadDecision = {
   pauseAtSeconds?: number;
   /** Whether the bridge should clear AutoQueue after the load lands. */
   shouldClearAutoQueue: boolean;
-  /** Whether the bridge should record a stat-track event after play begins. */
-  shouldRecordPlaybackStat: boolean;
+  /** How this load affects the listener's counted-listen session (`listenSession.ts`). */
+  listenSession: ListenSessionDirective;
   /** Diagnostic / observability label; never used for control flow. */
   reason: PlaybackLoadDecisionReason;
 };
@@ -113,18 +114,15 @@ export function resolvePlaybackLoadDecision(
     case 'item-music':
       if (request.target.intent === 'session_restore') {
         const abridged = indices.abridged.items[request.target.item.id];
-        return {
-          ...baseDecision({
-            initialSeekSeconds: resumeSeekFromAbridged({
-              abridged,
-              durationHintSeconds: request.mediaFileDurationHintSeconds,
-              explicitSeconds: request.explicitPlaybackSeconds,
-            }),
-            reason: 'item-music-session-restore',
-            shouldClearAutoQueue: false,
+        return baseDecision({
+          initialSeekSeconds: resumeSeekFromAbridged({
+            abridged,
+            durationHintSeconds: request.mediaFileDurationHintSeconds,
+            explicitSeconds: request.explicitPlaybackSeconds,
           }),
-          shouldRecordPlaybackStat: false,
-        };
+          reason: 'item-music-session-restore',
+          shouldClearAutoQueue: false,
+        });
       }
 
       if (request.target.intent === 'explicit_play') {
@@ -156,14 +154,14 @@ export function resolvePlaybackLoadDecision(
           initialSeekSeconds,
           reason: initialSeekSeconds > 0 ? 'add-by-rss-resume' : 'add-by-rss-fresh',
         }),
-        shouldRecordPlaybackStat: false,
+        listenSession: 'none',
       };
     }
     case 'livestream':
-      return baseDecision({
-        initialSeekSeconds: 0,
-        reason: 'livestream',
-      });
+      return {
+        ...baseDecision({ initialSeekSeconds: 0, reason: 'livestream' }),
+        listenSession: 'none',
+      };
   }
 }
 
@@ -184,7 +182,7 @@ function baseDecision({
     reason,
     shouldAutoPlay: true,
     shouldClearAutoQueue,
-    shouldRecordPlaybackStat: true,
+    listenSession: 'start',
   };
 }
 

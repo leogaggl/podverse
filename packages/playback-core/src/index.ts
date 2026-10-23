@@ -12,6 +12,18 @@ export {
   type PlaybackLoadDecisionReason,
 } from './resolvePlaybackLoadDecision.js';
 export {
+  createListenSessionTracker,
+  LISTEN_SESSION_MAX_SECONDS_HEARD,
+  LISTEN_SESSION_TICK_TOLERANCE_SECONDS,
+  LISTEN_SESSION_UPDATE_STEP_SECONDS,
+  listenSessionTargetForClip,
+  listenSessionTargetFromPlaybackTarget,
+  type ListenSessionDirective,
+  type ListenSessionReport,
+  type ListenSessionTarget,
+  type ListenSessionTracker,
+} from './listenSession.js';
+export {
   resolveQueueAdvance,
   type QueueAdvanceDecision,
   type QueueAdvanceInput,

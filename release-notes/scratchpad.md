@@ -514,3 +514,260 @@
   remove action remains the screen-reader path.
 - Who notices: screen-reader users on lists that swipe to reveal an action
 - Operator steps: none
+
+## Popularity tracking storage foundation
+
+- Surfaces: api, workers, ops (app database)
+- Change: new app migration `0022_popularity_tracking_foundation.sql` adds the popularity-tracking
+  tables: a pseudonymous listener-id mapping in its own `listener_identity` schema that only the
+  read-write role can use (the read-only role has no access), monthly-partitioned listen and open
+  events with a default partition, per-show taste profile and Hidden From Taste Profile rows,
+  anonymous daily totals per channel, item, clip, playlist, and profile, and range totals for
+  public sorts. Server receive time is the only clock on listen events: it decides the
+  daily-totals day and when taste scores fade from; no device listen time is stored. Two
+  security-definer functions let the existing read-write role create and drop event partitions.
+  DB bootstrap and the rebootstrap job now grant the app migrator `CREATE` on the app database so
+  migrations can create schemas. The old stats tables stay until a later migration in the same
+  release drops them.
+- Who notices: operators running migrations; nobody else until the write path and jobs use it
+- Operator steps: in each existing environment, run the `ops-db-rebootstrap-roles` job once and
+  wait for it to finish, then run `ops-db-migrate-app`. New databases get the grant from bootstrap.
+  `API_EXPECTED_MIGRATION_FILENAME` advances to `0022_popularity_tracking_foundation.sql`.
+
+## Terms describe listen records and the Taste Profile
+
+- Surfaces: api, web, mobile
+- Change: The Popularity Tracking section of the terms now matches the explanation: what a counted listen is, the Taste Profile and Hidden From Taste Profile list, how long listen records and the Taste Profile are kept, what is deleted when tracking is turned off, and what stays paused when tracking stops without that choice. The terms version does not change, so existing accounts are not asked to accept the terms again.
+- Who notices: anyone who reads the terms
+- Operator steps: none
+
+## Popularity Tracking explanation asks again
+
+- Surfaces: api, web, mobile
+- Change: The Popularity Tracking explanation now describes listen records kept on a monthly schedule, a Taste Profile kept until the listener turns tracking off, a Hidden From Taste Profile list, immediate deletion of that personal data when they confirm turning it off, and a paused Taste Profile when a membership ends or a new explanation is waiting. Public counts stay. `POPULARITY_TRACKING_AGREEMENT_VERSION` moves from `2026-10-15` to `2026-10-21`, so a listener who had turned tracking on is asked again and tracking stays off until they say yes. A listener who said no is not asked again. The terms version does not change.
+- Who notices: Premium listeners who already turned Popularity Tracking on
+- Operator steps: set `POPULARITY_TRACKING_AGREEMENT_VERSION` and `NEXT_PUBLIC_POPULARITY_TRACKING_AGREEMENT_VERSION` to `2026-10-21` on the API and the web sidecar. For a local checkout, the version in `dev/env-overrides/local/legal.env` is already updated; run `make local_env_setup` from the repo root so generated env files pick it up. Do not change `TERMS_OF_SERVICE_VERSION`.
+
+## Management database browser lists popularity tables
+
+- Surfaces: management-api, management-web
+- Change: the database browser lists five read-only popularity tables, one row per channel,
+  item, clip, playlist, and profile, with day, week, month, and all-time counts, in place of
+  the rolling aggregate tables. Listener-linked stats tables stay off the browser.
+- Who notices: operators using the database browser
+- Operator steps: none
+
+## Raw popularity listen data is kept 90 days
+
+- Surfaces: api, web, workers, k8s base env
+- Change: `STATS_TRACK_EVENT_RETENTION_DAYS` defaults to 90 (was 30) and the base API, workers,
+  and web sidecar env files set 90. The Popularity Tracking explanation and terms fill
+  `{retention_days}` from it, the web settings help shows it, and the partition job drops a whole
+  month of raw listen and open events once every row in it is older than this.
+- Who notices: listeners reading the explanation or terms; operators of deployments
+- Operator steps: other deployments that pin either key to 30 should set 90 or remove the pin
+  (alpha's GitOps values are already 90). Local: update `STATS_TRACK_EVENT_RETENTION_DAYS` in your
+  home `legal.env`, then `make local_env_setup`.
+
+## Management stats read range totals and daily listener counts
+
+- Surfaces: management-api, management-web
+- Change: the Stats page ranks channels, items, clips, playlists, and profiles by Day, Week,
+  Month, and All-time counts from the popularity tables. Opening a row shows those four counts
+  and a chart of each UTC day's listener count across the month window. The 7-day, 30-day, and
+  1-year tabs and the rolling day and week charts are gone.
+- Who notices: operators using the management Stats page
+- Operator steps: none
+
+## Popularity Tracking counts real listens, with a rate limit and daily cap
+
+- Surfaces: api, k8s base env, web and mobile clients (once they send the new reports)
+- Change: `POST /stats/listen` and `POST /stats/open` replace the five `POST /stats/{account,channel,clip,item,playlist}` routes, which are removed. A listen is reported once per listening session, after 60 seconds or 25% of the item (whichever comes first), with seconds heard and whether it finished; later reports for the same session update it. The request carries no device time: the server's receive time dates the listen for daily totals and Taste Profile score decay, so a report sent after offline time counts on the day it arrives. Each listen stores one event, adds to anonymous daily totals (one count per listener per item, show, and clip per UTC day), and updates the listener's Taste Profile with recent and long-term scores, except for shows in Hidden From Taste Profile. Profile and playlist opens count once per opener per day, never for your own profile or playlist, and never feed the Taste Profile. Both routes keep the Premium, capability, and consent gates and add a per-account rate limit; listens also have a daily cap.
+- Who notices: Premium listeners with Popularity Tracking on; popularity sorts once the jobs roll daily totals up
+- Operator steps: optional `STATS_TRACK_MAX_PER_MINUTE` (default 60) and `STATS_LISTEN_DAILY_CAP` (default 300) on the API
+
+## Popularity listen events are partitioned by month and expire a month at a time
+
+- Surfaces: workers, k8s base cron
+- Change: new worker command `statsEventPartitionsMaintain` and daily CronJob
+  `worker-stats-event-partitions` (03:30). It creates monthly partitions for popularity listen and
+  open events two months ahead, then drops each month once every row in it is older than
+  `STATS_TRACK_EVENT_RETENTION_DAYS` (90 days by default, so rows stay 90 to about 122 days).
+  Retention never deletes rows one by one from a dated month.
+- Who notices: operators; listeners only through the retention promise in the explanation
+- Operator steps: after the migration runs on a deployment, start the job once by hand
+  (`kubectl -n <namespace> create job --from=cronjob/worker-stats-event-partitions worker-stats-event-partitions-manual`)
+  so dated partitions exist before the first listens arrive. Alpha picks up the CronJob when its
+  `base/cron` ref moves.
+
+## Turning Popularity Tracking off deletes listening data right away
+
+- Surfaces: api (`PATCH /account-settings/listen-stats`), helpers
+- Change: answering No to Popularity Tracking, in Settings or at the agreement prompt, now deletes
+  the account's pseudonymous listener id in the same request. That removes its stored listen and
+  open records, Taste Profile, and Hidden From Taste Profile list. Anonymous public totals stay. A
+  membership lapse or a new explanation version waiting for a Yes deletes nothing; the Taste
+  Profile is paused and resumes with the same id after a Yes. New shared helper
+  `isPopularityTrackingOptOutDestructive` tells clients when to confirm first.
+- Who notices: Premium listeners who turn tracking off; their recommendations start from scratch
+  if they turn it back on
+- Operator steps: none
+
+## Web player reports counted listens to Popularity Tracking
+
+- Surfaces: web
+- Change: the web player no longer posts a channel, clip, and item stat each time media loads.
+  It measures media seconds actually heard (seeks and skipped time do not count) and sends one
+  `POST /stats/listen` once a listen meets the counted-listen rule (60 seconds or 25% of the item,
+  whichever comes first), with later updates on completion and for each further minute heard.
+  Soundbites and chapters count toward their item; clips count toward the clip; Add by RSS and
+  live items are not reported. Profile and playlist page opens use `POST /stats/open`. Only a
+  signed-in account whose Popularity Tracking decision allows it sends anything.
+- Who notices: listeners who allow Popularity Tracking (nothing visible); operators reading
+  popularity data, which now reflects real listening instead of page loads
+- Operator steps: deploy with the API that serves `/stats/listen` and `/stats/open`
+
+## Mobile reports counted listens through a durable outbox
+
+- Surfaces: mobile
+- Change: mobile playback no longer posts channel, clip, and item stats on every play and resume,
+  and stats no longer ride playback outbox rows. The app measures media seconds actually heard
+  (seeks and skipped time do not count) and records a listen once it meets the counted-listen rule
+  (60 seconds or 25% of the item, whichever comes first), with updates on completion and for each
+  further minute heard. Reports are kept in a new SQLite table (migration 25,
+  `stats_listen_outbox`) and sent to `POST /stats/listen` when online, including after offline
+  listening. A replayed listen counts and fades from the time the server receives it. Soundbites
+  and chapters count toward their item; Add by RSS and live items are not reported; mobile records
+  no profile or playlist opens. Only a signed-in account whose Popularity Tracking decision allows
+  it stores or sends anything, and a declined decision deletes reports still waiting on the device.
+  Listening the car plays while the app's JavaScript is not running is not counted.
+- Who notices: listeners who allow Popularity Tracking (nothing visible); operators reading
+  popularity data
+- Operator steps: ship with an API that serves `/stats/listen`; the migration runs on app start
+
+## Taste Profile endpoints
+
+- Surfaces: api, helpers, helpers-requests
+- Change: new signed-in routes `GET /account/taste-profile`, `GET /account/taste-profile/hidden`,
+  `POST /account/taste-profile/hide`, and `POST /account/taste-profile/unhide`. Listeners can list
+  the shows in their Taste Profile and their Hidden From Taste Profile list. Hiding a show deletes
+  its taste data and stops later listens from adding it back; its listens still count in public
+  totals. Unhiding either adds the show back as a fresh row or only takes it off the hidden list.
+  The routes need an account, not a current membership, so a paused listener can still review
+  and hide shows. Request helpers `reqAccountTasteProfile*` are on `ApiRequestService`.
+- Who notices: client developers; listeners once the Settings UI ships
+- Operator steps: none
+
+## Popularity rankings refresh hourly from daily totals
+
+- Surfaces: workers, k8s base cron
+- Change: new worker command `statsPopularityRefresh` rebuilds day, week, month, and all-time
+  popularity totals from the anonymous daily totals for every channel, item, clip, playlist, and
+  profile. CronJob `worker-stats-popularity-refresh` runs it hourly at :05 for entities active in
+  the last 30 days; `worker-stats-popularity-refresh-full` runs `-full` daily at 00:45 for every
+  entity. The unscheduled `statsUpdateAggregated` and `statsUpdateAggregatedRolling` commands and
+  their npm scripts are removed.
+- Who notices: listeners see Top and trending sorts move within an hour of new listens; operators
+- Operator steps: none beyond letting the CronJobs deploy; alpha picks them up when its
+  `base/cron` ref moves. Run `statsPopularityRefresh -full` by hand to refresh at once.
+
+## Top lists read the new popularity totals
+
+- Surfaces: api
+- Change: every Top sort (podcasts and other channels, episodes and live items, clips, playlists,
+  profiles; global, category, subscribed, and per-channel or per-item) reads range totals rebuilt
+  from anonymous daily listener counts instead of the old rolling count columns. Day covers today
+  and yesterday (UTC), week today plus the previous 7 days, month today plus the previous 30, and
+  all time every counted day. Entities with equal counts now come back in a stable order, so
+  paging no longer repeats or skips them. Routes, parameters, and responses are unchanged.
+- Who notices: listeners using Top sorts; lists are empty or padded with recent items until new
+  listens are counted
+- Operator steps: none beyond running the popularity refresh job that fills the totals
+
+## Web asks before Popularity Tracking is turned off
+
+- Surfaces: web
+- Change: turning off the Popularity Tracking switch in Settings, or answering No Thanks at the
+  agreement prompt after an earlier Yes, now opens a "Turn Off Popularity Tracking?" dialog. It
+  says the Taste Profile, the Hidden From Taste Profile list, and stored listening history are
+  deleted right away, and that recommendations start from scratch if tracking is turned on
+  again. Cancel keeps tracking on; "Turn Off and Delete" sends the No. A listener who never said
+  Yes is not asked.
+- Who notices: signed-in web listeners who had allowed Popularity Tracking
+- Operator steps: none
+
+## Mobile asks before Popularity Tracking is turned off
+
+- Surfaces: mobile
+- Change: turning off Popularity Tracking in More > Settings, or answering No after an earlier
+  Yes (in Settings or at the full-screen agreement prompt), now asks "Turn Off Popularity
+  Tracking?" first. The message says the Taste Profile, the Hidden From Taste Profile list, and
+  stored listening history are deleted right away, and that recommendations start from scratch
+  if tracking is turned on again. Cancel keeps tracking on; "Turn Off and Delete" sends the No.
+  Settings shows a dialog; the agreement prompt shows the same message in place. A listener who
+  never said Yes is not asked.
+- Who notices: signed-in mobile listeners who had allowed Popularity Tracking
+- Operator steps: none
+
+## Data export includes Popularity Tracking data
+
+- Surfaces: api (`GET /account/download-data`), helpers
+- Change: the account data export has a new `popularity_tracking` section: Taste Profile rows,
+  the Hidden From Taste Profile list, and stored listen and open records. Each listen record is
+  dated by `created_at`, the time the server received it. It does not include the pseudonymous
+  listener id. The section is empty for listeners who never turned tracking on or who
+  turned it off.
+- Who notices: listeners who download their data
+- Operator steps: none
+
+## Web Settings shows the Taste Profile and Hidden From Taste Profile
+
+- Surfaces: web
+- Change: the Settings Account tab has two new sections under Popularity Tracking. Taste Profile
+  lists the shows the listener's listening has added, newest listen first, with the last-listened
+  date and a Remove button. Remove deletes that show's listening data from the Taste Profile and
+  moves it to Hidden From Taste Profile, where later listens no longer add it. Each hidden show has
+  an Unhide button that asks whether to add it back now or only take it off the hidden list so a
+  later listen adds it again. Both lists page with Load More and are empty after Popularity
+  Tracking is turned off.
+- Who notices: signed-in web listeners who use Popularity Tracking
+- Operator steps: none
+
+## Mobile Popularity Tracking settings show the Taste Profile and Hidden From Taste Profile
+
+- Surfaces: mobile
+- Change: More > Settings > Popularity Tracking has two new sections under the switch, matching
+  web Settings. Taste Profile lists the shows the listener's listening has added, newest listen
+  first, with the last-listened date and a Remove button. Remove deletes that show's listening
+  data from the Taste Profile and moves it to Hidden From Taste Profile, where later listens no
+  longer add it. Each hidden show has an Unhide button that asks whether to add it back now or
+  only take it off the hidden list. Both lists page with Load More and are empty after
+  Popularity Tracking is turned off.
+- Who notices: signed-in mobile listeners who use Popularity Tracking
+- Operator steps: none
+
+## Duplicate feed merges carry popularity and taste data
+
+- Surfaces: workers (duplicate feed merge), management-api (merge revert)
+- Change: absorbing a duplicate channel adds its anonymous daily listener and completion totals
+  to the survivor, per day. For days still inside `STATS_TRACK_EVENT_RETENTION_DAYS`, a listener
+  with listen events on both copies that day counts once; older days are added as they are. The
+  merged-away copy's range totals are removed, and the hourly and nightly popularity refresh
+  rebuilds the survivor's day, week, month, and all-time totals from the merged daily rows. Listen
+  events for matched episodes move to the survivor, and each listener's taste profile rows for the
+  two copies merge into one (counts added, scores faded to the same time and added). A show
+  hidden from a taste profile stays hidden on the survivor. Reverting a merge restores the exact
+  pre-merge daily and range rows; listen events and taste rows stay on the survivor.
+- Who notices: operators reviewing merges; listeners see Top lists and their Taste Profile treat
+  the two copies as one show
+- Operator steps: none
+
+## Old stats tables and their data are dropped
+
+- Surfaces: api, workers, management-api, ops (app database)
+- Change: a migration drops the old per-entity stats event tables, the rotating stats guid
+  mapping, and the rolling aggregate count tables, with all their rows. Popularity counts start
+  from zero in the new daily totals; nothing is imported from v4.
+- Who notices: operators and alpha testers; Top and trending sorts are empty until new listens
+  are counted
+- Operator steps: run the linear migrations; `API_EXPECTED_MIGRATION_FILENAME` advances

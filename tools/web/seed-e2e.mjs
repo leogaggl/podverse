@@ -40,8 +40,14 @@ const TEST_PASSWORD = 'Test!1Aa';
 
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_CONFIGURED_TERMS_VERSION = '2026-10-15';
-const E2E_POPULARITY_TRACKING_VERSION = '2026-10-15';
+const E2E_POPULARITY_TRACKING_VERSION = '2026-10-21';
 const E2E_POPULARITY_UNDECIDED_EMAIL = 'e2e-popularity-undecided@example.com';
+/** Sync with apps/web/e2e/helpers/legalConsent.ts */
+const E2E_TASTE_PROFILE_EMAIL = 'e2e-taste-profile@example.com';
+/** Sync with apps/web/e2e/helpers/legalConsent.ts */
+const E2E_POPULARITY_STALE_EMAIL = 'e2e-popularity-stale@example.com';
+/** Older than E2E_POPULARITY_TRACKING_VERSION, so an acceptance on it is stale. */
+const E2E_OUTDATED_POPULARITY_TRACKING_VERSION = '2026-01-01';
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_CONSENT_ORDER_EMAIL = 'e2e-consent-order@example.com';
 /** Sync with apps/mobile/src/lib/e2e/e2eSeedConstants.ts (`E2E_PERF_EMAIL`). */
@@ -668,10 +674,100 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
     [consentOrderAccountId]
   );
 
+  const tasteProfileIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const tasteProfileAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [tasteProfileIdText]
+  );
+  const tasteProfileAccountId = tasteProfileAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [tasteProfileAccountId, E2E_TASTE_PROFILE_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+     VALUES ($1, 1, $2)`,
+    [tasteProfileAccountId, membershipExpiresAt]
+  );
+  await client.query(
+    `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+     VALUES ($1, 'trial', $2, $3)`,
+    [tasteProfileAccountId, membershipStartsAt, membershipExpiresAt]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [tasteProfileAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, true, true, $2, NOW())`,
+    [tasteProfileAccountId, E2E_POPULARITY_TRACKING_VERSION]
+  );
+
+  const popularityStaleIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const popularityStaleAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [popularityStaleIdText]
+  );
+  const popularityStaleAccountId = popularityStaleAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [popularityStaleAccountId, E2E_POPULARITY_STALE_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+     VALUES ($1, 1, $2)`,
+    [popularityStaleAccountId, membershipExpiresAt]
+  );
+  await client.query(
+    `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+     VALUES ($1, 'trial', $2, $3)`,
+    [popularityStaleAccountId, membershipStartsAt, membershipExpiresAt]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [popularityStaleAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, true, true, $2, NOW() - INTERVAL '30 days')`,
+    [popularityStaleAccountId, E2E_OUTDATED_POPULARITY_TRACKING_VERSION]
+  );
+
   console.log(`Seeded 1 test user: e2e-user@example.com`);
   console.log(`Seeded popularity-undecided user: ${E2E_POPULARITY_UNDECIDED_EMAIL}`);
   console.log(`Seeded consent-order user: ${E2E_CONSENT_ORDER_EMAIL}`);
   console.log(`Seeded stale-terms user: ${E2E_STALE_TERMS_EMAIL}`);
+  console.log(`Seeded taste-profile user: ${E2E_TASTE_PROFILE_EMAIL}`);
+  console.log(`Seeded popularity-stale user: ${E2E_POPULARITY_STALE_EMAIL}`);
   console.log(
     `Seeded invite set-password token for account id ${inviteAccountId} (username e2e_invite_user)`
   );
@@ -2643,6 +2739,93 @@ async function seedRemovedContentFixtures(client, accountId) {
   );
 }
 
+async function seedTasteProfileFixtures(client) {
+  const accountResult = await client.query(
+    `SELECT ac.account_id FROM account_credentials ac WHERE ac.email = $1`,
+    [E2E_TASTE_PROFILE_EMAIL]
+  );
+  if (!accountResult.rows[0]) {
+    console.log('Skipping taste-profile fixtures: account not seeded');
+    return;
+  }
+  const accountId = accountResult.rows[0].account_id;
+
+  await client.query(`DELETE FROM listener_identity.stats_listener WHERE account_id = $1`, [
+    accountId,
+  ]);
+  const listenerResult = await client.query(
+    `INSERT INTO listener_identity.stats_listener (account_id) VALUES ($1) RETURNING listener_id`,
+    [accountId]
+  );
+  const listenerId = listenerResult.rows[0].listener_id;
+
+  const channelIdTexts = [
+    E2E_PODCAST_CHANNEL_ID_TEXT,
+    E2E_VIDEO_CHANNEL_ID_TEXT,
+    E2E_DIRECTORY_ARTIST_ID_TEXT,
+  ];
+  const channelResult = await client.query(
+    `SELECT id, id_text FROM channel WHERE id_text = ANY($1::text[])`,
+    [channelIdTexts]
+  );
+  const channelIdByText = new Map(channelResult.rows.map((row) => [row.id_text, row.id]));
+  for (const idText of channelIdTexts) {
+    if (!channelIdByText.has(idText)) {
+      throw new Error(`Taste-profile fixtures: channel ${idText} not seeded`);
+    }
+  }
+
+  await client.query(
+    `INSERT INTO stats_taste_profile (
+       listener_id,
+       channel_id,
+       listen_count,
+       completion_count,
+       first_listened_at,
+       last_listened_at,
+       recent_score,
+       long_term_score,
+       scores_updated_at
+     )
+     VALUES
+       (
+         $1,
+         $2,
+         3,
+         1,
+         NOW() - INTERVAL '20 days',
+         NOW() - INTERVAL '1 day',
+         1.5,
+         2.8,
+         NOW() - INTERVAL '1 day'
+       ),
+       (
+         $1,
+         $3,
+         2,
+         0,
+         NOW() - INTERVAL '30 days',
+         NOW() - INTERVAL '2 days',
+         0.9,
+         1.9,
+         NOW() - INTERVAL '2 days'
+       )`,
+    [
+      listenerId,
+      channelIdByText.get(E2E_PODCAST_CHANNEL_ID_TEXT),
+      channelIdByText.get(E2E_VIDEO_CHANNEL_ID_TEXT),
+    ]
+  );
+
+  await client.query(
+    `INSERT INTO stats_taste_profile_hidden (listener_id, channel_id, hidden_at)
+     VALUES ($1, $2, NOW() - INTERVAL '3 days')`,
+    [listenerId, channelIdByText.get(E2E_DIRECTORY_ARTIST_ID_TEXT)]
+  );
+
+  console.log(`Seeded taste-profile fixtures for ${E2E_TASTE_PROFILE_EMAIL}`);
+}
+
 async function main() {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
   const invitePlaceholderPasswordHash = await bcrypt.hash(crypto.randomUUID(), 10);
@@ -2664,6 +2847,7 @@ async function main() {
   await seedMediaPlayerAndEmbedFixtures(client, accountId);
   await seedMergedChannelRedirect(client);
   await seedRemovedContentFixtures(client, accountId);
+  await seedTasteProfileFixtures(client);
   await seedPerfVolumeFixtures(client);
 
   await client.end();
