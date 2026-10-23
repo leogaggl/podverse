@@ -5,10 +5,11 @@ export interface DTOAccountNotification {
   account_id: number;
   category: NotificationCategoryValues;
   /**
-   * True until the account opens its inbox after this row was created.
+   * True when the row was created after the account's Mark All as Read cutoff and has not been read
+   * on its own (a banner tap, a push tap, or opening it from the inbox).
    *
-   * Derived per response from the account's `last_read_at` rather than stored per row, so marking
-   * the inbox read is one timestamp write no matter how many notifications it covers.
+   * Derived per response: the cutoff is one timestamp on the account, and per-row read state is a
+   * timestamp on the row.
    */
   is_unread: boolean;
   title: string;

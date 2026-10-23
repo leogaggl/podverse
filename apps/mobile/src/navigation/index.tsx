@@ -44,6 +44,7 @@ import { useNotificationsUnreadCount } from '../hooks/useNotificationsUnreadCoun
 import { isMobileE2eHarnessEnabled } from '../lib/e2e/e2eHarness';
 import { PerfE2eReport } from '../lib/perf/PerfE2eReport';
 import { useMembership } from '../membership/useMembership';
+import { NotificationStreamE2eStatus } from '../notifications/NotificationStreamE2eStatus';
 import { PlaybackE2eStatus } from '../playback/PlaybackE2eStatus';
 import type { ContentTabId } from '../prefs/tabLayout';
 import { isContentTabId, TAB_TEST_ID_SLUG, tabLabelKey } from '../prefs/tabLayout';
@@ -1658,6 +1659,7 @@ function MoreRootScreen({
   const { status } = useAuth();
   const membership = useMembership();
   const { overflowTabIds } = useTabLayout();
+  const notificationsUnreadCount = useNotificationsUnreadCount();
   const isAuthenticated = status === 'authenticated';
 
   const openOverflowTab = (tabId: ContentTabId): void => {
@@ -1681,6 +1683,7 @@ function MoreRootScreen({
   };
 
   const overflowItems: MenuListItem[] = overflowTabIds.map((tabId) => ({
+    badgeCount: tabId === 'Notifications' ? notificationsUnreadCount : undefined,
     onPress: () => {
       openOverflowTab(tabId);
     },
@@ -1859,7 +1862,8 @@ function TabScaffold({
   const overlayHeight = useBottomChromeOverlayInsetSource();
   const { visibleTabIds } = useTabLayout();
   const visibleTabSet = useMemo(() => new Set(visibleTabIds), [visibleTabIds]);
-  const notificationsUnreadCount = useNotificationsUnreadCount({ enabled: true });
+  const notificationsUnreadCount = useNotificationsUnreadCount();
+  const moreTabBadgeCount = visibleTabSet.has('Notifications') ? 0 : notificationsUnreadCount;
   const inProgressDownloadCount = useInProgressDownloadCount();
   const libraryTabBadgeCount = sumBadgeCounts([inProgressDownloadCount]);
   const insets = useSafeAreaInsets();
@@ -1964,11 +1968,12 @@ function TabScaffold({
             ]}
           >
             <PlaybackE2eStatus />
+            <NotificationStreamE2eStatus />
             <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
-              clip/chapter → mini player. Playback and perf markers are absolute and are not part
-              of that height. Sync sits at the top of the stack because it comes and
+              clip/chapter → mini player. Playback, notification stream, and perf markers are
+              absolute and are not part of that height. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
               the scene above the tab bar does not resize when a bar appears. The stack overlaps
@@ -2039,6 +2044,7 @@ function TabScaffold({
       <Tab.Screen
         name="More"
         options={{
+          tabBarBadge: moreTabBadgeCount > 0 ? moreTabBadgeCount : undefined,
           tabBarButton: tabBarButtonFor('More'),
           tabBarButtonTestID: 'tab-more',
           tabBarIcon: tabBarIcon('more'),
@@ -2059,9 +2065,10 @@ function TabScaffold({
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // sync → Offline Mode → current clip/chapter → mini player. Playback and perf markers are
-  // absolute and are not part of that height. The negative top margin is the variable strips
-  // only, so the safe-area padding stays reserved and the scene does not resize when a bar appears.
+  // sync → Offline Mode → current clip/chapter → mini player. Playback, notification stream, and
+  // perf markers are absolute and are not part of that height. The negative top margin is the
+  // variable strips only, so the safe-area padding stays reserved and the scene does not resize
+  // when a bar appears.
   const scaffold = !isTabletLayout ? (
     navigator
   ) : (
@@ -2079,6 +2086,7 @@ function TabScaffold({
         ]}
       >
         <PlaybackE2eStatus />
+        <NotificationStreamE2eStatus />
         <PerfE2eReport />
         <GlobalActivityBar />
         <OfflineModeBanner />

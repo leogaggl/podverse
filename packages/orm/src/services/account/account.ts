@@ -33,6 +33,7 @@ import { BillingPriceCatalogService } from '../billingPriceCatalog.js';
 import { AccountCredentialsService } from './accountCredentials.js';
 import { AccountMembershipStatusService } from './accountMembershipStatus.js';
 import { AccountNotificationPreferenceService } from './accountNotificationPreference.js';
+import { publishAccountNotificationReadAll } from './accountNotificationSignal.js';
 import { AccountProfileService } from './accountProfile.js';
 import { AccountResetPasswordService } from './accountResetPassword.js';
 import { AccountTermsAcceptanceService } from './accountTermsAcceptance.js';
@@ -383,6 +384,7 @@ export class AccountService {
 
     account.notifications_last_read_at = readAt;
     await this.repositoryReadWrite.save(account);
+    await publishAccountNotificationReadAll(account_id, readAt);
 
     return readAt;
   }

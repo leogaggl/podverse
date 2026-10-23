@@ -1,10 +1,15 @@
 export type {
+  DataSourceOptions,
+  EntityManager,
   FindManyOptions,
   FindOptionsOrder,
   FindOptionsRelations,
   FindOptionsSelect,
   FindOptionsWhere,
 } from 'typeorm';
+
+// Consumers building app-database connections use this DataSource so its type matches bindORMContext
+export { DataSource } from 'typeorm';
 
 // Config types for app-level configuration
 export * from './config/index.js';
@@ -217,7 +222,9 @@ export * from './services/account/accountPendingFollowingChannel.js';
 export * from './services/account/accountMembership.js';
 export * from './services/account/accountMembershipStatus.js';
 export * from './services/account/accountMetaboost.js';
+export * from './lib/accountEventPublisher.js';
 export * from './services/account/accountNotification.js';
+export * from './services/account/accountNotificationSignal.js';
 export * from './services/account/accountTermsAcceptance.js';
 export * from './services/account/accountNotificationChannel.js';
 export * from './services/account/accountNotificationChannelType.js';

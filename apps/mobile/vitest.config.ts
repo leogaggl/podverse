@@ -22,7 +22,18 @@ import { defineConfig } from 'vitest/config';
  * repository reads stay in `homeFeedData.ts`), the env-driven deep-link scheme / prefix helpers
  * (`src/config/deepLinkSchemes.js`), the custom API address and health verdict
  * (`src/config/customApiUrl.ts`), deep-link path mapping (`src/navigation/deepLinking.ts`), pure notification
- * payload target extraction (`src/push/notificationTarget.ts`), share URL mapping (`src/lib/share/shareUrl.ts`),
+ * payload target extraction (`src/push/notificationTarget.ts`), the path an inbox row and a banner
+ * open (`src/push/accountNotificationLink.ts`), which notifications may show a
+ * banner and the device-local kind switches (`src/notifications/bannerNotificationPolicy.ts`,
+ * `src/prefs/bannerNotificationPrefs.ts`), the account event stream's SSE parser, run condition
+ * and failure rules, in-memory notification store, and connection controller
+ * (`src/notifications/sseEventParser.ts`, `notificationStreamPolicy.ts`,
+ * `notificationStreamStore.ts`, `notificationStreamController.ts` — I/O is injected; the
+ * `expo/fetch` client and the RN runtime stay out of this suite), marking one notification read
+ * by id or by the push's item and type (`src/notifications/notificationReadActions.ts` — the
+ * repository is mocked), the session inbox page used in Offline Mode and the prepend that puts a
+ * live row first (`src/notifications/notificationsInboxCache.ts`), share URL mapping
+ * (`src/lib/share/shareUrl.ts`),
  * prefs storage guards/hydration (`src/prefs/prefsStore.ts`), Home's remembered filter, sort, and
  * view-mode selections (`src/prefs/homeListPrefs.ts` — AsyncStorage-backed and mockable in node,
  * covering per-media-type scoping, the list-not-grid default, one control's write leaving the
@@ -165,6 +176,13 @@ export default defineConfig({
       'src/membership/storeCheckout.test.ts',
       'src/navigation/deepLinking.test.ts',
       'src/navigation/focusedTabPop.test.ts',
+      'src/notifications/bannerNotification*.test.ts',
+      'src/notifications/notificationReadActions.test.ts',
+      'src/notifications/notificationStreamController.test.ts',
+      'src/notifications/notificationStreamPolicy.test.ts',
+      'src/notifications/notificationStreamStore.test.ts',
+      'src/notifications/notificationsInboxCache.test.ts',
+      'src/notifications/sseEventParser.test.ts',
       'src/net/connectivityMachine.test.ts',
       'src/playback/addByRssNowPlayingSectionsStore.test.ts',
       'src/playback/nowPlayingSegment.test.ts',
@@ -174,8 +192,10 @@ export default defineConfig({
       'src/playback/playbackHandoffTitle.test.ts',
       'src/playback/previousAction.test.ts',
       'src/playback/playbackTransport.test.ts',
+      'src/prefs/bannerNotificationPrefs.test.ts',
       'src/prefs/homeListPrefs.test.ts',
       'src/prefs/prefsStore.test.ts',
+      'src/push/accountNotificationLink.test.ts',
       'src/push/notificationTarget.test.ts',
       'src/screens/home/HomeFeedRow.test.ts',
       'src/screens/home/addByRss/addByRssDetailSections.test.ts',

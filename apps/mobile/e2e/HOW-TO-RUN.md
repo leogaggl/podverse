@@ -232,6 +232,7 @@ npm run mobile:e2e:test -- --platform ios artist
 npm run mobile:e2e:test -- --platform ios auth-login
 npm run mobile:e2e:test -- --platform ios auth-logout
 npm run mobile:e2e:test -- --platform ios auto-queue-advance
+npm run mobile:e2e:test -- --platform ios banner-notification
 npm run mobile:e2e:test -- --platform ios browse
 npm run mobile:e2e:test -- --platform ios deep-link
 npm run mobile:e2e:test -- --platform ios detail-sort-prefs
@@ -291,6 +292,7 @@ npm run mobile:e2e:test -- --platform android artist
 npm run mobile:e2e:test -- --platform android auth-login
 npm run mobile:e2e:test -- --platform android auth-logout
 npm run mobile:e2e:test -- --platform android auto-queue-advance
+npm run mobile:e2e:test -- --platform android banner-notification
 npm run mobile:e2e:test -- --platform android browse
 npm run mobile:e2e:test -- --platform android deep-link
 npm run mobile:e2e:test -- --platform android detail-sort-prefs
@@ -430,6 +432,7 @@ npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout
+npm run mobile:e2e:test -- banner-notification
 npm run mobile:e2e:test -- browse
 npm run mobile:e2e:test -- deep-link
 npm run mobile:e2e:test -- detail-sort-prefs

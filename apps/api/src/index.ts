@@ -29,8 +29,12 @@ const run = async () => {
     validateParserConfig,
     assertConfigValid,
   } = await import('@podverse/helpers-config');
-  const { createORMContext, getDataSourceRead, getDataSourceReadWrite } =
-    await import('@podverse/orm');
+  const {
+    createORMContext,
+    getDataSourceRead,
+    getDataSourceReadWrite,
+    warnIfNoAccountEventPublisher,
+  } = await import('@podverse/orm');
   const { createFirebaseContext } = await import('@podverse/external-services-firebase');
   const { createNotificationsContext } = await import('@podverse/notifications');
   const { createParserContext } = await import('@podverse/parser');
@@ -41,6 +45,14 @@ const run = async () => {
   const shutdown = async (signal?: string) => {
     try {
       loggerService.info(`Shutdown initiated${signal ? ` due to ${signal}` : ''}`);
+      try {
+        // Held event streams would keep server.close waiting until the pod is killed.
+        const { closeAccountEventStreamHub } =
+          await import('./lib/accountEventStream/accountEventStreamHub.js');
+        await closeAccountEventStreamHub();
+      } catch (err) {
+        loggerService.error('Error closing account event streams during shutdown', err as Error);
+      }
       if (serverInstance) {
         const server = serverInstance;
         await new Promise<void>((resolve, reject) => {
@@ -59,6 +71,13 @@ const run = async () => {
         loggerService.info('Database connections closed');
       } catch (err) {
         loggerService.error('Error closing DB connections during shutdown', err as Error);
+      }
+      try {
+        const { closeAccountEventPublisher } =
+          await import('./lib/accountEvents/accountEventRedis.js');
+        await closeAccountEventPublisher();
+      } catch (err) {
+        loggerService.error('Error closing account event publisher during shutdown', err as Error);
       }
       try {
         if (keyvaldb.status === 'ready' || keyvaldb.status === 'connecting') {
@@ -212,6 +231,10 @@ const run = async () => {
       throw new Error('FATAL: KeyValDB is unreachable at startup (KEYVALDB_* configured).');
     }
     loggerService.info('Connected to KeyValDB');
+
+    const { startAccountEventPublisher } = await import('./lib/accountEvents/accountEventRedis.js');
+    startAccountEventPublisher();
+    warnIfNoAccountEventPublisher('api');
 
     const { startApp } = await import('./app.js');
     const server = await startApp();

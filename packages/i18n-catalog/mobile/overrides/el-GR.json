@@ -148,7 +148,11 @@
       "login_required_title": "",
       "login_required_message": "",
       "open_system_settings": "",
-      "permission_required": ""
+      "permission_required": "",
+      "banner_section": "",
+      "banner_section_help": "",
+      "banner_dismiss": "",
+      "banner_open_hint": ""
     },
     "tab_bar": {
       "title": "",
@@ -168,6 +172,7 @@
     "playback": "",
     "playback_intro": "",
     "play_video": "",
+    "show_banner_notification": "",
     "play_hls": "",
     "skip_next": "",
     "complete_now_playing": "",

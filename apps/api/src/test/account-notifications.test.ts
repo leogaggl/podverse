@@ -19,8 +19,11 @@ const TEST_EMAIL = 'account-notifications-test@example.com';
 
 const {
   accountGetMock,
+  accountNotificationCountForAccountMock,
   accountNotificationCountUnreadMock,
   accountNotificationListPaginatedMock,
+  accountNotificationMarkReadByIdMock,
+  accountNotificationMarkReadByItemMock,
   accountNotificationPreferenceGetForAccountMock,
   accountNotificationPreferenceSeedDefaultsMock,
   accountNotificationPreferenceUpsertMock,
@@ -40,9 +43,12 @@ const {
     },
     notifications_last_read_at: null,
   })),
+  accountNotificationCountForAccountMock: vi.fn(async () => 25),
   accountNotificationCountUnreadMock: vi.fn(async (_accountId: number, lastReadAt: Date | null) =>
     lastReadAt === null ? 25 : 4
   ),
+  accountNotificationMarkReadByIdMock: vi.fn(async () => ({ found: true, marked_ids: [101] })),
+  accountNotificationMarkReadByItemMock: vi.fn(async () => [101]),
   accountNotificationListPaginatedMock: vi.fn(async () => [
     {
       id: 101,
@@ -125,8 +131,11 @@ vi.mock('@podverse/orm', async (importOriginal) => {
   }
 
   class MockAccountNotificationService {
+    countForAccount = accountNotificationCountForAccountMock;
     countUnread = accountNotificationCountUnreadMock;
     listPaginatedForAccount = accountNotificationListPaginatedMock;
+    markReadById = accountNotificationMarkReadByIdMock;
+    markReadByItem = accountNotificationMarkReadByItemMock;
   }
 
   class MockAccountNotificationPreferenceService {
@@ -181,6 +190,7 @@ describe('account notifications routes', () => {
       limit: 20,
       offset: 0,
     });
+    expect(accountNotificationCountForAccountMock).toHaveBeenCalledWith(TEST_USER_ID);
     expect(response.body.data.pagination).toEqual({
       page: 1,
       total_count: 25,
@@ -241,6 +251,117 @@ describe('account notifications routes', () => {
     expect(response.status).toBe(200);
     expect(accountUpdateNotificationsLastReadAtMock).toHaveBeenCalledTimes(1);
     expect(typeof response.body.data.last_read_at).toBe('string');
+  });
+
+  it('POST /account/notifications/101/mark-read marks one row and returns unread count', async () => {
+    const response = await request(app)
+      .post(`${accountBase}/notifications/101/mark-read`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      marked_ids: [101],
+      unread_count: 25,
+    });
+    expect(accountNotificationMarkReadByIdMock).toHaveBeenCalledWith(TEST_USER_ID, 101);
+  });
+
+  it('POST /account/notifications/101/mark-read returns 200 with empty ids when already read', async () => {
+    accountNotificationMarkReadByIdMock.mockResolvedValueOnce({ found: true, marked_ids: [] });
+
+    const response = await request(app)
+      .post(`${accountBase}/notifications/101/mark-read`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      marked_ids: [],
+      unread_count: 25,
+    });
+  });
+
+  it('POST /account/notifications/101/mark-read returns 404 when no account row owns the id', async () => {
+    accountNotificationMarkReadByIdMock.mockResolvedValueOnce({ found: false, marked_ids: [] });
+
+    const response = await request(app)
+      .post(`${accountBase}/notifications/101/mark-read`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({});
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe('Notification not found');
+  });
+
+  it('POST /account/notifications/:notification_id/mark-read validates params before auth', async () => {
+    accountNotificationMarkReadByIdMock.mockClear();
+
+    const invalidTextResponse = await request(app)
+      .post(`${accountBase}/notifications/abc/mark-read`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({});
+    const invalidZeroResponse = await request(app)
+      .post(`${accountBase}/notifications/0/mark-read`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({});
+
+    expect(invalidTextResponse.status).toBe(400);
+    expect(invalidZeroResponse.status).toBe(400);
+    expect(accountNotificationMarkReadByIdMock).not.toHaveBeenCalled();
+  });
+
+  it('POST /account/notifications/101/mark-read returns 401 without auth', async () => {
+    const response = await withMutedExpectedErrorLogs(async () =>
+      request(app).post(`${accountBase}/notifications/101/mark-read`).send({})
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it('POST /account/notifications/mark-read-by-item marks by push payload and returns unread count', async () => {
+    const response = await request(app)
+      .post(`${accountBase}/notifications/mark-read-by-item`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({ item_id_text: 'abcdefghi1', type: 'livestream-started' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      marked_ids: [101],
+      unread_count: 25,
+    });
+    expect(accountNotificationMarkReadByItemMock).toHaveBeenCalledWith(
+      TEST_USER_ID,
+      'abcdefghi1',
+      'livestream-started'
+    );
+  });
+
+  it('POST /account/notifications/mark-read-by-item rejects a body with no type', async () => {
+    accountNotificationMarkReadByItemMock.mockClear();
+
+    const response = await request(app)
+      .post(`${accountBase}/notifications/mark-read-by-item`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({ item_id_text: 'abcdefghi1' });
+
+    expect(response.status).toBe(400);
+    expect(accountNotificationMarkReadByItemMock).not.toHaveBeenCalled();
+  });
+
+  it('POST /account/notifications/mark-read-by-item returns 200 with empty ids when nothing matches', async () => {
+    accountNotificationMarkReadByItemMock.mockResolvedValueOnce([]);
+
+    const response = await request(app)
+      .post(`${accountBase}/notifications/mark-read-by-item`)
+      .set(authHeaders(TEST_USER_ID))
+      .send({ item_id_text: 'abcdefghi1', type: 'livestream-started' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      marked_ids: [],
+      unread_count: 25,
+    });
   });
 
   it('GET /account/notification-preferences returns seeded preference rows', async () => {

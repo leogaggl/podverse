@@ -42,6 +42,25 @@ async function closeTestKeyvaldb(): Promise<void> {
   }
 }
 
+async function closeTestAccountEventStreamHub(): Promise<void> {
+  try {
+    const { closeAccountEventStreamHub } =
+      await import('../../lib/accountEventStream/accountEventStreamHub.js');
+    await closeAccountEventStreamHub();
+  } catch {
+    // The hub module may not have been loaded in this test file
+  }
+}
+
+async function unregisterTestAccountEventPublisher(): Promise<void> {
+  try {
+    const { unregisterAccountEventPublisher } = await import('@podverse/orm');
+    unregisterAccountEventPublisher();
+  } catch {
+    // @podverse/orm may be mocked without account event publisher helpers in a unit-only test file.
+  }
+}
+
 export async function startTestApp(): Promise<TestAppResult> {
   // Each API integration test file provides its own @podverse/orm mock.
   // Reset modules so dynamic imports below pick up the current file's mocks and a fresh app instance.
@@ -51,7 +70,7 @@ export async function startTestApp(): Promise<TestAppResult> {
     process.env.DEFAULT_ACCOUNT_SETTINGS_LOCALE ?? 'en-US';
 
   const { assertConfigValid, validateORMConfig } = await import('@podverse/helpers-config');
-  const { createORMContext } = await import('@podverse/orm');
+  const { createORMContext, registerAccountEventPublisher } = await import('@podverse/orm');
   const { config: appConfig } = await import('../../config/index.js');
 
   const readRequiredTestEnv = (name: string): string => {
@@ -95,6 +114,7 @@ export async function startTestApp(): Promise<TestAppResult> {
   const ormContext = createORMContext(ormConfig);
   await ormContext.dataSourceRead.initialize();
   await ormContext.dataSourceReadWrite.initialize();
+  registerAccountEventPublisher({ publish: async () => 0 });
 
   const { initObservability } = await import('@podverse/observability');
   initObservability(appConfig.observability);
@@ -110,7 +130,9 @@ export async function stopTestApp(
   server: Server | undefined,
   ormContext: ORMContext | undefined
 ): Promise<void> {
+  await unregisterTestAccountEventPublisher();
   await closeTestKeyvaldb();
+  await closeTestAccountEventStreamHub();
 
   if (server) {
     await new Promise<void>((resolve, reject) => {

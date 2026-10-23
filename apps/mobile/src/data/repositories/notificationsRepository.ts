@@ -16,6 +16,8 @@ export type NotificationsPage = {
   totalPages: number;
 };
 
+export type NotificationsMarkReadResult = { markedIds: number[]; unreadCount: number };
+
 export const notificationsRepository = {
   getUnreadCount: async (context: MobileAuthRequestContext): Promise<number> => {
     const response = await requestWithMobileAuthRefresh(context, async (apiRequestService) =>
@@ -46,6 +48,35 @@ export const notificationsRepository = {
     await requestWithMobileAuthRefresh(context, async (apiRequestService) =>
       apiRequestService.reqNotificationsMarkRead()
     );
+  },
+
+  markReadOne: async (
+    context: MobileAuthRequestContext,
+    notificationId: number
+  ): Promise<NotificationsMarkReadResult> => {
+    const response = await requestWithMobileAuthRefresh(context, async (apiRequestService) =>
+      apiRequestService.reqNotificationsMarkReadOne(notificationId)
+    );
+    return {
+      markedIds: response.marked_ids,
+      unreadCount: response.unread_count,
+    };
+  },
+
+  markReadByItem: async (
+    context: MobileAuthRequestContext,
+    target: { itemIdText: string; type: string }
+  ): Promise<NotificationsMarkReadResult> => {
+    const response = await requestWithMobileAuthRefresh(context, async (apiRequestService) =>
+      apiRequestService.reqNotificationsMarkReadByItem({
+        item_id_text: target.itemIdText,
+        type: target.type,
+      })
+    );
+    return {
+      markedIds: response.marked_ids,
+      unreadCount: response.unread_count,
+    };
   },
 
   listPreferences: async (

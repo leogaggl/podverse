@@ -2,7 +2,8 @@ import { urlBase64ToUint8Array } from '@podverse/helpers-browser';
 import { parseMembershipGateError } from '@podverse/helpers-requests';
 
 import { getConfig } from '../../../config';
-import { getApiRequestService } from '../../../factories/apiRequestService';
+import { getApiRequestService, getClientApiBaseUrl } from '../../../factories/apiRequestService';
+import { buildWebPushServiceWorkerUrl } from './webPushServiceWorkerUrl';
 
 export const requestNotificationPermission = async (): Promise<boolean> => {
   try {
@@ -22,7 +23,9 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
     }
 
     // Register the service worker
-    const registration = await navigator.serviceWorker.register('/webpush-sw.js');
+    const registration = await navigator.serviceWorker.register(
+      buildWebPushServiceWorkerUrl(getClientApiBaseUrl())
+    );
 
     if (!registration) {
       console.error('Failed to register service worker');

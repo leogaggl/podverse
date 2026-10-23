@@ -90,13 +90,18 @@ import {
   reqAccountNotificationChannelTypeCreate,
   reqAccountNotificationChannelTypeDelete,
 } from './account/notification/channelType.js';
+import type {
+  ReqNotificationPreferenceUpdateInput,
+  ReqNotificationsListResponse,
+  ReqNotificationsMarkReadOneResponse,
+} from './account/notification/notifications.js';
 import {
   reqNotificationPreferencesGet,
   reqNotificationPreferencesUpdate,
-  type ReqNotificationPreferenceUpdateInput,
   reqNotificationsList,
-  type ReqNotificationsListResponse,
   reqNotificationsMarkRead,
+  reqNotificationsMarkReadByItem,
+  reqNotificationsMarkReadOne,
   reqNotificationsUnreadCount,
 } from './account/notification/notifications.js';
 import {
@@ -861,6 +866,19 @@ export class ApiRequestService {
 
   reqNotificationsMarkRead(): Promise<{ last_read_at: string }> {
     return reqNotificationsMarkRead(this);
+  }
+
+  reqNotificationsMarkReadOne(
+    notification_id: number
+  ): Promise<ReqNotificationsMarkReadOneResponse> {
+    return reqNotificationsMarkReadOne(this, notification_id);
+  }
+
+  reqNotificationsMarkReadByItem(params: {
+    item_id_text: string;
+    type: string;
+  }): Promise<ReqNotificationsMarkReadOneResponse> {
+    return reqNotificationsMarkReadByItem(this, params);
   }
 
   reqNotificationPreferencesGet() {

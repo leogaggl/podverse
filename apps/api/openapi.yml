@@ -1406,6 +1406,110 @@ components:
             last_read_at:
               type: string
               format: date-time
+    ApiPostAccountNotificationsMarkReadOneResponse200:
+      type: object
+      properties:
+        data:
+          type: object
+          required:
+            - marked_ids
+            - unread_count
+          properties:
+            marked_ids:
+              type: array
+              items:
+                type: integer
+            unread_count:
+              type: integer
+      example:
+        data:
+          marked_ids:
+            - 101
+          unread_count: 3
+    ApiPostAccountNotificationsMarkReadByItemRequest:
+      type: object
+      required:
+        - item_id_text
+        - type
+      properties:
+        item_id_text:
+          type: string
+          minLength: 1
+          maxLength: 64
+        type:
+          type: string
+          minLength: 1
+          maxLength: 64
+      example:
+        item_id_text: abcdefghi1
+        type: livestream-started
+    ApiAccountNotificationStreamState:
+      type: object
+      description: >-
+        Data of `notification.state`, the first event on every connection and again after the
+        server recovers its own event feed. Clients set the badge from it.
+      required:
+        - unread_count
+        - last_read_at
+      properties:
+        unread_count:
+          type: integer
+          minimum: 0
+        last_read_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: The account's Mark All as Read cutoff, or null if never set.
+    ApiAccountNotificationStreamCreated:
+      type: object
+      description: Data of `notification.created`. The event's SSE `id:` equals `notification.id`.
+      required:
+        - notification
+        - unread_count
+      properties:
+        notification:
+          $ref: "#/components/schemas/AccountNotificationItem"
+        unread_count:
+          type: integer
+          minimum: 0
+    ApiAccountNotificationStreamRead:
+      type: object
+      description: >-
+        Data of `notification.read`. `scope: all` means Mark All as Read moved the cutoff and
+        carries `last_read_at`; `scope: one` means one notification was read and carries
+        `notification_id`.
+      required:
+        - scope
+        - unread_count
+      properties:
+        scope:
+          type: string
+          enum:
+            - all
+            - one
+        last_read_at:
+          type: string
+          format: date-time
+          description: Present when `scope` is `all`.
+        notification_id:
+          type: integer
+          minimum: 1
+          description: Present when `scope` is `one`.
+        unread_count:
+          type: integer
+          minimum: 0
+    ApiAccountNotificationStreamResync:
+      type: object
+      description: >-
+        Data of `notification.resync`. Replay could not cover the gap; clients refetch the inbox
+        list and take the badge from `notification.state`.
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          enum:
+            - replay_limit
     ChannelSeenState:
       type: object
       required:
@@ -1572,8 +1676,8 @@ components:
         is_unread:
           type: boolean
           description: >-
-            True until the account opens its inbox after this row was created. Derived per response
-            from the account's last_read_at rather than stored per row.
+            True when the row was created after the account's Mark All as Read cutoff (last_read_at)
+            and has not been read on its own. Derived per response.
     AccountNotificationPreference:
       type: object
       required:
@@ -6563,7 +6667,10 @@ paths:
       tags:
         - account
       summary: POST /account/notifications/mark-read
-      description: Updates the authenticated account's notifications_last_read_at timestamp.
+      description: >-
+        Mark All as Read. Moves the authenticated account's notifications_last_read_at cutoff to
+        now. Every notification created at or before the cutoff reads as read; per-notification read
+        state is left as is.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -6580,6 +6687,107 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/notifications/mark-read-by-item:
+    post:
+      operationId: apiPostAccountNotificationsMarkReadByItem
+      tags:
+        - account
+      summary: POST /account/notifications/mark-read-by-item
+      description: >-
+        Marks read the account's unread notifications whose payload matches an OS push's
+        `itemIdText` and `type`. No match returns 200 with empty `marked_ids`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountNotificationsMarkReadByItemRequest"
+            example:
+              item_id_text: abcdefghi1
+              type: livestream-started
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountNotificationsMarkReadOneResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/notifications/{notification_id}/mark-read:
+    post:
+      operationId: apiPostAccountNotificationsMarkReadOne
+      tags:
+        - account
+      summary: POST /account/notifications/{notification_id}/mark-read
+      description: >-
+        Marks one notification read. An already-read notification returns 200 with empty
+        `marked_ids` and sends no stream event. Another account's id returns 404.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountNotificationsMarkReadOneResponse200"
+              example:
+                data:
+                  marked_ids:
+                    - 101
+                  unread_count: 3
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
         "500":
           description: Internal server error
           content:
@@ -6615,6 +6823,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/events:
+    get:
+      operationId: apiGetAccountEvents
+      tags:
+        - account
+      summary: GET /account/events
+      description: >-
+        The account's one event stream (server-sent events). Requires login and accepted terms; a
+        valid membership is not required. Auth, terms, and stream-limit failures return JSON before
+        any stream bytes, and clients treat 401 and 403 as final and stop reconnecting. At most 10
+        streams per account per API pod; more get 429.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: >-
+            Id of the last `notification.created` event the client received. When it is a positive
+            integer, the server replays up to 50 notifications created after it, in id order, or
+            sends one `notification.resync` when there are more. Any other value is ignored (no
+            replay, no error).
+          schema:
+            type: string
+          example: "1042"
+        - name: last_event_id
+          in: query
+          required: false
+          description: >-
+            Same as `Last-Event-ID`, for clients that cannot set the header. Used only when the
+            header is absent.
+          schema:
+            type: integer
+            minimum: 1
+          example: 1042
+      responses:
+        "200":
+          description: >-
+            An open event stream. The first bytes are `retry: 5000`, then `notification.state`, then
+            any replay, then live events. Event names are namespaced: `notification.*` is in use;
+            `playback.*` is reserved for cross-device playback state and control commands, which
+            never carry an SSE `id:` and never replay. Clients ignore event names they do not know.
+            The notification events are `notification.state`
+            (`#/components/schemas/ApiAccountNotificationStreamState`), `notification.created`
+            (`#/components/schemas/ApiAccountNotificationStreamCreated`), `notification.read`
+            (`#/components/schemas/ApiAccountNotificationStreamRead`), and `notification.resync`
+            (`#/components/schemas/ApiAccountNotificationStreamResync`). Each event's `data:` is
+            one JSON line. Only `notification.created` carries `id:` (the notification id), and
+            only events with an id replay. The server writes a `: ping` comment every 25 seconds.
+            The stream ends at the auth token's expiry or 30 minutes after it opened, whichever is
+            first; clients reconnect with `Last-Event-ID`.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: "retry: 5000\n\nevent: notification.state\ndata: {\"unread_count\":2,\"last_read_at\":null}\n\n"
+              x-event-data:
+                notification.state:
+                  $ref: "#/components/schemas/ApiAccountNotificationStreamState"
+                notification.created:
+                  $ref: "#/components/schemas/ApiAccountNotificationStreamCreated"
+                notification.read:
+                  $ref: "#/components/schemas/ApiAccountNotificationStreamRead"
+                notification.resync:
+                  $ref: "#/components/schemas/ApiAccountNotificationStreamResync"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Terms of service acceptance is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TermsAcceptanceRequiredErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many open account event streams for this account on this API pod.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Too many open account event streams.
+                code: account_event_stream_limit
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+        "503":
+          description: The API pod is shutting down; reconnect to another pod.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /account/recent:
     get:
       operationId: apiGetAccountRecent

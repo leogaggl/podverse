@@ -1,5 +1,4 @@
 import { AppDbDataSourceRead, AppDbDataSourceReadWrite } from '@management-api/orm/db/appDb.js';
-import type { EntityManager } from 'typeorm';
 
 import type { DescriptionLengthTierEnum } from '@podverse/helpers';
 import {
@@ -7,7 +6,7 @@ import {
   resolveDescriptionLengthTier,
   suggestDescriptionLengthTier,
 } from '@podverse/helpers';
-import type { FeedPolicyReasonEnum } from '@podverse/orm';
+import type { EntityManager, FeedPolicyReasonEnum } from '@podverse/orm';
 import {
   applyLifecycleConstraintsToEffectiveFlags,
   assertLifecycleTransitionAllowed,

@@ -49,6 +49,8 @@ const run = async () => {
 
   const {
     getCategoriesForCommand,
+    usesKeyvaldbCache,
+    writesAccountNotifications,
     CATEGORY_ORM,
     CATEGORY_MQ,
     CATEGORY_PARSER,
@@ -73,7 +75,8 @@ const run = async () => {
     validateParserConfig,
     assertConfigValid,
   } = await import('@podverse/helpers-config');
-  const { createORMContext, DEFAULT_SPAM_FEED_ITEM_THRESHOLDS } = await import('@podverse/orm');
+  const { createORMContext, DEFAULT_SPAM_FEED_ITEM_THRESHOLDS, warnIfNoAccountEventPublisher } =
+    await import('@podverse/orm');
   const { createFirebaseContext } = await import('@podverse/external-services-firebase');
   const { PodcastIndexService } = await import('@podverse/external-services-podcast-index');
   const { createNotificationsContext } = await import('@podverse/notifications');
@@ -233,7 +236,7 @@ const run = async () => {
         });
       }
 
-      if (categories.has(CATEGORY_KEYVALDB)) {
+      if (categories.has(CATEGORY_KEYVALDB) && usesKeyvaldbCache(commandName)) {
         const { Redis } = await import('ioredis');
         const keyvaldbConfig = getKeyvaldbConfig();
         const client = new Redis({
@@ -292,6 +295,27 @@ const run = async () => {
         await ormContext.dataSourceRead.initialize();
         await ormContext.dataSourceReadWrite.initialize();
         getLoggerService().info('Connected to the databases');
+      }
+
+      if (writesAccountNotifications(commandName)) {
+        const { startAccountEventPublisher, waitForAccountEventPublisherReady } =
+          await import('./lib/accountEvents/accountEventPublisher.js');
+        const keyvaldbConfig = getKeyvaldbConfig();
+        startAccountEventPublisher({
+          host: keyvaldbConfig.host,
+          port: keyvaldbConfig.port,
+          password: keyvaldbConfig.password,
+        });
+        // A publish before the connection is ready is dropped. One-shot commands can write in
+        // their first seconds, so wait briefly and keep going when Redis is down.
+        const publisherReady = await waitForAccountEventPublisherReady(5_000);
+        if (!publisherReady) {
+          getLoggerService().warn(
+            'Live notification events from this run may be dropped until Redis is reachable',
+            { commandName }
+          );
+        }
+        warnIfNoAccountEventPublisher(`workers ${commandName}`);
       }
 
       if (command) {

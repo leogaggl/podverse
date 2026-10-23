@@ -2,17 +2,23 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DTOAccountNotification, NotificationCategoryValues } from '@podverse/helpers';
-import { getRelativeTimeParts, resolveNotificationDestinationFromPayload } from '@podverse/helpers';
+import {
+  ACCOUNT_NOTIFICATION_STREAM_EVENT,
+  getRelativeTimeParts,
+  resolveNotificationDestinationFromPayload,
+} from '@podverse/helpers';
 import { MainHeader } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { Pagination } from '../../components/Pagination/Pagination';
 import { ROUTES } from '../../constants/routes';
+import { useNotifications } from '../../contexts/Notifications';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { emitNotificationsReadEvent } from '../../hooks/useNotificationsUnreadCount';
+import { insertLiveNotificationRow } from './notificationsInboxRows';
 
 import styles from './NotificationsPage.module.scss';
 
@@ -27,6 +33,11 @@ const INITIAL_STATE: NotificationsListState = {
   page: 1,
   totalPages: 0,
 };
+
+type NotificationListLoadResult =
+  | { status: 'applied'; requestId: number }
+  | { status: 'failed'; requestId: number }
+  | { status: 'stale' };
 
 const CATEGORY_LABEL_KEYS: Record<NotificationCategoryValues, string> = {
   'new-content': 'category_new_content',
@@ -47,54 +58,166 @@ function getRelativeTimeLabel(isoDate: string): string {
   return formatter.format(parts.value, parts.unit);
 }
 
+function mergeLiveRows(
+  items: DTOAccountNotification[],
+  liveRows: DTOAccountNotification[]
+): DTOAccountNotification[] {
+  let nextItems = items;
+  for (const liveRow of liveRows) {
+    nextItems = insertLiveNotificationRow(nextItems, liveRow);
+  }
+  return nextItems;
+}
+
 export function NotificationsPageClient() {
   const tNotifications = useTranslations('notifications_page');
+  const { subscribeToNotificationStream } = useNotifications();
   const [state, setState] = useState<NotificationsListState>(INITIAL_STATE);
   const [isLoading, setIsLoading] = useState(true);
+  const liveRowsRef = useRef<DTOAccountNotification[]>([]);
+  const pendingMarkIdsRef = useRef<Set<number>>(new Set());
+  const markingIdsRef = useRef<Set<number>>(new Set());
+  const pageRef = useRef(INITIAL_STATE.page);
+  const listRequestIdRef = useRef(0);
+  const isPageActiveRef = useRef(true);
 
-  const loadPage = async (page: number) => {
-    const data = await getApiRequestService().reqNotificationsList({ page, limit: 20 });
-    setState({
-      items: data.items,
-      page: data.pagination.page,
-      totalPages: data.pagination.total_pages,
-    });
-  };
+  const loadPage = useCallback(async (page: number): Promise<NotificationListLoadResult> => {
+    const requestId = ++listRequestIdRef.current;
+    try {
+      const data = await getApiRequestService().reqNotificationsList({ page, limit: 20 });
+      if (requestId !== listRequestIdRef.current || !isPageActiveRef.current) {
+        return { status: 'stale' };
+      }
+      pageRef.current = data.pagination.page;
+      setState({
+        items: data.items,
+        page: data.pagination.page,
+        totalPages: data.pagination.total_pages,
+      });
+      return { status: 'applied', requestId };
+    } catch {
+      if (requestId !== listRequestIdRef.current || !isPageActiveRef.current) {
+        return { status: 'stale' };
+      }
+      // The page keeps the last list it showed. The next load replaces it.
+      return { status: 'failed', requestId };
+    }
+  }, []);
+
+  const markLiveRowsRead = useCallback(() => {
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
+    const pendingIds = pendingMarkIdsRef.current;
+    const markingIds = markingIdsRef.current;
+    for (const id of pendingIds) {
+      if (markingIds.has(id)) {
+        pendingIds.delete(id);
+        continue;
+      }
+      pendingIds.delete(id);
+      markingIds.add(id);
+      void getApiRequestService()
+        .reqNotificationsMarkReadOne(id)
+        .catch(() => {
+          // A missing row or a failed request leaves the badge to the next stream event or poll.
+        })
+        .finally(() => {
+          markingIds.delete(id);
+        });
+    }
+  }, []);
 
   useEffect(() => {
+    isPageActiveRef.current = true;
     let cancelled = false;
 
-    const load = async () => {
+    const loadFirstPageAndMarkRead = async () => {
       setIsLoading(true);
+      const result = await loadPage(1);
+      if (
+        !cancelled &&
+        result.status === 'applied' &&
+        result.requestId === listRequestIdRef.current &&
+        pageRef.current === 1
+      ) {
+        const appliedRequestId = result.requestId;
+        setState((current) => {
+          if (appliedRequestId !== listRequestIdRef.current || current.page !== 1) {
+            return current;
+          }
+          const items = mergeLiveRows(current.items, liveRowsRef.current);
+          if (items === current.items) {
+            return current;
+          }
+          return { ...current, items };
+        });
+      }
+
       try {
         await getApiRequestService().reqNotificationsMarkRead();
         emitNotificationsReadEvent();
-        if (cancelled) {
-          return;
-        }
-        await loadPage(1);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+      } catch {
+        // The loaded list stays visible when Mark All as Read fails.
+      }
+
+      if (
+        !cancelled &&
+        result.status !== 'stale' &&
+        result.requestId === listRequestIdRef.current
+      ) {
+        setIsLoading(false);
       }
     };
 
-    void load();
+    void loadFirstPageAndMarkRead();
+
+    const unsubscribe = subscribeToNotificationStream((event) => {
+      if (event.type === ACCOUNT_NOTIFICATION_STREAM_EVENT.created) {
+        const row = event.data.notification;
+        liveRowsRef.current = insertLiveNotificationRow(liveRowsRef.current, row);
+        if (pageRef.current === 1) {
+          setState((current) => ({
+            ...current,
+            items: insertLiveNotificationRow(current.items, row),
+          }));
+        }
+        pendingMarkIdsRef.current.add(row.id);
+        markLiveRowsRead();
+        return;
+      }
+
+      if (event.type === ACCOUNT_NOTIFICATION_STREAM_EVENT.resync && pageRef.current === 1) {
+        void loadFirstPageAndMarkRead();
+      }
+    });
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        markLiveRowsRead();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       cancelled = true;
+      isPageActiveRef.current = false;
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [loadPage, markLiveRowsRead, subscribeToNotificationStream]);
 
   const onPageChange = async (page: number) => {
     setIsLoading(true);
-    try {
-      await loadPage(page);
-    } finally {
+    const result = await loadPage(page);
+    if (result.status !== 'stale' && result.requestId === listRequestIdRef.current) {
       setIsLoading(false);
     }
   };
 
+  // A row stays in the section it had when it arrived. Read events update the badge and do not
+  // move rows between Unread and Earlier during this visit.
   const partitionedRows = useMemo(() => {
     const unreadRows: DTOAccountNotification[] = [];
     const earlierRows: DTOAccountNotification[] = [];

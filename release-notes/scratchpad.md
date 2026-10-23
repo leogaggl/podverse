@@ -515,6 +515,200 @@
 - Who notices: screen-reader users on lists that swipe to reveal an action
 - Operator steps: none
 
+## Mobile inbox shows new notifications live
+
+- Surfaces: mobile
+- Change: while the Notifications inbox is open, a new notification appears at the top of the
+  list as it arrives and is marked read at once, so the badge does not light while the inbox is
+  on screen. After a reconnect that may have missed rows, the inbox reloads its first page. The
+  cached inbox used in Offline Mode is cleared at sign-out.
+- Who notices: signed-in mobile users with the inbox open
+- Operator steps: none
+
+## Management API publishes account events to Redis
+
+- Surfaces: management-api, k8s base env, ops
+- Change: the management API opens one Redis (Valkey) connection and publishes an account event
+  on `podverse:account-events` whenever it writes notifications (admin campaign sends), so open
+  account event streams show them within about a second. New required env vars `KEYVALDB_HOST`,
+  `KEYVALDB_PORT`, and `KEYVALDB_PASSWORD`, the same values the API uses. Redis being down does
+  not stop the management API or fail a send; the event is dropped and logged.
+- Who notices: operators (new env vars and a new secret mount); users see campaign notifications
+  arrive live once web and mobile use the stream
+- Operator steps: the base k8s configMap and deployment now set the host and port and mount
+  `podverse-keyvaldb-opaque`. A deployment outside these manifests must set the three `KEYVALDB_*`
+  vars on the management API, or it fails startup validation.
+
+## Workers publish account events to Redis
+
+- Surfaces: workers, k8s base workers and cron manifests, ops
+- Change: parser workers (`mqRSSRunParser`, `parserRSSParseFeed`, the dev parse commands,
+  `seedEmbedDemoShowcaseFeeds`) and the scheduled-job runner (`scheduledJobsRunDue`) now open one
+  Redis (Valkey) connection and publish an account event on `podverse:account-events` after they
+  write notifications, so open account event streams show parser and campaign notifications
+  within about a second. These commands now validate `KEYVALDB_HOST`, `KEYVALDB_PORT`,
+  `KEYVALDB_PASSWORD`, and `KEYVALDB_CACHE_EXPIRATION`. They still start and run when Redis is
+  down; events are dropped and logged.
+- Who notices: operators (new secret mount, one more Redis connection per parser pod and per
+  scheduled-job run)
+- Operator steps: the base manifests now mount `podverse-keyvaldb-opaque` on the three parser
+  deployments, the scheduled-jobs cronjob, and the showcase seed cronjob. Anyone running these
+  commands outside those manifests must set the `KEYVALDB_*` vars, or startup validation fails.
+
+## Live account event stream
+
+- Surfaces: api, workers, management-api, ops
+- Change: new `GET /account/events` (SSE, cookie or bearer auth), the account's one event stream.
+  Event names are namespaced: `notification.*` now; `playback.*` reserved for cross-device
+  playback state and control commands, which never carry an SSE id and never replay. Clients
+  ignore names they do not know. It sends a state snapshot with the unread count, then each new notification
+  (`notification.created`, with the notification id as the SSE event id) and each read-state
+  change (`notification.read`) for the account within about a second. Only events with an SSE id
+  replay: reconnecting with `Last-Event-ID` replays up to 50 missed notifications; beyond that it
+  sends `notification.resync`. A 25-second heartbeat keeps proxies open. Streams end at the auth
+  token's expiry or after 30 minutes, and clients reconnect. At most 10 streams per account per
+  API pod; more get 429. The API, management API, and parser and scheduled-job workers publish
+  account events on the Redis (Valkey) channel `podverse:account-events` after they write
+  notifications or read state, and each API pod holds one subscriber connection to it. A failed
+  publish never fails the write; clients catch up on their next connection.
+- Who notices: no one until web and mobile use the stream. Operators see more Redis connections:
+  two per API pod, one per management API pod, and one per notification-writing worker.
+- Operator steps: a proxy in front of the API must not buffer `text/event-stream` and must allow
+  idle connections longer than 25 seconds. The bundled Traefik ingress needs no change. The
+  management API and worker env and secret changes are in their own entries.
+
+## Web bell badge updates live
+
+- Surfaces: web
+- Change: the NavBar notification bell's unread badge now updates within about a second of a new
+  notification, and clears in every open tab and on every device when a notification is read
+  anywhere, using the account event stream (`GET /account/events`). All tabs
+  of one account in a browser share a single stream: one tab holds it (Web Locks) and relays to
+  the others (`BroadcastChannel`); browsers without those APIs open one stream per tab. The
+  60-second unread-count poll now runs only while the stream is down, and the count is refetched
+  once when a tab becomes visible again. When the stream fails with an HTTP error it is retried
+  after 30 seconds, backing off to 5 minutes.
+- Who notices: logged-in web users; the bell no longer lags behind new notifications.
+- Operator steps: none beyond deploying the API stream. A proxy in front of the API must not
+  buffer `text/event-stream`.
+
+## Per-notification read state (schema)
+
+- Surfaces: api, ops
+- Change: new app migration `0022_account_notification_read_at.sql` adds a nullable `read_at` to
+  `account_notification`. A notification is now unread only when it was created after the
+  account's Mark All as Read cutoff and its own `read_at` is null. The unread count, the inbox's
+  `is_unread` flags, and the stream's counts all follow that rule. The inbox's `total_count` now
+  comes from a plain row count. Nothing sets `read_at` yet, so counts and flags are unchanged
+  until the mark-one endpoints ship.
+- Who notices: no one yet.
+- Operator steps: run app linear migrations before rolling the API. The API readiness marker
+  `API_EXPECTED_MIGRATION_FILENAME` moves to `0022_account_notification_read_at.sql`; a GitOps
+  overlay that pins it must move with it.
+
+## Mobile live notification badge
+
+- Surfaces: mobile
+- Change: while the app is signed in and either in the foreground or playing audio, it holds the
+  API's account event stream (`GET /account/events`) open with the bearer token. In the
+  background it closes the stream once audio is not playing. The Notifications tab badge updates
+  within about a second of a new notification or a read on any device, instead of on a 60-second
+  poll. The poll runs only while the stream is down; after a failed connect the app refetches the
+  unread count once, then every 60 seconds. A return to the foreground keeps a stream that stayed
+  open through the background and is still sending its heartbeat. A stream that closed, or that
+  went silent for a minute or more, is replaced by a fresh one. Pushes that arrive in the
+  foreground stay unshown, as before. While audio plays in the background, the stream holds one
+  more open connection to the API than before.
+- Who notices: signed-in mobile users with the app open or playing in the background
+- Operator steps: the API must serve the notification stream (see the live notification stream
+  entry). No mobile env vars.
+
+## Mark one notification read
+
+- Surfaces: api, web, mobile (request helpers in `@podverse/helpers-requests`)
+- Change: new `POST /account/notifications/:notification_id/mark-read` and
+  `POST /account/notifications/mark-read-by-item` (body `item_id_text`, `type`, as sent in push
+  data). Each sets `read_at` on that notification only, returns `{ marked_ids, unread_count }`, and
+  sends `notification.read` with `scope: 'one'` to every open notification stream for the account.
+  An already-read notification returns 200 with empty `marked_ids` and sends nothing. Another
+  account's id returns 404. Mark All as Read is unchanged. New request helpers
+  `reqNotificationsMarkReadOne` and `reqNotificationsMarkReadByItem`.
+- Who notices: no one until web and mobile call them from push taps, banner taps, and inbox rows.
+- Operator steps: none beyond the read-state migration.
+
+## Mobile unread notification count on More
+
+- Surfaces: mobile
+- Change: when Notifications is not one of the visible tabs (the default layout), the More tab
+  and the More screen's Notifications row show the unread notification count, updating live.
+  When Notifications is a visible tab, its own tab badge shows the count as before.
+- Who notices: signed-in mobile users on the default tab layout, who previously saw no unread
+  indicator
+- Operator steps: none
+
+## Mobile banner notification settings
+
+- Surfaces: mobile
+- Change: Notification settings gain a Banner Notifications group, stored on this device only,
+  with one switch per kind. New Item and Livestream Started start on. Livestream Scheduled,
+  Product Updates, Maintenance, Terms of Service, and General start off.
+- Who notices: mobile users who open Settings, then Notifications
+- Operator steps: none
+
+## Web Notifications inbox updates live
+
+- Surfaces: web
+- Change: on the Notifications page, a new notification appears at the top under Unread as soon
+  as it is created, without a reload. While the page is visible, that notification is marked read
+  on its own (`POST /account/notifications/:id/mark-read`), so the bell clears on every device; in
+  a background tab it is marked when the tab becomes visible. The page now loads the list before
+  marking everything read, so notifications that were unread when the page opened show under
+  Unread for that visit instead of always appearing under Earlier.
+- Who notices: logged-in web users with the inbox open.
+- Operator steps: none.
+
+## Web push click marks that notification read
+
+- Surfaces: web
+- Change: clicking a web push popup marks only that notification read
+  (`POST /account/notifications/mark-read-by-item` with the push's item id and type), so the bell
+  clears for it on every device without visiting the Notifications page. This works for popups
+  shown by the service worker and by a focused tab. A focused tab on the Notifications page no
+  longer shows a popup, because the new row appears there live. Repeated pushes for the same item
+  and type replace each other instead of stacking. The service worker is now registered as
+  `/webpush-sw.js?api_base=<API base URL>`; existing registrations are updated on the next visit
+  with notifications allowed, and keep their subscription. The worker's push handler now extends
+  the event lifetime correctly. On Chrome for Android, a focused tab now shows the popup through
+  the service worker instead of failing silently.
+- Who notices: web users with push enabled.
+- Operator steps: none. The API's CORS must keep allowing credentialed requests from the web
+  origin, which it already does.
+
+## Mobile push tap marks that notification read
+
+- Surfaces: mobile
+- Change: tapping an OS push notification marks only that notification read (through
+  `POST /account/notifications/mark-read-by-item` with the push's item and type), and the
+  Notifications badge drops by one at once. Opening the inbox still marks every notification read.
+- Who notices: signed-in mobile users who open the app from a push notification
+- Operator steps: none beyond deploying the API with the mark-one endpoints
+
+## Mobile banner notifications
+
+- Surfaces: mobile
+- Change: while the app is open and the Notifications inbox is not on screen, a new notification
+  whose kind is turned on slides down from the top. The card shows the title and one line of the
+  body. A tap opens that notification's page and marks only that notification read, so the unread
+  badge drops when it was the only unread one. Dismissing the card with its Dismiss control,
+  swiping it up, or letting it hide, leaves the badge. A light haptic plays when the card
+  appears. A notification that arrives while the app is in the background, including while the
+  stream stays open for background audio, never shows a banner and is not saved to show on
+  return. The OS push shows it, and the badge and inbox still update. Cards waiting when the app
+  goes to the background are cleared and stay unread. The dev client has to be rebuilt before
+  the haptic is in the binary (`npm run mobile:prebuild`, then reinstall).
+- Who notices: signed-in mobile users with the app in the foreground
+- Operator steps: rebuild and reinstall the mobile dev client so expo-haptics is included
+
 ## Publisher feeds that name no remote-item medium are podcast publishers
 
 - Surfaces: workers (parser), api

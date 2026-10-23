@@ -298,7 +298,7 @@ export const refreshAccessTokenSingleFlight = async ({
   return inFlightRefresh;
 };
 
-class AccessTokenRefreshUnavailableError extends Error {
+export class AccessTokenRefreshUnavailableError extends Error {
   constructor() {
     super('Mobile access token refresh did not yield a token');
     this.name = 'AccessTokenRefreshUnavailableError';
@@ -376,9 +376,13 @@ export const primeAccessTokenRefresh = (deps: AuthRequestDeps): void => {
   });
 };
 
-export const requestWithMobileAuthRefresh = async <T>(
+/**
+ * The refresh-once-then-clear rules for any bearer call. `send` receives the access token to use
+ * and must reject with a value whose `response.status` is 401 when the server refuses it.
+ */
+export const runWithMobileAuthRefresh = async <T>(
   deps: AuthRequestDeps,
-  runRequest: (apiRequestService: ApiRequestService) => Promise<T>
+  send: (accessToken: string | null) => Promise<T>
 ): Promise<T> => {
   if (isOfflineModeEnabled()) {
     throw new OfflineModeEnabledError();
@@ -387,7 +391,7 @@ export const requestWithMobileAuthRefresh = async <T>(
   const prepared = await ensureFreshAccessToken(deps);
 
   try {
-    return await sendWithAccessToken(prepared.accessToken, runRequest);
+    return await withNetworkOutcomeReported(() => send(prepared.accessToken));
   } catch (error) {
     if (error instanceof OfflineModeEnabledError) {
       throw error;
@@ -417,7 +421,7 @@ export const requestWithMobileAuthRefresh = async <T>(
     }
 
     try {
-      return await sendWithAccessToken(refreshedAccessToken, runRequest);
+      return await withNetworkOutcomeReported(() => send(refreshedAccessToken));
     } catch (retryError) {
       // The server refused a token the client treated as fresh, and the replacement as well.
       // Ending the session is what stops every accessToken-keyed effect from firing again.
@@ -428,6 +432,18 @@ export const requestWithMobileAuthRefresh = async <T>(
     }
   }
 };
+
+export const requestWithMobileAuthRefresh = async <T>(
+  deps: AuthRequestDeps,
+  runRequest: (apiRequestService: ApiRequestService) => Promise<T>
+): Promise<T> =>
+  runWithMobileAuthRefresh(deps, async (accessToken) => {
+    const apiRequestService = createMobileApiRequestService(accessToken);
+    if (apiRequestService === null) {
+      throw new Error('Mobile API base URL is not configured');
+    }
+    return runRequest(apiRequestService);
+  });
 
 /**
  * Signed-out callers pass a null access token and must not refresh. An expired access token is

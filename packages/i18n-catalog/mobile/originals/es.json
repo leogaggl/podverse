@@ -148,7 +148,11 @@
       "login_required_title": "Inicio de sesión necesario",
       "login_required_message": "Inicia sesión para usar esta función.",
       "open_system_settings": "Abrir los ajustes del sistema",
-      "permission_required": "Se necesita permiso de notificaciones para activar este ajuste."
+      "permission_required": "Se necesita permiso de notificaciones para activar este ajuste.",
+      "banner_section": "Notificaciones de banner",
+      "banner_section_help": "Con la aplicación abierta, un banner baja desde arriba por cada tipo que actives.",
+      "banner_dismiss": "Descartar",
+      "banner_open_hint": "Abre esta notificación."
     },
     "tab_bar": {
       "title": "Barra de pestañas",
@@ -168,6 +172,7 @@
     "playback": "Reproducción",
     "playback_intro": "Estos controles existen solo en compilaciones de prueba E2E. Inician el audio o vídeo de prueba que las pantallas del producto aún no exponen.",
     "play_video": "Reproducir vídeo E2E",
+    "show_banner_notification": "Mostrar notificación de banner",
     "play_hls": "Reproducir HLS E2E",
     "skip_next": "Saltar al siguiente",
     "complete_now_playing": "Marcar en reproducción como completado",

@@ -45,7 +45,7 @@ higher (after extra high, **Codex 5.3 · high**), and record the change on the p
 
 ## Phase 1
 
-- [ ] **10 — Account event stream contract**
+- [x] **10 — Account event stream contract**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -63,7 +63,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **11 — Account event fanout through Redis**
+- [x] **11 — Account event fanout through Redis**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -83,7 +83,7 @@ anything a later prompt needs.
 
 ## Phase 2
 
-- [ ] **14 — Management API account event publisher**
+- [x] **14 — Management API account event publisher**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -102,7 +102,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **50 — Banner notification kinds, defaults, and device prefs**
+- [x] **50 — Banner notification kinds, defaults, and device prefs**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -119,7 +119,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **51 — Banner notification card**
+- [x] **51 — Banner notification card**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -138,7 +138,7 @@ anything a later prompt needs.
 
 ## Phase 3
 
-- [ ] **13 — API account event Redis connections**
+- [x] **13 — API account event Redis connections**
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
@@ -156,7 +156,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **15 — Workers account event publisher**
+- [x] **15 — Workers account event publisher**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -175,7 +175,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **30 — Web notification stream client**
+- [x] **30 — Web notification stream client**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -194,7 +194,7 @@ anything a later prompt needs.
 
 ## Phase 4
 
-- [ ] **12 — API account event stream (GET /account/events)**
+- [x] **12 — API account event stream (GET /account/events)**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -215,7 +215,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **31 — Web live bell badge and cross-tab read sync**
+- [x] **31 — Web live bell badge and cross-tab read sync**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -239,7 +239,7 @@ anything a later prompt needs.
 
 Start Docker before this phase.
 
-- [ ] **16 — Account events architecture doc**
+- [x] **16 — Account events architecture doc**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -256,7 +256,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **20 — Per-notification read state: schema and unread rule**
+- [x] **20 — Per-notification read state: schema and unread rule**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -279,7 +279,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **40 — Mobile notification stream runtime**
+- [x] **40 — Mobile notification stream runtime**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -306,7 +306,7 @@ anything a later prompt needs.
 
 ## Phase 6
 
-- [ ] **21 — Mark one notification read (by id, and by push payload)**
+- [x] **21 — Mark one notification read (by id, and by push payload)**
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
@@ -326,7 +326,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **43 — Mobile unread count on the More tab and More row**
+- [x] **43 — Mobile unread count on the More tab and More row**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -344,7 +344,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **52 — Banner notification settings**
+- [x] **52 — Banner notification settings**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -366,7 +366,7 @@ anything a later prompt needs.
 
 ## Phase 7
 
-- [ ] **32 — Web live Notifications inbox**
+- [x] **32 — Web live Notifications inbox**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -385,7 +385,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **33 — Web push tap marks that notification read; no popup on the inbox**
+- [x] **33 — Web push tap marks that notification read; no popup on the inbox**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -405,7 +405,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **41 — Mobile push tap marks that notification read**
+- [x] **41 — Mobile push tap marks that notification read**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -427,7 +427,7 @@ anything a later prompt needs.
 
 ## Phase 8
 
-- [ ] **42 — Mobile inbox shows new rows live**
+- [x] **42 — Mobile inbox shows new rows live**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -445,7 +445,7 @@ anything a later prompt needs. Plan 53 runs next and closes the set.
 
 ## Phase 9
 
-- [ ] **53 — Show the banner, open the page, mark that notification read; then archive the set**
+- [x] **53 — Show the banner, open the page, mark that notification read; then archive the set**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

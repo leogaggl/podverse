@@ -120,6 +120,9 @@ export const startApp = async () => {
     const { managedCopyRouter } = await import('./routes/managedCopy.js');
     const { profileContentRouter, myProfileContentRouter } =
       await import('./routes/profileContent.js');
+    const { startAccountEventStreamHub } =
+      await import('@api/lib/accountEventStream/accountEventStreamHub.js');
+    startAccountEventStreamHub();
 
     // --- Versioned: meta, then root (same order as Metaboost versioned router)
     app.get(`${baseUrl}/meta`, (_req: Request, res: Response) => {

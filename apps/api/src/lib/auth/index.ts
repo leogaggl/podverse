@@ -443,6 +443,9 @@ const verifyTokenAndMembership = (
           typeof account.id_text === 'string' && account.id_text !== '' ? account.id_text : '',
         verified: typeof account.verified === 'boolean' ? account.verified : true,
       };
+      if (typeof payload.exp === 'number' && Number.isFinite(payload.exp)) {
+        req.user.token_expires_at = payload.exp;
+      }
 
       if (enforceTerms && accountNeedsCurrentTerms(account, config.terms.version)) {
         res.status(403).json({

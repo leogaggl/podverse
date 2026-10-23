@@ -14,7 +14,7 @@ Shared rules: `00-SUMMARY.md` § Merge step rules. Deferred items:
 
 ## Phase 1 — Realtime banner notifications
 
-- [ ] **01 — Merge feature/realtime-banner-notifications**
+- [x] **01 — Merge feature/realtime-banner-notifications**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 

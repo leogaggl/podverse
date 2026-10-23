@@ -95,12 +95,36 @@ const BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS = ['mqAddByRSSRunParser'] as const;
 
 const BASE_ORM_MQ_KEYVALDB_PODCAST_INDEX_COMMANDS = ['mqOpmlImportRun'] as const;
 
-/**
- * Returns the set of config categories required for the given command.
- * Used by validation (to validate only those env vars) and index (to build
- * only those configs and create only those contexts).
- */
-export function getCategoriesForCommand(commandName: string): Set<ConfigCategory> {
+/** Commands that write account notifications and so publish account events through Redis. */
+export const ACCOUNT_NOTIFICATION_WRITER_COMMANDS = [
+  'mqRSSRunParser',
+  'parserRSSParseFeed',
+  'scheduledJobsRunDue',
+  'devParserRSSParseArtistPublisherFeeds',
+  'devParserRSSParseMusicMediumFeeds',
+  'devParserRSSParsePodcasting20Feeds',
+  'devParserRSSParseTrendingFeeds',
+  'seedEmbedDemoShowcaseFeeds',
+] as const;
+
+/** Commands that read and write the KeyValDB cache and need it reachable at startup. */
+export const KEYVALDB_CACHE_COMMANDS = ['mqAddByRSSRunParser', 'mqOpmlImportRun'] as const;
+
+const accountNotificationWriterCommands: ReadonlySet<string> = new Set<string>(
+  ACCOUNT_NOTIFICATION_WRITER_COMMANDS
+);
+
+const keyvaldbCacheCommands: ReadonlySet<string> = new Set<string>(KEYVALDB_CACHE_COMMANDS);
+
+export function writesAccountNotifications(commandName: string): boolean {
+  return accountNotificationWriterCommands.has(commandName);
+}
+
+export function usesKeyvaldbCache(commandName: string): boolean {
+  return keyvaldbCacheCommands.has(commandName);
+}
+
+function getBaseCategoriesForCommand(commandName: string): Set<ConfigCategory> {
   const categories = new Set<ConfigCategory>();
   categories.add(CATEGORY_BASE);
 
@@ -225,5 +249,18 @@ export function getCategoriesForCommand(commandName: string): Set<ConfigCategory
     return categories;
   }
 
+  return categories;
+}
+
+/**
+ * Returns the set of config categories required for the given command.
+ * Used by validation (to validate only those env vars) and index (to build
+ * only those configs and create only those contexts).
+ */
+export function getCategoriesForCommand(commandName: string): Set<ConfigCategory> {
+  const categories = getBaseCategoriesForCommand(commandName);
+  if (writesAccountNotifications(commandName)) {
+    categories.add(CATEGORY_KEYVALDB);
+  }
   return categories;
 }

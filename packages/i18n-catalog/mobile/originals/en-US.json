@@ -148,7 +148,11 @@
       "login_required_title": "Login Required",
       "login_required_message": "Log in to use this feature.",
       "open_system_settings": "Open System Settings",
-      "permission_required": "Notification permission is required to enable this setting."
+      "permission_required": "Notification permission is required to enable this setting.",
+      "banner_section": "Banner Notifications",
+      "banner_section_help": "While the app is open, a banner slides down from the top for each kind you turn on.",
+      "banner_dismiss": "Dismiss",
+      "banner_open_hint": "Opens this notification."
     },
     "tab_bar": {
       "title": "Tab Bar",
@@ -168,6 +172,7 @@
     "playback": "Playback",
     "playback_intro": "These controls exist only in E2E test builds. They start seeded media the product screens do not expose yet.",
     "play_video": "Play E2E Video",
+    "show_banner_notification": "Show Banner Notification",
     "play_hls": "Play E2E HLS",
     "skip_next": "Skip to Next",
     "complete_now_playing": "Mark Now-Playing Complete",

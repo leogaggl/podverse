@@ -1,16 +1,12 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TextStyle, ViewStyle } from 'react-native';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOAccountNotification } from '@podverse/helpers';
-import {
-  getRelativeTimeParts,
-  NotificationCategoryEnum,
-  resolveNotificationDestinationFromPayload,
-} from '@podverse/helpers';
+import { getRelativeTimeParts, NotificationCategoryEnum } from '@podverse/helpers';
 
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
@@ -21,25 +17,27 @@ import { CallToActionSection } from '../../components/state/CallToActionSection'
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { RetryableError } from '../../components/state/RetryableError';
-import { getMobileConfig } from '../../config';
 import { notificationsRepository } from '../../data/repositories';
-import { emitNotificationsReadEvent } from '../../hooks/useNotificationsUnreadCount';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import type { NotificationsStackParamList } from '../../navigation';
+import { markNotificationReadById } from '../../notifications/notificationReadActions';
+import {
+  getNotificationsInboxCache,
+  prependLiveNotification,
+  setNotificationsInboxCache,
+} from '../../notifications/notificationsInboxCache';
+import {
+  markNotificationsInboxFocused,
+  setNotificationUnreadCount,
+  subscribeNotificationStreamEvents,
+} from '../../notifications/notificationStreamStore';
 import { useOfflineMode } from '../../prefs/offlineMode';
-import { HOME_FALLBACK_PATH } from '../../push/notificationTarget';
+import { openAccountNotificationLink } from '../../push/openAccountNotificationLink';
 import { screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 
 const FIRST_PAGE = 1;
 
-/** Last successful inbox page for Offline Mode — session-scoped, not durable across process death. */
-let lastCachedInbox: {
-  items: DTOAccountNotification[];
-  page: number;
-  totalPages: number;
-  unreadCount: number;
-} | null = null;
 const CATEGORY_LABEL_KEYS: Record<NotificationCategoryEnum, string> = {
   [NotificationCategoryEnum.General]: 'settings.notifications.category_general',
   [NotificationCategoryEnum.Livestream]: 'settings.notifications.category_livestream',
@@ -118,14 +116,18 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const { styles: themeStyles, tokens } = useTheme();
   const [notifications, setNotifications] = useState<DTOAccountNotification[]>(
-    () => lastCachedInbox?.items ?? []
+    () => getNotificationsInboxCache()?.items ?? []
   );
-  const [isLoading, setIsLoading] = useState(() => lastCachedInbox === null);
+  const [isLoading, setIsLoading] = useState(() => getNotificationsInboxCache() === null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(lastCachedInbox?.unreadCount ?? 0);
-  const [page, setPage] = useState(lastCachedInbox?.page ?? FIRST_PAGE);
-  const [totalPages, setTotalPages] = useState(lastCachedInbox?.totalPages ?? FIRST_PAGE);
+  const [unreadCount, setUnreadCount] = useState(
+    () => getNotificationsInboxCache()?.unreadCount ?? 0
+  );
+  const [page, setPage] = useState(() => getNotificationsInboxCache()?.page ?? FIRST_PAGE);
+  const [totalPages, setTotalPages] = useState(
+    () => getNotificationsInboxCache()?.totalPages ?? FIRST_PAGE
+  );
 
   const requestContext = useMemo(() => {
     return {
@@ -135,6 +137,15 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
       setTokens,
     };
   }, [accessToken, clearSession, refreshToken, setTokens]);
+
+  const statusRef = useRef(status);
+  const offlineModeEnabledRef = useRef(offlineModeEnabled);
+  const requestContextRef = useRef(requestContext);
+  const isFirstPageLoadingRef = useRef(false);
+  const liveRowsDuringLoadRef = useRef<DTOAccountNotification[]>([]);
+  statusRef.current = status;
+  offlineModeEnabledRef.current = offlineModeEnabled;
+  requestContextRef.current = requestContext;
 
   const styles = useMemo(
     () =>
@@ -217,11 +228,12 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
       }
 
       if (offlineModeEnabled) {
-        if (lastCachedInbox !== null) {
-          setNotifications(lastCachedInbox.items);
-          setUnreadCount(lastCachedInbox.unreadCount);
-          setPage(lastCachedInbox.page);
-          setTotalPages(lastCachedInbox.totalPages);
+        const cached = getNotificationsInboxCache();
+        if (cached !== null) {
+          setNotifications(cached.items);
+          setUnreadCount(cached.unreadCount);
+          setPage(cached.page);
+          setTotalPages(cached.totalPages);
         }
         setErrorKey(null);
         setIsLoading(false);
@@ -244,20 +256,21 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         setUnreadCount(nextData.unreadCount);
         setPage(nextData.page);
         setTotalPages(nextData.totalPages);
+        const cached = getNotificationsInboxCache();
         if (mode === 'replace') {
-          lastCachedInbox = {
+          setNotificationsInboxCache({
             items: nextData.items,
             page: nextData.page,
             totalPages: nextData.totalPages,
             unreadCount: nextData.unreadCount,
-          };
+          });
         } else {
-          lastCachedInbox = {
-            items: [...(lastCachedInbox?.items ?? []), ...nextData.items],
+          setNotificationsInboxCache({
+            items: [...(cached?.items ?? []), ...nextData.items],
             page: nextData.page,
             totalPages: nextData.totalPages,
             unreadCount: nextData.unreadCount,
-          };
+          });
         }
       } catch (error) {
         console.warn('Could not load notifications page', error);
@@ -288,41 +301,52 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
     }
 
     if (offlineModeEnabled) {
-      if (lastCachedInbox !== null) {
-        setNotifications(lastCachedInbox.items);
-        setUnreadCount(lastCachedInbox.unreadCount);
-        setPage(lastCachedInbox.page);
-        setTotalPages(lastCachedInbox.totalPages);
+      const cached = getNotificationsInboxCache();
+      if (cached !== null) {
+        setNotifications(cached.items);
+        setUnreadCount(cached.unreadCount);
+        setPage(cached.page);
+        setTotalPages(cached.totalPages);
       }
       setErrorKey(null);
       setIsLoading(false);
       return;
     }
 
+    isFirstPageLoadingRef.current = true;
+    liveRowsDuringLoadRef.current = [];
     setIsLoading(true);
     setErrorKey(null);
     try {
       await notificationsRepository.markRead(requestContext);
-      emitNotificationsReadEvent();
+      setNotificationUnreadCount(0);
       const nextData = await notificationsRepository.list(requestContext, { page: FIRST_PAGE });
-      setNotifications(nextData.items);
+      let items = nextData.items;
+      for (const held of liveRowsDuringLoadRef.current) {
+        items = prependLiveNotification(items, held);
+      }
+      setNotifications(items);
       setUnreadCount(nextData.unreadCount);
       setPage(nextData.page);
       setTotalPages(nextData.totalPages);
-      lastCachedInbox = {
-        items: nextData.items,
+      setNotificationsInboxCache({
+        items,
         page: nextData.page,
         totalPages: nextData.totalPages,
         unreadCount: nextData.unreadCount,
-      };
+      });
     } catch (error) {
       console.warn('Could not refresh notifications inbox', error);
       setNotifications([]);
       setErrorKey('errors.generic');
     } finally {
+      isFirstPageLoadingRef.current = false;
       setIsLoading(false);
     }
   }, [offlineModeEnabled, requestContext, status]);
+
+  const loadFirstPageAndMarkReadRef = useRef(loadFirstPageAndMarkRead);
+  loadFirstPageAndMarkReadRef.current = loadFirstPageAndMarkRead;
 
   useFocusEffect(
     useCallback(() => {
@@ -330,28 +354,45 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
     }, [loadFirstPageAndMarkRead])
   );
 
-  const handleNotificationPress = useCallback(async (notification: DTOAccountNotification) => {
-    const destination = resolveNotificationDestinationFromPayload({
-      ...(notification.payload ?? {}),
-      link_path: notification.link_path,
-    });
-    const targetPath =
-      destination.mobileStackPath ??
-      (destination.kind === 'home' ? HOME_FALLBACK_PATH : destination.webPath);
+  useFocusEffect(
+    useCallback(() => {
+      const releaseInboxFocus = markNotificationsInboxFocused();
+      const unsubscribe = subscribeNotificationStreamEvents((event) => {
+        if (event.type === 'created') {
+          if (statusRef.current !== 'authenticated' || offlineModeEnabledRef.current) {
+            return;
+          }
+          const notification = event.notification;
+          setNotifications((items) => prependLiveNotification(items, notification));
+          const cached = getNotificationsInboxCache();
+          if (cached !== null) {
+            setNotificationsInboxCache({
+              ...cached,
+              items: prependLiveNotification(cached.items, notification),
+            });
+          }
+          if (isFirstPageLoadingRef.current) {
+            liveRowsDuringLoadRef.current.push(notification);
+          }
+          void markNotificationReadById(requestContextRef.current, notification.id);
+          return;
+        }
+        if (event.type === 'resync') {
+          if (!isFirstPageLoadingRef.current) {
+            void loadFirstPageAndMarkReadRef.current();
+          }
+          return;
+        }
+      });
+      return () => {
+        unsubscribe();
+        releaseInboxFocus();
+      };
+    }, [])
+  );
 
-    try {
-      const prefixedLink = targetPath.startsWith('http://') || targetPath.startsWith('https://');
-      if (prefixedLink || targetPath.includes('://')) {
-        await Linking.openURL(targetPath);
-        return;
-      }
-
-      const scheme = getMobileConfig().deepLinkSchemes[0] ?? 'podverse-next';
-      const inAppPath = targetPath.startsWith('/') ? targetPath.slice(1) : targetPath;
-      await Linking.openURL(`${scheme}://${inAppPath}`);
-    } catch (error) {
-      console.warn('Could not navigate from notification link', targetPath, error);
-    }
+  const handleNotificationPress = useCallback((notification: DTOAccountNotification) => {
+    void openAccountNotificationLink(notification);
   }, []);
 
   const formatRelativeTime = useCallback(
@@ -413,7 +454,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
           onAction={onRequestLogin}
           testID="notifications-inbox-auth-required"
         />
-      ) : offlineModeEnabled && lastCachedInbox === null ? (
+      ) : offlineModeEnabled && getNotificationsInboxCache() === null ? (
         <ListEmpty
           messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
           testID="notifications-inbox-offline-unavailable"
