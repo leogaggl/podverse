@@ -287,9 +287,7 @@ describe('MarqueeText', () => {
     expect(spacer?.getAttribute('aria-hidden')).toBe('true');
     expect(spacer?.textContent).toBe('');
     expect(animations).toHaveLength(1);
-    expect(animations[0]?.keyframes).toEqual(
-      passKeyframes(textWidth(NEAR_FIT_TITLE) + SEAM_WIDTH)
-    );
+    expect(animations[0]?.keyframes).toEqual(passKeyframes(textWidth(NEAR_FIT_TITLE) + SEAM_WIDTH));
     expect(screen.getByTestId('no-inset').getAttribute('data-marquee-layout')).toBe('fit');
   });
 
