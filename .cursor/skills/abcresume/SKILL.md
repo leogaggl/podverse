@@ -16,6 +16,11 @@ answer. Do not run the commands. The operator picks one.
    `state.json` for every set and prints, per waiting run, the wrapper to resume through and each
    blocked step with its reason and final-message path. Trust it over the newest file or the first
    unticked box: parallel steps finish in any order.
+   The script reads only the checkout it runs in. A run in a sibling worktree is answered from a
+   chat in that worktree's Cursor window (**git-worktree-sibling** § Plan sets in a worktree).
+   When it finds no waiting run here but `git worktree list` shows sibling worktrees, or attached
+   output shows a run in one, name that worktree and ask the operator to run `/abcresume` in its
+   window.
 2. Attached terminal output only picks which run is meant when the script lists more than one.
 3. Read each blocked step's final message in full. It holds the question, the options, the
    agent's own view of each, and what each option changes. If the message is unclear, read the
