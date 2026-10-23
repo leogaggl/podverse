@@ -32,6 +32,7 @@ import { DescriptionTruncationNotice } from '../../../components/Content/Descrip
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { Pagination } from '../../../components/Pagination/Pagination';
+import type { AddByRSSCredentialsApplyStatus } from '../../../components/Settings/AddByRSSCredentialsSettingsSection';
 import { AddByRSSCredentialsSettingsSection } from '../../../components/Settings/AddByRSSCredentialsSettingsSection';
 import { RSSFeedSettingsSection } from '../../../components/Settings/RSSFeedSettingsSection';
 import { SettingsWrapper } from '../../../components/Settings/SettingsWrapper';
@@ -41,6 +42,7 @@ import { useAddByRSSFeedParseStatusLines } from '../../../hooks/useAddByRSSFeedP
 import type { AddByRSSParseOutcome } from '../../../utils/addByRSS/actions';
 import {
   applyAddByRSSParseStatus,
+  applyListedAddByRSSParseStatus,
   enqueueAddByRSSParseWithStoredCredentials,
   pollAddByRSSParseStatus,
 } from '../../../utils/addByRSS/actions';
@@ -51,12 +53,19 @@ import {
   buildItemIdTextMap,
 } from '../../../utils/addByRSS/itemIndex';
 import {
+  isListedFeedRecord,
+  listedAddByRSSLivestreamIndexItems,
+  listedAddByRSSTrackIndexItems,
+} from '../../../utils/addByRSS/listedFeeds';
+import {
   getAddByRSSFeedByUrl,
   getAddByRSSItemByGuid,
   getAddByRSSLivestreamByGuid,
+  getListedAddByRSSFeedByUrl,
 } from '../../../utils/addByRSS/storage';
 import type {
   AddByRSSFeedRecord,
+  AddByRSSListedFeedRecord,
   AddByRSSLivestreamIndexItem,
   AddByRSSParsedFeed,
 } from '../../../utils/addByRSS/types';
@@ -68,6 +77,11 @@ import listNodesStyles from '../../../styles/components/Common/List/ListNodes.mo
 
 type AddByRSSAlbumPageClientProps = {
   feed: AddByRSSFeedRecord;
+  /**
+   * False for an album an Add by RSS artist lists but the member does not follow. Its tracks and
+   * livestreams are built in memory and every write goes to the listed store.
+   */
+  followed: boolean;
 };
 
 type AddByRSSAlbumSort = 'recent' | 'oldest' | 'forward' | 'reverse';
@@ -79,7 +93,10 @@ const toSortOption = (value: string | null): AddByRSSAlbumSort => {
   return 'forward';
 };
 
-export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = ({ feed }) => {
+export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = ({
+  feed,
+  followed,
+}) => {
   const tFeatures = useTranslations('features');
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
@@ -102,6 +119,9 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
   }, [searchParams]);
   const [activeTab, setActiveTab] = useState<AddByRSSAlbumPageTabKey>(initialType);
   const [localFeed, setLocalFeed] = useState(feed);
+  const [listedFeed, setListedFeed] = useState<AddByRSSListedFeedRecord | null>(
+    !followed && isListedFeedRecord(feed) ? feed : null
+  );
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [itemIdTextMap, setItemIdTextMap] = useState<Map<string, string>>(new Map());
@@ -119,10 +139,19 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
 
   useEffect(() => {
     setLocalFeed(feed);
+    setListedFeed(!followed && isListedFeedRecord(feed) ? feed : null);
     setCurrentPage(1);
-  }, [feed]);
+  }, [feed, followed]);
 
   useEffect(() => {
+    // The index builders rewrite the global stores from the feeds they get, so a listed album
+    // never goes through them.
+    if (!followed) {
+      const trackItems = listedFeed ? listedAddByRSSTrackIndexItems(listedFeed) : [];
+      setItemIdTextMap(new Map(trackItems.map((item) => [item.id, item.idText])));
+      setLiveItems(listedFeed ? listedAddByRSSLivestreamIndexItems(listedFeed) : []);
+      return;
+    }
     const init = async () => {
       await buildAddByRSSItemsIndex([localFeed]);
       const livestreams = await buildAddByRSSLivestreamIndex([localFeed]);
@@ -131,7 +160,7 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
       setLiveItems(livestreams);
     };
     void init();
-  }, [localFeed]);
+  }, [followed, listedFeed, localFeed]);
 
   useEffect(() => {
     if (searchParams.has('page') || searchParams.has('sort') || searchParams.has('type')) {
@@ -207,6 +236,21 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
       cache?: AddByRSSFeedRecord['cache'],
       outcome?: AddByRSSParseOutcome
     ) => {
+      if (!followed) {
+        await applyListedAddByRSSParseStatus({
+          feedUrl,
+          parsedFeed,
+          status,
+          cache,
+          outcome,
+          fallbackRecord: listedFeed,
+          onUpdated: (record) => {
+            setListedFeed(record);
+            setLocalFeed(record);
+          },
+        });
+        return;
+      }
       await applyAddByRSSParseStatus({
         feedUrl,
         parsedFeed,
@@ -219,7 +263,7 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
         },
       });
     },
-    [localFeed]
+    [followed, listedFeed, localFeed]
   );
 
   const pollRequest = useCallback(
@@ -265,9 +309,17 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
       });
       await handleParseStatus(localFeed.feedUrl, undefined, 'queued');
       await pollRequest(response.request_id, localFeed.feedUrl);
-      const refreshed = await getAddByRSSFeedByUrl(localFeed.feedUrl);
-      if (refreshed) {
-        setLocalFeed(refreshed);
+      if (followed) {
+        const refreshed = await getAddByRSSFeedByUrl(localFeed.feedUrl);
+        if (refreshed) {
+          setLocalFeed(refreshed);
+        }
+      } else {
+        const refreshed = await getListedAddByRSSFeedByUrl(localFeed.feedUrl);
+        if (refreshed) {
+          setListedFeed(refreshed);
+          setLocalFeed(refreshed);
+        }
       }
     } catch (error) {
       const statusCode = getStatusCodeFromError(error);
@@ -287,6 +339,7 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
       setIsUpdating(false);
     }
   }, [
+    followed,
     handleParseStatus,
     localFeed.feedUrl,
     loggedInAccount,
@@ -294,6 +347,33 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
     setModalAuthLogin,
     tFeatures,
   ]);
+
+  const applyListedCredentialsStatus = useCallback<AddByRSSCredentialsApplyStatus>(
+    async (params) => {
+      const fallbackRecord = isListedFeedRecord(params.fallbackRecord)
+        ? params.fallbackRecord
+        : listedFeed;
+      if (fallbackRecord === null) {
+        return null;
+      }
+      return applyListedAddByRSSParseStatus({
+        cache: params.cache,
+        fallbackRecord,
+        feedUrl: params.feedUrl,
+        outcome: params.outcome,
+        parsedFeed: params.parsedFeed,
+        status: params.status,
+      });
+    },
+    [listedFeed]
+  );
+
+  const handleListedCredentialsFeedUpdated = useCallback((updated: AddByRSSFeedRecord) => {
+    if (isListedFeedRecord(updated)) {
+      setListedFeed(updated);
+      setLocalFeed(updated);
+    }
+  }, []);
 
   const sortedLiveItems = useMemo(() => selectChannelOrderedLiveItems(liveItems), [liveItems]);
 
@@ -320,6 +400,21 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
       channelIdText: localFeed.idText,
       resolveChannelHref: (channelIdText) => `/add-by-rss/album/${channelIdText}`,
       resolveItemIdTextByGuid: async (itemGuid) => {
+        if (!followed && listedFeed) {
+          const listedTrack = listedAddByRSSTrackIndexItems(listedFeed).find(
+            (entry) => entry.itemGuid === itemGuid
+          );
+          if (listedTrack) {
+            return listedTrack.idText;
+          }
+          const listedLivestream = listedAddByRSSLivestreamIndexItems(listedFeed).find(
+            (entry) => entry.itemGuid === itemGuid
+          );
+          if (listedLivestream) {
+            return listedLivestream.idText;
+          }
+        }
+
         const item = await getAddByRSSItemByGuid(itemGuid);
         if (item?.idText) {
           return item.idText;
@@ -416,7 +511,8 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
                   <AddByRSSCredentialsSettingsSection
                     accountIdText={loggedInAccount.id_text}
                     feed={localFeed}
-                    onFeedUpdated={setLocalFeed}
+                    onFeedUpdated={followed ? setLocalFeed : handleListedCredentialsFeedUpdated}
+                    applyStatus={followed ? undefined : applyListedCredentialsStatus}
                   />
                 ) : null}
               </SettingsWrapper>

@@ -10,6 +10,7 @@ import {
   validateParamsObject,
   validateQueryObject,
 } from '@api/lib/validation/index.js';
+import { attachVerifiedPublishers, itemsOfMediaResources } from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
@@ -41,6 +42,9 @@ class PlaylistResourceController {
                   playlist_id_text,
                   account_id
                 );
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources(playlistResources),
+              });
               res.status(200).json(playlistResources);
             } catch (err) {
               handleGenericErrorResponse(res, err);
@@ -101,6 +105,9 @@ class PlaylistResourceController {
                   direction,
                   account_id
                 );
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources(playlistResources),
+              });
               res.json({ data: playlistResources });
             } catch (err) {
               handleGenericErrorResponse(res, err);
@@ -146,6 +153,9 @@ class PlaylistResourceController {
                   await PlaylistResourceController.playlistResourceService.getAllByPlaylistIdTextCount(
                     playlist_id_text
                   );
+                await attachVerifiedPublishers({
+                  items: itemsOfMediaResources(playlistResources),
+                });
 
                 res.status(200).json({
                   data: playlistResources,
@@ -187,6 +197,9 @@ class PlaylistResourceController {
                 await PlaylistResourceController.playlistResourceService.getAllByPlaylistIdTextCount(
                   playlist_id_text
                 );
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources(playlistResources),
+              });
 
               res.status(200).json({
                 data: playlistResources,

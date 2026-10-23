@@ -4,7 +4,9 @@ import type { DTOChannel, DTOItem } from '@podverse/helpers';
 import { MediumEnum } from '@podverse/helpers/medium';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
+import { directoryLineArtist } from '../../lib/playback/lineArtist';
 import {
+  fullPlayerArtistLink,
   fullPlayerOpenScreenLabelKey,
   playerContentStack,
   playerItemStackRoutes,
@@ -220,6 +222,41 @@ describe('resolveFullPlayerChannelLink', () => {
     const target: PlaybackTarget = { kind: 'add-by-rss', resourceData: { title: 'Feed' } };
     expect(resolveFullPlayerChannelLink(target, 'Feed', null)).toBe(null);
     expect(resolveFullPlayerChannelLink(target, 'Feed', 'local-feed')?.idText).toBe('local-feed');
+  });
+});
+
+describe('fullPlayerArtistLink', () => {
+  it('maps a directory artist to an artist page with a trimmed title and no artwork', () => {
+    expect(
+      fullPlayerArtistLink(
+        directoryLineArtist({
+          id_text: 'artist-1',
+          medium_id: MediumEnum.PublisherMusic,
+          title: '  Artist Name  ',
+        })
+      )
+    ).toEqual({
+      idText: 'artist-1',
+      imageUrl: null,
+      kind: 'artist',
+      name: 'Artist Name',
+    });
+  });
+
+  it('maps an Add by RSS artist to its Add by RSS page on Home', () => {
+    const link = fullPlayerArtistLink({
+      kind: 'add-by-rss',
+      feedIdText: 'rss-artist-id',
+      feedUrl: 'https://example.com/artist.xml',
+      title: ' RSS Artist ',
+    });
+    expect(link).toEqual({
+      idText: 'rss-artist-id',
+      imageUrl: null,
+      kind: 'add-by-rss',
+      name: 'RSS Artist',
+    });
+    expect(playerContentStack({ isSubscribed: false, kind: link.kind })).toBe('Home');
   });
 });
 

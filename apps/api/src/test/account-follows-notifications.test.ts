@@ -2,7 +2,11 @@ import type { Server } from 'http';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AccountMembershipEnum, MAX_BULK_FOLLOW_CHANNELS } from '@podverse/helpers';
+import {
+  AccountMembershipEnum,
+  MAX_BULK_FOLLOW_CHANNELS,
+  MAX_BULK_UNFOLLOW_FEEDS,
+} from '@podverse/helpers';
 import type { ORMContext } from '@podverse/orm';
 
 import {
@@ -30,11 +34,13 @@ const {
   unfollowAccountMock,
   followChannelMock,
   unfollowChannelMock,
+  unfollowChannelsBulkMock,
   followPlaylistMock,
   unfollowPlaylistMock,
   addOrUpdateRSSChannelMock,
   getFollowedAddByRSSChannelsMock,
   removeRSSChannelMock,
+  removeRSSChannelsBulkMock,
   getAccountByIdTextMock,
   getAccountMock,
   getManyPublicMock,
@@ -74,11 +80,13 @@ const {
     });
   }),
   unfollowChannelMock: vi.fn(async () => {}),
+  unfollowChannelsBulkMock: vi.fn(async () => {}),
   followPlaylistMock: vi.fn(async () => {}),
   unfollowPlaylistMock: vi.fn(async () => {}),
   addOrUpdateRSSChannelMock: vi.fn(async () => {}),
   getFollowedAddByRSSChannelsMock: vi.fn(async () => []),
   removeRSSChannelMock: vi.fn(async () => {}),
+  removeRSSChannelsBulkMock: vi.fn(async () => {}),
   getAccountByIdTextMock: vi.fn(async () => ({
     id: TEST_USER_ID,
     account_credentials: { email: TEST_EMAIL },
@@ -157,6 +165,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     followChannel = followChannelMock;
     followChannelsBulk = followChannelsBulkMock;
     unfollowChannel = unfollowChannelMock;
+    unfollowChannelsBulk = unfollowChannelsBulkMock;
     getFollowedChannels = getFollowedChannelsMock;
   }
 
@@ -169,6 +178,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     addOrUpdateRSSChannel = addOrUpdateRSSChannelMock;
     getFollowedAddByRSSChannels = getFollowedAddByRSSChannelsMock;
     removeRSSChannel = removeRSSChannelMock;
+    removeRSSChannelsBulk = removeRSSChannelsBulkMock;
     hasFollowedAddByRSSChannel = hasFollowedAddByRSSChannelMock;
     getFollowedAddByRSSChannelCount = getFollowedAddByRSSChannelCountMock;
   }
@@ -569,6 +579,96 @@ describe('account follows and notification routes', () => {
         .send({ channel_id_text: 'some-channel' });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /unfollow/bulk', () => {
+    beforeEach(() => {
+      unfollowChannelsBulkMock.mockClear();
+      removeRSSChannelsBulkMock.mockClear();
+    });
+
+    it('returns 204 and ends both kinds of follow', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/unfollow/bulk`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({
+          channel_id_texts: ['a', 'b'],
+          add_by_rss_feed_urls: ['https://alice:secret@example.com/album.xml'],
+        });
+
+      expect(res.status).toBe(204);
+      expect(unfollowChannelsBulkMock).toHaveBeenCalledWith(TEST_USER_ID, ['a', 'b']);
+      expect(removeRSSChannelsBulkMock).toHaveBeenCalledWith(TEST_USER_ID, [
+        'https://example.com/album.xml',
+      ]);
+      expect(unfollowChannelsBulkMock.mock.invocationCallOrder[0]).toBeLessThan(
+        removeRSSChannelsBulkMock.mock.invocationCallOrder[0]
+      );
+    });
+
+    it('returns 204 for Add by RSS urls alone and does not touch directory follows', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/unfollow/bulk`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ add_by_rss_feed_urls: ['https://example.com/album.xml'] });
+
+      expect(res.status).toBe(204);
+      expect(unfollowChannelsBulkMock).not.toHaveBeenCalled();
+      expect(removeRSSChannelsBulkMock).toHaveBeenCalledWith(TEST_USER_ID, [
+        'https://example.com/album.xml',
+      ]);
+    });
+
+    it('returns 400 when neither list is provided', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/unfollow/bulk`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Provide channel_id_texts or add_by_rss_feed_urls.');
+      expect(unfollowChannelsBulkMock).not.toHaveBeenCalled();
+      expect(removeRSSChannelsBulkMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when the two lists together exceed the cap', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/unfollow/bulk`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({
+          channel_id_texts: Array.from({ length: 600 }, (_unused, index) => `channel-${index}`),
+          add_by_rss_feed_urls: Array.from(
+            { length: 401 },
+            (_unused, index) => `https://example.com/feed-${index}.xml`
+          ),
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe(`At most ${MAX_BULK_UNFOLLOW_FEEDS} feeds per request.`);
+      expect(unfollowChannelsBulkMock).not.toHaveBeenCalled();
+      expect(removeRSSChannelsBulkMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when a feed url is not http(s)', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/unfollow/bulk`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ add_by_rss_feed_urls: ['ftp://example.com/album.xml'] });
+
+      expect(res.status).toBe(400);
+      expect(unfollowChannelsBulkMock).not.toHaveBeenCalled();
+      expect(removeRSSChannelsBulkMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 without auth', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/unfollow/bulk`)
+        .send({ channel_id_texts: ['a'] });
+
+      expect(res.status).toBe(401);
+      expect(unfollowChannelsBulkMock).not.toHaveBeenCalled();
+      expect(removeRSSChannelsBulkMock).not.toHaveBeenCalled();
     });
   });
 

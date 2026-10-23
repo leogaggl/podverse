@@ -403,6 +403,41 @@ export const MIGRATIONS: Migration[] = [
           AND json_array_length(mapped_feed_json, '$.liveItems') > 0;`,
     ],
   },
+  {
+    version: 25,
+    statements: [
+      // followed = 0 holds a feed only because an Add by RSS artist on this device lists it. The
+      // guid columns let an album name its artist and a listing match a feed under another URL.
+      `ALTER TABLE add_by_rss_feed ADD COLUMN followed INTEGER NOT NULL DEFAULT 1;`,
+      `ALTER TABLE add_by_rss_feed ADD COLUMN podcast_guid TEXT;`,
+      `ALTER TABLE add_by_rss_feed ADD COLUMN publisher_guids_json TEXT;`,
+      `ALTER TABLE add_by_rss_feed ADD COLUMN publisher_directory_json TEXT;`,
+      `CREATE INDEX IF NOT EXISTS idx_add_by_rss_feed_podcast_guid ON add_by_rss_feed (podcast_guid);`,
+      // What each Add by RSS artist on this device lists, replaced whole on every artist parse.
+      `CREATE TABLE IF NOT EXISTS add_by_rss_listed_feed (
+        publisher_feed_url TEXT NOT NULL,
+        feed_guid TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        feed_url TEXT,
+        title TEXT,
+        listed_at_channel_level INTEGER NOT NULL,
+        item_guids_json TEXT NOT NULL,
+        channel_id_text TEXT,
+        channel_title TEXT,
+        medium_id INTEGER,
+        image_url TEXT,
+        artwork_checked INTEGER NOT NULL DEFAULT 0,
+        pending_request_id TEXT,
+        unresolved_reason TEXT,
+        PRIMARY KEY (publisher_feed_url, feed_guid)
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_add_by_rss_listed_feed_guid
+        ON add_by_rss_listed_feed (feed_guid);`,
+      `CREATE INDEX IF NOT EXISTS idx_add_by_rss_listed_feed_channel
+        ON add_by_rss_listed_feed (channel_id_text);`,
+    ],
+  },
 ];
 
 export const LATEST_MIGRATION_VERSION: number = MIGRATIONS.reduce(

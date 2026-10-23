@@ -16,12 +16,14 @@ import { useQueues } from '../../../../../contexts/Queue';
 import { getApiRequestService } from '../../../../../factories/apiRequestService';
 import { usePlayAddByRSS } from '../../../../../hooks/usePlayAddByRSS';
 import { useQueueAddWithGate } from '../../../../../hooks/useQueueAddWithGate';
+import type { ArtistLineLink } from '../../../../../lib/artistPublishers';
 import { getAddByRSSItemPath } from '../../../../../utils/addByRSS/itemPath';
 import type { AddByRSSItemIndexItem } from '../../../../../utils/addByRSS/types';
 import { downloadAddByRSSMediaWithModal } from '../../../../../utils/downloadModal/downloadAddByRSSMediaWithModal';
 import { downloadAndSaveFile } from '../../../../../utils/fileDownloader';
 import { itemHeaderSquareArtworkCandidates } from '../../../../../utils/image/itemHeaderArtworkCandidates';
 import { CommonItemHeader } from '../../../../Common/Item/CommonItemHeader';
+import { TrackArtistByline } from '../../../../Media/Header/TrackArtistByline';
 import { showToastPromise, showToastPromiseWithLoading } from '../../../../Toast/Toast';
 import { AddByRSSItemHeaderPlaySection } from '../../../Item/AddByRSSItemHeaderPlaySection';
 
@@ -35,12 +37,14 @@ type AddByRSSTrackDetailHeaderProps = {
   itemIdText: string;
   title: string;
   indexItem?: AddByRSSItemIndexItem | null;
+  artistLinks?: readonly ArtistLineLink[];
 };
 
 export const AddByRSSTrackDetailHeader: React.FC<AddByRSSTrackDetailHeaderProps> = ({
   itemIdText,
   title,
   indexItem,
+  artistLinks,
 }) => {
   const tMediaPlayer = useTranslations('media_player');
   const tFeatures = useTranslations('features');
@@ -63,9 +67,12 @@ export const AddByRSSTrackDetailHeader: React.FC<AddByRSSTrackDetailHeaderProps>
       : [];
 
   const titleNode = (
-    <Link className={styles.episodeTitleLink} href={getAddByRSSItemPath(itemIdText, 'tracks')}>
-      <h2 className={styles.episodeTitle}>{title || 'Untitled'}</h2>
-    </Link>
+    <>
+      <Link className={styles.episodeTitleLink} href={getAddByRSSItemPath(itemIdText, 'tracks')}>
+        <h2 className={styles.episodeTitle}>{title || 'Untitled'}</h2>
+      </Link>
+      <TrackArtistByline links={artistLinks ?? []} />
+    </>
   );
 
   const queue =

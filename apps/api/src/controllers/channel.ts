@@ -15,11 +15,13 @@ import {
   validateParamsObject,
   validateQueryObject,
 } from '@api/lib/validation/index.js';
+import { attachVerifiedPublishers } from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
 import type {
   CategoryMappingKeys,
+  DTOChannelDirectoryMatch,
   QueryParamsMedium,
   StatsAggregatedRangeCountField,
 } from '@podverse/helpers';
@@ -33,6 +35,7 @@ import type {
 } from '@podverse/orm';
 import {
   AccountFollowingChannelService,
+  ChannelAddByRSSDirectoryMatchService,
   channelGetManyRelations,
   channelGetOneRelations,
   ChannelMergeRedirectService,
@@ -41,8 +44,18 @@ import {
   subChannelGetManyRelations,
 } from '@podverse/orm';
 
+const directoryMatchQuerySchema = {
+  feed_guid: Joi.string().trim().min(1).max(255).required(),
+  feed_url: Joi.string()
+    .trim()
+    .uri({ scheme: ['http', 'https'] })
+    .max(2048)
+    .optional(),
+};
+
 export class ChannelController {
   private static channelService = new ChannelService();
+  private static directoryMatchService = new ChannelAddByRSSDirectoryMatchService();
   private static mergeRedirects = new ChannelMergeRedirectService();
   private static statsAggregatedChannelService = new StatsAggregatedChannelService();
 
@@ -122,6 +135,9 @@ export class ChannelController {
           channelGetOneRelations
         );
         const parsedReadyChannel = ChannelController.isParsedReadyChannel(data) ? data : null;
+        if (parsedReadyChannel) {
+          await attachVerifiedPublishers({ channels: [parsedReadyChannel] });
+        }
         handleReturnDataOrNotFound(res, parsedReadyChannel, 'Channel');
       } catch (error) {
         handleGenericErrorResponse(res, error);
@@ -159,6 +175,41 @@ export class ChannelController {
         handleGenericErrorResponse(res, error);
       }
     });
+  }
+
+  static async getDirectoryMatch(req: Request, res: Response): Promise<void> {
+    validateQueryObject(
+      Joi.object(directoryMatchQuerySchema),
+      req,
+      res,
+      async (): Promise<void> => {
+        try {
+          const feedGuidQuery = req.query.feed_guid;
+          const feedUrlQuery = req.query.feed_url;
+          if (typeof feedGuidQuery !== 'string') {
+            res.status(400).json({ message: '"feed_guid" is required' });
+            return;
+          }
+          const feedUrl = typeof feedUrlQuery === 'string' ? feedUrlQuery : null;
+          const matches = await ChannelController.directoryMatchService.getForListedFeeds([
+            { feedGuid: feedGuidQuery, feedUrl },
+          ]);
+          const match = matches.get(feedGuidQuery.trim().toLowerCase()) ?? null;
+          // No match is null with 200 so a client can tell "not in the directory" from a failure.
+          const body: DTOChannelDirectoryMatch | null =
+            match === null
+              ? null
+              : {
+                  id_text: match.channelIdText,
+                  title: match.title,
+                  medium_id: match.mediumId,
+                };
+          res.json(body);
+        } catch (error) {
+          handleGenericErrorResponse(res, error);
+        }
+      }
+    );
   }
 
   static async getManyGlobalRecent(req: Request, res: Response): Promise<void> {

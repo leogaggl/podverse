@@ -201,10 +201,9 @@ const {
   });
   const defaultPublisherFeedGet = async () => ({
     channel: { id: 1, id_text: 'pub-ch' },
-    publisherChannelsAdded: [],
-    publisherChannelsUnadded: [],
-    publisherItemsAdded: [],
-    publisherItemsUnadded: [],
+    verifiedAlbums: [],
+    notYetAddedAlbumRefs: [],
+    tracks: [],
   });
   const defaultGetAccount = async (id: number) => {
     if (id !== TEST_USER_ID) {
@@ -361,9 +360,14 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getPublisherFeedRemoteItemsForChannel = publisherFeedGetMock;
   }
 
+  class MockChannelVerifiedPublisherService {
+    getPublisherSummaries = vi.fn(async () => []);
+  }
+
   return {
     ...actual,
     CategoryService: MockCategoryService,
+    ChannelVerifiedPublisherService: MockChannelVerifiedPublisherService,
     AccountService: MockAccountService,
     AccountFollowingChannelService: MockAccountFollowingChannelService,
     ChannelService: MockChannelService,
@@ -1095,6 +1099,7 @@ describe('category, channel, item, chapters, soundbites, transcripts, live, podr
       const res = await request(app).get(`${publisherFeedBase}/channel/pub-1`);
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('channel');
+      expect(res.body.itemsUnadded).toEqual([]);
     });
   });
 });

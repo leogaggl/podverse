@@ -7,8 +7,11 @@ import type { FeedObject } from '../types/partytime.js';
 import { Phase4Medium } from '../types/partytime.js';
 import {
   ADD_BY_RSS_RESOURCE_TYPES,
+  addByRSSResourceTypeListsFeeds,
   getAddByRSSDetailRouteSegment,
   getAddByRSSResourceTypeFromMappedFeed,
+  getAddByRSSResourceTypeFromMediumId,
+  getAddByRSSResourceTypeFromParsedFeed,
   isAddByRSSResourceType,
   toAddByRSSResourceType,
 } from './resourceType.js';
@@ -65,5 +68,38 @@ describe('getAddByRSSResourceTypeFromMappedFeed', () => {
     expect(mapped.channel.channel.medium_id).toBe(MediumEnum.Podcast);
     expect(getAddByRSSResourceTypeFromMappedFeed(mapped)).toBe('podcasts');
     expect(getAddByRSSResourceTypeFromMappedFeed(null)).toBe('podcasts');
+  });
+});
+
+describe('getAddByRSSResourceTypeFromMediumId', () => {
+  it('maps artist, album, generic publisher, and a missing medium', () => {
+    expect(getAddByRSSResourceTypeFromMediumId(22)).toBe('artists');
+    expect(getAddByRSSResourceTypeFromMediumId(3)).toBe('albums');
+    expect(getAddByRSSResourceTypeFromMediumId(1)).toBe('podcasts');
+    expect(getAddByRSSResourceTypeFromMediumId(null)).toBe('podcasts');
+  });
+});
+
+describe('getAddByRSSResourceTypeFromParsedFeed', () => {
+  it('reads a publisher feed of music albums as artists and a music feed as albums', () => {
+    const artist = feed({
+      medium: Phase4Medium.Publisher,
+      podcastRemoteItems: [
+        { feedGuid: 'album-1', medium: Phase4Medium.Music },
+        { feedGuid: 'album-2', medium: Phase4Medium.Music },
+      ],
+    });
+    expect(getAddByRSSResourceTypeFromParsedFeed(artist)).toBe('artists');
+    expect(getAddByRSSResourceTypeFromParsedFeed(feed({ medium: Phase4Medium.Music }))).toBe(
+      'albums'
+    );
+  });
+});
+
+describe('addByRSSResourceTypeListsFeeds', () => {
+  it('is true only for artists', () => {
+    for (const resourceType of ADD_BY_RSS_RESOURCE_TYPES) {
+      expect(addByRSSResourceTypeListsFeeds(resourceType)).toBe(resourceType === 'artists');
+    }
   });
 });

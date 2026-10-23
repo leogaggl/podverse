@@ -56,7 +56,7 @@ const getLiveItemGuid = (
   fallbackId: number
 ): string => liveBundle.item.guid ?? `${feed.idText}-${fallbackId}`;
 
-const toIndexItem = (
+export const toAddByRSSItemIndexItem = (
   feed: AddByRSSFeedRecord,
   bundle: AddByRSSMappedFeed['items'][number],
   fallbackId: number,
@@ -81,7 +81,7 @@ const toIndexItem = (
   };
 };
 
-const toLiveIndexItem = (
+export const toAddByRSSLivestreamIndexItem = (
   feed: AddByRSSFeedRecord,
   liveBundle: AddByRSSMappedFeed['liveItems'][number],
   fallbackId: number,
@@ -175,7 +175,7 @@ export const buildAddByRSSItemsIndex = async (feeds: AddByRSSFeedRecord[]) => {
       const itemGuid = bundle.item.guid ?? `${feed.idText}-${index}`;
       const compositeId = `${feed.idText}-${itemGuid}`;
       const existingIdText = existingIdTextMap.get(compositeId);
-      items.push(toIndexItem(feed, bundle, index, existingIdText));
+      items.push(toAddByRSSItemIndexItem(feed, bundle, index, existingIdText));
     });
     processed += feedItems.length;
     if (processed >= BUILD_CHUNK_SIZE) {
@@ -217,7 +217,7 @@ export const buildAddByRSSLivestreamIndex = async (
       const itemGuid = getLiveItemGuid(feed, bundle, index);
       const compositeId = `${feed.idText}-${itemGuid}`;
       const existingIdText = existingIdTextMap.get(compositeId);
-      items.push(toLiveIndexItem(feed, bundle, index, existingIdText));
+      items.push(toAddByRSSLivestreamIndexItem(feed, bundle, index, existingIdText));
     });
     processed += liveItems.length;
     if (processed >= BUILD_CHUNK_SIZE) {
@@ -251,7 +251,7 @@ export const getFastAddByRSSItemsPage = (params: {
     }
     const feedItems = feed.mappedFeed?.items ?? [];
     for (const bundle of feedItems) {
-      items.push(toIndexItem(feed, bundle, seen));
+      items.push(toAddByRSSItemIndexItem(feed, bundle, seen));
       seen += 1;
       if (items.length >= params.pageSize) {
         break;
@@ -290,7 +290,7 @@ export const findAddByRSSItemByGuid = (
       if (guid && guid === itemGuid) {
         const compositeId = `${feed.idText}-${itemGuid}`;
         const existingIdText = existingIdTextMap?.get(compositeId);
-        return toIndexItem(feed, bundle, fallbackId, existingIdText);
+        return toAddByRSSItemIndexItem(feed, bundle, fallbackId, existingIdText);
       }
       fallbackId += 1;
     }
@@ -334,7 +334,7 @@ export const findAddByRSSItemInFeed = (
     }
     const itemGuid = bundle.item.guid ?? `${feed.idText}-${index}`;
     const existingIdText = existingIdTextMap?.get(`${feed.idText}-${itemGuid}`);
-    return toIndexItem(feed, bundle, index, existingIdText);
+    return toAddByRSSItemIndexItem(feed, bundle, index, existingIdText);
   }
 
   return null;

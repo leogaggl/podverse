@@ -1,5 +1,6 @@
 import type {
   AddByRSSParseCacheEntry,
+  AddByRSSPublisherListedFeed,
   AddByRSSResourceData,
   QueueResourcesAbridgedIndex,
 } from '@podverse/helpers';
@@ -149,12 +150,18 @@ export function mapParsedFeedToPreview(mappedFeed: AddByRSSMappedFeed): AddByRss
 }
 
 export type AddByRssPollResult = {
+  /** The challenge the feed host answered a `failed` parse with, when the worker recorded one. */
+  authChallenge?: ParseStatusPayload['authChallenge'];
   /** Whether the worker sent device-held credentials to the feed host. Never the values. */
   credentialsState?: ParseStatusPayload['credentialsState'];
   /** Machine-readable reason for a `failed` parse, when the worker classified one. */
   failureReason?: ParseStatusPayload['failureReason'];
+  /** The feed host's HTTP status on a `failed` parse, when the worker recorded one. */
+  httpStatus?: number;
   mappedFeed: AddByRSSMappedFeed | null;
   preview: AddByRssParsePreview;
+  /** On a `parsed` artist status: everything the artist lists. Absent means keep what is stored. */
+  publisherListedFeeds?: AddByRSSPublisherListedFeed[];
   /**
    * Where the server parse ended up. `pending` means it had not resolved when polling gave up. A
    * `failed` parse is usually the feed host (unreachable, an HTTP error, or XML that is not a feed),
@@ -191,9 +198,12 @@ function resolveParseResult(
 
 export async function pollAddByRssParseStatus(
   requestId: string,
-  fetchStatus: (requestId: string) => Promise<ParseStatusPayload>
+  fetchStatus: (requestId: string) => Promise<ParseStatusPayload>,
+  options?: { attempts?: number; delayMs?: number }
 ): Promise<AddByRssPollResult> {
-  for (let index = 0; index < STATUS_POLL_ATTEMPTS; index += 1) {
+  const attempts = options?.attempts ?? STATUS_POLL_ATTEMPTS;
+  const delayMs = options?.delayMs ?? STATUS_POLL_DELAY_MS;
+  for (let index = 0; index < attempts; index += 1) {
     const statusResponse = await fetchStatus(requestId);
     if (
       statusResponse.status === 'parsed' ||
@@ -202,14 +212,21 @@ export async function pollAddByRssParseStatus(
     ) {
       return {
         ...resolveParseResult(statusResponse),
+        authChallenge: statusResponse.authChallenge,
         credentialsState: statusResponse.credentialsState,
         failureReason: statusResponse.failureReason,
+        httpStatus: statusResponse.httpStatus,
+        ...(statusResponse.publisherListedFeeds !== undefined
+          ? { publisherListedFeeds: statusResponse.publisherListedFeeds }
+          : {}),
         serverError: toNonEmptyTrimmedString(statusResponse.error),
         status: statusResponse.status,
       };
     }
 
-    await sleep(STATUS_POLL_DELAY_MS);
+    if (index < attempts - 1) {
+      await sleep(delayMs);
+    }
   }
 
   return { mappedFeed: null, preview: { ...EMPTY_PREVIEW }, serverError: null, status: 'pending' };
@@ -301,6 +318,8 @@ export function mergeLocalAndRemoteAddByRssFeeds(
     return {
       enclosureUrl: localFeed?.enclosureUrl ?? null,
       feedUrl: remoteFeed.feed_url,
+      // A server follow is a follow, including a row held only because an artist lists it.
+      followed: true,
       id: localFeed?.id ?? createAddByRSSId(localFeed?.idText ?? createAddByRSSIdText()),
       idText: localFeed?.idText ?? createAddByRSSIdText(),
       imageUrl: remoteFeed.image_url ?? localFeed?.imageUrl ?? null,
@@ -322,9 +341,11 @@ export function mergeLocalAndRemoteAddByRssFeeds(
     };
   });
 
-  // Include locally added feeds absent from the remote followed list so a just-added feed renders
-  // immediately even if the remote list lags.
-  const localOnly = localFeeds.filter((feed) => !remoteUrls.has(feed.feedUrl));
+  // Local listed-only rows are inputs for id reuse, not output. A feed this device follows
+  // renders when the account list lags behind it.
+  const localOnly = localFeeds.filter(
+    (feed) => feed.followed !== false && !remoteUrls.has(feed.feedUrl)
+  );
 
   return [...mergedRemote, ...localOnly];
 }

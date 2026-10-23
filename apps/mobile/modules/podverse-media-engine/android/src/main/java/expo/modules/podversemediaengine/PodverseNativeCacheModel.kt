@@ -34,6 +34,7 @@ object PodverseNativeCacheModel {
     val artworkUrl: String?,
     val mediaUrl: String?,
     val channelTitle: String?,
+    val artist: String?,
   )
 
   data class QueueEntry(
@@ -42,6 +43,7 @@ object PodverseNativeCacheModel {
     val artworkUrl: String?,
     val mediaUrl: String?,
     val podcastTitle: String?,
+    val artist: String?,
     val startPositionSeconds: Double?,
     val downloadFileName: String?,
   )
@@ -55,6 +57,7 @@ object PodverseNativeCacheModel {
     val idText: String,
     val title: String,
     val subtitle: String?,
+    val artist: String?,
     val artworkUrl: String?,
     val mediaUrl: String?,
     val downloadFileName: String?,
@@ -66,6 +69,7 @@ object PodverseNativeCacheModel {
     val idText: String,
     val title: String,
     val channelTitle: String?,
+    val artist: String?,
     val artworkUrl: String?,
     val mediaUrl: String?,
     val downloadFileName: String?,
@@ -120,6 +124,7 @@ object PodverseNativeCacheModel {
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
           mediaUrl = optStringOrNull(obj, "mediaUrl"),
           channelTitle = optStringOrNull(obj, "channelTitle"),
+          artist = optStringOrNull(obj, "artist"),
         ))
     }
     return entries
@@ -141,6 +146,7 @@ object PodverseNativeCacheModel {
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
           mediaUrl = optStringOrNull(obj, "mediaUrl"),
           podcastTitle = optStringOrNull(obj, "podcastTitle"),
+          artist = optStringOrNull(obj, "artist"),
           startPositionSeconds =
             if (obj.has("startPositionSeconds") && !obj.isNull("startPositionSeconds"))
               obj.optDouble("startPositionSeconds")
@@ -164,6 +170,7 @@ object PodverseNativeCacheModel {
           idText = idText,
           title = title,
           subtitle = optStringOrNull(obj, "subtitle"),
+          artist = optStringOrNull(obj, "artist"),
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
           mediaUrl = optStringOrNull(obj, "mediaUrl"),
           downloadFileName = optStringOrNull(obj, "downloadFileName"),
@@ -190,6 +197,7 @@ object PodverseNativeCacheModel {
           idText = idText,
           title = title,
           channelTitle = optStringOrNull(obj, "channelTitle"),
+          artist = optStringOrNull(obj, "artist"),
           artworkUrl = optStringOrNull(obj, "artworkUrl"),
           mediaUrl = optStringOrNull(obj, "mediaUrl"),
           downloadFileName = optStringOrNull(obj, "downloadFileName"),

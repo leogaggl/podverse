@@ -14,8 +14,8 @@ export class ChannelPublisherRemoteItemService extends BaseRemoteItemsService<
     super(ChannelPublisherRemoteItem, 'channel_publisher', transactionalEntityManager);
   }
 
-  async getAll(channel_podroll: ChannelPublisher): Promise<ChannelPublisherRemoteItem[]> {
-    return super.getAll(channel_podroll);
+  async getAll(channel_publisher: ChannelPublisher): Promise<ChannelPublisherRemoteItem[]> {
+    return super.getAll(channel_publisher);
   }
 
   async update(
@@ -25,20 +25,27 @@ export class ChannelPublisherRemoteItemService extends BaseRemoteItemsService<
     return super.update(channel_publisher, dto);
   }
 
+  /**
+   * Replaces the channel-level claims (item_id null) with `dtos`, in feed order. Deleting first
+   * keeps ids in feed order, and the lowest id is the primary publisher. Item-level claims are
+   * left alone.
+   *
+   * `update` upserts by feed_guid, feed_url, and item_guid within the parent and ignores
+   * item_id. Insert an item-level claim with item_id set instead of calling `update`: the same
+   * guid would otherwise reuse that row for a channel-level claim.
+   */
   async updateMany(
     channel_publisher: ChannelPublisher,
     dtos: RemoteItemDto[]
   ): Promise<ChannelPublisherRemoteItem[]> {
     const filteredDtos = filterInvalidFeedUuids(dtos);
-
-    // Per RSS spec, publisher can only have ONE remote item.
-    // Delete existing before inserting to avoid unique constraint violation.
-    const existing = await this.getAll(channel_publisher);
+    const existing = (await this.getAll(channel_publisher)).filter(
+      (claim) => claim.item_id === null
+    );
     if (existing.length > 0) {
       await this.repositoryReadWrite.remove(existing);
     }
 
-    // Insert the new one (should be exactly 1 per spec)
     const results: ChannelPublisherRemoteItem[] = [];
     for (const dto of filteredDtos) {
       const entity = await this.update(channel_publisher, dto);

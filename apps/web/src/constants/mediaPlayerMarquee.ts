@@ -19,6 +19,6 @@ type MediaPlayerMarqueeTurnGroupKey = keyof typeof MEDIA_PLAYER_MARQUEE_TURN_GRO
 /** Position of each line within its group's rotation. Lower goes first. */
 export const MEDIA_PLAYER_MARQUEE_TURN_ORDER = {
   playerBar: { title: 0, segment: 1, channel: 2 },
-  fullPlayer: { title: 0, channel: 1, subsection: 2 },
+  fullPlayer: { title: 0, artist: 1, channel: 2, subsection: 3 },
   embedPlayer: { title: 0, segment: 1, channel: 2 },
 } as const satisfies Record<MediaPlayerMarqueeTurnGroupKey, Record<string, number>>;

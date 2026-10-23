@@ -227,6 +227,30 @@ export class AccountFollowingChannelService extends BaseManyService<
     return this._delete(account, { channel_id: channel.id });
   }
 
+  /** Ends this account's follow of each channel. Unknown `id_text`s are skipped. */
+  async unfollowChannelsBulk(account_id: number, channel_id_texts: string[]): Promise<void> {
+    const account = await this.accountService.get(account_id);
+    if (!account) {
+      throw new Error('Account not found.');
+    }
+
+    const unique = [...new Set(channel_id_texts)];
+    if (unique.length === 0) {
+      return;
+    }
+
+    const channels = await this.channelService.getManyByIdTexts(unique);
+    if (channels.length === 0) {
+      return;
+    }
+
+    const ids = channels.map((channel) => channel.id);
+    await this.repositoryReadWrite.delete({
+      account_id: Equal(account.id),
+      channel_id: In(ids),
+    } as FindOptionsWhere<AccountFollowingChannel>);
+  }
+
   async getFollowedChannelsByAccountIdTextWithCount(
     account_id_text: string,
     mediumType: QueryParamsMedium | null = null,

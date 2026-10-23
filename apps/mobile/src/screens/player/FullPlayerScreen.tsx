@@ -40,6 +40,7 @@ import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { nativePlaybackBridge } from '../../bridge/nativePlaybackBridge';
 import { useBoostSheet } from '../../components/boost/useBoostSheet';
 import {
+  ArtistChooserSheet,
   ChapterListRow,
   DescriptionText,
   FundingLinksSection,
@@ -84,6 +85,7 @@ import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindo
 import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscriptionsMerge';
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { useActionError } from '../../feedback/ActionErrorProvider';
+import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
 import type { AutoQueueSeed } from '../../hooks/useAutoQueueLoadResources';
 import { useAutoQueueLoadResources } from '../../hooks/useAutoQueueLoadResources';
 import { useItemDescription } from '../../hooks/useItemDescription';
@@ -100,7 +102,11 @@ import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
 } from '../../lib/offlineModeViews';
+import { playbackTargetRowMediaId } from '../../lib/playback/buildPlaybackTarget';
 import { isMusicPlaybackTarget } from '../../lib/playback/engineAudioProfile';
+import type { LineArtist } from '../../lib/playback/lineArtist';
+import { joinLineArtistTitles } from '../../lib/playback/lineArtist';
+import { playbackTargetArtists } from '../../lib/playback/verifiedArtists';
 import { clipToHomeRow } from '../../lib/rows/homeRowMappers';
 import { buildNowPlayingShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
@@ -146,6 +152,7 @@ import type {
   FullPlayerOpenRequest,
 } from './fullPlayerContentLink';
 import {
+  fullPlayerArtistLink,
   fullPlayerOpenScreenLabelKey,
   playerContentStack,
   resolveFullPlayerChannelLink,
@@ -153,13 +160,14 @@ import {
   resolveLocalAddByRssFeedIdText,
 } from './fullPlayerContentLink';
 import {
+  FULL_PLAYER_ARTIST_LINE_HEIGHT,
   FULL_PLAYER_CHIP_HEADER_HEIGHT,
   FULL_PLAYER_CONTROL_STACK_GAP,
   FULL_PLAYER_REGION_BOTTOM_PADDING,
   FULL_PLAYER_REGION_GAP,
   FULL_PLAYER_REGION_TOP_PADDING,
-  FULL_PLAYER_TITLE_BLOCK_HEIGHT,
   resolveFullPlayerLayout,
+  resolveFullPlayerTitleBlockHeight,
   resolveFullPlayerViewport,
 } from './fullPlayerLayout';
 import { FullPlayerSleepTimer } from './FullPlayerSleepTimer';
@@ -430,6 +438,25 @@ export function FullPlayerScreen({
     () => resolveFullPlayerChannelLink(activeTarget, visibleChannelTitle, addByRssFeedIdText),
     [activeTarget, addByRssFeedIdText, visibleChannelTitle]
   );
+  const artistIndexVersion = useAddByRssArtistIndexVersion();
+  const playerArtists = useMemo(
+    () => playbackTargetArtists(activeTarget),
+    [activeTarget, artistIndexVersion]
+  );
+  const artistLineText = joinLineArtistTitles(playerArtists);
+  const artistBandMediaId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
+  const [artistBand, setArtistBand] = useState<{ mediaId: string | null; reserved: boolean }>(
+    () => ({ mediaId: artistBandMediaId, reserved: playerArtists.length > 0 })
+  );
+  const [isArtistChooserOpen, setIsArtistChooserOpen] = useState(false);
+  if (artistBand.mediaId !== artistBandMediaId) {
+    setArtistBand({ mediaId: artistBandMediaId, reserved: playerArtists.length > 0 });
+    setIsArtistChooserOpen(false);
+  }
+  // The band is decided when an item starts. A later refresh of the same item that adds or drops
+  // artists does not resize the block.
+  const hasArtistLine =
+    artistBand.mediaId === artistBandMediaId ? artistBand.reserved : playerArtists.length > 0;
 
   const addByRssResourceData =
     activeTarget?.kind === 'add-by-rss' ? activeTarget.resourceData : null;
@@ -492,6 +519,26 @@ export function FullPlayerScreen({
     },
     [channel, onOpenContent]
   );
+  const openArtist = useCallback(
+    (artist: LineArtist) => {
+      const link = fullPlayerArtistLink(artist);
+      const isSubscribed =
+        artist.kind === 'directory' &&
+        getChannelActionChrome(artist.publisher.id_text)?.isSubscribed === true;
+      onOpenContent({ ...link, stack: playerContentStack({ isSubscribed, kind: link.kind }) });
+    },
+    [onOpenContent]
+  );
+  const onArtistLinePress = useCallback(() => {
+    const [only] = playerArtists;
+    if (playerArtists.length === 1 && only !== undefined) {
+      openArtist(only);
+      return;
+    }
+    if (playerArtists.length > 1) {
+      setIsArtistChooserOpen(true);
+    }
+  }, [openArtist, playerArtists]);
   const openTitleContent = useCallback(() => {
     if (titleLink === null) {
       return;
@@ -708,6 +755,7 @@ export function FullPlayerScreen({
     () =>
       resolveFullPlayerLayout({
         chipStripHeight,
+        hasArtistLine,
         hasSegmentBand,
         hasSections,
         isTablet,
@@ -724,6 +772,7 @@ export function FullPlayerScreen({
     [
       chipStripHeight,
       contentMaxWidth,
+      hasArtistLine,
       hasSegmentBand,
       hasSections,
       insets.bottom,
@@ -864,6 +913,13 @@ export function FullPlayerScreen({
           color: tokens.text.link,
           marginTop: tokens.spacing.sm,
         },
+        artistLine: {
+          color: tokens.text.link,
+          fontSize: 15,
+          fontWeight: '600',
+          lineHeight: FULL_PLAYER_ARTIST_LINE_HEIGHT,
+          textAlign: 'center',
+        },
         subtitle: {
           fontSize: 17,
           fontWeight: '600',
@@ -890,7 +946,6 @@ export function FullPlayerScreen({
         titleBlock: {
           alignItems: 'stretch',
           gap: tokens.spacing.xs,
-          height: FULL_PLAYER_TITLE_BLOCK_HEIGHT,
           justifyContent: 'center',
           overflow: 'hidden',
           width: '100%',
@@ -1491,7 +1546,13 @@ export function FullPlayerScreen({
     >
       <View style={[styles.column, styles.playerRegionContent, styles.playerRegionFull]}>
         <View style={styles.playerRegionUpperBands}>
-          <View pointerEvents="box-none" style={styles.titleBlock}>
+          <View
+            pointerEvents="box-none"
+            style={[
+              styles.titleBlock,
+              { height: resolveFullPlayerTitleBlockHeight(hasArtistLine) },
+            ]}
+          >
             {titleLink !== null && visibleTitle !== null ? (
               <Pressable
                 accessibilityLabel={contentLinkLabel(titleLink)}
@@ -1521,6 +1582,24 @@ export function FullPlayerScreen({
                 {visibleTitle ?? t('media_player.fullscreen_media_player')}
               </MarqueeText>
             )}
+            {hasArtistLine && artistLineText.length > 0 ? (
+              <Pressable
+                accessibilityLabel={t('media_player.open_named_screen', {
+                  name: artistLineText,
+                  screen: t(
+                    playerArtists.length > 1 ? 'media.music.artists' : 'media.music.artist'
+                  ),
+                })}
+                accessibilityRole="link"
+                onPress={onArtistLinePress}
+                style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}
+                testID="full-player-artist-link"
+              >
+                <Text numberOfLines={1} style={styles.artistLine}>
+                  {artistLineText}
+                </Text>
+              </Pressable>
+            ) : null}
             {visibleChannelTitle !== null && visibleChannelTitle.length > 0 ? (
               channelLink !== null ? (
                 <Pressable
@@ -1785,6 +1864,18 @@ export function FullPlayerScreen({
         onTogglePlayed={handleMarkAsPlayed}
         onToggleSubscription={handleToggleSubscription}
         visible={openSheet === 'more'}
+      />
+      <ArtistChooserSheet
+        artists={playerArtists}
+        onCancel={() => {
+          setIsArtistChooserOpen(false);
+        }}
+        onSelect={(artist) => {
+          setIsArtistChooserOpen(false);
+          openArtist(artist);
+        }}
+        testID="full-player-artist-chooser"
+        visible={isArtistChooserOpen}
       />
       {addToPlaylistSheet}
       {boostSheet}

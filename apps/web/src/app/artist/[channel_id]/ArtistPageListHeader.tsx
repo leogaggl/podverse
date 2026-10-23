@@ -3,15 +3,18 @@
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
+import type { DTOChannel } from '@podverse/helpers';
 import type { QueryParamsChannelMusicArtistType } from '@podverse/helpers-requests';
 import { QUERY_PARAMS_CHANNEL_MUSIC_ARTIST_TYPE_VALUES } from '@podverse/helpers-requests';
 import { Tabs } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
 import { useAccount } from '../../../contexts/Account';
+import { useArtistPageAddByRssPresence } from './ArtistPageAddByRssSections';
 import { useArtistPageContext } from './ArtistPageContext';
 
 type ArtistPageListHeaderProps = {
+  channel: DTOChannel;
   ssrHasPodroll: boolean;
   ssrHasAlbums: boolean;
   ssrHasTracks: boolean;
@@ -21,6 +24,7 @@ type ArtistPageListHeaderProps = {
 };
 
 export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
+  channel,
   ssrHasPodroll,
   ssrHasAlbums,
   ssrHasTracks,
@@ -28,6 +32,9 @@ export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
   ssrHasPeople,
   ssrCanShowBoosts,
 }) => {
+  const presence = useArtistPageAddByRssPresence(channel);
+  const showAlbums = ssrHasAlbums || presence.hasAlbums;
+  const showTracks = ssrHasTracks || presence.hasTracks;
   const { filterParams, setFilterParams } = useArtistPageContext();
   const { type } = filterParams;
   const tMedia = useTranslations('media');
@@ -50,7 +57,7 @@ export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
 
   const tabData = [];
 
-  if (ssrHasAlbums) {
+  if (showAlbums) {
     tabData.push({
       key: 'albums',
       label: tMedia('music.albums'),
@@ -60,7 +67,7 @@ export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
     });
   }
 
-  if (ssrHasTracks) {
+  if (showTracks) {
     tabData.push({
       key: 'tracks',
       label: tMedia('music.tracks'),

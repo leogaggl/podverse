@@ -1,0 +1,30 @@
+@use '../../../mixins/focus' as focus;
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.artistButton {
+  background: none;
+  border: none;
+  color: var(--text-color-accent);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-light);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artistButton:focus-visible {
+  @include focus.focus-ring;
+}

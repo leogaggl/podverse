@@ -6,7 +6,6 @@ import React from 'react';
 import type {
   DTOChannel,
   DTOItem,
-  EpisodeByGuidResponse,
   PodcastBatchByFeedGuidResponse,
   RemoteItemsResponse,
 } from '@podverse/helpers';
@@ -19,8 +18,9 @@ import { ContentPeopleRows } from '../../../components/Content/About/ContentPeop
 import { ContentPodroll } from '../../../components/Content/Podroll/ContentPodroll';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { ListChannelSettings } from '../../../components/List/ListChannelSettings';
-import { ListAlbumsRemoteItems } from '../../../components/List/Music/Albums/ListAlbumsRemoteItems';
 import { ListTracksRemoteItems } from '../../../components/List/Music/Albums/Tracks/ListTracksRemoteItems';
+import { ArtistPageYourAddByRssTracks } from './ArtistPageAddByRssSections';
+import { ArtistPageAlbumSections } from './ArtistPageAlbumSections';
 import { useArtistPageContext } from './ArtistPageContext';
 
 type ArtistPageListProps = {
@@ -29,7 +29,6 @@ type ArtistPageListProps = {
   ssrChannelsAdded: DTOChannel[];
   ssrChannelsUnadded: PodcastBatchByFeedGuidResponse['feeds'];
   ssrItemsAdded: DTOItem[];
-  ssrItemsUnadded: NonNullable<EpisodeByGuidResponse['episode']>[];
   ssrCanShowBoosts: boolean;
 };
 
@@ -39,7 +38,6 @@ export const ArtistPageList: React.FC<ArtistPageListProps> = ({
   ssrChannelsAdded,
   ssrChannelsUnadded,
   ssrItemsAdded,
-  ssrItemsUnadded,
   ssrCanShowBoosts,
 }) => {
   const tV4VBoostMessages = useTranslations('v4v.boost_messages');
@@ -57,19 +55,17 @@ export const ArtistPageList: React.FC<ArtistPageListProps> = ({
   return (
     <DetailListWrapper>
       {type === 'albums' && (
-        <ListAlbumsRemoteItems
+        <ArtistPageAlbumSections
+          channel={ssrChannel}
           channelsAdded={ssrChannelsAdded}
           channelsUnadded={ssrChannelsUnadded}
-          viewSelected="rows"
         />
       )}
       {type === 'tracks' && (
-        <ListTracksRemoteItems
-          channelsAdded={ssrChannelsAdded}
-          itemsAdded={ssrItemsAdded}
-          itemsUnadded={ssrItemsUnadded}
-          viewSelected="rows"
-        />
+        <>
+          <ListTracksRemoteItems itemsAdded={ssrItemsAdded} viewSelected="rows" />
+          <ArtistPageYourAddByRssTracks channel={ssrChannel} />
+        </>
       )}
       {type === 'boosts' && boostsPageFetcher !== null && (
         <BoostMessagesSection

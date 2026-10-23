@@ -11,6 +11,7 @@ import {
 } from '../../../constants/mediaPlayerMarquee';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
+import { useDeviceArtistLinks } from '../../../hooks/useDeviceArtistLinks';
 import {
   buildMediaPlayerArtworkImageCandidates,
   getMediaPlayerArtworkSources,
@@ -31,6 +32,7 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
     mpItemSoundbite,
     setPlayerModalIsOpen,
   } = useMediaPlayer();
+  const deviceArtistLinks = useDeviceArtistLinks();
   const { mpCurrentTime } = useMediaPlayerCurrentTime();
   const tMediaPlayer = useTranslations('media_player');
   const tMisc = useTranslations('misc');
@@ -45,9 +47,10 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
     mpItemChapter,
     mpItemChapters,
     currentTimeSeconds: mpCurrentTime,
+    deviceArtistLinks,
   });
   const title = hasContent ? (infoResolution.itemTitle ?? tMisc('untitled')) : '';
-  const subtitle = hasContent ? (infoResolution.channelTitle ?? tMisc('untitled')) : '';
+  const subtitle = hasContent ? (infoResolution.compactChannelLine ?? tMisc('untitled')) : '';
 
   const { channelImages, itemImages } = getMediaPlayerArtworkSources({
     mpChannel,

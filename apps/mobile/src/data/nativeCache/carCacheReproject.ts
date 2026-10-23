@@ -14,6 +14,7 @@ import {
   DEFAULT_ENCLOSURE_SELECTED_PARAMS,
   resolveItemEnclosureUrl,
 } from '../../lib/playback/resolveEnclosureUrl';
+import { itemArtistNames } from '../../lib/playback/verifiedArtists';
 import { addByRssRepository } from '../repositories/addByRssRepository';
 import { channelItemsRepository } from '../repositories/channelItemsRepository';
 import { channelLiveStatusRepository } from '../repositories/channelLiveStatusRepository';
@@ -95,6 +96,7 @@ const toQueueEntry = (resource: DTOQueueResource): NativeCacheQueueEntry | null 
     artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
     mediaUrl: resolveMediaUrl(item),
     podcastTitle: item.channel?.title ?? null,
+    artist: itemArtistNames(item),
     durationMs: durationMsFromItem(item),
     startPositionSeconds:
       Number.isFinite(positionSeconds) && positionSeconds > 0 ? positionSeconds : null,
@@ -125,6 +127,7 @@ const toChildItem = (
     idText: item.id_text,
     title: item.title ?? item.id_text,
     subtitle: item.channel?.title ?? null,
+    artist: itemArtistNames(item),
     artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
     mediaUrl: downloadFileName ?? resolveMediaUrl(item),
     durationMs: durationMsFromItem(item),
@@ -321,6 +324,7 @@ export const reprojectHistoryIndex = async (queueIdText?: string | null): Promis
         idText: item.id_text,
         title: item.title ?? item.id_text,
         channelTitle: item.channel?.title ?? null,
+        artist: itemArtistNames(item),
         artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
         mediaUrl: downloadFileName ?? resolveMediaUrl(item),
         mediumBucket: 'av',

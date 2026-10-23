@@ -3,6 +3,7 @@ import { createAddByRSSId, createAddByRSSIdText } from '@podverse/helpers';
 import { trackBackgroundActivity } from '../backgroundActivity/backgroundActivityStore';
 import { getFollowedAddByRSSChannels } from './api';
 import { emitAddByRSSFeedChanged } from './feedChangedEvent';
+import { pruneAddByRSSPublisherData } from './listedFeeds';
 import {
   bulkRemoveAddByRSSFeeds,
   clearAddByRSSItemsIndex,
@@ -15,7 +16,8 @@ import type { AddByRSSFeedRecord } from './types';
 /**
  * Syncs the Add by RSS IndexedDB cache with the server: removes feeds that are not
  * followed by the account, and clears the items index when a feed is removed so
- * stale items are not shown.
+ * stale items are not shown. An unfollowed artist's link goes too, with the listed albums
+ * no remaining artist lists.
  */
 export async function syncAddByRSSCacheWithServer(accountIdText: string): Promise<void> {
   await trackBackgroundActivity('add_by_rss_refresh', { counted: false }, async () => {
@@ -29,6 +31,7 @@ export async function syncAddByRSSCacheWithServer(accountIdText: string): Promis
     if (toRemove.length > 0) {
       await bulkRemoveAddByRSSFeeds(toRemove);
       await clearAddByRSSItemsIndex();
+      await pruneAddByRSSPublisherData();
     }
   });
 }
@@ -38,7 +41,8 @@ export async function syncAddByRSSCacheWithServer(accountIdText: string): Promis
  * stub for each follow it has not seen. A stub that has not been parsed takes the follow row's
  * title and artwork, which the server fills in after any device parses the feed. A parsed feed
  * keeps the title and artwork from its own parse. A stub is stored only when no row has its URL,
- * so syncs that overlap, in this tab or another, never collide on the feed URL index.
+ * so syncs that overlap, in this tab or another, never collide on the feed URL index. An
+ * unfollowed artist's link goes too, with the listed albums no remaining artist lists.
  */
 export async function syncAddByRSSFollowStubs(accountIdText: string): Promise<void> {
   await trackBackgroundActivity('add_by_rss_refresh', { counted: false }, async () => {
@@ -84,6 +88,7 @@ export async function syncAddByRSSFollowStubs(accountIdText: string): Promise<vo
     if (toRemove.length > 0) {
       await bulkRemoveAddByRSSFeeds(toRemove);
       await clearAddByRSSItemsIndex();
+      await pruneAddByRSSPublisherData();
     }
 
     const changedFeedUrls = await patchAddByRSSFollowMetadata(patches);

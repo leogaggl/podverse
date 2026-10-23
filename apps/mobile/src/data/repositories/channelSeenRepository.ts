@@ -153,7 +153,10 @@ export const channelSeenRepository = {
 
     const [channelRows, feedRows] = await Promise.all([
       getDb().select({ idText: schema.subscribedChannel.idText }).from(schema.subscribedChannel),
-      getDb().select({ feedUrl: schema.addByRssFeed.feedUrl }).from(schema.addByRssFeed),
+      getDb()
+        .select({ feedUrl: schema.addByRssFeed.feedUrl })
+        .from(schema.addByRssFeed)
+        .where(eq(schema.addByRssFeed.followed, 1)),
     ]);
 
     await upsertSeen([
@@ -177,7 +180,8 @@ export const channelSeenRepository = {
    * than the whole feed — so a badge can under-report a channel that published more than the window
    * holds. That is the right trade: the count describes what the user can actually open offline.
    *
-   * Add-by-RSS feeds are stored whole, so their counts are exact.
+   * Add-by-RSS feeds are stored whole, so their counts are exact. A feed held only because an Add
+   * by RSS artist lists it is not a subscription and gets no count.
    */
   listUnseen: async (): Promise<ChannelSeenUnseen[]> => {
     await initializeDatabase();
@@ -226,7 +230,8 @@ export const channelSeenRepository = {
         feedUrl: schema.addByRssFeed.feedUrl,
         mappedFeedJson: schema.addByRssFeed.mappedFeedJson,
       })
-      .from(schema.addByRssFeed);
+      .from(schema.addByRssFeed)
+      .where(eq(schema.addByRssFeed.followed, 1));
 
     for (const row of feedRows) {
       const lastSeenAtMs = seenByKey.get(row.feedUrl) ?? null;

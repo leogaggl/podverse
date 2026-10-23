@@ -252,6 +252,15 @@ describe('ArchiverService takedown hard-delete handling', () => {
     resetSlimMocks();
   });
 
+  it('removes verified publisher links on either side of an archived show', () => {
+    const query = CHANNEL_DETAIL_DELETE_QUERIES.find(
+      (entry) => entry.table === 'channel_verified_publisher'
+    );
+    expect(query).toBeDefined();
+    expect(query?.sql).toMatch(/channel_id = \$1 OR publisher_channel_id = \$1/);
+    expect(query?.params(7)).toEqual([7]);
+  });
+
   it('deletes channel_trailer before channel_season', () => {
     const trailer = CHANNEL_DETAIL_DELETE_QUERIES.findIndex(
       (query) => query.table === 'channel_trailer'

@@ -15,6 +15,13 @@ import {
 import { isValidHttpUrl } from '@podverse/helpers-validation/client';
 
 import type { MediaPlayerAddByRSSState } from '../../contexts/MediaPlayer';
+import type { ArtistLineLink, ArtistLinePresentation } from '../../lib/artistPublishers';
+import {
+  artistPublishersForAlbum,
+  compactArtistAlbumLine,
+  presentArtistLine,
+  presentArtistLineLinks,
+} from '../../lib/artistPublishers';
 import { selectItemChapterForTime, shouldSuppressChapterSelectionAtTime } from '../../lib/playback';
 import { getAddByRSSItemPath, getAddByRSSLivestreamPath } from '../addByRSS/itemPath';
 import { getResolvedVtsLikeTargetItem } from './vtsOverrideLikeItem';
@@ -28,6 +35,8 @@ type ResolutionParams = {
   mpItemChapter: DTOItemChapter | null;
   mpItemChapters: DTOItemChapter[] | null;
   currentTimeSeconds: number;
+  /** Add by RSS artist links from this browser, shown when no verified artist exists. */
+  deviceArtistLinks?: readonly ArtistLineLink[];
 };
 
 export type MediaPlayerInfoResolution = {
@@ -45,6 +54,13 @@ export type MediaPlayerInfoResolution = {
   /** External chapter webpage, only when a chapter (not a clip) is named and `web_url` is http(s). */
   chapterWebUrl: string | null;
   resolvedLikeTarget: DTOItem | null;
+  /** How the full-size player shows artists. `hidden` renders no row. */
+  artistLine: ArtistLinePresentation;
+  /**
+   * Player-bar second line. The album title when there is no artist. `Artist · Album` when
+   * there is one. Null when the album title is missing and there is no artist.
+   */
+  compactChannelLine: string | null;
 };
 
 const resolveChapterWebUrl = (webUrl: string | null | undefined): string | null => {
@@ -202,6 +218,7 @@ export const getMediaPlayerInfoResolution = ({
   mpItemChapter,
   mpItemChapters,
   currentTimeSeconds,
+  deviceArtistLinks,
 }: ResolutionParams): MediaPlayerInfoResolution => {
   const activeChapter = pickActiveChapter(mpItemChapter, mpItemChapters, currentTimeSeconds);
   const resolvedLikeTarget = mpItem
@@ -228,6 +245,21 @@ export const getMediaPlayerInfoResolution = ({
     mpChannel?.title ??
     null;
 
+  // Verified directory artists win; this browser's Add by RSS artists fill an empty line.
+  const artistPublishers = mpAddByRSS ? [] : artistPublishersForAlbum(mpChannel, mpItem);
+  const verifiedArtistLine = presentArtistLine(artistPublishers);
+  const artistLine =
+    verifiedArtistLine.kind === 'hidden'
+      ? presentArtistLineLinks(deviceArtistLinks ?? [])
+      : verifiedArtistLine;
+  const artistLabel =
+    artistLine.kind === 'link'
+      ? artistLine.link.title
+      : artistLine.kind === 'chooser'
+        ? artistLine.label
+        : '';
+  const compactChannelLine = compactArtistAlbumLine(artistLabel, channelTitle);
+
   return {
     itemTitle: itemTitleFromSource,
     displayItemTitle: subsectionTitle ?? itemTitleFromSource,
@@ -240,5 +272,7 @@ export const getMediaPlayerInfoResolution = ({
     subsectionEndTime,
     chapterWebUrl,
     resolvedLikeTarget,
+    artistLine,
+    compactChannelLine,
   };
 };

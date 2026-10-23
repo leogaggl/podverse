@@ -197,11 +197,17 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     return CPListTemplate(title: signedIn ? "Queue" : "Recent", sections: sections)
   }
 
+  /// "Artist · Album" when the download names an artist, else the album or podcast title.
+  private func downloadDetail(_ entry: PodverseCarPlayCacheModel.DownloadEntry) -> String? {
+    guard let artist = entry.artist else { return entry.channelTitle }
+    return [artist, entry.channelTitle].compactMap { $0 }.joined(separator: " · ")
+  }
+
   private func makeDownloadsTemplate() -> CPListTemplate {
     let downloads = PodverseCarPlayCacheModel.parseDownloadEntries(
       PodverseNativeCache.read(.downloads))
     let items = downloads.map { entry -> CPListItem in
-      let item = CPListItem(text: entry.title, detailText: entry.channelTitle)
+      let item = CPListItem(text: entry.title, detailText: downloadDetail(entry))
       item.handler = { [weak self] _, completion in
         self?.playDownload(entry)
         completion()
@@ -251,7 +257,7 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
       }
       let item = CPListItem(text: child.title, detailText: detail)
       item.handler = { [weak self] _, completion in
-        self?.playChild(child, queueMedium: node.mediumBucket)
+        self?.playChild(child, node: node)
         completion()
       }
       return item
@@ -263,7 +269,9 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     interfaceController?.pushTemplate(template, animated: true, completion: nil)
   }
 
-  private func playChild(_ child: PodverseCarPlayCacheModel.ChildItem, queueMedium: String) {
+  private func playChild(
+    _ child: PodverseCarPlayCacheModel.ChildItem, node: PodverseCarPlayCacheModel.BrowseNode
+  ) {
     let url = resolvePlayableURL(
       filePath: child.downloadFileName ?? "", mediaUrl: child.mediaUrl)
     guard let url = url else {
@@ -272,9 +280,11 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     }
     let journal = PodverseNativeCache.latestJournalPosition(idText: child.idText)
     let seek = journal?.position ?? child.progressSeconds
+    let album = child.subtitle ?? node.title
     playURL(
       url, idText: child.idText, title: child.title, artworkUrl: child.artworkUrl,
-      queueMedium: queueMedium, isLive: false, seek: seek)
+      queueMedium: node.mediumBucket, isLive: false, seek: seek,
+      subtitle: child.artist ?? album, albumTitle: child.artist != nil ? album : nil)
   }
 
   private func playQueueEntry(
@@ -290,7 +300,9 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     let seek = journal?.position ?? entry.startPositionSeconds
     playURL(
       url, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
-      queueMedium: queueMedium, isLive: false, seek: seek, subtitle: entry.podcastTitle)
+      queueMedium: queueMedium, isLive: false, seek: seek,
+      subtitle: entry.artist ?? entry.podcastTitle,
+      albumTitle: entry.artist != nil ? entry.podcastTitle : nil)
   }
 
   private func playHistory(_ entry: PodverseCarPlayCacheModel.HistoryEntry) {
@@ -302,7 +314,9 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     }
     playURL(
       url, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
-      queueMedium: "av", isLive: false, seek: nil, subtitle: entry.channelTitle)
+      queueMedium: "av", isLive: false, seek: nil,
+      subtitle: entry.artist ?? entry.channelTitle,
+      albumTitle: entry.artist != nil ? entry.channelTitle : nil)
   }
 
   private func playDownload(_ entry: PodverseCarPlayCacheModel.DownloadEntry) {
@@ -313,7 +327,9 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     let journal = PodverseNativeCache.latestJournalPosition(idText: entry.idText)
     playURL(
       url, idText: entry.idText, title: entry.title, artworkUrl: entry.artworkUrl,
-      queueMedium: "av", isLive: false, seek: journal?.position, subtitle: entry.channelTitle)
+      queueMedium: "av", isLive: false, seek: journal?.position,
+      subtitle: entry.artist ?? entry.channelTitle,
+      albumTitle: entry.artist != nil ? entry.channelTitle : nil)
   }
 
   private func playLive(_ entry: PodverseCarPlayCacheModel.LiveEntry) {
@@ -324,7 +340,7 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
 
   private func playURL(
     _ url: String, idText: String, title: String, artworkUrl: String?, queueMedium: String,
-    isLive: Bool, seek: Double?, subtitle: String? = nil
+    isLive: Bool, seek: Double?, subtitle: String? = nil, albumTitle: String? = nil
   ) {
     var meta: [String: Any] = [
       "idText": idText,
@@ -336,6 +352,7 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
     ]
     if let artworkUrl = artworkUrl { meta["artworkUrl"] = artworkUrl }
     if let subtitle = subtitle { meta["subtitle"] = subtitle }
+    if let albumTitle = albumTitle { meta["albumTitle"] = albumTitle }
     let metaJson =
       (try? JSONSerialization.data(withJSONObject: meta)).flatMap {
         String(data: $0, encoding: .utf8)
@@ -344,7 +361,8 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
       try PodverseAudioEngine.shared.loadAndStart(
         url: url, initialSeekSeconds: isLive ? nil : seek, basicAuth: nil, audioProfile: nil,
         metaJson: metaJson)
-      PodverseAudioEngine.shared.setNowPlayingMetadata(title: title, artist: subtitle)
+      PodverseAudioEngine.shared.setNowPlayingMetadata(
+        title: title, artist: subtitle, albumTitle: albumTitle)
       interfaceController?.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
     } catch {
       NSLog("[carplay] play failed idText=%@: %@", idText, error.localizedDescription)

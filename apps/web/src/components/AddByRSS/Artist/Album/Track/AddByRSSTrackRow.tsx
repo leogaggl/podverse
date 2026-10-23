@@ -28,6 +28,7 @@ import { downloadAndSaveFile } from '../../../../../utils/fileDownloader';
 import { CommonTrackRow } from '../../../../Common/Artist/Album/Track/CommonTrackRow';
 import { ItemRowMoreActions } from '../../../../Media/ItemRowMoreActions';
 import { showToastPromise, showToastPromiseWithLoading } from '../../../../Toast/Toast';
+import { AddByRSSRowMarker } from '../../../AddByRSSRowMarker';
 
 const alertPlaceholder = (label: string) => () => {
   window.alert(`Add by RSS: ${label}`);
@@ -41,6 +42,8 @@ type AddByRSSTrackRowProps = {
   indexItem?: AddByRSSItemIndexItem | null;
   /** When set, play will set this list context for autoplay-next from list. */
   listContext?: AddByRSSListContextState | null;
+  /** Shows the Add by RSS marker after the title. */
+  showAddByRssMarker?: boolean;
 };
 
 export const AddByRSSTrackRow: React.FC<AddByRSSTrackRowProps> = ({
@@ -50,6 +53,7 @@ export const AddByRSSTrackRow: React.FC<AddByRSSTrackRowProps> = ({
   bundle,
   indexItem,
   listContext: listContextProp,
+  showAddByRssMarker,
 }) => {
   const tMedia = useTranslations('media');
   const tMediaPlayer = useTranslations('media_player');
@@ -228,6 +232,7 @@ export const AddByRSSTrackRow: React.FC<AddByRSSTrackRowProps> = ({
       title={title}
       subtitle={description}
       imageUrl={imageUrl}
+      titleMarker={showAddByRssMarker ? <AddByRSSRowMarker /> : undefined}
       rightMetaNode={
         <ItemRowMoreActions
           enclosures={bundle.enclosures ? addByRSSBundleEnclosuresToDTO(bundle.enclosures) : []}

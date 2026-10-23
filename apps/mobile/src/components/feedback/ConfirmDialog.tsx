@@ -10,7 +10,8 @@ import { FormActions } from '../form/FormActions';
 import { AppOverlay, OverlayScrim } from '../overlay';
 
 /**
- * Presentational dialog: title + body with a required dismiss action and an optional confirm action.
+ * Presentational dialog: title + body with one dismiss action, an optional confirm action, and an
+ * optional second confirm. Top to bottom: confirm, second confirm, dismiss.
  * All copy arrives already localized so each host owns wording and test IDs.
  */
 export type ConfirmDialogProps = {
@@ -24,6 +25,10 @@ export type ConfirmDialogProps = {
   testID: string;
   cancelTestID: string;
   confirmTestID?: string;
+  /** A second confirm between the first and cancel. Shown only with all three set and a first confirm. */
+  secondaryConfirmLabel?: string;
+  onSecondaryConfirm?: () => void;
+  secondaryConfirmTestID?: string;
 };
 
 export function ConfirmDialog({
@@ -37,6 +42,9 @@ export function ConfirmDialog({
   testID,
   cancelTestID,
   confirmTestID,
+  secondaryConfirmLabel,
+  onSecondaryConfirm,
+  secondaryConfirmTestID,
 }: ConfirmDialogProps) {
   const { styles: themeStyles, tokens } = useTheme();
 
@@ -90,8 +98,23 @@ export function ConfirmDialog({
     confirmLabel !== undefined && confirmTestID !== undefined && onConfirm !== undefined
       ? { label: confirmLabel, onPress: onConfirm, testID: confirmTestID }
       : undefined;
-  const actions: readonly FormAction[] =
-    confirmAction === undefined ? [cancelAction] : [confirmAction, cancelAction];
+  const secondaryConfirmAction: FormAction | undefined =
+    confirmAction !== undefined &&
+    secondaryConfirmLabel !== undefined &&
+    secondaryConfirmTestID !== undefined &&
+    onSecondaryConfirm !== undefined
+      ? {
+          label: secondaryConfirmLabel,
+          onPress: onSecondaryConfirm,
+          testID: secondaryConfirmTestID,
+          variant: 'outline',
+        }
+      : undefined;
+  const actions: readonly FormAction[] = [
+    confirmAction,
+    secondaryConfirmAction,
+    cancelAction,
+  ].filter((action): action is FormAction => action !== undefined);
 
   return (
     <AppOverlay animation="fade" onRequestClose={onCancel} visible={visible}>

@@ -207,6 +207,14 @@ export type Episode = {
   contentLinks?: Array<{ url: string; title: string }>;
 };
 
+export type PodcastPublisherClaim = {
+  feedGuid: string;
+  feedUrl?: string;
+  itemGuid?: string;
+  title?: string;
+  medium?: string;
+};
+
 export type FeedObject = {
   guid?: string | null;
   title: string;
@@ -251,13 +259,7 @@ export type FeedObject = {
     href?: string | null;
   }>;
   podroll?: Phase6RemoteItem[];
-  podcastPublisher?: {
-    feedGuid: string;
-    feedUrl?: string;
-    itemGuid?: string;
-    title?: string;
-    medium?: string;
-  } | null;
+  podcastPublisher?: PodcastPublisherClaim | PodcastPublisherClaim[] | null;
   podcastRemoteItems?: Phase6RemoteItem[];
   /** Channel-level podcast:socialInteract (spec); same shape as item podcastSocialInteraction. */
   channelPodcastSocialInteract?: Array<{

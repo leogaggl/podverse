@@ -19,6 +19,7 @@ import { AccountNotificationChannelController } from '@api/controllers/account/a
 import { AccountNotificationChannelTypeController } from '@api/controllers/account/accountNotificationChannelType.js';
 import { AccountOpmlExportController } from '@api/controllers/account/accountOpmlExport.js';
 import { AccountOpmlImportController } from '@api/controllers/account/accountOpmlImport.js';
+import { AccountUnfollowBulkController } from '@api/controllers/account/accountUnfollowBulk.js';
 import { AccountUPDeviceController } from '@api/controllers/account/accountUPDevice.js';
 import { AccountWebPushDeviceController } from '@api/controllers/account/accountWebPushDevice.js';
 import { rateLimitAuthEndpoint, rateLimitEndpoint } from '@api/lib/rateLimiter.js';
@@ -193,6 +194,7 @@ router.post(
   asyncHandler(AccountFollowingChannelController.followChannelsBulk)
 );
 router.post('/unfollow/channel', asyncHandler(AccountFollowingChannelController.unfollowChannel));
+router.post('/unfollow/bulk', asyncHandler(AccountUnfollowBulkController.unfollowBulk));
 
 router.get(
   '/channel-seen',

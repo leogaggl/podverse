@@ -65,6 +65,8 @@ export * from './channel/channelPodrollRemoteItem.js';
 export * from './channel/channelPublisher.js';
 export * from './channel/channelPublisherRemoteItem.js';
 export * from './channel/channelRemoteItem.js';
+export * from './channel/channelDirectoryMatch.js';
+export * from './channel/verifiedPublisher.js';
 export * from './channel/channelSeason.js';
 export * from './channel/channelSocialInteract.js';
 export * from './channel/channelTrailer.js';

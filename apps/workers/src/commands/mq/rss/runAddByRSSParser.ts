@@ -1,20 +1,35 @@
+import { randomUUID } from 'node:crypto';
+
 import type { CommandLineArgs } from '@workers/commands/index.js';
 import { getAddByRSSConfig } from '@workers/config/index.js';
 import { getActiveMQArtemisService } from '@workers/factories/activeMQArtemisService.js';
 import { getLoggerService } from '@workers/factories/loggerService.js';
+import { getPodcastIndexService } from '@workers/factories/podcastIndexService.js';
 import { applyAddByRSSFollowMetadata } from '@workers/lib/addByRSS/applyAddByRSSFollowMetadata.js';
 import {
   classifyAddByRSSParseFailure,
   nextRequiresCredentials,
 } from '@workers/lib/addByRSS/classifyAddByRSSParseFailure.js';
+import {
+  fanOutAddByRSSPublisherListedFeeds,
+  feedHostForLog,
+} from '@workers/lib/addByRSS/fanOutAddByRSSPublisherListedFeeds.js';
 import { resolveAddByRSSMessageCredentials } from '@workers/lib/addByRSS/resolveAddByRSSMessageCredentials.js';
 import { setAddByRSSParseCacheEntry } from '@workers/lib/addByRSSParseCache.js';
 
-import type { AddByRSSParseCredentialsState, MQQueueNameParamKey } from '@podverse/helpers';
+import type {
+  AddByRSSParseCredentialsState,
+  AddByRSSPublisherListedFeed,
+  MQQueueNameParamKey,
+} from '@podverse/helpers';
 import { MQ_QUEUES, sleep } from '@podverse/helpers';
+import { sealAddByRssCredentials } from '@podverse/helpers-backend';
 import type { MQAddByRSSMessage } from '@podverse/mq';
-import { createActiveMQShutdown } from '@podverse/mq';
-import { AccountFollowingAddByRSSChannelService } from '@podverse/orm';
+import { createActiveMQShutdown, mqAddByRSSAdd } from '@podverse/mq';
+import {
+  AccountFollowingAddByRSSChannelService,
+  ChannelAddByRSSDirectoryMatchService,
+} from '@podverse/orm';
 import type { ParseRSSFeedForAddByRSSResult } from '@podverse/parser';
 import { parseRSSFeedForAddByRSS } from '@podverse/parser';
 
@@ -23,13 +38,20 @@ const allowedQueueParamKeys: MQQueueNameParamKey[] = [
   'add-by-rss-background',
 ];
 
-/** Host only: log lines never carry the path, query, or userinfo of a private feed URL. */
-const feedHostForLog = (feedUrl: string): string => {
-  try {
-    return new URL(feedUrl).host;
-  } catch {
-    return 'invalid-url';
+const lookUpFeedUrlsByGuid = async (guids: string[]): Promise<ReadonlyMap<string, string>> => {
+  const response = await getPodcastIndexService().podcastsBatchByFeedGuid(guids);
+  const feedUrlByGuid = new Map<string, string>();
+  for (const feed of Array.isArray(response?.feeds) ? response.feeds : []) {
+    if (
+      typeof feed.podcastGuid === 'string' &&
+      feed.podcastGuid !== '' &&
+      typeof feed.url === 'string' &&
+      feed.url !== ''
+    ) {
+      feedUrlByGuid.set(feed.podcastGuid.toLowerCase(), feed.url);
+    }
   }
+  return feedUrlByGuid;
 };
 
 export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
@@ -68,6 +90,58 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
     }
   };
 
+  /**
+   * Album messages go to the background queue with dedupe off: broker dedupe keys on the feed URL
+   * alone, so another member's artist listing the same album would drop this member's message.
+   */
+  const fanOutPublisherListedFeeds = async (params: {
+    accountId: number;
+    requestId: string;
+    feedUrl: string;
+    parsedFeed: Extract<ParseRSSFeedForAddByRSSResult, { status: 'parsed' }>['parsedFeed'];
+    credentialsState: AddByRSSParseCredentialsState;
+    basicAuth: { username: string; password: string } | undefined;
+  }): Promise<AddByRSSPublisherListedFeed[] | undefined> => {
+    const { basicAuth } = params;
+    return fanOutAddByRSSPublisherListedFeeds(
+      {
+        accountId: params.accountId,
+        requestId: params.requestId,
+        feedUrl: params.feedUrl,
+        parsedFeed: params.parsedFeed,
+        credentialsState: params.credentialsState,
+        hasCredentials: basicAuth !== undefined,
+        allowInsecure: addByRSSConfig.allowInsecureCredentials,
+      },
+      {
+        findDirectoryChannels: (refs) =>
+          new ChannelAddByRSSDirectoryMatchService().getForListedFeeds(refs),
+        lookUpFeedUrlsByGuid,
+        setCacheEntry: setAddByRSSParseCacheEntry,
+        enqueue: (options) =>
+          mqAddByRSSAdd(activeMQArtemisService, {
+            ...MQ_QUEUES['add-by-rss-background'],
+            dedupeCacheTimeMS: null,
+            ...options,
+            closeAfterSend: false,
+          }),
+        sealCredentials: (aad) => {
+          if (basicAuth === undefined) {
+            throw new Error('mqAddByRSSRunParser: no credentials to seal for a listed feed');
+          }
+          return sealAddByRssCredentials(
+            { username: basicAuth.username, password: basicAuth.password, ...aad },
+            addByRSSConfig.credentialsEncryptionKey
+          );
+        },
+        newRequestId: randomUUID,
+        now: () => new Date(),
+        logWarn: (logMessage, context) => loggerService.warn(logMessage, context),
+        logError: (logMessage, error) => loggerService.logError(logMessage, error),
+      }
+    );
+  };
+
   await activeMQArtemisService.initialize();
 
   await activeMQArtemisService.consumeMessages(
@@ -86,11 +160,15 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
           );
         }
 
+        const { publisherRequestId } = message;
+        const publisherRef = publisherRequestId !== undefined ? { publisherRequestId } : {};
+
         await setAddByRSSParseCacheEntry({
           requestId,
           accountId,
           feedUrl,
           status: 'processing',
+          ...publisherRef,
           cache: {
             feedHash,
             etag,
@@ -112,6 +190,7 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
           requestId,
           feedUrl,
           credentialsEnvelope: message.credentialsEnvelope,
+          credentialsWithheld: message.credentialsWithheld,
           keyHex: addByRSSConfig.credentialsEncryptionKey,
           keyHexOld: addByRSSConfig.credentialsEncryptionKeyOld,
           allowInsecure: addByRSSConfig.allowInsecureCredentials,
@@ -138,6 +217,22 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
         }
 
         if (result?.status === 'parsed' || result?.status === 'not_modified') {
+          let publisherListedFeeds: AddByRSSPublisherListedFeed[] | undefined;
+          if (result.status === 'parsed' && publisherRequestId === undefined) {
+            try {
+              publisherListedFeeds = await fanOutPublisherListedFeeds({
+                accountId,
+                requestId,
+                feedUrl,
+                parsedFeed: result.parsedFeed,
+                credentialsState,
+                basicAuth: resolvedCredentials.basicAuth,
+              });
+            } catch (error) {
+              loggerService.logError('mqAddByRSSRunParser: publisher fan-out failed', error);
+            }
+          }
+
           await setAddByRSSParseCacheEntry({
             requestId,
             accountId,
@@ -146,6 +241,8 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
             ...(result.status === 'parsed' ? { payload: result.parsedFeed } : {}),
             cache: result.cache,
             credentialsState,
+            ...(publisherListedFeeds !== undefined ? { publisherListedFeeds } : {}),
+            ...publisherRef,
             updatedAt: new Date().toISOString(),
           });
           await updateRequiresCredentials(
@@ -185,6 +282,7 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
             ...(failure.httpStatus !== undefined ? { httpStatus: failure.httpStatus } : {}),
             authChallenge: failure.authChallenge,
             credentialsState,
+            ...publisherRef,
             updatedAt: new Date().toISOString(),
           });
           loggerService.warn('mqAddByRSSRunParser: parse failed', {
@@ -230,6 +328,9 @@ export const mqAddByRSSRunParser = async (args: CommandLineArgs) => {
               feedUrl: message.feedUrl,
               status: 'failed',
               error: (error as Error).message,
+              ...(message.publisherRequestId !== undefined
+                ? { publisherRequestId: message.publisherRequestId }
+                : {}),
               updatedAt: new Date().toISOString(),
             });
           }

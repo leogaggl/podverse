@@ -13,10 +13,12 @@ import styles from '../../../styles/components/Common/Media/Podcast/PodcastHeade
 
 type CoreArtistHeaderViewDesktopProps = {
   channel: DTOChannel;
+  artistAlbums?: readonly DTOChannel[];
 };
 
 export const CoreArtistHeaderViewDesktop: React.FC<CoreArtistHeaderViewDesktopProps> = ({
   channel,
+  artistAlbums,
 }) => {
   return (
     <CommonArtistHeaderViewDesktop
@@ -27,7 +29,7 @@ export const CoreArtistHeaderViewDesktop: React.FC<CoreArtistHeaderViewDesktopPr
         </Link>
       }
       subtitleNode={<CoreArtistHeaderSubtitle channel={channel} />}
-      buttonsNode={<CoreArtistHeaderButtons channel={channel} />}
+      buttonsNode={<CoreArtistHeaderButtons channel={channel} artistAlbums={artistAlbums} />}
     />
   );
 };

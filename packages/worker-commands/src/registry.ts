@@ -89,6 +89,15 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
       'npm run orm_descriptions_backfill -w apps/workers -- -enqueueReparse -maxFeeds 200',
   },
   {
+    name: 'ormVerifiedPublisherLinksBackfill',
+    label: 'Verified publisher links: backfill',
+    description:
+      'Recompute verified publisher links for every channel with publisher claims or stored links, from the stored references of both feeds. Writes nothing for a channel whose links already match. Use -afterId to resume and -dry-run to count without writing.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli: 'npm run orm_verified_publisher_links_backfill -w apps/workers -- -limit 500',
+  },
+  {
     name: 'notificationsPlatformPurge',
     label: 'Notifications: purge expired and terminal rows',
     description:

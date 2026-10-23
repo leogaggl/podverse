@@ -1,4 +1,4 @@
-import { deriveMembershipState, evaluateFeatureAccess } from '@podverse/helpers';
+import { deriveMembershipState, evaluateFeatureAccess, sleep } from '@podverse/helpers';
 import type { DTOAccount } from '@podverse/helpers/dto';
 import { getErrorResponseStatus } from '@podverse/helpers/error';
 
@@ -209,6 +209,39 @@ const createChannelItemsScanJob = (deps: SyncJobDeps, priority: SyncJobPriority)
   });
 };
 
+const ADD_BY_RSS_LISTED_FEEDS_TIMEOUT_MS = 60000;
+
+/**
+ * One run fetches every album an Add by RSS artist lists that is still waiting on its parse, and
+ * fills artwork for the directory albums it lists. It polls all of them per round rather than
+ * one job per album, so albums waiting on the server's background queue cannot hold the serial
+ * queue for minutes. Membership-tier, like the refresh that produced the list.
+ */
+const createAddByRssListedFeedsJob = (deps: SyncJobDeps, priority: SyncJobPriority): SyncJob => {
+  return buildJob(
+    'add-by-rss-listed-feeds',
+    priority,
+    'add-by-rss-listed-feeds',
+    async (context) => {
+      const account = await accountRepository.getSnapshot();
+      if (account === null) {
+        return;
+      }
+      const access = evaluateFeatureAccess('add_by_rss_refresh', deriveMembershipState(account));
+      if (!access.allowed) {
+        return;
+      }
+      await addByRssRepository.runListedFeedWork(
+        deps.getAuthContext(),
+        account.id_text,
+        sleep,
+        context.abortController.signal
+      );
+    },
+    ADD_BY_RSS_LISTED_FEEDS_TIMEOUT_MS
+  );
+};
+
 const createAddByRssParseJob = (
   deps: SyncJobDeps,
   priority: SyncJobPriority,
@@ -225,6 +258,9 @@ const createAddByRssParseJob = (
         ticket,
         account?.id_text ?? null
       );
+      if (await addByRssRepository.hasListedFeedWork()) {
+        context.enqueue(createAddByRssListedFeedsJob(deps, priority));
+      }
       const settings = await autoDownloadRepository.getByChannelIdText(ticket.feedUrl);
       if (settings?.enabled === true) {
         enqueueAutoDownloadEvaluateIfReady(context, priority, [ticket.feedUrl]);
@@ -546,6 +582,8 @@ export const buildSyncJobs = (planned: PlannedSyncJob[], deps: SyncJobDeps): Syn
         return createIdentityRemapJob(deps, priority);
       case 'add-by-rss-refresh':
         return createAddByRssRefreshJob(deps, priority);
+      case 'add-by-rss-listed-feeds':
+        return createAddByRssListedFeedsJob(deps, priority);
       case 'home-clips':
         return createHomeClipsJob(deps, priority);
       case 'home-livestreams':

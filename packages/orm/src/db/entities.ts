@@ -67,6 +67,7 @@ import { ChannelTrailer } from '@orm/entities/channel/channelTrailer.js';
 import { ChannelTxt } from '@orm/entities/channel/channelTxt.js';
 import { ChannelValue } from '@orm/entities/channel/channelValue.js';
 import { ChannelValueRecipient } from '@orm/entities/channel/channelValueRecipient.js';
+import { ChannelVerifiedPublisher } from '@orm/entities/channel/channelVerifiedPublisher.js';
 import { ItemMergeMap } from '@orm/entities/channel/itemMergeMap.js';
 import { PodcastIndexDeadFeedSync } from '@orm/entities/channel/podcastIndexDeadFeedSync.js';
 import { Clip } from '@orm/entities/clip.js';
@@ -197,6 +198,7 @@ export const entities = [
   ChannelPublisher,
   ChannelPublisherRemoteItem,
   ChannelRemoteItem,
+  ChannelVerifiedPublisher,
   ChannelSeason,
   ChannelSocialInteract,
   ChannelTrailer,

@@ -67,6 +67,37 @@ describe('migration 24 add-by-RSS livestreams flag', () => {
   });
 });
 
+describe('migration 25 add-by-RSS listed feeds', () => {
+  it('adds the followed and guid columns and the listed-feed table on version 24', async () => {
+    const { database, executed } = createRecordingDatabase(24);
+
+    await runMigrations(database);
+
+    const sql = executed.join('\n').toLowerCase();
+    for (const statement of [
+      'alter table add_by_rss_feed add column followed integer not null default 1',
+      'alter table add_by_rss_feed add column podcast_guid text',
+      'alter table add_by_rss_feed add column publisher_guids_json text',
+      'alter table add_by_rss_feed add column publisher_directory_json text',
+      'create table if not exists add_by_rss_listed_feed',
+      'primary key (publisher_feed_url, feed_guid)',
+    ]) {
+      expect(sql).toContain(statement);
+    }
+    expect(sql).not.toContain('may_have_livestreams');
+    expect(executed).toContain('PRAGMA user_version = 25;');
+    expect(executed).not.toContain('PRAGMA user_version = 24;');
+  });
+
+  it('leaves existing add-by-RSS rows in place', () => {
+    const migration25 = MIGRATIONS.find((migration) => migration.version === 25);
+    const sql = (migration25?.statements ?? []).join('\n').toLowerCase();
+
+    expect(sql.includes('delete from add_by_rss_feed')).toBe(false);
+    expect(sql.includes('drop table')).toBe(false);
+  });
+});
+
 describe('migration 20 add-by-RSS credentials', () => {
   it('adds the credential flag and index without a column for secrets', () => {
     const migration20 = MIGRATIONS.find((migration) => migration.version === 20);

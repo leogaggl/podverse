@@ -44,6 +44,7 @@ import { notificationsPlatformPurge } from './orm/notifications/platformPurge.js
 import { deleteOutdatedOnDemandParserEvent } from './orm/onDemandParserEvent/deleteOutdatedOnDemandParserEvent.js';
 import { generateOnDemandParserEventReports } from './orm/onDemandParserEvent/generateOnDemandParserEventReports.js';
 import { scheduledJobsRunDue } from './orm/scheduledJob/runDue.js';
+import { ormVerifiedPublisherLinksBackfill } from './orm/verifiedPublisherLinks/backfill.js';
 
 export type CommandLineArgs = { [key: string]: string | string[] };
 
@@ -81,6 +82,7 @@ export default {
   scheduledJobsRunDue,
   ormArchivedSlimReport,
   ormDescriptionsBackfill,
+  ormVerifiedPublisherLinksBackfill,
   notificationsPlatformPurge,
   accountContentLogPurge,
   generateOnDemandParserEventReports,

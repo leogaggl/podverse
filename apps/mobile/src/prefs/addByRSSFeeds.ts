@@ -37,4 +37,9 @@ export type MobileAddByRSSFeedRecord = {
   lastAuthFailure?: AddByRssAuthFailure | null;
   /** Set once a stored parse has carried a live item; never cleared. Absent on older records. */
   mayHaveLivestreams?: boolean;
+  /**
+   * False when this device holds the feed only because an Add by RSS artist on it lists the
+   * feed. Absent means followed.
+   */
+  followed?: boolean;
 };

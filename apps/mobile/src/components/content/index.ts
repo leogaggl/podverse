@@ -1,4 +1,10 @@
 export { AboutPersonRow } from './AboutPersonRow';
+export { AddByRssRowMarker } from './AddByRssRowMarker';
+export type { AddByRssRowMarkerProps } from './AddByRssRowMarker';
+export { AlbumListRow } from './AlbumListRow';
+export type { AlbumListRowProps } from './AlbumListRow';
+export { ArtistChooserSheet } from './ArtistChooserSheet';
+export type { ArtistChooserSheetProps } from './ArtistChooserSheet';
 export { ChapterListRow } from './ChapterListRow';
 export type { ChapterListRowProps } from './ChapterListRow';
 export { ItemChapterRow } from './ItemChapterRow';

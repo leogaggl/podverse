@@ -30,7 +30,7 @@ to the deferred file and does not block the run.
 
 ## Phase 2 — Artist and album attribution
 
-- [ ] **02 — Merge feature/artist-album-attribution**
+- [x] **02 — Merge feature/artist-album-attribution**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

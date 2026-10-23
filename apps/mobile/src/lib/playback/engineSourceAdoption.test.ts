@@ -53,6 +53,16 @@ describe('engine source adoption', () => {
     expect(item.item_enclosures[0]?.type).toBe('application/x-mpegURL');
   });
 
+  it('uses the album field as the channel title when the artist field holds names', () => {
+    const meta: MediaEngineSourceMeta = {
+      ...baseMeta,
+      albumTitle: 'Album',
+      subtitle: 'Artist',
+    };
+    expect(buildChannelFromEngineMeta(meta).title).toBe('Album');
+    expect(buildChannelFromEngineMeta(baseMeta).title).toBe('Show Title');
+  });
+
   it('adopts a Music source with a session-restore intent', () => {
     const meta: MediaEngineSourceMeta = { ...baseMeta, queueMedium: 'music' };
     const channel = buildChannelFromEngineMeta(meta);

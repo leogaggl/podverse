@@ -13,10 +13,12 @@ import styles from '../../../styles/components/Common/Media/Podcast/PodcastHeade
 
 type CoreArtistHeaderViewTabletProps = {
   channel: DTOChannel;
+  artistAlbums?: readonly DTOChannel[];
 };
 
 export const CoreArtistHeaderViewTablet: React.FC<CoreArtistHeaderViewTabletProps> = ({
   channel,
+  artistAlbums,
 }) => {
   return (
     <CommonArtistHeaderViewTablet
@@ -27,7 +29,7 @@ export const CoreArtistHeaderViewTablet: React.FC<CoreArtistHeaderViewTabletProp
         </Link>
       }
       subtitleNode={<CoreArtistHeaderSubtitle channel={channel} />}
-      buttonsNode={<CoreArtistHeaderButtons channel={channel} />}
+      buttonsNode={<CoreArtistHeaderButtons channel={channel} artistAlbums={artistAlbums} />}
     />
   );
 };

@@ -1,19 +1,25 @@
+import { canonicalAddByRSSFeedUrl } from '@podverse/helpers-validation/client';
 import { toAddByRSSResourceType } from '@podverse/parser-mapping';
 
 import type {
+  AddByRSSAlbumSource,
   AddByRSSFeedRecord,
   AddByRSSItemIndexItem,
+  AddByRSSListedFeedRecord,
   AddByRSSLivestreamIndexItem,
+  AddByRSSPublisherLinkRecord,
   AddByRSSResourceType,
 } from './types';
 
 const DB_NAME = 'add-by-rss';
 /** Bump when object stores change; prior local cache may be reset on upgrade. */
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const FEEDS_STORE = 'feeds';
 const ITEMS_STORE = 'items';
 const ITEMS_META_STORE = 'itemsMeta';
 const LIVE_ITEMS_STORE = 'liveItems';
+const PUBLISHER_LINKS_STORE = 'publisherLinks';
+const LISTED_FEEDS_STORE = 'listedFeeds';
 
 const isIndexedDbAvailable = (): boolean =>
   typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
@@ -62,6 +68,15 @@ const openAddByRSSDb = (): Promise<IDBDatabase> =>
         store.createIndex('idText', 'idText', { unique: true });
         store.createIndex('startTimeMs', 'startTimeMs', { unique: false });
       }
+
+      if (!db.objectStoreNames.contains(PUBLISHER_LINKS_STORE)) {
+        db.createObjectStore(PUBLISHER_LINKS_STORE, { keyPath: 'publisherFeedUrl' });
+      }
+
+      if (!db.objectStoreNames.contains(LISTED_FEEDS_STORE)) {
+        const store = db.createObjectStore(LISTED_FEEDS_STORE, { keyPath: 'idText' });
+        store.createIndex('feedUrl', 'feedUrl', { unique: true });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -98,7 +113,7 @@ const withStore = async <T>(
   });
 };
 
-const withKnownResourceType = (record: AddByRSSFeedRecord): AddByRSSFeedRecord => {
+const withKnownResourceType = <T extends AddByRSSFeedRecord>(record: T): T => {
   const resourceType = toAddByRSSResourceType(record.resourceType);
   return resourceType === record.resourceType ? record : { ...record, resourceType };
 };
@@ -265,6 +280,158 @@ export const bulkRemoveAddByRSSFeeds = async (idTexts: string[]): Promise<void> 
       await requestToPromise(store.delete(idText));
     }
   });
+};
+
+export const getAllAddByRSSPublisherLinks = async (): Promise<AddByRSSPublisherLinkRecord[]> => {
+  if (!isIndexedDbAvailable()) {
+    return [];
+  }
+
+  return withStore(PUBLISHER_LINKS_STORE, 'readonly', async (store) =>
+    requestToPromise<AddByRSSPublisherLinkRecord[]>(store.getAll())
+  );
+};
+
+export const getAddByRSSPublisherLink = async (
+  publisherFeedUrl: string
+): Promise<AddByRSSPublisherLinkRecord | null> => {
+  if (!isIndexedDbAvailable()) {
+    return null;
+  }
+
+  return withStore(PUBLISHER_LINKS_STORE, 'readonly', async (store) => {
+    const record = await requestToPromise<AddByRSSPublisherLinkRecord | undefined>(
+      store.get(publisherFeedUrl)
+    );
+    return record ?? null;
+  });
+};
+
+export const upsertAddByRSSPublisherLink = async (
+  record: AddByRSSPublisherLinkRecord
+): Promise<void> => {
+  if (!isIndexedDbAvailable()) {
+    return;
+  }
+
+  await withStore(PUBLISHER_LINKS_STORE, 'readwrite', async (store) => {
+    await requestToPromise(store.put(record));
+  });
+};
+
+export const removeAddByRSSPublisherLinks = async (
+  publisherFeedUrls: readonly string[]
+): Promise<void> => {
+  if (!isIndexedDbAvailable() || publisherFeedUrls.length === 0) {
+    return;
+  }
+
+  await withStore(PUBLISHER_LINKS_STORE, 'readwrite', async (store) => {
+    for (const publisherFeedUrl of publisherFeedUrls) {
+      await requestToPromise(store.delete(publisherFeedUrl));
+    }
+  });
+};
+
+export const getAllListedAddByRSSFeeds = async (): Promise<AddByRSSListedFeedRecord[]> => {
+  if (!isIndexedDbAvailable()) {
+    return [];
+  }
+
+  return withStore(LISTED_FEEDS_STORE, 'readonly', async (store) => {
+    const records = await requestToPromise<AddByRSSListedFeedRecord[]>(store.getAll());
+    return records.map(withKnownResourceType);
+  });
+};
+
+export const getListedAddByRSSFeedByIdText = async (
+  idText: string
+): Promise<AddByRSSListedFeedRecord | null> => {
+  if (!isIndexedDbAvailable()) {
+    return null;
+  }
+
+  return withStore(LISTED_FEEDS_STORE, 'readonly', async (store) => {
+    const record = await requestToPromise<AddByRSSListedFeedRecord | undefined>(store.get(idText));
+    return record === undefined ? null : withKnownResourceType(record);
+  });
+};
+
+export const getListedAddByRSSFeedByUrl = async (
+  feedUrl: string
+): Promise<AddByRSSListedFeedRecord | null> => {
+  if (!isIndexedDbAvailable()) {
+    return null;
+  }
+
+  return withStore(LISTED_FEEDS_STORE, 'readonly', async (store) => {
+    const index = store.index('feedUrl');
+    const record = await requestToPromise<AddByRSSListedFeedRecord | undefined>(index.get(feedUrl));
+    return record === undefined ? null : withKnownResourceType(record);
+  });
+};
+
+export const upsertListedAddByRSSFeed = async (record: AddByRSSListedFeedRecord): Promise<void> => {
+  if (!isIndexedDbAvailable()) {
+    return;
+  }
+
+  await withStore(LISTED_FEEDS_STORE, 'readwrite', async (store) => {
+    await requestToPromise(store.put(record));
+  });
+};
+
+export const bulkRemoveListedAddByRSSFeeds = async (idTexts: readonly string[]): Promise<void> => {
+  if (!isIndexedDbAvailable() || idTexts.length === 0) {
+    return;
+  }
+
+  await withStore(LISTED_FEEDS_STORE, 'readwrite', async (store) => {
+    for (const idText of idTexts) {
+      await requestToPromise(store.delete(idText));
+    }
+  });
+};
+
+/** The followed record with this `idText`, else the listed one. */
+export const getAddByRSSAlbumSourceByIdText = async (
+  idText: string
+): Promise<AddByRSSAlbumSource | null> => {
+  const followed = await getAddByRSSFeedByIdText(idText);
+  if (followed) {
+    return { followed: true, feed: followed };
+  }
+  const listed = await getListedAddByRSSFeedByIdText(idText);
+  return listed ? { followed: false, feed: listed } : null;
+};
+
+const getAddByRSSAlbumSourceByExactUrl = async (
+  feedUrl: string
+): Promise<AddByRSSAlbumSource | null> => {
+  const followed = await getAddByRSSFeedByUrl(feedUrl);
+  if (followed) {
+    return { followed: true, feed: followed };
+  }
+  const listed = await getListedAddByRSSFeedByUrl(feedUrl);
+  return listed ? { followed: false, feed: listed } : null;
+};
+
+/**
+ * The followed record for this feed URL, else the listed one. When neither store has the URL as
+ * given, both are tried again with its canonical form.
+ */
+export const getAddByRSSAlbumSourceByUrl = async (
+  feedUrl: string
+): Promise<AddByRSSAlbumSource | null> => {
+  const exact = await getAddByRSSAlbumSourceByExactUrl(feedUrl);
+  if (exact) {
+    return exact;
+  }
+  const canonical = canonicalAddByRSSFeedUrl(feedUrl);
+  if (canonical === null || canonical === feedUrl) {
+    return null;
+  }
+  return getAddByRSSAlbumSourceByExactUrl(canonical);
 };
 
 type IndexItemWithFeed = { channelIdText: string; feedUrl?: string };

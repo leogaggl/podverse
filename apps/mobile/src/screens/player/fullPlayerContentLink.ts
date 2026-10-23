@@ -5,6 +5,8 @@ import type { PlaybackTarget } from '@podverse/playback-core';
 
 import { isAddByRssLivestreamResourceData } from '../../lib/addByRss/resourceData';
 import { isMusicPlaybackTarget } from '../../lib/playback/engineAudioProfile';
+import type { LineArtist } from '../../lib/playback/lineArtist';
+import { lineArtistTitle } from '../../lib/playback/lineArtist';
 
 export type FullPlayerContentTarget = {
   idText: string;
@@ -206,6 +208,25 @@ export const resolveFullPlayerChannelLink = (
       return channelRequest(target.channel, name, 'podcast');
   }
 };
+
+/**
+ * Page for one artist on the player's artist line: the directory artist page, or this device's
+ * Add by RSS page for an Add by RSS artist.
+ */
+export const fullPlayerArtistLink = (artist: LineArtist): FullPlayerContentTarget =>
+  artist.kind === 'directory'
+    ? {
+        idText: artist.publisher.id_text,
+        imageUrl: null,
+        kind: 'artist',
+        name: lineArtistTitle(artist),
+      }
+    : {
+        idText: artist.feedIdText,
+        imageUrl: null,
+        kind: 'add-by-rss',
+        name: lineArtistTitle(artist),
+      };
 
 export const fullPlayerOpenScreenLabelKey = (kind: FullPlayerContentTarget['kind']): string => {
   switch (kind) {

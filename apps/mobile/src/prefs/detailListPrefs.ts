@@ -70,10 +70,11 @@ export type PodcastDetailRange = QueryParamsStatsRange;
 export const DEFAULT_PODCAST_DETAIL_RANGE: PodcastDetailRange = 'week';
 
 /**
- * Panes an add-by-RSS feed can show. The screen offers the subset this feed can fill.
- * The selected pane is visit-local and is not stored.
+ * Panes an add-by-RSS feed can show. The screen offers the subset this feed can fill; Albums is
+ * an artist feed's alone. The selected pane is visit-local and is not stored.
  */
 export const ADD_BY_RSS_DETAIL_TABS = [
+  'albums',
   'episodes',
   'tracks',
   'downloaded',

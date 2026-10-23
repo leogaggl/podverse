@@ -76,6 +76,7 @@ import {
   reqAccountUnfollowChannel,
 } from './account/follow/channel.js';
 import { reqAccountFollowPlaylist, reqAccountUnfollowPlaylist } from './account/follow/playlist.js';
+import { reqAccountUnfollowBulk } from './account/follow/unfollowBulk.js';
 import {
   reqAccountNotificationChannelCreate,
   reqAccountNotificationChannelDelete,
@@ -160,6 +161,7 @@ import { reqCategoryGetAll } from './category/category.js';
 import {
   reqChannelGetByIdOrIdText,
   reqChannelGetByPodcastIndexId,
+  reqChannelGetDirectoryMatch,
   reqChannelGetMany,
 } from './channel/channel.js';
 import type { ReqClipCreateParams } from './clip/clip.js';
@@ -746,6 +748,10 @@ export class ApiRequestService {
     return reqAccountUnfollowChannel(this, params);
   }
 
+  reqAccountUnfollowBulk(params: { channel_id_texts?: string[]; add_by_rss_feed_urls?: string[] }) {
+    return reqAccountUnfollowBulk(this, params);
+  }
+
   /* ACCOUNT > CHANNEL SEEN */
 
   reqAccountChannelSeenList(params?: { page?: number }) {
@@ -975,6 +981,10 @@ export class ApiRequestService {
 
   reqChannelGetByPodcastIndexId(podcast_index_id: number | string) {
     return reqChannelGetByPodcastIndexId(this, podcast_index_id);
+  }
+
+  reqChannelGetDirectoryMatch(params: { feed_guid: string; feed_url?: string | null }) {
+    return reqChannelGetDirectoryMatch(this, params);
   }
 
   reqChannelGetMany(params: QueryParamsGetMany) {

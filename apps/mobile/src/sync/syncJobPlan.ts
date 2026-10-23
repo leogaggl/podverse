@@ -6,6 +6,7 @@ import type { SyncJobPriority } from './syncQueue';
  * fired from (a foreground transition, a pull gesture) ends up waiting on the network.
  */
 export type SyncTrigger =
+  | 'add-by-rss-listed-feeds'
   | 'add-by-rss-pull-to-refresh'
   | 'app-foreground'
   | 'app-start'
@@ -41,6 +42,14 @@ export const planSyncRun = ({ isAuthenticated, trigger }: SyncPlanInput): Planne
       return [];
     }
     return [{ kind: 'add-by-rss-refresh', priority: 'user' }];
+  }
+
+  // An Add by RSS artist's parse listed albums still to fetch. Nobody is watching this one.
+  if (trigger === 'add-by-rss-listed-feeds') {
+    if (!isAuthenticated) {
+      return [];
+    }
+    return [{ kind: 'add-by-rss-listed-feeds', priority: 'background' }];
   }
 
   // A pull gesture is the one case where somebody is watching, so it goes ahead of whatever

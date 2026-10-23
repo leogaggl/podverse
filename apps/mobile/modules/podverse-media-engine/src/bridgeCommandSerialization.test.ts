@@ -57,10 +57,12 @@ describe('serializeLoadCommand', () => {
 
   it('appends metaJson as the fifth arg when meta is provided', () => {
     const meta = {
+      albumTitle: 'Album',
       idText: 'ep1',
       kind: 'item' as const,
       origin: 'js' as const,
       queueMedium: 'av' as const,
+      subtitle: 'Artist',
       title: 'Episode One',
     };
     const args = serializeLoadCommand({ meta, url: 'https://example.com/a.mp3' });
@@ -69,9 +71,27 @@ describe('serializeLoadCommand', () => {
     expect(args[2]).toBeNull();
     expect(args[3]).toBeNull();
     expect(JSON.parse(args[4] as string)).toMatchObject({
+      albumTitle: 'Album',
       idText: 'ep1',
       origin: 'js',
+      subtitle: 'Artist',
       title: 'Episode One',
+    });
+  });
+
+  it('writes a null albumTitle when meta omits the artist and album fields', () => {
+    const meta = {
+      idText: 'ep1',
+      kind: 'item' as const,
+      origin: 'js' as const,
+      queueMedium: 'av' as const,
+      title: 'Episode One',
+    };
+    const args = serializeLoadCommand({ meta, url: 'https://example.com/a.mp3' });
+    const metaJson = args[4] ?? '';
+    expect(JSON.parse(metaJson)).toMatchObject({
+      albumTitle: null,
+      subtitle: null,
     });
   });
 

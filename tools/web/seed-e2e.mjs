@@ -177,6 +177,19 @@ const E2E_DIRECTORY_ARTIST_FEED_URL = 'https://e2e-seed-directory-artist.example
 const E2E_DIRECTORY_ARTIST_FEED_PI_ID = 876543223;
 const E2E_DIRECTORY_ARTIST_LAST_PUB_DATE_ISO = '2026-03-15T18:00:00.000Z';
 const E2E_MUSIC_ALBUM_PODCAST_GUID = '11111111-2222-4333-8444-555555555501';
+const E2E_MUSIC_ARTIST_PODCAST_GUID = '11111111-2222-4333-8444-555555555502';
+/** Parsed album the E2E artist lists that does not name the artist back; hidden on the artist page. */
+const E2E_MUSIC_ALBUM_UNCLAIMED_ID_TEXT = 'e2eMusicAlbm02'; // 14
+const E2E_MUSIC_ALBUM_UNCLAIMED_TITLE = 'E2E Unclaimed Music Album';
+const E2E_MUSIC_ALBUM_UNCLAIMED_PODCAST_GUID = '11111111-2222-4333-8444-555555555503';
+const E2E_MUSIC_ALBUM_UNCLAIMED_FEED_URL = 'https://e2e-seed-music.example/album-unclaimed.xml';
+const E2E_MUSIC_ALBUM_UNCLAIMED_FEED_PI_ID = 876543224;
+/** Must match E2E_ARTIST_NOT_YET_ADDED_ALBUM_* in apps/api/src/lib/e2eArtistAlbumsFixture.ts. */
+const E2E_ARTIST_NOT_YET_ADDED_ALBUM_PODCAST_GUID = '11111111-2222-4333-8444-555555555504';
+const E2E_ARTIST_NOT_YET_ADDED_ALBUM_FEED_URL =
+  'https://e2e-seed-music.example/album-not-yet-added.xml';
+/** A reference Podcast Index does not know; hidden on the artist page. */
+const E2E_ARTIST_UNKNOWN_ALBUM_PODCAST_GUID = '11111111-2222-4333-8444-555555555505';
 const E2E_MUSIC_TRACK_ONE_ID_TEXT = 'e2eMusicTrk001';
 const E2E_MUSIC_TRACK_TWO_ID_TEXT = 'e2eMusicTrk002';
 const E2E_MUSIC_QUEUE_ID_TEXT = 'e2eMusicQueue01';
@@ -1568,15 +1581,16 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   );
 
   const musicArtistChannelResult = await client.query(
-    `INSERT INTO channel (id_text, feed_id, medium_id, title)
+    `INSERT INTO channel (id_text, feed_id, medium_id, title, podcast_guid)
      VALUES (
        $1,
        $2,
-       (SELECT id FROM medium WHERE value = 'music' LIMIT 1),
-       'E2E Music Artist'
+       (SELECT id FROM medium WHERE value = 'publisher-music' LIMIT 1),
+       'E2E Music Artist',
+       $3
      )
      RETURNING id`,
-    [E2E_MUSIC_CHANNEL_ID_TEXT, musicArtistFeedId]
+    [E2E_MUSIC_CHANNEL_ID_TEXT, musicArtistFeedId, E2E_MUSIC_ARTIST_PODCAST_GUID]
   );
   const musicArtistChannelId = musicArtistChannelResult.rows[0].id;
 
@@ -1631,8 +1645,136 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     ]
   );
 
+  const musicAlbumPublisherResult = await client.query(
+    `INSERT INTO channel_publisher (channel_id) VALUES ($1) RETURNING id`,
+    [musicChannelId]
+  );
+  const musicAlbumPublisherId = musicAlbumPublisherResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO channel_publisher_remote_item (
+       channel_publisher_id,
+       feed_guid,
+       feed_url,
+       item_guid,
+       title,
+       medium_id
+     )
+     VALUES (
+       $1,
+       $2,
+       $3,
+       NULL,
+       'E2E Music Artist',
+       (SELECT id FROM medium WHERE value = 'publisher-music' LIMIT 1)
+     )`,
+    [musicAlbumPublisherId, E2E_MUSIC_ARTIST_PODCAST_GUID, E2E_MUSIC_ARTIST_FEED_URL]
+  );
+
+  await client.query(
+    `INSERT INTO channel_verified_publisher (
+       channel_id,
+       publisher_channel_id,
+       item_id,
+       claim_position
+     )
+     VALUES ($1, $2, NULL, 0)`,
+    [musicChannelId, musicArtistChannelId]
+  );
+
+  await client.query(`DELETE FROM feed WHERE podcast_index_id = $1 OR url = $2`, [
+    E2E_MUSIC_ALBUM_UNCLAIMED_FEED_PI_ID,
+    E2E_MUSIC_ALBUM_UNCLAIMED_FEED_URL,
+  ]);
+
+  const unclaimedAlbumFeedResult = await client.query(
+    `INSERT INTO feed (url, podcast_index_id)
+     VALUES ($1, $2)
+     RETURNING id`,
+    [E2E_MUSIC_ALBUM_UNCLAIMED_FEED_URL, E2E_MUSIC_ALBUM_UNCLAIMED_FEED_PI_ID]
+  );
+  const unclaimedAlbumFeedId = unclaimedAlbumFeedResult.rows[0].id;
+
+  await client.query(`INSERT INTO feed_log (feed_id) VALUES ($1)`, [unclaimedAlbumFeedId]);
+  await client.query(
+    `INSERT INTO feed_policy (feed_id, parse_allowed, public_visible, add_allowed)
+     VALUES ($1, true, true, true)`,
+    [unclaimedAlbumFeedId]
+  );
+
+  const unclaimedAlbumChannelResult = await client.query(
+    `INSERT INTO channel (id_text, feed_id, medium_id, title, podcast_guid)
+     VALUES (
+       $1,
+       $2,
+       (SELECT id FROM medium WHERE value = 'music' LIMIT 1),
+       $3,
+       $4
+     )
+     RETURNING id`,
+    [
+      E2E_MUSIC_ALBUM_UNCLAIMED_ID_TEXT,
+      unclaimedAlbumFeedId,
+      E2E_MUSIC_ALBUM_UNCLAIMED_TITLE,
+      E2E_MUSIC_ALBUM_UNCLAIMED_PODCAST_GUID,
+    ]
+  );
+  const unclaimedAlbumChannelId = unclaimedAlbumChannelResult.rows[0].id;
+
+  await client.query(`INSERT INTO channel_about (channel_id) VALUES ($1)`, [
+    unclaimedAlbumChannelId,
+  ]);
+  await insertSeedChannelDescription(
+    client,
+    unclaimedAlbumChannelId,
+    'E2E seeded album the artist lists that does not name the artist back.'
+  );
+  await client.query(
+    `INSERT INTO channel_image (channel_id, url, image_width_size)
+     VALUES ($1, $2, 1400)`,
+    [unclaimedAlbumChannelId, E2E_FIXTURE_CHANNEL_IMAGE_URL]
+  );
+
+  await client.query(
+    `INSERT INTO channel_remote_item (channel_id, feed_guid, feed_url, item_guid, title, medium_id)
+     VALUES
+       (
+         $1,
+         $2,
+         $3,
+         NULL,
+         $4,
+         (SELECT id FROM medium WHERE value = 'music' LIMIT 1)
+       ),
+       (
+         $1,
+         $5,
+         $6,
+         NULL,
+         'E2E Not Yet Added Album',
+         (SELECT id FROM medium WHERE value = 'music' LIMIT 1)
+       ),
+       (
+         $1,
+         $7,
+         NULL,
+         NULL,
+         'E2E Unknown Album',
+         (SELECT id FROM medium WHERE value = 'music' LIMIT 1)
+       )`,
+    [
+      musicArtistChannelId,
+      E2E_MUSIC_ALBUM_UNCLAIMED_PODCAST_GUID,
+      E2E_MUSIC_ALBUM_UNCLAIMED_FEED_URL,
+      E2E_MUSIC_ALBUM_UNCLAIMED_TITLE,
+      E2E_ARTIST_NOT_YET_ADDED_ALBUM_PODCAST_GUID,
+      E2E_ARTIST_NOT_YET_ADDED_ALBUM_FEED_URL,
+      E2E_ARTIST_UNKNOWN_ALBUM_PODCAST_GUID,
+    ]
+  );
+
   console.log(
-    `Seeded music artist E2E channel ${E2E_MUSIC_CHANNEL_ID_TEXT} (album ${E2E_MUSIC_ALBUM_ID_TEXT}; tracks ${E2E_MUSIC_TRACK_ONE_ID_TEXT}, ${E2E_MUSIC_TRACK_TWO_ID_TEXT})`
+    `Seeded music artist E2E channel ${E2E_MUSIC_CHANNEL_ID_TEXT} (verified album link to ${E2E_MUSIC_ALBUM_ID_TEXT}; tracks ${E2E_MUSIC_TRACK_ONE_ID_TEXT}, ${E2E_MUSIC_TRACK_TWO_ID_TEXT}; also lists ${E2E_MUSIC_ALBUM_UNCLAIMED_TITLE}, E2E Not Yet Added Album, E2E Unknown Album)`
   );
 
   await client.query(`DELETE FROM feed WHERE podcast_index_id = $1 OR url = $2`, [

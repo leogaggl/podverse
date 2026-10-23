@@ -15,7 +15,8 @@ import type { MobileAuthRequestContext } from './types';
  *
  * Items are read from the device first, which is what lets an episode from a subscribed channel
  * start with no connection. A channel for play is taken from the stored item, a sibling on the
- * same channel, or the download row when Offline Mode blocks the channel fetch.
+ * same channel, or the download row when Offline Mode blocks the channel fetch. The download
+ * row's channel carries the album's verified publishers when this device follows the album.
  */
 export const playbackContentRepository = {
   /**
@@ -107,6 +108,10 @@ export const playbackContentRepository = {
     }
 
     const download = await downloadsRepository.getByItemIdText(itemIdText);
-    return download === null ? null : buildChannelFromDownload(download);
+    if (download === null) {
+      return null;
+    }
+    const verifiedPublishers = await downloadsRepository.followedMusicPublishers(itemIdText);
+    return buildChannelFromDownload(download, verifiedPublishers);
   },
 };

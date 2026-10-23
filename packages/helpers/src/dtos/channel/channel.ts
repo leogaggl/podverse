@@ -18,6 +18,7 @@ import type { DTOChannelSocialInteract } from './channelSocialInteract.js';
 import type { DTOChannelTrailer } from './channelTrailer.js';
 import type { DTOChannelTxt } from './channelTxt.js';
 import type { DTOChannelValue } from './channelValue.js';
+import type { DTOVerifiedPublisher } from './verifiedPublisher.js';
 
 export interface DTOChannel {
   id: number;
@@ -52,4 +53,9 @@ export interface DTOChannel {
   channel_trailers?: DTOChannelTrailer[];
   channel_txts?: DTOChannelTxt[];
   channel_values?: DTOChannelValue[];
+  /**
+   * Publishers verified on the whole channel, primary first. Empty when there are none. Absent
+   * when the response did not include it, including channels stored before the field existed.
+   */
+  verified_publishers?: DTOVerifiedPublisher[];
 }

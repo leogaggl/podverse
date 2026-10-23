@@ -1,4 +1,8 @@
-import type { DescriptionLengthTierEnum, PreparedDescription } from '@podverse/helpers';
+import type {
+  DescriptionLengthTierEnum,
+  PreparedDescription,
+  RemoteItemDto,
+} from '@podverse/helpers';
 import {
   createSortableTitle,
   DATABASE_CONSTANTS,
@@ -11,7 +15,12 @@ import {
 } from '@podverse/helpers';
 import { isValidHttpUrl } from '@podverse/helpers-validation';
 
-import type { Episode, FeedObject, Phase4PodcastImage } from '../../types/partytime.js';
+import type {
+  Episode,
+  FeedObject,
+  Phase4PodcastImage,
+  PodcastPublisherClaim,
+} from '../../types/partytime.js';
 import { Phase4Medium } from '../../types/partytime.js';
 import { detectDuckTypedPublisherMediumId } from './publisher.js';
 import { compatChannelValue, compatChannelValueWithMethodAndRecipients } from './value.js';
@@ -239,22 +248,55 @@ export const compatChannelPodrollRemoteItemDtos = (parsedFeed: FeedObject) => {
   return dtos;
 };
 
-export const compatChannelPublisherRemoteItemDtos = (parsedFeed: FeedObject) => {
-  const dtos = [];
-  const publisherRemoteItem = parsedFeed.podcastPublisher;
-  if (publisherRemoteItem?.feedGuid) {
-    dtos.push({
-      feed_guid: publisherRemoteItem.feedGuid.slice(0, DATABASE_CONSTANTS.varchar_guid),
-      feed_url:
-        (isValidHttpUrl(publisherRemoteItem.feedUrl) &&
-          publisherRemoteItem.feedUrl?.slice(0, DATABASE_CONSTANTS.varchar_url)) ||
-        null,
-      item_guid: publisherRemoteItem.itemGuid?.slice(0, DATABASE_CONSTANTS.varchar_uri) ?? null,
-      title: publisherRemoteItem.title?.slice(0, DATABASE_CONSTANTS.varchar_normal) ?? null,
-      medium_id: publisherRemoteItem.medium ? getMediumEnumValue(publisherRemoteItem.medium) : null,
-    });
+function publisherClaims(parsedFeed: FeedObject): PodcastPublisherClaim[] {
+  const publisher = parsedFeed.podcastPublisher;
+  if (publisher === null || publisher === undefined) {
+    return [];
   }
+  if (Array.isArray(publisher)) {
+    return publisher;
+  }
+  return [publisher];
+}
 
+function compatPublisherClaimDto(claim: PodcastPublisherClaim): RemoteItemDto | null {
+  if (!claim.feedGuid) {
+    return null;
+  }
+  return {
+    feed_guid: claim.feedGuid.slice(0, DATABASE_CONSTANTS.varchar_guid),
+    feed_url:
+      (isValidHttpUrl(claim.feedUrl) && claim.feedUrl?.slice(0, DATABASE_CONSTANTS.varchar_url)) ||
+      null,
+    item_guid: claim.itemGuid?.slice(0, DATABASE_CONSTANTS.varchar_uri) ?? null,
+    title: claim.title?.slice(0, DATABASE_CONSTANTS.varchar_normal) ?? null,
+    medium_id: claim.medium ? getMediumEnumValue(claim.medium) : null,
+  };
+}
+
+/**
+ * Feed order, first claim wins. A later claim with the same feed guid (ignoring case) and the
+ * same item guid is dropped so one publisher stays primary.
+ */
+function publisherClaimIdentity(feedGuid: string, itemGuid: string | null): string {
+  return JSON.stringify([feedGuid.toLowerCase(), itemGuid]);
+}
+
+export const compatChannelPublisherRemoteItemDtos = (parsedFeed: FeedObject): RemoteItemDto[] => {
+  const dtos: RemoteItemDto[] = [];
+  const seen = new Set<string>();
+  for (const claim of publisherClaims(parsedFeed)) {
+    const dto = compatPublisherClaimDto(claim);
+    if (dto === null) {
+      continue;
+    }
+    const identity = publisherClaimIdentity(dto.feed_guid, dto.item_guid);
+    if (seen.has(identity)) {
+      continue;
+    }
+    seen.add(identity);
+    dtos.push(dto);
+  }
   return dtos;
 };
 

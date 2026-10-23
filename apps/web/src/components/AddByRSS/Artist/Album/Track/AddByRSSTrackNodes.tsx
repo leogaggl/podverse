@@ -16,12 +16,15 @@ type AddByRSSTrackNodesProps = {
   items: AddByRSSItemIndexItem[];
   viewSelected: ViewSelectedOption;
   sortOrder?: AddByRSSListSortOrder;
+  /** Shown after the title on each row. */
+  showAddByRssMarker?: boolean;
 };
 
 export const AddByRSSTrackNodes: React.FC<AddByRSSTrackNodesProps> = ({
   items,
   viewSelected,
   sortOrder = 'recent',
+  showAddByRssMarker,
 }) => {
   if (viewSelected === 'rows') {
     const feedIdText = items[0]?.channelIdText ?? '';
@@ -42,6 +45,7 @@ export const AddByRSSTrackNodes: React.FC<AddByRSSTrackNodesProps> = ({
                 currentIndex: idx,
                 sortOrder,
               }}
+              showAddByRssMarker={showAddByRssMarker}
             />
             {idx < items.length - 1 && <Divider />}
           </React.Fragment>

@@ -241,9 +241,15 @@ class PodverseMediaLibraryService : MediaLibraryService() {
     return items
   }
 
+  /** "Artist · Album" when the download names an artist, else the album or podcast title. */
+  private fun downloadDetail(entry: PodverseNativeCacheModel.DownloadEntry): String? =
+    if (entry.artist == null) entry.channelTitle
+    else listOfNotNull(entry.artist, entry.channelTitle).joinToString(" · ")
+
   private fun downloadChildren(): List<MediaItem> =
     readDownloadEntries().map { entry ->
-      playableItem("$DOWNLOAD_ITEM_PREFIX${entry.idText}", entry.title, entry.artworkUrl, entry.channelTitle)
+      playableItem(
+        "$DOWNLOAD_ITEM_PREFIX${entry.idText}", entry.title, entry.artworkUrl, downloadDetail(entry))
     }
 
   private fun channelChildren(channelIdText: String): List<MediaItem> {
@@ -313,6 +319,7 @@ class PodverseMediaLibraryService : MediaLibraryService() {
     val startPositionSeconds: Double?,
     val queueMedium: String,
     val isLive: Boolean,
+    val albumTitle: String? = null,
   )
 
   private fun resolveForPlayback(item: MediaItem): MediaItem? {
@@ -321,7 +328,9 @@ class PodverseMediaLibraryService : MediaLibraryService() {
     return item
       .buildUpon()
       .setUri(Uri.parse(resolved.uri))
-      .setMediaMetadata(playableMetadata(resolved.title, resolved.artworkUrl, resolved.subtitle))
+      .setMediaMetadata(
+        playableMetadata(
+          resolved.title, resolved.artworkUrl, resolved.subtitle, resolved.albumTitle))
       .build()
   }
 
@@ -338,7 +347,15 @@ class PodverseMediaLibraryService : MediaLibraryService() {
     if (download != null) {
       val uri = fileUriOrRemote(download.filePath, download.mediaUrl) ?: return null
       return ResolvedMedia(
-        uri, download.title, download.artworkUrl, download.channelTitle, null, "av", false)
+        uri,
+        download.title,
+        download.artworkUrl,
+        download.artist ?: download.channelTitle,
+        null,
+        "av",
+        false,
+        albumTitle = if (download.artist != null) download.channelTitle else null,
+      )
     }
     for (kind in listOf(PodverseNativeCacheKind.QUEUE_AV, PodverseNativeCacheKind.QUEUE_MUSIC)) {
       val entry = readQueueSnapshot(kind).entries.firstOrNull { it.idText == idText }
@@ -348,10 +365,11 @@ class PodverseMediaLibraryService : MediaLibraryService() {
           uri,
           entry.title,
           entry.artworkUrl,
-          entry.podcastTitle,
+          entry.artist ?: entry.podcastTitle,
           entry.startPositionSeconds,
           if (kind == PodverseNativeCacheKind.QUEUE_MUSIC) "music" else "av",
           false,
+          albumTitle = if (entry.artist != null) entry.podcastTitle else null,
         )
       }
     }
@@ -362,7 +380,15 @@ class PodverseMediaLibraryService : MediaLibraryService() {
     if (history != null) {
       val uri = fileUriOrRemote(history.downloadFileName ?: "", history.mediaUrl) ?: return null
       return ResolvedMedia(
-        uri, history.title, history.artworkUrl, history.channelTitle, null, "av", false)
+        uri,
+        history.title,
+        history.artworkUrl,
+        history.artist ?: history.channelTitle,
+        null,
+        "av",
+        false,
+        albumTitle = if (history.artist != null) history.channelTitle else null,
+      )
     }
     // Channel children
     for (node in readBrowseNodes()) {
@@ -371,14 +397,16 @@ class PodverseMediaLibraryService : MediaLibraryService() {
             PodverseNativeCache.readLibraryChildren(this, node.idText))
           .firstOrNull { it.idText == idText } ?: continue
       val uri = fileUriOrRemote(child.downloadFileName ?: "", child.mediaUrl) ?: continue
+      val album = child.subtitle ?: node.title
       return ResolvedMedia(
         uri,
         child.title,
         child.artworkUrl,
-        child.subtitle,
+        child.artist ?: album,
         child.progressSeconds,
         node.mediumBucket,
         false,
+        albumTitle = if (child.artist != null) album else null,
       )
     }
     return null
@@ -397,9 +425,11 @@ class PodverseMediaLibraryService : MediaLibraryService() {
         .apply {
           playable.artworkUrl?.let { put("artworkUrl", it) }
           playable.subtitle?.let { put("subtitle", it) }
+          playable.albumTitle?.let { put("albumTitle", it) }
         }
         .toString()
-    val metadata = playableMetadata(playable.title, playable.artworkUrl, playable.subtitle)
+    val metadata =
+      playableMetadata(playable.title, playable.artworkUrl, playable.subtitle, playable.albumTitle)
     val extras = Bundle().apply { putString(PodverseSessionPlayer.META_JSON_EXTRA, metaJson) }
     return MediaItem.Builder()
       .setMediaId(mediaId)
@@ -435,7 +465,7 @@ class PodverseMediaLibraryService : MediaLibraryService() {
   }
 
   private fun playableMetadata(
-    title: String, artworkUrl: String?, subtitle: String?
+    title: String, artworkUrl: String?, subtitle: String?, albumTitle: String? = null
   ): MediaMetadata =
     MediaMetadata.Builder()
       .setIsBrowsable(false)
@@ -443,6 +473,7 @@ class PodverseMediaLibraryService : MediaLibraryService() {
       .setTitle(title)
       .apply {
         subtitle?.let { setArtist(it) }
+        albumTitle?.let { setAlbumTitle(it) }
         artworkUrl?.let { setArtworkUri(Uri.parse(it)) }
       }
       .build()

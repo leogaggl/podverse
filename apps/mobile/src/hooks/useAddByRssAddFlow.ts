@@ -168,7 +168,8 @@ export function useAddByRssAddFlow({
       const { requestId, result } = await addByRssRepository.parseNow(
         authContext,
         feedUrl,
-        credentials
+        credentials,
+        { followed: true }
       );
       setInputValue('');
       setUsername('');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 
 import type { DTOAccount, DTOChannel, DTOPlaylist } from '@podverse/helpers';
 import { Button } from '@podverse/ui';
@@ -10,6 +10,8 @@ import { useAccount } from '../../../contexts/Account';
 import { useModals } from '../../../contexts/Modals';
 import { getApiRequestService } from '../../../factories/apiRequestService';
 import { useMembershipGate } from '../../../hooks/useMembershipGate';
+import { followedDirectoryArtistAlbumIdTexts } from '../../../lib/artistUnsubscribe';
+import { UnsubscribeArtistModal } from './UnsubscribeArtistModal';
 
 import styles from '../../../styles/components/Common/Media/Header/SubscribeButton.module.scss';
 
@@ -17,9 +19,15 @@ type SubscribeButtonProps = {
   entity: DTOChannel | DTOPlaylist | DTOAccount;
   kind: 'podcast' | 'artist' | 'album' | 'playlist' | 'profile';
   onEdit?: () => void;
+  artistAlbums?: readonly DTOChannel[];
 };
 
-export const SubscribeButton: React.FC<SubscribeButtonProps> = ({ entity, kind, onEdit }) => {
+export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
+  entity,
+  kind,
+  onEdit,
+  artistAlbums,
+}) => {
   const apiRequestService = getApiRequestService();
   const tFeatures = useTranslations('features');
   const tInstructions = useTranslations('instructions');
@@ -27,6 +35,11 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({ entity, kind, 
   const { loggedInAccount, setLoggedInAccount } = useAccount();
   const { setModalLoginRequired } = useModals();
   const { tryHandleMembershipGateError } = useMembershipGate();
+  const [artistPromptAlbumIdTexts, setArtistPromptAlbumIdTexts] = useState<string[] | null>(null);
+  const [artistPromptBusy, setArtistPromptBusy] = useState<
+    'artist_only' | 'artist_and_albums' | null
+  >(null);
+  const artistPromptInFlight = useRef(false);
 
   if (kind === 'podcast' || kind === 'artist' || kind === 'album') {
     const channel = entity as DTOChannel;
@@ -42,6 +55,19 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({ entity, kind, 
 
       try {
         if (isSubscribed) {
+          if (kind === 'artist') {
+            const followedAlbumIdTexts = followedDirectoryArtistAlbumIdTexts({
+              artistIdText: channel.id_text,
+              albums: artistAlbums ?? [],
+              followingChannelIds: new Set(
+                loggedInAccount.account_following_channels?.map((row) => row.channel_id) ?? []
+              ),
+            });
+            if (followedAlbumIdTexts.length > 0) {
+              setArtistPromptAlbumIdTexts(followedAlbumIdTexts);
+              return;
+            }
+          }
           const updatedAccount = await apiRequestService.reqAccountUnfollowChannel({
             channel_id_text: channel.id_text,
           });
@@ -59,10 +85,59 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({ entity, kind, 
       }
     };
 
+    const cancelArtistPrompt = () => {
+      if (artistPromptInFlight.current) {
+        return;
+      }
+      setArtistPromptAlbumIdTexts(null);
+    };
+
+    const runArtistUnsubscribe = async (action: 'artist_only' | 'artist_and_albums') => {
+      if (artistPromptInFlight.current || artistPromptAlbumIdTexts === null) {
+        return;
+      }
+      artistPromptInFlight.current = true;
+      setArtistPromptBusy(action);
+      try {
+        const updatedAccount =
+          action === 'artist_only'
+            ? await apiRequestService.reqAccountUnfollowChannel({
+                channel_id_text: channel.id_text,
+              })
+            : await apiRequestService.reqAccountUnfollowBulk({
+                channel_id_texts: [channel.id_text, ...artistPromptAlbumIdTexts],
+              });
+        await setLoggedInAccount(updatedAccount);
+      } catch (error) {
+        if (!tryHandleMembershipGateError(error)) {
+          throw error;
+        }
+      } finally {
+        artistPromptInFlight.current = false;
+        setArtistPromptBusy(null);
+        setArtistPromptAlbumIdTexts(null);
+      }
+    };
+
     return (
-      <Button className={styles.button} variant="miniGlow" onClick={toggleSubscribe}>
-        {isSubscribed ? tFeatures('unsubscribe') : tFeatures('subscribe')}
-      </Button>
+      <>
+        <Button className={styles.button} variant="miniGlow" onClick={toggleSubscribe}>
+          {isSubscribed ? tFeatures('unsubscribe') : tFeatures('subscribe')}
+        </Button>
+        <UnsubscribeArtistModal
+          isOpen={artistPromptAlbumIdTexts !== null}
+          albumCount={artistPromptAlbumIdTexts?.length ?? 0}
+          artistTitle={channel.title ?? ''}
+          busyAction={artistPromptBusy}
+          onCancel={cancelArtistPrompt}
+          onArtistOnly={() => {
+            void runArtistUnsubscribe('artist_only');
+          }}
+          onArtistAndAlbums={() => {
+            void runArtistUnsubscribe('artist_and_albums');
+          }}
+        />
+      </>
     );
   } else if (kind === 'playlist') {
     const playlist = entity as DTOPlaylist;

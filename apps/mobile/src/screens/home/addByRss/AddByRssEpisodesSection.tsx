@@ -35,6 +35,8 @@ type AddByRssEpisodeRowProps = {
   onPlay: (row: HomeFeedRowData) => void;
   onQueue: (row: HomeFeedRowData, position: QueueActionPosition) => void;
   row: AddByRssHomeEpisode;
+  testID?: string;
+  trailing?: ReactNode;
 };
 
 function AddByRssEpisodeRow({
@@ -48,6 +50,8 @@ function AddByRssEpisodeRow({
   onPlay,
   onQueue,
   row,
+  testID,
+  trailing,
 }: AddByRssEpisodeRowProps) {
   return (
     <HomeFeedRow
@@ -70,7 +74,8 @@ function AddByRssEpisodeRow({
       }
       row={row}
       showChannelContext={false}
-      testID={`add-by-rss-home-episode-${row.id}`}
+      testID={testID ?? `add-by-rss-home-episode-${row.id}`}
+      trailing={trailing}
     />
   );
 }
@@ -100,21 +105,31 @@ function AddByRssLiveFeedRow({ onOpen, onPlay, row }: AddByRssLiveFeedRowProps) 
 }
 
 type AddByRssEpisodeRowRendererInput = {
-  detail: AddByRssHomeDetailData;
+  /** Every feed whose rows the list shows. Row ids carry the feed's `idText`, so they never collide. */
+  details: readonly AddByRssHomeDetailData[];
   isMusicFeed: boolean;
+  /** Replaces the shared episode-row test id. The index is the caller's row index. */
+  rowTestID?: (index: number) => string;
+  /** Far-right content for each episode row, keyed by the caller's row index. */
+  trailing?: (index: number) => ReactNode;
   visitLastSeenAtMs: number | null | undefined;
 };
 
+type AddByRssRowEntry = { detail: AddByRssHomeDetailData; episode: AddByRssHomeEpisode };
+
 /**
- * Row wiring shared by the episode, track, and downloaded lists.
+ * Row wiring shared by the episode, track, and downloaded lists, and by lists that gather tracks
+ * from several feeds. Each row acts on its own feed.
  *
- * A row is on one of those lists at a time, so they share row testIDs. A podcast row opens the
- * episode page. A track row plays, and Go to Track opens the track page. Livestream rows open
- * the livestream page; the downloaded list does not render them.
+ * Those lists share row test ids. A caller that shows the rows beside directory rows passes its
+ * own. A podcast row opens the episode page. A track row plays, and Go to Track opens the track
+ * page. Livestream rows open the livestream page; the downloaded list does not render them.
  */
 export function useAddByRssEpisodeRowRenderer({
-  detail,
+  details,
   isMusicFeed,
+  rowTestID,
+  trailing,
   visitLastSeenAtMs,
 }: AddByRssEpisodeRowRendererInput): {
   addToPlaylistSheet: ReactNode;
@@ -125,30 +140,32 @@ export function useAddByRssEpisodeRowRenderer({
   const [noticeKey, setNoticeKey] = useState<string | null>(null);
   const { playItem, playLiveItem } = useAddByRssPlayback({ onNotice: setNoticeKey });
   const navigation = useNavigation<NativeStackNavigationProp<AddByRssDetailStackParamList>>();
-  const rowsById = useMemo(
-    () => new Map(detail.episodeRows.map((row) => [row.id, row])),
-    [detail.episodeRows]
-  );
+  const rowsById = useMemo(() => {
+    const entries = new Map<string, AddByRssRowEntry>();
+    for (const detail of details) {
+      for (const episode of detail.episodeRows) {
+        entries.set(episode.id, { detail, episode });
+      }
+    }
+    return entries;
+  }, [details]);
   const { actionNoticeKey, addToPlaylist, addToPlaylistSheet, markAsPlayed, queue } =
     useAddByRssItemActions();
 
   const toTarget = useCallback(
     (row: HomeFeedRowData): AddByRssItemActionTarget | null => {
-      if (detail.mappedFeed === null) {
-        return null;
-      }
-      const episode = rowsById.get(row.id);
-      if (episode === undefined) {
+      const entry = rowsById.get(row.id);
+      if (entry === undefined || entry.detail.mappedFeed === null) {
         return null;
       }
       return {
-        feed: detail.feed,
-        itemBundle: episode.itemBundle,
-        itemIndex: episode.itemIndex,
-        mappedFeed: detail.mappedFeed,
+        feed: entry.detail.feed,
+        itemBundle: entry.episode.itemBundle,
+        itemIndex: entry.episode.itemIndex,
+        mappedFeed: entry.detail.mappedFeed,
       };
     },
-    [detail.feed, detail.mappedFeed, rowsById]
+    [rowsById]
   );
 
   const handleQueue = useCallback(
@@ -186,48 +203,49 @@ export function useAddByRssEpisodeRowRenderer({
 
   const handleOpen = useCallback(
     (row: HomeFeedRowData) => {
-      const episode = rowsById.get(row.id);
-      if (episode === undefined) {
+      const entry = rowsById.get(row.id);
+      if (entry === undefined) {
         return;
       }
       navigation.navigate('AddByRssEpisodeDetail', {
-        feedIdText: detail.feed.idText,
-        itemKey: episode.itemKey,
+        feedIdText: entry.detail.feed.idText,
+        itemKey: entry.episode.itemKey,
       });
     },
-    [detail.feed.idText, navigation, rowsById]
+    [navigation, rowsById]
   );
 
   const handleGoToTrack = useCallback(
     (row: HomeFeedRowData) => {
-      const episode = rowsById.get(row.id);
-      if (episode === undefined) {
+      const entry = rowsById.get(row.id);
+      if (entry === undefined) {
         return;
       }
       navigation.navigate('AddByRssTrackDetail', {
-        feedIdText: detail.feed.idText,
-        itemKey: episode.itemKey,
+        feedIdText: entry.detail.feed.idText,
+        itemKey: entry.episode.itemKey,
       });
     },
-    [detail.feed.idText, navigation, rowsById]
+    [navigation, rowsById]
   );
 
   const handlePlay = useCallback(
     (row: HomeFeedRowData) => {
-      if (detail.mappedFeed === null) {
+      const entry = rowsById.get(row.id);
+      if (entry === undefined || entry.detail.mappedFeed === null) {
         setNoticeKey('features.add_by_rss.status_processing');
         return;
       }
 
-      const episode = detail.episodeRows.find((candidate) => candidate.id === row.id);
-      if (episode === undefined) {
-        setNoticeKey('features.add_by_rss.status_processing');
-        return;
-      }
-
-      void playItem(detail.feed, detail.mappedFeed, episode.itemBundle, episode.itemIndex);
+      const { episode } = entry;
+      void playItem(
+        entry.detail.feed,
+        entry.detail.mappedFeed,
+        episode.itemBundle,
+        episode.itemIndex
+      );
     },
-    [detail, playItem]
+    [playItem, rowsById]
   );
 
   const handleOpenLive = useCallback(
@@ -272,6 +290,8 @@ export function useAddByRssEpisodeRowRenderer({
         onPlay={handlePlay}
         onQueue={handleQueue}
         row={row}
+        testID={rowTestID === undefined ? undefined : rowTestID(index)}
+        trailing={trailing === undefined ? undefined : trailing(index)}
       />
     ),
     [
@@ -282,6 +302,8 @@ export function useAddByRssEpisodeRowRenderer({
       handlePlay,
       handleQueue,
       isMusicFeed,
+      rowTestID,
+      trailing,
       visitLastSeenAtMs,
     ]
   );
@@ -312,13 +334,14 @@ export function AddByRssEpisodesSection({
   visitLastSeenAtMs,
 }: AddByRssSectionPaneProps) {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const details = useMemo(() => [detail], [detail]);
   const {
     addToPlaylistSheet,
     noticeKey: playbackNoticeKey,
     renderLiveRow,
     renderRow,
   } = useAddByRssEpisodeRowRenderer({
-    detail,
+    details,
     isMusicFeed,
     visitLastSeenAtMs,
   });

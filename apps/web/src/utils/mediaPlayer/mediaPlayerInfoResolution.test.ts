@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DTOChannel, DTOClip, DTOItem, DTOItemChapter } from '@podverse/helpers';
-import { buildEpisodePath, MediumEnum } from '@podverse/helpers';
+import { buildAlbumPath, buildArtistPath, buildEpisodePath, MediumEnum } from '@podverse/helpers';
 
 import { getMediaPlayerInfoResolution } from './mediaPlayerInfoResolution';
 
@@ -192,6 +192,8 @@ describe('getMediaPlayerInfoResolution', () => {
     expect(result.subsectionTitle).toBeNull();
     expect(result.itemLinkUrl).toBe(buildEpisodePath('episode-1'));
     expect(result.chapterWebUrl).toBeNull();
+    expect(result.artistLine.kind).toBe('hidden');
+    expect(result.compactChannelLine).toBe(result.channelTitle);
   });
 
   it('keeps itemTitle as base episode title when an active chapter has a subsection title', () => {
@@ -327,5 +329,177 @@ describe('getMediaPlayerInfoResolution', () => {
 
     expect(result.subsectionTitle).toBe('Best bit');
     expect(result.chapterWebUrl).toBeNull();
+  });
+
+  it('shows one verified artist on a directory album and keeps the album link', () => {
+    const mpChannel = {
+      id: 2,
+      id_text: 'album-1',
+      slug: 'album-1',
+      feed_id: 2,
+      podcast_guid: null,
+      title: 'E2E Music Album',
+      sortable_title: 'e2e music album',
+      medium_id: MediumEnum.Music,
+      has_podcast_index_value: false,
+      has_value_time_splits: false,
+      verified_publishers: [
+        {
+          id_text: 'e2eMusicChnl01',
+          title: 'E2E Music Artist',
+          medium_id: MediumEnum.PublisherMusic,
+        },
+      ],
+    } as DTOChannel;
+
+    const mpItem = {
+      id: 2,
+      id_text: 'track-1',
+      channel_id: 2,
+      item_flag_status_id: 1,
+      title: 'E2E Music Track One',
+      item_about: { id: 2, item_id: 2 },
+      item_chat: { id: 2, item_id: 2, server: 'chat.example.com' },
+      item_license: { id: 2, item_id: 2, identifier: 'CC-BY', url: null },
+      item_location: { id: 2, item_id: 2, name: null },
+      item_season: { id: 2, channel_season_id: 2, item_id: 2, title: null },
+      item_content_links: [],
+      item_enclosures: [],
+      item_fundings: [],
+      item_images: [],
+      item_persons: [],
+      item_social_interacts: [],
+      item_soundbites: [],
+      item_transcripts: [],
+      item_txts: [],
+      item_values: [],
+    } as DTOItem;
+
+    const result = getMediaPlayerInfoResolution({
+      mpChannel,
+      mpItem,
+      mpAddByRSS: null,
+      mpClip: null,
+      mpItemSoundbite: null,
+      mpItemChapter: null,
+      mpItemChapters: [],
+      currentTimeSeconds: 0,
+    });
+
+    expect(result.artistLine.kind).toBe('link');
+    expect(result.compactChannelLine).toBe('E2E Music Artist · E2E Music Album');
+    expect(result.channelTitle).toBe('E2E Music Album');
+    expect(result.channelLinkUrl).toBe(buildAlbumPath('album-1'));
+  });
+
+  it('hides the artist line for Add by RSS playback and keeps the resource album title', () => {
+    const mpChannel = {
+      id: 2,
+      id_text: 'album-1',
+      slug: 'album-1',
+      feed_id: 2,
+      podcast_guid: null,
+      title: 'E2E Music Album',
+      sortable_title: 'e2e music album',
+      medium_id: MediumEnum.Music,
+      has_podcast_index_value: false,
+      has_value_time_splits: false,
+      verified_publishers: [
+        {
+          id_text: 'e2eMusicChnl01',
+          title: 'E2E Music Artist',
+          medium_id: MediumEnum.PublisherMusic,
+        },
+      ],
+    } as DTOChannel;
+
+    const result = getMediaPlayerInfoResolution({
+      mpChannel,
+      mpItem: null,
+      mpAddByRSS: {
+        idText: 'feed-1',
+        resourceData: { title: 'Local track', channel_title: 'Local album' },
+      },
+      mpClip: null,
+      mpItemSoundbite: null,
+      mpItemChapter: null,
+      mpItemChapters: [],
+      currentTimeSeconds: 0,
+    });
+
+    expect(result.artistLine.kind).toBe('hidden');
+    expect(result.compactChannelLine).toBe('Local album');
+  });
+
+  it('shows one device artist for Add by RSS playback and joins it with the album', () => {
+    const deviceArtist = {
+      idText: 'local-artist',
+      title: 'Artist',
+      href: '/add-by-rss/artist/local-artist',
+    };
+
+    const result = getMediaPlayerInfoResolution({
+      mpChannel: null,
+      mpItem: null,
+      mpAddByRSS: {
+        idText: 'feed-1',
+        resourceData: { title: 'Track', channel_title: 'Album' },
+      },
+      mpClip: null,
+      mpItemSoundbite: null,
+      mpItemChapter: null,
+      mpItemChapters: [],
+      currentTimeSeconds: 0,
+      deviceArtistLinks: [deviceArtist],
+    });
+
+    expect(result.artistLine).toEqual({ kind: 'link', link: deviceArtist });
+    expect(result.compactChannelLine).toBe('Artist · Album');
+  });
+
+  it('keeps the verified artist when device artist links are also given', () => {
+    const mpChannel: DTOChannel = {
+      id: 2,
+      id_text: 'album-1',
+      slug: 'album-1',
+      feed_id: 2,
+      podcast_guid: null,
+      title: 'E2E Music Album',
+      sortable_title: 'e2e music album',
+      medium_id: MediumEnum.Music,
+      has_podcast_index_value: false,
+      has_value_time_splits: false,
+      verified_publishers: [
+        {
+          id_text: 'e2eMusicChnl01',
+          title: 'E2E Music Artist',
+          medium_id: MediumEnum.PublisherMusic,
+        },
+      ],
+    };
+
+    const result = getMediaPlayerInfoResolution({
+      mpChannel,
+      mpItem: null,
+      mpAddByRSS: null,
+      mpClip: null,
+      mpItemSoundbite: null,
+      mpItemChapter: null,
+      mpItemChapters: [],
+      currentTimeSeconds: 0,
+      deviceArtistLinks: [
+        { idText: 'local', title: 'Local Artist', href: '/add-by-rss/artist/local' },
+      ],
+    });
+
+    expect(result.artistLine).toEqual({
+      kind: 'link',
+      link: {
+        idText: 'e2eMusicChnl01',
+        title: 'E2E Music Artist',
+        href: buildArtistPath('e2eMusicChnl01'),
+      },
+    });
+    expect(result.compactChannelLine).toBe('E2E Music Artist · E2E Music Album');
   });
 });

@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
+import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { useBoostSheet } from '../../components/boost/useBoostSheet';
 import { ChannelDetailShell, ChannelHeader } from '../../components/channel';
@@ -24,6 +25,8 @@ import {
 } from '../../data/repositories';
 import { useAddByRssArtworkHeaders } from '../../hooks/useAddByRssArtworkHeaders';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
+import { useMembershipGate } from '../../membership/MembershipGateProvider';
+import { useAccessTier } from '../../membership/useAccessTier';
 import type {
   AddByRssDetailTab,
   AddByRssEpisodeSort,
@@ -40,7 +43,10 @@ import {
 } from '../../prefs/detailListPrefs';
 import { isOfflineModeEnabled, useOfflineMode } from '../../prefs/offlineMode';
 import { useTheme } from '../../theme/useTheme';
+import { useArtistUnsubscribe } from '../artist/useArtistUnsubscribe';
 import { AddByRssAboutSection } from './addByRss/AddByRssAboutSection';
+import { AddByRssArtistAlbumsSection } from './addByRss/AddByRssArtistAlbumsSection';
+import { AddByRssArtistTracksSection } from './addByRss/AddByRssArtistTracksSection';
 import {
   ADD_BY_RSS_SECTION_LABEL_KEYS,
   addByRssItemsTab,
@@ -78,9 +84,10 @@ const TRACK_SORT_LABEL_KEYS: Record<AddByRssTrackSort, string> = {
   forward: 'filters.sort.forward',
 };
 
-/** One component per section. Episodes and tracks share the items list. */
+/** One component per section. Episodes and tracks share the items list; an artist's tracks do not. */
 const SECTION_COMPONENTS: Record<AddByRssDetailTab, ComponentType<AddByRssSectionPaneProps>> = {
   about: AddByRssAboutSection,
+  albums: AddByRssArtistAlbumsSection,
   downloaded: AddByRssDownloadedSection,
   episodes: AddByRssEpisodesSection,
   funding: AddByRssFundingSection,
@@ -99,12 +106,15 @@ const isTrackSort = (sort: AddByRssDetailSort): sort is AddByRssTrackSort =>
  *
  * The screen owns identity and controls. Each section owns its list. Podcast feeds offer
  * Episodes, Downloaded, and About, then Funding and People when the parsed feed lists them.
- * Music feeds offer Tracks and About, then Funding and People, and no Downloaded. Clips and
+ * Artist feeds offer Albums, Tracks, and About; album and track feeds offer Tracks and About.
+ * Music feeds then add Funding and People, and never Downloaded. Clips and
  * Official Clips are server rows keyed to a server item id, so this screen does not offer them.
  * Podroll resolves remote items against server channels, so it is not offered. Boosts is a
  * web-only tab, and the podcast screen has no Boosts chip either. Chips come from the parsed
- * bundle already on the device. Unsubscribe removes the feed from the device. The page is not
- * shareable, and notifications need a server channel, so this screen has neither share nor a
+ * bundle already on the device. Unsubscribe removes a feed that no Add by RSS artist on the
+ * device lists. An album an artist lists stays on this screen, and Subscribe follows it.
+ * Signed out, a listed-only album shows neither button. The page is not shareable, and
+ * notifications need a server channel, so this screen has neither share nor a
  * bell. Settings holds the feed check and the username and password, which stay on this device.
  * Notifications and auto-download are keyed to a server channel, so Settings does not show them.
  */
@@ -113,7 +123,10 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const { styles: themeStyles, tokens } = useTheme();
   const { boostSheet, openBoost } = useBoostSheet();
+  const { artistUnsubscribeDialog, unsubscribeArtist } = useArtistUnsubscribe();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const { openGate } = useMembershipGate();
+  const { evaluateFeature } = useAccessTier();
   const feedIdText = route.params.feedIdText;
   const [activeFeedId, setActiveFeedId] = useState(feedIdText);
   const [detail, setDetail] = useState<AddByRssHomeDetailData | null>(null);
@@ -230,6 +243,7 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
     skipSectionFallbackRef.current = true;
     setSection(
       resolveAddByRssInitialSection({
+        isArtistFeed: loadedResourceType === 'artists',
         isMusicFeed: isMusic,
         offline: isOfflineModeEnabled(),
       })
@@ -278,17 +292,20 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
   }, [seenFeedUrl]);
 
   const detailForRoute = detail !== null && detail.feed.idText === feedIdText ? detail : null;
+  const isListedOnly = detailForRoute?.feed.followed === false;
   const isMusicFeed =
     detailForRoute !== null && isAddByRssMusicFeed(detailForRoute.feed.resourceType);
+  const isArtistFeed = detailForRoute?.feed.resourceType === 'artists';
 
   const availableSections = useMemo(
     () =>
       resolveAddByRssSections({
         hasFunding: (detailForRoute?.fundings.length ?? 0) > 0,
         hasPeople: (detailForRoute?.people.length ?? 0) > 0,
+        isArtistFeed,
         isMusicFeed,
       }),
-    [detailForRoute, isMusicFeed]
+    [detailForRoute, isArtistFeed, isMusicFeed]
   );
 
   /**
@@ -366,7 +383,28 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
     setIsRemoving(true);
     setRemoveErrorKey(null);
     try {
-      await subscriptionsRepository.unsubscribe({
+      if (isArtistFeed) {
+        const headerTitle =
+          detailForRoute.mappedFeed?.channel.channel.title ??
+          detailForRoute.feed.title ??
+          detailForRoute.feed.feedUrl;
+        const result = await unsubscribeArtist({
+          feedUrl: detailForRoute.feed.feedUrl,
+          source: 'addByRss',
+          title: headerTitle,
+        });
+        if (result.status === 'cancelled') {
+          return;
+        }
+        homeFeedRefresh.notify();
+        navigation.goBack();
+        if (result.serverError) {
+          setRemoveErrorKey('errors.generic');
+        }
+        return;
+      }
+
+      const result = await subscriptionsRepository.unsubscribe({
         accountSync:
           status === 'authenticated'
             ? { accessToken, clearSession, refreshToken, setTokens }
@@ -374,6 +412,12 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
         idText: detailForRoute.feed.feedUrl,
         source: 'addByRss',
       });
+      if (result.addByRssOutcome === 'listed') {
+        homeFeedRefresh.notify();
+        setIsLoading(true);
+        await loadDetail({ silent: false });
+        return;
+      }
       homeFeedRefresh.notify();
       navigation.goBack();
     } catch {
@@ -385,8 +429,61 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
     accessToken,
     clearSession,
     detailForRoute,
+    isArtistFeed,
     isRemoving,
+    loadDetail,
     navigation,
+    refreshToken,
+    setTokens,
+    status,
+    unsubscribeArtist,
+  ]);
+
+  const handleSubscribe = useCallback(async () => {
+    if (detailForRoute === null || isRemoving || status !== 'authenticated') {
+      return;
+    }
+
+    const access = evaluateFeature('add_by_rss_add');
+    if (!access.allowed) {
+      openGate(access.reason);
+      return;
+    }
+
+    const feed = detailForRoute.feed;
+    const headerTitle =
+      detailForRoute.mappedFeed?.channel.channel.title ?? feed.title ?? feed.feedUrl;
+
+    setIsRemoving(true);
+    setRemoveErrorKey(null);
+    try {
+      await requestWithMobileAuthRefresh(
+        { accessToken, clearSession, refreshToken, setTokens },
+        (api) =>
+          api.reqAccountFollowAddByRSSChannel({
+            feed_url: feed.feedUrl,
+            image_url: feed.imageUrl,
+            title: headerTitle,
+            ...(feed.requiresCredentials === true ? { requires_credentials: true } : {}),
+          })
+      );
+      await addByRssRepository.setFollowed(feed.feedUrl, true);
+      homeFeedRefresh.notify();
+      setIsLoading(true);
+      await loadDetail({ silent: false });
+    } catch {
+      setRemoveErrorKey('errors.generic');
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [
+    accessToken,
+    clearSession,
+    detailForRoute,
+    evaluateFeature,
+    isRemoving,
+    loadDetail,
+    openGate,
     refreshToken,
     setTokens,
     status,
@@ -395,6 +492,10 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
   const handleRemovePress = useCallback(() => {
     void handleRemove();
   }, [handleRemove]);
+
+  const handleSubscribePress = useCallback(() => {
+    void handleSubscribe();
+  }, [handleSubscribe]);
 
   const handleRetryDetail = useCallback(() => {
     setIsLoading(true);
@@ -482,18 +583,34 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
     detailForRoute.feed.title ??
     detailForRoute.feed.feedUrl;
 
+  let headerActions: ReactNode = (
+    <Button
+      label={t('features.unsubscribe')}
+      loading={isRemoving}
+      onPress={handleRemovePress}
+      size="sm"
+      testID="add-by-rss-home-remove"
+      variant="outline"
+    />
+  );
+  if (isListedOnly && status === 'authenticated') {
+    headerActions = (
+      <Button
+        label={t('features.subscribe')}
+        loading={isRemoving}
+        onPress={handleSubscribePress}
+        size="sm"
+        testID="add-by-rss-home-subscribe"
+        variant="primary"
+      />
+    );
+  } else if (isListedOnly) {
+    headerActions = null;
+  }
+
   const channelHeader = (
     <ChannelHeader
-      actions={
-        <Button
-          label={t('features.unsubscribe')}
-          loading={isRemoving}
-          onPress={handleRemovePress}
-          size="sm"
-          testID="add-by-rss-home-remove"
-          variant="outline"
-        />
-      }
+      actions={headerActions}
       artworkAddByRssFeedUrl={detailForRoute.feed.feedUrl}
       artworkHeaders={headerArtworkHeaders}
       artworkUri={headerArtwork.listUrl}
@@ -521,7 +638,10 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
     />
   ) : null;
 
-  const SectionPane = SECTION_COMPONENTS[section];
+  const SectionPane =
+    isArtistFeed && section === 'tracks'
+      ? AddByRssArtistTracksSection
+      : SECTION_COMPONENTS[section];
   const sectionBody = settingsOpen ? (
     <AddByRssSettingsPane
       detail={detailForRoute}
@@ -579,6 +699,7 @@ export function AddByRssHomeDetailScreen({ navigation, route }: AddByRssHomeDeta
         testID="add-by-rss-home-detail-screen"
       />
       {boostSheet}
+      {artistUnsubscribeDialog}
     </>
   );
 }

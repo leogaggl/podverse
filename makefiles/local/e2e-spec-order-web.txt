@@ -10,8 +10,13 @@ apps/web/e2e/header-image-lightbox.spec.ts
 apps/web/e2e/media-player-space-shortcut.spec.ts
 apps/web/e2e/media-player-marquee.spec.ts
 apps/web/e2e/media-player-alt-enclosure-load.spec.ts
+apps/web/e2e/media-player-artist-line.spec.ts
+apps/web/e2e/track-artist-byline.spec.ts
 apps/web/e2e/playlist-edit-play.spec.ts
 apps/web/e2e/download-affordance.spec.ts
 apps/web/e2e/media-player-seek-after-video.spec.ts
 apps/web/e2e/medium-canonical-route-redirect.spec.ts
+apps/web/e2e/artist-page-albums-and-tracks.spec.ts
+apps/web/e2e/add-by-rss-artist-albums.spec.ts
+apps/web/e2e/artist-unsubscribe-albums-prompt.spec.ts
 apps/web/e2e/cloudflare-web-analytics-disabled.spec.ts

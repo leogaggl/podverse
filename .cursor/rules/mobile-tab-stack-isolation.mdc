@@ -51,6 +51,9 @@ stack (`AddByRssPodcastDetail`, `AddByRssCredentials`, `AddByRssAdd`).
   `AddByRssEpisodeDetail` for an episode, or `AddByRssLivestreamDetail` for a livestream. The
   library opens those same screens on the Library stack.
 - Do **not** jump to the Home stack to open an add-by-RSS feed's detail from Library.
+- The Add by RSS detail and credentials screens are also registered on Browse and Search, because
+  a directory artist page there lists the member's Add by RSS albums. A row opened there pushes
+  on that tab's stack.
 - The full player's item title and channel title are the exception. A directory follow opens on
   Home. Content this device does not follow opens on Browse. Add by RSS is a follow, so those
   links open Home's add-by-RSS detail. The item title opens the channel page and then the item

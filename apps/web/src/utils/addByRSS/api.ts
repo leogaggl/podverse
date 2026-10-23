@@ -39,6 +39,16 @@ export const followAddByRSSChannel = async (params: {
 export const unfollowAddByRSSChannel = async (feedUrl: string): Promise<DTOAccount> =>
   getApiRequestService().reqAccountUnfollowAddByRSSChannel({ feed_url: feedUrl });
 
+/** Ends the artist follow and the given album follows in one request. */
+export const unfollowAddByRSSFeedsBulk = async (params: {
+  feedUrls: string[];
+  channelIdTexts: string[];
+}): Promise<DTOAccount> =>
+  getApiRequestService().reqAccountUnfollowBulk({
+    add_by_rss_feed_urls: params.feedUrls,
+    ...(params.channelIdTexts.length > 0 ? { channel_id_texts: params.channelIdTexts } : {}),
+  });
+
 /** Credentials go only in this request body; the API seals them for the worker and keeps nothing. */
 export const enqueueAddByRSSParse = async (params: {
   feedUrl: string;

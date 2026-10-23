@@ -18,8 +18,15 @@ export type RemoteItemGeneric = {
 
 export interface PublisherRemoteItemsResponse {
   channel: DTOChannel;
+  /** Albums verified to this publisher (both feeds reference each other), in the publisher feed's order. */
   channelsAdded: DTOChannel[];
+  /**
+   * Albums the publisher feed lists that Podverse has not parsed, as Podcast Index feeds.
+   * References Podcast Index does not know are left out.
+   */
   channelsUnadded: PodcastBatchByFeedGuidResponse['feeds'];
+  /** Tracks on the verified albums, plus tracks credited to this publisher alone, newest first. */
   itemsAdded: DTOItem[];
+  /** Always empty. Item references in a publisher feed are not shown; nothing can verify them. */
   itemsUnadded: NonNullable<EpisodeByGuidResponse['episode']>[];
 }
