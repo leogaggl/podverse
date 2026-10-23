@@ -26,7 +26,7 @@ you want to read each result before the next prompt starts.
 
 ## Phase 1
 
-- [ ] **01 — Publisher medium default**
+- [x] **01 — Publisher medium default**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -40,7 +40,7 @@ verification block; report what changed and anything prompt 02 needs.
 
 ## Phase 2
 
-- [ ] **02 — Namespace proposal folder, draft, and rule**
+- [x] **02 — Namespace proposal folder, draft, and rule**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 

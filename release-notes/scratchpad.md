@@ -514,3 +514,15 @@
   remove action remains the screen-reader path.
 - Who notices: screen-reader users on lists that swipe to reveal an action
 - Operator steps: none
+
+## Publisher feeds that name no remote-item medium are podcast publishers
+
+- Surfaces: workers (parser), api
+- Change: A feed whose `podcast:medium` is `publisher` and whose remote items carry no `medium`
+  attribute, or that lists no remote items, is now stored as a podcast publisher
+  (`publisher-podcast`) instead of a plain podcast. The Podcasting 2.0 spec reads a missing
+  `medium` as podcast. These feeds stop counting as podcasts in lists filtered to podcasts. A
+  publisher feed whose remote items name music or video keeps its type, and remote items without
+  a medium do not count against it. Existing channels change on their next parse.
+- Who notices: listeners browsing podcast lists; podcast networks that publish a publisher feed
+- Operator steps: none
