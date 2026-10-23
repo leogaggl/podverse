@@ -78,7 +78,7 @@ to the deferred file and does not block the run. Read the final message of step 
 
 ## Phase 5 — Whole-tree verification
 
-- [ ] **05 — Whole-tree verification on feature/combined**
+- [x] **05 — Whole-tree verification on feature/combined**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

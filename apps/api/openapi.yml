@@ -19,6 +19,7 @@ tags:
   - name: external-services
   - name: embed-demo
   - name: feed
+  - name: identity
   - name: item
   - name: legal
   - name: item-chapter
