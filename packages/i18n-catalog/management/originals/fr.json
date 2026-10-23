@@ -293,10 +293,9 @@
       "account": "Comptes"
     },
     "ranges": {
-      "day": "1 jour",
-      "day7": "7 jours",
-      "day30": "30 jours",
-      "year1": "1 an",
+      "day": "Jour",
+      "week": "Semaine",
+      "month": "Mois",
       "allTime": "Depuis toujours"
     },
     "table": {
@@ -304,13 +303,7 @@
       "rangeViews": "{range} vues"
     },
     "detail": {
-      "dayToday": "Aujourd'hui",
-      "dayN": "Jour {count}",
-      "weekCurrent": "Cette semaine",
-      "weekN": "Semaine {count}",
-      "monthCurrent": "Ce mois-ci",
-      "dailyBreakdown": "Répartition quotidienne",
-      "weeklyBreakdown": "Répartition hebdomadaire"
+      "dailyBreakdown": "Répartition quotidienne"
     }
   },
   "products": {

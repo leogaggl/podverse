@@ -6,7 +6,7 @@ describe('finalizeOneShotWorkerProcess', () => {
   it('exits with 1 when a one-shot command failed', () => {
     const exitFn = vi.fn<(code: number) => never>();
 
-    finalizeOneShotWorkerProcess('statsUpdateAggregated', 1, exitFn);
+    finalizeOneShotWorkerProcess('statsPopularityRefresh', 1, exitFn);
 
     expect(exitFn).toHaveBeenCalledTimes(1);
     expect(exitFn).toHaveBeenCalledWith(1);
@@ -15,7 +15,7 @@ describe('finalizeOneShotWorkerProcess', () => {
   it('exits with 0 when a one-shot command succeeded', () => {
     const exitFn = vi.fn<(code: number) => never>();
 
-    finalizeOneShotWorkerProcess('statsUpdateAggregated', 0, exitFn);
+    finalizeOneShotWorkerProcess('statsPopularityRefresh', 0, exitFn);
 
     expect(exitFn).toHaveBeenCalledWith(0);
   });

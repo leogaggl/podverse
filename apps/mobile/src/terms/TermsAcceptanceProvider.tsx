@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, Modal, ScrollView, StyleSheet, Text } from 'react-native';
 
 import type { DTOPopularityTrackingAgreement, DTOTermsAgreement } from '@podverse/helpers';
-import { isCurrentTermsAccepted } from '@podverse/helpers';
+import { isCurrentTermsAccepted, isPopularityTrackingOptOutDestructive } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../auth/authRequestWithRefresh';
@@ -14,6 +14,7 @@ import { ModalSafeArea } from '../components/screen/ModalSafeArea';
 import { LoadingSection } from '../components/state/LoadingSection';
 import { PopularityTrackingAgreementBody } from '../popularityTracking/PopularityTrackingAgreementBody';
 import { setPopularityTrackingCurrentVersion } from '../popularityTracking/popularityTrackingGate';
+import { PopularityTrackingOptOutPanel } from '../popularityTracking/PopularityTrackingOptOutPanel';
 import { screenBodyInsets } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
 import { AccountAccessPanel } from './AccountAccessPanel';
@@ -55,6 +56,7 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   const [popularityLoading, setPopularityLoading] = useState(false);
   const [popularityErrorKey, setPopularityErrorKey] = useState<string | null>(null);
   const [popularityReloadKey, setPopularityReloadKey] = useState(0);
+  const [popularityOptOutConfirming, setPopularityOptOutConfirming] = useState(false);
   const decidingRef = useRef(false);
   const previousPhaseRef = useRef<AccountConsentPhase>('none');
   const retainedPhaseRef = useRef<ShownConsentPhase>('terms');
@@ -126,6 +128,12 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
             : t('terms_acceptance.header');
     AccessibilityInfo.announceForAccessibility(message);
   }, [phase, t]);
+
+  useEffect(() => {
+    if (phase !== 'popularity') {
+      setPopularityOptOutConfirming(false);
+    }
+  }, [phase]);
 
   useEffect(() => {
     if (status !== 'authenticated') {
@@ -279,7 +287,7 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
               { paddingBottom: tokens.spacing['2xl'] },
             ]}
             keyboardShouldPersistTaps="handled"
-            key={contentPhase}
+            key={`${contentPhase}-${popularityOptOutConfirming ? 'opt-out' : 'choice'}`}
           >
             {contentPhase === 'terms' ? (
               <>
@@ -337,22 +345,46 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
                   accessibilityRole="header"
                   style={[styles.title, { color: themeStyles.textPrimary.color }]}
                 >
-                  {t('popularity_tracking.title')}
+                  {popularityOptOutConfirming
+                    ? t('popularity_tracking.opt_out_confirm_title')
+                    : t('popularity_tracking.title')}
                 </Text>
-                <PopularityTrackingAgreementBody
-                  accordionTestID="popularity-tracking-full-agreement"
-                  agreement={popularityAgreement}
-                  errorKey={popularityErrorKey}
-                  isLoading={popularityBodyLoading}
-                  noTestID="popularity-tracking-no"
-                  onDecision={(accepted) => {
-                    void handlePopularityDecision(accepted);
-                  }}
-                  onRetry={() => {
-                    setPopularityReloadKey((current) => current + 1);
-                  }}
-                  yesTestID="popularity-tracking-yes"
-                />
+                {popularityOptOutConfirming ? (
+                  <PopularityTrackingOptOutPanel
+                    onCancel={() => {
+                      setPopularityOptOutConfirming(false);
+                    }}
+                    onConfirm={() => {
+                      setPopularityOptOutConfirming(false);
+                      void handlePopularityDecision(false);
+                    }}
+                  />
+                ) : (
+                  <PopularityTrackingAgreementBody
+                    accordionTestID="popularity-tracking-full-agreement"
+                    agreement={popularityAgreement}
+                    errorKey={popularityErrorKey}
+                    isLoading={popularityBodyLoading}
+                    noTestID="popularity-tracking-no"
+                    onDecision={(accepted) => {
+                      if (
+                        !accepted &&
+                        isPopularityTrackingOptOutDestructive(account?.account_settings)
+                      ) {
+                        setPopularityOptOutConfirming(true);
+                        AccessibilityInfo.announceForAccessibility(
+                          t('popularity_tracking.opt_out_confirm_title')
+                        );
+                        return;
+                      }
+                      void handlePopularityDecision(accepted);
+                    }}
+                    onRetry={() => {
+                      setPopularityReloadKey((current) => current + 1);
+                    }}
+                    yesTestID="popularity-tracking-yes"
+                  />
+                )}
               </>
             ) : null}
             {contentPhase === 'resolving' ? <LoadingSection /> : null}

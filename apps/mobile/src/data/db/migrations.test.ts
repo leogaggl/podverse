@@ -67,6 +67,34 @@ describe('migration 24 add-by-RSS livestreams flag', () => {
   });
 });
 
+describe('migration 25 stats listen outbox', () => {
+  it('creates the outbox table and its index on a database at version 24', async () => {
+    const { database, executed } = createRecordingDatabase(24);
+
+    await runMigrations(database);
+
+    const sql = executed.join('\n').toLowerCase();
+    expect(sql).toContain('create table if not exists stats_listen_outbox');
+    for (const column of [
+      'client_listen_id text primary key not null',
+      'account_id_text text not null',
+      'target_kind text not null',
+      'target_id_text text not null',
+      'seconds_heard integer not null',
+      'completed integer not null default 0',
+      'first_report integer not null default 1',
+      'counted_at integer not null',
+      'updated_at integer not null',
+    ]) {
+      expect(sql).toContain(column);
+    }
+    expect(sql).toContain('create index if not exists idx_stats_listen_outbox_account');
+    expect(sql).not.toContain('may_have_livestreams');
+    expect(executed).toContain('PRAGMA user_version = 25;');
+    expect(executed).not.toContain('PRAGMA user_version = 24;');
+  });
+});
+
 describe('migration 20 add-by-RSS credentials', () => {
   it('adds the credential flag and index without a column for secrets', () => {
     const migration20 = MIGRATIONS.find((migration) => migration.version === 20);

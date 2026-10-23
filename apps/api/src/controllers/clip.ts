@@ -26,7 +26,7 @@ import type {
   Clip,
   FindManyOptions,
   FindOptionsRelations,
-  StatsAggregatedClip,
+  StatsPopularityClip,
 } from '@podverse/orm';
 import {
   ChannelService,
@@ -36,7 +36,7 @@ import {
   findOptionsRelationsFromPaths,
   isClipSourceRemoved,
   ItemService,
-  StatsAggregatedClipService,
+  StatsPopularityClipService,
 } from '@podverse/orm';
 
 import {
@@ -73,8 +73,8 @@ const clipPublicManyItemRelations: FindOptionsRelations<Clip> = {
   sharable_status: true,
 };
 
-const statsAggregationRelations: FindOptionsRelations<StatsAggregatedClip> =
-  findOptionsRelationsFromPaths<StatsAggregatedClip>([
+const statsPopularityRelations: FindOptionsRelations<StatsPopularityClip> =
+  findOptionsRelationsFromPaths<StatsPopularityClip>([
     'clip',
     'clip.item',
     'clip.item.item_enclosures',
@@ -86,8 +86,8 @@ const statsAggregationRelations: FindOptionsRelations<StatsAggregatedClip> =
     'clip.sharable_status',
   ]);
 
-const statsAggregationChannelRelations: FindOptionsRelations<StatsAggregatedClip> =
-  findOptionsRelationsFromPaths<StatsAggregatedClip>([
+const statsPopularityChannelRelations: FindOptionsRelations<StatsPopularityClip> =
+  findOptionsRelationsFromPaths<StatsPopularityClip>([
     'clip',
     'clip.item',
     'clip.item.item_enclosures',
@@ -104,8 +104,8 @@ const emptyClipPage = (page: number, limit: number): ApiListResponse<Clip> => {
   };
 };
 
-const statsAggregationItemRelations: FindOptionsRelations<StatsAggregatedClip> =
-  findOptionsRelationsFromPaths<StatsAggregatedClip>([
+const statsPopularityItemRelations: FindOptionsRelations<StatsPopularityClip> =
+  findOptionsRelationsFromPaths<StatsPopularityClip>([
     'clip',
     'clip.account',
     'clip.sharable_status',
@@ -115,7 +115,7 @@ class ClipController {
   public static channelService = new ChannelService();
   public static itemService = new ItemService();
   public static clipService = new ClipService();
-  private static statsAggregatedClipService = new StatsAggregatedClipService();
+  private static statsPopularityClipService = new StatsPopularityClipService();
 
   static async createClip(req: Request, res: Response): Promise<void> {
     ensureAuthenticated(
@@ -360,13 +360,13 @@ class ClipController {
         const category_id = null;
 
         const order = getStatsOrder(range);
-        const config: FindManyOptions<StatsAggregatedClip> = {
-          order: { [order]: 'DESC' },
+        const config: FindManyOptions<StatsPopularityClip> = {
+          order: { [order]: 'DESC', clip_id: 'ASC' },
           skip: offset,
           take: limit,
-          relations: statsAggregationRelations,
+          relations: statsPopularityRelations,
         };
-        const statsResults = await ClipController.statsAggregatedClipService.getManyPublic(
+        const statsResults = await ClipController.statsPopularityClipService.getManyPublic(
           config,
           medium,
           category_id
@@ -457,14 +457,14 @@ class ClipController {
         const category_id = getCategoryEnumValue(category);
 
         const order = getStatsOrder(range);
-        const config: FindManyOptions<StatsAggregatedClip> = {
-          order: { [order]: 'DESC' },
+        const config: FindManyOptions<StatsPopularityClip> = {
+          order: { [order]: 'DESC', clip_id: 'ASC' },
           skip: offset,
           take: limit,
-          relations: statsAggregationRelations,
+          relations: statsPopularityRelations,
         };
         const [statsResults, count] =
-          await ClipController.statsAggregatedClipService.getManyAndCountPublic(
+          await ClipController.statsPopularityClipService.getManyAndCountPublic(
             config,
             medium,
             category_id
@@ -572,13 +572,13 @@ class ClipController {
           }
 
           const results =
-            await ClipController.statsAggregatedClipService.getManyByChannelsAndCountPublic(
+            await ClipController.statsPopularityClipService.getManyByChannelsAndCountPublic(
               [channel.id],
               {
-                order: { [order]: 'DESC' },
+                order: { [order]: 'DESC', clip_id: 'ASC' },
                 skip: offset,
                 take: limit,
-                relations: statsAggregationChannelRelations,
+                relations: statsPopularityChannelRelations,
               }
             );
           const statsResults = results[0];
@@ -686,11 +686,11 @@ class ClipController {
           }
 
           const results =
-            await ClipController.statsAggregatedClipService.getManyByItemAndCountPublic(item.id, {
-              order: { [order]: 'DESC' },
+            await ClipController.statsPopularityClipService.getManyByItemAndCountPublic(item.id, {
+              order: { [order]: 'DESC', clip_id: 'ASC' },
               skip: offset,
               take: limit,
-              relations: statsAggregationItemRelations,
+              relations: statsPopularityItemRelations,
             });
           const statsResults = results[0];
           const count = results[1];
@@ -781,14 +781,14 @@ class ClipController {
               }
 
               const order = getStatsOrder(range);
-              const config: FindManyOptions<StatsAggregatedClip> = {
-                order: { [order]: 'DESC' },
+              const config: FindManyOptions<StatsPopularityClip> = {
+                order: { [order]: 'DESC', clip_id: 'ASC' },
                 skip: offset,
                 take: limit,
-                relations: statsAggregationRelations,
+                relations: statsPopularityRelations,
               };
               const results =
-                await ClipController.statsAggregatedClipService.getManyByChannelsAndCountPublic(
+                await ClipController.statsPopularityClipService.getManyByChannelsAndCountPublic(
                   channel_ids,
                   config
                 );

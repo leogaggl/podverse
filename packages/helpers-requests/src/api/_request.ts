@@ -100,6 +100,12 @@ import {
   reqNotificationsUnreadCount,
 } from './account/notification/notifications.js';
 import {
+  reqAccountTasteProfile,
+  reqAccountTasteProfileHidden,
+  reqAccountTasteProfileHide,
+  reqAccountTasteProfileUnhide,
+} from './account/tasteProfile.js';
+import {
   reqAccountUPDeviceCreate,
   reqAccountUPDeviceDelete,
   reqAccountUPDeviceDeleteAll,
@@ -322,13 +328,8 @@ import {
   reqQueueResourceItemSoundbiteDelete,
 } from './queue/queueResource/queueResourceItemSoundbite.js';
 import { shouldSkipApiRequestErrorLog } from './shouldSkipApiRequestErrorLog.js';
-import {
-  reqStatsTrackAccount,
-  reqStatsTrackChannel,
-  reqStatsTrackClip,
-  reqStatsTrackItem,
-  reqStatsTrackPlaylist,
-} from './stats/stats.js';
+import type { StatsListenRequestBody, StatsOpenRequestBody } from './stats/stats.js';
+import { reqStatsListen, reqStatsOpen } from './stats/stats.js';
 
 export type {
   AddByRSSChapterResponse,
@@ -810,6 +811,24 @@ export class ApiRequestService {
 
   reqAccountContentLog(params: { type: 'removed_content' }) {
     return reqAccountContentLog(this, params);
+  }
+
+  /* ACCOUNT > TASTE PROFILE */
+
+  reqAccountTasteProfile(params: { page?: number; limit?: number }) {
+    return reqAccountTasteProfile(this, params);
+  }
+
+  reqAccountTasteProfileHidden(params: { page?: number; limit?: number }) {
+    return reqAccountTasteProfileHidden(this, params);
+  }
+
+  reqAccountTasteProfileHide(params: { channel_id_text: string }) {
+    return reqAccountTasteProfileHide(this, params);
+  }
+
+  reqAccountTasteProfileUnhide(params: { channel_id_text: string; add_to_taste_profile: boolean }) {
+    return reqAccountTasteProfileUnhide(this, params);
   }
 
   /* ACCOUNT > NOTIFICATION > CHANNEL */
@@ -1561,26 +1580,14 @@ export class ApiRequestService {
     return reqQueueResourceItemSoundbiteDelete(this, queue_id_text, item_soundbite_id_text);
   }
 
-  /* STATS TRACK */
+  /* STATS */
 
-  reqStatsTrackAccount(account_id_text: string) {
-    return reqStatsTrackAccount(this, account_id_text);
+  reqStatsListen(body: StatsListenRequestBody) {
+    return reqStatsListen(this, body);
   }
 
-  reqStatsTrackChannel(channel_id_text: string) {
-    return reqStatsTrackChannel(this, channel_id_text);
-  }
-
-  reqStatsTrackClip(clip_id_text: string) {
-    return reqStatsTrackClip(this, clip_id_text);
-  }
-
-  reqStatsTrackItem(item_id_text: string) {
-    return reqStatsTrackItem(this, item_id_text);
-  }
-
-  reqStatsTrackPlaylist(playlist_id_text: string) {
-    return reqStatsTrackPlaylist(this, playlist_id_text);
+  reqStatsOpen(body: StatsOpenRequestBody) {
+    return reqStatsOpen(this, body);
   }
 
   /* PROFILE CONTENT */

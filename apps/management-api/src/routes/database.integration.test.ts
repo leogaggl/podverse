@@ -178,11 +178,19 @@ describe('management-api database routes', () => {
       const names = res.body.tables.map((t: { tableName: string }) => t.tableName);
       expect(names).toContain('feed');
       expect(names).toContain('feed_takedown_reason');
-      expect(names).toContain('stats_aggregated_channel');
-      expect(names).toContain('stats_aggregated_item');
-      expect(names).toContain('stats_aggregated_clip');
-      expect(names).toContain('stats_aggregated_playlist');
-      expect(names).toContain('stats_aggregated_account');
+      expect(names).toContain('stats_popularity_channel');
+      expect(names).toContain('stats_popularity_item');
+      expect(names).toContain('stats_popularity_clip');
+      expect(names).toContain('stats_popularity_playlist');
+      expect(names).toContain('stats_popularity_account');
+      expect(names).not.toContain('stats_aggregated_channel');
+      expect(names).not.toContain('stats_aggregated_item');
+      expect(names).not.toContain('stats_aggregated_clip');
+      expect(names).not.toContain('stats_aggregated_playlist');
+      expect(names).not.toContain('stats_aggregated_account');
+      expect(names).not.toContain('stats_listener');
+      expect(names).not.toContain('stats_daily_channel');
+      expect(names).not.toContain('stats_taste_profile');
     });
 
     it('includes readOnly flag in table metadata', async () => {

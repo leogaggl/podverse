@@ -228,7 +228,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     removeItemSoundbiteFromPlaylist = plResourceRemoveSbMock;
   }
 
-  class MockStatsAggregatedPlaylistService {
+  class MockStatsPopularityPlaylistService {
     getManyPublic = statsPlGetManyPublicMock;
     getManyPrivate = statsPlGetManyPrivateMock;
     getManyPrivateByPlaylists = statsPlGetManyPrivateByPlaylistsMock;
@@ -254,7 +254,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     PlaylistResourceService: MockPlaylistResourceService,
     ItemService: MockItemService,
     ClipService: MockClipService,
-    StatsAggregatedPlaylistService: MockStatsAggregatedPlaylistService,
+    StatsPopularityPlaylistService: MockStatsPopularityPlaylistService,
     AccountFollowingPlaylistService: MockAccountFollowingPlaylistService,
   };
 });

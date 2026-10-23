@@ -5,7 +5,8 @@ import type { EntityManager } from 'typeorm';
 /**
  * Journal of row images for one merge. Revert walks these entries backward:
  * an update writes `before_json` back, an insert deletes the inserted row,
- * and a delete inserts `before_json` again.
+ * and a delete inserts `before_json` again. Every image comes from `row_to_json`, so a `date`
+ * column stays `YYYY-MM-DD` text and matches its row again whatever the process time zone.
  */
 
 const JOURNAL_TABLES = new Set([
@@ -20,10 +21,10 @@ const JOURNAL_TABLES = new Set([
   'item',
   'playlist_resource',
   'queue_resource',
-  'stats_aggregated_channel',
-  'stats_aggregated_item',
-  'stats_track_event_channel',
-  'stats_track_event_item',
+  'stats_daily_channel',
+  'stats_daily_item',
+  'stats_popularity_channel',
+  'stats_popularity_item',
 ]);
 
 const PRIMARY_KEYS: Record<string, readonly string[]> = {
@@ -38,11 +39,23 @@ const PRIMARY_KEYS: Record<string, readonly string[]> = {
   item: ['id'],
   playlist_resource: ['id'],
   queue_resource: ['id'],
-  stats_aggregated_channel: ['id'],
-  stats_aggregated_item: ['id'],
-  stats_track_event_channel: ['id'],
-  stats_track_event_item: ['id'],
+  stats_daily_channel: ['channel_id', 'day'],
+  stats_daily_item: ['item_id', 'day'],
+  stats_popularity_channel: ['channel_id'],
+  stats_popularity_item: ['item_id'],
 };
+
+/**
+ * Tables whose deleted rows a revert writes over a row recreated since the merge: a later listen
+ * can recreate an old daily row, and the range-totals refresh can recreate an old range row. The
+ * restored row equals the pre-merge image.
+ */
+const RESTORE_OVER_EXISTING_TABLES: ReadonlySet<string> = new Set([
+  'stats_daily_channel',
+  'stats_daily_item',
+  'stats_popularity_channel',
+  'stats_popularity_item',
+]);
 
 const COLUMN_NAME = /^[a-z][a-z0-9_]*$/;
 
@@ -231,10 +244,11 @@ export async function journaledInsert(
   const params = columns.map((_, index) => `$${index + 1}`).join(', ');
   const inserted = await queryRows(
     manager,
-    `INSERT INTO ${quoteTable(table)} (${assignments}) VALUES (${params}) RETURNING *`,
+    `INSERT INTO ${quoteTable(table)} AS t (${assignments}) VALUES (${params}) RETURNING row_to_json(t) AS row`,
     columns.map((column) => values[column] ?? null)
   );
-  const after = copyRow(inserted[0]);
+  const first = inserted[0];
+  const after = isRecord(first) ? copyRow(first.row) : null;
   if (after === null) {
     throw new Error(`channel merge journal: insert into ${table} returned no row`);
   }
@@ -294,9 +308,24 @@ async function insertFromImage(
   const assignments = columns.map((column) => quoteColumn(column)).join(', ');
   const params = columns.map((_, index) => `$${index + 1}`).join(', ');
   await manager.query(
-    `INSERT INTO ${quoteTable(table)} (${assignments}) VALUES (${params})`,
+    `INSERT INTO ${quoteTable(table)} (${assignments}) VALUES (${params})${restoreConflictSql(table, columns)}`,
     columns.map((column) => image[column] ?? null)
   );
+}
+
+function restoreConflictSql(table: string, columns: readonly string[]): string {
+  if (!RESTORE_OVER_EXISTING_TABLES.has(table)) {
+    return '';
+  }
+  const keys = pkColumns(table);
+  const conflict = keys.map((column) => quoteColumn(column)).join(', ');
+  const updates = columns
+    .filter((column) => !keys.includes(column))
+    .map((column) => `${quoteColumn(column)} = EXCLUDED.${quoteColumn(column)}`);
+  if (updates.length === 0) {
+    return ` ON CONFLICT (${conflict}) DO NOTHING`;
+  }
+  return ` ON CONFLICT (${conflict}) DO UPDATE SET ${updates.join(', ')}`;
 }
 
 async function deleteFromImage(

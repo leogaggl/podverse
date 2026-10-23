@@ -293,10 +293,9 @@
       "account": "Cuentas"
     },
     "ranges": {
-      "day": "1 día",
-      "day7": "7 días",
-      "day30": "30 días",
-      "year1": "1 año",
+      "day": "Día",
+      "week": "Semana",
+      "month": "Mes",
       "allTime": "Todo el tiempo"
     },
     "table": {
@@ -304,13 +303,7 @@
       "rangeViews": "{range} vistas"
     },
     "detail": {
-      "dayToday": "Hoy",
-      "dayN": "Día {count}",
-      "weekCurrent": "Esta semana",
-      "weekN": "Semana {count}",
-      "monthCurrent": "Este mes",
-      "dailyBreakdown": "Desglose diario",
-      "weeklyBreakdown": "Desglose semanal"
+      "dailyBreakdown": "Desglose diario"
     }
   },
   "products": {

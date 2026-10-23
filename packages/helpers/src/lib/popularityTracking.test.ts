@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getPopularityTrackingChoice,
   isPopularityTrackingAllowed,
+  isPopularityTrackingOptOutDestructive,
   isPopularityTrackingPromptRequired,
 } from './popularityTracking.js';
 
@@ -123,5 +124,39 @@ describe('getPopularityTrackingChoice', () => {
         current
       )
     ).toBe('allowed');
+  });
+});
+
+describe('isPopularityTrackingOptOutDestructive', () => {
+  it('is true for a yes on the current version and on an older version', () => {
+    expect(
+      isPopularityTrackingOptOutDestructive({
+        listen_stats_accepted: true,
+        listen_stats_agreement_version: current,
+      })
+    ).toBe(true);
+    expect(
+      isPopularityTrackingOptOutDestructive({
+        listen_stats_accepted: true,
+        listen_stats_agreement_version: '2026-01-01',
+      })
+    ).toBe(true);
+  });
+
+  it('is false when there is no decision, nothing was decided, or the account opted out', () => {
+    expect(isPopularityTrackingOptOutDestructive(null)).toBe(false);
+    expect(isPopularityTrackingOptOutDestructive(undefined)).toBe(false);
+    expect(
+      isPopularityTrackingOptOutDestructive({
+        listen_stats_accepted: null,
+        listen_stats_agreement_version: null,
+      })
+    ).toBe(false);
+    expect(
+      isPopularityTrackingOptOutDestructive({
+        listen_stats_accepted: false,
+        listen_stats_agreement_version: current,
+      })
+    ).toBe(false);
   });
 });

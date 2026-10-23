@@ -1,7 +1,11 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-import { E2E_CONSENT_ORDER_EMAIL, E2E_CONSENT_ORDER_PASSWORD } from './helpers/legalConsent';
+import {
+  E2E_CONSENT_ORDER_EMAIL,
+  E2E_CONSENT_ORDER_PASSWORD,
+  E2E_POPULARITY_STALE_EMAIL,
+} from './helpers/legalConsent';
 import { actionAndCapture, capturePageLoad } from './helpers/stepScreenshots';
 
 const API_LOGIN_URL = 'http://localhost:4030/api/v2/auth/login';
@@ -31,6 +35,10 @@ async function listenStatsAccepted(page: Page): Promise<boolean | null | undefin
 
 function popularitySwitch(page: Page) {
   return page.getByRole('switch', { name: POPULARITY_SCREEN_NAME });
+}
+
+function optOutDialog(page: Page) {
+  return page.getByRole('dialog', { name: 'Turn Off Popularity Tracking?' });
 }
 
 test.describe('Popularity tracking consent', () => {
@@ -140,7 +148,7 @@ test.describe('Popularity tracking consent', () => {
     );
   });
 
-  test('When the account already accepted, the settings switch turns tracking off immediately and on only after Yes.', async ({
+  test('When the account already accepted, turning the settings switch off asks first, and tracking turns back on only after Yes.', async ({
     page,
   }, testInfo) => {
     await loginViaApi(page, DECIDED_EMAIL);
@@ -156,12 +164,31 @@ test.describe('Popularity tracking consent', () => {
       popularitySwitch(page)
     );
 
+    const dialog = optOutDialog(page);
+
     await actionAndCapture(
       page,
       testInfo,
-      'Turning the switch off opts out immediately.',
+      'Turning the switch off asks first, and Cancel keeps tracking on.',
       async () => {
         await popularitySwitch(page).click();
+        await expect(dialog).toBeVisible();
+      },
+      dialog
+    );
+
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(popularitySwitch(page)).toBeChecked();
+    expect(await listenStatsAccepted(page)).toBe(true);
+
+    await actionAndCapture(
+      page,
+      testInfo,
+      'Confirming Turn Off and Delete turns tracking off.',
+      async () => {
+        await popularitySwitch(page).click();
+        await dialog.getByRole('button', { name: 'Turn Off and Delete' }).click();
         await expect(popularitySwitch(page)).not.toBeChecked();
         expect(await listenStatsAccepted(page)).toBe(false);
       },
@@ -179,6 +206,7 @@ test.describe('Popularity tracking consent', () => {
         await expect(screen).toBeVisible();
         expect(await listenStatsAccepted(page)).toBe(false);
         await screen.getByRole('button', { name: 'No Thanks' }).click();
+        await expect(optOutDialog(page)).toHaveCount(0);
         await expect(page).toHaveURL(/\/settings\?tab=account/);
         await expect(popularitySwitch(page)).not.toBeChecked();
         expect(await listenStatsAccepted(page)).toBe(false);
@@ -200,5 +228,39 @@ test.describe('Popularity tracking consent', () => {
       },
       popularitySwitch(page)
     );
+  });
+
+  test('When an account accepted an older version, No Thanks on the prompt asks first, and confirming turns tracking off.', async ({
+    page,
+  }, testInfo) => {
+    await loginViaApi(page, E2E_POPULARITY_STALE_EMAIL);
+    await page.goto('/');
+    await expect(page).toHaveURL('/');
+
+    const screen = page.getByRole('main', { name: POPULARITY_SCREEN_NAME });
+    await expect(screen).toBeVisible();
+
+    const dialog = optOutDialog(page);
+
+    await actionAndCapture(
+      page,
+      testInfo,
+      'No Thanks on an older acceptance asks before turning tracking off.',
+      async () => {
+        await screen.getByRole('button', { name: 'No Thanks' }).click();
+        await expect(dialog).toBeVisible();
+      },
+      dialog
+    );
+
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(screen).toBeVisible();
+    expect(await listenStatsAccepted(page)).toBe(true);
+
+    await screen.getByRole('button', { name: 'No Thanks' }).click();
+    await dialog.getByRole('button', { name: 'Turn Off and Delete' }).click();
+    await expect(page.getByRole('main', { name: POPULARITY_SCREEN_NAME })).toHaveCount(0);
+    expect(await listenStatsAccepted(page)).toBe(false);
   });
 });

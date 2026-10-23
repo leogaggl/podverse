@@ -293,10 +293,9 @@
       "account": "Λογαριασμοί"
     },
     "ranges": {
-      "day": "1 ημέρα",
-      "day7": "7 ημέρες",
-      "day30": "30 ημέρες",
-      "year1": "1 έτος",
+      "day": "Ημέρα",
+      "week": "Εβδομάδα",
+      "month": "Μήνας",
       "allTime": "Συνολικά"
     },
     "table": {
@@ -304,13 +303,7 @@
       "rangeViews": "{range} προβολές"
     },
     "detail": {
-      "dayToday": "Σήμερα",
-      "dayN": "Ημέρα {count}",
-      "weekCurrent": "Αυτή την εβδομάδα",
-      "weekN": "Εβδομάδα {count}",
-      "monthCurrent": "Αυτόν τον μήνα",
-      "dailyBreakdown": "Ημερήσια ανάλυση",
-      "weeklyBreakdown": "Εβδομαδιαία ανάλυση"
+      "dailyBreakdown": "Ημερήσια ανάλυση"
     }
   },
   "products": {

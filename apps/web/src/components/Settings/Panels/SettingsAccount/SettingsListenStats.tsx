@@ -4,7 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
-import { getPopularityTrackingChoice, isPopularityTrackingAllowed } from '@podverse/helpers';
+import {
+  getPopularityTrackingChoice,
+  isPopularityTrackingAllowed,
+  isPopularityTrackingOptOutDestructive,
+} from '@podverse/helpers';
 import { SwitchButton } from '@podverse/ui';
 
 import { ROUTES } from '../../../../constants/routes';
@@ -12,6 +16,7 @@ import { useAccount } from '../../../../contexts/Account';
 import { useConfig } from '../../../../contexts/Config';
 import { getApiRequestService } from '../../../../factories/apiRequestService';
 import { popularityTrackingStatusKey } from '../../../../lib/popularityTrackingStatus';
+import { ModalPopularityTrackingOptOut } from '../../../Legal/ModalPopularityTrackingOptOut';
 import { showToast } from '../../../Toast/Toast';
 import { SettingsSection } from '../../SettingsSection';
 
@@ -22,6 +27,7 @@ export function SettingsListenStats() {
   const { loggedInAccount, setLoggedInAccount } = useAccount();
   const config = useConfig();
   const [isSaving, setIsSaving] = useState(false);
+  const [isOptOutConfirmOpen, setIsOptOutConfirmOpen] = useState(false);
   const version = config.public.legal.popularityTracking.version;
   const choice = getPopularityTrackingChoice(loggedInAccount?.account_settings, version);
   const allowed = isPopularityTrackingAllowed(loggedInAccount?.account_settings, version);
@@ -52,6 +58,10 @@ export function SettingsListenStats() {
     loading: isSaving,
     onChange: (next: boolean) => {
       if (!next) {
+        if (isPopularityTrackingOptOutDestructive(loggedInAccount?.account_settings)) {
+          setIsOptOutConfirmOpen(true);
+          return;
+        }
         void turnOff();
         return;
       }
@@ -73,6 +83,16 @@ export function SettingsListenStats() {
       ) : (
         <SwitchButton {...switchProps} />
       )}
+      <ModalPopularityTrackingOptOut
+        isOpen={isOptOutConfirmOpen}
+        onCancel={() => {
+          setIsOptOutConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          setIsOptOutConfirmOpen(false);
+          void turnOff();
+        }}
+      />
     </SettingsSection>
   );
 }

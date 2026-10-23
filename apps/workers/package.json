@@ -33,7 +33,7 @@
     "dev_parser_rss_parse_music_medium_feeds": "node ./dist/index.js devParserRSSParseMusicMediumFeeds",
     "dev_parser_rss_parse_artist_publisher_feeds": "node ./dist/index.js devParserRSSParseArtistPublisherFeeds",
     "dev_discover_artist_publisher_feeds": "node ./dist/index.js devDiscoverArtistPublisherFeeds",
-    "dev_stats_seed_simulated_aggregated": "node ./dist/index.js devStatsSeedSimulatedAggregated",
+    "dev_stats_seed_simulated_popularity": "node ./dist/index.js devStatsSeedSimulatedPopularity",
     "dev_seed_local_user_content": "node ./dist/index.js devSeedLocalUserContent",
     "seed_embed_demo_showcase_feeds": "node ./dist/index.js seedEmbedDemoShowcaseFeeds",
     "image_shrink_backfill": "node ./dist/index.js imageShrinkBackfill",
@@ -57,8 +57,8 @@
     "podcast_index_dead_feeds_flag_and_merge": "node ./dist/index.js podcastIndexDeadFeedsFlagAndMerge",
     "podcast_index_trending_podcasts_get": "node ./dist/index.js podcastIndexTrendingPodcastsGet",
     "podcast_index_value_update_all": "node ./dist/index.js podcastIndexValueUpdateAll",
-    "stats_update_aggregated": "node ./dist/index.js statsUpdateAggregated",
-    "stats_update_aggregated_rolling": "node ./dist/index.js statsUpdateAggregatedRolling"
+    "stats_event_partitions_maintain": "node ./dist/index.js statsEventPartitionsMaintain",
+    "stats_popularity_refresh": "node ./dist/index.js statsPopularityRefresh"
   },
   "license": "AGPL-3.0",
   "dependencies": {

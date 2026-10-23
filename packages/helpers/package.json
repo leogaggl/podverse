@@ -79,6 +79,10 @@
       "types": "./dist/lib/playbackOutboxLimits.d.ts",
       "default": "./dist/lib/playbackOutboxLimits.js"
     },
+    "./popularityListen": {
+      "types": "./dist/lib/popularityListen.d.ts",
+      "default": "./dist/lib/popularityListen.js"
+    },
     "./playbackTimestamps": {
       "types": "./dist/lib/playbackTimestamps.d.ts",
       "default": "./dist/lib/playbackTimestamps.js"

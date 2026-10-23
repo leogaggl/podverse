@@ -272,6 +272,7 @@ npm run mobile:e2e:test -- --platform ios settings-downloads
 npm run mobile:e2e:test -- --platform ios settings-select
 npm run mobile:e2e:test -- --platform ios subscriptions-anonymous
 npm run mobile:e2e:test -- --platform ios tab-switch-playback
+npm run mobile:e2e:test -- --platform ios taste-profile
 npm run mobile:e2e:test -- --platform ios track
 npm run mobile:e2e:test -- --platform ios v4v
 npm run mobile:e2e:test -- --platform ios video-transition
@@ -331,6 +332,7 @@ npm run mobile:e2e:test -- --platform android settings-downloads
 npm run mobile:e2e:test -- --platform android settings-select
 npm run mobile:e2e:test -- --platform android subscriptions-anonymous
 npm run mobile:e2e:test -- --platform android tab-switch-playback
+npm run mobile:e2e:test -- --platform android taste-profile
 npm run mobile:e2e:test -- --platform android track
 npm run mobile:e2e:test -- --platform android v4v
 npm run mobile:e2e:test -- --platform android video-transition
@@ -457,6 +459,7 @@ npm run mobile:e2e:test -- search
 npm run mobile:e2e:test -- search-unparsed
 npm run mobile:e2e:test -- settings-downloads
 npm run mobile:e2e:test -- subscriptions-anonymous
+npm run mobile:e2e:test -- taste-profile
 npm run mobile:e2e:test -- track
 ```
 

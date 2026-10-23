@@ -1,4 +1,4 @@
-import { getPodcastIndexConfig } from '@workers/config/index.js';
+import { getPodcastIndexConfig, getStatsConfig } from '@workers/config/index.js';
 import { getPodcastIndexService } from '@workers/factories/podcastIndexService.js';
 
 import {
@@ -107,6 +107,7 @@ export const podcastIndexDeadFeedsFlagAndMerge = async () => {
       mode: duplicateMergeMode,
       fetchSurvivorFeed,
       enqueueRepointParse,
+      statsTrackEventRetentionDays: getStatsConfig().trackEventRetentionDays,
     });
   }
 

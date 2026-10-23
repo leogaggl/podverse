@@ -6,8 +6,8 @@ export const TIME_CONSTANTS = {
   ONE_MONTH_IN_MINUTES: 43200,
 };
 
-/** Default retention for raw stats track events before prune (see STATS_TRACK_EVENT_RETENTION_DAYS). */
-export const DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS = 30;
+/** Default days raw popularity listen and open events are kept. A monthly partition is dropped once every row in it is older than this (STATS_TRACK_EVENT_RETENTION_DAYS). */
+export const DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS = 90;
 
 /**
  * Default retention for delivered notification rows (see NOTIFICATION_RETENTION_DAYS).

@@ -53,7 +53,7 @@ import type {
   AccountFollowingAccount,
   FindManyOptions,
   FindOptionsRelations,
-  StatsAggregatedAccount,
+  StatsPopularityAccount,
 } from '@podverse/orm';
 import {
   AccountCredentialsService,
@@ -68,7 +68,7 @@ import {
   AccountVerificationService,
   findOptionsRelationsFromPaths,
   mergeFindOptionsRelations,
-  StatsAggregatedAccountService,
+  StatsPopularityAccountService,
 } from '@podverse/orm';
 
 const publicRelations: FindOptionsRelations<Account> = {
@@ -96,14 +96,14 @@ const accountPublicRelations = publicRelations;
 
 const accountFullRelations = mergeFindOptionsRelations<Account>(publicRelations, privateRelations);
 
-const trackedAccountProfileRelations = [
-  'tracked_account',
-  'tracked_account.account_profile',
-  'tracked_account.sharable_status',
+const popularityAccountProfileRelations = [
+  'account',
+  'account.account_profile',
+  'account.sharable_status',
 ] as const;
 
-const statsTrackedAccountRelations: FindOptionsRelations<StatsAggregatedAccount> =
-  findOptionsRelationsFromPaths<StatsAggregatedAccount>(trackedAccountProfileRelations);
+const statsPopularityAccountRelations: FindOptionsRelations<StatsPopularityAccount> =
+  findOptionsRelationsFromPaths<StatsPopularityAccount>(popularityAccountProfileRelations);
 
 const followingAccountListRelations: FindOptionsRelations<AccountFollowingAccount> = {
   following_account: {
@@ -135,7 +135,7 @@ export class AccountController {
   private static accountSetPasswordService = new AccountSetPasswordService();
   private static accountVerificationService = new AccountVerificationService();
   private static accountFollowingAccountService = new AccountFollowingAccountService();
-  private static statsAggregatedAccountService = new StatsAggregatedAccountService();
+  private static statsPopularityAccountService = new StatsPopularityAccountService();
   private static accountDataExportService = new AccountDataExportService();
 
   static async getByIdText(req: Request, res: Response): Promise<void> {
@@ -443,19 +443,17 @@ export class AccountController {
         };
 
         const orderField = getStatsOrder(range);
-        const topConfig: FindManyOptions<StatsAggregatedAccount> = {
-          order: { [orderField]: 'DESC' },
+        const topConfig: FindManyOptions<StatsPopularityAccount> = {
+          order: { [orderField]: 'DESC', account_id: 'ASC' },
           skip: offset,
           take: limit,
-          relations: statsTrackedAccountRelations,
+          relations: statsPopularityAccountRelations,
         };
-        const statsResults = await AccountController.statsAggregatedAccountService.getMany(
+        const statsResults = await AccountController.statsPopularityAccountService.getMany(
           topConfig,
           'global'
         );
-        const accounts = statsResults
-          .map((s: { tracked_account: Account }) => s.tracked_account)
-          .filter(Boolean);
+        const accounts = statsResults.map((s: { account: Account }) => s.account).filter(Boolean);
 
         // Remove private information from accounts before returning
         const filteredAccounts = accounts.map((account) =>
@@ -496,22 +494,20 @@ export class AccountController {
 
             if (accountIds.length) {
               const orderField = getStatsOrder(range);
-              const config: FindManyOptions<StatsAggregatedAccount> = {
-                order: { [orderField]: 'DESC' },
+              const config: FindManyOptions<StatsPopularityAccount> = {
+                order: { [orderField]: 'DESC', account_id: 'ASC' },
                 skip: offset,
                 take: limit,
-                relations: statsTrackedAccountRelations,
+                relations: statsPopularityAccountRelations,
               };
               const results =
-                await AccountController.statsAggregatedAccountService.getManyByAccountsAndCount(
+                await AccountController.statsPopularityAccountService.getManyByAccountsAndCount(
                   accountIds,
                   config,
                   'subscribed'
                 );
               const statsResults = results[0];
-              accounts = statsResults
-                .map((s: { tracked_account: Account }) => s.tracked_account)
-                .filter(Boolean);
+              accounts = statsResults.map((s: { account: Account }) => s.account).filter(Boolean);
               count = results[1];
             }
 

@@ -115,14 +115,22 @@ When unset/invalid, each uses its code default listed below.
 - **`ACCOUNT_ADD_BY_RSS_CHAPTERS_TRANSCRIPT_MAX_PER_MINUTE`** (default `30`)
 - **`ACCOUNT_CHANNEL_SEEN_READ_MAX_PER_MINUTE`** (default `60`) — per account, covers both
   `/account/channel-seen` reads
+- **`STATS_TRACK_MAX_PER_MINUTE`** (default `60`) — per account, one budget shared by
+  `/stats/listen` and `/stats/open`. The counter lives in each API process, so the effective
+  ceiling grows with the replica count; `STATS_LISTEN_DAILY_CAP` is the control that holds across
+  pods
 - **`MQ_RSS_ON_DEMAND_MAX_PER_HOUR`** (default `20`)
 - **`BILLING_PURCHASE_MAX_PER_10_MINUTES`** (default `20`) - per account, shared by every billing purchase, cancel, and restore post
 - **`BILLING_WEBHOOK_MAX_PER_MINUTE`** (default `120`) - per IP and processor for `/billing/webhooks/*`
 
-Related soft cap:
+Related soft caps:
 
 - **`OPML_IMPORT_MAX_FEEDS_PER_HOUR`** (default `50`) limits new-feed work inside OPML import jobs
   and is separate from HTTP enqueue 429 limits.
+- **`STATS_LISTEN_DAILY_CAP`** (default `300`) limits stored Popularity Tracking listens per
+  listener per UTC day, enforced in the database. A report past the cap answers 200 with
+  `daily_cap_reached`; later reports for an already-stored listening session do not count against
+  it. Unset, empty, or below 1 uses the default.
 
 ### Premium/Membership
 
@@ -153,8 +161,8 @@ The mailer is automatically disabled when `ACCOUNT_SIGNUP_MODE` is not `'user_si
 - **`TERMS_OF_SERVICE_VERSION`** (Required when signup mode is 'user_signup_email') - Date-shaped id of the current terms (for example `2026-10-15`). Stored when an account accepts. A different stored value blocks authenticated routes until the account accepts again. The same value is shown as "Valid since".
 - **`TERMS_OF_SERVICE_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` terms files. Empty uses the Markdown bundled at `apps/api/legal/terms`.
 - **`CONTACT_EMAIL`** (Optional) - Address interpolated into the terms document. Empty leaves that sentence without an address.
-- **`STATS_TRACK_EVENT_RETENTION_DAYS`** (Optional) - Retention window interpolated into the terms document. Empty uses 30 days.
-- **`POPULARITY_TRACKING_AGREEMENT_VERSION`** (Required) - Date-shaped id of the current popularity-tracking agreement (for example `2026-10-15`). Accounts that already accepted are asked again when this changes. Tracking is allowed only when the stored accept matches this value. The same value is shown as the agreement date.
+- **`STATS_TRACK_EVENT_RETENTION_DAYS`** (Optional) - Retention window interpolated into the terms document. Empty uses 90 days.
+- **`POPULARITY_TRACKING_AGREEMENT_VERSION`** (Required) - Date-shaped id of the current popularity-tracking agreement (for example `2026-10-21`). Accounts that already accepted are asked again when this changes. Tracking is allowed only when the stored accept matches this value. The explanation does not display this id.
 - **`POPULARITY_TRACKING_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` agreement files. Empty uses the Markdown bundled at `apps/api/legal/popularity-tracking`.
 
 For local development, set these in [`legal.env`](/dev/env-overrides/local/legal.env.example). Run `make local_env_setup` to apply.

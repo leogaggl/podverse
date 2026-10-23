@@ -384,11 +384,12 @@ dummy rows from `local-dev-accounts.sql` (re-run `make local_db_init` if those
 emails are missing). Run it after parse so clips and playlists exist before
 stats.
 
-`workers:seed_simulated_stats` writes staggered listen counts onto public
-channels (and a cap of newest episodes per show), plus public clips, playlists,
-and accounts when those rows exist. It does not insert a stats row for the
-whole catalog. Re-run it after another parse or another user-content seed.
-Optional `-itemsPerChannel 30` (max 80).
+`workers:seed_simulated_stats` writes 31 days of simulated daily listener
+totals (and one older day, so all-time differs from month) for public channels,
+a cap of newest episodes per show, and public clips, playlists, and accounts
+when present, then refreshes the popularity range totals. It does not insert a
+stats row for the whole catalog. Re-run it after another parse or another
+user-content seed. Optional `-itemsPerChannel 30` (max 80).
 
 Generated local RSS (no PI keys):
 [LOCAL-PARSER-WORKER-FEED-TEST-FLOW.md](testing/LOCAL-PARSER-WORKER-FEED-TEST-FLOW.md).

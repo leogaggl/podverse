@@ -16,4 +16,14 @@ export const E2E_CONSENT_ORDER_EMAIL = 'e2e-consent-order@example.com';
 
 export const E2E_CONSENT_ORDER_PASSWORD = 'Test!1Aa';
 
+/** Current popularity-tracking acceptance with a seeded Taste Profile. Sync with tools/web/seed-e2e.mjs. */
+export const E2E_TASTE_PROFILE_EMAIL = 'e2e-taste-profile@example.com';
+
+export const E2E_TASTE_PROFILE_PASSWORD = 'Test!1Aa';
+
+/** Popularity tracking accepted on an older version. Sync with tools/web/seed-e2e.mjs. */
+export const E2E_POPULARITY_STALE_EMAIL = 'e2e-popularity-stale@example.com';
+
+export const E2E_POPULARITY_STALE_PASSWORD = 'Test!1Aa';
+
 export const E2E_SIGNUP_TEST_PASSWORD = 'Test!1Aa';

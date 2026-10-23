@@ -40,7 +40,7 @@ import type {
   FindOptionsRelations,
   Playlist,
   PlaylistResource,
-  StatsAggregatedPlaylist,
+  StatsPopularityPlaylist,
 } from '@podverse/orm';
 import {
   AccountFollowingPlaylistService,
@@ -48,7 +48,7 @@ import {
   ItemService,
   PlaylistResourceService,
   PlaylistService,
-  StatsAggregatedPlaylistService,
+  StatsPopularityPlaylistService,
 } from '@podverse/orm';
 
 import { handleGenericErrorResponse } from '../helpers/error.js';
@@ -145,7 +145,7 @@ export const verifyPrivatePlaylistOwnershipIfNeeded = () => {
 };
 
 class PlaylistController {
-  private static statsAggregatedPlaylistService = new StatsAggregatedPlaylistService();
+  private static statsPopularityPlaylistService = new StatsPopularityPlaylistService();
   private static playlistResourceService = new PlaylistResourceService();
   private static itemService = new ItemService();
   private static clipService = new ClipService();
@@ -289,13 +289,13 @@ class PlaylistController {
         const { page, limit, offset } = getPaginationParams(req);
 
         const order = getStatsOrder(range);
-        const config: FindManyOptions<StatsAggregatedPlaylist> = {
-          order: { [order]: 'DESC' },
+        const config: FindManyOptions<StatsPopularityPlaylist> = {
+          order: { [order]: 'DESC', playlist_id: 'ASC' },
           skip: offset,
           take: limit,
         };
 
-        const statsResults = await PlaylistController.statsAggregatedPlaylistService.getManyPublic(
+        const statsResults = await PlaylistController.statsPopularityPlaylistService.getManyPublic(
           config,
           medium
         );
@@ -330,14 +330,14 @@ class PlaylistController {
             const { page, limit, offset } = getPaginationParams(req);
 
             const order = getStatsOrder(range);
-            const config: FindManyOptions<StatsAggregatedPlaylist> = {
-              order: { [order]: 'DESC' },
+            const config: FindManyOptions<StatsPopularityPlaylist> = {
+              order: { [order]: 'DESC', playlist_id: 'ASC' },
               skip: offset,
               take: limit,
             };
 
             const statsResults =
-              await PlaylistController.statsAggregatedPlaylistService.getManyPrivate(
+              await PlaylistController.statsPopularityPlaylistService.getManyPrivate(
                 config,
                 account.id,
                 medium
@@ -486,14 +486,14 @@ class PlaylistController {
 
           const playlist_ids = await getFollowedPlaylistIdsPrivate(account_id, medium);
           const order = getStatsOrder(range);
-          const config: FindManyOptions<StatsAggregatedPlaylist> = {
-            order: { [order]: 'DESC' },
+          const config: FindManyOptions<StatsPopularityPlaylist> = {
+            order: { [order]: 'DESC', playlist_id: 'ASC' },
             skip: offset,
             take: limit,
             relations: playlistResourceWithProfileRelations,
           };
           const statsResults =
-            await PlaylistController.statsAggregatedPlaylistService.getManyPrivateByPlaylists(
+            await PlaylistController.statsPopularityPlaylistService.getManyPrivateByPlaylists(
               playlist_ids,
               config
             );

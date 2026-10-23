@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { STATS_POPULARITY_RANGE_LOOKBACK_DAYS } from '@podverse/helpers';
+
 const JWT_SECRET = process.env.AUTH_JWT_SECRET ?? '';
 const statsBase = `${config.api.prefix}${config.api.version}/stats`;
 
@@ -161,6 +163,27 @@ describe('Stats Routes', () => {
       expect(res.body.message).toContain('Invalid entity type');
     });
 
+    it.each(['7day', '30day', '1year'])('returns 400 for range=%s', async (range) => {
+      const res = await request(app)
+        .get(`${statsBase}/channel/top?range=${range}`)
+        .set(authHeaders(1));
+      expect(res.status).toBe(400);
+    });
+
+    it('orders the week range from stats_popularity_channel.week_count', async () => {
+      queryMock.mockResolvedValueOnce([{ total: 0 }]);
+      queryMock.mockResolvedValueOnce([]);
+
+      const res = await request(app).get(`${statsBase}/channel/top?range=week`).set(authHeaders(1));
+      expect(res.status).toBe(200);
+
+      const rowSql = querySql(1);
+      expect(rowSql).toContain('stats_popularity_channel');
+      expect(rowSql).toContain('week_count');
+      expect(rowSql).not.toContain('stats_aggregated');
+      expect(rowSql).not.toContain('day_current_count');
+    });
+
     it('returns data for superuser', async () => {
       queryMock.mockResolvedValueOnce([{ total: 0 }]);
       queryMock.mockResolvedValueOnce([]);
@@ -204,36 +227,38 @@ describe('Stats Routes', () => {
       expect(res.status).toBe(404);
     });
 
-    it('returns detail for existing record', async () => {
+    it('returns popularity counts and a zero-filled daily series', async () => {
       queryMock.mockResolvedValueOnce([
         {
-          id: 1,
-          channel_id: 42,
+          id: 42,
           title: 'Test Podcast',
-          day_current_count: 10,
-          day_1_count: 5,
-          day_2_count: 3,
-          day_3_count: 0,
-          day_4_count: 0,
-          day_5_count: 0,
-          day_6_count: 0,
-          day_7_count: 0,
-          day_8_count: 0,
-          week_current_count: 25,
-          week_1_count: 20,
-          week_2_count: 0,
-          week_3_count: 0,
-          week_4_count: 0,
-          month_current_count: 50,
-          month_1_count: 30,
+          day_count: 1,
+          week_count: 7,
+          month_count: 30,
           all_time_count: 100,
         },
       ]);
+      queryMock.mockResolvedValueOnce([]);
 
-      const res = await request(app).get(`${statsBase}/channel/1`).set(authHeaders(1));
+      const res = await request(app).get(`${statsBase}/channel/42`).set(authHeaders(1));
       expect(res.status).toBe(200);
-      expect(res.body.title).toBe('Test Podcast');
-      expect(res.body.all_time_count).toBe(100);
+      expect(res.body).toMatchObject({
+        id: 42,
+        title: 'Test Podcast',
+        day_count: 1,
+        week_count: 7,
+        month_count: 30,
+        all_time_count: 100,
+      });
+      expect(res.body.range_count).toBeUndefined();
+      expect(res.body.daily).toHaveLength(STATS_POPULARITY_RANGE_LOOKBACK_DAYS.month + 1);
+      const daily: unknown = res.body.daily;
+      expect(Array.isArray(daily)).toBe(true);
+      if (Array.isArray(daily)) {
+        for (const point of daily) {
+          expect(point).toMatchObject({ listener_count: 0 });
+        }
+      }
     });
   });
 
@@ -252,24 +277,10 @@ describe('Stats Routes', () => {
       queryMock.mockResolvedValueOnce([
         {
           id: 1,
-          channel_id: 42,
           title: 'Test Podcast',
-          day_current_count: 10,
-          day_1_count: 5,
-          day_2_count: 3,
-          day_3_count: 0,
-          day_4_count: 0,
-          day_5_count: 0,
-          day_6_count: 0,
-          day_7_count: 0,
-          day_8_count: 0,
-          week_current_count: 25,
-          week_1_count: 20,
-          week_2_count: 0,
-          week_3_count: 0,
-          week_4_count: 0,
-          month_current_count: 50,
-          month_1_count: 30,
+          day_count: 10,
+          week_count: 25,
+          month_count: 50,
           all_time_count: 100,
           range_count: 100,
         },
@@ -281,5 +292,25 @@ describe('Stats Routes', () => {
       expect(res.body.rows).toHaveLength(1);
       expect(res.body.total).toBe(1);
     });
+
+    it('searches profiles on stats_popularity_account', async () => {
+      queryMock.mockResolvedValueOnce([]);
+      queryMock.mockResolvedValueOnce([{ total: 0 }]);
+
+      const res = await request(app).get(`${statsBase}/account/search?q=Ada`).set(authHeaders(1));
+      expect(res.status).toBe(200);
+
+      const rowSql = querySql(0);
+      expect(rowSql).toContain('stats_popularity_account');
+      expect(rowSql).toContain('account_profile');
+      expect(rowSql).toContain('account_id');
+      expect(rowSql).not.toContain('tracked_account_id');
+    });
   });
 });
+
+function querySql(callIndex: number): string {
+  const call = queryMock.mock.calls[callIndex];
+  const sql = call?.[0];
+  return typeof sql === 'string' ? sql : '';
+}

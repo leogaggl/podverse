@@ -113,4 +113,57 @@ describe('tablePolicy', () => {
       expect(sourceField?.updatable).toBe(false);
     });
   });
+
+  describe('popularity tables', () => {
+    const popularityTables = [
+      { tableName: 'stats_popularity_channel', primaryKeyField: 'channel_id' },
+      { tableName: 'stats_popularity_item', primaryKeyField: 'item_id' },
+      { tableName: 'stats_popularity_clip', primaryKeyField: 'clip_id' },
+      { tableName: 'stats_popularity_playlist', primaryKeyField: 'playlist_id' },
+      { tableName: 'stats_popularity_account', primaryKeyField: 'account_id' },
+    ] as const;
+
+    it('lists each popularity table as a read-only stats policy', () => {
+      for (const { tableName, primaryKeyField } of popularityTables) {
+        const policy = getTablePolicy(tableName);
+        expect(policy).toBeDefined();
+        expect(policy?.primaryKeyField).toBe(primaryKeyField);
+        expect(policy?.permissionResource).toBe('stats');
+        expect(policy?.readOnly).toBe(true);
+        expect(policy?.defaultSortField).toBe('all_time_count');
+        expect(policy?.fields.map((field) => field.name)).toEqual([
+          primaryKeyField,
+          'day_count',
+          'week_count',
+          'month_count',
+          'all_time_count',
+        ]);
+        expect(policy?.fields.every((field) => field.updatable === false)).toBe(true);
+        expect(isTableAllowlisted(tableName)).toBe(true);
+        expect(isTableReadOnly(tableName)).toBe(true);
+      }
+    });
+
+    it('keeps daily, event, taste, and aggregate tables off the allowlist', () => {
+      for (const tableName of [
+        'stats_aggregated_channel',
+        'stats_aggregated_item',
+        'stats_aggregated_clip',
+        'stats_aggregated_playlist',
+        'stats_aggregated_account',
+        'stats_daily_channel',
+        'stats_daily_item',
+        'stats_daily_clip',
+        'stats_daily_playlist',
+        'stats_daily_account',
+        'stats_listen_event',
+        'stats_open_event',
+        'stats_taste_profile',
+        'stats_taste_profile_hidden',
+        'stats_listener',
+      ]) {
+        expect(isTableAllowlisted(tableName)).toBe(false);
+      }
+    });
+  });
 });

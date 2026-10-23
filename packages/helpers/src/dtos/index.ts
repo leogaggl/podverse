@@ -13,6 +13,7 @@ export * from './removedSource.js';
 export * from './sharableStatus.js';
 export * from './account/account.js';
 export * from './account/accountContentLog.js';
+export * from './account/accountTasteProfile.js';
 export * from './account/accountCredentials.js';
 export * from './account/accountDataExport.js';
 export * from './account/accountEmailChangeVerification.js';
@@ -133,15 +134,3 @@ export * from './queue/queueResource.js';
 export * from './queue/queueResourceAbridged.js';
 
 export * from './remoteItem.js';
-
-export * from './stats/statsAggregatedAccount.js';
-export * from './stats/statsAggregatedChannel.js';
-export * from './stats/statsAggregatedClip.js';
-export * from './stats/statsAggregatedItem.js';
-export * from './stats/statsAggregatedPlaylist.js';
-export * from './stats/statsTrackAccountGuid.js';
-export * from './stats/statsTrackEventAccount.js';
-export * from './stats/statsTrackEventChannel.js';
-export * from './stats/statsTrackEventClip.js';
-export * from './stats/statsTrackEventItem.js';
-export * from './stats/statsTrackEventPlaylist.js';

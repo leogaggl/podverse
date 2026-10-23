@@ -92,6 +92,21 @@ export const playbackLocalState = sqliteTable(
 export type PlaybackLocalStateRow = typeof playbackLocalState.$inferSelect;
 export type PlaybackLocalStateInsert = typeof playbackLocalState.$inferInsert;
 
+/** Listen reports waiting for `POST /stats/listen`, one row per listen session. */
+export const statsListenOutbox = sqliteTable('stats_listen_outbox', {
+  clientListenId: text('client_listen_id').primaryKey(),
+  accountIdText: text('account_id_text').notNull(),
+  targetKind: text('target_kind').notNull(),
+  targetIdText: text('target_id_text').notNull(),
+  secondsHeard: integer('seconds_heard').notNull(),
+  completed: integer('completed').notNull().default(0),
+  firstReport: integer('first_report').notNull().default(1),
+  countedAt: integer('counted_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export type StatsListenOutboxRow = typeof statsListenOutbox.$inferSelect;
+
 /**
  * Add-by-RSS feeds the account follows, keyed by `feed_url`. This is the source of truth for the
  * mobile RSS list and add-by-RSS playback (retiring the slim AsyncStorage store). `mapped_feed_json`

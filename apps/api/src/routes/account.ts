@@ -18,6 +18,7 @@ import { AccountNotificationChannelController } from '@api/controllers/account/a
 import { AccountNotificationChannelTypeController } from '@api/controllers/account/accountNotificationChannelType.js';
 import { AccountOpmlExportController } from '@api/controllers/account/accountOpmlExport.js';
 import { AccountOpmlImportController } from '@api/controllers/account/accountOpmlImport.js';
+import { AccountTasteProfileController } from '@api/controllers/account/accountTasteProfile.js';
 import { AccountUPDeviceController } from '@api/controllers/account/accountUPDevice.js';
 import { AccountWebPushDeviceController } from '@api/controllers/account/accountWebPushDevice.js';
 import { rateLimitAuthEndpoint, rateLimitEndpoint } from '@api/lib/rateLimiter.js';
@@ -225,6 +226,10 @@ router.get(
   asyncHandler(AccountNotificationChannelController.getAllByAccount)
 );
 router.get('/content-log', asyncHandler(AccountContentLogController.list));
+router.get('/taste-profile', asyncHandler(AccountTasteProfileController.list));
+router.get('/taste-profile/hidden', asyncHandler(AccountTasteProfileController.listHidden));
+router.post('/taste-profile/hide', asyncHandler(AccountTasteProfileController.hide));
+router.post('/taste-profile/unhide', asyncHandler(AccountTasteProfileController.unhide));
 router.get('/notifications', asyncHandler(AccountNotificationController.getNotifications));
 router.get(
   '/notifications/unread-count',

@@ -209,6 +209,37 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['apps/**/*.{ts,tsx,mts}', 'packages/**/*.{ts,tsx,mts}'],
+    ignores: [
+      'packages/orm/src/services/stats/listenerIdentity/**',
+      'packages/orm/src/entities/stats/statsListener.ts',
+      'packages/orm/src/db/entities.ts',
+      '**/*.test.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@podverse/orm',
+              importNames: ['StatsListener', 'StatsListenerService'],
+              message:
+                'Only packages/orm/src/services/stats/listenerIdentity/ may read the listener-id mapping (see .cursor/rules/popularity-listener-id-separation.mdc).',
+            },
+          ],
+          patterns: [
+            {
+              group: ['**/statsListener', '**/statsListener.js'],
+              message:
+                'Only packages/orm/src/services/stats/listenerIdentity/ may read the listener-id mapping (see .cursor/rules/popularity-listener-id-separation.mdc).',
+            },
+          ],
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
   {
     rules: {

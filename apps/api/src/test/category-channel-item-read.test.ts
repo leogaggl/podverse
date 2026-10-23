@@ -312,9 +312,8 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getMany = channelGetManyMock;
   }
 
-  class MockStatsAggregatedChannelService {
+  class MockStatsPopularityChannelService {
     getMany = statsChGetManyMock;
-    getManyByChannelsAndCount = statsChGetManyByChannelsAndCountMock;
     countRanked = statsChCountRankedMock;
     getRankedChannelIds = statsChGetRankedChannelIdsMock;
   }
@@ -332,9 +331,8 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getManyUpcomingLiveItems = itemGetManyUpcomingLiveItemsMock;
   }
 
-  class MockStatsAggregatedItemService {
+  class MockStatsPopularityItemService {
     getMany = statsItGetManyMock;
-    getManyByChannelsAndCount = statsItGetManyByChannelsAndCountMock;
     countRanked = statsItCountRankedMock;
     getRankedItemIds = statsItGetRankedItemIdsMock;
   }
@@ -367,9 +365,9 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     AccountService: MockAccountService,
     AccountFollowingChannelService: MockAccountFollowingChannelService,
     ChannelService: MockChannelService,
-    StatsAggregatedChannelService: MockStatsAggregatedChannelService,
+    StatsPopularityChannelService: MockStatsPopularityChannelService,
     ItemService: MockItemService,
-    StatsAggregatedItemService: MockStatsAggregatedItemService,
+    StatsPopularityItemService: MockStatsPopularityItemService,
     ItemChapterService: MockItemChapterService,
     ItemSoundbiteService: MockItemSoundbiteService,
     ItemTranscriptService: MockItemTranscriptService,

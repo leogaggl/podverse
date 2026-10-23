@@ -1,0 +1,75 @@
+appId: com.podverse.app.next
+name: Taste Profile
+---
+# Seeded e2e-taste-profile account: two Taste Profile shows (the podcast is newest) and one
+# hidden artist. Read-only on the server, because parallel slots share one database.
+
+- runFlow: shared/launch-and-connect.yaml
+
+- tapOn:
+    id: tab-more
+- assertVisible:
+    id: more-screen
+- tapOn:
+    id: anonymous-login-cta
+- assertVisible:
+    id: login-screen
+- tapOn:
+    id: login-email
+- inputText: e2e-taste-profile@example.com
+- tapOn:
+    id: login-password
+- inputText: "Test!1Aa"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: login-submit
+- extendedWaitUntil:
+    visible:
+      id: tab-home
+    timeout: ${TIMEOUT_SLOW}
+
+- tapOn:
+    id: tab-more
+- tapOn:
+    id: more-settings
+- tapOn:
+    id: more-settings-popularity-tracking
+- assertVisible:
+    id: more-settings-popularity-tracking-screen
+- scrollUntilVisible:
+    element:
+      id: taste-profile-row-e2ePodChnl001
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: taste-profile-row-e2eVideoChnl01
+- takeScreenshot: taste-profile-list
+
+- scrollUntilVisible:
+    element:
+      id: taste-profile-hidden-row-e2eArtPub01
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: taste-profile-hidden-list
+
+- tapOn:
+    id: taste-profile-unhide-e2eArtPub01
+- extendedWaitUntil:
+    visible:
+      id: taste-profile-unhide-dialog
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: taste-profile-unhide-dialog-add-back
+- assertVisible:
+    id: taste-profile-unhide-dialog-remove-only
+- takeScreenshot: taste-profile-unhide-dialog
+- tapOn:
+    id: taste-profile-unhide-dialog-cancel
+- assertNotVisible:
+    id: taste-profile-unhide-dialog
+- assertVisible:
+    id: taste-profile-hidden-row-e2eArtPub01

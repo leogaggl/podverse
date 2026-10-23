@@ -66,7 +66,6 @@ export type {
   PlaybackOutboxResourceKind,
   MobileAuthRequestContext,
   MoveNowPlayingToHistoryTarget,
-  PlaybackStatsTargets,
   UpdateClipInput,
 } from './repositories';
 export {

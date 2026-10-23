@@ -65,7 +65,8 @@ npm run build -w apps/workers
 | `npm run podcast_index_value_update_all`                  | Update all value blocks                                                              |
 | `npm run scheduled_jobs_run_due`                          | Run due rows from `scheduled_job` (`-dry-run`, `-limit N`)                           |
 | `npm run notifications_platform_purge`                    | Purge expired `account_notification` rows and stale terminal `scheduled_job` rows    |
-| `npm run stats_update_aggregated`                         | Update aggregated statistics                                                         |
+| `npm run stats_popularity_refresh`                        | Rebuild popularity range totals (`-full` for every entity)                           |
+| `npm run stats_event_partitions_maintain`                 | Create popularity event partitions ahead and drop expired months                     |
 
 Run commands from the monorepo root with workspace flag:
 
@@ -158,7 +159,7 @@ Long-running workers that consume from RabbitMQ:
 One-off commands typically run via cron:
 
 - `image_shrink_backfill` - Enqueues unresized images for shrinking
-- `stats_update_aggregated` - Updates statistics
+- `stats_popularity_refresh` - Rebuilds popularity range totals from daily totals
 - `podcast_index_*` - Podcast Index integrations
 - `orm_*` - Database maintenance tasks
 
@@ -168,8 +169,11 @@ One-off commands typically run via cron:
   loop required for day-to-day development).
 - **K8s flow:** use CronJobs in `infra/k8s/base/cron` with the same worker commands:
   `worker-scheduled-jobs` (`scheduledJobsRunDue`, every 5 minutes) and
-  `worker-notifications-purge` (`notificationsPlatformPurge`, daily at 04:00) and
-  `worker-account-content-log-purge` (`accountContentLogPurge`, daily at 04:15).
+  `worker-notifications-purge` (`notificationsPlatformPurge`, daily at 04:00),
+  `worker-account-content-log-purge` (`accountContentLogPurge`, daily at 04:15),
+  `worker-stats-event-partitions` (`statsEventPartitionsMaintain`, daily at 03:30),
+  `worker-stats-popularity-refresh` (`statsPopularityRefresh`, hourly at :05), and
+  `worker-stats-popularity-refresh-full` (`statsPopularityRefresh -full`, daily at 00:45).
 
 ### Local smoke checklist
 
@@ -204,7 +208,7 @@ command are validated. You see **job-specific validation output** when vars are 
 message and the list of missing vars for that job). See [ENV.md](ENV.md) for the full list of vars
 per command and which are required vs optional.
 
-Each job validates only what it needs. For example, an ORM-only cron job (e.g. `stats_update_aggregated`) does not require MQ or Podcast Index vars; a message-queue worker (e.g. `mq_rss_run_parser`) validates Base, ORM, MQ, Parser, Podcast Index, and Web/Notifications.
+Each job validates only what it needs. For example, an ORM-only cron job (e.g. `stats_popularity_refresh`) does not require MQ or Podcast Index vars; a message-queue worker (e.g. `mq_rss_run_parser`) validates Base, ORM, MQ, Parser, Podcast Index, and Web/Notifications.
 
 Key configuration (by category):
 

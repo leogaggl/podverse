@@ -79,14 +79,26 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps statsEventPartitionsMaintain to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('statsEventPartitionsMaintain'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps statsPopularityRefresh to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('statsPopularityRefresh'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
   it('maps archiveAll to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('archiveAll'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });
 
-  it('maps devStatsSeedSimulatedAggregated to Base and ORM', () => {
-    expect(sortCategories(getCategoriesForCommand('devStatsSeedSimulatedAggregated'))).toEqual(
+  it('maps devStatsSeedSimulatedPopularity to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('devStatsSeedSimulatedPopularity'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });

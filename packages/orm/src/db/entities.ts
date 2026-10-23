@@ -122,17 +122,21 @@ import { ProductMembershipSettings } from '@orm/entities/productMembershipSettin
 import { Queue } from '@orm/entities/queue/queue.js';
 import { QueueResource } from '@orm/entities/queue/queueResource.js';
 import { SharableStatus } from '@orm/entities/sharableStatus.js';
-import { StatsAggregatedAccount } from '@orm/entities/stats/statsAggregatedAccount.js';
-import { StatsAggregatedChannel } from '@orm/entities/stats/statsAggregatedChannel.js';
-import { StatsAggregatedClip } from '@orm/entities/stats/statsAggregatedClip.js';
-import { StatsAggregatedItem } from '@orm/entities/stats/statsAggregatedItem.js';
-import { StatsAggregatedPlaylist } from '@orm/entities/stats/statsAggregatedPlaylist.js';
-import { StatsTrackAccountGuid } from '@orm/entities/stats/statsTrackAccountGuid.js';
-import { StatsTrackEventAccount } from '@orm/entities/stats/statsTrackEventAccount.js';
-import { StatsTrackEventChannel } from '@orm/entities/stats/statsTrackEventChannel.js';
-import { StatsTrackEventClip } from '@orm/entities/stats/statsTrackEventClip.js';
-import { StatsTrackEventItem } from '@orm/entities/stats/statsTrackEventItem.js';
-import { StatsTrackEventPlaylist } from '@orm/entities/stats/statsTrackEventPlaylist.js';
+import { StatsDailyAccount } from '@orm/entities/stats/statsDailyAccount.js';
+import { StatsDailyChannel } from '@orm/entities/stats/statsDailyChannel.js';
+import { StatsDailyClip } from '@orm/entities/stats/statsDailyClip.js';
+import { StatsDailyItem } from '@orm/entities/stats/statsDailyItem.js';
+import { StatsDailyPlaylist } from '@orm/entities/stats/statsDailyPlaylist.js';
+import { StatsListener } from '@orm/entities/stats/statsListener.js';
+import { StatsListenEvent } from '@orm/entities/stats/statsListenEvent.js';
+import { StatsOpenEvent } from '@orm/entities/stats/statsOpenEvent.js';
+import { StatsPopularityAccount } from '@orm/entities/stats/statsPopularityAccount.js';
+import { StatsPopularityChannel } from '@orm/entities/stats/statsPopularityChannel.js';
+import { StatsPopularityClip } from '@orm/entities/stats/statsPopularityClip.js';
+import { StatsPopularityItem } from '@orm/entities/stats/statsPopularityItem.js';
+import { StatsPopularityPlaylist } from '@orm/entities/stats/statsPopularityPlaylist.js';
+import { StatsTasteProfile } from '@orm/entities/stats/statsTasteProfile.js';
+import { StatsTasteProfileHidden } from '@orm/entities/stats/statsTasteProfileHidden.js';
 
 import { EmbedDemoShowcase } from '../entities/embedDemoShowcase.js';
 import { ImageShrinkSource } from '../entities/imageShrinkSource.js';
@@ -264,15 +268,19 @@ export const entities = [
   QueueResource,
   ScheduledJob,
   SharableStatus,
-  StatsAggregatedAccount,
-  StatsAggregatedChannel,
-  StatsAggregatedClip,
-  StatsAggregatedItem,
-  StatsAggregatedPlaylist,
-  StatsTrackAccountGuid,
-  StatsTrackEventAccount,
-  StatsTrackEventChannel,
-  StatsTrackEventClip,
-  StatsTrackEventItem,
-  StatsTrackEventPlaylist,
+  StatsDailyAccount,
+  StatsDailyChannel,
+  StatsDailyClip,
+  StatsDailyItem,
+  StatsDailyPlaylist,
+  StatsListener,
+  StatsListenEvent,
+  StatsOpenEvent,
+  StatsPopularityAccount,
+  StatsPopularityChannel,
+  StatsPopularityClip,
+  StatsPopularityItem,
+  StatsPopularityPlaylist,
+  StatsTasteProfile,
+  StatsTasteProfileHidden,
 ];

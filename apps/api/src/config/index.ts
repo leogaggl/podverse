@@ -40,6 +40,7 @@ type Config = {
     accountAddByRssParseEnqueue: { windowMs: number; max: number };
     accountAddByRssChaptersTranscript: { windowMs: number; max: number };
     accountChannelSeenRead: { windowMs: number; max: number };
+    statsTrack: { windowMs: number; max: number };
     mqRssOnDemand: { windowMs: number; max: number };
     billingPurchase: { windowMs: number; max: number };
     billingWebhook: { windowMs: number; max: number };
@@ -105,6 +106,8 @@ type Config = {
   popularityTracking: {
     version: string;
     contentDir: string;
+    /** Stored listens per listener per UTC day. */
+    dailyListenCap: number;
   };
   managedCopy: {
     contentDir: string;
@@ -262,6 +265,11 @@ export const config: Config = {
       key: 'ACCOUNT_CHANNEL_SEEN_READ_MAX_PER_MINUTE',
       defaultMax: 60,
     }),
+    statsTrack: parseCountPerWindowEnvFromKey({
+      envValue: process.env.STATS_TRACK_MAX_PER_MINUTE,
+      key: 'STATS_TRACK_MAX_PER_MINUTE',
+      defaultMax: 60,
+    }),
     mqRssOnDemand: parseCountPerWindowEnvFromKey({
       envValue: process.env.MQ_RSS_ON_DEMAND_MAX_PER_HOUR,
       key: 'MQ_RSS_ON_DEMAND_MAX_PER_HOUR',
@@ -352,6 +360,14 @@ export const config: Config = {
   popularityTracking: {
     version: process.env.POPULARITY_TRACKING_AGREEMENT_VERSION!,
     contentDir: process.env.POPULARITY_TRACKING_CONTENT_DIR ?? '',
+    dailyListenCap: (() => {
+      const raw = process.env.STATS_LISTEN_DAILY_CAP;
+      if (raw === undefined || raw.trim() === '') {
+        return 300;
+      }
+      const parsed = Number.parseInt(raw.trim(), 10);
+      return Number.isFinite(parsed) && parsed >= 1 ? parsed : 300;
+    })(),
   },
   managedCopy: {
     contentDir: process.env.MANAGED_COPY_CONTENT_DIR ?? '',

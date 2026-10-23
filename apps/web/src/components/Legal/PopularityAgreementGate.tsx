@@ -4,12 +4,17 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { DTOPopularityTrackingAgreement } from '@podverse/helpers';
-import { getCopyMarkdownDetails, getCopyMarkdownIntro } from '@podverse/helpers';
+import {
+  getCopyMarkdownDetails,
+  getCopyMarkdownIntro,
+  isPopularityTrackingOptOutDestructive,
+} from '@podverse/helpers';
 
 import { useAccount } from '../../contexts/Account';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { showToast } from '../Toast/Toast';
 import { AgreementScreen } from './AgreementScreen';
+import { ModalPopularityTrackingOptOut } from './ModalPopularityTrackingOptOut';
 
 type PopularityAgreementGateProps = {
   onDecided?: () => void;
@@ -23,6 +28,7 @@ export function PopularityAgreementGate({ onDecided }: PopularityAgreementGatePr
   const [hasError, setHasError] = useState(false);
   const [retryCounter, setRetryCounter] = useState(0);
   const [pending, setPending] = useState(false);
+  const [isOptOutConfirmOpen, setIsOptOutConfirmOpen] = useState(false);
   const accountIdText = loggedInAccount?.id_text ?? null;
 
   const retry = useCallback(() => {
@@ -82,27 +88,43 @@ export function PopularityAgreementGate({ onDecided }: PopularityAgreementGatePr
   const details = agreement === null ? '' : getCopyMarkdownDetails(agreement.markdown);
 
   return (
-    <AgreementScreen
-      acceptDisabled={agreement === null}
-      acceptLabel={t('yes')}
-      accordionTitle={t('how_it_works')}
-      dateLabel={null}
-      errorMessage={hasError ? t('load_error') : null}
-      fullMarkdown={details === '' ? null : details}
-      introMarkdown={agreement === null ? null : getCopyMarkdownIntro(agreement.markdown)}
-      isLoading={isLoading}
-      onAccept={() => {
-        void handleDecision(true);
-      }}
-      onReject={() => {
-        void handleDecision(false);
-      }}
-      onRetry={retry}
-      pending={pending}
-      rejectLabel={t('no')}
-      retryLabel={t('retry')}
-      testId="popularity-agreement"
-      title={t('title')}
-    />
+    <>
+      <AgreementScreen
+        acceptDisabled={agreement === null}
+        acceptLabel={t('yes')}
+        accordionTitle={t('how_it_works')}
+        dateLabel={null}
+        errorMessage={hasError ? t('load_error') : null}
+        fullMarkdown={details === '' ? null : details}
+        introMarkdown={agreement === null ? null : getCopyMarkdownIntro(agreement.markdown)}
+        isLoading={isLoading}
+        onAccept={() => {
+          void handleDecision(true);
+        }}
+        onReject={() => {
+          if (isPopularityTrackingOptOutDestructive(loggedInAccount?.account_settings)) {
+            setIsOptOutConfirmOpen(true);
+            return;
+          }
+          void handleDecision(false);
+        }}
+        onRetry={retry}
+        pending={pending}
+        rejectLabel={t('no')}
+        retryLabel={t('retry')}
+        testId="popularity-agreement"
+        title={t('title')}
+      />
+      <ModalPopularityTrackingOptOut
+        isOpen={isOptOutConfirmOpen}
+        onCancel={() => {
+          setIsOptOutConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          setIsOptOutConfirmOpen(false);
+          void handleDecision(false);
+        }}
+      />
+    </>
   );
 }

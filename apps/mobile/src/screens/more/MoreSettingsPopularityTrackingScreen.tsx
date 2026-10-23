@@ -3,12 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOPopularityTrackingAgreement } from '@podverse/helpers';
-import { isPopularityTrackingAllowed } from '@podverse/helpers';
+import {
+  isPopularityTrackingAllowed,
+  isPopularityTrackingOptOutDestructive,
+} from '@podverse/helpers';
 
 import { useAuth } from '../../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
 import { syncAllowListenStatsToAccountSettings } from '../../auth/syncAccountPrefs';
 import { CopyMarkdown } from '../../components/content/CopyMarkdown';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { SettingsSwitchRow } from '../../components/form';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { LoadingSection } from '../../components/state/LoadingSection';
@@ -18,6 +22,7 @@ import { getPopularityTrackingCurrentVersion } from '../../popularityTracking/po
 import { settingsCardInnerGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
+import { TasteProfileSections } from './TasteProfileSections';
 
 export function MoreSettingsPopularityTrackingScreen() {
   const { t } = useTranslation();
@@ -28,8 +33,10 @@ export function MoreSettingsPopularityTrackingScreen() {
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [optOutConfirmVisible, setOptOutConfirmVisible] = useState(false);
   const currentVersion = agreement?.version ?? getPopularityTrackingCurrentVersion();
   const allowed = isPopularityTrackingAllowed(account?.account_settings, currentVersion);
+  const optOutDestructive = isPopularityTrackingOptOutDestructive(account?.account_settings);
 
   const loadAgreement = useCallback(() => {
     setIsLoading(true);
@@ -109,6 +116,10 @@ export function MoreSettingsPopularityTrackingScreen() {
         onValueChange={(next) => {
           if (!next) {
             setReviewing(false);
+            if (optOutDestructive) {
+              setOptOutConfirmVisible(true);
+              return;
+            }
             void handleDecision(false);
             return;
           }
@@ -141,6 +152,10 @@ export function MoreSettingsPopularityTrackingScreen() {
             noTestID="popularity-tracking-settings-no"
             onDecision={(accepted) => {
               setReviewing(false);
+              if (!accepted && optOutDestructive) {
+                setOptOutConfirmVisible(true);
+                return;
+              }
               void handleDecision(accepted);
             }}
             onRetry={loadAgreement}
@@ -163,6 +178,25 @@ export function MoreSettingsPopularityTrackingScreen() {
           ) : null}
         </View>
       ) : null}
+      {account !== null ? <TasteProfileSections /> : null}
+      <ConfirmDialog
+        body={t('popularity_tracking.opt_out_confirm_body')}
+        cancelLabel={t('misc.cancel')}
+        cancelTestID="more-settings-popularity-tracking-opt-out-cancel"
+        confirmLabel={t('popularity_tracking.opt_out_confirm_action')}
+        confirmTestID="more-settings-popularity-tracking-opt-out-confirm"
+        confirmVariant="danger"
+        onCancel={() => {
+          setOptOutConfirmVisible(false);
+        }}
+        onConfirm={() => {
+          setOptOutConfirmVisible(false);
+          void handleDecision(false);
+        }}
+        testID="more-settings-popularity-tracking-opt-out-dialog"
+        title={t('popularity_tracking.opt_out_confirm_title')}
+        visible={optOutConfirmVisible}
+      />
     </MobileScreenContainer>
   );
 }
