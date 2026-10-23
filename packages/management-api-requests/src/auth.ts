@@ -72,12 +72,23 @@ export type MobileTokenResponse = {
   refresh_token_expires_in: number;
 };
 
-export async function mobileToken(params: LoginParams): Promise<MobileTokenResponse> {
+export type MobileTokenParams = LoginParams & {
+  /** Shown in the admin's session list; the API falls back to the client platform header. */
+  device_label?: string;
+};
+
+export async function mobileToken(params: MobileTokenParams): Promise<MobileTokenResponse> {
   const service = new ManagementApiRequestService();
   return service.apiRequest<MobileTokenResponse>({
     path: '/auth/mobile/token',
     method: 'POST',
-    data: params,
+    data: {
+      email: params.email,
+      password: params.password,
+      ...(params.device_label !== undefined && params.device_label !== ''
+        ? { device_label: params.device_label }
+        : {}),
+    },
   });
 }
 

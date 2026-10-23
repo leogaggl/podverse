@@ -26,6 +26,7 @@ import type { QueryParamsGetManyProfiles } from './account/account.js';
 import {
   reqAccountAcceptTerms,
   reqAccountChangeEmailAddress,
+  reqAccountChangePassword,
   reqAccountCreate,
   reqAccountDelete,
   reqAccountDownloadData,
@@ -127,6 +128,7 @@ import {
   reqAccountSettingsNotificationUpdate,
   reqAccountSettingsPlaybackUpdate,
 } from './accountSettings/accountSettings.js';
+import type { ReqAuthMobileTokenParams } from './auth/auth.js';
 import {
   reqAuthCheckSession,
   reqAuthLogin,
@@ -136,6 +138,11 @@ import {
   reqAuthMobileRevoke,
   reqAuthMobileToken,
 } from './auth/auth.js';
+import {
+  reqAuthSessionRevoke,
+  reqAuthSessions,
+  reqAuthSessionsRevokeOthers,
+} from './auth/sessions.js';
 import type {
   ReqBillingAppleTransactionParams,
   ReqBillingCheckoutOptionsParams,
@@ -358,6 +365,7 @@ export class ApiRequestService {
   private apiBase: string;
   private authContext?: AuthContext;
   private defaultHeaders?: Record<string, string>;
+  private onRequestError?: (error: unknown) => void;
 
   constructor(params: {
     protocol: string;
@@ -372,13 +380,37 @@ export class ApiRequestService {
      * Per-request `config.headers` and auth headers take precedence over these.
      */
     defaultHeaders?: Record<string, string>;
+    /**
+     * Called with every error a request from this service throws, before it reaches the caller.
+     * The caller still receives the original error; a listener that throws is ignored.
+     */
+    onRequestError?: (error: unknown) => void;
   }) {
-    const { protocol, host, port, prefix, version, jwt, authContext, defaultHeaders } = params;
+    const {
+      protocol,
+      host,
+      port,
+      prefix,
+      version,
+      jwt,
+      authContext,
+      defaultHeaders,
+      onRequestError,
+    } = params;
     const portPart = port ? `:${port}` : '';
     this.apiBase = `${protocol}://${host}${portPart}${prefix.replace(/\/$/, '')}${version}`;
     this.authContext =
       authContext ?? (jwt ? { mode: 'cookie', cookieName: 'jwt', token: jwt } : undefined);
     this.defaultHeaders = defaultHeaders;
+    this.onRequestError = onRequestError;
+  }
+
+  private reportRequestError(error: unknown): void {
+    try {
+      this.onRequestError?.(error);
+    } catch {
+      // The caller still receives the original request error.
+    }
   }
 
   async apiRequest<T>({
@@ -481,6 +513,7 @@ export class ApiRequestService {
         });
       }
 
+      this.reportRequestError(error);
       throw error;
     }
   }
@@ -510,7 +543,12 @@ export class ApiRequestService {
       const options =
         method === 'GET' ? { method, ...mergedConfig } : { method, data, ...mergedConfig };
 
-      return requestWithHeaders<T>(`${this.apiBase}${path}`, options, abort);
+      return requestWithHeaders<T>(`${this.apiBase}${path}`, options, abort).catch(
+        (error: unknown) => {
+          this.reportRequestError(error);
+          throw error;
+        }
+      );
     } catch (error: unknown) {
       // Extract useful debugging information from the error
       const errorInfo: {
@@ -584,6 +622,7 @@ export class ApiRequestService {
         });
       }
 
+      this.reportRequestError(error);
       throw error;
     }
   }
@@ -625,6 +664,10 @@ export class ApiRequestService {
 
   reqAccountResetPassword(params: { token: string; password: string }) {
     return reqAccountResetPassword(this, params);
+  }
+
+  reqAccountChangePassword(params: { current_password: string; new_password: string }) {
+    return reqAccountChangePassword(this, params);
   }
 
   reqAccountSendChangeEmailAddressEmail(params: { new_email: string }) {
@@ -955,7 +998,7 @@ export class ApiRequestService {
     return reqAuthCheckSession(this);
   }
 
-  reqAuthMobileToken(params: { email: string; password: string }) {
+  reqAuthMobileToken(params: ReqAuthMobileTokenParams) {
     return reqAuthMobileToken(this, params);
   }
 
@@ -965,6 +1008,18 @@ export class ApiRequestService {
 
   reqAuthMobileRevoke(refresh_token: string) {
     return reqAuthMobileRevoke(this, refresh_token);
+  }
+
+  reqAuthSessions() {
+    return reqAuthSessions(this);
+  }
+
+  reqAuthSessionRevoke(sessionIdText: string) {
+    return reqAuthSessionRevoke(this, sessionIdText);
+  }
+
+  reqAuthSessionsRevokeOthers() {
+    return reqAuthSessionsRevokeOthers(this);
   }
 
   /* CATEGORY */

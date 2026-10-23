@@ -1,5 +1,10 @@
 import { app } from '@management-api/app.js';
 import { config } from '@management-api/config/index.js';
+import {
+  adminSessionStoreStub,
+  TEST_ADMIN_SESSION_CLAIMS,
+  TEST_ADMIN_SESSION_ID_TEXT,
+} from '@management-api/test/adminSessionStoreStub.js';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,6 +86,24 @@ const adminWithNoPermissions: MockAdmin = {
   created_at: new Date('2020-01-01T00:00:00.000Z'),
 };
 
+const otherSuperuserAdmin: MockAdmin = {
+  id: 5,
+  id_text: 'pvMgtSu005',
+  admin_account_role_id: 1,
+  admin_account_role: { role: 'superuser' },
+  admin_account_credentials: { email: 'other-super@example.com', username: null },
+  permissions: {
+    feedsCrud: 15,
+    feedTakedownReasonsCrud: 15,
+    adminsCrud: 15,
+    statsCrud: 15,
+    billingPricesCrud: 15,
+    bucketCrud: 15,
+    embedDemoCrud: 15,
+  },
+  created_at: new Date('2020-01-01T00:00:00.000Z'),
+};
+
 /** create (1) + read (2) */
 const adminWithAdminsCreate: MockAdmin = {
   id: 4,
@@ -100,28 +123,35 @@ const adminWithAdminsCreate: MockAdmin = {
   created_at: new Date('2020-01-01T00:00:00.000Z'),
 };
 
-const { getWithRoleAndPermissionsMock, listMock, createMock, updateMock, deleteMock } = vi.hoisted(
-  () => ({
-    getWithRoleAndPermissionsMock: vi.fn<Promise<MockAdmin | null>, [number]>(
-      async (id: number) => {
-        if (id === 1) return superuserAdmin;
-        if (id === 2) return adminWithAdminsRead;
-        if (id === 3) return adminWithNoPermissions;
-        if (id === 4) return adminWithAdminsCreate;
-        return null;
-      }
-    ),
-    listMock: vi.fn<Promise<MockAdmin[]>, []>(async () => [
-      superuserAdmin,
-      adminWithAdminsRead,
-      adminWithNoPermissions,
-      adminWithAdminsCreate,
-    ]),
-    createMock: vi.fn<Promise<MockAdmin>, [unknown]>(),
-    updateMock: vi.fn<Promise<MockAdmin>, [number, unknown]>(),
-    deleteMock: vi.fn<Promise<void>, [number]>(),
-  })
-);
+const {
+  getWithRoleAndPermissionsMock,
+  listMock,
+  createMock,
+  updateMock,
+  deleteMock,
+  completeSetPasswordFromTokenMock,
+} = vi.hoisted(() => ({
+  getWithRoleAndPermissionsMock: vi.fn<Promise<MockAdmin | null>, [number]>(async (id: number) => {
+    if (id === 1) return superuserAdmin;
+    if (id === 2) return adminWithAdminsRead;
+    if (id === 3) return adminWithNoPermissions;
+    if (id === 4) return adminWithAdminsCreate;
+    if (id === 5) return otherSuperuserAdmin;
+    return null;
+  }),
+  listMock: vi.fn<Promise<MockAdmin[]>, []>(async () => [
+    superuserAdmin,
+    adminWithAdminsRead,
+    adminWithNoPermissions,
+    adminWithAdminsCreate,
+  ]),
+  createMock: vi.fn<Promise<MockAdmin>, [unknown]>(),
+  updateMock: vi.fn<Promise<MockAdmin>, [number, unknown]>(),
+  deleteMock: vi.fn<Promise<void>, [number]>(),
+  completeSetPasswordFromTokenMock: vi.fn<Promise<{ adminAccountId: number }>, [string, string]>(
+    async () => ({ adminAccountId: 2 })
+  ),
+}));
 
 vi.mock('@management-api/orm/services/managementAdminRole.js', () => {
   return {
@@ -226,8 +256,8 @@ vi.mock('@management-api/orm/services/adminAccount.js', () => {
     async clearSetPasswordToken(_adminAccountId: number) {
       return;
     }
-    async completeSetPasswordFromToken(_token: string, _plainPassword: string) {
-      return;
+    async completeSetPasswordFromToken(token: string, plainPassword: string) {
+      return completeSetPasswordFromTokenMock(token, plainPassword);
     }
   }
   return { AdminAccountService };
@@ -251,7 +281,11 @@ const adminIdTextByUserId: Record<number, string> = {
 
 const adminAuthHeaders = (userId: number = 1): { Authorization: string } => ({
   Authorization: `Bearer ${jwt.sign(
-    { id: userId, id_text: adminIdTextByUserId[userId] ?? 'pvMgtSu001' },
+    {
+      id: userId,
+      id_text: adminIdTextByUserId[userId] ?? 'pvMgtSu001',
+      ...TEST_ADMIN_SESSION_CLAIMS,
+    },
     JWT_SECRET,
     { expiresIn: '1h' }
   )}`,
@@ -495,6 +529,10 @@ describe('management-api admins routes', () => {
   });
 
   describe('PATCH /admins/:id', () => {
+    beforeEach(() => {
+      adminSessionStoreStub.endAdminSessions.mockClear();
+    });
+
     it('returns 200 for superuser updating another admin', async () => {
       updateMock.mockResolvedValueOnce({
         id: 2,
@@ -520,6 +558,7 @@ describe('management-api admins routes', () => {
         .send({ permissions: { feeds_crud: 15 } });
 
       expect(res.status).toBe(200);
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
     });
 
     it('returns 403 when admin tries to change their own permissions', async () => {
@@ -567,6 +606,128 @@ describe('management-api admins routes', () => {
         .send({ permissions: { admins_crud: 20 } });
 
       expect(res.status).toBe(400);
+    });
+
+    it('ends every other session when an admin sets their own password', async () => {
+      updateMock.mockResolvedValueOnce(adminWithAdminsRead);
+
+      const res = await request(app)
+        .patch(`${adminsBase}/2`)
+        .set(adminAuthHeaders(2))
+        .send({ password: 'new-password-123' });
+
+      expect(res.status).toBe(200);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledTimes(1);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledWith({
+        adminAccountId: 2,
+        reason: 'password_changed',
+        exceptSessionIdText: TEST_ADMIN_SESSION_ID_TEXT,
+      });
+    });
+
+    it('ends every session when another admin sets the password', async () => {
+      updateMock.mockResolvedValueOnce(adminWithAdminsRead);
+
+      const res = await request(app)
+        .patch(`${adminsBase}/2`)
+        .set(adminAuthHeaders(1))
+        .send({ password: 'new-password-123' });
+
+      expect(res.status).toBe(200);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledTimes(1);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledWith({
+        adminAccountId: 2,
+        reason: 'admin_password_set',
+        exceptSessionIdText: null,
+      });
+    });
+
+    it('returns 403 when a superuser password update is rejected and does not end sessions', async () => {
+      updateMock.mockRejectedValueOnce(new Error('Superuser accounts cannot be modified via API'));
+
+      const res = await request(app)
+        .patch(`${adminsBase}/1`)
+        .set(adminAuthHeaders(1))
+        .send({ password: 'new-password-123' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe('Superuser accounts cannot be modified via API');
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /admins/:id/force-logout', () => {
+    beforeEach(() => {
+      adminSessionStoreStub.endAdminSessions.mockClear();
+    });
+
+    it('returns 200 and ends every session of another admin', async () => {
+      const res = await request(app).post(`${adminsBase}/2/force-logout`).set(adminAuthHeaders(1));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ revoked_count: 0 });
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledTimes(1);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledWith({
+        adminAccountId: 2,
+        reason: 'admin_force_logout',
+        exceptSessionIdText: null,
+      });
+    });
+
+    it('returns 200 when the target is another superuser', async () => {
+      const res = await request(app).post(`${adminsBase}/5/force-logout`).set(adminAuthHeaders(1));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ revoked_count: 0 });
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledTimes(1);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledWith({
+        adminAccountId: 5,
+        reason: 'admin_force_logout',
+        exceptSessionIdText: null,
+      });
+    });
+
+    it('returns 400 when a superuser targets their own account and does not end sessions', async () => {
+      const res = await request(app).post(`${adminsBase}/1/force-logout`).set(adminAuthHeaders(1));
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Cannot force logout your own account' });
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 for a non-superuser and does not end sessions', async () => {
+      const res = await request(app).post(`${adminsBase}/2/force-logout`).set(adminAuthHeaders(2));
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ message: 'Superuser only' });
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for an unknown admin and does not end sessions', async () => {
+      const res = await request(app)
+        .post(`${adminsBase}/99999/force-logout`)
+        .set(adminAuthHeaders(1));
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ message: 'Admin account not found' });
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for an id that is not an integer and does not end sessions', async () => {
+      const res = await request(app)
+        .post(`${adminsBase}/abc/force-logout`)
+        .set(adminAuthHeaders(1));
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Invalid id' });
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 without auth and does not end sessions', async () => {
+      const res = await request(app).post(`${adminsBase}/2/force-logout`);
+
+      expect(res.status).toBe(401);
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
     });
   });
 
@@ -740,7 +901,13 @@ describe('management-api admins routes', () => {
   });
 
   describe('POST /admins/invite-link/redeem (public)', () => {
+    beforeEach(() => {
+      adminSessionStoreStub.endAdminSessions.mockClear();
+    });
+
     it('returns 200 with valid token and password', async () => {
+      completeSetPasswordFromTokenMock.mockResolvedValueOnce({ adminAccountId: 2 });
+
       const res = await request(app).post(redeemInviteLinkUrl).send({
         token: 'valid-token',
         password: 'new-password-123',
@@ -748,6 +915,12 @@ describe('management-api admins routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Password updated');
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledTimes(1);
+      expect(adminSessionStoreStub.endAdminSessions).toHaveBeenCalledWith({
+        adminAccountId: 2,
+        reason: 'password_changed',
+        exceptSessionIdText: null,
+      });
     });
 
     it('returns 400 with invalid password length', async () => {
@@ -757,6 +930,22 @@ describe('management-api admins routes', () => {
       });
 
       expect(res.status).toBe(400);
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for an invalid token and does not end sessions', async () => {
+      completeSetPasswordFromTokenMock.mockRejectedValueOnce(
+        new Error('Invalid or expired set-password token')
+      );
+
+      const res = await request(app).post(redeemInviteLinkUrl).send({
+        token: 'missing-token',
+        password: 'new-password-123',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Invalid or expired set-password token');
+      expect(adminSessionStoreStub.endAdminSessions).not.toHaveBeenCalled();
     });
   });
 });

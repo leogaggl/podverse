@@ -172,6 +172,7 @@ npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
 npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
+npm run mobile:e2e:test -- auth-change-password
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout
 npm run mobile:e2e:test -- auto-queue-advance

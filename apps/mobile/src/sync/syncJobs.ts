@@ -1,6 +1,7 @@
 import { deriveMembershipState, evaluateFeatureAccess, sleep } from '@podverse/helpers';
 import type { DTOAccount } from '@podverse/helpers/dto';
 import { getErrorResponseStatus } from '@podverse/helpers/error';
+import { parseAuthSessionEndedError } from '@podverse/helpers-requests';
 
 import {
   reconcileAccountPrefsFromAccount,
@@ -446,10 +447,13 @@ const createAccountRefreshJob = (deps: SyncJobDeps, priority: SyncJobPriority): 
     } catch (error) {
       // A 401 that survives the refresh attempt means these credentials are definitively dead, and
       // nothing else is watching this request now that it no longer gates the splash. Ending the
-      // session here is what raises the forced-logout notice. Every other failure is left to the
-      // queue, which keeps an offline device signed in.
+      // session here raises the forced-logout notice, including the server's reason when the 401
+      // carried one. Every other failure is left to the queue, which keeps an offline device
+      // signed in.
       if (getErrorResponseStatus(error) === 401) {
-        await deps.getAuthContext().clearSession('session_expired');
+        await deps
+          .getAuthContext()
+          .clearSession('session_expired', parseAuthSessionEndedError(error));
       }
       throw error;
     }

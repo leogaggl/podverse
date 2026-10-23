@@ -84,6 +84,7 @@ import { MoreOpmlScreen } from '../screens/more/MoreOpmlScreen';
 import { MoreRemovedContentScreen } from '../screens/more/MoreRemovedContentScreen';
 import { MoreSettingsAppearanceScreen } from '../screens/more/MoreSettingsAppearanceScreen';
 import { MoreSettingsAutoDownloadCatchUpScreen } from '../screens/more/MoreSettingsAutoDownloadCatchUpScreen';
+import { MoreSettingsChangePasswordScreen } from '../screens/more/MoreSettingsChangePasswordScreen';
 import { MoreSettingsDownloadLimitScreen } from '../screens/more/MoreSettingsDownloadLimitScreen';
 import { MoreSettingsDownloadsScreen } from '../screens/more/MoreSettingsDownloadsScreen';
 import { MoreSettingsLocaleScreen } from '../screens/more/MoreSettingsLocaleScreen';
@@ -91,6 +92,7 @@ import { MoreSettingsNotificationsScreen } from '../screens/more/MoreSettingsNot
 import { MoreSettingsPlaybackScreen } from '../screens/more/MoreSettingsPlaybackScreen';
 import { MoreSettingsPopularityTrackingScreen } from '../screens/more/MoreSettingsPopularityTrackingScreen';
 import { MoreSettingsScreen } from '../screens/more/MoreSettingsScreen';
+import { MoreSettingsSessionsScreen } from '../screens/more/MoreSettingsSessionsScreen';
 import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScreen';
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
@@ -255,12 +257,14 @@ export const MORE_STACK_ROUTES = {
   MoreSettings: 'MoreSettings',
   MoreSettingsAppearance: 'MoreSettingsAppearance',
   MoreSettingsAutoDownloadCatchUp: 'MoreSettingsAutoDownloadCatchUp',
+  MoreSettingsChangePassword: 'MoreSettingsChangePassword',
   MoreSettingsDownloadLimit: 'MoreSettingsDownloadLimit',
   MoreSettingsDownloads: 'MoreSettingsDownloads',
   MoreSettingsLocale: 'MoreSettingsLocale',
   MoreSettingsNotifications: 'MoreSettingsNotifications',
   MoreSettingsPlayback: 'MoreSettingsPlayback',
   MoreSettingsPopularityTracking: 'MoreSettingsPopularityTracking',
+  MoreSettingsSessions: 'MoreSettingsSessions',
   MoreTermsOfService: 'MoreTermsOfService',
   MoreSettingsTabBar: 'MoreSettingsTabBar',
   MoreSettingsTheme: 'MoreSettingsTheme',
@@ -331,11 +335,13 @@ const moreTabLinkScreens = {
   MoreSettings: `more${APP_ROUTES.SETTINGS}`,
   MoreSettingsAppearance: `more${APP_ROUTES.SETTINGS}/appearance`,
   MoreSettingsAutoDownloadCatchUp: `more${APP_ROUTES.SETTINGS}/downloads/catch-up`,
+  MoreSettingsChangePassword: `more${APP_ROUTES.SETTINGS}/change-password`,
   MoreSettingsDownloadLimit: `more${APP_ROUTES.SETTINGS}/downloads/limit`,
   MoreSettingsDownloads: `more${APP_ROUTES.SETTINGS}/downloads`,
   MoreSettingsLocale: `more${APP_ROUTES.SETTINGS}/locale`,
   MoreSettingsNotifications: `more${APP_ROUTES.SETTINGS}/notifications`,
   MoreSettingsPlayback: `more${APP_ROUTES.SETTINGS}/playback`,
+  MoreSettingsSessions: `more${APP_ROUTES.SETTINGS}/sessions`,
   MoreSettingsTabBar: `more${APP_ROUTES.SETTINGS}/tab-bar`,
   MoreSettingsTheme: `more${APP_ROUTES.SETTINGS}/theme`,
   MoreSmoke: 'more/e2e/smoke',
@@ -586,12 +592,14 @@ export type MoreStackParamList = {
   MoreSettings: undefined;
   MoreSettingsAppearance: undefined;
   MoreSettingsAutoDownloadCatchUp: undefined;
+  MoreSettingsChangePassword: undefined;
   MoreSettingsDownloadLimit: undefined;
   MoreSettingsDownloads: undefined;
   MoreSettingsLocale: undefined;
   MoreSettingsNotifications: undefined;
   MoreSettingsPlayback: undefined;
   MoreSettingsPopularityTracking: undefined;
+  MoreSettingsSessions: undefined;
   MoreTermsOfService: undefined;
   MoreSettingsTabBar: undefined;
   MoreSettingsTheme: undefined;
@@ -1526,6 +1534,16 @@ function MoreStackNavigator({
         component={MoreSettingsPopularityTrackingScreen}
         name={MORE_STACK_ROUTES.MoreSettingsPopularityTracking}
         options={{ title: t('popularity_tracking.title') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsChangePasswordScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsChangePassword}
+        options={{ title: t('settings.account.change_password.heading') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsSessionsScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsSessions}
+        options={{ title: t('settings.account.sessions.heading') }}
       />
       <MoreStack.Screen
         component={MoreTermsOfServiceScreen}

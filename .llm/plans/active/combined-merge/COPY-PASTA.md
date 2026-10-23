@@ -46,7 +46,7 @@ to the deferred file and does not block the run. Read the final message of step 
 
 ## Phase 3 — Auth sessions
 
-- [ ] **03 — Merge feature/auth-sessions**
+- [x] **03 — Merge feature/auth-sessions**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

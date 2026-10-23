@@ -5,3 +5,6 @@
 export const TEST_USER_ACCOUNT_ID_TEXT = 'pvtestid01';
 
 export const TEST_ADMIN_E2E_ID_TEXT = 'pvtestadm01';
+
+/** The `sid` that {@link authHeaders} signs and the session store stub reports as active. */
+export const TEST_ACCOUNT_SESSION_ID_TEXT = 'pvtestses01';

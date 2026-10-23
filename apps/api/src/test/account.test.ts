@@ -1,14 +1,17 @@
+import bcrypt from 'bcrypt';
 import type { Server } from 'http';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ORMContext } from '@podverse/orm';
 
+import { accountSessionStoreStub } from './helpers/accountSessionStoreStub.js';
 import {
   authHeaders,
   getBaseApiUrl,
   startTestApp,
   stopTestApp,
+  TEST_ACCOUNT_SESSION_ID_TEXT,
   TEST_USER_ACCOUNT_ID_TEXT,
   withMutedExpectedErrorLogs,
 } from './helpers/index.js';
@@ -23,6 +26,14 @@ const validAccountCreateBody = {
   locale: 'en-US',
   terms_version: VALID_TERMS_VERSION,
 };
+
+function setCookieHeader(res: request.Response): string {
+  const header: unknown = res.headers['set-cookie'];
+  if (Array.isArray(header)) {
+    return header.filter((value): value is string => typeof value === 'string').join('\n');
+  }
+  return typeof header === 'string' ? header : '';
+}
 
 const {
   createMock,
@@ -67,7 +78,7 @@ const {
   updateMock: vi.fn(async () => ({ id: TEST_USER_ID })),
   deleteMock: vi.fn(async () => {}),
   verifyEmailMock: vi.fn(async () => {}),
-  resetPasswordMock: vi.fn(async () => {}),
+  resetPasswordMock: vi.fn(async () => 'changed' as const),
   getByIdTextMock: vi.fn(async () => null),
   verificationUpdateMock: vi.fn(async () => {}),
   verificationGetByTokenMock: vi.fn(async () => null),
@@ -410,6 +421,7 @@ describe('account CRUD and email routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Account deleted successfully');
       expect(deleteMock).toHaveBeenCalledWith(TEST_USER_ID);
+      expect(setCookieHeader(res)).toContain('jwt=;');
     });
 
     it('returns 401 without auth', async () => {
@@ -580,11 +592,15 @@ describe('account CRUD and email routes', () => {
   });
 
   describe('POST /account/reset-password', () => {
+    beforeEach(() => {
+      accountSessionStoreStub.endAccountSessions.mockClear();
+    });
+
     it('returns 200 with valid token and password', async () => {
       resetPasswordGetByTokenMock.mockResolvedValueOnce({
         account: { id: TEST_USER_ID },
       });
-      resetPasswordMock.mockResolvedValueOnce({});
+      resetPasswordMock.mockResolvedValueOnce('changed');
 
       const res = await request(app)
         .post(`${accountBase}/reset-password`)
@@ -593,6 +609,12 @@ describe('account CRUD and email routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Password reset successfully');
       expect(resetPasswordMock).toHaveBeenCalledWith(TEST_USER_ID, 'new-password-123');
+      expect(accountSessionStoreStub.endAccountSessions).toHaveBeenCalledWith({
+        accountId: TEST_USER_ID,
+        reason: 'password_changed',
+        exceptSessionIdText: null,
+      });
+      expect(setCookieHeader(res)).toContain('jwt=;');
     });
 
     it('returns 400 with invalid token', async () => {
@@ -604,14 +626,23 @@ describe('account CRUD and email routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toBe('Invalid or expired reset password token');
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
     });
 
-    it('returns 400 with password too short', async () => {
+    it('returns 400 when the new password breaks the sign-up rule', async () => {
+      resetPasswordGetByTokenMock.mockResolvedValueOnce({
+        account: { id: TEST_USER_ID },
+      });
+      resetPasswordMock.mockResolvedValueOnce('invalid_new_password');
+
       const res = await request(app)
         .post(`${accountBase}/reset-password`)
-        .send({ token: 'some-token', password: 'short' });
+        .send({ token: 'valid-reset-token', password: 'alllowercase' });
 
       expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Password does not meet the requirements' });
+      expect(setCookieHeader(res)).not.toContain('jwt=');
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
     });
   });
 
@@ -620,6 +651,7 @@ describe('account CRUD and email routes', () => {
 
     beforeEach(() => {
       credentialsUpdateMock.mockClear();
+      accountSessionStoreStub.endAccountSessions.mockClear();
     });
 
     it('returns 200 for a username-only account when no email is provided', async () => {
@@ -630,7 +662,7 @@ describe('account CRUD and email routes', () => {
           account_credentials: { email: null, username: 'username-only-user' },
         },
       });
-      resetPasswordMock.mockResolvedValueOnce({});
+      resetPasswordMock.mockResolvedValueOnce('changed');
       verifyEmailMock.mockResolvedValueOnce({});
       setPasswordDeleteByAccountIdMock.mockResolvedValueOnce({});
 
@@ -642,6 +674,12 @@ describe('account CRUD and email routes', () => {
       expect(res.body.message).toBe('Password set successfully');
       expect(resetPasswordMock).toHaveBeenCalledWith(TEST_USER_ID, 'new-password-123');
       expect(credentialsUpdateMock).not.toHaveBeenCalled();
+      expect(accountSessionStoreStub.endAccountSessions).toHaveBeenCalledWith({
+        accountId: TEST_USER_ID,
+        reason: 'password_changed',
+        exceptSessionIdText: null,
+      });
+      expect(setCookieHeader(res)).toContain('jwt=;');
     });
 
     it('returns 200 and saves email for an email-less account when email is provided', async () => {
@@ -652,7 +690,7 @@ describe('account CRUD and email routes', () => {
           account_credentials: { email: null, username: 'username-only-user' },
         },
       });
-      resetPasswordMock.mockResolvedValueOnce({});
+      resetPasswordMock.mockResolvedValueOnce('changed');
       credentialsUpdateMock.mockResolvedValueOnce({});
       verifyEmailMock.mockResolvedValueOnce({});
       setPasswordDeleteByAccountIdMock.mockResolvedValueOnce({});
@@ -668,6 +706,12 @@ describe('account CRUD and email routes', () => {
         expect.objectContaining({ id: TEST_USER_ID }),
         { email: 'new@example.com' }
       );
+      expect(accountSessionStoreStub.endAccountSessions).toHaveBeenCalledWith({
+        accountId: TEST_USER_ID,
+        reason: 'password_changed',
+        exceptSessionIdText: null,
+      });
+      expect(setCookieHeader(res)).toContain('jwt=;');
     });
 
     it('returns 400 when token is invalid', async () => {
@@ -679,6 +723,7 @@ describe('account CRUD and email routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toBe('Invalid or expired token');
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
     });
 
     it('returns 400 when token has expired', async () => {
@@ -696,6 +741,145 @@ describe('account CRUD and email routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toBe('Token has expired');
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when the new password breaks the sign-up rule', async () => {
+      setPasswordGetByTokenMock.mockResolvedValueOnce({
+        set_password_token_expires_at: futureExpiresAt,
+        account: {
+          id: TEST_USER_ID,
+          account_credentials: { email: null, username: 'username-only-user' },
+        },
+      });
+      resetPasswordMock.mockResolvedValueOnce('invalid_new_password');
+      verifyEmailMock.mockClear();
+      setPasswordDeleteByAccountIdMock.mockClear();
+
+      const res = await request(app)
+        .post(`${accountBase}/set-password`)
+        .send({ token: 'valid-set-password-token', password: 'alllowercase' });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Password does not meet the requirements' });
+      expect(setCookieHeader(res)).not.toContain('jwt=');
+      expect(verifyEmailMock).not.toHaveBeenCalled();
+      expect(setPasswordDeleteByAccountIdMock).not.toHaveBeenCalled();
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /account/change-password', () => {
+    let currentHash = '';
+
+    const accountRecord = (password?: string) => ({
+      id: TEST_USER_ID,
+      id_text: TEST_USER_ACCOUNT_ID_TEXT,
+      account_credentials:
+        password === undefined ? { email: TEST_EMAIL } : { email: TEST_EMAIL, password },
+      account_membership_status: {
+        membership_expires_at: new Date(Date.now() + 86400000 * 365),
+      },
+    });
+
+    beforeAll(async () => {
+      currentHash = await bcrypt.hash('Current-pass1', 4);
+    });
+
+    beforeEach(async () => {
+      // The app loads routes after the module registry resets, so the reset uses that limiter.
+      const { accountChangePasswordRateLimit } = await import('../routes/account.js');
+      accountChangePasswordRateLimit.resetForUser(TEST_USER_ID);
+      resetPasswordMock.mockClear();
+      accountSessionStoreStub.endAccountSessions.mockClear();
+      getMock.mockResolvedValue(accountRecord(currentHash));
+    });
+
+    afterEach(() => {
+      getMock.mockReset();
+      getMock.mockImplementation(async () => accountRecord());
+    });
+
+    it('changes the password, ends every other session, and does not set a cookie', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/change-password`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ current_password: 'Current-pass1', new_password: 'New-pass2' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message: 'Password changed', revoked_count: 0 });
+      expect(resetPasswordMock).toHaveBeenCalledWith(TEST_USER_ID, 'New-pass2');
+      expect(accountSessionStoreStub.endAccountSessions).toHaveBeenCalledWith({
+        accountId: TEST_USER_ID,
+        reason: 'password_changed',
+        exceptSessionIdText: TEST_ACCOUNT_SESSION_ID_TEXT,
+      });
+      expect(setCookieHeader(res)).not.toContain('jwt=');
+    });
+
+    it('returns 400 current_password_incorrect and changes nothing when the current password is wrong', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/change-password`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ current_password: 'Wrong-pass1', new_password: 'New-pass2' });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Current password is incorrect',
+        code: 'current_password_incorrect',
+      });
+      expect(resetPasswordMock).not.toHaveBeenCalled();
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 invalid_new_password and ends no session when the new password breaks the rule', async () => {
+      resetPasswordMock.mockResolvedValueOnce('invalid_new_password');
+
+      const res = await request(app)
+        .post(`${accountBase}/change-password`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ current_password: 'Current-pass1', new_password: 'alllowercase' });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'New password does not meet the requirements',
+        code: 'invalid_new_password',
+      });
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 with no code when new_password is missing', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/change-password`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ current_password: 'Current-pass1' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBeUndefined();
+      expect(resetPasswordMock).not.toHaveBeenCalled();
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 with no code when current_password is empty', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/change-password`)
+        .set(authHeaders(TEST_USER_ID))
+        .send({ current_password: '', new_password: 'New-pass2' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBeUndefined();
+      expect(resetPasswordMock).not.toHaveBeenCalled();
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 when the caller is not signed in', async () => {
+      const res = await request(app)
+        .post(`${accountBase}/change-password`)
+        .send({ current_password: 'Current-pass1', new_password: 'New-pass2' });
+
+      expect(res.status).toBe(401);
+      expect(resetPasswordMock).not.toHaveBeenCalled();
+      expect(accountSessionStoreStub.endAccountSessions).not.toHaveBeenCalled();
     });
   });
 

@@ -59,7 +59,7 @@ higher (after extra high, **Codex 5.3 · high**), and record the change on the p
 
 ## Phase 1
 
-- [ ] **10 — Account session table, entity, and ORM service**
+- [x] **10 — Account session table, entity, and ORM service**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -81,7 +81,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **43 — Mobile sign-up keeps one password field**
+- [x] **43 — Mobile sign-up keeps one password field**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -104,7 +104,7 @@ anything a later prompt needs.
 
 Docker stays up: plan 60 regenerates the baseline archives.
 
-- [ ] **11 — Daily purge of old account session rows**
+- [x] **11 — Daily purge of old account session rows**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -123,7 +123,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **20 — Session-bound API auth: login, per-request check, renewal, rotation, logout**
+- [x] **20 — Session-bound API auth: login, per-request check, renewal, rotation, logout**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -146,7 +146,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **60 — Admin session table, entity, and service**
+- [x] **60 — Admin session table, entity, and service**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -169,7 +169,7 @@ anything a later prompt needs.
 
 ## Phase 3
 
-- [ ] **21 — Password reset and invite completion end every session; account deletion clears the cookie**
+- [x] **21 — Password reset and invite completion end every session; account deletion clears the cookie**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -191,7 +191,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **40 — Mobile refresh never presents a rotated-away or unsaved refresh token**
+- [x] **40 — Mobile refresh never presents a rotated-away or unsaved refresh token**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -211,7 +211,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **50 — Admin force-logout and admin password set end every user session**
+- [x] **50 — Admin force-logout and admin password set end every user session**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -230,7 +230,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **61 — Daily purge of old admin session rows**
+- [x] **61 — Daily purge of old admin session rows**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -250,7 +250,7 @@ anything a later prompt needs.
 
 ## Phase 4
 
-- [ ] **22 — Session list and sign-out endpoints**
+- [x] **22 — Session list and sign-out endpoints**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -269,7 +269,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **51 — Force Logout on the management user page**
+- [x] **51 — Force Logout on the management user page**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -288,7 +288,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **62 — Session-bound management API auth**
+- [x] **62 — Session-bound management API auth**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -310,7 +310,7 @@ anything a later prompt needs.
 
 ## Phase 5
 
-- [ ] **23 — Signed-in change password ends every other session**
+- [x] **23 — Signed-in change password ends every other session**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -331,7 +331,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **30 — Web: renewed session cookie reaches the browser on server-rendered visits**
+- [x] **30 — Web: renewed session cookie reaches the browser on server-rendered visits**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -350,7 +350,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **63 — Setting an admin password ends that admin's sessions**
+- [x] **63 — Setting an admin password ends that admin's sessions**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -372,7 +372,7 @@ anything a later prompt needs.
 
 ## Phase 6
 
-- [ ] **31 — Web: show why the browser was signed out**
+- [x] **31 — Web: show why the browser was signed out**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -393,7 +393,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **64 — Admin session list and sign-out endpoints**
+- [x] **64 — Admin session list and sign-out endpoints**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -413,7 +413,7 @@ anything a later prompt needs.
 
 ## Phase 7
 
-- [ ] **32 — Web: signed-in devices in Settings**
+- [x] **32 — Web: signed-in devices in Settings**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -432,7 +432,7 @@ anything a later prompt needs.
 
 ## Phase 8
 
-- [ ] **33 — Web: an open page notices its session was ended**
+- [x] **33 — Web: an open page notices its session was ended**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -452,7 +452,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **41 — Mobile shows why the server signed it out**
+- [x] **41 — Mobile shows why the server signed it out**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -474,7 +474,7 @@ anything a later prompt needs.
 
 ## Phase 9
 
-- [ ] **42 — Mobile Signed-In Devices screen**
+- [x] **42 — Mobile Signed-In Devices screen**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -493,7 +493,7 @@ anything a later prompt needs.
 
 ## Phase 10
 
-- [ ] **65 — Superuser force-logout of another admin**
+- [x] **65 — Superuser force-logout of another admin**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -511,7 +511,7 @@ anything a later prompt needs.
 
 ## Phase 11
 
-- [ ] **66 — Management-web cookie renewal and the signed-out reason**
+- [x] **66 — Management-web cookie renewal and the signed-out reason**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -529,7 +529,7 @@ anything a later prompt needs.
 
 ## Phase 12
 
-- [ ] **34 — Web sign-up, reset, and set-password keep one password field**
+- [x] **34 — Web sign-up, reset, and set-password keep one password field**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -548,7 +548,7 @@ anything a later prompt needs.
 
 ## Phase 13
 
-- [ ] **52 — Management invite redeem and edit-user keep one password field**
+- [x] **52 — Management invite redeem and edit-user keep one password field**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -567,7 +567,7 @@ anything a later prompt needs.
 
 ## Phase 14
 
-- [ ] **35 — Web Change Password form in Settings**
+- [x] **35 — Web Change Password form in Settings**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -588,7 +588,7 @@ anything a later prompt needs.
 
 ## Phase 15
 
-- [ ] **44 — Mobile Change Password screen; then archive the set**
+- [x] **44 — Mobile Change Password screen; then archive the set**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

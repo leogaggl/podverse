@@ -41,7 +41,12 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: podverse_auth
+      name: jwt
+      description: >
+        Web session cookie set by POST /auth/login. It names a server-side account session. Use
+        renews it at most once a day, re-setting the cookie with a fresh idle limit
+        (AUTH_SESSION_IDLE_EXPIRATION). It ends when the idle limit passes with no use or when
+        the session is ended (logout, another device, a password change, or an admin).
     bearerAuth:
       type: http
       scheme: bearer
@@ -206,6 +211,12 @@ components:
           format: password
           description: Account password (minimum 8 characters)
           example: mySecurePassword123
+        device_label:
+          type: string
+          description: >
+            Label for this install in the account's session list. When omitted or blank, the API
+            uses the X-Podverse-Client-Platform header (ios → iOS, android → Android).
+          example: iPhone 16
     MobileTokenResponse:
       type: object
       required:
@@ -234,13 +245,16 @@ components:
         refresh_token:
           type: string
           format: jwt
-          description: Long-lived JWT refresh token
+          description: >
+            Refresh JWT for this session. Each refresh replaces it; keep only the newest one.
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         refresh_token_expires_in:
           type: integer
           format: int32
-          description: Refresh token lifetime in seconds
-          example: 2592000
+          description: >
+            Refresh token lifetime in seconds: the session idle limit (AUTH_SESSION_IDLE_EXPIRATION).
+            Each refresh issues a token with a fresh lifetime.
+          example: 31536000
     MobileTokenRefreshRequest:
       type: object
       required:
@@ -643,7 +657,20 @@ components:
               example: Unauthorized
             code:
               type: string
-              example: unauthorized
+              description: >
+                `session_ended` when the token names a session that was ended somewhere other than
+                this device; `notice` then says why. Absent for a plain 401 (no token, invalid
+                token, idle expiry, or a session this device ended itself).
+              example: session_ended
+            notice:
+              type: string
+              description: Why the session ended. Present only when `code` is `session_ended`.
+              enum:
+                - signed_out_elsewhere
+                - password_changed
+                - admin_force_logout
+                - security
+              example: signed_out_elsewhere
     AuthorizationErrorResponse:
       allOf:
         - $ref: "#/components/schemas/ErrorResponse"
@@ -1417,6 +1444,53 @@ components:
         updated_at:
           type: string
           format: date-time
+    AccountSession:
+      type: object
+      required:
+        - id_text
+        - client_type
+        - device_label
+        - created_at
+        - last_seen_at
+        - is_current
+      properties:
+        id_text:
+          type: string
+        client_type:
+          type: string
+          enum:
+            - web
+            - mobile
+        device_label:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Last request on this session, kept to within a day.
+        is_current:
+          type: boolean
+          description: True for the session that made this request.
+    ApiGetAuthSessionsResponse200:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountSession"
+    ApiPostAuthSessionsRevokeOthersResponse200:
+      type: object
+      required:
+        - revoked_count
+      properties:
+        revoked_count:
+          type: integer
+          minimum: 0
     ApiGetAccountContentLogResponse200:
       type: object
       required:
@@ -1822,7 +1896,8 @@ components:
           type: string
           format: password
           minLength: 8
-          description: New account password
+          description: >-
+            At least 8 characters, with at least one character that is not a lowercase letter.
           example: mySecurePassword123
     ApiPostAccountResetPasswordResponse200:
       type: object
@@ -1830,6 +1905,51 @@ components:
         message:
           type: string
           example: Password reset successfully
+    ApiPostAccountChangePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+          description: The account's current password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          description: >-
+            The new password. At least 8 characters, with at least one character that is not a
+            lowercase letter.
+    ApiPostAccountChangePasswordResponse200:
+      type: object
+      required:
+        - message
+        - revoked_count
+      properties:
+        message:
+          type: string
+          example: Password changed
+        revoked_count:
+          type: integer
+          minimum: 0
+          description: Other sessions of the account that were ended.
+    ApiPostAccountChangePasswordResponse400:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          enum:
+            - current_password_incorrect
+            - invalid_new_password
+          description: >-
+            Present when the current password is wrong or the new password does not meet the rule.
+            Absent for a missing field.
     ApiPostAccountSendChangeEmailAddressEmailRequest:
       type: object
       required:
@@ -1905,7 +2025,8 @@ components:
           type: string
           format: password
           minLength: 8
-          description: Password to set for the account
+          description: >-
+            At least 8 characters, with at least one character that is not a lowercase letter.
           example: mySecurePassword123
         email:
           type: string
@@ -5068,7 +5189,9 @@ paths:
       tags:
         - account
       summary: DELETE /account/delete
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: >
+        Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+        Deleting the account ends all of its sessions. The response clears the `jwt` cookie.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -7106,13 +7229,82 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/change-password:
+    post:
+      operationId: apiPostAccountChangePassword
+      tags:
+        - account
+      summary: POST /account/change-password
+      description: >
+        Changes the signed-in account's password. The current password must match. Every other
+        session of the account ends, and those devices are told the password changed. The session
+        that sent the request stays signed in, whether it uses the web cookie or a mobile access
+        token. Works with a lapsed membership or unaccepted terms.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountChangePasswordRequest"
+            example:
+              current_password: Old-password1
+              new_password: New-password2
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountChangePasswordResponse200"
+              example:
+                message: Password changed
+                revoked_count: 2
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountChangePasswordResponse400"
+              examples:
+                currentPasswordIncorrect:
+                  value:
+                    message: Current password is incorrect
+                    code: current_password_incorrect
+                invalidNewPassword:
+                  value:
+                    message: New password does not meet the requirements
+                    code: invalid_new_password
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /account/reset-password:
     post:
       operationId: apiPostAccountResetPassword
       tags:
         - account
       summary: POST /account/reset-password
-      description: Public endpoint to reset password using a reset token.
+      description: >
+        Public endpoint to reset password using a reset token. On success every session of the
+        account ends; signed-in devices are told the password changed. The response clears the
+        `jwt` cookie.
       security: []
       requestBody:
         required: true
@@ -7133,6 +7325,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                invalidPassword:
+                  summary: Password breaks the sign-up rule
+                  value:
+                    message: Password does not meet the requirements
         "401":
           description: Unauthorized
           content:
@@ -7324,7 +7521,10 @@ paths:
       tags:
         - account
       summary: POST /account/set-password
-      description: Public endpoint for invite completion and initial password setup.
+      description: >
+        Public endpoint for invite completion and initial password setup. On success every
+        session of the account ends; signed-in devices are told the password changed. The
+        response clears the `jwt` cookie.
       security: []
       requestBody:
         required: true
@@ -7345,6 +7545,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                invalidPassword:
+                  summary: Password breaks the sign-up rule
+                  value:
+                    message: Password does not meet the requirements
         "401":
           description: Unauthorized
           content:
@@ -8453,7 +8658,10 @@ paths:
       tags:
         - auth
       summary: GET /auth/check-session
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: >
+        Authenticated endpoint (cookieAuth or bearerAuth). 200 when the token names an active
+        session. A web cookie due for renewal is re-set on the response. A 401 for a cookie also
+        clears the cookie.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -8471,11 +8679,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
-          description: Unauthorized
+          description: >
+            Unauthorized — no token, an invalid or expired token, a token that names no session,
+            or an ended session (with `code: session_ended` and `notice` when it was ended
+            elsewhere)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                sessionEnded:
+                  summary: Session ended from another device
+                  value:
+                    message: Unauthorized
+                    code: session_ended
+                    notice: signed_out_elsewhere
         "403":
           description: Forbidden
           content:
@@ -8500,7 +8718,11 @@ paths:
       tags:
         - auth
       summary: POST /auth/login
-      description: Auto-generated from route matrix. Public endpoint.
+      description: >
+        Public endpoint. Checks the credentials, starts a web session, and sets the `jwt` cookie
+        (cookieAuth). When the browser already carries a session cookie, that earlier session is
+        ended first, so one browser holds one session. The JSON includes `token` only when
+        AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY is true and the request sets includeTokenInResponseBody.
       security: []
       requestBody:
         required: true
@@ -8574,7 +8796,9 @@ paths:
       tags:
         - auth
       summary: POST /auth/logout
-      description: Public endpoint that clears auth cookies when present.
+      description: >
+        Public endpoint. Ends the session named by the request's cookie or bearer token, then
+        clears the auth cookie. A missing or invalid token still clears the cookie and returns 200.
       security: []
       responses:
         "200":
@@ -8619,7 +8843,10 @@ paths:
       tags:
         - auth
       summary: GET /auth/me
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: >
+        Authenticated endpoint (cookieAuth or bearerAuth). Returns the signed-in account. A web
+        cookie due for renewal is re-set on the response. A 401 for a cookie also clears the
+        cookie.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -8637,11 +8864,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
-          description: Unauthorized
+          description: >
+            Unauthorized — no token, an invalid or expired token, a token that names no session,
+            or an ended session (with `code: session_ended` and `notice` when it was ended
+            elsewhere)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                sessionEnded:
+                  summary: Session ended from another device
+                  value:
+                    message: Unauthorized
+                    code: session_ended
+                    notice: signed_out_elsewhere
         "403":
           description: Forbidden
           content:
@@ -8667,10 +8904,10 @@ paths:
         - auth
       summary: POST /auth/mobile/refresh
       description: >
-        Exchange a still-valid mobile refresh JWT for a new access/refresh pair. Public endpoint.
-        Returns 401 when the refresh JWT is invalid, expired, not a refresh token, or the account
-        named in the JWT no longer exists or no longer matches id_text (for example after a reseed
-        that replaced the account row).
+        Public endpoint. Exchanges a refresh JWT for a new access/refresh pair and rotates the
+        session's refresh token. The newest refresh token and the one presented just before it
+        are both accepted, so a client that lost a refresh response can retry with the token it
+        still holds. Presenting any older refresh token ends the session as suspected theft.
       security: []
       requestBody:
         required: true
@@ -8693,12 +8930,21 @@ paths:
                 $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
           description: >
-            Unauthorized — invalid/expired refresh JWT, wrong token_use, missing account, or
-            id_text mismatch for the account named in the JWT
+            `Invalid refresh token` — an invalid or expired refresh JWT, a token that is not a
+            refresh token or names no session, a missing or replaced account, a reused refresh
+            token, or an ended session. Carries `code: session_ended` and `notice` when the
+            session was ended elsewhere or by reuse (`security`).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                sessionEnded:
+                  summary: Refresh token reused; the session was ended
+                  value:
+                    message: Invalid refresh token
+                    code: session_ended
+                    notice: security
         "404":
           description: Not found
           content:
@@ -8717,7 +8963,10 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/revoke
-      description: Auto-generated from route matrix. Public endpoint.
+      description: >
+        Public endpoint for signing out an install. Ends the session named by a validly signed
+        refresh token. Always returns 200, including for a missing or invalid token, so signing
+        out on the device never fails on this call.
       security: []
       requestBody:
         required: true
@@ -8731,19 +8980,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValidationErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotFoundErrorResponse"
+                $ref: "#/components/schemas/MessageResponse"
+              example:
+                message: Mobile session revoked
         "500":
           description: Internal server error
           content:
@@ -8756,7 +8995,10 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/token
-      description: Auto-generated from route matrix. Public endpoint.
+      description: >
+        Public endpoint. Checks the credentials, starts a mobile session, and returns a short
+        access token and a refresh token for it. The session's label is `device_label` when sent,
+        else the platform from the X-Podverse-Client-Platform header.
       security: []
       requestBody:
         required: true
@@ -8764,6 +9006,13 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRequest"
+            examples:
+              withDeviceLabel:
+                summary: Credentials with a device label
+                value:
+                  email: user@example.com
+                  password: mySecurePassword123
+                  device_label: iPhone 16
       responses:
         "200":
           description: Successful response
@@ -8791,6 +9040,113 @@ paths:
                 $ref: "#/components/schemas/AuthorizationErrorResponse"
               example:
                 message: "Account not verified."
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions:
+    get:
+      operationId: apiGetAuthSessions
+      tags:
+        - auth
+      summary: GET /auth/sessions
+      description: Returns the signed-in account's active sessions, most recently used first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAuthSessionsResponse200"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions/revoke-others:
+    post:
+      operationId: apiPostAuthSessionsRevokeOthers
+      tags:
+        - auth
+      summary: POST /auth/sessions/revoke-others
+      description: >
+        Ends every session of the account except the one making this request. Those devices are
+        told they were signed out elsewhere.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAuthSessionsRevokeOthersResponse200"
+              example:
+                revoked_count: 1
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions/{session_id_text}:
+    delete:
+      operationId: apiDeleteAuthSession
+      tags:
+        - auth
+      summary: DELETE /auth/sessions/{session_id_text}
+      description: >
+        Ends one session of the account. Ending the requester's own session signs it out and
+        clears the `jwt` cookie, the same as `POST /auth/logout`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: session_id_text
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+              example:
+                message: Session ended
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
         "404":
           description: Not found
           content:

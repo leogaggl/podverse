@@ -6,6 +6,7 @@ import {
   initManagementBillingContext,
 } from '@management-api/lib/billing/billingContext.js';
 import { AppDbDataSourceRead, AppDbDataSourceReadWrite } from '@management-api/orm/db/appDb.js';
+import { TEST_ADMIN_SESSION_CLAIMS } from '@management-api/test/adminSessionStoreStub.js';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -85,7 +86,7 @@ vi.mock('@management-api/lib/database/auditLog.js', () => {
 
 function bearerFor(id: number, idText: string): { Authorization: string } {
   return {
-    Authorization: `Bearer ${jwt.sign({ id, id_text: idText }, JWT_SECRET, { expiresIn: '1h' })}`,
+    Authorization: `Bearer ${jwt.sign({ id, id_text: idText, ...TEST_ADMIN_SESSION_CLAIMS }, JWT_SECRET, { expiresIn: '1h' })}`,
   };
 }
 

@@ -41,6 +41,11 @@ const requireEmailFlows = (_req: Request, res: Response, next: NextFunction): vo
   next();
 };
 
+export const accountChangePasswordRateLimit = rateLimitAuthEndpoint({
+  ...config.rateLimits.accountChangePassword,
+  skipTermsAcceptance: true,
+});
+
 const router = Router();
 
 router.use(`${config.api.prefix}${config.api.version}/account`, router);
@@ -81,6 +86,11 @@ router.post(
   requireEmailFlows,
   rateLimitEndpoint(config.rateLimits.accountVerifyEmailChange),
   asyncHandler(AccountController.verifyEmailChange)
+);
+router.post(
+  '/change-password',
+  accountChangePasswordRateLimit,
+  asyncHandler(AccountController.changePassword)
 );
 router.post(
   '/send-reset-password-email',

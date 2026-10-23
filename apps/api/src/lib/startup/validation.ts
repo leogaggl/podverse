@@ -151,23 +151,16 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateJwtSecret());
   results.push(
     validateOptional(
-      'AUTH_JWT_EXPIRATION',
+      'AUTH_SESSION_IDLE_EXPIRATION',
       'Auth & Security',
       'Blank uses default (31536000 seconds)'
     )
   );
   results.push(
     validateOptional(
-      'AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION',
+      'AUTH_ACCESS_TOKEN_EXPIRATION',
       'Auth & Security',
       'Blank uses default (900 seconds)'
-    )
-  );
-  results.push(
-    validateOptional(
-      'AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION',
-      'Auth & Security',
-      'Blank uses default (31536000 seconds)'
     )
   );
   results.push(
@@ -302,6 +295,9 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   );
   results.push(
     validateOptional('ACCOUNT_SET_PASSWORD_MAX_PER_10_MINUTES', 'Account', 'Use Default (4)')
+  );
+  results.push(
+    validateOptional('ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES', 'Account', 'Use Default (4)')
   );
   results.push(validateOptional('ACCOUNT_DOWNLOAD_DATA_MAX_PER_DAY', 'Account', 'Use Default (3)'));
   results.push(

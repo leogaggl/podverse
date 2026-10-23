@@ -104,6 +104,17 @@ export async function deleteAdmin(id: number, jwt?: string): Promise<void> {
   });
 }
 
+export async function forceLogoutAdmin(
+  id: number,
+  jwt?: string
+): Promise<{ revoked_count: number }> {
+  const service = new ManagementApiRequestService({ jwt });
+  return service.apiRequest<{ revoked_count: number }>({
+    path: `/admins/${id}/force-logout`,
+    method: 'POST',
+  });
+}
+
 export async function getAdminInviteLink(
   id: number,
   jwt?: string

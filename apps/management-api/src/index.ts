@@ -88,6 +88,17 @@ const run = async () => {
     await AppDataSourceReadWrite.initialize();
     loggerService.warn('Connected to the management database');
 
+    if (process.argv[2] === 'adminSessionPurge') {
+      try {
+        const { adminSessionPurge } = await import('./lib/auth/adminSessionPurge.js');
+        await adminSessionPurge();
+        process.exit(0);
+      } catch (error) {
+        loggerService.logError('adminSessionPurge failed', error);
+        process.exit(1);
+      }
+    }
+
     loggerService.warn('Connecting to the app database (database console queries)');
     await AppDbDataSourceRead.initialize();
     await AppDbDataSourceReadWrite.initialize();

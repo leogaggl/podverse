@@ -38,6 +38,7 @@ import { imageShrinkRunConsumer } from './imageShrink/runConsumer.js';
 import { mqRSSRunDlqConsumer } from './mq/rss/dlqHandling.js';
 import { mqRSSRunLiveItemListener } from './mq/rss/runLiveItemListener.js';
 import { accountContentLogPurge } from './orm/accountContentLog/purge.js';
+import { accountSessionPurge } from './orm/accountSession/purge.js';
 import { ormArchivedSlimReport } from './orm/archivedSlimming/report.js';
 import { ormDescriptionsBackfill } from './orm/descriptions/backfill.js';
 import { notificationsPlatformPurge } from './orm/notifications/platformPurge.js';
@@ -85,6 +86,7 @@ export default {
   ormVerifiedPublisherLinksBackfill,
   notificationsPlatformPurge,
   accountContentLogPurge,
+  accountSessionPurge,
   generateOnDemandParserEventReports,
   deleteOutdatedOnDemandParserEvent,
   imageShrinkBackfill,

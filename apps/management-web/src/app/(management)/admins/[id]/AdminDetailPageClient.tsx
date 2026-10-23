@@ -27,6 +27,7 @@ import {
   type AdminAccount,
   type AdminInviteLink,
   deleteAdmin,
+  forceLogoutAdmin,
   generateAdminInviteLink,
   getAdminAccountById,
   getAdminInviteLink,
@@ -55,6 +56,9 @@ export function AdminDetailPageClient({ adminId, initialUser }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [forceLogoutConfirmOpen, setForceLogoutConfirmOpen] = useState(false);
+  const [forceLogoutLoading, setForceLogoutLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const isSuperuserActor = user.role === 'superuser';
   const targetIsSuperuser = admin?.role === 'superuser';
@@ -67,6 +71,7 @@ export function AdminDetailPageClient({ adminId, initialUser }: Props) {
     admin !== null && canUpdateAdmins(user) && (isSuperuserActor || !targetIsSuperuser);
   const canDeleteRow =
     admin !== null && canDeleteAdmins(user) && admin.id !== user.id && !targetIsSuperuser;
+  const canForceLogout = admin !== null && user.role === 'superuser' && admin.id !== user.id;
 
   const loadInviteLink = useCallback(async () => {
     try {
@@ -112,6 +117,22 @@ export function AdminDetailPageClient({ adminId, initialUser }: Props) {
     }
   };
 
+  const handleForceLogout = async () => {
+    setForceLogoutLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await forceLogoutAdmin(adminId);
+      setSuccess(t('forceLogoutSuccess'));
+      setForceLogoutConfirmOpen(false);
+    } catch {
+      setError(t('forceLogoutFailed'));
+      setForceLogoutConfirmOpen(false);
+    } finally {
+      setForceLogoutLoading(false);
+    }
+  };
+
   const handleGenerateLink = async () => {
     try {
       const result = await generateAdminInviteLink(adminId);
@@ -152,6 +173,7 @@ export function AdminDetailPageClient({ adminId, initialUser }: Props) {
           }
           title={t('adminDetail')}
         >
+          {success !== null ? <Alert variant="success">{success}</Alert> : null}
           <DescriptionList variant="rows">
             <DescriptionListRow detail={admin.id_text} term={t('tableHeaders.id')} />
             <DescriptionListRow detail={admin.email ?? '-'} term={t('tableHeaders.email')} />
@@ -175,6 +197,17 @@ export function AdminDetailPageClient({ adminId, initialUser }: Props) {
               <ActionLink href={buildAdminEditPath(adminId)} variant="primary" LinkComponent={Link}>
                 {tc('edit')}
               </ActionLink>
+            ) : null}
+            {canForceLogout ? (
+              <Button
+                onClick={() => {
+                  setForceLogoutConfirmOpen(true);
+                }}
+                type="button"
+                variant="danger"
+              >
+                {t('forceLogout')}
+              </Button>
             ) : null}
             {canDeleteRow ? (
               <Button
@@ -269,6 +302,37 @@ export function AdminDetailPageClient({ adminId, initialUser }: Props) {
                 variant="primary"
               >
                 {tc('confirm')}
+              </Button>
+            </ModalActions>
+          </Modal>
+
+          <Modal
+            ariaLabel={t('forceLogoutConfirmAria')}
+            closeButtonAriaLabel={tc('closeModalAria')}
+            isOpen={forceLogoutConfirmOpen}
+            onClose={() => {
+              setForceLogoutConfirmOpen(false);
+            }}
+          >
+            <p>{t('confirmForceLogout')}</p>
+            <ModalActions>
+              <Button
+                disabled={forceLogoutLoading}
+                onClick={() => {
+                  setForceLogoutConfirmOpen(false);
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {tc('cancel')}
+              </Button>
+              <Button
+                isLoading={forceLogoutLoading}
+                onClick={() => void handleForceLogout()}
+                type="button"
+                variant="danger"
+              >
+                {t('forceLogout')}
               </Button>
             </ModalActions>
           </Modal>

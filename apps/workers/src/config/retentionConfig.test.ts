@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
+  DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -10,6 +11,7 @@ import {
 
 import {
   getAccountContentLogRetentionConfig,
+  getAccountSessionRetentionConfig,
   getNotificationsRetentionConfig,
   getOnDemandParserEventRetentionConfig,
   getScheduledJobRetentionConfig,
@@ -37,6 +39,12 @@ const RETENTION_CASES: readonly {
     envKey: 'ACCOUNT_CONTENT_LOG_RETENTION_DAYS',
     fallback: DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
     read: () => getAccountContentLogRetentionConfig().retentionDays,
+  },
+  {
+    name: 'account sessions',
+    envKey: 'ACCOUNT_SESSION_RETENTION_DAYS',
+    fallback: DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS,
+    read: () => getAccountSessionRetentionConfig().retentionDays,
   },
   {
     name: 'scheduled jobs',

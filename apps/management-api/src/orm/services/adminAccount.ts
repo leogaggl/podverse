@@ -371,9 +371,13 @@ export class AdminAccountService {
   }
 
   /**
-   * Applies a new password from a valid invite/set-password token and clears the token row.
+   * Applies a new password from a valid invite/set-password token, clears the token row,
+   * and returns the admin account id the token belonged to.
    */
-  async completeSetPasswordFromToken(token: string, plainPassword: string): Promise<void> {
+  async completeSetPasswordFromToken(
+    token: string,
+    plainPassword: string
+  ): Promise<{ adminAccountId: number }> {
     const rows = (await AppDataSourceRead.query(
       `SELECT admin_account_id, set_password_token_expires_at
        FROM admin_account_set_password
@@ -403,6 +407,7 @@ export class AdminAccountService {
     credentials.password = await bcrypt.hash(plainPassword, salt);
     await this.credentialsRepositoryReadWrite.save(credentials);
     await this.clearSetPasswordToken(adminAccountId);
+    return { adminAccountId };
   }
 
   private getInviteTtlMs(): number {

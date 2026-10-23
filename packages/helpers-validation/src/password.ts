@@ -20,13 +20,6 @@ export function getPasswordErrorKey(password: string): string | undefined {
   return validatePassword(password) ? undefined : 'invalid_password';
 }
 
-export function getPassword2ErrorKey(password1: string, password2: string): string | undefined {
-  if (!password2) {
-    return 'password_mismatch';
-  }
-  return password1 === password2 ? undefined : 'password_mismatch';
-}
-
 export function getPasswordRequirementsInfoKey(): string {
   return 'password_requirements';
 }

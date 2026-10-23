@@ -1,0 +1,143 @@
+appId: com.podverse.app.next
+name: Signed-In Devices
+---
+# Settings lists every session on the account. Sign out one other device, and show the
+# signed-out reason when the host ends this device's own session.
+#
+# iOS and Android run at the same time against one seeded account, so each slot only
+# touches its own labels. Sign Out of All Other Devices is cancelled here: confirming
+# would end the other slot's session.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runScript:
+          file: scripts/auth-sessions.js
+          env:
+            E2E_OTHER_DEVICE_LABEL: "E2E Other iOS"
+            E2E_SESSION_ACTION: create-other
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - runScript:
+          file: scripts/auth-sessions.js
+          env:
+            E2E_OTHER_DEVICE_LABEL: "E2E Other Android"
+            E2E_SESSION_ACTION: create-other
+
+- tapOn:
+    id: tab-more
+- tapOn:
+    id: more-settings
+- tapOn:
+    id: more-settings-sessions
+- extendedWaitUntil:
+    visible:
+      id: more-settings-sessions-screen
+    timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    visible:
+      id: more-settings-session-current
+    timeout: ${TIMEOUT_SLOW}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          text: "E2E Other iOS"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          text: "E2E Other Android"
+- takeScreenshot: auth-sessions-list
+
+- tapOn:
+    id: more-settings-sessions-sign-out-others
+- extendedWaitUntil:
+    visible:
+      id: more-settings-sessions-sign-out-others-dialog
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: auth-sessions-sign-out-others-dialog
+- tapOn:
+    id: more-settings-sessions-sign-out-others-cancel
+- assertNotVisible:
+    id: more-settings-sessions-sign-out-others-dialog
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          text: "E2E Other iOS"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          text: "E2E Other Android"
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Sign Out E2E Other iOS"
+      - extendedWaitUntil:
+          notVisible:
+            text: "E2E Other iOS"
+          timeout: ${TIMEOUT_SLOW}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Sign Out E2E Other Android"
+      - extendedWaitUntil:
+          notVisible:
+            text: "E2E Other Android"
+          timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: auth-sessions-one-signed-out
+
+- runFlow: shared/stack-back.yaml
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runScript:
+          file: scripts/auth-sessions.js
+          env:
+            E2E_DEVICE_LABEL_SUFFIX: " · iOS"
+            E2E_SESSION_ACTION: end-device
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - runScript:
+          file: scripts/auth-sessions.js
+          env:
+            E2E_DEVICE_LABEL_SUFFIX: " · Android"
+            E2E_SESSION_ACTION: end-device
+
+- tapOn:
+    id: more-settings-sessions
+- extendedWaitUntil:
+    visible:
+      id: forced-logout-modal
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    text: "You were signed out from another device\\..*"
+- takeScreenshot: auth-sessions-forced-logout
+
+- tapOn:
+    id: forced-logout-dismiss
+- extendedWaitUntil:
+    visible:
+      id: more-settings-sessions-login-required
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: auth-sessions-login-required

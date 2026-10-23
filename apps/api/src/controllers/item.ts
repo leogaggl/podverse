@@ -1,9 +1,12 @@
-import { config } from '@api/config/index.js';
 import { handleReturnDataOrNotFound } from '@api/controllers/helpers/data.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import { sendMergedInto } from '@api/controllers/helpers/mergedInto.js';
 import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
-import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
+import {
+  ensureAuthenticated,
+  getActiveSessionAccountId,
+  getAuthenticatedUser,
+} from '@api/lib/auth/index.js';
 import { assignChapterEndTimes } from '@api/lib/chapters.js';
 import { getFollowedChannelIds } from '@api/lib/followed.js';
 import { getParamRequired } from '@api/lib/params.js';
@@ -26,7 +29,6 @@ import {
 } from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
-import jwt from 'jsonwebtoken';
 
 import type {
   CategoryMappingKeys,
@@ -36,7 +38,6 @@ import type {
   StatsAggregatedRangeCountField,
 } from '@podverse/helpers';
 import {
-  AuthCookieName,
   CHANNEL_GONE_ARCHIVED_MESSAGE,
   fillTopPage,
   getCategoryEnumValue,
@@ -73,46 +74,6 @@ import {
   subItemGetManyRelationsWithChannel,
 } from '@podverse/orm';
 import { parseChapters } from '@podverse/parser';
-
-function bearerOrCookieToken(req: Request): string {
-  const cookies: unknown = req.cookies;
-  if (typeof cookies === 'object' && cookies !== null) {
-    const cookieToken: unknown = Reflect.get(cookies, AuthCookieName);
-    if (typeof cookieToken === 'string' && cookieToken !== '') {
-      return cookieToken;
-    }
-  }
-  const header = req.headers.authorization;
-  if (typeof header !== 'string') {
-    return '';
-  }
-  const prefix = 'Bearer ';
-  if (!header.startsWith(prefix) || header.length <= prefix.length) {
-    return '';
-  }
-  return header.slice(prefix.length);
-}
-
-function accountIdFromRequest(req: Request): number | null {
-  const token = bearerOrCookieToken(req);
-  if (token === '') {
-    return null;
-  }
-  let decoded: unknown;
-  try {
-    decoded = jwt.verify(token, config.auth.jwtSecret);
-  } catch {
-    return null;
-  }
-  if (typeof decoded !== 'object' || decoded === null) {
-    return null;
-  }
-  const id = Reflect.get(decoded, 'id');
-  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
-    return null;
-  }
-  return id;
-}
 
 const getRecentOrder = (itemType: 'normal' | 'live-item'): FindOptionsOrder<Item> => {
   if (itemType === 'live-item') {
@@ -167,7 +128,7 @@ export class ItemController {
       return null;
     }
     if (stateKey === FeedLifecycleStateKeyEnum.Archived) {
-      const accountId = accountIdFromRequest(req);
+      const accountId = await getActiveSessionAccountId(req);
       const rawFeedUrl = channel.feed?.url ?? '';
       const addByRssFeedUrl =
         accountId === null || rawFeedUrl === ''

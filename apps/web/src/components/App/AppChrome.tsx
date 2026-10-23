@@ -11,6 +11,7 @@ import { useLocalSettings } from '../../contexts/LocalSettings';
 import { isEmbedPathname } from '../../lib/embed/isEmbedPathname';
 import { isPopularityTrackingPromptRequiredForAccount } from '../../lib/popularityTrackingRequired';
 import { isTermsAcceptanceRequired } from '../../lib/termsAcceptanceRequired';
+import { SessionEndedNotice } from '../Auth/SessionEndedNotice';
 import { BackgroundActivityOverlay } from '../BackgroundActivity/BackgroundActivityOverlay';
 import { CookieConsentBanner } from '../Banner/CookieConsentBanner';
 import { MembershipExpiredBanner } from '../Banner/MembershipExpiredBanner';
@@ -77,6 +78,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         </AppWrapper>
         <LazyLoadedComponents />
         <BackgroundActivityOverlay />
+        <SessionEndedNotice />
       </WindowWrapper>
       <MediaPlayerController />
       <QueueController />

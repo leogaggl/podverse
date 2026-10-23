@@ -8,6 +8,8 @@ declare global {
       id: number;
       id_text: string;
       verified: boolean;
+      /** `id_text` of the account session the request's token names. */
+      session_id_text: string;
       entitlements?: AccountTrustEntitlements;
       /** The auth token's `exp` claim, in epoch seconds. */
       token_expires_at?: number;

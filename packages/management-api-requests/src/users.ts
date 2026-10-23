@@ -125,6 +125,17 @@ export async function deleteUser(id: number, jwt?: string): Promise<{ message: s
   });
 }
 
+export async function forceLogoutUser(
+  id: number,
+  jwt?: string
+): Promise<{ message: string; sessions_ended: number }> {
+  const service = new ManagementApiRequestService({ jwt });
+  return service.apiRequest<{ message: string; sessions_ended: number }>({
+    path: `/users/${id}/force-logout`,
+    method: 'POST',
+  });
+}
+
 export async function setUserPassword(
   id: number,
   password: string,

@@ -44,9 +44,15 @@ import { defineConfig } from 'vitest/config';
  * (`src/screens/search/podcastIndexFeedPreview.ts`), the client-version/platform header builder
  * (`src/auth/mobileClientHeaders.ts` — pure; the RN-coupled resolution stays in `mobileApi.ts`), the
  * billing client selection, account-token binding, and finish-after-confirm rule (`src/billing` —
- * the store SDK adapters stay out of this suite), the
- * forced-logout notice marker (`src/auth/forcedLogoutNotice.ts` — AsyncStorage-backed, and
- * AsyncStorage mocks cleanly in node; the RN modal that renders it stays untested here), the rule
+ * the store SDK adapters stay out of this suite), the auth refresh gate
+ * (`src/auth/authRequestWithRefresh.ts` — the API factory, offline pref, and connectivity reporter
+ * are mocked, so the gate runs in node), the
+ * forced-logout notice marker and the reason it stores (`src/auth/forcedLogoutNotice.ts` —
+ * AsyncStorage-backed, and AsyncStorage mocks cleanly in node; the RN modal that renders it stays
+ * untested here) and the reason-to-copy mapping (`src/auth/forcedLogoutNoticeCopy.ts`), the session
+ * device label sent at login and the signed-in device rows (`src/auth/mobileSessionDeviceLabel.ts`,
+ * `src/lib/device/deviceModel.ts`, `src/auth/loginWithMobileToken.ts`,
+ * `src/screens/more/accountSessionRows.ts`), the rule
  * that tells an E2E session left behind by a finished flow apart from one a relaunch should keep
  * (`src/auth/e2eSessionReset.ts`), the best-effort replay of buffered listen stats, which must
  * resolve even when the account is not entitled to them (`src/data/repositories/statsRepository.ts` —
@@ -111,10 +117,14 @@ export default defineConfig({
     environment: 'node',
     include: [
       'modules/podverse-media-engine/src/**/*.test.ts',
+      'src/auth/authRequestWithRefresh.test.ts',
       'src/auth/e2eSessionReset.test.ts',
       'src/auth/forcedLogoutNotice.test.ts',
+      'src/auth/forcedLogoutNoticeCopy.test.ts',
       'src/auth/localDevLoginPrefill.test.ts',
+      'src/auth/loginWithMobileToken.test.ts',
       'src/auth/mobileClientHeaders.test.ts',
+      'src/auth/mobileSessionDeviceLabel.test.ts',
       'src/billing/**/*.test.ts',
       'src/components/content/itemDetailDateLabel.test.ts',
       'src/components/form/chipRowReveal.test.ts',
@@ -162,6 +172,7 @@ export default defineConfig({
       'src/lib/addByRss/resourceData.test.ts',
       'src/lib/apiErrorStatus.test.ts',
       'src/lib/cachedValue.test.ts',
+      'src/lib/device/deviceModel.test.ts',
       'src/lib/home/homeFeedRefresh.test.ts',
       'src/lib/perf/frameStats.test.ts',
       'src/lib/perf/perfSpans.test.ts',
@@ -221,6 +232,7 @@ export default defineConfig({
       'src/screens/player/fullPlayerLayout.test.ts',
       'src/screens/player/fullPlayerContentLink.test.ts',
       'src/screens/search/podcastIndexFeedPreview.test.ts',
+      'src/screens/more/accountSessionRows.test.ts',
       'src/screens/more/errorLogDeviceContext.test.ts',
       'src/screens/more/errorLogMailto.test.ts',
       'src/shims/nodeCryptoShim.test.ts',

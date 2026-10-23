@@ -2,12 +2,12 @@ import { getMobileConfig } from '../config';
 import { clearAutoDownloadRegistrationOnSignOut } from '../downloads/autoDownloadRegistrationSync';
 import { unregisterFcmDeviceForAccount } from '../push/fcmDeviceSync';
 import { unregisterUnifiedPushDeviceForAccount } from '../push/unifiedPushDeviceSync';
-import type { SessionEndReason } from './forcedLogoutNotice';
+import type { ClearSession } from './forcedLogoutNotice';
 import { createMobileApiRequestService } from './mobileApi';
 
 type LogoutWithMobileRevokeParams = {
   accessToken: string | null;
-  clearSession: (reason: SessionEndReason) => Promise<void>;
+  clearSession: ClearSession;
   refreshToken: string | null;
 };
 

@@ -1239,3 +1239,349 @@ medium_id }` for the parsed, publicly visible directory channel with that podcas
   source about a second after the stream started and paused the live stream.
 - Who notices: web listeners starting livestreams in Safari or current Chrome
 - Operator steps: none
+
+## Signed-in devices on web Settings
+
+- Surfaces: web, i18n catalogs (consumer)
+- Change: Settings → Account has a Signed-In Devices section listing every session of the
+  account: device name (browser and OS, or the app's device label), "This Device" or the date it
+  was last used, and a Sign Out button per device. "Sign Out of All Other Devices" ends every
+  session but this one after a confirmation. Signed-out devices see "You were signed out from
+  another device." The navbar's Logout and the list's own row share one sign-out routine.
+- Who notices: signed-in web users
+- Operator steps: none
+
+## Mobile Signed-In Devices screen
+
+- Surfaces: mobile, i18n (consumer catalog)
+- Change: Settings has a new Signed-In Devices screen listing every web and mobile session on the
+  account with its device label and last-used date. Every row has a Sign Out button (this device's
+  row, marked This Device, signs the app out like Logout), and Sign Out of All Other Devices ends
+  every session except this one after a confirm. The app now sends a device label at login
+  ("iPhone · iOS", "iPad · iOS", "<manufacturer model> · Android"). The screen needs a connection
+  and is unavailable in Offline Mode. Reuses web's `settings.account.sessions.*` copy and adds
+  `settings.account.sessions.login_required`. New Maestro flow
+  `auth-sessions`.
+- Who notices: signed-in mobile users
+- Operator steps: none
+
+## Superuser can force-logout another admin
+
+- Surfaces: management-api, management-web
+- Change: a superuser on another admin's detail page gets Force Logout. It ends every session
+  of that admin. The control is absent on the superuser's own page, and the API rejects that
+  case. The signed-out admin gets the `admin_force_logout` notice.
+- Who notices: superusers managing other admins; an admin who is force-logged out
+- Operator steps: none
+
+## Management login shows why an admin was signed out
+
+- Surfaces: management-web
+- Change: a renewed `pv_mgmt_auth` cookie from a server-rendered request is copied onto the
+  browser response, so an admin who keeps using management-web is not signed out a year after
+  login. When a session was ended, the login page shows one of: "You were signed out from
+  another device", "An administrator signed you out", "Your password was changed", or "You were
+  signed out for your security".
+- Who notices: admins who were signed out from another session, by a superuser, by a password
+  change, or because a refresh token was reused
+- Operator steps: none
+
+## Sign-up, reset, and set-password use one password field
+
+- Surfaces: web
+- Change: Sign Up, Reset Password, and Set Password each keep a single password field. The
+  confirm field and the mismatch check are gone. The request still sends one password.
+- Who notices: people creating an account, resetting a password, or finishing an invite on the website
+- Operator steps: none
+
+## Management password forms use one password field
+
+- Surfaces: management-web
+- Change: Redeem Admin Invite and Edit User each keep a single password field. The confirm
+  field and the mismatch check are gone. Both requests still send one password.
+- Who notices: a new admin setting a password from an invite link, and a superuser setting a user's password
+- Operator steps: none
+
+## Change password in web Settings
+
+- Surfaces: web, i18n catalogs (consumer)
+- Change: Settings → Account has a Change Password button that opens a modal with a
+  current-password field and a new-password field. There is no confirm field and no show-password control. A successful
+  change keeps this browser signed in and signs out every other session. The new password
+  follows the sign-up rule. Catalog keys are `settings.account.change_password.*`.
+- Who notices: signed-in web users
+- Operator steps: reseeding E2E (`make e2e_seed`) picks up `e2e-change-password-web@example.com`
+
+## Server-side session records (schema only)
+
+- Surfaces: api database, k8s base env
+- Change: new app migration `0024_account_session.sql` adds the `account_session` table (one row
+  per login per client: client type, device label, last seen, idle expiry, revocation and reason,
+  and refresh-token rotation state). Nothing reads or writes it until the API session work lands.
+- Who notices: operators only
+- Operator steps: apply app migrations through `0024_account_session.sql`. API readiness waits on
+  that file (`API_EXPECTED_MIGRATION_FILENAME`, set in both `infra/k8s/base/api/source/api.env`
+  and the `infra/k8s/base/ops/kustomization.yaml` migration-scripts literals).
+
+## Mobile sign-up uses one password field
+
+- Surfaces: mobile
+- Change: Sign Up keeps a single password field. The confirm field and the mismatch check are
+  gone. Creating the account still sends one password.
+- Who notices: people creating an account in the mobile app
+- Operator steps: none
+
+## Daily purge of expired session rows
+
+- Surfaces: workers, k8s cron, k8s workers env
+- Change: new `accountSessionPurge` worker command and `worker-account-session-purge` CronJob (daily
+  04:30) delete `account_session` rows whose idle expiry is more than
+  `ACCOUNT_SESSION_RETENTION_DAYS` (default 30) days past. Revoked rows keep their idle expiry, so a
+  signed-out device still gets its reason while its session could have been in use.
+- Who notices: operators
+- Operator steps: optional `ACCOUNT_SESSION_RETENTION_DAYS` on workers; the CronJob ships in base
+
+## Server-side sessions for every main API login
+
+- Surfaces: api, web, mobile, k8s base env, helpers, helpers-requests
+- Change: every login (web and mobile) creates a server-side session, and every authenticated
+  request checks it, so a session can be ended at once from the server. Web renews its cookie at
+  most once a day of use, so the 365-day limit counts from last use instead of from login. Mobile
+  refresh tokens rotate on every refresh; the previous token stays usable so a lost response never
+  signs anyone out, and any older copy ends the session as suspected theft. `logout` and
+  `/auth/mobile/revoke` end the calling session on the server. A 401 for a session ended elsewhere
+  carries `code: session_ended` and a `notice` (`signed_out_elsewhere`, `password_changed`,
+  `admin_force_logout`, `security`). Public routes treat an ended session as signed out instead of
+  failing. `POST /auth/mobile/token` accepts an optional `device_label`.
+- Why web and mobile differed: web had one 365-day JWT counted from login and never renewed; mobile
+  had a 15-minute access token (900 seconds) refreshed silently by a 365-day refresh token, which
+  already acted as an idle limit. Neither could be ended from the server.
+- Who notices: every signed-in web and mobile user signs in once after the deploy, because tokens
+  issued before it name no session and are rejected. After that, users active on web stop being
+  signed out 365 days after login.
+- Operator steps: `AUTH_SESSION_IDLE_EXPIRATION` (default 31536000) replaces `AUTH_JWT_EXPIRATION`
+  and `AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION` on the API; remove the old keys from API deployment
+  env. Apply the session migration first (plan 10's entry).
+
+## Server-side admin session records (schema only)
+
+- Surfaces: management-api database, k8s base env
+- Change: new management migration `0004_admin_session.sql` adds the `admin_session` table (one
+  row per admin login per client: client type, device label, last seen, idle expiry, revocation
+  and reason, and refresh-token rotation state). Nothing reads or writes it until the management
+  API session work lands. Deleting an admin removes the rows with the account.
+- Who notices: operators only
+- Operator steps: apply management migrations through `0004_admin_session.sql`. Management API
+  readiness waits on that file (`MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME`, set in both
+  `infra/k8s/base/management-api/source/management-api.env` and the
+  `infra/k8s/base/ops/kustomization.yaml` migration-scripts literals).
+
+## Password reset and invite completion end every session
+
+- Surfaces: api
+- Change: resetting a forgotten password (`POST /account/reset-password`) or completing an invite
+  (`POST /account/set-password`) ends every session of the account on every device, including
+  the browser that sent the request, and the response clears that browser's web cookie. Signed-out
+  devices get the `password_changed` notice on their next request. Deleting an account clears the
+  web cookie in the same response; its sessions are deleted with it. Reset and invite completion
+  now apply the sign-up password rule (at least 8 characters, at least one that is not a
+  lowercase letter) instead of an 8-character minimum; a password that breaks it is a 400
+  `Password does not meet the requirements` and leaves the email link usable.
+- Who notices: users who reset their password, or finish an invite, are signed out everywhere and
+  sign in again with the new password. The web forms already applied the sign-up rule, so web
+  users see no new rejection.
+- Operator steps: none
+
+## Mobile refresh is safe with refresh-token rotation
+
+- Surfaces: mobile
+- Change: the app only sends a refresh token after it is saved in secure storage, and every
+  refresh (foreground, background tasks, car sync) sends the most recently saved one. A failed
+  secure-storage write after a refresh no longer fails the request; the app keeps using the
+  previous refresh token, which the server still accepts. This keeps normal use from looking like
+  a stolen token once the API rotates refresh tokens.
+- Why mobile already stayed signed in (asked during planning): tokens live in secure storage, the
+  15-minute (900-second) access token is refreshed silently before each request needs it, and each
+  refresh returns a new 365-day refresh token, so any signed-in use within a year keeps the login.
+  Only a server 401 signs the app out; offline and server errors never do.
+- Who notices: nobody directly; it prevents unexpected "signed out for your security" sign-outs.
+- Operator steps: none
+
+## Admin force-logout ends every session of a user
+
+- Surfaces: management-api
+- Change: A superuser `POST /users/:id/force-logout` ends every session of that account and
+  returns how many sessions ended. `POST /users/:id/password` now does the same after the password
+  is saved. Signed-out devices are told an administrator signed them out, or that the password
+  changed. Deleting a user still removes sessions with the account.
+- Who notices: superusers calling the management API; a user who is force-logged-out or whose
+  password an admin sets is signed out on every device on the next request
+- Operator steps: none
+
+## Daily purge of expired admin session rows
+
+- Surfaces: management-api, k8s cron, k8s management-api env
+- Change: `node apps/management-api/dist/index.js adminSessionPurge` and CronJob
+  `management-api-admin-session-purge` (daily 04:45) delete `admin_session` rows whose idle
+  expiry is more than `ADMIN_SESSION_RETENTION_DAYS` (default 30) days past. Revoked rows keep
+  their idle expiry, so a signed-out admin still gets the reason while the session could have
+  been in use.
+- Who notices: operators
+- Operator steps: optional `ADMIN_SESSION_RETENTION_DAYS` on the management API; the CronJob
+  ships in base
+
+## Session list and sign-out endpoints
+
+- Surfaces: api, helpers, helpers-requests
+- Change: new signed-in endpoints. `GET /auth/sessions` lists the account's active sessions
+  (`id_text`, `client_type`, `device_label`, `created_at`, `last_seen_at` to within a day,
+  `is_current`). `DELETE /auth/sessions/:session_id_text` ends one; ending your own is the same as
+  logout. `POST /auth/sessions/revoke-others` ends every other session and returns
+  `revoked_count`. Devices signed out this way get the `signed_out_elsewhere` notice. They work
+  with a lapsed membership or unaccepted terms.
+- Who notices: web and mobile clients that build the session list screens.
+- Operator steps: none
+
+## Force Logout on the management user page
+
+- Surfaces: management-web
+- Change: The user detail page has a Force Logout button. After confirmation it signs that user
+  out of every device and stays on the page. Saving a new password on the edit page now says the
+  user was signed out of every device.
+- Who notices: superusers on the management user page
+- Operator steps: none
+
+## Server-side sessions for every management admin login
+
+- Surfaces: management-api, management-web, k8s base env
+- Change: every admin login (browser cookie and mobile token pair) creates a server-side session
+  in the management database, and every authenticated request checks it, so a session can be
+  ended at once. The `pv_mgmt_auth` cookie renews at most once a day of use, so the 365-day
+  limit counts from last use instead of from login. Mobile refresh tokens rotate on every
+  refresh; the previous token stays usable, and any older copy ends the session. Logout and
+  `/auth/mobile/revoke` end the calling session. A 401 for a session ended elsewhere carries
+  `code: session_ended` and a `notice`. `POST /auth/mobile/token` accepts an optional
+  `device_label`. Bearer is still preferred over the cookie. Revoke still responds `Mobile token
+family revoked`.
+- Who notices: every signed-in admin signs in once after the deploy, because tokens issued before
+  it name no session and are rejected. After that, admins who stay active stop being signed out
+  365 days after login.
+- Operator steps: `AUTH_SESSION_IDLE_EXPIRATION` (default 31536000) replaces `AUTH_JWT_EXPIRATION`
+  and `AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION` on the management API; remove the old keys from its
+  deployment env. Apply the admin session migration first (plan 60).
+- Also: `@podverse/helpers` no longer exports `DEFAULT_AUTH_JWT_EXPIRATION`,
+  `DEFAULT_AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION`, `MobileRefreshJwtPayload`, or
+  `isMobileRefreshJwtPayload`.
+
+## Change password while signed in
+
+- Surfaces: api, helpers, helpers-requests, k8s base env
+- Change: new signed-in `POST /account/change-password` with `current_password` and
+  `new_password`. It checks the current password, applies the sign-up password rule to the new
+  one, ends every other session of the account (those devices get the `password_changed` notice),
+  and keeps the session that sent it, on web and mobile. Returns `{ message, revoked_count }`.
+  Failures are 400 with `code` `current_password_incorrect` or `invalid_new_password`. A change
+  also voids any pending reset-password email link. Works with a lapsed membership or unaccepted
+  terms. Rate limited per account by `ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES` (default 4).
+  New request helper `reqAccountChangePassword` and `ACCOUNT_CHANGE_PASSWORD_ERROR_CODES` in
+  `@podverse/helpers`.
+- Who notices: users who change their password from Settings stay signed in where they are and
+  are signed out everywhere else; web and mobile clients that build the form.
+- Operator steps: optional `ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES` on the API (default 4).
+
+## Web keeps its session cookie fresh on every kind of visit
+
+- Surfaces: web
+- Change: the web middleware now runs on every page route. When the signed-in cookie is due for
+  its once-a-day renewal, it asks the API to renew and passes
+  the API's `Set-Cookie` straight to the browser. Pages rendered on the web server previously
+  dropped a renewed cookie, so a visitor who only loaded pages would still have been signed out
+  365 days after the last cookie the browser stored. Now the 365-day limit counts from the last
+  visit of any kind.
+- Who notices: nobody directly; signed-in web users stay signed in while they keep visiting.
+- Operator steps: none
+
+## Changing an admin password ends that admin's sessions
+
+- Surfaces: management-api
+- Change: redeeming an admin invite (`POST /admins/invite-link/redeem`) ends every session of
+  that admin. An admin setting their own password ends every other session and keeps the
+  browser that sent the change. Another admin setting the password ends every session of the
+  target. Those browsers get the `password_changed` notice on the next request.
+- Who notices: an admin whose password was just set is signed out on other devices and signs in
+  with the new password.
+- Operator steps: none
+
+## Web says why it signed you out
+
+- Surfaces: web, helpers-requests, i18n catalogs (consumer)
+- Change: when a browser's session was ended somewhere else, its next page load signs it out and
+  shows a dialog with the reason: "You were signed out from another device.", "Your password was
+  changed.", "An administrator signed you out.", or "You were signed out for your security." The
+  browser's saved Add by RSS credentials for that account are cleared, as with Logout. Signing
+  out yourself, or a session that ran past the idle limit, shows no dialog. New shared helper
+  `parseAuthSessionEndedError` in `@podverse/helpers-requests` reads the 401 body.
+- Who notices: web users signed out from another device, by an administrator, by a password
+  change, or by the theft check
+- Operator steps: none
+
+## Admin session list and sign-out endpoints
+
+- Surfaces: management-api
+- Change: signed-in management API endpoints. `GET /auth/sessions` lists the admin's active
+  sessions. `DELETE /auth/sessions/:session_id_text` ends one; ending your own matches logout.
+  `POST /auth/sessions/revoke-others` ends every other session and returns `revoked_count`.
+  Devices signed out this way get the `signed_out_elsewhere` notice. Management-web does not
+  show this list.
+- Who notices: a future management client that calls the endpoints
+- Operator steps: none
+
+## Web notices an ended session without a reload
+
+- Surfaces: web, helpers-requests
+- Change: an open web page whose session was ended elsewhere signs out on its next request to the
+  API that is refused with a signed-out notice, then shows the same "You've Been Signed Out"
+  dialog as a fresh page load. `ApiRequestService` in `@podverse/helpers-requests` accepts an
+  optional `onRequestError` listener, called with every error a request throws before the caller
+  gets it.
+- Who notices: web users who leave a tab open while signed out from another device or by an
+  administrator
+- Operator steps: none
+
+## Mobile says why it was signed out
+
+- Surfaces: mobile, i18n (consumer catalog)
+- Change: when the server ends the app's session, the "You've Been Signed Out" dialog now opens
+  with the reason: signed out from another device, password changed, signed out by an
+  administrator, or signed out for your security (a reused refresh token). With no reason it says
+  the session expired. Sessions ended during background work now also leave the notice for the
+  next time the app opens. Reuses web's `authentication.session_ended.*` sentences and adds
+  `authentication.session_ended.expired`; `authentication.forced_logout_body` no longer states a
+  reason.
+- Who notices: mobile users signed out remotely
+- Operator steps: none
+
+## Change password in mobile Settings
+
+- Surfaces: mobile
+- Change: Settings has a Change Password screen with a current-password field and a
+  new-password field. There is no confirm field and no show-password control. A successful
+  change keeps this device signed in and signs out every other session. The screen reuses
+  web's `settings.account.change_password.*` copy. Signed out, it asks the person to log in.
+  Offline Mode shows the shared offline message. New Maestro flow `auth-change-password`
+  uses its own seeded accounts and puts each password back before the flow ends.
+- Who notices: signed-in mobile users
+- Operator steps: reseeding E2E (`make e2e_seed`) picks up the iOS and Android change-password accounts
+
+## Access token lifetime setting renamed
+
+- Surfaces: api, management-api, k8s base env, lighthouse env
+- Change: `AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION` is renamed `AUTH_ACCESS_TOKEN_EXPIRATION`. It
+  sets the lifetime of the access token in the access/refresh pair issued to token clients (the
+  mobile app today, any non-browser client later); the web cookie is unaffected. Default stays 900
+  seconds. Clients refresh it silently, so it never changes how long anyone stays signed in;
+  `AUTH_SESSION_IDLE_EXPIRATION` does. `@podverse/helpers` exports
+  `DEFAULT_AUTH_ACCESS_TOKEN_EXPIRATION` in place of `DEFAULT_AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION`.
+- Who notices: operators who set the old key; it is ignored after this change
+- Operator steps: rename the key in API and management API deployment env and local `.env` files
+  if you set a non-default value

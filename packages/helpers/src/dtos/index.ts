@@ -13,6 +13,7 @@ export * from './removedSource.js';
 export * from './sharableStatus.js';
 export * from './account/account.js';
 export * from './account/accountContentLog.js';
+export * from './account/accountSession.js';
 export * from './account/accountCredentials.js';
 export * from './account/accountDataExport.js';
 export * from './account/accountEmailChangeVerification.js';

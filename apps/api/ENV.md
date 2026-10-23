@@ -111,6 +111,7 @@ When unset/invalid, each uses its code default listed below.
 - **`ACCOUNT_SEND_RESET_PASSWORD_EMAIL_MAX_PER_10_MINUTES`** (default `4`)
 - **`ACCOUNT_RESET_PASSWORD_MAX_PER_10_MINUTES`** (default `4`)
 - **`ACCOUNT_SET_PASSWORD_MAX_PER_10_MINUTES`** (default `4`)
+- **`ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES`** (default `4`)
 - **`ACCOUNT_DOWNLOAD_DATA_MAX_PER_DAY`** (default `3`)
 - **`ACCOUNT_OPML_EXPORT_MAX_PER_HOUR`** (default `10`)
 - **`ACCOUNT_OPML_IMPORT_ENQUEUE_MAX_PER_HOUR`** (default `10`)
@@ -171,9 +172,10 @@ For local setup, set [legal entity](#legal-entity) in [`legal.env`](/dev/env-ove
 
 ### Token Expiration
 
-- **`AUTH_JWT_EXPIRATION`** (Optional) - Session JWT and auth cookie max-age, in seconds (default: 31536000). Values ending with `_EXPIRATION` are always integer seconds.
-- **`AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION`** (Optional) - Mobile access JWT lifetime in seconds (default: 900, 15 minutes).
-- **`AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION`** (Optional) - Mobile refresh JWT lifetime in seconds (default: 31536000, 365 days). Rotating `AUTH_JWT_SECRET` ends every mobile session.
+- **`AUTH_SESSION_IDLE_EXPIRATION`** (Optional) - Session idle limit in seconds for every client (default: 31536000, 365 days). Values ending with `_EXPIRATION` are always integer seconds. Every login creates a server-side session, and a session that goes this long with no use ends. Use renews it at most once a day: the session's idle expiry moves forward, the web cookie and its JWT are re-signed, and each mobile refresh issues a refresh JWT with this lifetime. Revocation is server-side and checked on every request, so ending a session takes effect on its next request. This one value sets how long web and mobile stay signed in.
+- **`AUTH_ACCESS_TOKEN_EXPIRATION`** (Optional) - Access JWT lifetime in seconds for token clients, which get an access/refresh pair (the mobile app today; the web cookie is not affected) (default: 900, 15 minutes). Clients refresh it silently, so it does not change how long anyone stays signed in. It bounds how long a leaked access token works without its refresh token; shorten it only if your security policy calls for that.
+
+Rotating `AUTH_JWT_SECRET` ends every session at once. Ending one session or one account's sessions is done through the session endpoints and the management API.
 
 - **`VERIFY_EMAIL_TOKEN_EXPIRATION`** (Required when signup mode is 'user_signup_email') - Email verification token lifetime in seconds (integer > 0)
 - **`EMAIL_CHANGE_VERIFICATION_TOKEN_EXPIRATION`** (Required when signup mode is 'user_signup_email') - Email change verification token lifetime in seconds (integer > 0)
@@ -289,9 +291,8 @@ Variables whose names end with `_EXPIRATION`, or that contain `PORT`, are automa
 - `MESSAGE_QUEUE_PORT`
 - `KEYVALDB_PORT`
 - `KEYVALDB_CACHE_EXPIRATION`
-- `AUTH_JWT_EXPIRATION`
-- `AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION`
-- `AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION`
+- `AUTH_SESSION_IDLE_EXPIRATION`
+- `AUTH_ACCESS_TOKEN_EXPIRATION`
 - `MEMBERSHIP_FREE_TRIAL_EXPIRATION`
 - `MAILER_PORT`
 - `VERIFY_EMAIL_TOKEN_EXPIRATION`

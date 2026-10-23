@@ -12,8 +12,7 @@ import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
 import { useLocalSettings } from '../../contexts/LocalSettings';
 import { useModals } from '../../contexts/Modals';
-import { getApiRequestService } from '../../factories/apiRequestService';
-import { clearAddByRSSCredentialsForSignOut } from '../../utils/addByRSS/credentialStore';
+import { signOutThisBrowser } from '../../lib/auth/signOutThisBrowser';
 import { NavBarBrand } from './NavBarBrand';
 import { NotificationBellButton } from './NotificationBellButton';
 
@@ -34,9 +33,7 @@ export const NavBar = () => {
   }, [pathname, setMobileSidebarOpen]);
 
   async function handleLogout() {
-    await clearAddByRSSCredentialsForSignOut(loggedInAccount?.id_text);
-    await getApiRequestService().reqAuthLogout();
-    window.location.reload();
+    await signOutThisBrowser(loggedInAccount?.id_text);
   }
 
   const displayName =

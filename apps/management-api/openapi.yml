@@ -27,6 +27,10 @@ components:
       type: apiKey
       in: cookie
       name: pv_mgmt_auth
+      description: >
+        Web admin session JWT set by `POST /auth/login`. Renewed (re-set with a fresh JWT) at most
+        once a day of use; ends when the session idle limit passes with no use or when the session
+        is ended. An `Authorization: Bearer` header wins over this cookie.
     bearerAuth:
       type: http
       scheme: bearer
@@ -120,6 +124,19 @@ components:
       properties:
         message:
           type: string
+    UserForceLogoutResponse:
+      type: object
+      required:
+        - message
+        - sessions_ended
+      properties:
+        message:
+          type: string
+          example: User signed out
+        sessions_ended:
+          type: integer
+          minimum: 0
+          example: 2
     ErrorResponse:
       type: object
       required:
@@ -176,7 +193,20 @@ components:
               example: Unauthorized
             code:
               type: string
-              example: unauthorized
+              description: >
+                `session_ended` when the token names an admin session that was ended somewhere other
+                than this client; `notice` then says why. Absent for a plain 401 (no token, invalid
+                token, idle expiry, or a session this client ended itself).
+              example: session_ended
+            notice:
+              type: string
+              description: Why the session ended. Present only when `code` is `session_ended`.
+              enum:
+                - signed_out_elsewhere
+                - password_changed
+                - admin_force_logout
+                - security
+              example: signed_out_elsewhere
     AuthorizationErrorResponse:
       allOf:
         - $ref: "#/components/schemas/ErrorResponse"
@@ -284,6 +314,12 @@ components:
           type: string
           format: password
           example: adminPassword123
+        device_label:
+          type: string
+          description: >
+            Optional label for this install in the admin's session list. When absent or blank, the
+            platform from the X-Podverse-Client-Platform header is used (`iOS`, `Android`).
+          example: Pixel 8
     MobileTokenResponse:
       type: object
       required:
@@ -313,7 +349,8 @@ components:
         refresh_token_expires_in:
           type: integer
           format: int32
-          example: 2592000
+          description: The session idle limit in seconds; each refresh issues a token with a fresh expiry.
+          example: 31536000
     MobileTokenRefreshRequest:
       type: object
       required:
@@ -332,6 +369,53 @@ components:
           type: string
           format: jwt
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    AdminSession:
+      type: object
+      required:
+        - id_text
+        - client_type
+        - device_label
+        - created_at
+        - last_seen_at
+        - is_current
+      properties:
+        id_text:
+          type: string
+        client_type:
+          type: string
+          enum:
+            - web
+            - mobile
+        device_label:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Last request on this session, kept to within a day.
+        is_current:
+          type: boolean
+          description: True for the session that made this request.
+    ManagementGetAuthSessionsResponse200:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSession"
+    ManagementPostAuthSessionsRevokeOthersResponse200:
+      type: object
+      required:
+        - revoked_count
+      properties:
+        revoked_count:
+          type: integer
+          minimum: 0
     EmptyResponse:
       type: object
       properties:
@@ -3333,7 +3417,7 @@ paths:
       tags:
         - admins
       summary: PATCH /admins/{id}
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('admins', 'update')."
+      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('admins', 'update'). When the body includes a password, every other session of that admin ends. When another admin sets the password, every session of the target ends. Signed-in browsers are told the password changed."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -3362,6 +3446,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /admins/{id}/force-logout:
+    post:
+      operationId: managementPostAdminsIdForceLogout
+      tags:
+        - admins
+      summary: POST /admins/{id}/force-logout
+      description: "Ends every session of this admin. Superuser only. Cannot target the caller. The signed-out admin is told an administrator signed them out."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revoked_count
+                properties:
+                  revoked_count:
+                    type: integer
+                    minimum: 0
+              example:
+                revoked_count: 1
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -3549,7 +3695,7 @@ paths:
       tags:
         - admins
       summary: POST /admins/invite-link/redeem
-      description: "Auto-generated from route matrix. Public endpoint. Permission/auth note: public."
+      description: "Auto-generated from route matrix. Public endpoint. Permission/auth note: public. On success every session of that admin ends; signed-in browsers are told the password changed."
       security: []
       requestBody:
         required: true
@@ -3788,7 +3934,12 @@ paths:
       tags:
         - auth
       summary: POST /auth/login
-      description: Public endpoint for admin authentication. Returns JWT token via response body when configured.
+      description: >
+        Public endpoint for admin web sign-in. Checks the credentials, starts a web admin session
+        labeled from the User-Agent, and sets the `pv_mgmt_auth` cookie with a JWT that names it.
+        When the request already carries a validly signed session cookie, that earlier session is
+        ended first. The JWT is also returned as `token` only when
+        AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY=true and the client sends includeTokenInResponseBody.
       security: []
       requestBody:
         required: true
@@ -3861,7 +4012,10 @@ paths:
       tags:
         - auth
       summary: POST /auth/logout
-      description: Auto-generated from route matrix. Public endpoint. Permission/auth note is runtime-idempotent and does not require authentication.
+      description: >
+        Public endpoint. Ends the admin session named by the request's bearer token or
+        `pv_mgmt_auth` cookie, then clears the cookie and returns `Logged out successfully`. A
+        missing or invalid token still clears the cookie and returns 200.
       security: []
       responses:
         "200":
@@ -3906,7 +4060,12 @@ paths:
       tags:
         - auth
       summary: GET /auth/me
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
+      description: >
+        Authenticated endpoint (bearerAuth, then cookieAuth). Returns the signed-in admin. The token
+        must name an active admin session; a web session presented by its cookie is renewed at most
+        once a day, and the renewing response re-sets `pv_mgmt_auth`. A 401 for a cookie token also
+        clears the cookie, and carries `code: session_ended` and `notice` when the session was ended
+        somewhere else.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -3929,6 +4088,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                unauthorized:
+                  summary: No token, an invalid token, or a session this client ended
+                  value:
+                    message: Unauthorized
+                sessionEnded:
+                  summary: The session was ended from another device
+                  value:
+                    message: Unauthorized
+                    code: session_ended
+                    notice: signed_out_elsewhere
         "403":
           description: Forbidden
           content:
@@ -3953,16 +4123,25 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/refresh
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: >
+        Public endpoint. Exchanges a refresh JWT for a new access/refresh pair and rotates the admin
+        session's refresh token. The newest refresh token and the one presented just before it are
+        both accepted, so a client that lost a refresh response can retry with the token it still
+        holds. Presenting any older refresh token ends the session as suspected theft.
+        `refresh_token_expires_in` is the session idle limit. A missing `refresh_token` is 400
+        `refresh_token is required`.
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRefreshRequest"
+            examples:
+              refresh:
+                summary: Rotate the refresh token
+                value:
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       responses:
         "200":
           description: Successful response
@@ -3977,11 +4156,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
-          description: Unauthorized
+          description: >
+            `Invalid refresh token` — an invalid or expired refresh JWT, a token that is not a
+            management refresh token or names no session, a missing or replaced admin, a reused
+            refresh token, or an ended session. Carries `code: session_ended` and `notice` when the
+            session was ended elsewhere or by reuse (`security`).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                sessionEnded:
+                  summary: Refresh token reused; the session was ended
+                  value:
+                    message: Invalid refresh token
+                    code: session_ended
+                    notice: security
         "403":
           description: Forbidden
           content:
@@ -4006,16 +4196,22 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/revoke
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: >
+        Public endpoint for signing out a mobile install. Ends the admin session named by a validly
+        signed refresh token. Always returns 200 with `Mobile token family revoked`, including for a
+        missing or invalid token, so signing out on the device never fails on this call.
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRevokeRequest"
+            examples:
+              revoke:
+                summary: Sign out the install holding this refresh token
+                value:
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       responses:
         "200":
           description: Successful response
@@ -4023,6 +4219,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmptyResponse"
+              examples:
+                revoked:
+                  summary: Session ended (or no session named)
+                  value:
+                    message: Mobile token family revoked
         "400":
           description: Bad request
           content:
@@ -4059,16 +4260,25 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/token
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: >
+        Public endpoint. Checks the admin's credentials, starts a mobile admin session, and returns
+        a short access token and a refresh token for it. Both tokens carry the
+        `podverse_management_mobile` scope. The session's label is `device_label` when sent, else
+        the platform from the X-Podverse-Client-Platform header.
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRequest"
+            examples:
+              withDeviceLabel:
+                summary: Admin mobile sign-in with a device label
+                value:
+                  email: admin@podverse.fm
+                  password: adminPassword123
+                  device_label: Pixel 8
       responses:
         "200":
           description: Successful response
@@ -4100,6 +4310,120 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions:
+    get:
+      operationId: managementGetAuthSessions
+      tags:
+        - auth
+      summary: GET /auth/sessions
+      description: Returns the signed-in admin's active sessions, most recently used first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementGetAuthSessionsResponse200"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions/revoke-others:
+    post:
+      operationId: managementPostAuthSessionsRevokeOthers
+      tags:
+        - auth
+      summary: POST /auth/sessions/revoke-others
+      description: Ends every session of this admin except the one making the request.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementPostAuthSessionsRevokeOthersResponse200"
+              example:
+                revoked_count: 1
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions/{session_id_text}:
+    delete:
+      operationId: managementDeleteAuthSession
+      tags:
+        - auth
+      summary: DELETE /auth/sessions/{session_id_text}
+      description: >
+        Ends one session of this admin. Ending the caller's own session signs it out and
+        clears the `pv_mgmt_auth` cookie, the same as `POST /auth/logout`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: session_id_text
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+              examples:
+                otherSession:
+                  summary: Ended another of this admin's sessions
+                  value:
+                    message: Session ended
+                ownSession:
+                  summary: Ended the caller's own session
+                  value:
+                    message: Logged out successfully
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+              example:
+                message: Session not found
         "500":
           description: Internal server error
           content:
@@ -6438,13 +6762,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /users/{id}/force-logout:
+    post:
+      operationId: managementPostUsersIdForceLogout
+      tags:
+        - users
+      summary: POST /users/{id}/force-logout
+      description: "Superuser only. Ends every session of the account. Signed-in devices are told an administrator signed them out. An account with no sessions still returns 200 and sessions_ended 0."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserForceLogoutResponse"
+              example:
+                message: User signed out
+                sessions_ended: 2
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /users/{id}/password:
     post:
       operationId: managementPostUsersIdPassword
       tags:
         - users
       summary: POST /users/{id}/password
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: superuser."
+      description: "Superuser only. Sets the account password and ends every session of that account. Signed-in devices are told the password changed."
       security:
         - bearerAuth: []
         - cookieAuth: []

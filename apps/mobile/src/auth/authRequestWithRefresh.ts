@@ -1,16 +1,17 @@
-import { getErrorResponseBodyCode, getErrorResponseStatus } from '@podverse/helpers/error';
+import { getErrorResponseStatus } from '@podverse/helpers/error';
 import type { ApiRequestService } from '@podverse/helpers-requests';
+import { parseAuthSessionEndedError } from '@podverse/helpers-requests';
 
 import type { RequestOutcome } from '../net/connectivity';
 import { reportNetworkOutcome } from '../net/connectivity';
 import { isOfflineModeEnabled, OfflineModeEnabledError } from '../prefs/offlineMode';
 import { classifySyncError } from '../sync/syncErrorClassification';
-import type { SessionEndReason } from './forcedLogoutNotice';
+import type { ClearSession } from './forcedLogoutNotice';
 import { createMobileApiRequestService } from './mobileApi';
 
 export type AuthRequestDeps = {
   accessToken: string | null;
-  clearSession: (reason: SessionEndReason) => Promise<void>;
+  clearSession: ClearSession;
   refreshToken: string | null;
   setTokens: (params: { accessToken: string; refreshToken: string }) => Promise<void>;
 };
@@ -23,17 +24,27 @@ let inFlightRefresh: Promise<string | null> | null = null;
  */
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
 
-type StoredCredentials = {
-  accessToken: string;
-  refreshToken: string;
+type GenerationStampedToken = {
+  token: string;
   generation: number;
 };
 
 /**
- * Latest pair written by login, hydrate, or refresh. A job that captured `deps.accessToken` at
- * the start still sends this pair once it is newer.
+ * Newest access token from login, hydrate, or refresh. It may be published before SecureStore
+ * holds it, so a request already in flight can use it; the server does not rotation-check access
+ * tokens, so an unsaved one is harmless. A job that captured `deps.accessToken` at the start still
+ * sends this one once it is newer.
  */
-let storedCredentials: StoredCredentials | null = null;
+let publishedAccessToken: GenerationStampedToken | null = null;
+
+/**
+ * The refresh token SecureStore most recently confirmed holding. Every refresh sends this one,
+ * whichever caller starts it, so the server only ever sees its current or previous refresh token.
+ * A refresh token from a response becomes eligible only after its SecureStore write resolves. A
+ * refresh token held in React state or a background job's deps is a fallback for when nothing has
+ * been saved under this generation.
+ */
+let savedRefreshToken: GenerationStampedToken | null = null;
 
 /**
  * Advances when a session ends. A refresh that started under an older generation must not write
@@ -42,25 +53,59 @@ let storedCredentials: StoredCredentials | null = null;
  */
 let authSessionGeneration = 0;
 
+const stampWithGeneration = (token: string): GenerationStampedToken => ({
+  token,
+  generation: authSessionGeneration,
+});
+
+const readForCurrentGeneration = (stamped: GenerationStampedToken | null): string | null => {
+  if (stamped === null || stamped.generation !== authSessionGeneration || stamped.token === '') {
+    return null;
+  }
+  return stamped.token;
+};
+
 /** Current auth session generation. Captured before a refresh awaits the network. */
 export const getAuthSessionGeneration = (): number => authSessionGeneration;
 
 /**
  * Call from `clearSession` before any await. Every concurrent clear bumps once; a refresh that
- * started earlier sees the mismatch and skips `setTokens`.
+ * started earlier sees the mismatch and skips `setTokens`. Both published tokens belong to the
+ * ended session and are dropped.
  */
 export const advanceAuthSessionGeneration = (): void => {
   authSessionGeneration += 1;
-  storedCredentials = null;
+  publishedAccessToken = null;
+  savedRefreshToken = null;
 };
 
-/** Publish the pair the gate should prefer over a closure captured earlier. */
-export const rememberAuthCredentials = (accessToken: string, refreshToken: string): void => {
-  storedCredentials = {
-    accessToken,
-    refreshToken,
-    generation: authSessionGeneration,
-  };
+/** Publish an access token for the current generation. It does not need to be saved yet. */
+export const rememberAccessToken = (accessToken: string): void => {
+  publishedAccessToken = stampWithGeneration(accessToken);
+};
+
+/**
+ * Call once the SecureStore write of `refreshToken` has resolved, and only when the session
+ * generation is the one the write started under. From then on every refresh sends this token.
+ */
+export const rememberSavedCredentials = (accessToken: string, refreshToken: string): void => {
+  rememberAccessToken(accessToken);
+  savedRefreshToken = stampWithGeneration(refreshToken);
+};
+
+/**
+ * Publish tokens just read from SecureStore. A refresh that finished while the read was in flight
+ * already published a newer pair, so a saved refresh token for this generation is kept, and so is
+ * an access token already published for it.
+ */
+export const adoptStoredCredentials = (accessToken: string, refreshToken: string): void => {
+  if (readForCurrentGeneration(savedRefreshToken) !== null) {
+    return;
+  }
+  if (readForCurrentGeneration(publishedAccessToken) === null) {
+    rememberAccessToken(accessToken);
+  }
+  savedRefreshToken = stampWithGeneration(refreshToken);
 };
 
 /**
@@ -139,50 +184,29 @@ type CredentialChoice = {
   refreshToken: string | null;
 };
 
-const readStoredCredentials = (): CredentialChoice | null => {
-  if (storedCredentials === null || storedCredentials.generation !== authSessionGeneration) {
-    return null;
-  }
-  return {
-    accessToken: storedCredentials.accessToken,
-    refreshToken: storedCredentials.refreshToken,
-  };
-};
-
 /**
- * Prefer a stored pair whose access token is still inside its lifetime. Otherwise keep the
- * caller's pair so a refresh can run from the refresh token it holds.
+ * Prefer the published access token while it is still inside its lifetime, and the later `exp`
+ * when the caller's is usable too. Otherwise keep the caller's access token. The refresh token is
+ * the saved one whenever there is one; the caller's is only the fallback.
  */
 const chooseCredentials = (deps: AuthRequestDeps, nowMs: number): CredentialChoice => {
-  const stored = readStoredCredentials();
-  const storedAccessToken = stored?.accessToken ?? null;
-  const storedUsable = stored !== null && accessTokenIsUsable(storedAccessToken, nowMs);
+  const refreshToken = readForCurrentGeneration(savedRefreshToken) ?? deps.refreshToken;
+  const latestAccessToken = readForCurrentGeneration(publishedAccessToken);
+  const latestUsable = accessTokenIsUsable(latestAccessToken, nowMs);
   const depsUsable = accessTokenIsUsable(deps.accessToken, nowMs);
 
-  if (
-    storedUsable &&
-    stored !== null &&
-    storedAccessToken !== null &&
-    depsUsable &&
-    deps.accessToken !== null
-  ) {
-    const storedExpMs = readAccessTokenExpMs(storedAccessToken) ?? 0;
+  if (latestUsable && latestAccessToken !== null && depsUsable && deps.accessToken !== null) {
+    const latestExpMs = readAccessTokenExpMs(latestAccessToken) ?? 0;
     const depsExpMs = readAccessTokenExpMs(deps.accessToken) ?? 0;
-    if (storedExpMs >= depsExpMs) {
-      return stored;
-    }
-    return { accessToken: deps.accessToken, refreshToken: deps.refreshToken };
+    return {
+      accessToken: latestExpMs >= depsExpMs ? latestAccessToken : deps.accessToken,
+      refreshToken,
+    };
   }
-  if (storedUsable && stored !== null) {
-    return stored;
+  if (latestUsable) {
+    return { accessToken: latestAccessToken, refreshToken };
   }
-  if (depsUsable) {
-    return { accessToken: deps.accessToken, refreshToken: deps.refreshToken };
-  }
-  if (stored !== null && stored.refreshToken !== '') {
-    return stored;
-  }
-  return { accessToken: deps.accessToken, refreshToken: deps.refreshToken };
+  return { accessToken: deps.accessToken, refreshToken };
 };
 
 /**
@@ -231,12 +255,19 @@ const withNetworkOutcomeReported = async <T>(run: () => Promise<T>): Promise<T> 
   }
 };
 
+/**
+ * One refresh at a time for the whole JS runtime: foreground, background tasks, and car sync share
+ * this module. It sends the saved refresh token, falling back to `refreshToken` only when nothing
+ * is saved under this generation, and holds the in-flight promise until `setTokens` settles, so no
+ * second refresh can start before the rotated token is saved.
+ */
 export const refreshAccessTokenSingleFlight = async ({
   clearSession,
   refreshToken,
   setTokens,
 }: Omit<AuthRequestDeps, 'accessToken'>): Promise<string | null> => {
-  if (refreshToken === null) {
+  const refreshTokenToSend = readForCurrentGeneration(savedRefreshToken) ?? refreshToken;
+  if (refreshTokenToSend === null || refreshTokenToSend === '') {
     return null;
   }
 
@@ -260,7 +291,7 @@ export const refreshAccessTokenSingleFlight = async ({
       // Use ApiRequestService methods — standalone reqAuthMobileRefresh is not
       // re-exported from @podverse/helpers-requests.
       const refreshedTokens = await withNetworkOutcomeReported(() =>
-        apiRequestService.reqAuthMobileRefresh(refreshToken)
+        apiRequestService.reqAuthMobileRefresh(refreshTokenToSend)
       );
 
       // Sign-out won the race. Writing these tokens would flip status back to authenticated and
@@ -269,11 +300,21 @@ export const refreshAccessTokenSingleFlight = async ({
         return null;
       }
 
-      rememberAuthCredentials(refreshedTokens.access_token, refreshedTokens.refresh_token);
-      await setTokens({
-        accessToken: refreshedTokens.access_token,
-        refreshToken: refreshedTokens.refresh_token,
-      });
+      rememberAccessToken(refreshedTokens.access_token);
+      try {
+        await setTokens({
+          accessToken: refreshedTokens.access_token,
+          refreshToken: refreshedTokens.refresh_token,
+        });
+      } catch (saveError) {
+        // SecureStore did not take the rotated pair, so the saved refresh token has not changed.
+        // The server keeps accepting the one this refresh sent as its previous token, so the next
+        // refresh sends it again and the session carries on.
+        console.warn(
+          '[auth] could not save refreshed tokens; the previous refresh token stays in use',
+          saveError
+        );
+      }
 
       if (generationAtStart !== authSessionGeneration) {
         return null;
@@ -281,11 +322,10 @@ export const refreshAccessTokenSingleFlight = async ({
 
       return refreshedTokens.access_token;
     } catch (error) {
-      const errorCode = getErrorResponseBodyCode(error);
-      if (getErrorResponseStatus(error) === 401 || errorCode === 'refresh_token_reuse_detected') {
-        // The server refused the refresh token itself. Every other failure rethrows below, which
-        // is what keeps an offline device signed in.
-        await clearSession('session_expired');
+      if (getErrorResponseStatus(error) === 401) {
+        // The server refused the refresh token and may say why. Every other failure rethrows
+        // below, which is what keeps an offline device signed in.
+        await clearSession('session_expired', parseAuthSessionEndedError(error));
         return null;
       }
 
@@ -402,7 +442,7 @@ export const runWithMobileAuthRefresh = async <T>(
 
     if (prepared.refreshed) {
       // This send already used a token the gate just refreshed. Another refresh would loop.
-      await deps.clearSession('session_expired');
+      await deps.clearSession('session_expired', parseAuthSessionEndedError(error));
       throw error;
     }
 
@@ -426,7 +466,7 @@ export const runWithMobileAuthRefresh = async <T>(
       // The server refused a token the client treated as fresh, and the replacement as well.
       // Ending the session is what stops every accessToken-keyed effect from firing again.
       if (getErrorResponseStatus(retryError) === 401) {
-        await deps.clearSession('session_expired');
+        await deps.clearSession('session_expired', parseAuthSessionEndedError(retryError));
       }
       throw retryError;
     }

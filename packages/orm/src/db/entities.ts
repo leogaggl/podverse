@@ -18,6 +18,7 @@ import { AccountNotificationPreference } from '@orm/entities/account/accountNoti
 import { AccountPendingFollowingChannel } from '@orm/entities/account/accountPendingFollowingChannel.js';
 import { AccountProfile } from '@orm/entities/account/accountProfile.js';
 import { AccountResetPassword } from '@orm/entities/account/accountResetPassword.js';
+import { AccountSession } from '@orm/entities/account/accountSession.js';
 import { AccountSetPassword } from '@orm/entities/account/accountSetPassword.js';
 import { AccountSettings } from '@orm/entities/account/accountSettings/accountSettings.js';
 import { AccountSettingsLocale } from '@orm/entities/account/accountSettings/accountSettingsLocale.js';
@@ -161,6 +162,7 @@ export const entities = [
   AccountNotificationPreference,
   AccountProfile,
   AccountResetPassword,
+  AccountSession,
   AccountSetPassword,
   AccountSettings,
   AccountSettingsLocale,

@@ -5,6 +5,7 @@ import {
 } from '@podverse/helpers/error';
 
 import { createMobileApiRequestService } from './mobileApi';
+import { readMobileSessionDeviceLabel } from './mobileSessionDeviceLabel.read';
 
 type LoginWithMobileTokenParams = {
   email: string;
@@ -36,7 +37,11 @@ export const loginWithMobileToken = async ({
   try {
     // Use ApiRequestService methods — standalone reqAuthMobileToken is not re-exported
     // from @podverse/helpers-requests (barrel only exports the class).
-    const mobileToken = await apiRequestService.reqAuthMobileToken({ email, password });
+    const mobileToken = await apiRequestService.reqAuthMobileToken({
+      email,
+      password,
+      device_label: readMobileSessionDeviceLabel() ?? undefined,
+    });
     await setTokens({
       accessToken: mobileToken.access_token,
       refreshToken: mobileToken.refresh_token,

@@ -3,7 +3,7 @@ import { getErrorResponseStatus } from '@podverse/helpers/error';
 
 import { accountRepository } from '../data/repositories/accountRepository';
 import { runSignupSubscriptionMerge } from '../data/repositories/subscriptionsSignupMerge';
-import type { SessionEndReason } from './forcedLogoutNotice';
+import type { ClearSession } from './forcedLogoutNotice';
 import { loginWithMobileToken } from './loginWithMobileToken';
 import { reconcileAccountPrefsFromAccount } from './syncAccountPrefs';
 
@@ -23,7 +23,7 @@ export type CompleteMobilePasswordLoginResult =
   | { error: CompleteMobilePasswordLoginError; ok: false };
 
 export type CompleteMobilePasswordLoginParams = {
-  clearSession: (reason: SessionEndReason) => Promise<void>;
+  clearSession: ClearSession;
   email: string;
   password: string;
   setAccount: (account: DTOAccount | null) => void;
