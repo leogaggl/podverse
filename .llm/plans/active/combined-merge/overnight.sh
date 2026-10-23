@@ -177,6 +177,8 @@ merge_step() {
     return
   fi
   if ! merge_in_progress; then
+    # npm install rewrites lockfiles; that churn would block the merge.
+    git checkout -q -- package-lock.json apps/mobile/package-lock.json
     log "Step $id: merging origin/$ref."
     git merge --no-ff --no-commit -m "Merge $ref into $BRANCH" "origin/$ref" ||
       log "The merge has conflicts; step $id resolves them."
