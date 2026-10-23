@@ -85,6 +85,14 @@ export function MoreSettingsScreen() {
       },
       {
         onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsDeveloper);
+        },
+        subtitle: t('settings.developer.menu_subtitle'),
+        testID: 'more-settings-developer',
+        title: t('settings.developer.developer'),
+      },
+      {
+        onPress: () => {
           navigation.navigate(MORE_STACK_ROUTES.MoreTermsOfService);
         },
         subtitle: termsSubtitle,

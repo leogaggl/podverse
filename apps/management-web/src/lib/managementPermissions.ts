@@ -1,192 +1,115 @@
+import type { CrudAction } from '@podverse/helpers';
+import { crudMaskHas } from '@podverse/helpers';
+
 import type { CurrentUser } from './requests/auth';
 
-const CRUD_CREATE = 1;
-const CRUD_READ = 2;
-const CRUD_UPDATE = 4;
-const CRUD_DELETE = 8;
-
-export function canReadAdmins(user: CurrentUser): boolean {
+function userHasCrud(user: CurrentUser, mask: number | undefined, action: CrudAction): boolean {
   if (user.role === 'superuser') {
     return true;
   }
   return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.admins_crud & CRUD_READ) !== 0
+    user.permissions !== null && user.permissions !== undefined && crudMaskHas(mask ?? 0, action)
   );
+}
+
+export function canReadAdmins(user: CurrentUser): boolean {
+  return userHasCrud(user, user.permissions?.admins_crud, 'read');
 }
 
 export function canCreateAdmins(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.admins_crud & CRUD_CREATE) !== 0
-  );
+  return userHasCrud(user, user.permissions?.admins_crud, 'create');
 }
 
 export function canUpdateAdmins(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.admins_crud & CRUD_UPDATE) !== 0
-  );
+  return userHasCrud(user, user.permissions?.admins_crud, 'update');
 }
 
 export function canDeleteAdmins(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.admins_crud & CRUD_DELETE) !== 0
-  );
+  return userHasCrud(user, user.permissions?.admins_crud, 'delete');
 }
 
 export function canReadFeeds(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.feeds_crud & CRUD_READ) !== 0
-  );
+  return userHasCrud(user, user.permissions?.feeds_crud, 'read');
 }
 
 export function canUpdateFeeds(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.feeds_crud & CRUD_UPDATE) !== 0
-  );
+  return userHasCrud(user, user.permissions?.feeds_crud, 'update');
 }
 
 export function canReadStats(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return (
-    user.permissions !== null &&
-    user.permissions !== undefined &&
-    (user.permissions.stats_crud & CRUD_READ) !== 0
-  );
+  return userHasCrud(user, user.permissions?.stats_crud, 'read');
 }
 
 export function canReadStorage(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.bucket_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_READ) !== 0;
+  return userHasCrud(user, user.permissions?.bucket_crud, 'read');
 }
 
 export function canDeleteStorage(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.bucket_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_DELETE) !== 0;
+  return userHasCrud(user, user.permissions?.bucket_crud, 'delete');
 }
 
 export function canReadEmbedDemo(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.embed_demo_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_READ) !== 0;
+  return userHasCrud(user, user.permissions?.embed_demo_crud, 'read');
 }
 
 export function canUpdateEmbedDemo(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.embed_demo_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_UPDATE) !== 0;
+  return userHasCrud(user, user.permissions?.embed_demo_crud, 'update');
 }
 
 export function canReadNotifications(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.notifications_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_READ) !== 0;
+  return userHasCrud(user, user.permissions?.notifications_crud, 'read');
 }
 
 export function canCreateNotifications(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.notifications_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_CREATE) !== 0;
-}
-
-function hasCrud(user: CurrentUser, crud: number | undefined, bit: number): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  return user.permissions !== null && user.permissions !== undefined && ((crud ?? 0) & bit) !== 0;
+  return userHasCrud(user, user.permissions?.notifications_crud, 'create');
 }
 
 export function canReadBillingChannels(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_channels_crud, CRUD_READ);
+  return userHasCrud(user, user.permissions?.billing_channels_crud, 'read');
 }
 
 export function canUpdateBillingChannels(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_channels_crud, CRUD_UPDATE);
+  return userHasCrud(user, user.permissions?.billing_channels_crud, 'update');
 }
 
 export function canReadBillingProcessorProducts(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_processor_products_crud, CRUD_READ);
+  return userHasCrud(user, user.permissions?.billing_processor_products_crud, 'read');
 }
 
 export function canCreateBillingProcessorProducts(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_processor_products_crud, CRUD_CREATE);
+  return userHasCrud(user, user.permissions?.billing_processor_products_crud, 'create');
 }
 
 export function canUpdateBillingProcessorProducts(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_processor_products_crud, CRUD_UPDATE);
+  return userHasCrud(user, user.permissions?.billing_processor_products_crud, 'update');
 }
 
 export function canReadBillingAccount(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_account_crud, CRUD_READ);
+  return userHasCrud(user, user.permissions?.billing_account_crud, 'read');
 }
 
 export function canResyncBillingAccount(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_account_crud, CRUD_UPDATE);
+  return userHasCrud(user, user.permissions?.billing_account_crud, 'update');
 }
 
 export function canGrantBillingMembership(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_account_crud, CRUD_CREATE);
+  return userHasCrud(user, user.permissions?.billing_account_crud, 'create');
 }
 
 export function canEndBillingMembership(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_account_crud, CRUD_DELETE);
+  return userHasCrud(user, user.permissions?.billing_account_crud, 'delete');
 }
 
 export function canReadBillingWebhookEvents(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_webhook_events_crud, CRUD_READ);
+  return userHasCrud(user, user.permissions?.billing_webhook_events_crud, 'read');
 }
 
 export function canReplayBillingWebhookEvents(user: CurrentUser): boolean {
-  return hasCrud(user, user.permissions?.billing_webhook_events_crud, CRUD_UPDATE);
+  return userHasCrud(user, user.permissions?.billing_webhook_events_crud, 'update');
 }
 
 export function canUpdateNotifications(user: CurrentUser): boolean {
-  if (user.role === 'superuser') {
-    return true;
-  }
-  const crud = user.permissions?.notifications_crud ?? 0;
-  return user.permissions !== null && user.permissions !== undefined && (crud & CRUD_UPDATE) !== 0;
+  return userHasCrud(user, user.permissions?.notifications_crud, 'update');
 }
 
 /** Matches feed lifecycle `takedown` from management feeds API. */

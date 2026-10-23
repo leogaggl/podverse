@@ -10,7 +10,6 @@ import { endAdminSessions } from '@management-api/lib/auth/adminSessionStore.js'
 import { ensureAuthenticated } from '@management-api/lib/auth/index.js';
 import { requireCrud } from '@management-api/lib/authz/requireCrud.js';
 import { requireSuperuser } from '@management-api/lib/authz/requireSuperuser.js';
-import { hasCrud } from '@management-api/lib/crud.js';
 import { getParamRequired } from '@management-api/lib/params.js';
 import { AdminAccountRoleEnum } from '@management-api/orm/entities/adminAccountRole.js';
 import {
@@ -21,12 +20,17 @@ import {
 import express from 'express';
 import Joi from 'joi';
 
-import { ADMIN_ACCOUNT_CREDENTIALS_USERNAME_MAX_LENGTH } from '@podverse/helpers';
+import {
+  ADMIN_ACCOUNT_CREDENTIALS_USERNAME_MAX_LENGTH,
+  CRUD_MASK_ALL,
+  CRUD_MASK_NONE,
+  crudMaskHas,
+} from '@podverse/helpers';
 import { validatePassword } from '@podverse/helpers-validation';
 
 const router = express.Router();
 
-const crudSchema = Joi.number().integer().min(0).max(15);
+const crudSchema = Joi.number().integer().min(CRUD_MASK_NONE).max(CRUD_MASK_ALL);
 
 /** Letters, digits, period, underscore, hyphen — stored lowercased for login. */
 const ADMIN_USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
@@ -474,7 +478,8 @@ router.patch(
       // Non-superuser actors need admins:create or admins:update to modify permissions
       if (wantsPermissionChange && !isSuperuser) {
         const adminsCrud = actor.permissions?.admins_crud ?? 0;
-        const canChangePermissions = hasCrud(adminsCrud, 'create') || hasCrud(adminsCrud, 'update');
+        const canChangePermissions =
+          crudMaskHas(adminsCrud, 'create') || crudMaskHas(adminsCrud, 'update');
         if (!canChangePermissions) {
           res.status(403).json({
             message: 'Create or update permission on admins required to change permissions',

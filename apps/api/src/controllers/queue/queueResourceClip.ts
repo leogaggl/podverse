@@ -51,7 +51,7 @@ class QueueResourceClipController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -85,7 +85,7 @@ class QueueResourceClipController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -123,7 +123,7 @@ class QueueResourceClipController {
             });
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
       );
     });
   }
@@ -174,7 +174,7 @@ class QueueResourceClipController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -226,7 +226,7 @@ class QueueResourceClipController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -261,7 +261,7 @@ class QueueResourceClipController {
               }
             });
           },
-          { skipMembershipStatus: true }
+          { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'delete' } }
         );
       });
     });

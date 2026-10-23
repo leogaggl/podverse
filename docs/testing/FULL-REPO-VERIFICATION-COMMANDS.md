@@ -208,6 +208,7 @@ npm run mobile:e2e:test -- queue-screen
 npm run mobile:e2e:test -- removed-content
 npm run mobile:e2e:test -- search-unparsed
 npm run mobile:e2e:test -- search
+npm run mobile:e2e:test -- settings-developer
 npm run mobile:e2e:test -- settings-downloads
 npm run mobile:e2e:test -- settings-select
 npm run mobile:e2e:test -- subscriptions-anonymous

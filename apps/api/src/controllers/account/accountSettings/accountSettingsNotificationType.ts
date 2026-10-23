@@ -37,6 +37,7 @@ export class AccountSettingsNotificationTypeController {
         {
           skipMembershipStatus: false,
           requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.allowNotifications,
+          apiKeyAccess: { resource: 'settings', action: 'update' },
         }
       );
     });
@@ -65,7 +66,10 @@ export class AccountSettingsNotificationTypeController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'settings', action: 'update' },
+        }
       );
     });
   }

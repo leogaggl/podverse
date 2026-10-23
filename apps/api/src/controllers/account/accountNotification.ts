@@ -134,7 +134,10 @@ export class AccountNotificationController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'notifications', action: 'read' },
+        }
       );
     });
   }
@@ -163,7 +166,10 @@ export class AccountNotificationController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 
@@ -195,7 +201,10 @@ export class AccountNotificationController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 
@@ -244,7 +253,10 @@ export class AccountNotificationController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'notifications', action: 'update' },
+        }
       );
     });
   }
@@ -292,7 +304,10 @@ export class AccountNotificationController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'notifications', action: 'update' },
+        }
       );
     });
   }
@@ -317,7 +332,10 @@ export class AccountNotificationController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 
@@ -371,6 +389,7 @@ export class AccountNotificationController {
           requiredCapability: requiresNotificationsCapability
             ? ACCOUNT_ENTITLEMENT_CAPABILITY.allowNotifications
             : undefined,
+          apiKeyAccess: { resource: 'notifications', action: 'update' },
         }
       );
     });

@@ -103,6 +103,11 @@
       "downloads_description": "Storage Limit, Auto-Free, and Delete All Downloads",
       "notifications_description": "In-App and Push Alerts"
     },
+    "developer": {
+      "menu_subtitle": "API Keys for Scripts and Agents",
+      "docs_unavailable": "API documentation isn't available until this app has a server address.",
+      "spec_copy_hint": "Copies the OpenAPI document URL for the server this app is using."
+    },
     "offline_mode": {
       "title": "Offline Mode",
       "description": "Offline mode uses only downloads and other content already stored on this device. Search, Browse, sync, and anything that needs the internet stay unavailable until you turn it off.",

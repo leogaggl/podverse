@@ -26,7 +26,10 @@ export class AccountContentLogController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'history', action: 'read' },
+      }
     );
   }
 }

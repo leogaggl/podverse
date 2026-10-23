@@ -2,6 +2,8 @@ import { ensureAuthenticated } from '@api/lib/auth/index.js';
 import type { NextFunction, Request, Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
+import type { ApiKeyPermissionRequirement } from '@podverse/helpers';
+
 import { buildRateLimit429Body, deriveRateLimitResetTimeMs } from './rateLimitPayload.js';
 
 export interface RateLimiterOptions {
@@ -59,6 +61,8 @@ export function rateLimitAuthEndpoint(options: {
    * while terms acceptance is outstanding pass true; their handler still decides the terms gate.
    */
   skipTermsAcceptance?: boolean;
+  /** The permission a key needs; omitted, a key is refused here before the handler runs. */
+  apiKeyAccess?: ApiKeyPermissionRequirement;
 }): AuthRateLimitMiddleware {
   const buildUserKey = (userId: number | string) => `user:${userId}`;
   const keyGenerator = (req: Request) => {
@@ -84,6 +88,7 @@ export function rateLimitAuthEndpoint(options: {
       {
         skipMembershipStatus: true,
         skipTermsAcceptance: options.skipTermsAcceptance === true,
+        apiKeyAccess: options.apiKeyAccess,
       }
     );
   };

@@ -1,6 +1,7 @@
-import type { CrudOp } from '@management-api/lib/crud.js';
-import { hasCrud } from '@management-api/lib/crud.js';
 import type { NextFunction, Request, Response } from 'express';
+
+import type { CrudAction } from '@podverse/helpers';
+import { crudMaskHas } from '@podverse/helpers';
 
 type PermissionResource =
   | 'feeds'
@@ -48,7 +49,7 @@ export function getCrudForResource(
   }
 }
 
-export function requireCrud(resource: PermissionResource, op: CrudOp) {
+export function requireCrud(resource: PermissionResource, op: CrudAction) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const user = req.user;
     if (!user) {
@@ -64,7 +65,7 @@ export function requireCrud(resource: PermissionResource, op: CrudOp) {
       return;
     }
     const crud = getCrudForResource(user.permissions, resource);
-    if (!hasCrud(crud, op)) {
+    if (!crudMaskHas(crud, op)) {
       res.status(403).json({ message: 'Insufficient permissions' });
       return;
     }

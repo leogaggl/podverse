@@ -7,6 +7,7 @@ import { accountToJson } from '@api/lib/accountApiSerialization.js';
 import {
   clearAuthCookie,
   ensureAuthenticated,
+  getAuthenticatedSessionIdText,
   getAuthenticatedUser,
   optionalEnsureAuthenticated,
 } from '@api/lib/auth//index.js';
@@ -187,7 +188,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'account', action: 'read' },
+        }
       );
     });
   }
@@ -227,7 +231,11 @@ export class AccountController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true, skipTermsAcceptance: true }
+      {
+        skipMembershipStatus: true,
+        skipTermsAcceptance: true,
+        apiKeyAccess: { resource: 'account', action: 'read' },
+      }
     );
   }
 
@@ -331,9 +339,10 @@ export class AccountController {
 
             // Filter by sharable status
             const sharableStatusIds = getSharableStatusIdsForProfileType('subscribed');
-            accounts = accounts.filter((account) =>
-              sharableStatusIds.includes(account.sharable_status.id)
-            );
+            accounts = accounts.filter((account) => {
+              const sharableStatusId = resolveSharableStatusId(account);
+              return sharableStatusId !== undefined && sharableStatusIds.includes(sharableStatusId);
+            });
 
             // Remove private information from accounts before returning
             const filteredAccounts = accounts.map((account) =>
@@ -352,7 +361,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -412,9 +424,10 @@ export class AccountController {
 
             // Filter by sharable status
             const sharableStatusIds = getSharableStatusIdsForProfileType('subscribed');
-            accounts = accounts.filter((account) =>
-              sharableStatusIds.includes(account.sharable_status.id)
-            );
+            accounts = accounts.filter((account) => {
+              const sharableStatusId = resolveSharableStatusId(account);
+              return sharableStatusId !== undefined && sharableStatusIds.includes(sharableStatusId);
+            });
 
             // Remove private information from accounts before returning
             const filteredAccounts = accounts.map((account) =>
@@ -433,7 +446,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -532,7 +548,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -653,7 +672,10 @@ export class AccountController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'account', action: 'update' },
+      }
     );
   }
 
@@ -911,7 +933,7 @@ export class AccountController {
             const revokedCount = await endAccountSessions({
               accountId: jwtUser.id,
               reason: 'password_changed',
-              exceptSessionIdText: jwtUser.session_id_text,
+              exceptSessionIdText: getAuthenticatedSessionIdText(req),
             });
 
             res.json({ message: 'Password changed', revoked_count: revokedCount });

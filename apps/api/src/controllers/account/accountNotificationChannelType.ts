@@ -55,6 +55,7 @@ class AccountNotificationChannelTypeController {
       {
         skipMembershipStatus: false,
         requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.allowNotifications,
+        apiKeyAccess: { resource: 'notifications', action: 'create' },
       }
     );
   }
@@ -87,7 +88,10 @@ class AccountNotificationChannelTypeController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'delete' },
+      }
     );
   }
 
@@ -125,6 +129,7 @@ class AccountNotificationChannelTypeController {
       {
         skipMembershipStatus: false,
         requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.allowNotifications,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
       }
     );
   }

@@ -26,3 +26,5 @@ file of theirs is in context.
   alone; do not add a reinstall step)
 - Legacy app, podverse-rn, or v4 mobile → `legacy-app-reference`
 - Popularity tracking, listener ids, stats or taste tables → `popularity-listener-id-separation`
+- Adding or changing an authenticated API route, or a rate-limit wrapper that authenticates →
+  `api-key-route-access`

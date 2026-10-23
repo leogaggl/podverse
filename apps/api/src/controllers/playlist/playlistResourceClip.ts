@@ -44,7 +44,7 @@ class PlaylistResourceClipController {
             }
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
       );
     });
   }
@@ -75,7 +75,7 @@ class PlaylistResourceClipController {
             }
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
       );
     });
   }
@@ -111,7 +111,7 @@ class PlaylistResourceClipController {
             });
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
       );
     });
   }
@@ -141,7 +141,7 @@ class PlaylistResourceClipController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'delete' } }
       );
     });
   }

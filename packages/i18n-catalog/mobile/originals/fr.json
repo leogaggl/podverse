@@ -103,6 +103,11 @@
       "downloads_description": "Limite de stockage, libération automatique et suppression de tous les téléchargements",
       "notifications_description": "Alertes dans l'app et push"
     },
+    "developer": {
+      "menu_subtitle": "Clés d'API pour les scripts et les agents",
+      "docs_unavailable": "La documentation de l'API n'est pas disponible tant que cette app n'a pas d'adresse de serveur.",
+      "spec_copy_hint": "Copie l'URL du document OpenAPI du serveur que cette app utilise."
+    },
     "offline_mode": {
       "title": "Mode hors ligne",
       "description": "Le mode hors ligne n'utilise que les téléchargements et le reste du contenu déjà stocké sur cet appareil. Recherche, Parcourir, la synchro et tout ce qui a besoin d'Internet restent indisponibles jusqu'à ce que vous le désactiviez.",

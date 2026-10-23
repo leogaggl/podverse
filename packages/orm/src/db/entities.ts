@@ -1,4 +1,5 @@
 import { Account } from '@orm/entities/account/account.js';
+import { AccountApiKey } from '@orm/entities/account/accountApiKey.js';
 import { AccountContentLog } from '@orm/entities/account/accountContentLog.js';
 import { AccountCredentials } from '@orm/entities/account/accountCredentials.js';
 import { AccountDeviceAutoDownloadChannel } from '@orm/entities/account/accountDeviceAutoDownloadChannel.js';
@@ -167,6 +168,7 @@ export const entities = [
   AccountProfile,
   AccountResetPassword,
   AccountSession,
+  AccountApiKey,
   AccountSetPassword,
   AccountSettings,
   AccountSettingsLocale,

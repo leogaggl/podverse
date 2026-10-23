@@ -126,6 +126,7 @@ router.get(
   rateLimitAuthEndpoint({
     ...config.rateLimits.accountOpmlExport,
     skipTermsAcceptance: true,
+    apiKeyAccess: { resource: 'subscriptions', action: 'read' },
   }),
   asyncHandler(AccountOpmlExportController.exportOpml)
 );

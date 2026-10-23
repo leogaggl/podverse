@@ -54,7 +54,10 @@ class AccountFollowingAddByRSSChannelController {
             handleGenericErrorResponse(res, err);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'add_by_rss', action: 'read' },
+        }
       );
     });
   }
@@ -137,7 +140,10 @@ class AccountFollowingAddByRSSChannelController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
+      }
     );
   }
 
@@ -166,7 +172,10 @@ class AccountFollowingAddByRSSChannelController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'delete' },
+      }
     );
   }
 }

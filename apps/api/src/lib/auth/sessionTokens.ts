@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import type { SessionAccessJwtPayload, SessionRefreshJwtPayload } from '@podverse/helpers';
 import {
   AuthCookieName,
+  hasApiKeyTokenPrefix,
   isSessionAccessJwtPayload,
   isSessionRefreshJwtPayload,
 } from '@podverse/helpers';
@@ -12,7 +13,8 @@ import { isValidNanoIdV2IdText } from '@podverse/orm';
 const MOBILE_TOKEN_SCOPE = 'podverse_app_mobile';
 const BEARER_HEADER_PATTERN = /^Bearer\s+(\S+)$/i;
 
-export type RequestToken = { token: string; source: 'cookie' | 'bearer' };
+/** `api_key` is a Bearer value with the key prefix; it never goes through JWT verification. */
+export type RequestToken = { token: string; source: 'cookie' | 'bearer' | 'api_key' };
 
 export type MobileTokenPair = {
   token_type: 'Bearer';
@@ -92,7 +94,11 @@ export function signMobileTokenPair(
   };
 }
 
-/** The auth cookie wins over an `Authorization: Bearer` header when a request carries both. */
+/**
+ * The auth cookie wins over an `Authorization: Bearer` header when a request carries both. A
+ * Bearer value with the key prefix is an API key even when malformed, so its caller gets the key
+ * error rather than a bare 401.
+ */
 export function readRequestToken(req: {
   cookies?: unknown;
   headers: { authorization?: string };
@@ -112,7 +118,7 @@ export function readRequestToken(req: {
   if (bearerToken === undefined) {
     return null;
   }
-  return { token: bearerToken, source: 'bearer' };
+  return { token: bearerToken, source: hasApiKeyTokenPrefix(bearerToken) ? 'api_key' : 'bearer' };
 }
 
 /** The decoded payload when the signature and expiry check out; null otherwise. */

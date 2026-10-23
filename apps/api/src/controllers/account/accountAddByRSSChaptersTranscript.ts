@@ -172,7 +172,10 @@ export class AccountAddByRSSChaptersTranscriptController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'read' },
+      }
     );
   }
 }

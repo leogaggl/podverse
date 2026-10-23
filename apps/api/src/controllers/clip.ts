@@ -152,7 +152,7 @@ class ClipController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      { skipMembershipStatus: false, apiKeyAccess: { resource: 'clips', action: 'create' } }
     );
   }
 
@@ -205,7 +205,7 @@ class ClipController {
           });
         });
       },
-      { skipMembershipStatus: false }
+      { skipMembershipStatus: false, apiKeyAccess: { resource: 'clips', action: 'update' } }
     );
   }
 
@@ -228,7 +228,7 @@ class ClipController {
           });
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'clips', action: 'delete' } }
     );
   }
 
@@ -270,7 +270,7 @@ class ClipController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'clips', action: 'read' } }
       );
     });
   }
@@ -288,7 +288,7 @@ class ClipController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'clips', action: 'read' } }
     );
   }
 
@@ -749,7 +749,7 @@ class ClipController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'subscriptions', action: 'read' } }
       );
     });
   }
@@ -805,7 +805,10 @@ class ClipController {
               handleGenericErrorResponse(res, error);
             }
           },
-          { skipMembershipStatus: true }
+          {
+            skipMembershipStatus: true,
+            apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+          }
         );
       }
     );

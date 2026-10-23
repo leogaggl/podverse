@@ -54,7 +54,7 @@ class QueueController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
     );
   }
 
@@ -89,7 +89,7 @@ class QueueController {
           });
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'update' } }
     );
   }
 }

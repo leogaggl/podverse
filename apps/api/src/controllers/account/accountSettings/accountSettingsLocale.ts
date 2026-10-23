@@ -24,7 +24,10 @@ export class AccountSettingsLocaleController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'settings', action: 'update' },
+        }
       );
     });
   }

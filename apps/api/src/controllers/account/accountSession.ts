@@ -4,7 +4,12 @@ import {
   endAccountSessions,
   listAccountSessions,
 } from '@api/lib/auth/accountSessionStore.js';
-import { clearAuthCookie, ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
+import {
+  clearAuthCookie,
+  ensureAuthenticated,
+  getAuthenticatedSessionIdText,
+  getAuthenticatedUser,
+} from '@api/lib/auth/index.js';
 import { getParamRequired } from '@api/lib/params.js';
 import type { Request, Response } from 'express';
 
@@ -36,9 +41,10 @@ export class AccountSessionController {
       async () => {
         try {
           const user = getAuthenticatedUser(req);
+          const currentSessionIdText = getAuthenticatedSessionIdText(req);
           const rows = await listAccountSessions(user.id);
           res.status(200).json({
-            rows: rows.map((row) => toAccountSessionDto(row, user.session_id_text)),
+            rows: rows.map((row) => toAccountSessionDto(row, currentSessionIdText)),
           });
         } catch (error) {
           handleGenericErrorResponse(res, error);
@@ -61,7 +67,7 @@ export class AccountSessionController {
             return;
           }
 
-          if (sessionIdText === user.session_id_text) {
+          if (sessionIdText === getAuthenticatedSessionIdText(req)) {
             await endAccountSession({
               accountId: user.id,
               sessionIdText,
@@ -100,7 +106,7 @@ export class AccountSessionController {
           const revokedCount = await endAccountSessions({
             accountId: user.id,
             reason: 'signed_out_elsewhere',
-            exceptSessionIdText: user.session_id_text,
+            exceptSessionIdText: getAuthenticatedSessionIdText(req),
           });
           res.status(200).json({ revoked_count: revokedCount });
         } catch (error) {

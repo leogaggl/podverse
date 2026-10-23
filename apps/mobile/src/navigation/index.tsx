@@ -70,6 +70,7 @@ import { LibraryPlaylistsScreen } from '../screens/library/LibraryPlaylistsScree
 import { LibraryQueueScreen } from '../screens/library/LibraryQueueScreen';
 import { PlaylistDetailScreen } from '../screens/library/PlaylistDetailScreen';
 import { PlaylistFormScreen } from '../screens/library/PlaylistFormScreen';
+import type { ApiKeyExpirationChoice } from '../screens/more/accountApiKeyRows';
 import { MoreAboutScreen } from '../screens/more/MoreAboutScreen';
 import { MoreAdvancedScreen } from '../screens/more/MoreAdvancedScreen';
 import { MoreCustomApiScreen } from '../screens/more/MoreCustomApiScreen';
@@ -85,6 +86,9 @@ import { MoreRemovedContentScreen } from '../screens/more/MoreRemovedContentScre
 import { MoreSettingsAppearanceScreen } from '../screens/more/MoreSettingsAppearanceScreen';
 import { MoreSettingsAutoDownloadCatchUpScreen } from '../screens/more/MoreSettingsAutoDownloadCatchUpScreen';
 import { MoreSettingsChangePasswordScreen } from '../screens/more/MoreSettingsChangePasswordScreen';
+import { MoreSettingsDeveloperCreateScreen } from '../screens/more/MoreSettingsDeveloperCreateScreen';
+import { MoreSettingsDeveloperExpirationScreen } from '../screens/more/MoreSettingsDeveloperExpirationScreen';
+import { MoreSettingsDeveloperScreen } from '../screens/more/MoreSettingsDeveloperScreen';
 import { MoreSettingsDownloadLimitScreen } from '../screens/more/MoreSettingsDownloadLimitScreen';
 import { MoreSettingsDownloadsScreen } from '../screens/more/MoreSettingsDownloadsScreen';
 import { MoreSettingsLocaleScreen } from '../screens/more/MoreSettingsLocaleScreen';
@@ -265,6 +269,9 @@ export const MORE_STACK_ROUTES = {
   MoreSettingsPlayback: 'MoreSettingsPlayback',
   MoreSettingsPopularityTracking: 'MoreSettingsPopularityTracking',
   MoreSettingsSessions: 'MoreSettingsSessions',
+  MoreSettingsDeveloper: 'MoreSettingsDeveloper',
+  MoreSettingsDeveloperCreate: 'MoreSettingsDeveloperCreate',
+  MoreSettingsDeveloperExpiration: 'MoreSettingsDeveloperExpiration',
   MoreTermsOfService: 'MoreTermsOfService',
   MoreSettingsTabBar: 'MoreSettingsTabBar',
   MoreSettingsTheme: 'MoreSettingsTheme',
@@ -342,6 +349,7 @@ const moreTabLinkScreens = {
   MoreSettingsNotifications: `more${APP_ROUTES.SETTINGS}/notifications`,
   MoreSettingsPlayback: `more${APP_ROUTES.SETTINGS}/playback`,
   MoreSettingsSessions: `more${APP_ROUTES.SETTINGS}/sessions`,
+  MoreSettingsDeveloper: `more${APP_ROUTES.SETTINGS}/developer`,
   MoreSettingsTabBar: `more${APP_ROUTES.SETTINGS}/tab-bar`,
   MoreSettingsTheme: `more${APP_ROUTES.SETTINGS}/theme`,
   MoreSmoke: 'more/e2e/smoke',
@@ -600,6 +608,9 @@ export type MoreStackParamList = {
   MoreSettingsPlayback: undefined;
   MoreSettingsPopularityTracking: undefined;
   MoreSettingsSessions: undefined;
+  MoreSettingsDeveloper: undefined;
+  MoreSettingsDeveloperCreate: { expiresIn?: ApiKeyExpirationChoice } | undefined;
+  MoreSettingsDeveloperExpiration: { expiresIn: ApiKeyExpirationChoice };
   MoreTermsOfService: undefined;
   MoreSettingsTabBar: undefined;
   MoreSettingsTheme: undefined;
@@ -1544,6 +1555,21 @@ function MoreStackNavigator({
         component={MoreSettingsSessionsScreen}
         name={MORE_STACK_ROUTES.MoreSettingsSessions}
         options={{ title: t('settings.account.sessions.heading') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsDeveloperScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsDeveloper}
+        options={{ title: t('settings.developer.heading') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsDeveloperCreateScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsDeveloperCreate}
+        options={{ title: t('settings.developer.create') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsDeveloperExpirationScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsDeveloperExpiration}
+        options={{ title: t('settings.developer.expiration') }}
       />
       <MoreStack.Screen
         component={MoreTermsOfServiceScreen}

@@ -1,4 +1,5 @@
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
+import type { AuthenticatedRequestOptions } from '@api/lib/auth/index.js';
 import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { validateBodyObject, validateQueryObject } from '@api/lib/validation/index.js';
 import type { Request, Response } from 'express';
@@ -9,7 +10,15 @@ import { TasteProfileAccountService } from '@podverse/orm';
 const TASTE_PROFILE_DEFAULT_LIMIT = 20;
 const TASTE_PROFILE_MAX_LIMIT = 50;
 
-const tasteProfileAuthOptions = { skipMembershipStatus: true };
+const tasteProfileReadAuthOptions: AuthenticatedRequestOptions = {
+  skipMembershipStatus: true,
+  apiKeyAccess: { resource: 'history', action: 'read' },
+};
+
+const tasteProfileUpdateAuthOptions: AuthenticatedRequestOptions = {
+  skipMembershipStatus: true,
+  apiKeyAccess: { resource: 'history', action: 'update' },
+};
 
 const pageQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
@@ -111,7 +120,7 @@ export class AccountTasteProfileController {
             handleGenericErrorResponse(res, error);
           }
         },
-        tasteProfileAuthOptions
+        tasteProfileReadAuthOptions
       );
     });
   }
@@ -149,7 +158,7 @@ export class AccountTasteProfileController {
             handleGenericErrorResponse(res, error);
           }
         },
-        tasteProfileAuthOptions
+        tasteProfileReadAuthOptions
       );
     });
   }
@@ -191,7 +200,7 @@ export class AccountTasteProfileController {
             handleGenericErrorResponse(res, error);
           }
         },
-        tasteProfileAuthOptions
+        tasteProfileUpdateAuthOptions
       );
     });
   }
@@ -230,7 +239,7 @@ export class AccountTasteProfileController {
             handleGenericErrorResponse(res, error);
           }
         },
-        tasteProfileAuthOptions
+        tasteProfileUpdateAuthOptions
       );
     });
   }

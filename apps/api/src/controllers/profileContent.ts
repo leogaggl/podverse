@@ -293,7 +293,10 @@ export class ProfileContentController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'account', action: 'read' },
+        }
       );
     });
   }
@@ -331,7 +334,10 @@ export class ProfileContentController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'account', action: 'read' },
+        }
       );
     });
   }
@@ -369,7 +375,10 @@ export class ProfileContentController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'account', action: 'read' },
+        }
       );
     });
   }
@@ -409,7 +418,10 @@ export class ProfileContentController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'account', action: 'read' },
+        }
       );
     });
   }

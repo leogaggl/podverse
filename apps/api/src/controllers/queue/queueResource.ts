@@ -44,7 +44,7 @@ class QueueResourceController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
     );
   }
 
@@ -71,7 +71,7 @@ class QueueResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
       );
     });
   }
@@ -99,7 +99,7 @@ class QueueResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'update' } }
       );
     });
   }
@@ -127,7 +127,7 @@ class QueueResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
       );
     });
   }
@@ -167,7 +167,7 @@ class QueueResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
       );
     });
   }
@@ -215,7 +215,7 @@ class QueueResourceController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'update' } }
         );
       });
     });

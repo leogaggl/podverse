@@ -1863,3 +1863,180 @@ family revoked`.
 - Who notices: popularity completion totals for a show a listener finishes after an earlier listen
   the same UTC day
 - Operator steps: none
+
+## The API accepts user-issued API keys
+
+- Surfaces: api
+- Change: `Authorization: Bearer pvk_…` authenticates as the key's account. A route accepts a key
+  only when it declares the resource and CRUD action it needs (`GET /auth/me` needs account read);
+  every other route answers 403 `api_key_not_allowed`. A key missing the permission gets 403
+  `api_key_permission_denied` naming it. Unknown or revoked keys get 401 `api_key_invalid`,
+  expired keys 401 `api_key_expired`. While the account's membership is expired, its keys get 403
+  `membership_expired` on every route, including routes open to expired members' sessions. A key
+  goes through the same terms and capability checks as its owner's session and can never do more
+  than the owner can signed in. Last use is recorded at most every five minutes. The OpenAPI spec
+  adds the `apiKeyAuth` scheme and the `x-api-key-permission` extension.
+- Who notices: developers and agents calling the API with a key
+- Operator steps: none
+
+## Create, list, and revoke API keys
+
+- Surfaces: api
+- Change: `POST /auth/api-keys` creates a key from a signed-in session with a name, per-resource
+  CRUD permissions (create 1, read 2, update 4, delete 8 for account, settings, subscriptions,
+  add_by_rss, playlists, queue, history, clips, notifications), and an expiry of 30, 90 (default),
+  or 365 days or none. The response carries the `pvk_…` token once; only its hash is stored.
+  `GET /auth/api-keys` lists keys with last-used times; `DELETE /auth/api-keys/{id}` revokes one.
+  An account may hold 20 keys, expired ones included; creating a 21st answers 409
+  `api_key_limit_reached`. An expired membership can list and revoke but not create. A key can
+  never call these endpoints. Keys survive password changes, password resets, and admin sign-outs.
+  `@podverse/helpers-requests` adds `reqAuthApiKeys`, `reqAuthApiKeyCreate`, and
+  `reqAuthApiKeyRevoke`.
+- Who notices: developers; web and mobile Developer settings use these endpoints
+- Operator steps: none
+
+## API key table
+
+- Surfaces: api, ops (app database)
+- Change: migration `0031_account_api_key.sql` adds `account_api_key`: one row per user-issued
+  API key with the token's SHA-256 hash and last four characters, per-resource CRUD permissions as
+  JSON, optional expiry, and last-used time. Rows cascade on account deletion. The raw token is
+  never stored.
+- Who notices: operators running migrations
+- Operator steps: run the linear migrations; `API_EXPECTED_MIGRATION_FILENAME` advances to
+  `0031_account_api_key.sql`.
+
+## Developer tab lists and revokes API keys
+
+- Surfaces: web
+- Change: Settings gains a Developer tab at `/settings?tab=developer` for signed-in accounts.
+  It lists each API key with its name, token hint, permission summary, created time, expiry, and
+  last-used time, and revokes a key after confirmation. An expired membership can still open the
+  tab, see keys, and revoke them. The tab links to the interactive API reference at
+  `<api base>/docs` and the raw spec at `<api base>/docs.yaml`. A custom key's permission
+  summary names only the actions some route checks. It does not show an MCP configuration.
+- Who notices: signed-in people who open Settings
+- Operator steps: none
+
+## The API spec documents health, docs, and required list pages
+
+- Surfaces: api
+- Change: The OpenAPI spec documents the public routes `GET /`, `/health`, `/health/ready`,
+  `/meta`, `/docs`, and `/docs.yaml`. It documents `GET /my-profile/podcasts/az`, `/albums/az`,
+  `/playlists/az`, and `/clips/recent`. `page` is required on every list whose validator
+  requires it, including the public profile lists, the playlist lists, the account lists, and
+  the channel episode lists that omitted it. `/api/v2/docs.yaml` and `/api/v2/docs` serve that
+  file.
+- Who notices: developers and agents reading the API spec
+- Operator steps: none
+
+## API keys reach playlists, the queue, and clips
+
+- Surfaces: api
+- Change: playlist, queue, and clip routes accept an API key holding the matching permission.
+  Playlists: read lists, likes, a playlist and its items; create playlists and add items; update
+  a playlist, toggle likes; delete playlists and remove items. Queue: read the queue, now playing,
+  upcoming, and its history zone; add items to any zone (create); promote, replay playback
+  events, set the active queue (update); remove items (delete). Clips: read, create, update,
+  delete the account's clips. Followed-playlist lists and subscribed clip lists need
+  subscriptions read. A key missing the permission gets 403 `api_key_permission_denied` naming
+  it; this applies to the public playlist and clip reads too when a key is sent.
+- Who notices: developers and agents calling the API with a key
+- Operator steps: none
+
+## API keys reach the account profile, subscriptions, and Add by RSS
+
+- Surfaces: api
+- Change: these routes accept an API key holding the matching permission. Account: edit the
+  profile (update), read a public profile and the account's own profile lists (read).
+  Subscriptions: subscribed podcast, episode, livestream, clip, and account lists, seen state,
+  and OPML export (read); follow podcasts, accounts, and playlists and import OPML (create); mark
+  seen (update); unfollow, including bulk unfollow of database and Add by RSS feeds (delete). Add
+  by RSS: followed feeds and their chapters and transcripts (read); follow a feed and every
+  parse request, including parse-all and on-demand add and refresh (create); unfollow (delete).
+  Password change, email change, account deletion, the data export, and terms acceptance still
+  refuse every key with 403 `api_key_not_allowed`.
+- Who notices: developers and agents calling the API with a key
+- Operator steps: none
+
+## Subscribed account lists read the profile visibility id
+
+- Surfaces: api
+- Change: `GET /account/subscribed/az` and `GET /account/subscribed/recent` resolve profile
+  visibility from the account row's status id. A followed public or unlisted profile with a
+  display name stays on the list.
+- Who notices: signed-in users opening subscribed profiles
+- Operator steps: none
+
+## API keys reach settings, notifications, and history
+
+- Surfaces: api
+- Change: these routes accept an API key holding the matching permission. Settings: locale,
+  playback, notification settings and types, device auto-download (all need settings update;
+  settings are read through `GET /auth/me`). Notifications: the inbox, unread count, event
+  stream, preferences, notification channels, and FCM, web push, and UnifiedPush devices, with
+  read, create, update, and delete mapped to the HTTP intent. History: content log and taste
+  profile (read), hiding and unhiding taste-profile entries (update). Listen and open reports
+  (`POST /stats/listen`, `POST /stats/open`), the listen-stats consent, and its agreement text
+  refuse every key with 403 `api_key_not_allowed`.
+- Who notices: developers and agents calling the API with a key
+- Operator steps: none
+
+## Developer tab creates an API key and shows it once
+
+- Surfaces: web
+- Change: The Developer tab can create an API key with a name, Read Only or Full Access or
+  custom per-resource permissions. A cell no route checks renders as a dash. Expiry is 30, 90
+  (the default), or 365 days or No Expiration. The token is shown once with a copy control.
+  An account that never had a membership, and an expired account, can still list and revoke
+  keys. Create opens the membership dialog instead of the form. The never-had heading is
+  API Keys Require a Membership. The expired dialog keeps the existing expired copy. Both
+  use the same Buy Membership action for a trial or an account with no tier. The account
+  may hold 20 keys.
+- Who notices: signed-in people creating a key in Settings
+- Operator steps: none
+
+## Developer screen lists and revokes API keys
+
+- Surfaces: mobile
+- Change: More → Settings → Developer lists the signed-in account's API keys with name, hint,
+  a permission summary, expiry, created time, and last-used time, and revokes one after a
+  confirm. A preset summary is Read Only or Full Access. A custom summary names only the
+  actions some route checks. An expired membership can still open the screen and revoke, and
+  Create opens the existing expired-membership dialog. An account that never had a membership
+  sees "API Keys Require a Membership" and Buy Membership. One row opens the interactive API
+  reference for the server the app is using. A second row copies that server's OpenAPI
+  document URL. The screen has no MCP setup snippet. Shared strings come from
+  `settings.developer` in the consumer catalog. The settings-row subtitle, the missing-server
+  sentence, and the copy-row subtitle are mobile-only.
+- Who notices: people managing API keys from the phone
+- Operator steps: none
+
+## The API spec names the permission each key needs
+
+- Surfaces: api
+- Change: Each operation that accepts an API key lists `apiKeyAuth` and
+  `x-api-key-permission` (the resource and create, read, update, or delete). The `apiKeyAuth`
+  description lists the actions each resource supports. Key management, sessions, password,
+  email, account deletion, billing, listen and open reports, and every other closed route do
+  not accept a key. The spec introduction tells callers to send `Authorization: Bearer pvk_…`.
+  Six operations that work with no credentials stay optional and still check a key when one is
+  sent.
+- Who notices: developers and agents that read the spec to call the API
+- Operator steps: none
+
+## Mobile can create an API key and show it once
+
+- Surfaces: mobile
+- Change: Developer → Create API Key asks for a name (up to 50 characters), starts on the
+  Read Only preset, and can switch to Full Access or to per-resource permissions for account,
+  settings, subscriptions, Add by RSS, playlists, queue, history, clips, and notifications.
+  A cell no route checks is a dash with an accessible name, not a checkbox. Expiry is 30, 90
+  (the default), or 365 days, or No Expiration, on its own screen. The secret is shown once
+  with Copy and is not stored on the phone. An expired membership still sees Create; pressing
+  it opens the existing expired-membership dialog. An account that never had a membership
+  sees "API Keys Require a Membership" and Buy Membership. An account can hold 20 keys. A key
+  still cannot manage keys, change the password or email, delete the account, or buy a
+  membership, and the form says so.
+- Who notices: people creating an API key from the phone
+- Operator steps: none

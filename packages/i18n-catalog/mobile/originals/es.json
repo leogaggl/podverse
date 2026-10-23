@@ -103,6 +103,11 @@
       "downloads_description": "Límite de almacenamiento, liberar espacio y eliminar todas las descargas",
       "notifications_description": "Alertas en la app y push"
     },
+    "developer": {
+      "menu_subtitle": "Claves de API para scripts y agentes",
+      "docs_unavailable": "La documentación de la API no está disponible hasta que esta app tenga una dirección de servidor.",
+      "spec_copy_hint": "Copia la URL del documento OpenAPI del servidor que usa esta app."
+    },
     "offline_mode": {
       "title": "Modo sin conexión",
       "description": "El modo sin conexión usa solo las descargas y el resto del contenido ya guardado en este dispositivo. Buscar, Explorar, la sincronización y todo lo que necesita internet permanecen no disponibles hasta que lo desactives.",

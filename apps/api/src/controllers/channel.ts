@@ -390,7 +390,10 @@ export class ChannelController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -446,7 +449,10 @@ export class ChannelController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -488,7 +494,10 @@ export class ChannelController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }

@@ -2,7 +2,6 @@ import { config } from '@management-api/config/index.js';
 import { ensureAuthenticated } from '@management-api/lib/auth/index.js';
 import type { PermissionResource } from '@management-api/lib/authz/requireCrud.js';
 import { getCrudForResource, requireCrud } from '@management-api/lib/authz/requireCrud.js';
-import { CrudMask } from '@management-api/lib/crud.js';
 import { AuditLogService } from '@management-api/lib/database/auditLog.js';
 import {
   DatabaseQueryEngine,
@@ -21,6 +20,8 @@ import { getAuditRequestId } from '@management-api/lib/getAuditRequestId.js';
 import { getParamRequired } from '@management-api/lib/params.js';
 import express from 'express';
 import Joi from 'joi';
+
+import { crudMaskHas } from '@podverse/helpers';
 
 const router = express.Router();
 
@@ -105,7 +106,7 @@ function checkReadPermission(
   if (!user || user.role === 'superuser') return true;
   if (!user.permissions) return false;
   const crudValue = getCrudForResource(user.permissions, resource);
-  return (crudValue & CrudMask.read) !== 0;
+  return crudMaskHas(crudValue, 'read');
 }
 
 function checkCrudPermission(
@@ -116,9 +117,7 @@ function checkCrudPermission(
   if (!user || user.role === 'superuser') return true;
   if (!user.permissions) return false;
   const crudValue = getCrudForResource(user.permissions, resource);
-  const mask =
-    op === 'create' ? CrudMask.create : op === 'update' ? CrudMask.update : CrudMask.delete;
-  return (crudValue & mask) !== 0;
+  return crudMaskHas(crudValue, op);
 }
 
 function tablePolicyToMeta(policy: TablePolicyDefinition) {

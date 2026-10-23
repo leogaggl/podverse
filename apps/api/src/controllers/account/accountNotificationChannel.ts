@@ -39,7 +39,10 @@ class AccountNotificationChannelController {
             handleGenericErrorResponse(res, err);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'notifications', action: 'read' },
+        }
       );
     });
   }
@@ -60,7 +63,10 @@ class AccountNotificationChannelController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 
@@ -87,6 +93,7 @@ class AccountNotificationChannelController {
       {
         skipMembershipStatus: false,
         requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.allowNotifications,
+        apiKeyAccess: { resource: 'notifications', action: 'create' },
       }
     );
   }
@@ -110,7 +117,10 @@ class AccountNotificationChannelController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'delete' },
+      }
     );
   }
 
@@ -133,6 +143,7 @@ class AccountNotificationChannelController {
       {
         skipMembershipStatus: false,
         requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.allowNotifications,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
       }
     );
   }
@@ -153,7 +164,10 @@ class AccountNotificationChannelController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 }
