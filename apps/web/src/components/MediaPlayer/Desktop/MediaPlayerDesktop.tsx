@@ -1,3 +1,4 @@
+import { MediaPlayerSegmentStrip } from '../SegmentStrip/MediaPlayerSegmentStrip';
 import { MediaPlayerButtonsDesktop } from './MediaPlayerButtonsDesktop';
 import { MediaPlayerControlsDesktop } from './MediaPlayerControlsDesktop';
 import { MediaPlayerInfoDesktop } from './MediaPlayerInfoDesktop';
@@ -7,6 +8,7 @@ import styles from '../../../styles/components/MediaPlayer/Desktop/MediaPlayerDe
 export const MediaPlayerDesktop = () => {
   return (
     <div className={styles.playerDesktop}>
+      <MediaPlayerSegmentStrip variant="desktop" />
       <div className={styles.bottomSection}>
         <MediaPlayerInfoDesktop />
         <MediaPlayerControlsDesktop />

@@ -10,7 +10,7 @@ Changing **file-based** podcast / music / clip / soundbite / chapter / add-by-RS
 - **Imperative element surface:** `useMediaElementBridge` plus `mediaElementBridgeSurface.ts` under `apps/web/src/hooks/` — the **only** places that should assign `mediaRef.current` playback fields (`src`, `currentTime`, `load`, `play` / `pause` parity). **ESLint:** root `eslint.config.mjs` uses `no-restricted-syntax` on `apps/web/src/**` for those patterns, with **temporary** ignores only for those two files (the bridge implementation).
 - **Controls context:** `MediaPlayerControlsProvider` wraps the app tree in `apps/web/src/providers/Providers.tsx`. `useMediaPlayerControls()` exposes `seek`, `jumpBy`, `pauseAt`, `togglePlay`, `loadAndStart`, etc. `isAttached: false` when no non-live bridge is registered (e.g. livestream-only playback).
 - **Non-live mounts:** `NonLiveMediaMount` in `apps/web/src/components/MediaPlayer/MediaElement/NonLiveMediaMount.tsx` — hidden audio + floating video portal; both use `NonLiveMediaOrchestrator` + `useNonLivePlaybackAvProps`.
-- **Livestream:** `MediaPlayerControllerLiveStream*` + `video.js` — unchanged until [`media-player-livestream-hls-migration`](/.llm/plans/active/media-player-livestream-hls-migration) (placeholder).
+- **Livestream:** `MediaPlayerControllerLiveStreamAV` renders the shared `MediaElement` (native `<audio>` / `<video>`; HLS through native support or lazy `hls.js`) and owns its own play/pause. It mounts a fresh element per source. No player library: do not add `video.js` or `@videojs/*` back.
 
 ## Do / don’t
 
@@ -46,6 +46,5 @@ flowchart LR
 ## Related
 
 - Phases 0–6 of the media-player architecture refactor are complete on `refactor/media-player`;
-  durable implementation state is in the code and related documentation. Livestream/HLS work is
-  tracked separately in `.llm/plans/active/media-player-livestream-hls-migration/`.
+  durable implementation state is in the code and related documentation.
 - E2E: media-player specs under `apps/web/e2e/media-player-*.spec.ts`.

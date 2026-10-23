@@ -31,9 +31,13 @@ A new command is a new skill whose `name` matches its folder, not a `.cursor/com
 
 These hold even before the skill is read:
 
-- **abcplan** — never implement in that chat.
+- **abcplan** — never implement in that chat. Each set runs in a fresh worktree opened in its own
+  Cursor window: lead with **Fresh worktree required**, then the create block, then the run block
+  for the worktree's window (**git-worktree-sibling** § Plan sets in a worktree).
 - **abcdeploysteps** `<repo> <env>` — never guess either word.
 - **abcresume** — never run the resume commands; the operator picks one.
+- **abccommitmsg** — draft a message for staged files, or for unstaged changes when nothing is
+  staged. Do not commit.
 - **abcagentoptimize** — during normal work, append ideas to its log; ask mid-turn only when the
   answer changes the current turn.
 

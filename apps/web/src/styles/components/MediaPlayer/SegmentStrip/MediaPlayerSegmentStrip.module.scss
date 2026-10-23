@@ -1,0 +1,53 @@
+.strip {
+  position: absolute;
+  right: 0;
+  // Sits on #media-player's 1px border-top (MediaPlayer.module.scss), which stays visible between
+  // the strip and the bar.
+  bottom: calc(100% + 1px);
+  left: 0;
+  z-index: 1;
+  display: flex;
+  height: var(--media-player-height-top-section);
+  box-sizing: border-box;
+  overflow: hidden;
+  border-top: 1px solid var(--border-color-opaque);
+  background-color: var(--background-color-tertiary);
+  color: var(--text-color-secondary);
+}
+
+.row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.icon {
+  display: flex;
+  flex: 0 0 auto;
+  margin-left: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+}
+
+.titleSlot {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

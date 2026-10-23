@@ -188,7 +188,7 @@ in Keychain/Keystore; never cookies, never `withCredentials`.
 - **Embed mode** (`apps/web/src/app/embed/`) — web-only chromeless player.
 - **management-web / management-api** — admin surface, not consumer mobile.
 - **Workers** — server-side; mobile never imports them.
-- **Livestream HLS parity** — web uses `video.js`; defer native HLS (track separately, like the web
+- **Livestream HLS parity** — web uses a native element with `hls.js`; defer native HLS (track separately, like the web
   livestream HLS migration plan).
 
 ## 10. Sibling Track B docs

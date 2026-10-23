@@ -39,7 +39,7 @@ foundation first: [DOCS-MOBILE-PROCESS-OVERVIEW.md](DOCS-MOBILE-PROCESS-OVERVIEW
 | Deep links / routing          | Next routes (`apps/web/src/app/`)                                             | Universal/app links to same IDs                                                          | Rebuild mapping                                              |
 | V4V / boosts                  | `@podverse/v4v-*`; `metaboost` route                                          | Same packages; native LN provider                                                        | Logic reused                                                 |
 | Add-by-RSS                    | Server parse + poll; `@podverse/parser-mapping` + IndexedDB                   | Same parse/poll APIs; adopt `parser-mapping`; local DB                                   | API + mapping shared; storage differs                        |
-| Livestream                    | `video.js` (`MediaPlayerControllerLiveStream*`)                               | Native HLS (deferred)                                                                    | Rebuild later                                                |
+| Livestream                    | Native element + `hls.js` (`MediaPlayerControllerLiveStream*`)                | Native HLS (deferred)                                                                    | Rebuild later                                                |
 
 ## 3. Endpoint reuse catalog
 

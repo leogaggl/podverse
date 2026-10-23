@@ -98,7 +98,10 @@ const E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT = 'e2ePodResume01';
 const E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT = 'e2ePodResume02';
 const E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT = 'e2ePodResume03';
 const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
-/** Oldest episode in the podcast; its stored show notes are shortened (`is_truncated`). */
+/**
+ * Older than the episodes newest-first lists put in row 0. The marquee episodes are older than
+ * this one. Its stored show notes are shortened (`is_truncated`).
+ */
 const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
 const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
 const E2E_PODCAST_ITEM_LONG_NOTES_SOURCE_LENGTH = 18000;
@@ -125,6 +128,27 @@ const E2E_PODCAST_ITEM_LONG_NOTES_PREVIEW =
   'notes were shortened and the app links to the full notes on the episode website instead of ' +
   'showing everything inline. The second paragraph exists so the preview has to cut in the ' +
   'middle of running text at a word';
+
+const E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT = 'e2ePodMarqTi01';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT = 'e2ePodMarqCh01';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ROW_ID_TEXT = 'e2eChapMarq01';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_ROW_ID_TEXT = 'e2eChapMarq02';
+
+/** 215 characters. Wider than the full-size player title at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_TITLE = 'E2E Marquee Overflow Title '.repeat(8).trim();
+
+/** 207 characters. Wider than the player bar strip and the embed segment line at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE = 'E2E Marquee Chapter Title '.repeat(8).trim();
+
+/** 23 characters. Fits the player bar strip at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE = 'E2E Marquee Chapter Two';
+
+/** 27 characters. Fits the full-size player title and the player bar title at a 1200px window. */
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE = 'E2E Marquee Chapter Episode';
+
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL = 'https://example.com/e2e-marquee-chapter';
+
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL = 'https://example.com/e2e-marquee-chapter-two';
 
 const E2E_CLIP_ID_TEXT = 'e2eClip00000001';
 /** Archived episode (`e2ePodArchEp01` = 14). Lists omit it; pages open it by id. */
@@ -238,12 +262,14 @@ const E2E_VIDEO_ITEM_DURATION_SECONDS = 30;
 
 // Non-live VOD HLS playlist for playback start. The enclosure MIME stays audio/mpeg so
 // playback must classify the `.m3u8` path (the query does not change that). Unsubscribed
-// and not queued, so list and queue specs keep their existing rows. The EVENT HLS playlist
-// is served beside it and is not seeded.
+// and not queued, so list and queue specs keep their existing rows. The EVENT playlists
+// are served beside the VOD playlist and are seeded as live-item enclosures.
 const E2E_HLS_FEED_URL = 'https://e2e-seed-hls-vod.example/podcast.xml';
 const E2E_HLS_FEED_PI_ID = 876543222;
 const E2E_HLS_ASSET_BASE_URL = 'http://localhost:2111/e2e/hls';
 const E2E_HLS_VOD_ENCLOSURE_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-vod.m3u8?fixture=vod`;
+const E2E_HLS_EVENT_PLAYLIST_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-event.m3u8`;
+const E2E_HLS_VIDEO_EVENT_PLAYLIST_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-video-event.m3u8`;
 const E2E_HLS_CHANNEL_ID_TEXT = 'e2eHlsChnl001';
 const E2E_HLS_VOD_ITEM_ID_TEXT = 'e2eHlsVodIt01';
 const E2E_HLS_CHANNEL_TITLE = 'E2E HLS VOD Channel';
@@ -264,6 +290,10 @@ const E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT = 'e2eLiveAud001';
 const E2E_LIVE_AV_AUDIO_ITEM_TITLE = 'E2E Live Audio Stream';
 const E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT = 'e2eLiveVid001';
 const E2E_LIVE_AV_VIDEO_ITEM_TITLE = 'E2E Live Video Stream';
+const E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT = 'e2eLiveHlsA01';
+const E2E_LIVE_AV_HLS_AUDIO_ITEM_TITLE = 'E2E Live HLS Audio Stream';
+const E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT = 'e2eLiveHlsV01';
+const E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE = 'E2E Live HLS Video Stream';
 const E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched01';
 const E2E_LIVE_AV_SCHEDULED_ITEM_TITLE = 'E2E Scheduled Livestream';
 
@@ -1013,7 +1043,8 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     enclosureUrl: E2E_PODCAST_SHORT_ENCLOSURE_URL,
     pubDateOffsetSeconds: 10800,
   });
-  // Oldest in the channel so the newest-first lists and row-0 flows keep their order.
+  // Older than the episodes newest-first lists put in row 0. The marquee episodes are older than
+  // this one, so those lists keep their row-0 episode.
   const longNotesItemId = await insertPodcastItem({
     idText: E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT,
     guidSlug: 'long-show-notes',
@@ -1036,6 +1067,87 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
     longNotesItemId,
     E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL,
   ]);
+
+  await insertPodcastItem({
+    idText: E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT,
+    guidSlug: 'marquee-title',
+    title: E2E_PODCAST_ITEM_MARQUEE_TITLE,
+    enclosureUrl: E2E_PODCAST_RESUME_ENCLOSURE_URL,
+    pubDateOffsetSeconds: 21600,
+  });
+  const marqueeChapterItemId = await insertPodcastItem({
+    idText: E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT,
+    guidSlug: 'marquee-chapter',
+    title: E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE,
+    enclosureUrl: E2E_PODCAST_RESUME_ENCLOSURE_URL,
+    pubDateOffsetSeconds: 25200,
+  });
+
+  // [1, 30) and [30, 60) do not overlap, so a playhead in each range names a different chapter.
+  const marqueeChaptersFeedResult = await client.query(
+    `INSERT INTO item_chapters_feed (item_id, url, type)
+     VALUES ($1, 'https://e2e-seed-podcast.example/marquee-chapters.json', 'application/json')
+     RETURNING id`,
+    [marqueeChapterItemId]
+  );
+  const marqueeChaptersFeedId = marqueeChaptersFeedResult.rows[0].id;
+
+  await client.query(`INSERT INTO item_chapters_feed_log (item_chapters_feed_id) VALUES ($1)`, [
+    marqueeChaptersFeedId,
+  ]);
+
+  const marqueeChaptersObjectResult = await client.query(
+    `INSERT INTO item_chapters_object (item_chapters_feed_id, title)
+     VALUES ($1, $2)
+     RETURNING id`,
+    [marqueeChaptersFeedId, E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE]
+  );
+  const marqueeChaptersObjectId = marqueeChaptersObjectResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO item_chapter (
+       id_text,
+       item_chapters_object_id,
+       data_hash,
+       start_time,
+       end_time,
+       title,
+       web_url,
+       table_of_contents
+     )
+     VALUES
+       (
+         $1,
+         $2,
+         '44444444444444444444444444444444',
+         $3,
+         30,
+         $4,
+         $5,
+         true
+       ),
+       (
+         $6,
+         $2,
+         '55555555555555555555555555555555',
+         30,
+         $7,
+         $8,
+         $9,
+         true
+       )`,
+    [
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ROW_ID_TEXT,
+      marqueeChaptersObjectId,
+      E2E_CHAPTER_ONE_START_SECONDS,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_ROW_ID_TEXT,
+      E2E_PODCAST_ITEM_RESUME_DURATION_SECONDS,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE,
+      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL,
+    ]
+  );
 
   // Older than the other seeded episodes, and flagged archived, so channel lists leave it out.
   const archivedClipItemResult = await client.query(
@@ -1121,7 +1233,8 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
 
   // Subscriptions, so the /podcasts subscribed list has rows to render. The podcast channel's items
   // sit at 0, 1, 2, 3, and 4 hours old and its timestamp lands at ninety minutes, which leaves part
-  // of the channel unseen and part of it caught up; the livestream follow is fully caught up.
+  // of the channel unseen and part of it caught up. The marquee episodes at 6 and 7 hours are caught
+  // up, like the episodes older than ninety minutes. The livestream follow is fully caught up.
   await client.query(
     `INSERT INTO account_following_channel (account_id, channel_id, last_seen_at)
      VALUES
@@ -1266,7 +1379,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
   );
 
   console.log(
-    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}, ${E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT})`
+    `Seeded podcast media-player E2E channel ${E2E_PODCAST_CHANNEL_ID_TEXT} (items ${E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT}, ${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}, ${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}, ${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}, ${E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT}, ${E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT}, ${E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT})`
   );
 
   await client.query(`DELETE FROM feed WHERE podcast_index_id = $1 OR url = $2`, [
@@ -2029,6 +2142,21 @@ async function seedLiveAvFixtures(client) {
     enclosureType: 'video/mp4',
     enclosureUrl: E2E_VIDEO_SHORT_ENCLOSURE_URL,
   });
+  // Enclosure type stays a progressive MIME. The `.m3u8` path is what classifies the source as HLS.
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT,
+    guidSlug: 'live-hls-audio',
+    title: E2E_LIVE_AV_HLS_AUDIO_ITEM_TITLE,
+    enclosureType: 'audio/mpeg',
+    enclosureUrl: E2E_HLS_EVENT_PLAYLIST_URL,
+  });
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT,
+    guidSlug: 'live-hls-video',
+    title: E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE,
+    enclosureType: 'video/mp4',
+    enclosureUrl: E2E_HLS_VIDEO_EVENT_PLAYLIST_URL,
+  });
   await insertLiveItem({
     idText: E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT,
     guidSlug: 'scheduled',
@@ -2042,7 +2170,7 @@ async function seedLiveAvFixtures(client) {
   await client.query(`UPDATE channel SET may_have_live_items = true WHERE id = $1`, [channelId]);
 
   console.log(
-    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT})`
+    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, hls audio ${E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT}, hls video ${E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT})`
   );
 }
 

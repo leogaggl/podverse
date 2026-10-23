@@ -10,7 +10,7 @@
   height: var(--embed-segment-info-bar-height);
   justify-content: space-between;
   min-height: var(--embed-segment-info-bar-height);
-  padding-inline: var(--spacing-lg);
+  padding-inline: 0 var(--spacing-lg);
   width: 100%;
 }
 
@@ -19,9 +19,6 @@
   flex: 1 1 auto;
   font-size: var(--font-size-sm);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .timeRange {

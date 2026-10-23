@@ -2,17 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, StyleProp, TextStyle } from 'react-native';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
-import { useMarqueeTurn } from '../../hooks/useMarqueeTurn';
-import { useReduceMotion } from '../../hooks/useReduceMotion';
 import {
   MARQUEE_EDGE_HOLD_MS,
-  MARQUEE_LOOP_GAP,
   marqueeLoopDistance,
   marqueeScrollDurationMs,
   resolveMarqueeLayout,
   stabilizeMeasuredWidth,
-} from '../../lib/text/marqueeScroll';
+} from '@podverse/helpers/marquee';
+
+import { useMarqueeTurn } from '../../hooks/useMarqueeTurn';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import type { MarqueeTurnGroup } from '../../lib/text/marqueeTurns';
+import { spacing } from '../../theme/spacing';
 
 export type MarqueeTextProps = {
   /**
@@ -78,7 +79,7 @@ function MarqueeLabel({
     if (!scrolls || turn === null) {
       return;
     }
-    const distance = marqueeLoopDistance(contentWidth);
+    const distance = marqueeLoopDistance(contentWidth, MARQUEE_LOOP_GAP);
     let cancelled = false;
     let animation: Animated.CompositeAnimation | undefined;
 
@@ -246,6 +247,12 @@ export function MarqueeText({
     </View>
   );
 }
+
+/**
+ * Air between the last glyph and the repeated first word. Wider than `spacing.base` so the
+ * seam reads as a break rather than the next word of the same title.
+ */
+const MARQUEE_LOOP_GAP = spacing['2xl'];
 
 /** Wider than any phone or tablet bar, so measurement is never clamped by the row. */
 const MEASURE_MAX_WIDTH = 10_000;

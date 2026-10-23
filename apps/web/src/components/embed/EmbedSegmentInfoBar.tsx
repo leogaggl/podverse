@@ -3,7 +3,12 @@
 import { useMemo } from 'react';
 
 import { formatHHMMSS } from '@podverse/helpers';
+import { MarqueeText } from '@podverse/ui';
 
+import {
+  MEDIA_PLAYER_MARQUEE_TURN_GROUP,
+  MEDIA_PLAYER_MARQUEE_TURN_ORDER,
+} from '../../constants/mediaPlayerMarquee';
 import { useMediaPlayer } from '../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../contexts/MediaPlayerCurrentTime';
 import type { EmbedSingleResourcePayload } from '../../lib/embed/fetchEmbedSingleResource';
@@ -62,7 +67,15 @@ export function EmbedSegmentInfoBar({ fallbackResource }: EmbedSegmentInfoBarPro
 
   return (
     <div className={styles.segmentBar} data-testid="embed-segment-info-bar">
-      <span className={styles.title}>{segmentInfo.title}</span>
+      <MarqueeText
+        className={styles.title}
+        data-testid="embed-segment-info-title"
+        restInset="var(--spacing-lg)"
+        turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.embedPlayer}
+        turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.embedPlayer.segment}
+      >
+        {segmentInfo.title}
+      </MarqueeText>
       <span className={styles.timeRange}>
         {formatSegmentTimeRange(segmentInfo.startSeconds, segmentInfo.endSeconds)}
       </span>

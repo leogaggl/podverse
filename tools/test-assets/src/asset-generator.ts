@@ -83,7 +83,9 @@ export class AssetGenerator {
       console.log(`   ✅ Generated: ${filename} (color: ${backgroundColor}, ${width}x${height})`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate image file ${filename}: ${errorMessage}`);
+      throw new Error(`Failed to generate image file ${filename}: ${errorMessage}`, {
+        cause: error,
+      });
     }
   }
 
@@ -139,7 +141,7 @@ export class AssetGenerator {
       console.log(`   ✅ Generated: ${filename} (${durationSeconds}s)`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate MP3 file ${filename}: ${errorMessage}`);
+      throw new Error(`Failed to generate MP3 file ${filename}: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -175,7 +177,7 @@ export class AssetGenerator {
       console.log(`   ✅ Generated: ${filename} (${durationSeconds}s)`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate MP4 file ${filename}: ${errorMessage}`);
+      throw new Error(`Failed to generate MP4 file ${filename}: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -205,7 +207,7 @@ export class AssetGenerator {
       console.log(`   ✅ Generated: ${filename} (${durationSeconds}s)`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate OGG file ${filename}: ${errorMessage}`);
+      throw new Error(`Failed to generate OGG file ${filename}: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -235,7 +237,9 @@ export class AssetGenerator {
       console.log(`   ✅ Generated: ${filename} (${durationSeconds}s)`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate WebM file ${filename}: ${errorMessage}`);
+      throw new Error(`Failed to generate WebM file ${filename}: ${errorMessage}`, {
+        cause: error,
+      });
     }
   }
 
@@ -268,8 +272,8 @@ export class AssetGenerator {
   /**
    * Audio-only HLS fixtures under `hls/`. The VOD HLS playlist is a short sine tone.
    * The EVENT HLS playlist reuses those segments and omits `#EXT-X-ENDLIST`, so a player
-   * can start it without a live encoder. Skip-if-exists. Segment URIs are basenames
-   * so they resolve next to the HLS playlist on the asset server.
+   * can start it without a live encoder. Skip-if-exists. Segment URIs are rewritten to
+   * basenames so they resolve next to the HLS playlist on the asset server.
    */
   async generateHlsAudioFixtures(): Promise<void> {
     const dir = path.join(this.assetsDir, 'hls');
@@ -293,33 +297,87 @@ export class AssetGenerator {
         await execAsync(command);
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Failed to generate HLS fixtures: ${errorMessage}`);
+        throw new Error(`Failed to generate HLS fixtures: ${errorMessage}`, { cause: error });
       }
 
       const raw = fs.readFileSync(vodPath, 'utf8');
-      const rewritten = raw
-        .split('\n')
-        .map((line) => {
-          const trimmed = line.trim();
-          if (trimmed === '' || trimmed.startsWith('#')) {
-            return line;
-          }
-          return path.basename(trimmed);
-        })
-        .join('\n');
-      fs.writeFileSync(vodPath, rewritten.endsWith('\n') ? rewritten : `${rewritten}\n`);
+      fs.writeFileSync(vodPath, this.rewriteHlsSegmentLinesToBasenames(raw));
       console.log('   ✅ Generated: e2e-hls-vod.m3u8');
     }
 
     const eventPath = path.join(dir, 'e2e-hls-event.m3u8');
     if (!fs.existsSync(eventPath)) {
       const vod = fs.readFileSync(vodPath, 'utf8');
-      const eventBody = vod
-        .replace('#EXT-X-PLAYLIST-TYPE:VOD', '#EXT-X-PLAYLIST-TYPE:EVENT')
-        .replace(/\r?\n#EXT-X-ENDLIST\s*$/, '\n');
-      fs.writeFileSync(eventPath, eventBody.endsWith('\n') ? eventBody : `${eventBody}\n`);
+      fs.writeFileSync(eventPath, this.hlsEventPlaylistFromVod(vod));
       console.log('   ✅ Generated: e2e-hls-event.m3u8');
     }
+  }
+
+  /**
+   * Video HLS fixtures under `hls/`. The VOD HLS playlist is a short test pattern with a sine
+   * tone. The EVENT HLS playlist reuses those segments and omits `#EXT-X-ENDLIST`, so a player
+   * can start it without a live encoder. Skip-if-exists. Segment URIs are rewritten to basenames
+   * so they resolve next to the HLS playlist on the asset server.
+   */
+  async generateHlsVideoFixtures(): Promise<void> {
+    const dir = path.join(this.assetsDir, 'hls');
+    fs.mkdirSync(dir, { recursive: true });
+
+    const vodName = 'e2e-hls-video-vod.m3u8';
+    const vodPath = path.join(dir, vodName);
+    if (!fs.existsSync(vodPath)) {
+      const ffmpegStatic = await import('ffmpeg-static').catch((err) => {
+        throw new Error(
+          `Failed to import ffmpeg-static. Make sure to run 'npm install' first. Error: ${err instanceof Error ? err.message : String(err)}`
+        );
+      });
+      const ffmpegPath = ffmpegStatic.default;
+      if (!ffmpegPath) {
+        throw new Error('ffmpeg-static binary not found. Make sure ffmpeg-static is installed.');
+      }
+
+      const command = `cd "${dir}" && "${ffmpegPath}" -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=320x240:rate=15:duration=6 -f lavfi -i sine=frequency=440:sample_rate=22050:duration=6 -c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p -g 30 -c:a aac -b:a 32k -ac 1 -ar 22050 -shortest -f hls -hls_time 2 -hls_playlist_type vod -hls_segment_filename "e2e-hls-video-vod-%03d.ts" "${vodName}"`;
+      try {
+        await execAsync(command);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to generate HLS video fixtures: ${errorMessage}`, { cause: error });
+      }
+
+      const raw = fs.readFileSync(vodPath, 'utf8');
+      fs.writeFileSync(vodPath, this.rewriteHlsSegmentLinesToBasenames(raw));
+      console.log('   ✅ Generated: e2e-hls-video-vod.m3u8');
+    }
+
+    const eventPath = path.join(dir, 'e2e-hls-video-event.m3u8');
+    if (!fs.existsSync(eventPath)) {
+      const vod = fs.readFileSync(vodPath, 'utf8');
+      fs.writeFileSync(eventPath, this.hlsEventPlaylistFromVod(vod));
+      console.log('   ✅ Generated: e2e-hls-video-event.m3u8');
+    }
+  }
+
+  /** Segment URIs in an HLS playlist become basenames so they resolve beside the playlist. */
+  private rewriteHlsSegmentLinesToBasenames(playlist: string): string {
+    const rewritten = playlist
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed.startsWith('#')) {
+          return line;
+        }
+        return path.basename(trimmed);
+      })
+      .join('\n');
+    return rewritten.endsWith('\n') ? rewritten : `${rewritten}\n`;
+  }
+
+  /** EVENT copy of a VOD HLS playlist: same segments, no trailing `#EXT-X-ENDLIST`. */
+  private hlsEventPlaylistFromVod(vodPlaylist: string): string {
+    const eventBody = vodPlaylist
+      .replace('#EXT-X-PLAYLIST-TYPE:VOD', '#EXT-X-PLAYLIST-TYPE:EVENT')
+      .replace(/\r?\n#EXT-X-ENDLIST\s*$/, '\n');
+    return eventBody.endsWith('\n') ? eventBody : `${eventBody}\n`;
   }
 
   private getAudioFrequency(): number {

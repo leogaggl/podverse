@@ -16,16 +16,18 @@ export type MediaElementProps = {
   mediaRef: RefObject<HTMLMediaElement | null>;
   preload?: 'auto' | 'metadata' | 'none';
   hidden?: boolean;
+  /** Video only: keep playback in the page instead of the iOS fullscreen player. */
+  playsInline?: boolean;
   style?: CSSProperties;
 };
 
 /**
- * Single non-live `<audio>` / `<video>` shell. A progressive file sets `src` here.
- * An HLS playlist omits `src` and is attached after mount: native HLS, or lazy `hls.js` when
- * the browser cannot play an HLS playlist itself.
+ * `<audio>` / `<video>` shell for non-live playback and for livestreams. A progressive file sets
+ * `src` here. An HLS playlist omits `src` and is attached after mount: native HLS, or lazy
+ * `hls.js` when the browser cannot play an HLS playlist itself.
  */
 export function MediaElement(props: MediaElementProps): ReactElement {
-  const { isVideo, source, mediaRef, preload = 'auto', hidden, style } = props;
+  const { isVideo, source, mediaRef, preload = 'auto', hidden, playsInline, style } = props;
   const layoutStyle = hidden ? { display: 'none' as const, ...style } : style;
   const elementKey = `${isVideo ? 'video' : 'audio'}::file`;
   const hlsPlaylistSrc = source?.delivery === 'hls' ? source.src : null;
@@ -66,6 +68,7 @@ export function MediaElement(props: MediaElementProps): ReactElement {
       preload,
       style: layoutStyle,
       controls: false,
+      playsInline,
       ...srcProps,
     });
   }

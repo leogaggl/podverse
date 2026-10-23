@@ -13,6 +13,8 @@ file of theirs is in context.
 - About or Summary content → `about-summary-web-mobile-alignment`
 - Naming description, About, or Summary fields, sections, or catalog keys → `domain-terms`
 - Playlist versus HLS playlist (m3u8) naming or searches → `domain-terms`
+- A feature needs a `podcast:*` tag the namespace lacks, or a namespace change draft →
+  `podcast-namespace-proposals`
 - Mobile run, install, or device commands → `mobile-ios-simulator`
 - Mobile terminal tabs, CarPlay logs, or Expo CLI → `vscode-terminals-mobile`
 - Any ship step (tag, release, publish, store, promotion) → `release-notes-suggest`

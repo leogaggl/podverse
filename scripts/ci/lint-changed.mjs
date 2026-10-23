@@ -51,6 +51,9 @@ const collectChangedFiles = () => {
   return [...files].map(toPosix).sort();
 };
 
+// Generated media fixtures; MPEG-TS HLS segments share the `.ts` extension with TypeScript.
+const isTestAsset = (rel) => rel.startsWith('tools/test-assets/assets/');
+
 const isExistingFile = (rel) => {
   const absolute = path.join(repoRoot, rel);
   if (!fs.existsSync(absolute)) {
@@ -144,7 +147,7 @@ const run = (command, args) => {
 
 const bin = (name) => path.join(repoRoot, 'node_modules', '.bin', name);
 
-const changed = collectChangedFiles().filter(isExistingFile);
+const changed = collectChangedFiles().filter((rel) => isExistingFile(rel) && !isTestAsset(rel));
 
 if (changed.length === 0) {
   console.log('No staged, unstaged, or untracked files.');

@@ -1,11 +1,11 @@
 import { HLS_PLAYLIST_MIME_TYPE, isHlsMimeType, isHlsSource } from '@podverse/helpers';
 
 /**
- * video.js source type for a livestream enclosure. A non-empty enclosure type is kept.
+ * Source type for a livestream enclosure. A non-empty enclosure type is kept.
  * When that type is missing, an HLS playlist URI or HLS MIME becomes the source type.
  * A URI that is not an HLS playlist, with no type, stays unresolved so the player does not start.
  */
-export function resolveLivestreamVideoJsSourceType(
+export function resolveLivestreamSourceType(
   uri: string,
   enclosureType: string | null | undefined,
   sourceContentType?: string | null
