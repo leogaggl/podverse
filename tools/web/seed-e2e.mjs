@@ -148,8 +148,7 @@ const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE = 'E2E Marquee Chapter Epis
 
 const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL = 'https://example.com/e2e-marquee-chapter';
 
-const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL =
-  'https://example.com/e2e-marquee-chapter-two';
+const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL = 'https://example.com/e2e-marquee-chapter-two';
 
 const E2E_CLIP_ID_TEXT = 'e2eClip00000001';
 /** Archived episode (`e2ePodArchEp01` = 14). Lists omit it; pages open it by id. */

@@ -405,11 +405,7 @@ test.describe('Media player marquee', () => {
           'fit',
           E2E_PODCAST_CHANNEL_TITLE
         );
-        await expectShownMarquee(
-          subsectionTitle,
-          'scroll',
-          E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE
-        );
+        await expectShownMarquee(subsectionTitle, 'scroll', E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE);
         const chapterLink = modal.getByTestId('media-player-chapter-link');
         await expect(chapterLink).toBeVisible();
         await expect(chapterLink.locator('a')).toHaveAttribute(
@@ -424,11 +420,7 @@ test.describe('Media player marquee', () => {
     // The playhead updates on mousedown and on each mousemove, before the pointer goes up.
     await dragVisibleProgressBar(page, 0.1, 0.75);
     await expect(desktopStripTitle).toContainText(E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE);
-    await expectShownMarquee(
-      desktopStripTitle,
-      'fit',
-      E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE
-    );
+    await expectShownMarquee(desktopStripTitle, 'fit', E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE);
     await expect(stripLabel(page, 'desktop')).toHaveText(
       chapterStripLabel(E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE)
     );
