@@ -37,6 +37,28 @@ export const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
 export const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
 export const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
 
+export const E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT = 'e2ePodMarqTi01';
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT = 'e2ePodMarqCh01';
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ROW_ID_TEXT = 'e2eChapMarq01';
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_ROW_ID_TEXT = 'e2eChapMarq02';
+
+/** 215 characters. Wider than the full-size player title at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_TITLE = 'E2E Marquee Overflow Title '.repeat(8).trim();
+
+/** 207 characters. Wider than the player bar strip and the embed segment line at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE = 'E2E Marquee Chapter Title '.repeat(8).trim();
+
+/** 23 characters. Fits the player bar strip at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE = 'E2E Marquee Chapter Two';
+
+/** 27 characters. Fits the full-size player title and the player bar title at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE = 'E2E Marquee Chapter Episode';
+
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL = 'https://example.com/e2e-marquee-chapter';
+
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL =
+  'https://example.com/e2e-marquee-chapter-two';
+
 /** Archived, slimmed episode. Channel lists omit it; open `/episode/` and `/clip/` by these ids. */
 export const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
 export const E2E_ARCHIVED_CLIP_EPISODE_TITLE = 'E2E Archived Clip Episode';

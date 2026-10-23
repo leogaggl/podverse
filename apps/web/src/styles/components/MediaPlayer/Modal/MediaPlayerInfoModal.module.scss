@@ -31,7 +31,8 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-light);
   color: var(--text-color-primary) !important;
-  @include line-clamp(1);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .channelTitle {
@@ -42,7 +43,8 @@
 .channelTitle > button {
   font-weight: var(--font-weight-light);
   color: var(--text-color-accent) !important;
-  @include line-clamp(1);
+  max-width: 100%;
+  min-width: 0;
   margin-top: var(--spacing-sm);
 }
 
@@ -149,13 +151,15 @@
 .subtitle {
   display: flex;
   justify-content: center;
+  max-width: 100%;
 }
 
 .subtitle > button {
   color: var(--text-color-primary) !important;
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-light);
-  @include line-clamp(1);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .timeRange {
