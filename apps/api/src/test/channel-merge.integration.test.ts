@@ -97,6 +97,31 @@ async function dailyCounts(
   return counts;
 }
 
+async function allTimeCounts(
+  manager: EntityManager,
+  table: 'stats_daily_channel' | 'stats_daily_item',
+  key: 'channel_id' | 'item_id',
+  id: number
+): Promise<Record<string, number>> {
+  const rows = rowsOf(
+    await manager.query(
+      `SELECT day::text AS day, all_time_listener_count FROM ${table} WHERE ${key} = $1`,
+      [id]
+    )
+  );
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    if (typeof row.day === 'string') {
+      counts[row.day] = asId(row.all_time_listener_count);
+    }
+  }
+  return counts;
+}
+
+function listenersByDay(counts: DailyCounts): Record<string, number> {
+  return Object.fromEntries(Object.entries(counts).map(([day, [listeners]]) => [day, listeners]));
+}
+
 async function insertDaily(
   manager: EntityManager,
   table: 'stats_daily_channel' | 'stats_daily_item',
@@ -512,7 +537,7 @@ describe('channel merge apply and revert', () => {
     const survivorChannel = survivor.channelId;
 
     const listenerIds: string[] = [];
-    for (const label of ['pop-l1', 'pop-l2', 'pop-l3', 'pop-l4']) {
+    for (const label of ['pop-l1', 'pop-l2', 'pop-l3', 'pop-l4', 'pop-l5']) {
       const { accountId } = await seedAccount(manager, label, runId);
       const row = rowsOf(
         await manager.query(
@@ -525,9 +550,15 @@ describe('channel merge apply and revert', () => {
       }
       listenerIds.push(row.listener_id);
     }
-    const [l1, l2, l3, l4] = listenerIds;
-    if (l1 === undefined || l2 === undefined || l3 === undefined || l4 === undefined) {
-      throw new Error('expected four listener ids');
+    const [l1, l2, l3, l4, l5] = listenerIds;
+    if (
+      l1 === undefined ||
+      l2 === undefined ||
+      l3 === undefined ||
+      l4 === undefined ||
+      l5 === undefined
+    ) {
+      throw new Error('expected five listener ids');
     }
 
     const t1 = utcDayAgo(2);
@@ -549,6 +580,18 @@ describe('channel merge apply and revert', () => {
         `INSERT INTO stats_listen_event (created_at, listener_id, channel_id, item_id, completed)
          VALUES ($1::timestamptz, $2::uuid, $3, $4, $5)`,
         [`${day}T12:00:00.000Z`, listenerId, channelId, itemId, completed]
+      );
+    }
+    // L5's listens were past the daily popularity cap, so no daily row counted them.
+    for (const [channelId, itemId] of [
+      [oldChannel, oldItem],
+      [survivorChannel, survivorItem],
+    ]) {
+      await manager.query(
+        `INSERT INTO stats_listen_event
+           (created_at, listener_id, channel_id, item_id, completed, popularity_counted)
+         VALUES ($1::timestamptz, $2::uuid, $3, $4, true, false)`,
+        [`${t1}T12:00:00.000Z`, l5, channelId, itemId]
       );
     }
 
@@ -585,6 +628,16 @@ describe('channel merge apply and revert', () => {
       'item_id',
       survivorItem,
       seededSurvivorItemDaily
+    );
+    await manager.query(
+      `UPDATE stats_daily_channel SET all_time_listener_count = listener_count
+        WHERE channel_id = ANY($1::int[])`,
+      [[oldChannel, survivorChannel]]
+    );
+    await manager.query(
+      `UPDATE stats_daily_item SET all_time_listener_count = listener_count
+        WHERE item_id = ANY($1::int[])`,
+      [[oldItem, survivorItem]]
     );
     await insertRange(manager, 'stats_popularity_channel', 'channel_id', oldChannel, [1, 2, 3, 10]);
     await insertRange(
@@ -689,7 +742,8 @@ describe('channel merge apply and revert', () => {
 
     // T1 channel: 5 + 4 - 3 listeners (L1, L2, L3 on both copies), 2 + 2 - 1 finishers (L1).
     // T1 item: 2 + 3 - 2 listeners (L1, L2), 1 + 2 - 1 finishers. T2 has no survivor row, and the
-    // day past retention is summed although L1 listened to both copies that day.
+    // day past retention is summed although L1 listened to both copies that day. L5 is not
+    // subtracted: its events on both copies did not count toward popularity.
     expect(
       await dailyCounts(manager, 'stats_daily_channel', 'channel_id', survivorChannel)
     ).toEqual({ [t1]: [6, 3], [t2]: [1, 0], [pastRetention]: [2, 0] });
@@ -697,6 +751,16 @@ describe('channel merge apply and revert', () => {
       [t1]: [3, 2],
       [t2]: [1, 0],
       [pastRetention]: [2, 0],
+    });
+    // All-time listeners are added and capped at the merged listeners: T1 channel min(5 + 4, 6),
+    // T1 item min(2 + 3, 3).
+    expect(
+      await allTimeCounts(manager, 'stats_daily_channel', 'channel_id', survivorChannel)
+    ).toEqual({ [t1]: 6, [t2]: 1, [pastRetention]: 2 });
+    expect(await allTimeCounts(manager, 'stats_daily_item', 'item_id', survivorItem)).toEqual({
+      [t1]: 3,
+      [t2]: 1,
+      [pastRetention]: 2,
     });
     expect(await dailyCounts(manager, 'stats_daily_channel', 'channel_id', oldChannel)).toEqual({});
     expect(await dailyCounts(manager, 'stats_daily_item', 'item_id', oldItem)).toEqual({});
@@ -722,8 +786,8 @@ describe('channel merge apply and revert', () => {
         )
       ).map((row) => [asId(row.item_id), asId(row.channel_id), asId(row.n)]);
     const expectedEvents: [number, number, number][] = [
-      [oldOnlyItem, oldChannel, 1],
-      [survivorItem, survivorChannel, 8],
+      [oldOnlyItem, survivorChannel, 1],
+      [survivorItem, survivorChannel, 10],
     ];
     expectedEvents.sort((left, right) => left[0] - right[0]);
     expect(await eventPlacement()).toEqual(expectedEvents);
@@ -826,6 +890,18 @@ describe('channel merge apply and revert', () => {
     );
     expect(await dailyCounts(manager, 'stats_daily_item', 'item_id', survivorItem)).toEqual(
       seededSurvivorItemDaily
+    );
+    expect(await allTimeCounts(manager, 'stats_daily_channel', 'channel_id', oldChannel)).toEqual(
+      listenersByDay(seededOldChannelDaily)
+    );
+    expect(
+      await allTimeCounts(manager, 'stats_daily_channel', 'channel_id', survivorChannel)
+    ).toEqual(listenersByDay(seededSurvivorChannelDaily));
+    expect(await allTimeCounts(manager, 'stats_daily_item', 'item_id', oldItem)).toEqual(
+      listenersByDay(seededOldItemDaily)
+    );
+    expect(await allTimeCounts(manager, 'stats_daily_item', 'item_id', survivorItem)).toEqual(
+      listenersByDay(seededSurvivorItemDaily)
     );
     expect(
       await rangeCounts(manager, 'stats_popularity_channel', 'channel_id', oldChannel)

@@ -172,10 +172,10 @@ export interface DTOAccountDataExportOpenEvent {
 }
 
 /**
- * Stored Popularity Tracking data linked to the account; empty lists when tracking never stored
- * anything or was turned off.
+ * Stored Taste Profile listening data linked to the account; empty lists when tracking never
+ * stored anything or Taste Profile was turned off.
  */
-export interface DTOAccountDataExportPopularityTracking {
+export interface DTOAccountDataExportListeningData {
   taste_profile: DTOAccountDataExportTasteProfileRow[];
   hidden_from_taste_profile: DTOAccountDataExportHiddenFromTasteProfileRow[];
   listen_events: DTOAccountDataExportListenEvent[];
@@ -191,7 +191,8 @@ export interface DTOAccountDataExport {
   listen_stats_accepted: boolean | null;
   listen_stats_agreement_version: string | null;
   listen_stats_decided_at: string | null;
-  popularity_tracking: DTOAccountDataExportPopularityTracking;
+  listen_stats_opted_out_at: string | null;
+  listening_data: DTOAccountDataExportListeningData;
   following: DTOAccountDataExportFollowing;
   playlists: DTOAccountDataExportPlaylist[];
   clips: DTOAccountDataExportClip[];

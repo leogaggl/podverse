@@ -781,12 +781,13 @@ async function lockRows(
 /**
  * Locks taken before any popularity row moves. The popularity refresh job's per-type advisory
  * locks come first, so no refresh writes a range row the merge deletes before it commits. Row
- * locks follow the listen write path's order (events, item daily rows, channel daily rows), so a
- * completion report on a matched item waits at its event row while holding nothing the merge
- * needs.
+ * locks follow the listen write path's order (events, item daily rows, channel daily rows): the
+ * old channel's events, and any matched old item's events, come first, so a completion report on
+ * one of them waits at its event row while holding nothing the merge needs.
  */
 async function lockMergeStatsRows(
   manager: EntityManager,
+  fromChannelId: number,
   channelIds: readonly number[],
   oldItemIds: readonly number[],
   survivorItemIds: readonly number[]
@@ -797,13 +798,13 @@ async function lockMergeStatsRows(
   await manager.query(
     `SELECT pg_advisory_xact_lock(hashtextextended('popularity_refresh:item', 0))`
   );
-  if (oldItemIds.length > 0) {
-    await lockRows(
-      manager,
-      'SELECT 1 FROM stats_listen_event WHERE item_id = ANY($1::int[]) FOR UPDATE',
-      [[...oldItemIds]]
-    );
-  }
+  await lockRows(
+    manager,
+    `SELECT 1 FROM stats_listen_event
+     WHERE channel_id = $1 OR item_id = ANY($2::int[])
+     FOR UPDATE`,
+    [fromChannelId, [...oldItemIds]]
+  );
   const itemIds = [...oldItemIds, ...survivorItemIds];
   if (itemIds.length > 0) {
     await lockRows(
@@ -840,8 +841,8 @@ async function retentionBoundaryDay(
 }
 
 /**
- * Per UTC day on or after `boundaryDay`, the listeners with listen events on both copies, and
- * those with a completed event on both. Keyed by `YYYY-MM-DD`.
+ * Per UTC day on or after `boundaryDay`, the listeners with popularity-counted listen events on
+ * both copies, and those with a completed one on both. Keyed by `YYYY-MM-DD`.
  */
 async function readSameDayOverlap(
   manager: EntityManager,
@@ -859,6 +860,7 @@ async function readSameDayOverlap(
        FROM stats_listen_event
        WHERE ${key} IN ($1, $2)
          AND created_at >= ($3::date)::timestamp AT TIME ZONE 'UTC'
+         AND popularity_counted
        GROUP BY 1, 2, 3
      )
      SELECT o.day::text AS day,
@@ -882,15 +884,19 @@ async function readSameDayOverlap(
   return overlap;
 }
 
+/** One copy's daily row. */
+type DailyCopyCounts = SameDayOverlap & { allTimeListeners: number };
+
 /**
  * One day's merged totals. Overlap is removed, but the result never goes below either copy, and
- * finishers never exceed listeners.
+ * finishers never exceed listeners. All-time listeners are added and capped at the merged
+ * listeners; no all-time overlap is removed.
  */
 function mergedDailyCounts(
-  old: SameDayOverlap,
-  survivor: SameDayOverlap,
+  old: DailyCopyCounts,
+  survivor: DailyCopyCounts,
   shared: SameDayOverlap
-): { listener_count: number; completion_count: number } {
+): { listener_count: number; completion_count: number; all_time_listener_count: number } {
   const listenerCount = Math.max(
     old.listeners + survivor.listeners - shared.listeners,
     old.listeners,
@@ -904,7 +910,14 @@ function mergedDailyCounts(
     ),
     listenerCount
   );
-  return { listener_count: listenerCount, completion_count: completionCount };
+  return {
+    listener_count: listenerCount,
+    completion_count: completionCount,
+    all_time_listener_count: Math.min(
+      old.allTimeListeners + survivor.allTimeListeners,
+      listenerCount
+    ),
+  };
 }
 
 /**
@@ -938,9 +951,10 @@ async function moveDailyTotals(
     if (day === null) {
       continue;
     }
-    const old = {
+    const old: DailyCopyCounts = {
       listeners: asNumber(oldRow.listener_count),
       completions: asNumber(oldRow.completion_count),
+      allTimeListeners: asNumber(oldRow.all_time_listener_count),
     };
     const survivorRow = survivorByDay.get(day);
     if (survivorRow === undefined) {
@@ -949,11 +963,13 @@ async function moveDailyTotals(
         day,
         listener_count: old.listeners,
         completion_count: old.completions,
+        all_time_listener_count: old.allTimeListeners,
       });
     } else {
-      const survivor = {
+      const survivor: DailyCopyCounts = {
         listeners: asNumber(survivorRow.listener_count),
         completions: asNumber(survivorRow.completion_count),
+        allTimeListeners: asNumber(survivorRow.all_time_listener_count),
       };
       const shared = (day >= boundaryDay ? overlap.get(day) : undefined) ?? {
         listeners: 0,
@@ -996,6 +1012,21 @@ async function moveListenEvents(
     `UPDATE stats_listen_event SET item_id = $1, channel_id = $2 WHERE item_id = $3`,
     [toItemId, toChannelId, fromItemId]
   );
+}
+
+/**
+ * Every remaining event of the old channel counts toward the survivor channel; unmatched items
+ * keep their `item_id`. Not journaled, for the reason `moveListenEvents` gives.
+ */
+async function moveChannelListenEvents(
+  manager: EntityManager,
+  fromChannelId: number,
+  toChannelId: number
+): Promise<void> {
+  await manager.query(`UPDATE stats_listen_event SET channel_id = $2 WHERE channel_id = $1`, [
+    fromChannelId,
+    toChannelId,
+  ]);
 }
 
 function elapsedDaysSql(interval: string): string {
@@ -1100,7 +1131,9 @@ async function listenerKeepsItem(manager: EntityManager, itemId: SqlKey): Promis
  * listeners than one transaction should hold advisory locks for. The channel's same-day overlap
  * is read before any event moves, because moving an item's events rewrites their `channel_id`.
  * Each item pair reads its overlap after the earlier pairs' events moved, so several old items
- * matched to one survivor item are each counted against everything merged before them.
+ * matched to one survivor item are each counted against everything merged before them. After the
+ * matched pairs, every remaining old-channel event moves to the survivor channel, so the
+ * survivor's day, week, and month counts include the old copy's listeners.
  */
 async function applyAbsorb(
   manager: EntityManager,
@@ -1132,6 +1165,7 @@ async function applyAbsorb(
 
   await lockMergeStatsRows(
     manager,
+    from.channelId,
     [from.channelId, to.channelId],
     matched.map((pair) => pair.fromItemId),
     matched.map((pair) => pair.toItemId)
@@ -1203,6 +1237,7 @@ async function applyAbsorb(
     );
     await moveListenEvents(manager, pair.fromItemId, pair.toItemId, to.channelId);
   }
+  await moveChannelListenEvents(manager, from.channelId, to.channelId);
 
   let unmatchedKept = 0;
   for (const map of maps) {

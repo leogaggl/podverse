@@ -16,7 +16,7 @@ import {
 
 /**
  * Keeps monthly popularity event partitions created ahead of time and drops months whose rows are
- * all older than `STATS_TRACK_EVENT_RETENTION_DAYS`. See `docs/features/POPULARITY-TRACKING.md`.
+ * all older than `STATS_TRACK_EVENT_RETENTION_DAYS`. See `docs/features/POPULARITY-AND-TASTE-PROFILE.md`.
  */
 export const statsEventPartitionsMaintain = async (_args: CommandLineArgs) => {
   const logger = getLogger();

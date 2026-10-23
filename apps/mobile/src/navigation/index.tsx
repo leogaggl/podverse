@@ -90,10 +90,10 @@ import { MoreSettingsDownloadsScreen } from '../screens/more/MoreSettingsDownloa
 import { MoreSettingsLocaleScreen } from '../screens/more/MoreSettingsLocaleScreen';
 import { MoreSettingsNotificationsScreen } from '../screens/more/MoreSettingsNotificationsScreen';
 import { MoreSettingsPlaybackScreen } from '../screens/more/MoreSettingsPlaybackScreen';
-import { MoreSettingsPopularityTrackingScreen } from '../screens/more/MoreSettingsPopularityTrackingScreen';
 import { MoreSettingsScreen } from '../screens/more/MoreSettingsScreen';
 import { MoreSettingsSessionsScreen } from '../screens/more/MoreSettingsSessionsScreen';
 import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScreen';
+import { MoreSettingsTasteProfileScreen } from '../screens/more/MoreSettingsTasteProfileScreen';
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
@@ -263,7 +263,7 @@ export const MORE_STACK_ROUTES = {
   MoreSettingsLocale: 'MoreSettingsLocale',
   MoreSettingsNotifications: 'MoreSettingsNotifications',
   MoreSettingsPlayback: 'MoreSettingsPlayback',
-  MoreSettingsPopularityTracking: 'MoreSettingsPopularityTracking',
+  MoreSettingsTasteProfile: 'MoreSettingsTasteProfile',
   MoreSettingsSessions: 'MoreSettingsSessions',
   MoreTermsOfService: 'MoreTermsOfService',
   MoreSettingsTabBar: 'MoreSettingsTabBar',
@@ -598,7 +598,7 @@ export type MoreStackParamList = {
   MoreSettingsLocale: undefined;
   MoreSettingsNotifications: undefined;
   MoreSettingsPlayback: undefined;
-  MoreSettingsPopularityTracking: undefined;
+  MoreSettingsTasteProfile: undefined;
   MoreSettingsSessions: undefined;
   MoreTermsOfService: undefined;
   MoreSettingsTabBar: undefined;
@@ -1531,9 +1531,9 @@ function MoreStackNavigator({
         options={{ title: t('settings.groups.playback') }}
       />
       <MoreStack.Screen
-        component={MoreSettingsPopularityTrackingScreen}
-        name={MORE_STACK_ROUTES.MoreSettingsPopularityTracking}
-        options={{ title: t('popularity_tracking.title') }}
+        component={MoreSettingsTasteProfileScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsTasteProfile}
+        options={{ title: t('taste_profile.title') }}
       />
       <MoreStack.Screen
         component={MoreSettingsChangePasswordScreen}

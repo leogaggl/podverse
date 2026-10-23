@@ -7,11 +7,13 @@ import type { StatsEntityType } from './statsEntityTables.js';
 import { STATS_ENTITY_TABLES, STATS_ENTITY_TYPES } from './statsEntityTables.js';
 
 /*
- * Range totals (`stats_popularity_*`) are derived from the anonymous daily totals
- * (`stats_daily_*`); nothing else writes their counts. Recent mode refreshes the day, week, and
- * month windows of every entity with a daily row in the month window, and recomputes all-time
- * totals only where they can have changed. Full mode recomputes all four counts for every entity.
- * Contracts and schedules: docs/features/POPULARITY-TRACKING.md.
+ * Range totals (`stats_popularity_*`) are written only here. Day, week, and month counts are
+ * distinct listeners (openers for profiles and playlists) from the event tables, skipping events
+ * that are not popularity-counted and listeners with an uncleared flag. All-time is the sum of the
+ * daily rows' `all_time_listener_count`. Recent mode refreshes every entity with a counted event in
+ * the month window or a daily row on today or yesterday, and recomputes all-time only where it can
+ * have changed. Full mode recomputes all four counts for every entity.
+ * Contracts and schedules: docs/features/POPULARITY-AND-TASTE-PROFILE.md.
  */
 
 export type StatsPopularityRefreshMode = 'recent' | 'full';
@@ -31,6 +33,55 @@ const UTC_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const ALL_TIME_RECHECK_DAYS = 1;
 
 type EntityTables = (typeof STATS_ENTITY_TABLES)[StatsEntityType];
+
+const FLAGGED_LISTENER_TABLE = 'stats_flagged_listener';
+
+/** UTC midnight `lookbackParam` days before `$1` (today). */
+function windowStartSql(lookbackParam: string): string {
+  return `(($1::date - ${lookbackParam}::int)::timestamp AT TIME ZONE 'UTC')`;
+}
+
+const WINDOW_END_SQL = `(($1::date + 1)::timestamp AT TIME ZONE 'UTC')`;
+
+/**
+ * Events of alias `e` that count toward a window starting `lookbackParam` days before `$1`:
+ * popularity-counted, inside the window, and from a listener without an uncleared flag.
+ */
+function countedEventsWhere(tables: EntityTables, lookbackParam: string): string {
+  const { key } = tables;
+  return `e.${key} IS NOT NULL
+     AND e.created_at >= ${windowStartSql(lookbackParam)}
+     AND e.created_at < ${WINDOW_END_SQL}
+     AND e.popularity_counted
+     AND NOT EXISTS (
+           SELECT 1 FROM ${FLAGGED_LISTENER_TABLE} f
+            WHERE f.listener_id = e.listener_id AND f.cleared_at IS NULL
+         )`;
+}
+
+/**
+ * CTEs ending in `window_totals (entity_id, day_count, week_count, month_count)`: distinct
+ * listeners per entity in each window. `$1` today, `$2`–`$4` day, week, and month lookbacks. A
+ * listener's latest counted event in the month window decides which shorter windows it falls in,
+ * so each listener counts once per window.
+ */
+function windowTotalsSql(tables: EntityTables): string {
+  const { key, events } = tables;
+  return `window_listeners AS (
+  SELECT e.${key} AS entity_id, e.listener_id, max(e.created_at) AS last_at
+    FROM ${events} e
+   WHERE ${countedEventsWhere(tables, '$4')}
+   GROUP BY e.${key}, e.listener_id
+),
+window_totals AS (
+  SELECT entity_id,
+         (count(*) FILTER (WHERE last_at >= ${windowStartSql('$2')}))::int AS day_count,
+         (count(*) FILTER (WHERE last_at >= ${windowStartSql('$3')}))::int AS week_count,
+         count(*)::int AS month_count
+    FROM window_listeners
+   GROUP BY entity_id
+)`;
+}
 
 function statementRowCount(result: unknown): number {
   if (Array.isArray(result)) {
@@ -86,92 +137,99 @@ SELECT count(*)::int AS rows_written FROM written`;
 
 /**
  * `$1` today, `$2`–`$4` day, week, and month lookbacks, `$5` all-time recheck days. All-time is
- * recomputed for entities listened to on today or yesterday, for new rows, and where the stored
- * value is below the new month total; any other entity's all-time total cannot have changed.
+ * recomputed for entities with a daily row on today or yesterday (the only rows whose
+ * `all_time_listener_count` can grow), for new rows, and where the stored value is below the new
+ * month count; any other entity's all-time total cannot have changed.
  */
 function recentUpsertSql(tables: EntityTables): string {
   const { key, daily, popularity } = tables;
   return upsertChangedRowsSql(
     tables,
-    `window_totals AS (
-  SELECT d.${key} AS entity_id,
-         COALESCE(SUM(d.listener_count) FILTER (WHERE d.day >= $1::date - $2::int), 0)::int
-           AS day_count,
-         COALESCE(SUM(d.listener_count) FILTER (WHERE d.day >= $1::date - $3::int), 0)::int
-           AS week_count,
-         SUM(d.listener_count)::int AS month_count,
-         bool_or(d.day >= $1::date - $5::int) AS listened_recently
+    `${windowTotalsSql(tables)},
+recent_daily AS (
+  SELECT DISTINCT d.${key} AS entity_id
     FROM ${daily} d
-   WHERE d.day >= $1::date - $4::int
-     AND d.day <= $1::date
-   GROUP BY d.${key}
+   WHERE d.day >= $1::date - $5::int AND d.day <= $1::date
 ),
 targets AS (
-  SELECT w.entity_id, w.day_count, w.week_count, w.month_count,
+  SELECT COALESCE(w.entity_id, r.entity_id) AS entity_id,
+         COALESCE(w.day_count, 0) AS day_count,
+         COALESCE(w.week_count, 0) AS week_count,
+         COALESCE(w.month_count, 0) AS month_count,
          stored.all_time_count AS stored_all_time_count,
-         (w.listened_recently
+         (r.entity_id IS NOT NULL
            OR stored.${key} IS NULL
-           OR stored.all_time_count < w.month_count) AS needs_all_time
+           OR stored.all_time_count < COALESCE(w.month_count, 0)) AS needs_all_time
     FROM window_totals w
-    LEFT JOIN ${popularity} stored ON stored.${key} = w.entity_id
+    FULL JOIN recent_daily r ON r.entity_id = w.entity_id
+    LEFT JOIN ${popularity} stored ON stored.${key} = COALESCE(w.entity_id, r.entity_id)
 ),
 all_time_totals AS (
-  SELECT d.${key} AS entity_id, SUM(d.listener_count)::int AS all_time_count
+  SELECT d.${key} AS entity_id, SUM(d.all_time_listener_count)::int AS all_time_count
     FROM ${daily} d
    WHERE d.${key} IN (SELECT t.entity_id FROM targets t WHERE t.needs_all_time)
    GROUP BY d.${key}
 ),
 refreshed AS (
   SELECT t.entity_id, t.day_count, t.week_count, t.month_count,
-         COALESCE(a.all_time_count, t.stored_all_time_count) AS all_time_count
+         COALESCE(a.all_time_count, t.stored_all_time_count, 0) AS all_time_count
     FROM targets t
     LEFT JOIN all_time_totals a ON a.entity_id = t.entity_id
 )`
   );
 }
 
-/** `$1` today, `$2` month lookback. All-time totals stay. */
+/**
+ * `$1` today, `$2` month lookback. All-time totals stay. Also zeroes an entity whose only events
+ * in the window come from flagged listeners.
+ */
 function recentZeroSql(tables: EntityTables): string {
-  const { key, daily, popularity } = tables;
+  const { key, events, popularity } = tables;
   return `UPDATE ${popularity} AS p
    SET day_count = 0, week_count = 0, month_count = 0
  WHERE (p.day_count <> 0 OR p.week_count <> 0 OR p.month_count <> 0)
    AND NOT EXISTS (
-         SELECT 1
-           FROM ${daily} d
-          WHERE d.${key} = p.${key}
-            AND d.day >= $1::date - $2::int
-            AND d.day <= $1::date
+         SELECT 1 FROM ${events} e
+          WHERE e.${key} = p.${key}
+            AND ${countedEventsWhere(tables, '$2')}
        )`;
 }
 
 /** `$1` today, `$2`–`$4` day, week, and month lookbacks. */
 function fullUpsertSql(tables: EntityTables): string {
   const { key, daily } = tables;
-  const windowSum = (lookbackParam: string): string =>
-    `COALESCE(SUM(d.listener_count) FILTER (
-             WHERE d.day >= $1::date - ${lookbackParam}::int AND d.day <= $1::date
-           ), 0)::int`;
   return upsertChangedRowsSql(
     tables,
-    `refreshed AS (
-  SELECT d.${key} AS entity_id,
-         ${windowSum('$2')} AS day_count,
-         ${windowSum('$3')} AS week_count,
-         ${windowSum('$4')} AS month_count,
-         SUM(d.listener_count)::int AS all_time_count
+    `${windowTotalsSql(tables)},
+all_time_totals AS (
+  SELECT d.${key} AS entity_id, SUM(d.all_time_listener_count)::int AS all_time_count
     FROM ${daily} d
    GROUP BY d.${key}
+),
+refreshed AS (
+  SELECT COALESCE(w.entity_id, a.entity_id) AS entity_id,
+         COALESCE(w.day_count, 0) AS day_count,
+         COALESCE(w.week_count, 0) AS week_count,
+         COALESCE(w.month_count, 0) AS month_count,
+         COALESCE(a.all_time_count, 0) AS all_time_count
+    FROM window_totals w
+    FULL JOIN all_time_totals a ON a.entity_id = w.entity_id
 )`
   );
 }
 
+/** `$1` today, `$2` month lookback. */
 function fullZeroSql(tables: EntityTables): string {
-  const { key, daily, popularity } = tables;
+  const { key, daily, events, popularity } = tables;
   return `UPDATE ${popularity} AS p
    SET day_count = 0, week_count = 0, month_count = 0, all_time_count = 0
  WHERE (p.day_count <> 0 OR p.week_count <> 0 OR p.month_count <> 0 OR p.all_time_count <> 0)
-   AND NOT EXISTS (SELECT 1 FROM ${daily} d WHERE d.${key} = p.${key})`;
+   AND NOT EXISTS (SELECT 1 FROM ${daily} d WHERE d.${key} = p.${key})
+   AND NOT EXISTS (
+         SELECT 1 FROM ${events} e
+          WHERE e.${key} = p.${key}
+            AND ${countedEventsWhere(tables, '$2')}
+       )`;
 }
 
 /**
@@ -203,7 +261,7 @@ async function refreshEntityType(
     const rowsWritten = rowsWrittenFrom(
       await manager.query(fullUpsertSql(tables), [today, day, week, month])
     );
-    const rowsZeroed = statementRowCount(await manager.query(fullZeroSql(tables), []));
+    const rowsZeroed = statementRowCount(await manager.query(fullZeroSql(tables), [today, month]));
     return { entityType, rowsWritten, rowsZeroed };
   }
 
@@ -215,8 +273,9 @@ async function refreshEntityType(
 }
 
 /**
- * Rebuilds range totals from daily totals for every entity type; `today` is the UTC date
- * `YYYY-MM-DD` the windows end on. Each type runs in its own transaction under its own lock.
+ * Rebuilds range totals from counted events and daily totals for every entity type; `today` is the
+ * UTC date `YYYY-MM-DD` the windows end on. Each type runs in its own transaction under its own
+ * lock.
  */
 export async function refreshStatsPopularity(input: {
   today: string;

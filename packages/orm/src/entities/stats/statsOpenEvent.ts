@@ -27,6 +27,14 @@ export class StatsOpenEvent {
   @Column({ type: 'integer', nullable: true })
   playlist_id!: number | null;
 
+  /** False for an open stored while its opener was flagged: it counts toward no total. */
+  @Column({ type: 'boolean', default: true })
+  popularity_counted!: boolean;
+
+  /** Started this opener's all-time period for the profile or playlist. */
+  @Column({ type: 'boolean', default: false })
+  all_time_counted!: boolean;
+
   @ManyToOne('Account', (account: Account) => account.id, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'account_id' })
   account!: Relation<Account> | null;

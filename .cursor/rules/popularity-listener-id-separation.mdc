@@ -6,6 +6,8 @@ globs:
   - "apps/api/src/controllers/stats/**"
   - "apps/workers/src/commands/stats/**"
   - "apps/management-api/src/routes/stats.ts"
+  - "apps/management-api/src/routes/statsFlaggedListeners.ts"
+  - "apps/management-api/src/lib/stats/flaggedListeners.ts"
   - "apps/management-api/src/lib/database/tablePolicy.ts"
 alwaysApply: false
 ---
@@ -21,6 +23,10 @@ The mapping table and `StatsListenerService` are read only inside
 Workers, management API and web, popularity readers, the range-totals refresh, and recommendation
 jobs work from `listener_id` values already stored in event and taste rows.
 
+Flagged listeners (`stats_flagged_listener`) and their too-soon signal (`stats_flag_signal`) are
+keyed by `listener_id`. Management lists and clears flags by row id and `listener_id` and never
+looks up or shows an account for them.
+
 The read-only database role cannot select the mapping. Zone code uses the read-write data source.
 
 The management database browser never lists `stats_listener`. Which event, taste, daily, and range
@@ -32,4 +38,4 @@ Enforcement is the `no-restricted-imports` block in `eslint.config.mjs` and
 `statsListenerSeparation.sourceGuard.test.ts`. Adding a reader outside the zone means changing
 this rule first. The import block and the source-guard allowlist follow that change.
 
-Data model and contracts: `docs/features/POPULARITY-TRACKING.md`.
+Data model and contracts: `docs/features/POPULARITY-AND-TASTE-PROFILE.md`.

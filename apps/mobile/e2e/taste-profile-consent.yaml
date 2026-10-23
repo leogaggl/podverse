@@ -1,0 +1,77 @@
+appId: com.podverse.app.next
+name: Taste Profile Consent Gate
+---
+# Undecided seeded account must choose before the tab shell is usable.
+# Sign-in is the E2E shortcut; this flow still asserts the consent prompt itself.
+# After Yes, Settings also covers the opt-out confirmation.
+
+- runFlow: shared/launch-and-connect.yaml
+
+- tapOn:
+    id: e2e-quick-login-taste-profile-undecided
+
+- extendedWaitUntil:
+    visible:
+      id: taste-profile-consent-yes
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: taste-profile-consent-prompt
+- takeScreenshot: taste-profile-consent-prompt
+
+- tapOn:
+    id: taste-profile-consent-full-agreement-toggle
+# The disclosure grows above the choice, so Yes starts below the fold. Swipe the
+# modal until it is on screen. The check runs after each swipe and the loop stops
+# there; extra swipes past the end do not run.
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: taste-profile-consent-yes
+    commands:
+      - swipe:
+          direction: UP
+- assertVisible:
+    id: taste-profile-consent-yes
+- tapOn:
+    id: taste-profile-consent-yes
+
+- extendedWaitUntil:
+    visible:
+      id: tab-home
+    timeout: ${TIMEOUT_SLOW}
+
+- tapOn:
+    id: tab-more
+- tapOn:
+    id: more-settings
+- tapOn:
+    id: more-settings-taste-profile
+- assertVisible:
+    id: more-settings-taste-profile-screen
+- takeScreenshot: taste-profile-consent-settings
+
+- tapOn:
+    id: more-settings-taste-profile-consent-switch
+- extendedWaitUntil:
+    visible:
+      id: more-settings-taste-profile-consent-opt-out-dialog
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: taste-profile-consent-opt-out-dialog
+- tapOn:
+    id: more-settings-taste-profile-consent-opt-out-cancel
+- assertNotVisible:
+    id: more-settings-taste-profile-consent-opt-out-dialog
+- takeScreenshot: taste-profile-consent-opt-out-cancelled
+
+- tapOn:
+    id: more-settings-taste-profile-consent-switch
+- extendedWaitUntil:
+    visible:
+      id: more-settings-taste-profile-consent-opt-out-dialog
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: more-settings-taste-profile-consent-opt-out-confirm
+- assertNotVisible:
+    id: more-settings-taste-profile-consent-opt-out-dialog
+- takeScreenshot: taste-profile-consent-opted-out

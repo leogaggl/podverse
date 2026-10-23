@@ -149,7 +149,7 @@ describe('stats listen and open POST routes', () => {
       expect(recordListenMock).not.toHaveBeenCalled();
     });
 
-    it('returns 403 popularity_tracking_not_allowed when consent is not current, without calling the service', async () => {
+    it('returns 403 taste_profile_consent_required when consent is not current, without calling the service', async () => {
       isListenStatsAllowedMock.mockResolvedValue(false);
 
       const res = await postListen(listenBody);
@@ -157,14 +157,14 @@ describe('stats listen and open POST routes', () => {
       expect(res.status).toBe(403);
       expect(res.body).toEqual({
         message: 'Listen stats tracking is disabled for this account',
-        code: 'popularity_tracking_not_allowed',
+        code: 'taste_profile_consent_required',
       });
       expect(recordListenMock).not.toHaveBeenCalled();
     });
   });
 
   describe('POST /stats/listen', () => {
-    it('passes exactly the report fields to the service, with the configured version and daily cap', async () => {
+    it('passes exactly the report fields to the service, with the configured version, daily caps, minimum interval, recount days, and flag signals', async () => {
       const res = await postListen({
         clip_id_text: 'clip-id-text',
         client_listen_id: CLIENT_LISTEN_ID,
@@ -177,8 +177,13 @@ describe('stats listen and open POST routes', () => {
       expect(recordListenMock).toHaveBeenCalledTimes(1);
       expect(recordListenMock.mock.calls[0]?.[0]).toEqual({
         account_id: TEST_USER_ID,
-        agreement_version: config.popularityTracking.version,
-        daily_cap: config.popularityTracking.dailyListenCap,
+        agreement_version: config.tasteProfileAgreement.version,
+        stored_daily_cap: config.popularityTracking.dailyListenStoredCap,
+        popularity_daily_cap: config.popularityTracking.dailyListenPopularityCap,
+        min_interval_seconds: config.popularityTracking.listenMinIntervalSeconds,
+        all_time_recount_days: config.popularityTracking.allTimeRecountDays,
+        flag_too_soon_minutes: config.popularityTracking.flagTooSoonMinutes,
+        flag_stored_cap_within_hours: config.popularityTracking.flagStoredCapWithinHours,
         target: { kind: 'clip', id_text: 'clip-id-text' },
         client_listen_id: CLIENT_LISTEN_ID,
         seconds_heard: 75,
@@ -202,7 +207,7 @@ describe('stats listen and open POST routes', () => {
       expect(res.body).toEqual({ result: 'counted' });
     });
 
-    it.each(['updated', 'unchanged', 'daily_cap_reached'] as const)(
+    it.each(['updated', 'unchanged', 'daily_cap_reached', 'too_soon'] as const)(
       'answers 200 with the result for %s',
       async (result) => {
         recordListenMock.mockResolvedValue(result);
@@ -226,7 +231,7 @@ describe('stats listen and open POST routes', () => {
       });
     });
 
-    it('answers 403 popularity_tracking_not_allowed when the service finds consent missing', async () => {
+    it('answers 403 taste_profile_consent_required when the service finds consent missing', async () => {
       recordListenMock.mockResolvedValue('not_allowed');
 
       const res = await postListen(listenBody);
@@ -234,7 +239,7 @@ describe('stats listen and open POST routes', () => {
       expect(res.status).toBe(403);
       expect(res.body).toEqual({
         message: 'Listen stats tracking is disabled for this account',
-        code: 'popularity_tracking_not_allowed',
+        code: 'taste_profile_consent_required',
       });
     });
 
@@ -287,7 +292,9 @@ describe('stats listen and open POST routes', () => {
       expect(res.body).toEqual({ result: 'counted' });
       expect(recordOpenMock.mock.calls[0]?.[0]).toEqual({
         account_id: TEST_USER_ID,
-        agreement_version: config.popularityTracking.version,
+        agreement_version: config.tasteProfileAgreement.version,
+        daily_cap: config.popularityTracking.dailyOpenCap,
+        all_time_recount_days: config.popularityTracking.allTimeRecountDays,
         target: { kind: 'playlist', id_text: 'playlist-id-text' },
       });
     });
@@ -298,6 +305,15 @@ describe('stats listen and open POST routes', () => {
       expect(recordOpenMock.mock.calls[0]?.[0]).toMatchObject({
         target: { kind: 'account', id_text: 'target-account-id-text' },
       });
+    });
+
+    it('answers 200 with the result when the opener reached the daily cap', async () => {
+      recordOpenMock.mockResolvedValue('daily_cap_reached');
+
+      const res = await postOpen({ playlist_id_text: 'playlist-id-text' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ result: 'daily_cap_reached' });
     });
 
     it.each(['unchanged', 'own_content'] as const)(

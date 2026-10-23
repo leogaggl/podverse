@@ -7,7 +7,7 @@ import {
   createClientListenId,
   reportListen,
   syncListenStatsGateFromAccount,
-  syncPopularityTrackingVersion,
+  syncTasteProfileAgreementVersion,
   trackStatsPlaylistOpen,
   trackStatsProfileOpen,
 } from './statsTracking';
@@ -49,7 +49,7 @@ function accountWithDecision(accepted: boolean): DTOAccount {
 }
 
 function allowReports(): void {
-  syncPopularityTrackingVersion(AGREEMENT_VERSION);
+  syncTasteProfileAgreementVersion(AGREEMENT_VERSION);
   syncListenStatsGateFromAccount(accountWithDecision(true));
 }
 
@@ -75,7 +75,7 @@ const V4_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 
 beforeEach(() => {
   syncListenStatsGateFromAccount(null);
-  syncPopularityTrackingVersion('');
+  syncTasteProfileAgreementVersion('');
   reqStatsListen.mockClear();
   reqStatsOpen.mockClear();
   reqStatsListen.mockResolvedValue({ status: 201, data: { result: 'counted' } });
@@ -101,7 +101,7 @@ describe('reportListen', () => {
   });
 
   it('sends nothing when the decision does not allow tracking', () => {
-    syncPopularityTrackingVersion(AGREEMENT_VERSION);
+    syncTasteProfileAgreementVersion(AGREEMENT_VERSION);
     syncListenStatsGateFromAccount(accountWithDecision(false));
 
     reportListen(itemReport);
@@ -172,7 +172,7 @@ describe('open reports', () => {
   });
 
   it('skips profile and playlist opens when the account declined', () => {
-    syncPopularityTrackingVersion(AGREEMENT_VERSION);
+    syncTasteProfileAgreementVersion(AGREEMENT_VERSION);
     syncListenStatsGateFromAccount(accountWithDecision(false));
 
     trackStatsProfileOpen(7, 9, 'viewed-9');

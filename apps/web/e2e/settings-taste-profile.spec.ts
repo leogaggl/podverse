@@ -13,7 +13,7 @@ const API_LOGIN_URL = 'http://localhost:4030/api/v2/auth/login';
 const SETTINGS_ACCOUNT_URL = '/settings?tab=account';
 const SETTINGS_ACCOUNT_URL_PATTERN = /\/settings\?tab=account/;
 const PROFILE_EMPTY_TEXT =
-  'No shows yet. Shows appear here after you listen with Popularity Tracking on.';
+  'No shows yet. Shows appear here after you listen with Taste Profile on.';
 const HIDDEN_EMPTY_TEXT = 'No hidden shows.';
 
 async function loginViaApi(page: Page): Promise<void> {
@@ -103,6 +103,29 @@ test.describe('Settings Taste Profile sections', () => {
       testInfo,
       'Hidden From Taste Profile lists the hidden show with the date it was hidden.',
       hidden
+    );
+  });
+
+  test('The Taste Profile section holds the switch and the summary under a single Taste Profile heading.', async ({
+    page,
+  }, testInfo) => {
+    await loginViaApi(page);
+    await openAccountSettings(page);
+
+    const profile = profileRegion(page);
+    const tasteProfileSwitch = profile.getByRole('switch', { name: 'Taste Profile' });
+    await expect(tasteProfileSwitch).toBeVisible();
+    await expect(tasteProfileSwitch).toBeChecked();
+    await expect(
+      profile.getByText('tracks your listens to build your Taste Profile')
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Taste Profile', exact: true })).toHaveCount(1);
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'The Taste Profile section shows the switch and a summary of what it records.',
+      tasteProfileSwitch
     );
   });
 
@@ -203,7 +226,7 @@ test.describe('Settings Taste Profile sections', () => {
     );
   });
 
-  test('Turning Popularity Tracking off asks first and then empties both lists.', async ({
+  test('Turning Taste Profile off asks first and then empties both lists.', async ({
     page,
   }, testInfo) => {
     await loginViaApi(page);
@@ -211,16 +234,16 @@ test.describe('Settings Taste Profile sections', () => {
 
     const profile = profileRegion(page);
     const hidden = hiddenRegion(page);
-    const popularitySwitch = page.getByRole('switch', { name: 'Popularity Tracking' });
-    const optOutDialog = page.getByRole('dialog', { name: 'Turn Off Popularity Tracking?' });
+    const tasteProfileSwitch = profile.getByRole('switch', { name: 'Taste Profile' });
+    const optOutDialog = page.getByRole('dialog', { name: 'Turn Off Taste Profile?' });
     await expect(profile.getByText(E2E_PODCAST_CHANNEL_TITLE)).toBeVisible();
 
     await actionAndCapture(
       page,
       testInfo,
-      'Turning off Popularity Tracking asks before deleting listening data.',
+      'Turning off Taste Profile asks before deleting listening data.',
       async () => {
-        await popularitySwitch.click();
+        await tasteProfileSwitch.click();
         await expect(optOutDialog).toBeVisible();
       },
       optOutDialog
@@ -232,7 +255,7 @@ test.describe('Settings Taste Profile sections', () => {
       'Turn Off and Delete empties the Taste Profile and the hidden list.',
       async () => {
         await optOutDialog.getByRole('button', { name: 'Turn Off and Delete' }).click();
-        await expect(popularitySwitch).not.toBeChecked();
+        await expect(tasteProfileSwitch).not.toBeChecked();
         await expect(profile.getByText(PROFILE_EMPTY_TEXT)).toBeVisible();
         await expect(hidden.getByText(HIDDEN_EMPTY_TEXT)).toBeVisible();
       },

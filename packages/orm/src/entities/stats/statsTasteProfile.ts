@@ -4,7 +4,7 @@ import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 
 /**
  * One row per listener and show (podcast, album, or artist channel). Scores decay and are faded
- * to the current time before comparison; see docs/features/POPULARITY-TRACKING.md.
+ * to the current time before comparison; see docs/features/POPULARITY-AND-TASTE-PROFILE.md.
  */
 @Entity('stats_taste_profile')
 export class StatsTasteProfile {

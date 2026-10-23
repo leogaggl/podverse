@@ -185,6 +185,8 @@ export * from './entities/stats/statsPopularityItem.js';
 export * from './entities/stats/statsPopularityPlaylist.js';
 export * from './entities/stats/statsTasteProfile.js';
 export * from './entities/stats/statsTasteProfileHidden.js';
+export * from './entities/stats/statsFlaggedListener.js';
+export * from './entities/stats/statsFlagSignal.js';
 
 export * from './lib/typeORMTypes.js';
 export * from './lib/nanoid.js';

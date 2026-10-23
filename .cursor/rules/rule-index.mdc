@@ -25,4 +25,5 @@ file of theirs is in context.
   `bump-version.sh` → `reinstall-node-modules-after-linux-npm` (these leave host `node_modules`
   alone; do not add a reinstall step)
 - Legacy app, podverse-rn, or v4 mobile → `legacy-app-reference`
-- Popularity tracking, listener ids, stats or taste tables → `popularity-listener-id-separation`
+- Popularity tracking, Taste Profile consent, listener ids, stats or taste tables →
+  `popularity-listener-id-separation`

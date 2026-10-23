@@ -129,6 +129,8 @@ import { StatsDailyChannel } from '@orm/entities/stats/statsDailyChannel.js';
 import { StatsDailyClip } from '@orm/entities/stats/statsDailyClip.js';
 import { StatsDailyItem } from '@orm/entities/stats/statsDailyItem.js';
 import { StatsDailyPlaylist } from '@orm/entities/stats/statsDailyPlaylist.js';
+import { StatsFlaggedListener } from '@orm/entities/stats/statsFlaggedListener.js';
+import { StatsFlagSignal } from '@orm/entities/stats/statsFlagSignal.js';
 import { StatsListener } from '@orm/entities/stats/statsListener.js';
 import { StatsListenEvent } from '@orm/entities/stats/statsListenEvent.js';
 import { StatsOpenEvent } from '@orm/entities/stats/statsOpenEvent.js';
@@ -287,4 +289,6 @@ export const entities = [
   StatsPopularityPlaylist,
   StatsTasteProfile,
   StatsTasteProfileHidden,
+  StatsFlaggedListener,
+  StatsFlagSignal,
 ];

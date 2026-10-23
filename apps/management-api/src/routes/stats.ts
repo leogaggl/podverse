@@ -1,6 +1,6 @@
-// These routes read popularity range totals and the daily listener series. The window
-// lengths live in `@podverse/helpers`. The storage rules are in
-// docs/features/POPULARITY-TRACKING.md.
+// These routes read popularity range totals and the daily listener series, and list and clear
+// flagged listeners. The window lengths live in `@podverse/helpers`. The storage rules are in
+// docs/features/POPULARITY-AND-TASTE-PROFILE.md.
 
 import { config } from '@management-api/config/index.js';
 import { ensureAuthenticated } from '@management-api/lib/auth/index.js';
@@ -25,7 +25,11 @@ import {
   STATS_POPULARITY_RANGE_LOOKBACK_DAYS,
 } from '@podverse/helpers';
 
+import { registerStatsFlaggedListenerRoutes } from './statsFlaggedListeners.js';
+
 const router = express.Router();
+
+registerStatsFlaggedListenerRoutes(router);
 
 const VALID_ENTITY_TYPES = ['channel', 'item', 'clip', 'playlist', 'account'] as const;
 type EntityType = (typeof VALID_ENTITY_TYPES)[number];

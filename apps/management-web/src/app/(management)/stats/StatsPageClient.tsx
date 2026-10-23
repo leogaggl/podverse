@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { SortDirection, StatsBarChartDatum } from '@podverse/ui';
 import {
+  ActionLink,
   Alert,
   Breadcrumbs,
   Button,
@@ -14,6 +15,7 @@ import {
   Card,
   FlexBetween,
   ManagementPageShell,
+  PageHeaderActions,
   SectionBlock,
   SectionHeading,
   StatsBarChart,
@@ -448,6 +450,13 @@ export function StatsPageClient({ initialUser }: StatsPageClientProps) {
           navAriaLabel={tc('breadcrumbNav')}
           items={[{ href: ROUTES.DASHBOARD, label: tNav('dashboard') }, { label: ts('title') }]}
         />
+      }
+      headerChildren={
+        <PageHeaderActions>
+          <ActionLink href={ROUTES.STATS_FLAGGED_LISTENERS} variant="primary" LinkComponent={Link}>
+            {ts('flaggedListenersLink')}
+          </ActionLink>
+        </PageHeaderActions>
       }
     >
       {statsSystemEmpty ? (

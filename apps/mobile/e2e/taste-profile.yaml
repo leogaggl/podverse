@@ -37,9 +37,16 @@ name: Taste Profile
 - tapOn:
     id: more-settings
 - tapOn:
-    id: more-settings-popularity-tracking
+    id: more-settings-taste-profile
 - assertVisible:
-    id: more-settings-popularity-tracking-screen
+    id: more-settings-taste-profile-screen
+# The consent switch heads the screen, and the profile list follows it.
+- assertVisible:
+    id: more-settings-taste-profile-consent-switch
+- assertVisible:
+    id: taste-profile-section
+    below:
+      id: more-settings-taste-profile-consent-switch
 - scrollUntilVisible:
     element:
       id: taste-profile-row-e2ePodChnl001

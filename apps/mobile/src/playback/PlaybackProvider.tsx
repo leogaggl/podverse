@@ -150,7 +150,6 @@ import {
 import { shouldPostSeekEventNow } from '../lib/playback/seekEventCoalescing';
 import { isSeekHoldSampleLanded, SEEK_HOLD_MAX_MS } from '../lib/playback/seekPositionHold';
 import { isEffectivelyOffline, subscribeConnectivity } from '../net/connectivity';
-import { shouldSkipListenStatsForAccount } from '../popularityTracking/popularityTrackingGate';
 import { isOfflineModeEnabled } from '../prefs/offlineMode';
 import { readPlaybackMediaTypePref } from '../prefs/preferredMediaType';
 import { getPref, setPref } from '../prefs/prefsStore';
@@ -166,6 +165,7 @@ import {
   readPlaybackReconcileConflicts,
   subscribePlaybackReconcileConflicts,
 } from '../sync/playbackReconcileConflict';
+import { shouldSkipListenStatsForAccount } from '../tasteProfileConsent/tasteProfileConsentGate';
 import { addByRssCredentialsStateForUrl, withAddByRssPlaybackAuth } from './addByRssMediaAuth';
 import { resolveNowPlayingAddByRssChapters } from './nowPlayingAddByRssSections';
 import { buildPlaybackErrorLog, playbackErrorLogSignature } from './playbackErrorLog';

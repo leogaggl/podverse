@@ -1,5 +1,5 @@
 import type { DTOAccount } from '@podverse/helpers';
-import { isPopularityTrackingAllowed } from '@podverse/helpers';
+import { isTasteProfileTrackingAllowed } from '@podverse/helpers';
 import type { StatsListenRequestBody } from '@podverse/helpers-requests';
 import { reqStatsListen, reqStatsOpen } from '@podverse/helpers-requests';
 
@@ -8,24 +8,24 @@ import type { ListenSessionReport, ListenSessionTracker } from '../../lib/playba
 import { createListenSessionTracker } from '../../lib/playback';
 
 let accountForListenStatsGate: DTOAccount | null = null;
-let currentPopularityTrackingVersion = '';
+let currentTasteProfileAgreementVersion = '';
 
 export function syncListenStatsGateFromAccount(account: DTOAccount | null): void {
   accountForListenStatsGate = account;
 }
 
-export function syncPopularityTrackingVersion(version: string): void {
-  currentPopularityTrackingVersion = version;
+export function syncTasteProfileAgreementVersion(version: string): void {
+  currentTasteProfileAgreementVersion = version;
 }
 
-/** True when a signed-in account's Popularity Tracking decision allows reports. */
-function canSendPopularityReports(): boolean {
+/** True when a signed-in account's Taste Profile consent allows reports. */
+function canSendStatsReports(): boolean {
   if (accountForListenStatsGate === null) {
     return false;
   }
-  return isPopularityTrackingAllowed(
+  return isTasteProfileTrackingAllowed(
     accountForListenStatsGate.account_settings,
-    currentPopularityTrackingVersion
+    currentTasteProfileAgreementVersion
   );
 }
 
@@ -40,7 +40,7 @@ export function createClientListenId(): string {
 
 /** Sends one listen report. Failures are ignored; the session's next report repeats its state. */
 export function reportListen(report: ListenSessionReport): void {
-  if (!canSendPopularityReports()) {
+  if (!canSendStatsReports()) {
     return;
   }
   const body: StatsListenRequestBody = {
@@ -69,14 +69,14 @@ export function trackStatsProfileOpen(
   if (viewerAccountId === undefined || viewerAccountId === null) {
     return;
   }
-  if (viewerAccountId === viewedAccountId || !canSendPopularityReports()) {
+  if (viewerAccountId === viewedAccountId || !canSendStatsReports()) {
     return;
   }
   void reqStatsOpen(getApiRequestService(), { account_id_text: accountIdText }).catch(() => {});
 }
 
 export function trackStatsPlaylistOpen(playlistIdText: string): void {
-  if (!canSendPopularityReports()) {
+  if (!canSendStatsReports()) {
     return;
   }
   void reqStatsOpen(getApiRequestService(), { playlist_id_text: playlistIdText }).catch(() => {});

@@ -71,8 +71,8 @@ const apiTestEnvBase = (): Record<string, string> => ({
   TERMS_OF_SERVICE_CONTENT_DIR: '',
   CONTACT_EMAIL: 'contact@example.test',
   STATS_TRACK_EVENT_RETENTION_DAYS: '90',
-  POPULARITY_TRACKING_AGREEMENT_VERSION: '2026-10-21',
-  POPULARITY_TRACKING_CONTENT_DIR: '',
+  TASTE_PROFILE_AGREEMENT_VERSION: '2026-10-21',
+  TASTE_PROFILE_AGREEMENT_CONTENT_DIR: '',
   PODCAST_INDEX_AUTH_KEY: 'test',
   PODCAST_INDEX_BASE_URL: 'https://api.podcastindex.org/api/1.8.1',
   PODCAST_INDEX_SECRET_KEY: 'test',
@@ -136,6 +136,10 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     ACCOUNT_ADD_BY_RSS_PARSE_ENQUEUE_MAX_PER_HOUR: '100000',
     // Same sentinel search / unparsed-feed fixtures as mobile E2E (no live Podcast Index).
     PODVERSE_E2E_FIXTURES: '1',
+    // Seeded accounts listen in fast bursts across the whole suite. Keep both botted-listener
+    // signals off so no account is flagged out of popularity; API integration tests cover them.
+    STATS_FLAG_TOO_SOON_MINUTES: '0',
+    STATS_FLAG_STORED_CAP_WITHIN_HOURS: '0',
   },
   apiMobileE2e: {
     SERVER_ENV: 'local',
@@ -159,6 +163,10 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     // Keep parity with production/default policy. E2E seed now clears OPML hourly
     // counter state in Valkey, so same-hour reruns remain deterministic at this cap.
     OPML_IMPORT_MAX_FEEDS_PER_HOUR: '50',
+    // Seeded accounts listen in fast bursts across the whole suite. Keep both botted-listener
+    // signals off so no account is flagged out of popularity; API integration tests cover them.
+    STATS_FLAG_TOO_SOON_MINUTES: '0',
+    STATS_FLAG_STORED_CAP_WITHIN_HOURS: '0',
   },
 };
 

@@ -213,7 +213,7 @@ import {
   reqItemSoundbiteGetManyByItemIdText,
 } from './itemSoundbite/itemSoundbite.js';
 import { reqItemTranscriptGet } from './itemTranscript/itemTranscript.js';
-import { reqLegalPopularityTracking } from './legal/popularityTracking.js';
+import { reqLegalTasteProfileAgreement } from './legal/tasteProfileAgreement.js';
 import { reqLegalTerms } from './legal/terms.js';
 import type { QueryParamsLiveItemUpcoming } from './liveItem/liveItem.js';
 import {
@@ -969,8 +969,8 @@ export class ApiRequestService {
     return reqAccountSettingsListenStatsUpdate(this, params);
   }
 
-  reqLegalPopularityTracking() {
-    return reqLegalPopularityTracking(this);
+  reqLegalTasteProfileAgreement() {
+    return reqLegalTasteProfileAgreement(this);
   }
 
   reqLegalTerms(options?: { locale?: string }) {

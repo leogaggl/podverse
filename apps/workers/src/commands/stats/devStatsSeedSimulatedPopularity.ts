@@ -11,18 +11,26 @@ import {
 import { getUtcDateString } from '@workers/lib/stats/statsUtcDates.js';
 
 import { subtractDays } from '@podverse/helpers';
-import type { StatsDailyDevSeedRow } from '@podverse/orm';
+import type { StatsDailyDevSeedRow, StatsEntityType } from '@podverse/orm';
 import {
   AccountService,
   ChannelService,
   ClipService,
   devUpsertStatsDailyRows,
+  devWriteStatsPopularityWindowsFromDailyRows,
   ItemService,
   PlaylistService,
   refreshStatsPopularity,
 } from '@podverse/orm';
 
 const HARD_MAX_ITEMS_PER_CHANNEL = 80;
+const SEEDED_ENTITY_TYPES: readonly StatsEntityType[] = [
+  'channel',
+  'item',
+  'clip',
+  'playlist',
+  'account',
+];
 const PUBLIC_LIST_TAKE = 5000;
 
 function parsePositiveInt(raw: string | string[] | undefined, fallback: number): number {
@@ -189,9 +197,13 @@ export async function devStatsSeedSimulatedPopularity(args: CommandLineArgs) {
   const playlistRowCount = await devUpsertStatsDailyRows('playlist', playlistRows);
   const accountRowCount = await devUpsertStatsDailyRows('account', accountRows);
 
-  await refreshStatsPopularity({ today: getUtcDateString(now), mode: 'full' });
+  const today = getUtcDateString(now);
+  await refreshStatsPopularity({ today, mode: 'full' });
+  for (const entityType of SEEDED_ENTITY_TYPES) {
+    await devWriteStatsPopularityWindowsFromDailyRows(entityType, today);
+  }
 
   logger.info(
-    `[devStatsSeedSimulatedPopularity] Done. Channels: ${channelRowCount}, items: ${itemRowCount}, clips: ${clipRowCount}, playlists: ${playlistRowCount}, accounts: ${accountRowCount} daily rows; popularity refreshed.`
+    `[devStatsSeedSimulatedPopularity] Done. Channels: ${channelRowCount}, items: ${itemRowCount}, clips: ${clipRowCount}, playlists: ${playlistRowCount}, accounts: ${accountRowCount} daily rows; popularity refreshed, and day, week, and month counts written from the simulated daily rows.`
   );
 }

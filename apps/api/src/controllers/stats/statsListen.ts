@@ -11,10 +11,10 @@ import { ACCOUNT_ENTITLEMENT_CAPABILITY } from '@podverse/helpers';
 import type { StatsListenTarget } from '@podverse/orm';
 import { CLIP_SOURCE_REMOVED_MESSAGE, StatsListenWriteService } from '@podverse/orm';
 
-/** 403 body when the account's Popularity Tracking consent is missing or out of date. */
-export const POPULARITY_TRACKING_NOT_ALLOWED_BODY = {
+/** 403 body when the account's Taste Profile consent is missing or out of date. */
+export const TASTE_PROFILE_CONSENT_REQUIRED_BODY = {
   message: 'Listen stats tracking is disabled for this account',
-  code: 'popularity_tracking_not_allowed',
+  code: 'taste_profile_consent_required',
 };
 
 export const STATS_TARGET_NOT_FOUND_BODY = { message: 'Not found', code: 'not_found' };
@@ -53,6 +53,7 @@ function listenResponse(result: PopularityListenResult): { status: number; body:
     case 'updated':
     case 'unchanged':
     case 'daily_cap_reached':
+    case 'too_soon':
       return { status: 200, body: { result } };
     case 'below_threshold':
       return {
@@ -63,7 +64,7 @@ function listenResponse(result: PopularityListenResult): { status: number; body:
         },
       };
     case 'not_allowed':
-      return { status: 403, body: POPULARITY_TRACKING_NOT_ALLOWED_BODY };
+      return { status: 403, body: TASTE_PROFILE_CONSENT_REQUIRED_BODY };
     case 'not_found':
       return { status: 404, body: STATS_TARGET_NOT_FOUND_BODY };
     case 'clip_source_removed':
@@ -91,8 +92,13 @@ export class StatsListenController {
             await assertListenStatsAllowed(jwtUser.id);
             const result = await StatsListenController.statsListenWriteService.recordListen({
               account_id: jwtUser.id,
-              agreement_version: config.popularityTracking.version,
-              daily_cap: config.popularityTracking.dailyListenCap,
+              agreement_version: config.tasteProfileAgreement.version,
+              stored_daily_cap: config.popularityTracking.dailyListenStoredCap,
+              popularity_daily_cap: config.popularityTracking.dailyListenPopularityCap,
+              min_interval_seconds: config.popularityTracking.listenMinIntervalSeconds,
+              all_time_recount_days: config.popularityTracking.allTimeRecountDays,
+              flag_too_soon_minutes: config.popularityTracking.flagTooSoonMinutes,
+              flag_stored_cap_within_hours: config.popularityTracking.flagStoredCapWithinHours,
               target: listenTarget(body),
               client_listen_id: body.client_listen_id,
               seconds_heard: body.seconds_heard,
@@ -102,7 +108,7 @@ export class StatsListenController {
             res.status(response.status).json(response.body);
           } catch (error) {
             if (error instanceof ListenStatsOptedOutError) {
-              res.status(403).json(POPULARITY_TRACKING_NOT_ALLOWED_BODY);
+              res.status(403).json(TASTE_PROFILE_CONSENT_REQUIRED_BODY);
               return;
             }
             handleGenericErrorResponse(res, error);

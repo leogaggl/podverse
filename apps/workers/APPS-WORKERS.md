@@ -159,7 +159,8 @@ Long-running workers that consume from RabbitMQ:
 One-off commands typically run via cron:
 
 - `image_shrink_backfill` - Enqueues unresized images for shrinking
-- `stats_popularity_refresh` - Rebuilds popularity range totals from daily totals
+- `stats_popularity_refresh` - Rebuilds popularity range totals: day, week, and month from
+  counted events, all-time from daily totals
 - `podcast_index_*` - Podcast Index integrations
 - `orm_*` - Database maintenance tasks
 

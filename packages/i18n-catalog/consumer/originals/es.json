@@ -682,34 +682,27 @@
     "takedown_policy": "Política de retirada",
     "takedown_policy_explanation": "Este contenido ha sido eliminado en respuesta a una solicitud de retirada por parte del titular de los derechos de autor."
   },
-  "popularity_tracking": {
-    "title": "Seguimiento de popularidad",
-    "summary": "Ayuda a destacar los programas que la gente escucha más. Tus escuchas pueden contar para esas clasificaciones sin que aparezca tu nombre.",
-    "yes": "Sí, incluirme",
+  "taste_profile_consent": {
+    "summary": "{brand_name} registra tus escuchas para crear tu perfil de gustos. Esas escuchas también cuentan para las clasificaciones públicas de popularidad, sin tu nombre.",
+    "yes": "Sí, crear mi perfil de gustos",
     "no": "No, gracias",
-    "learn_more": "Más información",
     "how_it_works": "Cómo funciona",
     "retry": "Reintentar",
     "already_agreed": "Ya activaste esto para la explicación actual.",
-    "agreement_date": "Fecha del acuerdo: {agreement_date}",
-    "error": "No se pudo guardar tu elección de seguimiento de popularidad. Inténtalo de nuevo.",
-    "back_to_choice": "Volver",
-    "change": "Cambiar el seguimiento de popularidad",
-    "dismiss_note": "Cerrar esta ventana no cambia tu elección. Puedes actualizarla más tarde en Configuraciones.",
-    "load_error": "No se pudo cargar cómo funciona el seguimiento de popularidad. Inténtalo de nuevo.",
-    "status_opted_out": "El seguimiento de popularidad está desactivado.",
-    "status_stale": "Ha cambiado cómo funciona el seguimiento de popularidad. Permanece desactivado hasta que lo vuelvas a activar.",
-    "status_undecided": "Aún no has elegido si permites el seguimiento de popularidad.",
-    "opt_out_confirm_title": "¿Desactivar el seguimiento de popularidad?",
-    "opt_out_confirm_body": "Tu perfil de gustos, tu lista Oculto del perfil de gustos y tu historial de escucha guardado se borrarán de inmediato. Si vuelves a activar el seguimiento de popularidad más adelante, tus recomendaciones empezarán desde cero. Los totales públicos de escuchas que ya incluyen tus escuchas se quedan como están.",
+    "error": "No se pudo guardar tu elección del perfil de gustos. Inténtalo de nuevo.",
+    "load_error": "No se pudo cargar cómo funciona el perfil de gustos. Inténtalo de nuevo.",
+    "status_opted_out": "El perfil de gustos está desactivado.",
+    "status_stale": "Ha cambiado cómo funciona el perfil de gustos. Permanece desactivado hasta que lo vuelvas a activar.",
+    "status_undecided": "Aún no has elegido si activas el perfil de gustos.",
+    "opt_out_confirm_title": "¿Desactivar el perfil de gustos?",
+    "opt_out_confirm_body": "Tu perfil de gustos, tu lista Oculto del perfil de gustos y tu historial de escucha guardado se borrarán de inmediato. Si vuelves a activar el perfil de gustos más adelante, tus recomendaciones empezarán desde cero. Los totales públicos de escuchas que ya incluyen tus escuchas se quedan como están.",
     "opt_out_confirm_action": "Desactivar y borrar"
   },
   "taste_profile": {
     "title": "Perfil de gustos",
-    "description": "Programas que tus escuchas han añadido mientras el seguimiento de popularidad está activado. Las recomendaciones futuras usarán esta lista. Quitar un programa borra aquí sus datos de escucha y lo mueve a Oculto del perfil de gustos.",
-    "empty": "Aún no hay programas. Aparecen aquí cuando escuchas con el seguimiento de popularidad activado.",
+    "empty": "Aún no hay programas. Aparecen aquí cuando escuchas con el perfil de gustos activado.",
     "hidden_title": "Oculto del perfil de gustos",
-    "hidden_description": "Programas que quitaste. Escucharlos no los vuelve a añadir. Muestra de nuevo un programa para añadirlo ahora o para que tu próxima escucha lo añada.",
+    "hidden_description": "Programas que quitaste. Quitar un programa borra sus datos de escucha, y escucharlo no lo vuelve a añadir. Muestra de nuevo un programa para añadirlo ahora o para que tu próxima escucha lo añada.",
     "hidden_empty": "No hay programas ocultos.",
     "remove": "Quitar",
     "remove_accessible": "Quitar {title} del perfil de gustos",
@@ -941,8 +934,6 @@
     "set_password_other_session_banner": "Has iniciado sesión como {sessionLabel}. Este enlace de invitación completa la configuración de una cuenta distinta.",
     "set_password_sign_out_to_continue": "Cerrar sesión y continuar",
     "set_password_continue_without_signing_out": "Continuar sin cerrar sesión",
-    "listen_stats_opt_in": "Ayudar a mejorar el contenido en tendencia con estadísticas de escucha",
-    "listen_stats_opt_in_help": "Registramos eventos de escucha seudónimos para mostrar popularidad. Los datos se conservan {retention_days} días. Puedes cambiar esto en cualquier momento en la configuración de la cuenta.",
     "terms_version_invalid": "La versión de los términos de servicio está desactualizada. Actualiza la página e inténtalo de nuevo."
   },
   "terms_acceptance": {
@@ -1214,11 +1205,7 @@
         "current_incorrect": "La contraseña actual es incorrecta.",
         "missing_field": "Escribe tu contraseña actual y una contraseña nueva.",
         "error": "No se pudo cambiar tu contraseña. Inténtalo de nuevo."
-      },
-      "listen_stats_toggle": "Seguimiento de popularidad",
-      "listen_stats_toggle_help": "Permitir clasificaciones por oyentes únicos que ayudan a encontrar programas populares. Puedes cambiar esto en cualquier momento.",
-      "listen_stats_toggle_error": "No se pudo actualizar la preferencia de estadísticas de escucha. Inténtalo de nuevo.",
-      "listen_stats_terms_link": "Más información en nuestros <termsLink>Términos de servicio</termsLink>."
+      }
     },
     "profile": {
       "profile": "Perfil",

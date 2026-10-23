@@ -6,7 +6,7 @@ describe('parseCopyMarkdown', () => {
   it('parses heading, paragraphs, list, and a link', () => {
     const blocks = parseCopyMarkdown(
       [
-        '# Popularity Tracking',
+        '# Taste Profile',
         '',
         'Rankings use unique listeners so people can find shows they like.',
         '',
@@ -18,7 +18,7 @@ describe('parseCopyMarkdown', () => {
     );
 
     expect(blocks).toEqual([
-      { type: 'heading', level: 1, text: 'Popularity Tracking' },
+      { type: 'heading', level: 1, text: 'Taste Profile' },
       {
         type: 'paragraph',
         spans: [

@@ -5,7 +5,7 @@ import type { DTOAccount } from '@podverse/helpers';
 
 import {
   syncListenStatsGateFromAccount,
-  syncPopularityTrackingVersion,
+  syncTasteProfileAgreementVersion,
 } from '../utils/statsTracking/statsTracking';
 import { useConfig } from './Config';
 import { useLocalSettings } from './LocalSettings';
@@ -32,8 +32,8 @@ export const AccountProvider = ({ children, ssrLoggedInAccount = null }: Account
 
   useEffect(() => {
     syncListenStatsGateFromAccount(loggedInAccount);
-    syncPopularityTrackingVersion(config.public.legal.popularityTracking.version);
-  }, [config.public.legal.popularityTracking.version, loggedInAccount]);
+    syncTasteProfileAgreementVersion(config.public.legal.tasteProfileAgreement.version);
+  }, [config.public.legal.tasteProfileAgreement.version, loggedInAccount]);
 
   // DB wins for logged-in users: reconcile the account's saved preferred media
   // type into the device-level local-settings cookie (mirrors NEXT_LOCALE sync).

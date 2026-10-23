@@ -1,0 +1,63 @@
+export type TasteProfileConsentDecision = {
+  listen_stats_accepted: boolean | null;
+  listen_stats_agreement_version: string | null;
+};
+
+export const TASTE_PROFILE_AGREEMENT_VERSION_MAX_LENGTH = 64;
+
+export function isTasteProfileTrackingAllowed(
+  decision: TasteProfileConsentDecision | null | undefined,
+  currentVersion: string
+): boolean {
+  if (decision === null || decision === undefined) {
+    return false;
+  }
+  if (decision.listen_stats_accepted !== true) {
+    return false;
+  }
+  return decision.listen_stats_agreement_version === currentVersion;
+}
+
+export function isTasteProfileConsentPromptRequired(
+  decision: TasteProfileConsentDecision | null | undefined,
+  currentVersion: string
+): boolean {
+  if (decision === null || decision === undefined) {
+    return true;
+  }
+  if (decision.listen_stats_accepted === null) {
+    return true;
+  }
+  if (decision.listen_stats_accepted === false) {
+    return false;
+  }
+  return decision.listen_stats_agreement_version !== currentVersion;
+}
+
+export type TasteProfileConsentChoice = 'allowed' | 'opted_out' | 'stale_acceptance' | 'undecided';
+
+export function getTasteProfileConsentChoice(
+  decision: TasteProfileConsentDecision | null | undefined,
+  currentVersion: string
+): TasteProfileConsentChoice {
+  if (isTasteProfileTrackingAllowed(decision, currentVersion)) {
+    return 'allowed';
+  }
+  if (decision !== null && decision !== undefined && decision.listen_stats_accepted === false) {
+    return 'opted_out';
+  }
+  if (decision !== null && decision !== undefined && decision.listen_stats_accepted === true) {
+    return 'stale_acceptance';
+  }
+  return 'undecided';
+}
+
+/**
+ * True when answering No now would delete stored listening data, so the client confirms first.
+ * Any recorded Yes counts, on any version: a paused Taste Profile is still stored.
+ */
+export function isTasteProfileConsentOptOutDestructive(
+  decision: TasteProfileConsentDecision | null | undefined
+): boolean {
+  return decision?.listen_stats_accepted === true;
+}

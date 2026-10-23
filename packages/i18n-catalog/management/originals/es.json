@@ -282,6 +282,7 @@
     "loadingDetail": "Cargando detalle...",
     "loadingChart": "Cargando gráfico...",
     "close": "Cerrar",
+    "flaggedListenersLink": "Oyentes marcados",
     "idValue": "ID {id}",
     "searchPlaceholder": "Buscar {entity} por título...",
     "topChartHeading": "Top 10 {entity} ({range})",
@@ -308,6 +309,32 @@
     "detail": {
       "dailyBreakdown": "Desglose diario"
     }
+  },
+  "statsFlaggedListeners": {
+    "pageTitle": "Oyentes marcados",
+    "intro": "Oyentes cuya escucha parecía automatizada. Mientras estén marcados, su escucha sigue actualizando su Perfil de gustos, pero no cuenta para las listas públicas.",
+    "filterStatus": "Estado",
+    "statusActive": "Activo",
+    "statusCleared": "Retirado",
+    "statusAll": "Todos los estados",
+    "columnListener": "Oyente",
+    "columnReason": "Motivo",
+    "columnFlagged": "Marcado",
+    "columnTimesFlagged": "Veces marcado",
+    "columnListens": "Escuchas (7 días)",
+    "columnOpens": "Aperturas (7 días)",
+    "columnStatus": "Estado",
+    "reasonStoredCapReached": "Límite diario de escuchas alcanzado rápidamente",
+    "reasonTooSoonMinutes": "Escuchas demasiado seguidas y continuas",
+    "clearedOn": "Retirado {date}",
+    "clear": "Retirar marca",
+    "clearNamed": "Retirar la marca de {listener}",
+    "clearConfirmTitle": "Retirar marca",
+    "clearConfirmBody": "La escucha nueva de este oyente, y la de antes de la marca, vuelve a contar para las listas públicas. La escucha registrada mientras estaba marcado sigue fuera. Una nueva señal en un día posterior lo vuelve a marcar.",
+    "loadError": "No se pudieron cargar los oyentes marcados.",
+    "actionError": "No se pudo retirar esta marca.",
+    "empty": "Ningún oyente marcado coincide con este estado.",
+    "emptyValue": "—"
   },
   "products": {
     "pageTitle": "Productos",

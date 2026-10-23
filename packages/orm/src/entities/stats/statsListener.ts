@@ -17,6 +17,18 @@ export class StatsListener {
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;
 
+  /** UTC day (`YYYY-MM-DD`) of the listener's last opt-out that deleted stored listens. */
+  @Column({ type: 'date', nullable: true })
+  opt_out_day!: string | null;
+
+  /** Listens stored on `opt_out_day` that the opt-out deleted; the stored daily cap adds them. */
+  @Column({ type: 'integer', default: 0 })
+  opt_out_day_stored_count!: number;
+
+  /** When the first of those deleted listens was stored. */
+  @Column({ type: 'timestamptz', nullable: true })
+  opt_out_day_first_stored_at!: Date | null;
+
   @OneToOne('Account', (account: Account) => account.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'account_id' })
   account!: Relation<Account>;

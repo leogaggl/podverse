@@ -9,6 +9,14 @@ import {
   DEFAULT_VERIFY_AND_EMAIL_CHANGE_TOKEN_EXPIRATION,
   MS_PER_SECOND,
   parseCountPerWindowEnvFromKey,
+  parseOptionalNonNegativeInt,
+  POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS,
+  POPULARITY_DEFAULT_DAILY_LISTEN_POPULARITY_CAP,
+  POPULARITY_DEFAULT_DAILY_LISTEN_STORED_CAP,
+  POPULARITY_DEFAULT_DAILY_OPEN_CAP,
+  POPULARITY_DEFAULT_FLAG_STORED_CAP_WITHIN_HOURS,
+  POPULARITY_DEFAULT_FLAG_TOO_SOON_MINUTES,
+  POPULARITY_DEFAULT_LISTEN_MIN_INTERVAL_SECONDS,
   readOptionalPositiveExpirationEnv,
   readRequiredPositiveExpirationEnv,
 } from '@podverse/helpers';
@@ -101,11 +109,39 @@ type Config = {
     contactEmail: string;
     retentionDays: string;
   };
-  popularityTracking: {
+  tasteProfileAgreement: {
     version: string;
     contentDir: string;
-    /** Stored listens per listener per UTC day. */
-    dailyListenCap: number;
+  };
+  popularityTracking: {
+    /** Stored listens per listener per UTC day; each feeds the listener's Taste Profile. */
+    dailyListenStoredCap: number;
+    /**
+     * Stored listens per listener per UTC day that count toward popularity; never above
+     * `dailyListenStoredCap`.
+     */
+    dailyListenPopularityCap: number;
+    /** Server seconds between one listener's new stored listens; 0 turns the check off. */
+    listenMinIntervalSeconds: number;
+    /** Counted profile and playlist opens per listener per UTC day, both kinds together. */
+    dailyOpenCap: number;
+    /**
+     * Days after an opt-out during which the listener's new listens and opens count toward no
+     * popularity total. Also the number of days in which one listener adds to an entity's all-time
+     * total at most once. Startup validation rejects a value above
+     * `STATS_TRACK_EVENT_RETENTION_DAYS`.
+     */
+    allTimeRecountDays: number;
+    /**
+     * Too-soon minutes in one unbroken run that flag a listener out of popularity; 0 turns the
+     * signal off.
+     */
+    flagTooSoonMinutes: number;
+    /**
+     * Hours from a listener's first stored listen of a UTC day within which reaching
+     * `dailyListenStoredCap` flags the listener out of popularity; 0 turns the signal off.
+     */
+    flagStoredCapWithinHours: number;
   };
   managedCopy: {
     contentDir: string;
@@ -185,6 +221,26 @@ type Config = {
     allowInsecureCredentials: boolean;
   };
 };
+
+function readWholeNumberEnv(name: string, fallback: number, min: number): number {
+  const parsed = parseOptionalNonNegativeInt(process.env[name]);
+  return parsed !== undefined && parsed >= min ? parsed : fallback;
+}
+
+const statsListenStoredCap = readWholeNumberEnv(
+  'STATS_LISTEN_DAILY_STORED_CAP',
+  POPULARITY_DEFAULT_DAILY_LISTEN_STORED_CAP,
+  1
+);
+
+const statsListenPopularityCap = Math.min(
+  readWholeNumberEnv(
+    'STATS_LISTEN_DAILY_POPULARITY_CAP',
+    POPULARITY_DEFAULT_DAILY_LISTEN_POPULARITY_CAP,
+    1
+  ),
+  statsListenStoredCap
+);
 
 export const config: Config = {
   rateLimits: {
@@ -356,17 +412,34 @@ export const config: Config = {
     contactEmail: process.env.CONTACT_EMAIL ?? '',
     retentionDays: process.env.STATS_TRACK_EVENT_RETENTION_DAYS ?? '',
   },
+  tasteProfileAgreement: {
+    version: process.env.TASTE_PROFILE_AGREEMENT_VERSION!,
+    contentDir: process.env.TASTE_PROFILE_AGREEMENT_CONTENT_DIR ?? '',
+  },
   popularityTracking: {
-    version: process.env.POPULARITY_TRACKING_AGREEMENT_VERSION!,
-    contentDir: process.env.POPULARITY_TRACKING_CONTENT_DIR ?? '',
-    dailyListenCap: (() => {
-      const raw = process.env.STATS_LISTEN_DAILY_CAP;
-      if (raw === undefined || raw.trim() === '') {
-        return 300;
-      }
-      const parsed = Number.parseInt(raw.trim(), 10);
-      return Number.isFinite(parsed) && parsed >= 1 ? parsed : 300;
-    })(),
+    dailyListenStoredCap: statsListenStoredCap,
+    dailyListenPopularityCap: statsListenPopularityCap,
+    listenMinIntervalSeconds: readWholeNumberEnv(
+      'STATS_LISTEN_MIN_INTERVAL_SECONDS',
+      POPULARITY_DEFAULT_LISTEN_MIN_INTERVAL_SECONDS,
+      0
+    ),
+    dailyOpenCap: readWholeNumberEnv('STATS_OPEN_DAILY_CAP', POPULARITY_DEFAULT_DAILY_OPEN_CAP, 1),
+    allTimeRecountDays: readWholeNumberEnv(
+      'STATS_ALL_TIME_RECOUNT_DAYS',
+      POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS,
+      1
+    ),
+    flagTooSoonMinutes: readWholeNumberEnv(
+      'STATS_FLAG_TOO_SOON_MINUTES',
+      POPULARITY_DEFAULT_FLAG_TOO_SOON_MINUTES,
+      0
+    ),
+    flagStoredCapWithinHours: readWholeNumberEnv(
+      'STATS_FLAG_STORED_CAP_WITHIN_HOURS',
+      POPULARITY_DEFAULT_FLAG_STORED_CAP_WITHIN_HOURS,
+      0
+    ),
   },
   managedCopy: {
     contentDir: process.env.MANAGED_COPY_CONTENT_DIR ?? '',

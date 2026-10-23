@@ -6,13 +6,15 @@ import { useState } from 'react';
 
 import type { DTOAccountTasteProfileChannel } from '@podverse/helpers';
 import { buildDTOChannelImageLoadCandidates, formatDateAbbrev } from '@podverse/helpers';
-import { Button, Divider, LoadingSpinner, SkeletonFlashImage } from '@podverse/ui';
+import { Button, LoadingSpinner, SkeletonFlashImage } from '@podverse/ui';
 
 import { IMAGES } from '../../../../constants/images';
+import { useConfig } from '../../../../contexts/Config';
 import type { TasteProfileListState } from '../../../../hooks/useTasteProfileLists';
 import { useTasteProfileLists } from '../../../../hooks/useTasteProfileLists';
 import { SettingsSection } from '../../SettingsSection';
 import { ModalTasteProfileUnhide } from './ModalTasteProfileUnhide';
+import { SettingsTasteProfileConsentSwitch } from './SettingsTasteProfileConsentSwitch';
 
 import styles from '../../../../styles/components/Settings/Panels/SettingsAccount/SettingsTasteProfile.module.scss';
 
@@ -23,7 +25,8 @@ type ShowRow = { channel: DTOAccountTasteProfileChannel };
 export function SettingsTasteProfile() {
   const t = useTranslations('taste_profile');
   const tMisc = useTranslations('misc');
-  const tPopularity = useTranslations('popularity_tracking');
+  const tConsent = useTranslations('taste_profile_consent');
+  const config = useConfig();
   const locale = useLocale();
   const {
     profile,
@@ -59,7 +62,10 @@ export function SettingsTasteProfile() {
           <h3 className={styles.heading} id="settings-taste-profile-heading">
             {t('title')}
           </h3>
-          <p className={styles.description}>{t('description')}</p>
+          <SettingsTasteProfileConsentSwitch describedById="settings-taste-profile-summary" />
+          <p className={styles.description} id="settings-taste-profile-summary">
+            {tConsent('summary', { brand_name: config.public.brand.name })}
+          </p>
           {actionFailed ? (
             <p className={styles.status} role="alert">
               {t('action_error')}
@@ -72,7 +78,7 @@ export function SettingsTasteProfile() {
             emptyText={t('empty')}
             loadMoreErrorText={t('load_more_error')}
             loadMoreLabel={t('load_more')}
-            retryLabel={tPopularity('retry')}
+            retryLabel={tConsent('retry')}
             onRetry={retry}
             onLoadMore={loadMoreProfile}
             renderRow={(row) => {
@@ -99,13 +105,13 @@ export function SettingsTasteProfile() {
             }}
           />
         </section>
-      </SettingsSection>
-      <Divider withSpacing />
-      <SettingsSection>
-        <section aria-labelledby="settings-taste-profile-hidden-heading">
-          <h3 className={styles.heading} id="settings-taste-profile-hidden-heading">
+        <section
+          aria-labelledby="settings-taste-profile-hidden-heading"
+          className={styles.hiddenSection}
+        >
+          <h4 className={styles.subheading} id="settings-taste-profile-hidden-heading">
             {t('hidden_title')}
-          </h3>
+          </h4>
           <p className={styles.description}>{t('hidden_description')}</p>
           <TasteProfileListBody
             state={hidden}
@@ -114,7 +120,7 @@ export function SettingsTasteProfile() {
             emptyText={t('hidden_empty')}
             loadMoreErrorText={t('load_more_error')}
             loadMoreLabel={t('load_more')}
-            retryLabel={tPopularity('retry')}
+            retryLabel={tConsent('retry')}
             onRetry={retry}
             onLoadMore={loadMoreHidden}
             renderRow={(row) => {

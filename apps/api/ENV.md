@@ -121,8 +121,9 @@ When unset/invalid, each uses its code default listed below.
   `/account/channel-seen` reads
 - **`STATS_TRACK_MAX_PER_MINUTE`** (default `60`) — per account, one budget shared by
   `/stats/listen` and `/stats/open`. The counter lives in each API process, so the effective
-  ceiling grows with the replica count; `STATS_LISTEN_DAILY_CAP` is the control that holds across
-  pods
+  ceiling grows with the replica count; `STATS_LISTEN_DAILY_STORED_CAP`,
+  `STATS_LISTEN_DAILY_POPULARITY_CAP`, and `STATS_LISTEN_MIN_INTERVAL_SECONDS` are the controls
+  that hold across pods
 - **`MQ_RSS_ON_DEMAND_MAX_PER_HOUR`** (default `20`)
 - **`BILLING_PURCHASE_MAX_PER_10_MINUTES`** (default `20`) - per account, shared by every billing purchase, cancel, and restore post
 - **`BILLING_WEBHOOK_MAX_PER_MINUTE`** (default `120`) - per IP and processor for `/billing/webhooks/*`
@@ -131,10 +132,41 @@ Related soft caps:
 
 - **`OPML_IMPORT_MAX_FEEDS_PER_HOUR`** (default `50`) limits new-feed work inside OPML import jobs
   and is separate from HTTP enqueue 429 limits.
-- **`STATS_LISTEN_DAILY_CAP`** (default `300`) limits stored Popularity Tracking listens per
-  listener per UTC day, enforced in the database. A report past the cap answers 200 with
-  `daily_cap_reached`; later reports for an already-stored listening session do not count against
-  it. Unset, empty, or below 1 uses the default.
+- **`STATS_LISTEN_DAILY_STORED_CAP`** (default `300`) limits stored listens per listener per UTC
+  day, enforced in the database. Each stored listen feeds the listener's Taste Profile. A new
+  listen past the cap answers 200 with `daily_cap_reached` and stores nothing; later reports for an
+  already-stored listening session do not count against it. Unset, empty, or below 1 uses the
+  default.
+- **`STATS_LISTEN_DAILY_POPULARITY_CAP`** (default `100`) limits how many of a listener's stored
+  listens each UTC day count toward popularity. A listen past it is still stored, answers
+  `counted`, and feeds the Taste Profile, but adds to no daily total. A value above
+  `STATS_LISTEN_DAILY_STORED_CAP` is lowered to it. Unset, empty, or below 1 uses the default.
+- **`STATS_OPEN_DAILY_CAP`** (default `10`) limits counted profile and playlist opens per
+  listener per UTC day, both kinds together, enforced in the database. An open past the cap
+  answers 200 with `daily_cap_reached` and stores nothing. Own-content opens and repeat opens of
+  the same profile or playlist that day do not use it up. Unset, empty, or below 1 uses the
+  default.
+- **`STATS_ALL_TIME_RECOUNT_DAYS`** (default `90`): for this many days after an account turns
+  Taste Profile off, its new listens are stored for the Taste Profile but count toward no
+  popularity total, and its opens are not recorded. Unset, empty, or below 1 uses the default. It
+  is also the all-time recount period: a listener adds to an entity's all-time popularity total at
+  most once in this many days. The API does not start when it is greater than
+  `STATS_TRACK_EVENT_RETENTION_DAYS`; nothing lowers it quietly.
+- **`STATS_FLAG_TOO_SOON_MINUTES`** (default `30`): when a listener's new listens answer
+  `too_soon` in this many minutes of one unbroken run, the listener is flagged and left out of
+  popularity. A too-soon minute more than 2 minutes after the last one starts a new run, and items
+  and clips under 60 seconds do not count toward it. `0` turns the signal off; unset, empty, or
+  invalid uses the default. See
+  [Flagged Listeners](/docs/features/POPULARITY-AND-TASTE-PROFILE.md#flagged-listeners).
+- **`STATS_FLAG_STORED_CAP_WITHIN_HOURS`** (default `3`): when a listener's stored listens reach
+  `STATS_LISTEN_DAILY_STORED_CAP` within this many hours of its first stored listen of the UTC
+  day, the listener is flagged and left out of popularity. Reaching the cap later is not a signal.
+  `0` turns the signal off; unset, empty, or invalid uses the default. See
+  [Flagged Listeners](/docs/features/POPULARITY-AND-TASTE-PROFILE.md#flagged-listeners).
+- **`STATS_LISTEN_MIN_INTERVAL_SECONDS`** (default `20`) — a new listen within that many seconds
+  of the listener's last stored listen answers 200 with `too_soon` and stores nothing. Later
+  reports for an already-stored listening session are not checked. `0` turns the check off. Unset,
+  empty, or invalid uses the default.
 
 ### Premium/Membership
 
@@ -165,9 +197,9 @@ The mailer is automatically disabled when `ACCOUNT_SIGNUP_MODE` is not `'user_si
 - **`TERMS_OF_SERVICE_VERSION`** (Required when signup mode is 'user_signup_email') - Date-shaped id of the current terms (for example `2026-10-15`). Stored when an account accepts. A different stored value blocks authenticated routes until the account accepts again. The same value is shown as "Valid since".
 - **`TERMS_OF_SERVICE_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` terms files. Empty uses the Markdown bundled at `apps/api/legal/terms`.
 - **`CONTACT_EMAIL`** (Optional) - Address interpolated into the terms document. Empty leaves that sentence without an address.
-- **`STATS_TRACK_EVENT_RETENTION_DAYS`** (Optional) - Retention window interpolated into the terms document. Empty uses 90 days.
-- **`POPULARITY_TRACKING_AGREEMENT_VERSION`** (Required) - Date-shaped id of the current popularity-tracking agreement (for example `2026-10-21`). Accounts that already accepted are asked again when this changes. Tracking is allowed only when the stored accept matches this value. The explanation does not display this id.
-- **`POPULARITY_TRACKING_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` agreement files. Empty uses the Markdown bundled at `apps/api/legal/popularity-tracking`.
+- **`STATS_TRACK_EVENT_RETENTION_DAYS`** (Optional) - Days listen and open events are kept, interpolated into the terms document. Empty uses 90 days. Must be at least `STATS_ALL_TIME_RECOUNT_DAYS`, or the API does not start. Set it to the same value as the workers' `STATS_TRACK_EVENT_RETENTION_DAYS`, which drops the events.
+- **`TASTE_PROFILE_AGREEMENT_VERSION`** (Required) - Date-shaped id of the current Taste Profile agreement (for example `2026-10-21`). Accounts that already accepted are asked again when this changes. Tracking is allowed only when the stored accept matches this value. The explanation does not display this id.
+- **`TASTE_PROFILE_AGREEMENT_CONTENT_DIR`** (Optional) - Directory of localized `<locale>.md` Taste Profile agreement files. Empty uses the Markdown bundled at `apps/api/legal/taste-profile-agreement`.
 
 For local development, set these in [`legal.env`](/dev/env-overrides/local/legal.env.example). Run `make local_env_setup` to apply.
 

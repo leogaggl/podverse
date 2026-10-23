@@ -362,7 +362,7 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     name: 'devStatsSeedSimulatedPopularity',
     label: 'Dev: seed simulated Top / trending stats',
     description:
-      'Write 31 days of staggered daily listener totals plus one older history day for public channels, a capped set of newest items, and public clips, playlists, and accounts, then refresh popularity range totals.',
+      'Write 31 days of staggered daily listener totals plus one older history day for public channels, a capped set of newest items, and public clips, playlists, and accounts, then refresh popularity range totals and write simulated day, week, and month counts.',
     category: 'dev',
     risk: 'dev_only',
     example_cli: 'npm run workers:seed_simulated_stats',
@@ -380,7 +380,7 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     name: 'statsPopularityRefresh',
     label: 'Stats: refresh popularity range totals',
     description:
-      'Rebuild day, week, month, and all-time popularity totals from daily totals. Hourly runs cover entities active in the last 30 days; -full recomputes every entity.',
+      'Rebuild popularity range totals: day, week, and month as distinct listeners from counted events, all-time from daily totals. Hourly runs cover entities active in the last 30 days; -full recomputes every entity.',
     category: 'stats',
     risk: 'normal',
     example_cli: 'npm run stats_popularity_refresh -w apps/workers -- -full',

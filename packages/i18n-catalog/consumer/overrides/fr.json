@@ -682,20 +682,14 @@
     "takedown_policy": "",
     "takedown_policy_explanation": ""
   },
-  "popularity_tracking": {
-    "title": "",
+  "taste_profile_consent": {
     "summary": "",
     "yes": "",
     "no": "",
-    "learn_more": "",
     "how_it_works": "",
     "retry": "",
     "already_agreed": "",
-    "agreement_date": "",
     "error": "",
-    "back_to_choice": "",
-    "change": "",
-    "dismiss_note": "",
     "load_error": "",
     "status_opted_out": "",
     "status_stale": "",
@@ -706,7 +700,6 @@
   },
   "taste_profile": {
     "title": "",
-    "description": "",
     "empty": "",
     "hidden_title": "",
     "hidden_description": "",
@@ -941,8 +934,6 @@
     "set_password_other_session_banner": "",
     "set_password_sign_out_to_continue": "",
     "set_password_continue_without_signing_out": "",
-    "listen_stats_opt_in": "",
-    "listen_stats_opt_in_help": "",
     "terms_version_invalid": ""
   },
   "terms_acceptance": {
@@ -1214,11 +1205,7 @@
         "current_incorrect": "",
         "missing_field": "",
         "error": ""
-      },
-      "listen_stats_toggle": "",
-      "listen_stats_toggle_help": "",
-      "listen_stats_toggle_error": "",
-      "listen_stats_terms_link": ""
+      }
     },
     "profile": {
       "profile": "",

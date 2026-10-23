@@ -16,8 +16,8 @@ export const E2E_HLS_VOD_ITEM_ID_TEXT = 'e2eHlsVodIt01';
 /** Seeded account most authenticated Maestro flows sign in as. */
 export const E2E_USER_EMAIL = 'e2e-user@example.com';
 
-/** Seeded account that has not answered the popularity-tracking prompt. */
-export const E2E_POPULARITY_UNDECIDED_EMAIL = 'e2e-popularity-undecided@example.com';
+/** Seeded account that has not answered the Taste Profile consent prompt. */
+export const E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL = 'e2e-taste-consent-undecided@example.com';
 
 /** Seeded account with an outdated terms acceptance (must re-accept current version). */
 export const E2E_STALE_TERMS_EMAIL = 'e2e-stale-terms@example.com';

@@ -6,9 +6,9 @@ import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh'
 import { getApiErrorStatus } from '../../lib/apiErrorStatus';
 import { isEffectivelyOffline } from '../../net/connectivity';
 import {
-  getPopularityTrackingCurrentVersion,
+  getTasteProfileAgreementCurrentVersion,
   shouldSkipListenStatsForAccount,
-} from '../../popularityTracking/popularityTrackingGate';
+} from '../../tasteProfileConsent/tasteProfileConsentGate';
 import { getDb, initializeDatabase, schema } from '../db';
 import type { StatsListenOutboxRow } from '../db/schema';
 import { accountRepository } from './accountRepository';
@@ -128,7 +128,7 @@ const runDrainPass = async (
       .where(eq(schema.statsListenOutbox.accountIdText, accountIdText));
     return;
   }
-  if (getPopularityTrackingCurrentVersion() === '' || shouldSkipListenStatsForAccount(account)) {
+  if (getTasteProfileAgreementCurrentVersion() === '' || shouldSkipListenStatsForAccount(account)) {
     return;
   }
 

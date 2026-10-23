@@ -46,4 +46,33 @@ describe('podverse test env startup validation', () => {
     applyPodverseTestEnv(buildPodverseApiTestEnv({ profile: 'apiWebE2e' }));
     expect(() => validateStartupRequirements()).not.toThrow();
   });
+
+  it('fails startup when STATS_ALL_TIME_RECOUNT_DAYS is greater than STATS_TRACK_EVENT_RETENTION_DAYS', () => {
+    applyPodverseTestEnv(buildPodverseApiTestEnv({ profile: 'apiVitest' }));
+    process.env.STATS_TRACK_EVENT_RETENTION_DAYS = '60';
+    process.env.STATS_ALL_TIME_RECOUNT_DAYS = '61';
+    expect(() => validateStartupRequirements()).toThrow();
+  });
+
+  it('fails startup when only the retention is lowered below the default recount period', () => {
+    applyPodverseTestEnv(buildPodverseApiTestEnv({ profile: 'apiVitest' }));
+    process.env.STATS_TRACK_EVENT_RETENTION_DAYS = '60';
+    delete process.env.STATS_ALL_TIME_RECOUNT_DAYS;
+    expect(() => validateStartupRequirements()).toThrow();
+  });
+
+  it('passes startup when STATS_ALL_TIME_RECOUNT_DAYS equals STATS_TRACK_EVENT_RETENTION_DAYS', () => {
+    applyPodverseTestEnv(buildPodverseApiTestEnv({ profile: 'apiVitest' }));
+    process.env.STATS_TRACK_EVENT_RETENTION_DAYS = '60';
+    process.env.STATS_ALL_TIME_RECOUNT_DAYS = '60';
+    expect(() => validateStartupRequirements()).not.toThrow();
+  });
+
+  it('turns off both botted-listener signals in the web and mobile E2E API profiles', () => {
+    for (const profile of ['apiWebE2e', 'apiMobileE2e'] as const) {
+      const env = buildPodverseApiTestEnv({ profile });
+      expect(env.STATS_FLAG_TOO_SOON_MINUTES).toBe('0');
+      expect(env.STATS_FLAG_STORED_CAP_WITHIN_HOURS).toBe('0');
+    }
+  });
 });

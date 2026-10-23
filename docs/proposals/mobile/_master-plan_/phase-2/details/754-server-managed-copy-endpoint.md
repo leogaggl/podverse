@@ -13,17 +13,17 @@ FAQ and the Make Clip how-to.
 
 Most copy belongs in `packages/i18n-catalog` — it ships with the app, it is translated with
 everything else, and it costs nothing to read. Some copy cannot live there. An FAQ answer, a how-to,
-the terms of service, and the Popularity Tracking explanation all describe **how the service
+the terms of service, and the Taste Profile agreement all describe **how the service
 behaves**,
 which is a server-side fact that can change while an installed app stays on the version the user
 downloaded months ago. Copy in the catalog is frozen at build time, and mobile release cycles run
 through two app stores; a policy correction cannot wait for that.
 
 So the test is: **would this text need to change when the server changes, without an app release?**
-If yes, it is served. If no, it is a catalog key. The Popularity Tracking explanation already works
+If yes, it is served. If no, it is a catalog key. The Taste Profile agreement already works
 this way; this generalizes the mechanism instead of building a second one. That explanation informs
 the listener. It is not the legal notice. The notice is the terms of service. See
-[popularity-tracking-how-it-works](/.llm/plans/active/popularity-tracking-how-it-works/00-SUMMARY.md).
+[popularity-tracking-how-it-works](/.llm/plans/completed/popularity-tracking-how-it-works/00-SUMMARY.md).
 The policy becomes abcmemory in [755](755-mobile-faq-and-clip-how-to.md) so the next author does
 not have to rediscover it.
 
@@ -42,8 +42,8 @@ without one is a path-traversal invitation. The slug type is exported from `@pod
 clients cannot ask for a document that does not exist.
 
 Unauthenticated because an FAQ has to answer questions for someone who has not signed up yet. The
-popularity-tracking endpoint requires auth because the agreement is bound to an account's locale
-setting; these documents resolve locale from the request instead.
+Taste Profile agreement endpoint requires auth because the agreement is bound to an account's
+locale setting; these documents resolve locale from the request instead.
 
 Response is `DTOManagedCopy`:
 
@@ -62,8 +62,8 @@ would be wrong inside a container image, and an env var per document does not sc
 ### Content files
 
 `apps/api/managed-copy/<slug>/<locale>.md` for `en-US`, `es`, `fr`, and `el-GR`, mirroring
-`apps/api/legal/popularity-tracking/`. Directory resolution mirrors
-[popularityTrackingContent.ts](/apps/api/src/lib/legal/popularityTrackingContent.ts): an optional env
+`apps/api/legal/taste-profile-agreement/`. Directory resolution mirrors
+[tasteProfileAgreementContent.ts](/apps/api/src/lib/legal/tasteProfileAgreementContent.ts): an optional env
 override, then the path bundled beside the compiled module, then the repo path. `{brand_name}` is
 interpolated from config, so a rebranded deployment does not ship someone else's product name in its
 FAQ.
@@ -100,9 +100,9 @@ episode's length and every timestamp after them.
 
 ## Web parity references
 
-- The pattern being generalized: `apps/api/src/controllers/legal/popularityTracking.ts`,
-  `apps/api/src/lib/legal/popularityTrackingContent.ts`,
-  `packages/helpers-requests/src/api/legal/popularityTracking.ts`
+- The pattern being generalized: `apps/api/src/controllers/legal/tasteProfileAgreement.ts`,
+  `apps/api/src/lib/legal/tasteProfileAgreementContent.ts`,
+  `packages/helpers-requests/src/api/legal/tasteProfileAgreement.ts`
 - Existing static copy that stays in the catalog: `apps/web/src/app/terms/page.tsx`,
   `apps/web/src/app/about/page.tsx`
 

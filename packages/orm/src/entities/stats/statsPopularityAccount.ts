@@ -3,8 +3,8 @@ import type { Relation } from 'typeorm';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 
 /**
- * Range totals for one account, derived from the daily table by the popularity refresh job. The
- * range lengths are `STATS_POPULARITY_RANGE_LOOKBACK_DAYS`.
+ * Range totals for one account, rebuilt from counted events and daily totals by the popularity
+ * refresh job. The range lengths are `STATS_POPULARITY_RANGE_LOOKBACK_DAYS`.
  */
 @Entity('stats_popularity_account')
 export class StatsPopularityAccount {
