@@ -649,7 +649,11 @@ describe('account CRUD and email routes', () => {
   describe('POST /account/set-password', () => {
     const futureExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    beforeEach(() => {
+    beforeEach(async () => {
+      // The app loads routes after the module registry resets, so the reset uses that limiter.
+      // Supertest's address is IPv4-mapped and the limiter stores the IPv4 form.
+      const { accountSetPasswordRateLimit } = await import('../routes/account.js');
+      accountSetPasswordRateLimit.resetKey('127.0.0.1');
       credentialsUpdateMock.mockClear();
       accountSessionStoreStub.endAccountSessions.mockClear();
     });

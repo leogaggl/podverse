@@ -130,4 +130,29 @@ describe('validateQueryObject (PVSA-007 stripUnknown)', () => {
       page: '2',
     });
   });
+
+  it('keeps validated defaults when req.query is a getter that reparses the URL', () => {
+    const schema = Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+    });
+
+    let reads = 0;
+    const req = {} as Request;
+    Object.defineProperty(req, 'query', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        reads += 1;
+        return {};
+      },
+    });
+    const res = mockResponse();
+    const next = vi.fn() as NextFunction;
+
+    validateQueryObject(schema, req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.query).toEqual({ page: 1 });
+    expect(reads).toBe(1);
+  });
 });

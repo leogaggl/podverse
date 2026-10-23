@@ -1842,3 +1842,24 @@ family revoked`.
 - Who notices: operators and alpha testers; Top and trending sorts are empty until new listens
   are counted
 - Operator steps: run the linear migrations; `API_EXPECTED_MIGRATION_FILENAME` advances to `0026_drop_legacy_stats.sql`.
+
+## Taste Profile lists accept the default page
+
+- Surfaces: api
+- Change: `GET /account/taste-profile` and `GET /account/taste-profile/hidden` without `page` or
+  `limit` return the first page of 20 rows. Validated query defaults, number coercion, and removal
+  of unknown query keys now stay on the request. Express 5 reparses `req.query` on every read, so
+  the previous in-place update was discarded and a missing page came back as 400.
+- Who notices: clients that list a Taste Profile without sending page and limit; callers that
+  relied on unknown query keys surviving validation no longer see those keys
+- Operator steps: none
+
+## A same-day completion still counts after an earlier listen
+
+- Surfaces: api
+- Change: when a listener already counted a show today and a later session of that show finishes,
+  the anonymous daily completion total increases. The write was failing a check that refuses a
+  completion with no listener on a newly inserted daily row.
+- Who notices: popularity completion totals for a show a listener finishes after an earlier listen
+  the same UTC day
+- Operator steps: none

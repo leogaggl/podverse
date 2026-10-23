@@ -160,6 +160,8 @@ test_db_init: test_postgres_up
 	@LINEAR_MIGRATIONS_QUIET=1 DB_HOST="127.0.0.1" DB_PORT="$(TEST_DB_PORT)" \
 		DB_APP_MIGRATOR_USER="$(TEST_PG_USER)" DB_APP_MIGRATOR_PASSWORD="$(TEST_PG_PASSWORD)" DB_APP_NAME="$(TEST_DB_NAME)" \
 		bash scripts/database/run-linear-migrations.sh --database app
+	@# Web seed resets accounts with TRUNCATE ... CASCADE. That needs TRUNCATE on
+	@# listener_identity.stats_listener, which sits outside the public grants in this block.
 	@docker exec $(TEST_PG_CONTAINER) psql -U $(TEST_PG_USER) -d $(TEST_DB_NAME) -c " \
 		GRANT CONNECT ON DATABASE $(TEST_DB_NAME) TO $(TEST_APP_READ_USER), $(TEST_APP_READ_WRITE_USER); \
 		GRANT USAGE ON SCHEMA public TO $(TEST_APP_READ_USER), $(TEST_APP_READ_WRITE_USER); \
@@ -170,7 +172,8 @@ test_db_init: test_postgres_up
 		ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO $(TEST_APP_READ_USER); \
 		ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO $(TEST_APP_READ_USER); \
 		ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO $(TEST_APP_READ_WRITE_USER); \
-		ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, USAGE, UPDATE ON SEQUENCES TO $(TEST_APP_READ_WRITE_USER);"
+		ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, USAGE, UPDATE ON SEQUENCES TO $(TEST_APP_READ_WRITE_USER); \
+		GRANT TRUNCATE ON TABLE listener_identity.stats_listener TO $(TEST_APP_READ_WRITE_USER);"
 	@echo "Test database $(TEST_DB_NAME) and users ready."
 
 # Create management test database and apply management linear migrations.

@@ -182,10 +182,10 @@ describe('Popularity Tracking opt-out deletes listening data (real database)', (
     asNumber(
       firstRow(
         await query(
-          `SELECT (SELECT count(*) FROM stats_taste_profile WHERE listener_id = $1::uuid)
+          `SELECT ((SELECT count(*) FROM stats_taste_profile WHERE listener_id = $1::uuid)
                 + (SELECT count(*) FROM stats_taste_profile_hidden WHERE listener_id = $1::uuid)
                 + (SELECT count(*) FROM stats_listen_event WHERE listener_id = $1::uuid)
-                + (SELECT count(*) FROM stats_open_event WHERE listener_id = $1::uuid) AS total`,
+                + (SELECT count(*) FROM stats_open_event WHERE listener_id = $1::uuid))::int AS total`,
           [listenerId]
         )
       ).total

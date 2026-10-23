@@ -372,6 +372,12 @@ async function addToDailyRow(
   if (listeners === 0 && completions === 0) {
     return;
   }
+  if (listeners === 0) {
+    for (let added = 0; added < completions; added += 1) {
+      await addCompletionToDailyRow(manager, entity, entityId, day);
+    }
+    return;
+  }
   const { table, column } = DAILY_LISTEN_TABLES[entity];
   await manager.query(
     `INSERT INTO ${table} (${column}, day, listener_count, completion_count)

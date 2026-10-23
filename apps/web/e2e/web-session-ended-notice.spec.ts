@@ -101,17 +101,15 @@ test.describe('Web session ended notice', () => {
 
       await test.step('The next request from this open page signs the browser out and says why.', async () => {
         const settingsTabs = page.locator('header');
-        const refusedSessions = page.waitForResponse(
-          (response) => response.url().endsWith('/auth/sessions') && response.status() === 401
-        );
-        await settingsTabs.getByRole('button', { name: 'General', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: "You've Been Signed Out" });
+        // The tab change navigates, the ended session reloads the page, and the dialog
+        // opens on that load. Waiting for the click's navigation to settle never returns.
+        await settingsTabs
+          .getByRole('button', { name: 'General', exact: true })
+          .click({ noWaitAfter: true });
+        await expect(dialog).toBeVisible();
         await expect(page).toHaveURL(/\/settings\/?$/);
         await expect(page.locator('#settings_preferred_media_type_selector')).toBeVisible();
-        await settingsTabs.getByRole('button', { name: 'Account', exact: true }).click();
-        await refusedSessions;
-
-        const dialog = page.getByRole('dialog', { name: "You've Been Signed Out" });
-        await expect(dialog).toBeVisible();
         await expect(
           dialog.getByText('You were signed out from another device.', { exact: true })
         ).toBeVisible();

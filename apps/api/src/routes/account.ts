@@ -47,6 +47,8 @@ export const accountChangePasswordRateLimit = rateLimitAuthEndpoint({
   skipTermsAcceptance: true,
 });
 
+export const accountSetPasswordRateLimit = rateLimitEndpoint(config.rateLimits.accountSetPassword);
+
 const router = Router();
 
 router.use(`${config.api.prefix}${config.api.version}/account`, router);
@@ -107,7 +109,7 @@ router.post(
 );
 router.post(
   '/set-password',
-  rateLimitEndpoint(config.rateLimits.accountSetPassword),
+  accountSetPasswordRateLimit,
   asyncHandler(AccountController.setPassword)
 );
 router.delete('/delete', asyncHandler(AccountController.delete));

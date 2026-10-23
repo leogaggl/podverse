@@ -1,5 +1,4 @@
-import { EventEmitter } from 'node:events';
-
+import type { Mock } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type AccountEventRedisOptions = {
@@ -17,11 +16,11 @@ type AccountEventRedisOptions = {
 type AccountEventRedisDouble = {
   options: AccountEventRedisOptions;
   status: string;
-  connect: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-  publish: ReturnType<typeof vi.fn>;
-  quit: ReturnType<typeof vi.fn>;
-  disconnect: ReturnType<typeof vi.fn>;
+  connect: Mock;
+  subscribe: Mock;
+  publish: Mock;
+  quit: Mock;
+  disconnect: Mock;
   emit: (event: string | symbol, ...args: unknown[]) => boolean;
 };
 
@@ -45,9 +44,10 @@ const {
 });
 
 vi.mock('ioredis', () => {
-  class Redis extends EventEmitter {
+  class Redis {
     readonly options: AccountEventRedisOptions;
     status = 'ready';
+    private readonly listeners = new Map<string | symbol, Set<(...args: unknown[]) => void>>();
     connect = vi.fn(async () => Promise.resolve());
     subscribe = vi.fn(async (_channel: string) => Promise.resolve(1));
     publish = vi.fn(async (_channel: string, _message: string) => Promise.resolve(0));
@@ -55,9 +55,31 @@ vi.mock('ioredis', () => {
     disconnect = vi.fn();
 
     constructor(options: AccountEventRedisOptions) {
-      super();
       this.options = options;
       redisInstances.push(this);
+    }
+
+    on(event: string | symbol, handler: (...args: unknown[]) => void): this {
+      const handlers = this.listeners.get(event) ?? new Set();
+      handlers.add(handler);
+      this.listeners.set(event, handlers);
+      return this;
+    }
+
+    off(event: string | symbol, handler: (...args: unknown[]) => void): this {
+      this.listeners.get(event)?.delete(handler);
+      return this;
+    }
+
+    emit(event: string | symbol, ...args: unknown[]): boolean {
+      const handlers = this.listeners.get(event);
+      if (handlers === undefined || handlers.size === 0) {
+        return false;
+      }
+      for (const handler of handlers) {
+        handler(...args);
+      }
+      return true;
     }
   }
 
