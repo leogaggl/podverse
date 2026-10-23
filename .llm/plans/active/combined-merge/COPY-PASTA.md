@@ -5,7 +5,7 @@
 **Run the whole set overnight (Root tab of the `podverse_combined` window):**
 `caffeinate -dims bash .llm/plans/active/combined-merge/overnight.sh`. It starts each merge, runs
 each step below with `./scripts/abcplan/run.sh run combined-merge --stop-after NN`, commits and
-pushes `combined` after each step, then runs abctestall. Do not run
+pushes `feature/combined` after each step, then runs abctestall. Do not run
 `./scripts/abcplan/run.sh run combined-merge` by itself: nothing would start the merges or commit
 between them.
 
@@ -78,7 +78,7 @@ to the deferred file and does not block the run. Read the final message of step 
 
 ## Phase 5 — Whole-tree verification
 
-- [ ] **05 — Whole-tree verification on combined**
+- [ ] **05 — Whole-tree verification on feature/combined**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

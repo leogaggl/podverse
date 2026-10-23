@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Overnight driver for the combined-merge plan set.
 #
-# Merges four feature branches into `combined`, one plan-runner step per branch. Agents resolve
+# Merges four feature branches into `feature/combined`, one plan-runner step per branch. Agents resolve
 # and stage; this script is the only thing that commits and pushes, after every step, with the
 # operator's git credentials. After the merges and the verification step it starts Mobile E2E
 # Metro from this checkout, installs the iOS E2E build, runs abctestall, and pushes its fixes.
@@ -18,7 +18,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$REPO_ROOT" || exit 1
 
 SLUG=combined-merge
-BRANCH=combined
+BRANCH=feature/combined
 PLAN_DIR=".llm/plans/active/$SLUG"
 COPY_PASTA="$PLAN_DIR/COPY-PASTA.md"
 DEFERRED_DIR=".llm/plans/active/$SLUG-deferred"

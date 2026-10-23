@@ -1,6 +1,6 @@
 # combined-merge — summary
 
-Merge four finished feature branches into one branch, `combined`, reconcile them (including the
+Merge four finished feature branches into one branch, `feature/combined`, reconcile them (including the
 linear database migrations), push after every successful merge, then run abctestall on the
 result. The whole set runs unattended through `overnight.sh` in this folder.
 
@@ -61,7 +61,7 @@ appear only semantically (duplicate migration numbers do not conflict in git).
 `develop` ends at app `0021_channel_may_have_live_items.sql` and management
 `0003_billing_permissions.sql`. Each branch numbered its app migration `0022`. Final numbers:
 
-| Branch                 | Branch file                                    | Final file on `combined`                       |
+| Branch                 | Branch file                                    | Final file on `feature/combined`                       |
 | ---------------------- | ---------------------------------------------- | ---------------------------------------------- |
 | realtime notifications | `app/0022_account_notification_read_at.sql`    | `app/0022_account_notification_read_at.sql`    |
 | artist/album           | `app/0022_channel_verified_publisher.sql`      | `app/0023_channel_verified_publisher.sql`      |
@@ -93,7 +93,7 @@ needs a reset; that is the operator's, not this set's.
 
 Steps 01–04 follow these. Each step's plan adds its own specifics.
 
-Starting state: the driver ran `git merge --no-ff --no-commit origin/<branch>` on `combined`.
+Starting state: the driver ran `git merge --no-ff --no-commit origin/<branch>` on `feature/combined`.
 `MERGE_HEAD` is set; textual conflicts are unmerged paths. The driver commits and pushes after the
 step; the step never does.
 
@@ -167,8 +167,8 @@ a stopped abctestall run). The driver commits the file with the next commit.
 
 `overnight.sh` runs the set. It is the only thing that commits or pushes:
 
-1. Preflight: on `combined`, tracked tree clean, Docker up, plan-runner installed and logged in,
-   port 8081 free. Commits this plan set and pushes `combined` (first push), so a push failure
+1. Preflight: on `feature/combined`, tracked tree clean, Docker up, plan-runner installed and
+   logged in, port 8081 free. Commits this plan set and pushes `feature/combined` (first push), so a push failure
    shows up while the operator is still awake.
 1. Once: `make local_env_worktree_setup` and `npm run deps:init`.
 1. Steps 01–04: starts the merge, runs the step with

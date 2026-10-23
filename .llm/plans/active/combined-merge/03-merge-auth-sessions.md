@@ -31,7 +31,7 @@ R3, R4, R6
 
 ## Specifics
 
-- The branch is 14 commits behind `develop`; those commits are already on `combined`. Where a
+- The branch is 14 commits behind `develop`; those commits are already on `feature/combined`. Where a
   conflict is between the branch and a newer `develop` change, keep the `develop` change and
   re-apply the branch's intent on top.
 - Expected textual conflicts: the nine files in `00-SUMMARY.md` § Order for step 03.

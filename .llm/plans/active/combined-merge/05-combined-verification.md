@@ -1,6 +1,6 @@
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
-# 05 — Whole-tree verification on combined
+# 05 — Whole-tree verification on feature/combined
 
 Every merge is committed. Make the whole tree build, lint, and validate before abctestall.
 
