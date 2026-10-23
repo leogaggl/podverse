@@ -21,6 +21,7 @@ import {
   validateOptional,
   validateOptionalAbsoluteHttpUrlIfSet,
   validatePayPalProcessorEnv,
+  validatePositiveNumber,
   validateRequired,
   validateStrikeProcessorEnv,
 } from '@podverse/helpers-config';
@@ -69,23 +70,16 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateJwtSecret());
   results.push(
     validateOptional(
-      'AUTH_JWT_EXPIRATION',
+      'AUTH_SESSION_IDLE_EXPIRATION',
       'Auth & Security',
       'Blank uses default (31536000 seconds)'
     )
   );
   results.push(
     validateOptional(
-      'AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION',
+      'AUTH_ACCESS_TOKEN_EXPIRATION',
       'Auth & Security',
       'Blank uses default (900 seconds)'
-    )
-  );
-  results.push(
-    validateOptional(
-      'AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION',
-      'Auth & Security',
-      'Blank uses default (31536000 seconds)'
     )
   );
   results.push(
@@ -97,6 +91,7 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   );
   results.push(validateRequired('BRAND_NAME', 'Auth & Security'));
   results.push(validateUserAgent());
+  results.push(validateAdminSessionRetentionDays());
 
   // One Postgres instance: shared host/port; DB_APP_* and DB_MANAGEMENT_* name each database and its roles.
   results.push(validateRequired('DB_HOST', 'Postgres'));
@@ -278,6 +273,25 @@ const validateJwtSecret = (): ValidationResult => {
     message: 'Valid UUID',
     category: 'Auth & Security',
   };
+};
+
+/**
+ * Blank keeps the default window. Anything else must be a number of days, so a unit mistake
+ * (seconds pasted into a field counted in days) fails at startup.
+ */
+const validateAdminSessionRetentionDays = (): ValidationResult => {
+  const value = process.env.ADMIN_SESSION_RETENTION_DAYS ?? '';
+  if (value.trim() === '') {
+    return {
+      name: 'ADMIN_SESSION_RETENTION_DAYS',
+      isSet: false,
+      isValid: true,
+      isRequired: false,
+      message: 'Use Default (30 days)',
+      category: 'Auth & Security',
+    };
+  }
+  return validatePositiveNumber('ADMIN_SESSION_RETENTION_DAYS', 'Auth & Security', false, 1, 3650);
 };
 
 const USER_AGENT_PATTERN = /^[^/]+\/[^/]+\/[^/]+$/;

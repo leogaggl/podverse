@@ -31,9 +31,8 @@ const apiTestEnvBase = (): Record<string, string> => ({
   BRAND_NAME: 'PodverseTest',
   USER_AGENT: 'Example Bot test/API/5',
   AUTH_JWT_SECRET: '11111111-1111-4111-8111-111111111111',
-  AUTH_JWT_EXPIRATION: exp,
-  AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION: '900',
-  AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION: '31536000',
+  AUTH_SESSION_IDLE_EXPIRATION: '31536000',
+  AUTH_ACCESS_TOKEN_EXPIRATION: '900',
   AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY: 'false',
   API_PREFIX: '/api',
   API_VERSION: '/v2',
@@ -129,6 +128,9 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     // in from the same localhost IP, so the production default (5/min) 429s the whole login-heavy
     // cluster. Login-429 behavior is covered by auth.test.ts under the apiVitest profile.
     AUTH_LOGIN_MAX_PER_MINUTE: '100000',
+    // The default of 4 per 10 minutes is what a retry of this spec, or a mobile slot that
+    // changes and restores, would trip. The route's own tests keep the default under apiVitest.
+    ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES: '100000',
     // Every signed-in page load in a fresh browser runs the Add by RSS background refresh, which
     // first-parses the seeded follows. The default (20/hour per account) 429s later specs.
     ACCOUNT_ADD_BY_RSS_PARSE_ENQUEUE_MAX_PER_HOUR: '100000',
@@ -146,6 +148,9 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     // Same reason as apiWebE2e: all Maestro flows log in from one host, so keep the login limiter
     // effectively off (sparse mobile logins only avoided the 5/min default by luck).
     AUTH_LOGIN_MAX_PER_MINUTE: '100000',
+    // The default of 4 per 10 minutes is what a retry of this spec, or a mobile slot that
+    // changes and restores, would trip. The route's own tests keep the default under apiVitest.
+    ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES: '100000',
     // Multi-flow E2E repeatedly refreshes the seeded account's feeds; keep the enqueue limiter
     // effectively off so one flow cannot contaminate another through the long-lived API process.
     ACCOUNT_ADD_BY_RSS_PARSE_ENQUEUE_MAX_PER_HOUR: '100000',
@@ -169,9 +174,8 @@ const managementApiTestEnvBase = (): Record<string, string> => ({
   LOG_LEVEL: 'error',
   LOG_DIR: '',
   AUTH_JWT_SECRET: '11111111-1111-4111-8111-111111111111',
-  AUTH_JWT_EXPIRATION: exp,
-  AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION: '900',
-  AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION: '31536000',
+  AUTH_SESSION_IDLE_EXPIRATION: '31536000',
+  AUTH_ACCESS_TOKEN_EXPIRATION: '900',
   AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY: 'false',
   API_PREFIX: '/api',
   API_VERSION: '/v2',

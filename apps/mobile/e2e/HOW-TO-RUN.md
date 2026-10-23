@@ -229,6 +229,7 @@ npm run mobile:e2e:test -- --platform ios alternate-enclosure
 npm run mobile:e2e:test -- --platform ios api-health
 npm run mobile:e2e:test -- --platform ios archived-clip
 npm run mobile:e2e:test -- --platform ios artist
+npm run mobile:e2e:test -- --platform ios auth-change-password
 npm run mobile:e2e:test -- --platform ios auth-login
 npm run mobile:e2e:test -- --platform ios auth-logout
 npm run mobile:e2e:test -- --platform ios auto-queue-advance
@@ -288,6 +289,7 @@ npm run mobile:e2e:test -- --platform android alternate-enclosure
 npm run mobile:e2e:test -- --platform android api-health
 npm run mobile:e2e:test -- --platform android archived-clip
 npm run mobile:e2e:test -- --platform android artist
+npm run mobile:e2e:test -- --platform android auth-change-password
 npm run mobile:e2e:test -- --platform android auth-login
 npm run mobile:e2e:test -- --platform android auth-logout
 npm run mobile:e2e:test -- --platform android auto-queue-advance
@@ -417,7 +419,10 @@ optional for this group.
 Seeded login: `e2e-user@example.com` / `Test!1Aa`. Authenticated flows sign in through
 `shared/login-seeded-user.yaml`, which taps the E2E-only `e2e-quick-login` control
 (`__DEV__` and `EXPO_PUBLIC_MOBILE_E2E=1`) and skips the form. `auth-login` is the flow
-that still walks the form (`shared/login-seeded-user-ui.yaml`).
+that still walks the form (`shared/login-seeded-user-ui.yaml`). `auth-change-password`
+signs in through that form as its own account (`e2e-change-password-ios@example.com` on
+iOS, `e2e-change-password-android@example.com` on Android, password `Test!1Aa`), changes
+that password, and changes it back. It does not use `e2e-user@example.com`.
 
 `membership-checkout` signs in and buys through the fake billing client (`__DEV__` and
 `EXPO_PUBLIC_MOBILE_E2E=1`); a release build does not select that client.
@@ -428,6 +433,7 @@ npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
 npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
+npm run mobile:e2e:test -- auth-change-password
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout
 npm run mobile:e2e:test -- browse

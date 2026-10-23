@@ -1,5 +1,6 @@
 import { app } from '@management-api/app.js';
 import { config } from '@management-api/config/index.js';
+import { TEST_ADMIN_SESSION_CLAIMS } from '@management-api/test/adminSessionStoreStub.js';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,7 +65,11 @@ const adminIdTextByUserId: Record<number, string> = {
 
 const adminAuthHeaders = (userId: number): { Authorization: string } => ({
   Authorization: `Bearer ${jwt.sign(
-    { id: userId, id_text: adminIdTextByUserId[userId] ?? 'pvMgtWk001' },
+    {
+      id: userId,
+      id_text: adminIdTextByUserId[userId] ?? 'pvMgtWk001',
+      ...TEST_ADMIN_SESSION_CLAIMS,
+    },
     JWT_SECRET,
     { expiresIn: '1h' }
   )}`,

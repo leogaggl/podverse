@@ -79,6 +79,12 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps accountSessionPurge to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('accountSessionPurge'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
   it('maps archiveAll to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('archiveAll'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))

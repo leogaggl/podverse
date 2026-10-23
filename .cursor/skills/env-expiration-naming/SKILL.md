@@ -14,7 +14,7 @@ description: >-
 
 ## Do
 
-- Env: `MEMBERSHIP_FREE_TRIAL_EXPIRATION`, `AUTH_JWT_EXPIRATION` (when the value is seconds).
+- Env: `MEMBERSHIP_FREE_TRIAL_EXPIRATION`, `AUTH_SESSION_IDLE_EXPIRATION` (when the value is seconds).
 - Constants: `DEFAULT_FREE_TRIAL_EXPIRATION` (number of seconds when unset).
 
 ## Don’t

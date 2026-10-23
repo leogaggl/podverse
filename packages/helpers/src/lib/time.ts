@@ -48,6 +48,13 @@ export const DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS = 30;
 export const DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS = 30;
 
 /**
+ * Days an account_session row is kept after its idle expiry (see
+ * ACCOUNT_SESSION_RETENTION_DAYS). A revoked row keeps its idle expiry, so a device that returns
+ * within its idle limit can still be told why it was signed out.
+ */
+export const DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS = 30;
+
+/**
  * Player clock for every Podverse surface. First unit is never zero-padded:
  * `1:19:59`, `1:05`, `0:00` — not `01:19:59`. Hours appear only at 3600s+.
  * Accepts a number or a DTO string of seconds (`start_time` / `end_time`).

@@ -35,6 +35,7 @@ import {
 } from '@podverse/external-services-podcast-index';
 import {
   DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
+  DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -173,6 +174,13 @@ function validateBase(): ValidationResult[] {
       'ACCOUNT_CONTENT_LOG_RETENTION_DAYS',
       'Removed Content',
       DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS
+    )
+  );
+  results.push(
+    validateRetentionDays(
+      'ACCOUNT_SESSION_RETENTION_DAYS',
+      'Account sessions',
+      DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS
     )
   );
   results.push(

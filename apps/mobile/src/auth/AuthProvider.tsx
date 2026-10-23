@@ -22,14 +22,16 @@ import { queueRepository } from '../data/repositories/queueRepository';
 import { resolveSupportedLocale } from '../i18n/locale';
 import { startFcmTokenRefreshSync, stopFcmTokenRefreshSync } from '../push/fcmDeviceSync';
 import {
+  adoptStoredCredentials,
   advanceAuthSessionGeneration,
   getAuthSessionGeneration,
   primeAccessTokenRefresh,
   refreshAccessTokenSingleFlight,
-  rememberAuthCredentials,
+  rememberAccessToken,
+  rememberSavedCredentials,
 } from './authRequestWithRefresh';
 import { shouldResetLeakedE2eSession } from './e2eSessionReset';
-import type { SessionEndReason } from './forcedLogoutNotice';
+import type { ClearSession } from './forcedLogoutNotice';
 import {
   clearForcedLogoutNotice,
   markForcedLogout,
@@ -53,7 +55,7 @@ type SetTokensInput = {
 type AuthContextValue = {
   account: DTOAccount | null;
   accessToken: string | null;
-  clearSession: (reason: SessionEndReason) => Promise<void>;
+  clearSession: ClearSession;
   error: string | null;
   hydrateFromSecureStorage: () => Promise<void>;
   logout: () => Promise<void>;
@@ -74,23 +76,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<AuthStatus>('unknown');
   // Concurrent 401s all race into clearSession; they share one wipe rather than each re-clearing
-  // storage, re-marking the notice, and re-running repository clears.
+  // storage, re-marking the notice, and re-running repository clears. The first call's notice is
+  // the one recorded. Every 401 for one ended session carries the same notice.
   const clearSessionInFlightRef = useRef<Promise<void> | null>(null);
   const hydrateFromSecureStorageRef = useRef<() => Promise<void>>(async () => undefined);
 
   const setTokens = useCallback(async ({ accessToken, refreshToken }: SetTokensInput) => {
     const generationAtStart = getAuthSessionGeneration();
-    // Publish before the keychain write so a request already in flight sees this pair.
-    rememberAuthCredentials(accessToken, refreshToken);
+    // Publish before the keychain write so a request already in flight sees this access token.
+    rememberAccessToken(accessToken);
     await Promise.all([
       writeSecureToken('accessToken', accessToken),
-      writeSecureToken('refreshToken', refreshToken),
+      // The refresh token becomes sendable only once the keychain holds it, and only for the
+      // session the write started in.
+      writeSecureToken('refreshToken', refreshToken).then(() => {
+        if (generationAtStart === getAuthSessionGeneration()) {
+          rememberSavedCredentials(accessToken, refreshToken);
+        }
+      }),
       // Holding valid credentials again settles the question, whether the user acted on the notice
       // or logged in without ever seeing it.
       clearForcedLogoutNotice(),
     ]);
 
-    // Sign-out during the keychain write already cleared the published pair.
+    // Sign-out during the keychain write already cleared the published tokens.
     if (generationAtStart !== getAuthSessionGeneration()) {
       return;
     }
@@ -101,7 +110,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
   }, []);
 
-  const clearSession = useCallback(async (reason: SessionEndReason) => {
+  const clearSession = useCallback<ClearSession>(async (reason, notice = null) => {
     if (clearSessionInFlightRef.current !== null) {
       return clearSessionInFlightRef.current;
     }
@@ -125,7 +134,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (shouldNotifyForcedLogout(reason)) {
         try {
-          await markForcedLogout();
+          await markForcedLogout({ notice });
         } catch (markError) {
           console.warn('Failed to record the forced-logout notice', markError);
         }
@@ -189,7 +198,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    // Rewrite with AFTER_FIRST_UNLOCK so tokens written under the old accessibility upgrade.
+    // Rewriting with AFTER_FIRST_UNLOCK keeps a token stored under a stricter keychain class
+    // readable by background work while the phone is locked.
     try {
       await writeSecureToken('accessToken', storedAccessToken);
       if (storedRefreshToken !== null && storedRefreshToken !== '') {
@@ -203,7 +213,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     if (storedRefreshToken !== null) {
-      rememberAuthCredentials(storedAccessToken, storedRefreshToken);
+      adoptStoredCredentials(storedAccessToken, storedRefreshToken);
     }
 
     // Both sources here are local — SecureStore for the tokens, SQLite for the account — so the

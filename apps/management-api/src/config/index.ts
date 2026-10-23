@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- env vars validated at startup in lib/startup/validation.ts */
 
+import { resolveAdminSessionRetentionDays } from '@management-api/lib/auth/adminSessionPurge.js';
+
 import {
-  DEFAULT_AUTH_JWT_EXPIRATION,
-  DEFAULT_AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION,
-  DEFAULT_AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION,
+  DEFAULT_AUTH_ACCESS_TOKEN_EXPIRATION,
+  DEFAULT_AUTH_SESSION_IDLE_EXPIRATION,
   DEFAULT_SET_PASSWORD_EXPIRATION,
   MS_PER_SECOND,
   readOptionalPositiveExpirationEnv,
@@ -34,12 +35,15 @@ type Config = {
   };
   auth: {
     jwtSecret: string;
-    jwtExpiration: number;
+    /** Idle limit in seconds for every admin session; each use renews it. */
+    sessionIdleExpiration: number;
     sessionCookieMaxAgeMs: number;
-    mobileAccessTokenExpiration: number;
-    mobileRefreshTokenExpiration: number;
+    /** From AUTH_ACCESS_TOKEN_EXPIRATION. Silently refreshed; does not bound sign-in length. */
+    accessTokenExpiration: number;
     allowTokenInResponseBody: boolean;
   };
+  /** Days an admin_session row is kept after idle expiry. Blank uses 30; unparseable stays NaN. */
+  adminSessionRetentionDays: number;
   api: {
     port: number;
     prefix: string;
@@ -112,25 +116,24 @@ export const config: Config = {
     },
   },
   auth: (() => {
-    const jwtExpiration = readOptionalPositiveExpirationEnv(
-      'AUTH_JWT_EXPIRATION',
-      DEFAULT_AUTH_JWT_EXPIRATION
+    const sessionIdleExpiration = readOptionalPositiveExpirationEnv(
+      'AUTH_SESSION_IDLE_EXPIRATION',
+      DEFAULT_AUTH_SESSION_IDLE_EXPIRATION
     );
     return {
       jwtSecret: process.env.AUTH_JWT_SECRET!,
-      jwtExpiration,
-      sessionCookieMaxAgeMs: jwtExpiration * MS_PER_SECOND,
-      mobileAccessTokenExpiration: readOptionalPositiveExpirationEnv(
-        'AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION',
-        DEFAULT_AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION
-      ),
-      mobileRefreshTokenExpiration: readOptionalPositiveExpirationEnv(
-        'AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION',
-        DEFAULT_AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION
+      sessionIdleExpiration,
+      sessionCookieMaxAgeMs: sessionIdleExpiration * MS_PER_SECOND,
+      accessTokenExpiration: readOptionalPositiveExpirationEnv(
+        'AUTH_ACCESS_TOKEN_EXPIRATION',
+        DEFAULT_AUTH_ACCESS_TOKEN_EXPIRATION
       ),
       allowTokenInResponseBody: process.env.AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY === 'true',
     };
   })(),
+  adminSessionRetentionDays: resolveAdminSessionRetentionDays(
+    process.env.ADMIN_SESSION_RETENTION_DAYS
+  ),
   api: {
     port: parseInt(process.env.API_PORT!, 10),
     prefix: process.env.API_PREFIX!,

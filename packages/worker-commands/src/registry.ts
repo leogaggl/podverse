@@ -107,6 +107,15 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run account_content_log_purge -w apps/workers',
   },
   {
+    name: 'accountSessionPurge',
+    label: 'Account sessions: purge expired rows',
+    description:
+      'Delete account_session rows whose idle_expires_at is older than ACCOUNT_SESSION_RETENTION_DAYS.',
+    category: 'orm',
+    risk: 'normal',
+    example_cli: 'npm run account_session_purge -w apps/workers',
+  },
+  {
     name: 'deleteOutdatedOnDemandParserEvent',
     label: 'Delete outdated on-demand parser events',
     description: 'ORM job: remove outdated on_demand_parser_event rows.',

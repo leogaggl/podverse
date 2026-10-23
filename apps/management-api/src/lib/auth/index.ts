@@ -1,75 +1,73 @@
 /**
- * Sessions: JWT TTL/cookie max-age use AUTH_JWT_EXPIRATION (seconds). Login JSON includes `token`
- * only when AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY=true and the client sends includeTokenInResponseBody.
- * Mobile access and refresh lifetimes come from AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION and
- * AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION. A refresh JWT is accepted when it verifies with
- * AUTH_JWT_SECRET and carries token_use=refresh.
+ * Every admin login starts an `admin_session` row, and every token names that row in its `sid`
+ * claim. Web gets one token in the `pv_mgmt_auth` cookie. Mobile gets a short access token for
+ * requests and a refresh token that rotates on every refresh; both carry the
+ * `podverse_management_mobile` scope. Each authenticated request checks the row, so ending a
+ * session takes effect on that session's next request; rotating AUTH_JWT_SECRET ends every admin
+ * session at once.
+ *
+ * Use renews a session at most once a day, moving its idle expiry AUTH_SESSION_IDLE_EXPIRATION
+ * past that use. A web cookie is re-signed when its row renews; a mobile refresh renews the row and
+ * issues a refresh token with a fresh expiry.
+ *
+ * A bearer header wins over the cookie. Login responses omit `token` unless
+ * AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY=true and the client sends includeTokenInResponseBody.
  */
 import type { AuthenticatedAdmin } from '@management-api/@types/express.js';
 import { config } from '@management-api/config/index.js';
+import { loggerService } from '@management-api/factories/loggerService.js';
 import type { AdminAccount } from '@management-api/orm/entities/adminAccount.js';
 import { AdminAccountService } from '@management-api/orm/services/adminAccount.js';
+import type { AdminSessionRow } from '@management-api/orm/services/adminSession.js';
 import type { CookieOptions, NextFunction, Request, Response } from 'express';
-import jwt, { type SignOptions } from 'jsonwebtoken';
 import passport from 'passport';
-import { ExtractJwt, Strategy as JwtStrategy } from 'passport-jwt';
 import { Strategy as LocalStrategy } from 'passport-local';
 
-import { isMobileRefreshJwtPayload } from '@podverse/helpers';
+import type { AuthSessionEndedNotice } from '@podverse/helpers';
+import { AUTH_SESSION_ENDED_CODE, BILLING_CLIENT_PLATFORM_HEADER } from '@podverse/helpers';
 import { isValidNanoIdV2IdText } from '@podverse/orm';
 
+import {
+  checkAdminSession,
+  endAdminSession,
+  renewAdminSession,
+  rotateAdminRefreshToken,
+  startAdminSession,
+} from './adminSessionStore.js';
+import { deviceLabelForMobile, deviceLabelFromUserAgent } from './deviceLabel.js';
+import type { RequestToken } from './sessionTokens.js';
+import {
+  ADMIN_AUTH_COOKIE_NAME,
+  classifyAccessJwt,
+  classifyRefreshJwt,
+  readAuthCookie,
+  readRequestToken,
+  signMobileTokenPair,
+  signWebSessionToken,
+  verifySessionJwt,
+} from './sessionTokens.js';
+
 const isProduction = config.nodeEnv === 'production';
-const ADMIN_AUTH_COOKIE_NAME = 'pv_mgmt_auth';
 
-const issueMobileTokenPair = (params: {
-  adminId: number;
-  adminIdText: string;
-}): {
-  token_type: 'Bearer';
-  access_token: string;
-  access_token_expires_in: number;
-  refresh_token: string;
-  refresh_token_expires_in: number;
-} => {
-  const accessExpiresIn = config.auth.mobileAccessTokenExpiration;
-  const refreshExpiresIn = config.auth.mobileRefreshTokenExpiration;
+type AdminIdentity = Omit<AuthenticatedAdmin, 'session_id_text'>;
 
-  const accessToken = jwt.sign(
-    {
-      id: params.adminId,
-      id_text: params.adminIdText,
-      scope: 'podverse_management_mobile',
-      token_use: 'access',
-    },
-    config.auth.jwtSecret,
-    {
-      expiresIn: accessExpiresIn,
-    } as SignOptions
-  );
+type UnauthorizedBody =
+  | { message: string }
+  | { message: string; code: typeof AUTH_SESSION_ENDED_CODE; notice: AuthSessionEndedNotice };
 
-  const refreshToken = jwt.sign(
-    {
-      id: params.adminId,
-      id_text: params.adminIdText,
-      scope: 'podverse_management_mobile',
-      token_use: 'refresh',
-    },
-    config.auth.jwtSecret,
-    {
-      expiresIn: refreshExpiresIn,
-    } as SignOptions
-  );
+/** The notice rides on the 401 only when the session was ended somewhere else. */
+function unauthorizedBody(
+  message: string,
+  notice: AuthSessionEndedNotice | null
+): UnauthorizedBody {
+  if (notice === null) {
+    return { message };
+  }
+  return { message, code: AUTH_SESSION_ENDED_CODE, notice };
+}
 
-  return {
-    token_type: 'Bearer',
-    access_token: accessToken,
-    access_token_expires_in: accessExpiresIn,
-    refresh_token: refreshToken,
-    refresh_token_expires_in: refreshExpiresIn,
-  };
-};
-
-const setAuthCookie = (res: Response, token: string) => {
+/** The cookie's max-age is the idle limit; renewal re-sets it. */
+export const setAuthCookie = (res: Response, token: string) => {
   const maxAge = config.auth.sessionCookieMaxAgeMs;
   if (isProduction) {
     const prodCookieOptions: CookieOptions = {
@@ -92,25 +90,23 @@ const setAuthCookie = (res: Response, token: string) => {
   }
 };
 
+/** Clears the host-only cookie and, in production, the one scoped to COOKIE_DOMAIN. */
+export const clearAuthCookie = (res: Response) => {
+  res.clearCookie(ADMIN_AUTH_COOKIE_NAME, {
+    path: '/',
+  });
+
+  if (isProduction) {
+    res.clearCookie(ADMIN_AUTH_COOKIE_NAME, {
+      path: '/',
+      domain: config.api.cookie.domain,
+    });
+  }
+};
+
 const adminAccountService = new AdminAccountService();
 
-/** Prefer Bearer over cookie so programmatic clients/tests are not overridden by a stale browser cookie. */
-function getAuthTokenFromRequest(req: Request): string | undefined {
-  const authorization = req.headers.authorization;
-  if (typeof authorization === 'string' && authorization.length > 0) {
-    const bearerMatch = /^Bearer\s+(\S+)/i.exec(authorization);
-    if (bearerMatch?.[1] !== undefined && bearerMatch[1].length > 0) {
-      return bearerMatch[1];
-    }
-  }
-  const cookieToken = req.cookies[ADMIN_AUTH_COOKIE_NAME];
-  if (typeof cookieToken === 'string' && cookieToken.length > 0) {
-    return cookieToken;
-  }
-  return undefined;
-}
-
-function mapAdminToAuthenticatedUser(admin: AdminAccount): AuthenticatedAdmin | null {
+function mapAdminToIdentity(admin: AdminAccount): AdminIdentity | null {
   if (!admin.admin_account_role) {
     return null;
   }
@@ -140,13 +136,50 @@ function mapAdminToAuthenticatedUser(admin: AdminAccount): AuthenticatedAdmin | 
   };
 }
 
+/** The admin named by a token's identity claims, only while its `id_text` still matches. */
+async function getAdminMatchingJwtIdentity(claims: {
+  id: number;
+  id_text: string;
+}): Promise<AdminAccount | null> {
+  const admin = await adminAccountService.getWithRoleAndPermissions(claims.id);
+  if (!admin || admin.id_text !== claims.id_text) {
+    return null;
+  }
+  return admin;
+}
+
+/**
+ * One browser holds one session: a login made while the browser still carries a validly signed
+ * session cookie ends that earlier session first.
+ */
+async function endSessionInPresentedCookie(req: Request): Promise<void> {
+  const cookieToken = readAuthCookie(req);
+  if (cookieToken === null) {
+    return;
+  }
+  const classified = classifyAccessJwt(verifySessionJwt(cookieToken));
+  if (classified.kind !== 'session') {
+    return;
+  }
+  try {
+    await endAdminSession({
+      adminAccountId: classified.claims.id,
+      sessionIdText: classified.claims.sid,
+      reason: 'signed_out',
+    });
+  } catch (error) {
+    loggerService.logError('Failed to end the admin session replaced by a new web login', error);
+  }
+}
+
 passport.use(
   new LocalStrategy(
     {
       usernameField: 'email',
       passwordField: 'password',
+      passReqToCallback: true,
     },
-    async (email, password, done) => {
+    async (req, email, password, done) => {
       try {
         if (!password) {
           return done(null, false, { message: 'Password missing.' });
@@ -158,15 +191,23 @@ passport.use(
         }
 
         const withRelations = await adminAccountService.getWithRoleAndPermissions(adminAccount.id);
-        if (!withRelations) {
+        if (!withRelations || !isValidNanoIdV2IdText(withRelations.id_text)) {
           return done(null, false, { message: 'Invalid credentials.' });
         }
-        const user = mapAdminToAuthenticatedUser(withRelations);
-        if (!user) {
+        const identity = mapAdminToIdentity(withRelations);
+        if (!identity) {
           return done(null, false, { message: 'Invalid credentials.' });
         }
 
-        return done(null, user);
+        await endSessionInPresentedCookie(req);
+        const { sessionIdText } = await startAdminSession({
+          adminAccountId: identity.id,
+          clientType: 'web',
+          deviceLabel: deviceLabelFromUserAgent(req.get('user-agent')),
+          withRefreshToken: false,
+        });
+
+        return done(null, { ...identity, session_id_text: sessionIdText });
       } catch (error) {
         return done(error);
       }
@@ -174,66 +215,14 @@ passport.use(
   )
 );
 
-passport.use(
-  new JwtStrategy(
-    {
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: config.auth.jwtSecret,
-    },
-    async (jwtPayload: { id?: number; id_text?: string }, done) => {
-      try {
-        if (
-          jwtPayload.id === undefined ||
-          jwtPayload.id_text === undefined ||
-          jwtPayload.id_text === ''
-        ) {
-          return done(null, false);
-        }
-        if (!isValidNanoIdV2IdText(jwtPayload.id_text)) {
-          return done(null, false);
-        }
-        const adminAccount = await adminAccountService.getWithRoleAndPermissions(jwtPayload.id);
-        if (adminAccount && adminAccount.id_text === jwtPayload.id_text) {
-          const user = mapAdminToAuthenticatedUser(adminAccount);
-          if (user) {
-            return done(null, user);
-          }
-          return done(null, false);
-        } else {
-          return done(null, false);
-        }
-      } catch (error) {
-        return done(error, false);
-      }
-    }
-  )
-);
-
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id: number, done) => {
-  try {
-    const adminAccount = await adminAccountService.getWithRoleAndPermissions(id);
-    if (!adminAccount) {
-      done(null, null);
-      return;
-    }
-    const user = mapAdminToAuthenticatedUser(adminAccount);
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-});
-
 export const initializePassport = () => passport.initialize();
 
+/** Web login: the password check starts a web session, carried in the `pv_mgmt_auth` cookie. */
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate(
     'local',
     { session: false },
-    (err: Error, user: { id: number; id_text: string } | false, info: { message: string }) => {
+    (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) {
         return next(err);
       }
@@ -241,9 +230,11 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
         return res.status(401).json({ message: info?.message || 'Unauthorized' });
       }
 
-      const token = jwt.sign({ id: user.id, id_text: user.id_text }, config.auth.jwtSecret, {
-        expiresIn: config.auth.jwtExpiration,
-      } as SignOptions);
+      const token = signWebSessionToken({
+        adminId: user.id,
+        adminIdText: user.id_text,
+        sessionIdText: user.session_id_text,
+      });
 
       setAuthCookie(res, token);
 
@@ -260,115 +251,128 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   )(req, res, next);
 };
 
-const verifyToken = (req: Request, res: Response, next: NextFunction, token: string): void => {
-  interface DecodedToken {
-    id: number;
-    id_text?: string;
-    [key: string]: unknown;
+/**
+ * Renewal never fails the request. A web session presented through its cookie gets a re-signed
+ * cookie; a web token sent as a bearer renews only its row and ends at its own JWT expiry.
+ */
+async function renewSessionOnUse(
+  res: Response,
+  requestToken: RequestToken,
+  session: AdminSessionRow,
+  claims: { id: number; id_text: string; sid: string }
+): Promise<void> {
+  try {
+    const renewed = await renewAdminSession(session);
+    if (renewed && session.client_type === 'web' && requestToken.source === 'cookie') {
+      setAuthCookie(
+        res,
+        signWebSessionToken({
+          adminId: claims.id,
+          adminIdText: claims.id_text,
+          sessionIdText: claims.sid,
+        })
+      );
+    }
+  } catch (error) {
+    loggerService.logError('Admin session renewal failed', error);
   }
-  jwt.verify(
-    token,
-    config.auth.jwtSecret,
-    async (err: jwt.VerifyErrors | null, decoded: unknown) => {
-      if (err) {
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-      if (!decoded) {
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-      const payload = decoded as DecodedToken;
-      if (payload.id_text === undefined || payload.id_text === '') {
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-      if (!isValidNanoIdV2IdText(payload.id_text)) {
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-      if (
-        typeof payload.id !== 'number' ||
-        !Number.isInteger(payload.id) ||
-        !Number.isFinite(payload.id) ||
-        payload.id <= 0
-      ) {
-        console.error('[verifyToken] Decoded JWT missing user id');
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
+}
 
-      const adminAccount = await adminAccountService.getWithRoleAndPermissions(payload.id);
-      if (!adminAccount) {
-        console.error('[verifyToken] No admin account found for user id:', payload.id);
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-      if (adminAccount.id_text !== payload.id_text) {
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-
-      const user = mapAdminToAuthenticatedUser(adminAccount);
-      if (!user) {
-        console.error('[verifyToken] Admin account missing role relation');
-        if (!res.headersSent) {
-          res.status(401).json({ message: 'Unauthorized' });
-        }
-        return;
-      }
-
-      req.user = user;
-
-      next();
+const verifyToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  requestToken: RequestToken
+): Promise<void> => {
+  const rejectUnauthorized = (notice: AuthSessionEndedNotice | null) => {
+    if (requestToken.source === 'cookie') {
+      clearAuthCookie(res);
     }
-  );
-};
+    res.status(401).json(unauthorizedBody('Unauthorized', notice));
+  };
 
-export const ensureAuthenticated = (req: Request, res: Response, next: NextFunction): void => {
-  const token = getAuthTokenFromRequest(req);
-  if (!token) {
-    if (!res.headersSent) {
-      res.status(401).json({ message: 'Unauthorized' });
-    }
+  const classified = classifyAccessJwt(verifySessionJwt(requestToken.token));
+  if (classified.kind === 'rejected') {
+    rejectUnauthorized(null);
     return;
   }
-  verifyToken(req, res, next, token);
-};
+  const { claims } = classified;
 
-export const logout = (_req: Request, res: Response) => {
-  res.clearCookie(ADMIN_AUTH_COOKIE_NAME, {
-    path: '/',
-  });
-
-  if (isProduction) {
-    res.clearCookie(ADMIN_AUTH_COOKIE_NAME, {
-      path: '/',
-      domain: config.api.cookie.domain,
-    });
+  const [adminAccount, sessionCheck] = await Promise.all([
+    getAdminMatchingJwtIdentity(claims),
+    checkAdminSession({ adminAccountId: claims.id, sessionIdText: claims.sid }),
+  ]);
+  if (!adminAccount) {
+    rejectUnauthorized(null);
+    return;
+  }
+  if (sessionCheck.kind === 'ended') {
+    rejectUnauthorized(sessionCheck.notice);
+    return;
   }
 
-  return res.json({ message: 'Logged out successfully' });
+  const identity = mapAdminToIdentity(adminAccount);
+  if (!identity) {
+    loggerService.warn('Admin account has no role relation', { adminAccountId: adminAccount.id });
+    rejectUnauthorized(null);
+    return;
+  }
+
+  req.user = { ...identity, session_id_text: claims.sid };
+
+  if (sessionCheck.renewDue) {
+    await renewSessionOnUse(res, requestToken, sessionCheck.session, claims);
+  }
+
+  next();
+};
+
+/** A failed admin or session lookup answers 500 rather than leaving the request open. */
+function runAuthCheck(check: Promise<void>, res: Response): void {
+  check.catch((error: unknown) => {
+    loggerService.logError('Admin authentication check failed', error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  });
+}
+
+export const ensureAuthenticated = (req: Request, res: Response, next: NextFunction): void => {
+  const requestToken = readRequestToken(req);
+  if (!requestToken) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  runAuthCheck(verifyToken(req, res, next, requestToken), res);
+};
+
+/** Ends the calling session when the request names one. Always clears the cookie and answers 200. */
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  const requestToken = readRequestToken(req);
+  if (requestToken) {
+    const classified = classifyAccessJwt(verifySessionJwt(requestToken.token));
+    if (classified.kind === 'session') {
+      try {
+        await endAdminSession({
+          adminAccountId: classified.claims.id,
+          sessionIdText: classified.claims.sid,
+          reason: 'signed_out',
+        });
+      } catch (error) {
+        loggerService.logError('Failed to end the admin session on logout', error);
+      }
+    }
+  }
+
+  clearAuthCookie(res);
+  res.json({ message: 'Logged out successfully' });
 };
 
 export const issueMobileToken = async (req: Request, res: Response): Promise<void> => {
-  const body = req.body as { email?: string; password?: string } | undefined;
-  const email = body?.email?.trim() ?? '';
-  const password = body?.password ?? '';
+  const body = req.body as
+    { email?: unknown; password?: unknown; device_label?: unknown } | undefined;
+  const email = typeof body?.email === 'string' ? body.email.trim() : '';
+  const password = typeof body?.password === 'string' ? body.password : '';
   if (email === '' || password === '') {
     res.status(400).json({ message: 'email and password are required' });
     return;
@@ -380,39 +384,92 @@ export const issueMobileToken = async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  res.json(issueMobileTokenPair({ adminId: admin.id, adminIdText: admin.id_text }));
+  const { sessionIdText, refreshTokenId } = await startAdminSession({
+    adminAccountId: admin.id,
+    clientType: 'mobile',
+    deviceLabel: deviceLabelForMobile({
+      bodyLabel: body?.device_label,
+      platformHeader: req.get(BILLING_CLIENT_PLATFORM_HEADER),
+    }),
+    withRefreshToken: true,
+  });
+  if (refreshTokenId === null) {
+    throw new Error('Mobile admin session started without a refresh token id');
+  }
+
+  res.json(
+    signMobileTokenPair({
+      adminId: admin.id,
+      adminIdText: admin.id_text,
+      sessionIdText,
+      refreshTokenId,
+    })
+  );
 };
 
-export const refreshMobileToken = (req: Request, res: Response): void => {
-  const body = req.body as { refresh_token?: string } | undefined;
-  const refreshToken = body?.refresh_token ?? '';
+export const refreshMobileToken = async (req: Request, res: Response): Promise<void> => {
+  const body = req.body as { refresh_token?: unknown } | undefined;
+  const refreshToken = typeof body?.refresh_token === 'string' ? body.refresh_token : '';
   if (refreshToken === '') {
     res.status(400).json({ message: 'refresh_token is required' });
     return;
   }
 
-  let decoded: unknown;
-  try {
-    decoded = jwt.verify(refreshToken, config.auth.jwtSecret);
-  } catch {
+  const classified = classifyRefreshJwt(verifySessionJwt(refreshToken));
+  if (classified.kind === 'rejected') {
+    res.status(401).json({ message: 'Invalid refresh token' });
+    return;
+  }
+  const { claims } = classified;
+
+  const admin = await getAdminMatchingJwtIdentity(claims);
+  if (!admin) {
     res.status(401).json({ message: 'Invalid refresh token' });
     return;
   }
 
-  if (!isMobileRefreshJwtPayload(decoded) || !isValidNanoIdV2IdText(decoded.id_text)) {
-    res.status(401).json({ message: 'Invalid refresh token' });
+  const rotation = await rotateAdminRefreshToken({
+    adminAccountId: admin.id,
+    sessionIdText: claims.sid,
+    presentedTokenId: claims.rid,
+  });
+  if (rotation.kind === 'ended') {
+    res.status(401).json(unauthorizedBody('Invalid refresh token', rotation.notice));
     return;
   }
 
   res.json(
-    issueMobileTokenPair({
-      adminId: decoded.id,
-      adminIdText: decoded.id_text,
+    signMobileTokenPair({
+      adminId: admin.id,
+      adminIdText: admin.id_text,
+      sessionIdText: claims.sid,
+      refreshTokenId: rotation.refreshTokenId,
     })
   );
 };
 
-export const revokeMobileToken = (_req: Request, res: Response): void => {
-  // Client logout acknowledgment. Refresh JWTs stay valid until they expire or AUTH_JWT_SECRET is rotated.
+/**
+ * Ends the session named by a validly signed refresh token. Ending your own session needs no proof
+ * beyond the signature, so the current-or-previous check does not apply. Always answers 200 so a
+ * device's sign-out never fails on this call.
+ */
+export const revokeMobileToken = async (req: Request, res: Response): Promise<void> => {
+  const body = req.body as { refresh_token?: unknown } | undefined;
+  const refreshToken = typeof body?.refresh_token === 'string' ? body.refresh_token : '';
+  if (refreshToken !== '') {
+    const classified = classifyRefreshJwt(verifySessionJwt(refreshToken));
+    if (classified.kind === 'session') {
+      try {
+        await endAdminSession({
+          adminAccountId: classified.claims.id,
+          sessionIdText: classified.claims.sid,
+          reason: 'signed_out',
+        });
+      } catch (error) {
+        loggerService.logError('Failed to end the admin session on mobile revoke', error);
+      }
+    }
+  }
+
   res.json({ message: 'Mobile token family revoked' });
 };

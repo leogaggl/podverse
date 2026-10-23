@@ -1,8 +1,12 @@
+import type { AuthRequestDeps } from './authRequestWithRefresh';
 import {
+  adoptStoredCredentials,
   advanceAuthSessionGeneration,
-  type AuthRequestDeps,
-  rememberAuthCredentials,
+  getAuthSessionGeneration,
+  rememberAccessToken,
+  rememberSavedCredentials,
 } from './authRequestWithRefresh';
+import { markForcedLogout, shouldNotifyForcedLogout } from './forcedLogoutNotice';
 import {
   clearAllSecureTokens,
   readSecureTokenResult,
@@ -33,21 +37,36 @@ export const createBackgroundAuthDeps = async (): Promise<AuthRequestDeps | null
     return null;
   }
 
-  rememberAuthCredentials(accessToken, refreshToken);
+  adoptStoredCredentials(accessToken, refreshToken);
 
   return {
     accessToken,
     refreshToken,
     setTokens: async ({ accessToken: nextAccess, refreshToken: nextRefresh }) => {
-      rememberAuthCredentials(nextAccess, nextRefresh);
+      const generationAtStart = getAuthSessionGeneration();
+      rememberAccessToken(nextAccess);
       await Promise.all([
         writeSecureToken('accessToken', nextAccess),
-        writeSecureToken('refreshToken', nextRefresh),
+        // The refresh token becomes sendable only once SecureStore holds it, and only for the
+        // session the write started in.
+        writeSecureToken('refreshToken', nextRefresh).then(() => {
+          if (generationAtStart === getAuthSessionGeneration()) {
+            rememberSavedCredentials(nextAccess, nextRefresh);
+          }
+        }),
       ]);
     },
-    clearSession: async () => {
+    clearSession: async (reason, notice = null) => {
       advanceAuthSessionGeneration();
       await clearAllSecureTokens();
+      // No dialog is on screen for a background refresh. The marker is what the next launch reads.
+      if (shouldNotifyForcedLogout(reason)) {
+        try {
+          await markForcedLogout({ notice });
+        } catch (error) {
+          console.warn('Failed to record the forced-logout notice', error);
+        }
+      }
     },
   };
 };

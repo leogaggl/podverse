@@ -32,6 +32,7 @@ const BASE_ORM_COMMANDS = [
   'billingProcessorProductAdd',
   'notificationsPlatformPurge',
   'accountContentLogPurge',
+  'accountSessionPurge',
   'archiveAll',
   'devSeedLocalUserContent',
   'devStatsSeedSimulatedAggregated',

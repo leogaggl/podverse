@@ -7,10 +7,12 @@ import { ERROR_MESSAGES } from '@podverse/helpers';
 import type { ORMContext } from '@podverse/orm';
 
 import {
+  accountSessionStoreStub,
   authHeaders,
   getBaseApiUrl,
   startTestApp,
   stopTestApp,
+  TEST_ACCOUNT_SESSION_ID_TEXT,
   withMutedExpectedErrorLogs,
 } from './helpers/index.js';
 
@@ -19,6 +21,25 @@ const TEST_ACCOUNT_ID_TEXT = 'auth-test-user';
 const TEST_PASSWORD = 'test-password-123';
 const TEST_USER_ID = 1;
 const JWT_SECRET = process.env.AUTH_JWT_SECRET ?? '';
+
+function signRefreshToken(claims: { id: number; id_text: string }): string {
+  return jwt.sign(
+    {
+      ...claims,
+      sid: TEST_ACCOUNT_SESSION_ID_TEXT,
+      rid: 'auth-test-refresh-id',
+      scope: 'podverse_app_mobile',
+      token_use: 'refresh',
+    },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+}
+
+function decodedRefreshTokenId(token: string): unknown {
+  const decoded = jwt.decode(token);
+  return typeof decoded === 'object' && decoded !== null ? Reflect.get(decoded, 'rid') : undefined;
+}
 
 const {
   getByEmailMock,
@@ -136,6 +157,10 @@ describe('auth routes', () => {
 
     getSenderGuidByAccountIdMock.mockReset();
     getSenderGuidByAccountIdMock.mockImplementation(async () => null);
+
+    for (const stub of Object.values(accountSessionStoreStub)) {
+      stub.mockClear();
+    }
   });
 
   beforeAll(async () => {
@@ -148,6 +173,11 @@ describe('auth routes', () => {
 
   afterAll(async () => {
     await stopTestApp(server, ormContext);
+  });
+
+  // This file's verifyPassword fake must not reach later files that check real bcrypt hashes.
+  afterAll(() => {
+    vi.doUnmock('../lib/auth/password.js');
   });
 
   describe('POST /auth/login', () => {
@@ -171,6 +201,13 @@ describe('auth routes', () => {
       const hasJwtCookie = cookieHeader.some((c) => c.startsWith('jwt='));
       expect(hasJwtCookie).toBe(true);
       expect(getByEmailMock).toHaveBeenCalled();
+      expect(accountSessionStoreStub.startAccountSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: TEST_USER_ID,
+          clientType: 'web',
+          withRefreshToken: false,
+        })
+      );
     });
 
     it('returns 200 when logging in with username (username-only account)', async () => {
@@ -321,11 +358,16 @@ describe('auth routes', () => {
   });
 
   describe('POST /auth/logout', () => {
-    it('returns 200 and clears the auth cookie', async () => {
+    it('returns 200, ends the calling session, and clears the auth cookie', async () => {
       const res = await request(app).post(`${authBase}/logout`).set(authHeaders());
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Logged out successfully');
+      expect(accountSessionStoreStub.endAccountSession).toHaveBeenCalledWith({
+        accountId: 1,
+        sessionIdText: TEST_ACCOUNT_SESSION_ID_TEXT,
+        reason: 'signed_out',
+      });
       const cookieHeader = res.headers['set-cookie'] as string[] | undefined;
       if (cookieHeader) {
         const hasClearCookie = cookieHeader.some(
@@ -340,6 +382,7 @@ describe('auth routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Logged out successfully');
+      expect(accountSessionStoreStub.endAccountSession).not.toHaveBeenCalled();
     });
   });
 
@@ -386,9 +429,11 @@ describe('auth routes', () => {
     });
 
     it('returns 401 when JWT is missing id', async () => {
-      const tokenMissingId = jwt.sign({ id_text: TEST_ACCOUNT_ID_TEXT }, JWT_SECRET, {
-        expiresIn: '1h',
-      });
+      const tokenMissingId = jwt.sign(
+        { id_text: TEST_ACCOUNT_ID_TEXT, sid: TEST_ACCOUNT_SESSION_ID_TEXT, token_use: 'access' },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
       const res = await withMutedExpectedErrorLogs(async () =>
         request(app).get(`${authBase}/me`).set('Authorization', `Bearer ${tokenMissingId}`)
       );
@@ -397,7 +442,11 @@ describe('auth routes', () => {
     });
 
     it('returns 401 when JWT is missing id_text', async () => {
-      const tokenMissingIdText = jwt.sign({ id: TEST_USER_ID }, JWT_SECRET, { expiresIn: '1h' });
+      const tokenMissingIdText = jwt.sign(
+        { id: TEST_USER_ID, sid: TEST_ACCOUNT_SESSION_ID_TEXT, token_use: 'access' },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
       const res = await withMutedExpectedErrorLogs(async () =>
         request(app).get(`${authBase}/me`).set('Authorization', `Bearer ${tokenMissingIdText}`)
       );
@@ -406,14 +455,54 @@ describe('auth routes', () => {
     });
 
     it('returns 401 when JWT id is not a number', async () => {
-      const tokenStringId = jwt.sign({ id: '1', id_text: TEST_ACCOUNT_ID_TEXT }, JWT_SECRET, {
-        expiresIn: '1h',
-      });
+      const tokenStringId = jwt.sign(
+        {
+          id: '1',
+          id_text: TEST_ACCOUNT_ID_TEXT,
+          sid: TEST_ACCOUNT_SESSION_ID_TEXT,
+          token_use: 'access',
+        },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
       const res = await withMutedExpectedErrorLogs(async () =>
         request(app).get(`${authBase}/me`).set('Authorization', `Bearer ${tokenStringId}`)
       );
 
       expect(res.status).toBe(401);
+    });
+
+    it('returns a plain 401 for a signed token that names no session, without a session check', async () => {
+      const tokenWithoutSession = jwt.sign(
+        { id: TEST_USER_ID, id_text: TEST_ACCOUNT_ID_TEXT },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      const res = await request(app)
+        .get(`${authBase}/me`)
+        .set('Authorization', `Bearer ${tokenWithoutSession}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ message: 'Unauthorized' });
+      expect(accountSessionStoreStub.checkAccountSession).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 with the notice when the session was ended elsewhere', async () => {
+      accountSessionStoreStub.checkAccountSession.mockResolvedValueOnce({
+        kind: 'ended',
+        notice: 'signed_out_elsewhere',
+      });
+
+      const res = await request(app)
+        .get(`${authBase}/me`)
+        .set(authHeaders(TEST_USER_ID, TEST_ACCOUNT_ID_TEXT));
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({
+        message: 'Unauthorized',
+        code: 'session_ended',
+        notice: 'signed_out_elsewhere',
+      });
     });
   });
 
@@ -432,6 +521,16 @@ describe('auth routes', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('returns 401 for a refresh token sent as a bearer', async () => {
+      const refreshToken = signRefreshToken({ id: TEST_USER_ID, id_text: TEST_ACCOUNT_ID_TEXT });
+      const res = await request(app)
+        .get(`${authBase}/check-session`)
+        .set('Authorization', `Bearer ${refreshToken}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ message: 'Unauthorized' });
+    });
   });
 
   describe('POST /auth/mobile/*', () => {
@@ -446,6 +545,30 @@ describe('auth routes', () => {
       expect(typeof res.body.refresh_token).toBe('string');
       expect(res.body.access_token_expires_in).toBeGreaterThan(0);
       expect(res.body.refresh_token_expires_in).toBeGreaterThan(0);
+      expect(accountSessionStoreStub.startAccountSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: TEST_USER_ID,
+          clientType: 'mobile',
+          withRefreshToken: true,
+        })
+      );
+    });
+
+    it('labels the mobile session from device_label, else from the client platform header', async () => {
+      await request(app)
+        .post(`${authBase}/mobile/token`)
+        .send({ email: TEST_EMAIL, password: TEST_PASSWORD, device_label: 'Pixel 8' });
+      expect(accountSessionStoreStub.startAccountSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ deviceLabel: 'Pixel 8' })
+      );
+
+      await request(app)
+        .post(`${authBase}/mobile/token`)
+        .set('X-Podverse-Client-Platform', 'ios')
+        .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
+      expect(accountSessionStoreStub.startAccountSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ deviceLabel: 'iOS' })
+      );
     });
 
     it('returns 403 when the password matches an unverified account', async () => {
@@ -483,7 +606,7 @@ describe('auth routes', () => {
       expect(res.body.message).toBe('Unauthorized');
     });
 
-    it('refreshes from a still-valid refresh JWT', async () => {
+    it('refreshes by rotating the refresh token id the token carries', async () => {
       const issue = await request(app)
         .post(`${authBase}/mobile/token`)
         .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
@@ -493,13 +616,55 @@ describe('auth routes', () => {
         .post(`${authBase}/mobile/refresh`)
         .send({ refresh_token: refreshToken });
       expect(refreshOne.status).toBe(200);
+      expect(typeof refreshOne.body.access_token).toBe('string');
       expect(typeof refreshOne.body.refresh_token).toBe('string');
+      expect(accountSessionStoreStub.rotateMobileRefreshToken).toHaveBeenCalledWith({
+        accountId: TEST_USER_ID,
+        sessionIdText: TEST_ACCOUNT_SESSION_ID_TEXT,
+        presentedTokenId: decodedRefreshTokenId(refreshToken),
+      });
+      expect(decodedRefreshTokenId(refreshOne.body.refresh_token as string)).not.toBe(
+        decodedRefreshTokenId(refreshToken)
+      );
+    });
 
-      const refreshAgain = await request(app)
+    it('returns 401 with the notice when rotation ends the session', async () => {
+      accountSessionStoreStub.rotateMobileRefreshToken.mockResolvedValueOnce({
+        kind: 'ended',
+        notice: 'security',
+      });
+
+      const res = await request(app)
+        .post(`${authBase}/mobile/refresh`)
+        .send({
+          refresh_token: signRefreshToken({ id: TEST_USER_ID, id_text: TEST_ACCOUNT_ID_TEXT }),
+        });
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({
+        message: 'Invalid refresh token',
+        code: 'session_ended',
+        notice: 'security',
+      });
+    });
+
+    it('rejects a refresh JWT that names no session', async () => {
+      const refreshToken = jwt.sign(
+        {
+          id: TEST_USER_ID,
+          id_text: TEST_ACCOUNT_ID_TEXT,
+          scope: 'podverse_app_mobile',
+          token_use: 'refresh',
+        },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      const res = await request(app)
         .post(`${authBase}/mobile/refresh`)
         .send({ refresh_token: refreshToken });
-      expect(refreshAgain.status).toBe(200);
-      expect(typeof refreshAgain.body.access_token).toBe('string');
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ message: 'Invalid refresh token' });
+      expect(accountSessionStoreStub.rotateMobileRefreshToken).not.toHaveBeenCalled();
     });
 
     it('rejects an access token used as a refresh token', async () => {
@@ -514,16 +679,7 @@ describe('auth routes', () => {
     });
 
     it('rejects a refresh JWT for an account that no longer exists', async () => {
-      const refreshToken = jwt.sign(
-        {
-          id: 999999,
-          id_text: TEST_ACCOUNT_ID_TEXT,
-          scope: 'podverse_app_mobile',
-          token_use: 'refresh',
-        },
-        JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const refreshToken = signRefreshToken({ id: 999999, id_text: TEST_ACCOUNT_ID_TEXT });
 
       getMock.mockResolvedValueOnce(null);
 
@@ -534,16 +690,7 @@ describe('auth routes', () => {
     });
 
     it('rejects a refresh JWT whose id_text does not match the account', async () => {
-      const refreshToken = jwt.sign(
-        {
-          id: TEST_USER_ID,
-          id_text: TEST_ACCOUNT_ID_TEXT,
-          scope: 'podverse_app_mobile',
-          token_use: 'refresh',
-        },
-        JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const refreshToken = signRefreshToken({ id: TEST_USER_ID, id_text: TEST_ACCOUNT_ID_TEXT });
 
       getMock.mockResolvedValueOnce({
         id: TEST_USER_ID,
@@ -558,6 +705,37 @@ describe('auth routes', () => {
         .post(`${authBase}/mobile/refresh`)
         .send({ refresh_token: refreshToken });
       expect(res.status).toBe(401);
+      expect(accountSessionStoreStub.rotateMobileRefreshToken).not.toHaveBeenCalled();
+    });
+
+    it('revoke answers 200 with no body and with an invalid token, and ends no session', async () => {
+      const withoutBody = await request(app).post(`${authBase}/mobile/revoke`);
+      expect(withoutBody.status).toBe(200);
+      expect(withoutBody.body.message).toBe('Mobile session revoked');
+
+      const withInvalidToken = await request(app)
+        .post(`${authBase}/mobile/revoke`)
+        .send({ refresh_token: 'not-a-jwt' });
+      expect(withInvalidToken.status).toBe(200);
+      expect(withInvalidToken.body.message).toBe('Mobile session revoked');
+
+      expect(accountSessionStoreStub.endAccountSession).not.toHaveBeenCalled();
+    });
+
+    it('revoke ends the session named by a valid refresh token', async () => {
+      const res = await request(app)
+        .post(`${authBase}/mobile/revoke`)
+        .send({
+          refresh_token: signRefreshToken({ id: TEST_USER_ID, id_text: TEST_ACCOUNT_ID_TEXT }),
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Mobile session revoked');
+      expect(accountSessionStoreStub.endAccountSession).toHaveBeenCalledWith({
+        accountId: TEST_USER_ID,
+        sessionIdText: TEST_ACCOUNT_SESSION_ID_TEXT,
+        reason: 'signed_out',
+      });
     });
   });
 });

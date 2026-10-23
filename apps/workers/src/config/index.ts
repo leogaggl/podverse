@@ -12,6 +12,7 @@ import {
 } from '@podverse/external-services-object-storage';
 import {
   DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
+  DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
@@ -443,6 +444,19 @@ export function getAccountContentLogRetentionConfig(): AccountContentLogRetentio
     retentionDays: resolveRetentionDays(
       process.env.ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
       DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS
+    ),
+  };
+}
+
+export type AccountSessionRetentionConfig = {
+  retentionDays: number;
+};
+
+export function getAccountSessionRetentionConfig(): AccountSessionRetentionConfig {
+  return {
+    retentionDays: resolveRetentionDays(
+      process.env.ACCOUNT_SESSION_RETENTION_DAYS,
+      DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS
     ),
   };
 }

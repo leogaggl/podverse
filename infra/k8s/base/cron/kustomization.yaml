@@ -7,6 +7,8 @@ resources:
   - worker-descriptions-backfill.cronjob.yaml
   - worker-notifications-purge.cronjob.yaml
   - worker-account-content-log-purge.cronjob.yaml
+  - worker-account-session-purge.cronjob.yaml
+  - management-api-admin-session-purge.cronjob.yaml
   - worker-recent-feeds.cronjob.yaml
   - worker-archive-all.cronjob.yaml
   - worker-generate-reports.cronjob.yaml

@@ -1,6 +1,7 @@
 import { config } from '@management-api/config/index.js';
 import { ensureAuthenticated } from '@management-api/lib/auth/index.js';
 import { requireSuperuser } from '@management-api/lib/authz/requireSuperuser.js';
+import { endUserAccountSessions } from '@management-api/lib/endUserAccountSessions.js';
 import { AppDbDataSourceRead, AppDbDataSourceReadWrite } from '@management-api/orm/db/appDb.js';
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
@@ -763,7 +764,31 @@ router.post('/:id/password', ensureAuthenticated, requireSuperuser, async (req, 
       id,
     ]);
 
+    await endUserAccountSessions(id, 'admin_password_set');
+
     res.json({ message: 'Password updated' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// End every session of the account
+router.post('/:id/force-logout', ensureAuthenticated, requireSuperuser, async (req, res, next) => {
+  try {
+    const id = parseIdParam(req.params.id);
+    if (id === null) {
+      res.status(400).json({ message: 'Invalid id' });
+      return;
+    }
+
+    const existing = await AppDbDataSourceRead.query(`SELECT id FROM account WHERE id = $1`, [id]);
+    if (existing.length === 0) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    const sessionsEnded = await endUserAccountSessions(id, 'admin_force_logout');
+    res.json({ message: 'User signed out', sessions_ended: sessionsEnded });
   } catch (error) {
     next(error);
   }

@@ -3,9 +3,16 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import type { AuthSessionEndedNotice } from '@podverse/helpers/authSessionNotice';
+
 import type { CurrentUser } from '../lib/requests/auth';
-import { getCurrentUser } from '../lib/requests/auth';
+import { getManagementAuthResult } from '../lib/requests/auth';
 import { ROUTES } from '../lib/routes';
+
+function redirectPathWithNotice(redirectPath: string, notice: AuthSessionEndedNotice): string {
+  const separator = redirectPath.includes('?') ? '&' : '?';
+  return `${redirectPath}${separator}notice=${notice}`;
+}
 
 export type UseManagementClientSessionGuardOptions = {
   /** When false, skip session verification (user stays `initialUser`). */
@@ -20,7 +27,8 @@ export type UseManagementClientSessionGuardOptions = {
 
 /**
  * Client-side session re-check for management pages that already received a server-validated user.
- * Aligns behavior across pages: `/auth/me`, redirect on null/unauthorized, refresh user state when valid.
+ * Calls `/auth/me`, refreshes the user when the session is valid, and replaces to `redirectPath`
+ * when it is not. A signed-out notice is appended to that path so the login page can show it.
  */
 export function useManagementClientSessionGuard(
   initialUser: CurrentUser,
@@ -46,17 +54,21 @@ export function useManagementClientSessionGuard(
 
     const verify = async () => {
       try {
-        const currentUser = await getCurrentUser();
+        const result = await getManagementAuthResult();
         if (cancelled) {
           return;
         }
-        if (currentUser === null) {
+        if (result.user === null) {
           onInvalidRef.current?.();
-          router.replace(redirectPath);
+          const nextPath =
+            result.notice === null
+              ? redirectPath
+              : redirectPathWithNotice(redirectPath, result.notice);
+          router.replace(nextPath);
           return;
         }
-        setUser(currentUser);
-        onValidRef.current?.(currentUser);
+        setUser(result.user);
+        onValidRef.current?.(result.user);
       } catch {
         if (!cancelled) {
           onInvalidRef.current?.();

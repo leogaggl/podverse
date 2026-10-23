@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 
 import { app } from '@management-api/app.js';
 import { config } from '@management-api/config/index.js';
+import { TEST_ADMIN_SESSION_CLAIMS } from '@management-api/test/adminSessionStoreStub.js';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -127,11 +128,11 @@ vi.mock('@management-api/orm/services/adminAccount.js', () => {
 });
 
 const superuserAuthHeaders = (): { Authorization: string } => ({
-  Authorization: `Bearer ${jwt.sign({ id: 1, id_text: 'pvMgtSu001' }, JWT_SECRET, { expiresIn: '1h' })}`,
+  Authorization: `Bearer ${jwt.sign({ id: 1, id_text: 'pvMgtSu001', ...TEST_ADMIN_SESSION_CLAIMS }, JWT_SECRET, { expiresIn: '1h' })}`,
 });
 
 const noBucketAdminAuthHeaders = (): { Authorization: string } => ({
-  Authorization: `Bearer ${jwt.sign({ id: 3, id_text: 'pvMgtAd003' }, JWT_SECRET, { expiresIn: '1h' })}`,
+  Authorization: `Bearer ${jwt.sign({ id: 3, id_text: 'pvMgtAd003', ...TEST_ADMIN_SESSION_CLAIMS }, JWT_SECRET, { expiresIn: '1h' })}`,
 });
 
 describe('Storage routes', () => {

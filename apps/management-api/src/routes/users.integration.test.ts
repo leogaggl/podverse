@@ -1,5 +1,6 @@
 import { app } from '@management-api/app.js';
 import { config } from '@management-api/config/index.js';
+import { TEST_ADMIN_SESSION_CLAIMS } from '@management-api/test/adminSessionStoreStub.js';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -123,18 +124,22 @@ let hashPasswordSpy: ReturnType<typeof vi.spyOn<typeof PodverseOrm, 'hashPasswor
 let generateRandomIdTextSpy: ReturnType<
   typeof vi.spyOn<typeof PodverseOrm, 'generateRandomIdText'>
 >;
+let revokeAccountSessionsSpy: ReturnType<
+  typeof vi.spyOn<typeof PodverseOrm, 'revokeAccountSessions'>
+>;
 
 beforeAll(() => {
   hashPasswordSpy = vi.spyOn(PodverseOrm, 'hashPassword');
   generateRandomIdTextSpy = vi.spyOn(PodverseOrm, 'generateRandomIdText');
+  revokeAccountSessionsSpy = vi.spyOn(PodverseOrm, 'revokeAccountSessions');
 });
 
 const superuserAuthHeaders = (): { Authorization: string } => ({
-  Authorization: `Bearer ${jwt.sign({ id: 1, id_text: 'pvMgtSu001' }, JWT_SECRET, { expiresIn: '1h' })}`,
+  Authorization: `Bearer ${jwt.sign({ id: 1, id_text: 'pvMgtSu001', ...TEST_ADMIN_SESSION_CLAIMS }, JWT_SECRET, { expiresIn: '1h' })}`,
 });
 
 const adminAuthHeaders = (): { Authorization: string } => ({
-  Authorization: `Bearer ${jwt.sign({ id: 2, id_text: 'pvMgtAd002' }, JWT_SECRET, { expiresIn: '1h' })}`,
+  Authorization: `Bearer ${jwt.sign({ id: 2, id_text: 'pvMgtAd002', ...TEST_ADMIN_SESSION_CLAIMS }, JWT_SECRET, { expiresIn: '1h' })}`,
 });
 
 const _unauthenticatedHeaders = (): { Authorization: string } => ({
@@ -167,6 +172,8 @@ beforeEach(() => {
   }));
   hashPasswordSpy.mockImplementation((p: string) => hashPasswordMock(p));
   generateRandomIdTextSpy.mockImplementation(() => generateRandomIdTextMock());
+  revokeAccountSessionsSpy.mockReset();
+  revokeAccountSessionsSpy.mockResolvedValue(0);
   vi.spyOn(
     PodverseOrm.BillingPriceCatalogService.prototype,
     'resolveProductMembership'
@@ -361,6 +368,7 @@ describe('DELETE /users/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('User deleted');
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
   });
 
   it('returns 404 for non-existent user', async () => {
@@ -385,7 +393,14 @@ describe('POST /users/:id/password', () => {
       .send({ password: 'newpassword123' });
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toBe('Password updated');
+    expect(res.body).toEqual({ message: 'Password updated' });
+    expect(revokeAccountSessionsSpy).toHaveBeenCalledTimes(1);
+    expect(revokeAccountSessionsSpy).toHaveBeenCalledWith({
+      accountId: 1,
+      reason: 'admin_password_set',
+      exceptSessionIdText: null,
+      now: expect.any(Date),
+    });
   });
 
   it('returns 400 for invalid password', async () => {
@@ -395,6 +410,100 @@ describe('POST /users/:id/password', () => {
       .send({ password: 'short' });
 
     expect(res.status).toBe(400);
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 for an unknown user and does not end sessions', async () => {
+    readQueryMock.mockResolvedValueOnce([]);
+
+    const res = await request(app)
+      .post(`${usersBase}/99999/password`)
+      .set(superuserAuthHeaders())
+      .send({ password: 'newpassword123' });
+
+    expect(res.status).toBe(404);
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when ending sessions fails and does not report the password as updated', async () => {
+    readQueryMock.mockResolvedValueOnce([{ id: 1 }]);
+    hashPasswordMock.mockResolvedValueOnce('hashed_newpass');
+    readWriteQueryMock.mockResolvedValueOnce(undefined);
+    readWriteQueryMock.mockResolvedValueOnce(undefined);
+    revokeAccountSessionsSpy.mockRejectedValueOnce(new Error('session revoke failed'));
+
+    const res = await request(app)
+      .post(`${usersBase}/1/password`)
+      .set(superuserAuthHeaders())
+      .send({ password: 'newpassword123' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.message).not.toBe('Password updated');
+  });
+});
+
+describe('POST /users/:id/force-logout', () => {
+  it('returns 401 without authentication', async () => {
+    const res = await request(app).post(`${usersBase}/1/force-logout`);
+
+    expect(res.status).toBe(401);
+  });
+
+  it('ends every session and returns how many ended', async () => {
+    readQueryMock.mockResolvedValueOnce([{ id: 1 }]);
+    revokeAccountSessionsSpy.mockResolvedValueOnce(2);
+
+    const res = await request(app).post(`${usersBase}/1/force-logout`).set(superuserAuthHeaders());
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ message: 'User signed out', sessions_ended: 2 });
+    expect(revokeAccountSessionsSpy).toHaveBeenCalledTimes(1);
+    expect(revokeAccountSessionsSpy).toHaveBeenCalledWith({
+      accountId: 1,
+      reason: 'admin_force_logout',
+      exceptSessionIdText: null,
+      now: expect.any(Date),
+    });
+  });
+
+  it('returns 200 with sessions_ended 0 when the account has no sessions', async () => {
+    readQueryMock.mockResolvedValueOnce([{ id: 1 }]);
+    revokeAccountSessionsSpy.mockResolvedValueOnce(0);
+
+    const res = await request(app).post(`${usersBase}/1/force-logout`).set(superuserAuthHeaders());
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ message: 'User signed out', sessions_ended: 0 });
+  });
+
+  it('returns 404 for an unknown user and does not end sessions', async () => {
+    readQueryMock.mockResolvedValueOnce([]);
+
+    const res = await request(app)
+      .post(`${usersBase}/99999/force-logout`)
+      .set(superuserAuthHeaders());
+
+    expect(res.status).toBe(404);
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for an invalid id and does not end sessions', async () => {
+    const res = await request(app)
+      .post(`${usersBase}/abc/force-logout`)
+      .set(superuserAuthHeaders());
+
+    expect(res.status).toBe(400);
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when ending sessions fails and omits sessions_ended', async () => {
+    readQueryMock.mockResolvedValueOnce([{ id: 1 }]);
+    revokeAccountSessionsSpy.mockRejectedValueOnce(new Error('session revoke failed'));
+
+    const res = await request(app).post(`${usersBase}/1/force-logout`).set(superuserAuthHeaders());
+
+    expect(res.status).toBe(500);
+    expect(res.body).not.toHaveProperty('sessions_ended');
   });
 });
 
@@ -487,6 +596,12 @@ describe('Authz: non-superuser cannot access user endpoints', () => {
   it('rejects delete for non-superuser', async () => {
     const res = await request(app).delete(`${usersBase}/1`).set(adminAuthHeaders());
     expect(res.status).toBe(403);
+  });
+
+  it('rejects force-logout for non-superuser', async () => {
+    const res = await request(app).post(`${usersBase}/1/force-logout`).set(adminAuthHeaders());
+    expect(res.status).toBe(403);
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -584,6 +699,7 @@ describe('POST /users', () => {
     expect(res.status).toBe(201);
     expect(res.body.message).toBe('User created successfully');
     expect(res.body.set_password_url).toBeUndefined();
+    expect(revokeAccountSessionsSpy).not.toHaveBeenCalled();
   });
 
   it('uses product membership defaults trial duration when membership_expires_at is omitted', async () => {

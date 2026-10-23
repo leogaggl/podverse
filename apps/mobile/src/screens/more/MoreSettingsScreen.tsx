@@ -70,6 +70,21 @@ export function MoreSettingsScreen() {
       },
       {
         onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsChangePassword);
+        },
+        subtitle: t('settings.account.change_password.description'),
+        testID: 'more-settings-change-password',
+        title: t('settings.account.change_password.heading'),
+      },
+      {
+        onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsSessions);
+        },
+        testID: 'more-settings-sessions',
+        title: t('settings.account.sessions.heading'),
+      },
+      {
+        onPress: () => {
           navigation.navigate(MORE_STACK_ROUTES.MoreTermsOfService);
         },
         subtitle: termsSubtitle,

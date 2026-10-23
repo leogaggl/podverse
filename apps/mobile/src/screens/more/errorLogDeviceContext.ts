@@ -71,21 +71,6 @@ export const androidDeviceType = (uiMode: string, width: number, height: number)
   return 'phone';
 };
 
-export const joinDeviceModel = (manufacturer: string, model: string): string | null => {
-  const brand = manufacturer.trim();
-  const name = model.trim();
-  if (brand === '' && name === '') {
-    return null;
-  }
-  if (name === '') {
-    return brand;
-  }
-  if (brand === '' || name.toLowerCase().startsWith(brand.toLowerCase())) {
-    return name;
-  }
-  return `${brand} ${name}`;
-};
-
 const formatScale = (scale: number): string => {
   if (Number.isInteger(scale)) {
     return String(scale);

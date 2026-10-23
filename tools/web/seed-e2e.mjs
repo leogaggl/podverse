@@ -44,8 +44,22 @@ const E2E_POPULARITY_TRACKING_VERSION = '2026-10-15';
 const E2E_POPULARITY_UNDECIDED_EMAIL = 'e2e-popularity-undecided@example.com';
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_CONSENT_ORDER_EMAIL = 'e2e-consent-order@example.com';
+/** Sync with apps/web/e2e/helpers/accountSessions.ts */
+const E2E_SESSIONS_EMAIL = 'e2e-sessions@example.com';
 /** Sync with apps/mobile/src/lib/e2e/e2eSeedConstants.ts (`E2E_PERF_EMAIL`). */
 const E2E_PERF_EMAIL = 'e2e-perf@example.com';
+/** Sync with apps/web/e2e/settings-account-change-password.spec.ts */
+const E2E_CHANGE_PASSWORD_WEB_EMAIL = 'e2e-change-password-web@example.com';
+/** `e2eChgPwWeb01` is 13 characters, inside nano_id_v2's 9–15 range. */
+const E2E_CHANGE_PASSWORD_WEB_ID_TEXT = 'e2eChgPwWeb01';
+/** Emails stay in sync with apps/mobile/e2e/auth-change-password.yaml. */
+const E2E_CHANGE_PASSWORD_IOS_EMAIL = 'e2e-change-password-ios@example.com';
+/** `e2eChgPwIos01` is 13 characters, inside nano_id_v2's 9–15 range. */
+const E2E_CHANGE_PASSWORD_IOS_ID_TEXT = 'e2eChgPwIos01';
+/** Emails stay in sync with apps/mobile/e2e/auth-change-password.yaml. */
+const E2E_CHANGE_PASSWORD_ANDROID_EMAIL = 'e2e-change-password-android@example.com';
+/** `e2eChgPwAnd01` is 13 characters, inside nano_id_v2's 9–15 range. */
+const E2E_CHANGE_PASSWORD_ANDROID_ID_TEXT = 'e2eChgPwAnd01';
 /** `e2ePerfUser01` is 13 characters, inside nano_id_v2's 9–15 range. */
 const E2E_PERF_ACCOUNT_ID_TEXT = 'e2ePerfUser01';
 const E2E_PERF_FEED_URL_PREFIX = 'https://e2e-perf.example/';
@@ -668,9 +682,54 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
     [consentOrderAccountId]
   );
 
+  const sessionsIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const sessionsAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [sessionsIdText]
+  );
+  const sessionsAccountId = sessionsAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [sessionsAccountId, E2E_SESSIONS_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+     VALUES ($1, 1, $2)`,
+    [sessionsAccountId, membershipExpiresAt]
+  );
+  await client.query(
+    `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+     VALUES ($1, 'trial', $2, $3)`,
+    [sessionsAccountId, membershipStartsAt, membershipExpiresAt]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [sessionsAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, false, false, $2, NOW())`,
+    [sessionsAccountId, E2E_POPULARITY_TRACKING_VERSION]
+  );
+
   console.log(`Seeded 1 test user: e2e-user@example.com`);
   console.log(`Seeded popularity-undecided user: ${E2E_POPULARITY_UNDECIDED_EMAIL}`);
   console.log(`Seeded consent-order user: ${E2E_CONSENT_ORDER_EMAIL}`);
+  console.log(`Seeded sessions user: ${E2E_SESSIONS_EMAIL}`);
   console.log(`Seeded stale-terms user: ${E2E_STALE_TERMS_EMAIL}`);
   console.log(
     `Seeded invite set-password token for account id ${inviteAccountId} (username e2e_invite_user)`
@@ -742,6 +801,111 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
   );
 
   console.log(`Seeded perf user: ${E2E_PERF_EMAIL}`);
+
+  const changePasswordAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [E2E_CHANGE_PASSWORD_WEB_ID_TEXT]
+  );
+  const changePasswordAccountId = changePasswordAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [changePasswordAccountId, E2E_CHANGE_PASSWORD_WEB_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+     VALUES ($1, 1, $2)`,
+    [changePasswordAccountId, membershipExpiresAt]
+  );
+  await client.query(
+    `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+     VALUES ($1, 'trial', $2, $3)`,
+    [changePasswordAccountId, membershipStartsAt, membershipExpiresAt]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [changePasswordAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  // Listen-stats is already decided so the consent prompt does not cover Settings.
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, true, true, $2, NOW())`,
+    [changePasswordAccountId, E2E_POPULARITY_TRACKING_VERSION]
+  );
+
+  console.log(`Seeded change-password user: ${E2E_CHANGE_PASSWORD_WEB_EMAIL}`);
+
+  const changePasswordMobileAccounts = [
+    {
+      email: E2E_CHANGE_PASSWORD_IOS_EMAIL,
+      idText: E2E_CHANGE_PASSWORD_IOS_ID_TEXT,
+    },
+    {
+      email: E2E_CHANGE_PASSWORD_ANDROID_EMAIL,
+      idText: E2E_CHANGE_PASSWORD_ANDROID_ID_TEXT,
+    },
+  ];
+
+  for (const changePasswordMobileAccount of changePasswordMobileAccounts) {
+    const changePasswordMobileAccountResult = await client.query(
+      `INSERT INTO "account" (id_text, verified, sharable_status_id)
+       VALUES ($1, true, 1)
+       RETURNING id`,
+      [changePasswordMobileAccount.idText]
+    );
+    const changePasswordMobileAccountId = changePasswordMobileAccountResult.rows[0].id;
+
+    await client.query(
+      `INSERT INTO "account_credentials" (account_id, email, password)
+       VALUES ($1, $2, $3)`,
+      [changePasswordMobileAccountId, changePasswordMobileAccount.email, passwordHash]
+    );
+
+    await client.query(
+      `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+       VALUES ($1, 1, $2)`,
+      [changePasswordMobileAccountId, membershipExpiresAt]
+    );
+    await client.query(
+      `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+       VALUES ($1, 'trial', $2, $3)`,
+      [changePasswordMobileAccountId, membershipStartsAt, membershipExpiresAt]
+    );
+
+    await client.query(
+      `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+       VALUES ($1, $2, NOW())`,
+      [changePasswordMobileAccountId, E2E_CONFIGURED_TERMS_VERSION]
+    );
+
+    // Listen-stats is already decided so the consent prompt does not cover Settings.
+    await client.query(
+      `INSERT INTO "account_settings" (
+         account_id,
+         allow_listen_stats,
+         listen_stats_accepted,
+         listen_stats_agreement_version,
+         listen_stats_decided_at
+       )
+       VALUES ($1, true, true, $2, NOW())`,
+      [changePasswordMobileAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    );
+
+    console.log(`Seeded change-password user: ${changePasswordMobileAccount.email}`);
+  }
 
   return accountId;
 }

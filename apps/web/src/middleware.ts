@@ -1,8 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { ONE_YEAR_SECONDS } from '@podverse/helpers';
+import { AuthCookieName, ONE_YEAR_SECONDS } from '@podverse/helpers';
 
+import type { WebSessionRenewal } from './lib/auth/webSessionRenewal';
+import {
+  fetchWebSessionRenewal,
+  isWebSessionRenewalDue,
+  replaceCookieInHeader,
+} from './lib/auth/webSessionRenewal';
 import { CLIP_REMOVED_REQUEST_HEADER } from './lib/clip/removedClip';
 import {
   channelPathForMedium,
@@ -107,7 +113,7 @@ function clipIdFromPath(pathname: string): string | null {
 }
 
 /** A visitor request for a removed clip is 410. The page still renders the removed shell. */
-async function visitorClipRemoved(request: NextRequest): Promise<boolean> {
+async function visitorClipRemoved(request: NextRequest, cookie: string | null): Promise<boolean> {
   const clipId = clipIdFromPath(request.nextUrl.pathname);
   if (clipId === null) {
     return false;
@@ -117,7 +123,6 @@ async function visitorClipRemoved(request: NextRequest): Promise<boolean> {
     return false;
   }
   try {
-    const cookie = request.headers.get('cookie');
     const headers: Record<string, string> = { accept: 'application/json' };
     if (cookie) {
       headers.cookie = cookie;
@@ -136,29 +141,70 @@ async function visitorClipRemoved(request: NextRequest): Promise<boolean> {
   }
 }
 
-function passThrough(request: NextRequest): NextResponse {
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(MERGE_REDIRECT_CHECKED_HEADER, '1');
-  return NextResponse.next({ request: { headers: requestHeaders } });
+function passThrough(requestHeaders: Headers): NextResponse {
+  const headers = new Headers(requestHeaders);
+  headers.set(MERGE_REDIRECT_CHECKED_HEADER, '1');
+  return NextResponse.next({ request: { headers } });
+}
+
+/** Asks the API only when the cookie is due; prefetches wait for the navigation that follows. */
+async function sessionRenewalForRequest(request: NextRequest): Promise<WebSessionRenewal | null> {
+  const token = request.cookies.get(AuthCookieName)?.value;
+  if (!token || request.headers.get('next-router-prefetch') === '1') {
+    return null;
+  }
+  const base = ssrApiBase();
+  if (base === null || !isWebSessionRenewalDue(token, Date.now())) {
+    return null;
+  }
+  return fetchWebSessionRenewal({
+    apiBase: base,
+    cookieHeader: request.headers.get('cookie') ?? '',
+  });
 }
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
-  if (await visitorClipRemoved(request)) {
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set(CLIP_REMOVED_REQUEST_HEADER, '1');
-    return NextResponse.next({
-      status: 410,
-      request: { headers: requestHeaders },
-    });
+  const renewal = await sessionRenewalForRequest(request);
+
+  // A cleared cookie is forwarded, but the request keeps the ended token so the layout's own
+  // call receives the signed-out reason.
+  const requestHeaders = new Headers(request.headers);
+  if (renewal?.renewedToken) {
+    requestHeaders.set(
+      'cookie',
+      replaceCookieInHeader(
+        request.headers.get('cookie') ?? '',
+        AuthCookieName,
+        renewal.renewedToken
+      )
+    );
+  }
+
+  const withRenewal = (response: NextResponse): NextResponse => {
+    for (const setCookie of renewal?.setCookies ?? []) {
+      response.headers.append('set-cookie', setCookie);
+    }
+    return response;
+  };
+
+  if (await visitorClipRemoved(request, requestHeaders.get('cookie'))) {
+    const clipRemovedHeaders = new Headers(requestHeaders);
+    clipRemovedHeaders.set(CLIP_REMOVED_REQUEST_HEADER, '1');
+    return withRenewal(
+      NextResponse.next({
+        status: 410,
+        request: { headers: clipRemovedHeaders },
+      })
+    );
   }
 
   const route = mergeRedirectRouteFromPath(request.nextUrl.pathname);
   if (route === null) {
-    return NextResponse.next();
+    return withRenewal(NextResponse.next({ request: { headers: requestHeaders } }));
   }
   const base = ssrApiBase();
   if (base === null) {
-    return NextResponse.next();
+    return withRenewal(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   const resolved =
@@ -168,7 +214,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         ? await postResolve(base, { item_id_texts: [route.id] })
         : await postResolve(base, { podcast_index_ids: [Number(route.id)] });
   if (resolved === null) {
-    return NextResponse.next();
+    return withRenewal(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   const search = route.kind === 'podcast_index' ? '' : request.nextUrl.search;
@@ -215,13 +261,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   if (path === null) {
-    return passThrough(request);
+    return withRenewal(passThrough(requestHeaders));
   }
 
   const destination = new URL(path, request.url);
   const current = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   if (`${destination.pathname}${destination.search}` === current) {
-    return passThrough(request);
+    return withRenewal(passThrough(requestHeaders));
   }
 
   const response = NextResponse.redirect(destination, 308);
@@ -232,17 +278,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       sameSite: 'lax',
     });
   }
-  return response;
+  // `response.cookies.set` rewrites every Set-Cookie header, so the renewal is appended after it.
+  return withRenewal(response);
 }
 
+/** Every page route; route handlers, build assets, and files with an extension stay out. */
 export const config = {
-  matcher: [
-    '/podcast/:id',
-    '/album/:id',
-    '/artist/:id',
-    '/episode/:id',
-    '/track/:id',
-    '/podcast-index/feed/:id',
-    '/clip/:id',
-  ],
+  matcher: ['/((?!api/|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)'],
 };

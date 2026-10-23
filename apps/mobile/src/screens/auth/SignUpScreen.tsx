@@ -4,11 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOTermsAgreement } from '@podverse/helpers';
 import { DEFAULT_LOCALE } from '@podverse/helpers/locales';
-import {
-  getEmailErrorKey,
-  getPassword2ErrorKey,
-  getPasswordErrorKey,
-} from '@podverse/helpers-validation/client';
+import { getEmailErrorKey, getPasswordErrorKey } from '@podverse/helpers-validation/client';
 
 import { createMobileApiRequestService } from '../../auth';
 import { signupCompletionKind } from '../../auth/signupVerificationEmailNotice';
@@ -37,7 +33,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   const { i18n, t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [agreement, setAgreement] = useState<DTOTermsAgreement | null>(null);
   const [termsError, setTermsError] = useState(false);
@@ -49,7 +44,7 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
   const { styles: themeStyles, tokens } = useTheme();
 
   const resolveValidationError = (validationError: string): string => {
-    const validationErrorKeys = new Set(['invalid_email', 'invalid_password', 'password_mismatch']);
+    const validationErrorKeys = new Set(['invalid_email', 'invalid_password']);
     if (validationErrorKeys.has(validationError)) {
       return t(`${AUTHENTICATION_VALIDATION_KEY_PREFIX}${validationError}`);
     }
@@ -105,11 +100,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
     const passwordErrorKey = getPasswordErrorKey(password);
     if (passwordErrorKey !== undefined) {
       return passwordErrorKey;
-    }
-
-    const password2ErrorKey = getPassword2ErrorKey(password, passwordConfirm);
-    if (password2ErrorKey !== undefined) {
-      return password2ErrorKey;
     }
 
     return null;
@@ -268,17 +258,6 @@ export function SignUpScreen({ onDismiss, onSwitchToLogin }: SignUpScreenProps) 
             testID="signup-password"
             textContentType={isE2e ? 'none' : 'newPassword'}
             value={password}
-          />
-          <TextField
-            accessibilityLabel={t('authentication.confirm_password')}
-            autoCapitalize="none"
-            autoCorrect={false}
-            eyebrow={t('authentication.confirm_password')}
-            onChangeText={setPasswordConfirm}
-            placeholder={t('authentication.password_hint')}
-            secureTextEntry={!isE2e}
-            testID="signup-password-confirm"
-            value={passwordConfirm}
           />
         </View>
         {termsError ? (

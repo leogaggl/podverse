@@ -8,6 +8,8 @@ declare global {
       id: number;
       id_text: string;
       verified: boolean;
+      /** `id_text` of the account session the request's token names. */
+      session_id_text: string;
       entitlements?: AccountTrustEntitlements;
     }
     interface Request {

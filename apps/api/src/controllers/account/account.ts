@@ -5,10 +5,13 @@ import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
 import { loggerService } from '@api/factories/loggerService.js';
 import { accountToJson } from '@api/lib/accountApiSerialization.js';
 import {
+  clearAuthCookie,
   ensureAuthenticated,
   getAuthenticatedUser,
   optionalEnsureAuthenticated,
 } from '@api/lib/auth//index.js';
+import { endAccountSessions } from '@api/lib/auth/accountSessionStore.js';
+import { verifyPassword } from '@api/lib/auth/password.js';
 import { getFollowedAccountIds } from '@api/lib/followed.js';
 import {
   isConfiguredTermsVersion,
@@ -40,6 +43,7 @@ import Joi from 'joi';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
+  ACCOUNT_CHANGE_PASSWORD_ERROR_CODES,
   ACCOUNT_RESPONSE_CODES,
   ERROR_MESSAGES,
   getAccountSignupModeCapabilities,
@@ -865,10 +869,69 @@ export class AccountController {
     await sendResetPasswordEmail(email, account.id_text, resetToken);
   }
 
+  static async changePassword(req: Request, res: Response): Promise<void> {
+    ensureAuthenticated(
+      req,
+      res,
+      async () => {
+        const bodySchema = Joi.object({
+          current_password: Joi.string().required(),
+          new_password: Joi.string().required(),
+        });
+
+        validateBodyObject(bodySchema, req, res, async () => {
+          try {
+            const jwtUser = getAuthenticatedUser(req);
+            const { current_password, new_password } = req.body;
+
+            const account = await AccountController.accountService.get(jwtUser.id, {
+              relations: accountCredentialsRelations,
+            });
+            const passwordHash = account?.account_credentials?.password;
+            const currentPasswordMatches =
+              passwordHash !== undefined &&
+              passwordHash !== '' &&
+              (await verifyPassword(current_password, passwordHash));
+            if (!currentPasswordMatches) {
+              res.status(400).json({
+                message: 'Current password is incorrect',
+                code: ACCOUNT_CHANGE_PASSWORD_ERROR_CODES.CURRENT_PASSWORD_INCORRECT,
+              });
+              return;
+            }
+
+            const result = await AccountController.accountService.resetPassword(
+              jwtUser.id,
+              new_password
+            );
+            if (result === 'invalid_new_password') {
+              res.status(400).json({
+                message: 'New password does not meet the requirements',
+                code: ACCOUNT_CHANGE_PASSWORD_ERROR_CODES.INVALID_NEW_PASSWORD,
+              });
+              return;
+            }
+
+            const revokedCount = await endAccountSessions({
+              accountId: jwtUser.id,
+              reason: 'password_changed',
+              exceptSessionIdText: jwtUser.session_id_text,
+            });
+
+            res.json({ message: 'Password changed', revoked_count: revokedCount });
+          } catch (error) {
+            handleGenericErrorResponse(res, error);
+          }
+        });
+      },
+      { skipMembershipStatus: true, skipTermsAcceptance: true }
+    );
+  }
+
   static async resetPassword(req: Request, res: Response): Promise<void> {
     const bodySchema = Joi.object({
       token: Joi.string().required(),
-      password: Joi.string().min(8).required(),
+      password: Joi.string().required(),
     });
 
     validateBodyObject(bodySchema, req, res, async () => {
@@ -882,10 +945,21 @@ export class AccountController {
           return;
         }
 
-        await AccountController.accountService.resetPassword(
+        const result = await AccountController.accountService.resetPassword(
           accountResetPassword.account.id,
           password
         );
+        if (result === 'invalid_new_password') {
+          res.status(400).json({ message: 'Password does not meet the requirements' });
+          return;
+        }
+
+        await endAccountSessions({
+          accountId: accountResetPassword.account.id,
+          reason: 'password_changed',
+          exceptSessionIdText: null,
+        });
+        clearAuthCookie(res);
 
         res.json({ message: 'Password reset successfully' });
       } catch (error) {
@@ -903,6 +977,7 @@ export class AccountController {
           const jwtUser = getAuthenticatedUser(req);
           const account_id = jwtUser.id;
           await AccountController.accountService.delete(account_id);
+          clearAuthCookie(res);
           res.json({ message: 'Account deleted successfully' });
         } catch (error) {
           handleGenericErrorResponse(res, error);
@@ -997,7 +1072,11 @@ export class AccountController {
         return;
       }
 
-      await AccountController.accountService.resetPassword(account.id, password);
+      const result = await AccountController.accountService.resetPassword(account.id, password);
+      if (result === 'invalid_new_password') {
+        res.status(400).json({ message: 'Password does not meet the requirements' });
+        return;
+      }
 
       if (email && account.account_credentials?.email === null) {
         const accountCredentialsService = new AccountCredentialsService();
@@ -1007,6 +1086,13 @@ export class AccountController {
       await AccountController.accountService.verifyEmail(account.id);
 
       await AccountController.accountSetPasswordService.deleteByAccountId(account.id);
+
+      await endAccountSessions({
+        accountId: account.id,
+        reason: 'password_changed',
+        exceptSessionIdText: null,
+      });
+      clearAuthCookie(res);
 
       res.json({ message: 'Password set successfully' });
     } catch (error) {

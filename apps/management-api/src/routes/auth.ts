@@ -1,5 +1,10 @@
 import { config } from '@management-api/config/index.js';
 import {
+  listAdminSessionsHttp,
+  revokeAdminSessionHttp,
+  revokeOtherAdminSessionsHttp,
+} from '@management-api/lib/auth/adminSessionHttp.js';
+import {
   authenticate,
   ensureAuthenticated,
   issueMobileToken,
@@ -33,6 +38,17 @@ router.get('/me', ensureAuthenticated, (req, res) => {
     role: admin.role,
     permissions: admin.permissions,
   });
+});
+
+router.get('/sessions', ensureAuthenticated, (req, res, next) => {
+  void listAdminSessionsHttp(req, res).catch(next);
+});
+// Literal path, registered before `:session_id_text` so that param does not capture it.
+router.post('/sessions/revoke-others', ensureAuthenticated, (req, res, next) => {
+  void revokeOtherAdminSessionsHttp(req, res).catch(next);
+});
+router.delete('/sessions/:session_id_text', ensureAuthenticated, (req, res, next) => {
+  void revokeAdminSessionHttp(req, res).catch(next);
 });
 
 const authRoot = express.Router();

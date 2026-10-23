@@ -27,6 +27,7 @@
     "orm_descriptions_backfill": "node ./dist/index.js ormDescriptionsBackfill",
     "notifications_platform_purge": "node ./dist/index.js notificationsPlatformPurge",
     "account_content_log_purge": "node ./dist/index.js accountContentLogPurge",
+    "account_session_purge": "node ./dist/index.js accountSessionPurge",
     "dev_pi_bulk_feeds_add_from_file": "node ./dist/index.js devPiBulkFeedsAddFromFile",
     "dev_parser_rss_parse_podcasting20_feeds": "node ./dist/index.js devParserRSSParsePodcasting20Feeds",
     "dev_parser_rss_parse_trending_feeds": "node ./dist/index.js devParserRSSParseTrendingFeeds",

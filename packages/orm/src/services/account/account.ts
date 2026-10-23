@@ -344,7 +344,18 @@ export class AccountService {
     await accountVerificationService.deleteByAccountId(id);
   }
 
-  async resetPassword(accountId: number, newPassword: string): Promise<void> {
+  /**
+   * Sets a new password when it meets the sign-up password rule. Pending reset-password links for
+   * the account stop working. An invalid password writes nothing.
+   */
+  async resetPassword(
+    accountId: number,
+    newPassword: string
+  ): Promise<'changed' | 'invalid_new_password'> {
+    if (!validatePassword(newPassword)) {
+      return 'invalid_new_password';
+    }
+
     const account = await this.repositoryReadWrite.findOne({ where: { id: accountId } });
 
     if (!account) {
@@ -360,6 +371,8 @@ export class AccountService {
 
     const accountResetPasswordService = new AccountResetPasswordService();
     await accountResetPasswordService.deleteByAccountId(account.id);
+
+    return 'changed';
   }
 
   async delete(accountId: number): Promise<void> {

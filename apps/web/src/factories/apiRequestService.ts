@@ -1,6 +1,7 @@
 import { ApiRequestService } from '@podverse/helpers-requests';
 
 import { getConfig } from '../config';
+import { reportSessionEndedError } from '../lib/auth/sessionEndedNotice';
 
 let apiRequestServiceInstance: ApiRequestService | null = null;
 
@@ -25,6 +26,7 @@ export const getApiRequestService = (): ApiRequestService => {
       port: config.public.api.client.port || '',
       prefix: config.public.api.prefix || '',
       version: config.public.api.version || '',
+      onRequestError: reportSessionEndedError,
     });
   }
 

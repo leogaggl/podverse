@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { ACCOUNT_RESPONSE_CODES } from '@podverse/helpers';
 import {
   getEmailErrorKey,
-  getPassword2ErrorKey,
   getPasswordErrorKey,
   getPasswordRequirementsInfoKey,
 } from '@podverse/helpers-validation/client';
@@ -40,13 +39,10 @@ function isInvalidTermsVersionError(error: unknown): boolean {
 export const AuthSignUpForm = () => {
   const [email, setEmail] = useState('');
   const [password1, setPassword1] = useState('');
-  const [password2, setPassword2] = useState('');
   const [emailErrorKey, setEmailErrorKey] = useState<string | undefined>();
   const [password1ErrorKey, setPassword1ErrorKey] = useState<string | undefined>();
-  const [password2ErrorKey, setPassword2ErrorKey] = useState<string | undefined>();
   const [emailTouched, setEmailTouched] = useState(false);
   const [password1Touched, setPassword1Touched] = useState(false);
-  const [password2Touched, setPassword2Touched] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [termsVersionError, setTermsVersionError] = useState<string | undefined>();
   const [isAccountCreated, setIsAccountCreated] = useState(false);
@@ -104,15 +100,6 @@ export const AuthSignUpForm = () => {
     if (password1Touched && password1.trim() !== '') {
       setPassword1ErrorKey(getPasswordErrorKey(password1) || undefined);
     }
-    if (password2Touched && password2) {
-      setPassword2ErrorKey(getPassword2ErrorKey(password1, password2) || undefined);
-    }
-  };
-
-  const handlePassword2Blur = () => {
-    if (password2Touched && password2.trim() !== '') {
-      setPassword2ErrorKey(getPassword2ErrorKey(password1, password2) || undefined);
-    }
   };
 
   const onEmailChange = (value: string) => {
@@ -141,39 +128,13 @@ export const AuthSignUpForm = () => {
     if (value === '') {
       setPassword1ErrorKey(undefined);
     }
-    if (password2Touched && password2) {
-      const pwd2Key = getPassword2ErrorKey(value, password2);
-      if (!pwd2Key) {
-        setPassword2ErrorKey(undefined);
-      } else {
-        setPassword2ErrorKey(pwd2Key);
-      }
-    }
-  };
-
-  const onPassword2Change = (value: string) => {
-    setPassword2(value);
-    setPassword2Touched(value !== '');
-    if (password2ErrorKey) {
-      const key = getPassword2ErrorKey(password1, value);
-      if (!key) {
-        setPassword2ErrorKey(undefined);
-      } else {
-        setPassword2ErrorKey(key);
-      }
-    }
-    if (value === '') {
-      setPassword2ErrorKey(undefined);
-    }
   };
 
   const isFormValid =
     !getEmailErrorKey(email) &&
     !getPasswordErrorKey(password1) &&
-    !getPassword2ErrorKey(password1, password2) &&
     !!email &&
     !!password1 &&
-    !!password2 &&
     termsAgreed;
 
   return (
@@ -200,16 +161,6 @@ export const AuthSignUpForm = () => {
             placeholder={tAuthentication('password_hint')}
             eyebrow={tAuthentication('password')}
             infoError={password1ErrorKey ? tAuthentication(password1ErrorKey) : undefined}
-          />
-          <TextInput
-            type="password"
-            name="password2"
-            value={password2}
-            onChange={(e) => onPassword2Change(e.target.value)}
-            onBlur={handlePassword2Blur}
-            placeholder={tAuthentication('password_hint')}
-            eyebrow={tAuthentication('confirm_password')}
-            infoError={password2ErrorKey ? tAuthentication(password2ErrorKey) : undefined}
           />
           <div className={styles.passwordInfo}>
             {tAuthentication(getPasswordRequirementsInfoKey())}
