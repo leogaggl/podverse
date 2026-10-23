@@ -41,6 +41,7 @@ const BASE_ORM_COMMANDS = [
   'deleteOutdatedOnDemandParserEvent',
   'ormDescriptionsBackfill',
   'ormArchivedSlimReport',
+  'ormVerifiedPublisherLinksBackfill',
 ] as const;
 
 const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;
@@ -91,7 +92,8 @@ const FULL_STACK_COMMANDS = [
   'mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex',
 ] as const;
 
-const BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS = ['mqAddByRSSRunParser'] as const;
+/** `mqAddByRSSRunParser` looks up feed URLs an Add by RSS artist feed lists without one. */
+const BASE_ORM_MQ_PARSER_KEYVALDB_PODCAST_INDEX_COMMANDS = ['mqAddByRSSRunParser'] as const;
 
 const BASE_ORM_MQ_KEYVALDB_PODCAST_INDEX_COMMANDS = ['mqOpmlImportRun'] as const;
 
@@ -202,14 +204,15 @@ export function getCategoriesForCommand(commandName: string): Set<ConfigCategory
   }
 
   if (
-    BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS.includes(
-      commandName as (typeof BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS)[number]
+    BASE_ORM_MQ_PARSER_KEYVALDB_PODCAST_INDEX_COMMANDS.includes(
+      commandName as (typeof BASE_ORM_MQ_PARSER_KEYVALDB_PODCAST_INDEX_COMMANDS)[number]
     )
   ) {
     categories.add(CATEGORY_ORM);
     categories.add(CATEGORY_MQ);
     categories.add(CATEGORY_PARSER);
     categories.add(CATEGORY_KEYVALDB);
+    categories.add(CATEGORY_PODCAST_INDEX);
     return categories;
   }
 

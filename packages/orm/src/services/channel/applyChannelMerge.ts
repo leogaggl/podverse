@@ -18,6 +18,7 @@ import type {
 } from '@orm/lib/duplicateFeedMatch.js';
 import { assessDuplicatePair } from '@orm/lib/duplicateFeedMatch.js';
 import { isPodcastGuidUniqueViolation } from '@orm/lib/postgresUniqueViolation.js';
+import { ChannelVerifiedPublisherService } from '@orm/services/channel/channelVerifiedPublisher.js';
 import type { EntityManager } from 'typeorm';
 
 import { FeedService } from '../feed/feed.js';
@@ -608,6 +609,25 @@ async function moveAutoDownload(
   }
 }
 
+async function removeVerifiedPublisherLinks(
+  manager: EntityManager,
+  channelMergeId: number,
+  channelId: number
+): Promise<void> {
+  for (const column of ['channel_id', 'publisher_channel_id']) {
+    const rows = await selectMergeRows(manager, 'channel_verified_publisher', {
+      [column]: channelId,
+    });
+    for (const row of rows) {
+      const id = sqlKey(row.id);
+      if (id === null) {
+        continue;
+      }
+      await journaledDelete(manager, channelMergeId, 'channel_verified_publisher', { id });
+    }
+  }
+}
+
 async function movePendingFollows(
   manager: EntityManager,
   channelMergeId: number,
@@ -830,6 +850,7 @@ async function applyAbsorb(
   await moveNotificationChannels(manager, merge.id, from.channelId, to.channelId);
   await moveAutoDownload(manager, merge.id, from.channelId, to.channelId);
   await movePendingFollows(manager, merge.id, from, to);
+  await removeVerifiedPublisherLinks(manager, merge.id, from.channelId);
 
   const maps = await manager.getRepository(ItemMergeMap).find({
     where: { channel_merge_id: merge.id },
@@ -1073,6 +1094,19 @@ export async function verifyAndApplyDuplicateMerges(
       const request = await AppDataSourceReadWrite.transaction((manager) =>
         applyMerge(manager, row.id)
       );
+      const applied = await repo.findOne({ where: { id: row.id } });
+      if (
+        applied !== null &&
+        applied.status === ChannelMergeStatus.Applied &&
+        applied.mode === ChannelMergeMode.Absorb &&
+        applied.to_channel_id !== null
+      ) {
+        try {
+          await new ChannelVerifiedPublisherService().recomputeForChannel(applied.to_channel_id);
+        } catch (error) {
+          warnMerge(row.id, error);
+        }
+      }
       if (request !== null) {
         try {
           await options.enqueueRepointParse(request);

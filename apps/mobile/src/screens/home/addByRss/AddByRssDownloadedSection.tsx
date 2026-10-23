@@ -40,12 +40,13 @@ export function AddByRssDownloadedSection({
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const details = useMemo(() => [detail], [detail]);
   const {
     addToPlaylistSheet,
     noticeKey: playbackNoticeKey,
     renderRow,
   } = useAddByRssEpisodeRowRenderer({
-    detail,
+    details,
     isMusicFeed,
     visitLastSeenAtMs,
   });

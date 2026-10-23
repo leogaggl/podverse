@@ -36,6 +36,23 @@ export const getAddByRSSCredentialsNeed = (
   return null;
 };
 
+/**
+ * Listed albums also need credentials when the server withheld the artist's credentials from
+ * them (another domain, or plain HTTP) and the album asked for some.
+ */
+export const getListedAddByRSSCredentialsNeed = (
+  feed: Pick<AddByRSSFeedRecord, 'requiresCredentials' | 'lastFailureReason'>,
+  hasLocalCredentials: boolean
+): AddByRSSCredentialsNeed | null => {
+  if (
+    feed.lastFailureReason === 'credentials_withheld_other_domain' ||
+    feed.lastFailureReason === 'credentials_withheld_insecure'
+  ) {
+    return 'missing';
+  }
+  return getAddByRSSCredentialsNeed(feed, hasLocalCredentials);
+};
+
 const toCredentialFeedUrl = (feedUrl: string): string =>
   canonicalAddByRSSFeedUrl(feedUrl) ?? feedUrl.trim();
 

@@ -184,6 +184,10 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     async setCategoryCache(): Promise<void> {}
   }
 
+  class MockChannelVerifiedPublisherService {
+    getPublisherSummaries = vi.fn(async () => []);
+  }
+
   class MockAccountService {
     get = getAccountMock;
   }
@@ -249,6 +253,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
   return {
     ...actual,
     CategoryService: MockCategoryService,
+    ChannelVerifiedPublisherService: MockChannelVerifiedPublisherService,
     AccountService: MockAccountService,
     PlaylistService: MockPlaylistService,
     PlaylistResourceService: MockPlaylistResourceService,

@@ -8,6 +8,7 @@ const {
   getFollowedAddByRSSChannelsMock,
   insertMissingAddByRSSFeedsMock,
   patchAddByRSSFollowMetadataMock,
+  pruneAddByRSSPublisherDataMock,
 } = vi.hoisted(() => ({
   bulkRemoveAddByRSSFeedsMock: vi.fn(),
   clearAddByRSSItemsIndexMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getFollowedAddByRSSChannelsMock: vi.fn(),
   insertMissingAddByRSSFeedsMock: vi.fn(),
   patchAddByRSSFollowMetadataMock: vi.fn(),
+  pruneAddByRSSPublisherDataMock: vi.fn(),
 }));
 
 vi.mock('./api', () => ({
@@ -30,6 +32,9 @@ vi.mock('./storage', () => ({
 }));
 vi.mock('./feedChangedEvent', () => ({
   emitAddByRSSFeedChanged: emitAddByRSSFeedChangedMock,
+}));
+vi.mock('./listedFeeds', () => ({
+  pruneAddByRSSPublisherData: pruneAddByRSSPublisherDataMock,
 }));
 
 import type { DTOAccountFollowingAddByRSSChannel } from '@podverse/helpers';
@@ -70,6 +75,7 @@ describe('syncAddByRSSFollowStubs', () => {
     clearAddByRSSItemsIndexMock.mockResolvedValue(undefined);
     patchAddByRSSFollowMetadataMock.mockResolvedValue([]);
     insertMissingAddByRSSFeedsMock.mockResolvedValue(undefined);
+    pruneAddByRSSPublisherDataMock.mockResolvedValue([]);
   });
 
   it('stores one stub when the account follows a feed this browser has not stored', async () => {
@@ -87,6 +93,7 @@ describe('syncAddByRSSFollowStubs', () => {
       }),
     ]);
     expect(patchAddByRSSFollowMetadataMock).toHaveBeenCalledWith([]);
+    expect(pruneAddByRSSPublisherDataMock).not.toHaveBeenCalled();
   });
 
   it('patches a stored feed for that URL and inserts nothing', async () => {
@@ -106,7 +113,7 @@ describe('syncAddByRSSFollowStubs', () => {
     ]);
   });
 
-  it('removes a stored feed the account no longer follows and clears the items index', async () => {
+  it('removes a stored feed the account no longer follows, clears the items index, and prunes artist albums', async () => {
     getAllAddByRSSFeedsMock.mockResolvedValue([
       storedFeed('https://gone.example/feed.xml', 'gone-feed'),
     ]);
@@ -115,5 +122,6 @@ describe('syncAddByRSSFollowStubs', () => {
 
     expect(bulkRemoveAddByRSSFeedsMock).toHaveBeenCalledWith(['gone-feed']);
     expect(clearAddByRSSItemsIndexMock).toHaveBeenCalled();
+    expect(pruneAddByRSSPublisherDataMock).toHaveBeenCalledTimes(1);
   });
 });

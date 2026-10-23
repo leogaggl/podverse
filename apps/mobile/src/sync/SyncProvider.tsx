@@ -44,7 +44,10 @@ import {
 import { subscribeTermsBlocksAccountSync, termsBlocksAccountSync } from '../terms/termsSyncGate';
 import { publishPlaybackPositionAdoptions } from './playbackPositionAdoption';
 import { publishPlaybackReconcileConflicts } from './playbackReconcileConflict';
-import { registerAddByRssRefreshRequest } from './requestAddByRssRefresh';
+import {
+  registerAddByRssListedFeedsRequest,
+  registerAddByRssRefreshRequest,
+} from './requestAddByRssRefresh';
 import { attachSyncEventLogSink } from './syncEventLogSink';
 import type { SyncTrigger } from './syncJobPlan';
 import { planSyncRun } from './syncJobPlan';
@@ -211,8 +214,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
     registerAddByRssRefreshRequest(() => {
       requestSync('add-by-rss-pull-to-refresh');
     });
+    registerAddByRssListedFeedsRequest(() => {
+      requestSync('add-by-rss-listed-feeds');
+    });
     return () => {
       registerAddByRssRefreshRequest(null);
+      registerAddByRssListedFeedsRequest(null);
     };
   }, [requestSync]);
 

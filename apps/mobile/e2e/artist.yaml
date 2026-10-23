@@ -1,7 +1,8 @@
 appId: com.podverse.app.next
 name: Artist flow
 ---
-# Artist detail opens linked album and track detail routes. Track detail opens via More.
+# Artist detail opens a verified album, the Not Yet Added preview, and a track.
+# Track detail opens via More. Add on the preview is left alone so the seeded library stays put.
 
 - runFlow: shared/launch-and-connect.yaml
 - runFlow: shared/login-seeded-user.yaml
@@ -37,6 +38,23 @@ name: Artist flow
     visible:
       id: artist-album-row-0
     timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: artist-albums-verified-heading
+- assertNotVisible:
+    text: "E2E Unclaimed Music Album"
+- assertNotVisible:
+    text: "E2E Unknown Album"
+# The mini player can cover the bottom of the album list.
+- scrollUntilVisible:
+    element:
+      id: artist-albums-not-yet-added-heading
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    waitToSettleTimeoutMs: 1000
+- assertVisible:
+    id: artist-albums-not-yet-added-note
+- assertVisible:
+    id: artist-album-unadded-row-0
 - tapOn:
     id: artist-album-row-0
 - extendedWaitUntil:
@@ -64,12 +82,61 @@ name: Artist flow
       id: artist-detail-screen
     timeout: ${TIMEOUT_SLOW}
 
+- scrollUntilVisible:
+    element:
+      id: artist-album-unadded-row-0
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    waitToSettleTimeoutMs: 1000
+- tapOn:
+    id: artist-album-unadded-row-0
+- extendedWaitUntil:
+    visible:
+      id: pi-feed-preview-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    text: "E2E Not Yet Added Album"
+- assertVisible:
+    id: pi-feed-add-button
+# Same return as the album round trip. Add follows the feed, so the flow does not press it.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "0%,45%"
+          end: "85%,45%"
+          duration: 400
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: stack-header-back
+- extendedWaitUntil:
+    visible:
+      id: artist-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+
 - tapOn:
     id: artist-detail-section-tracks
 - extendedWaitUntil:
     visible:
       id: artist-track-row-0
     timeout: ${TIMEOUT_SLOW}
+- assertNotVisible:
+    id: artist-track-unadded-row-0
+- assertVisible:
+    text: "E2E Music Track One"
+# Track Two can sit under the mini player. Scrolling is a no-op when it is already on screen.
+- scrollUntilVisible:
+    element:
+      text: "E2E Music Track Two"
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+    waitToSettleTimeoutMs: 1000
+- assertVisible:
+    text: "E2E Music Track Two"
 - assertNotVisible:
     id: "home-row-play-.*"
 - tapOn:

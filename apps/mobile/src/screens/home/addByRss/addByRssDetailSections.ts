@@ -4,6 +4,7 @@ import type { AddByRssDetailTab } from '../../../prefs/detailListPrefs';
 
 export const ADD_BY_RSS_SECTION_LABEL_KEYS: Record<AddByRssDetailTab, string> = {
   about: 'info.about',
+  albums: 'media.music.albums',
   downloaded: 'features.download.downloaded',
   episodes: 'media.podcast.episodes',
   funding: 'info.funding',
@@ -21,24 +22,32 @@ export const isAddByRssSortableSection = (section: AddByRssDetailTab): boolean =
   section === 'episodes' || section === 'tracks';
 
 export const isAddByRssFilterableSection = (section: AddByRssDetailTab): boolean =>
-  section === 'episodes' || section === 'tracks' || section === 'downloaded';
+  section === 'albums' ||
+  section === 'episodes' ||
+  section === 'tracks' ||
+  section === 'downloaded';
 
 /**
  * Podcast feeds offer Episodes, Downloaded, and About, then Funding and People when the feed
- * lists them. Music feeds offer Tracks and About, then Funding and People, and no Downloaded.
+ * lists them. Artist feeds offer Albums, Tracks, and About; album and track feeds offer Tracks
+ * and About. Music feeds then add Funding and People, and never Downloaded.
  */
 export const resolveAddByRssSections = ({
   hasFunding,
   hasPeople,
+  isArtistFeed,
   isMusicFeed,
 }: {
   hasFunding: boolean;
   hasPeople: boolean;
+  isArtistFeed: boolean;
   isMusicFeed: boolean;
 }): AddByRssDetailTab[] => {
-  const sections: AddByRssDetailTab[] = isMusicFeed
-    ? ['tracks', 'about']
-    : ['episodes', 'downloaded', 'about'];
+  const sections: AddByRssDetailTab[] = isArtistFeed
+    ? ['albums', 'tracks', 'about']
+    : isMusicFeed
+      ? ['tracks', 'about']
+      : ['episodes', 'downloaded', 'about'];
   if (hasFunding) {
     sections.push('funding');
   }
@@ -48,11 +57,21 @@ export const resolveAddByRssSections = ({
   return sections;
 };
 
-/** Downloaded when Offline Mode is on for a podcast feed; otherwise the items chip. */
+/**
+ * An artist feed opens on Albums, offline or not. A podcast feed opens on Downloaded when Offline
+ * Mode is on. Otherwise the items chip.
+ */
 export const resolveAddByRssInitialSection = ({
+  isArtistFeed,
   isMusicFeed,
   offline,
 }: {
+  isArtistFeed: boolean;
   isMusicFeed: boolean;
   offline: boolean;
-}): AddByRssDetailTab => (offline && !isMusicFeed ? 'downloaded' : addByRssItemsTab(isMusicFeed));
+}): AddByRssDetailTab => {
+  if (isArtistFeed) {
+    return 'albums';
+  }
+  return offline && !isMusicFeed ? 'downloaded' : addByRssItemsTab(isMusicFeed);
+};

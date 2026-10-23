@@ -1039,6 +1039,64 @@ components:
         credentialsState:
           type: string
           enum: [sent, not_provided, withheld_other_domain, withheld_insecure, decrypt_failed]
+        publisherRequestId:
+          type: string
+          description: >-
+            Set on the entry of a feed parsed because a publisher feed listed it: that publisher
+            parse's request id.
+        publisherListedFeeds:
+          type: array
+          description: >-
+            On a parsed entry for an artist (publisher) feed: the feeds it lists, in feed order.
+            `directory` rows are already in the Podverse directory and were not fetched;
+            `add_by_rss` rows were parsed for this member, poll their `requestId`; `unresolved`
+            rows were neither. Absent when the feed lists nothing by type or the list could not
+            be resolved.
+          items:
+            type: object
+            required:
+              - kind
+              - feedGuid
+              - feedUrl
+              - title
+              - listedAtChannelLevel
+              - itemGuids
+            properties:
+              kind:
+                type: string
+                enum: [directory, add_by_rss, unresolved]
+              feedGuid:
+                type: string
+              feedUrl:
+                type: string
+                nullable: true
+              title:
+                type: string
+                nullable: true
+              listedAtChannelLevel:
+                type: boolean
+              itemGuids:
+                type: array
+                items:
+                  type: string
+              channelIdText:
+                type: string
+                description: directory rows
+              channelTitle:
+                type: string
+                nullable: true
+                description: directory rows
+              mediumId:
+                type: integer
+                nullable: true
+                description: directory rows
+              requestId:
+                type: string
+                description: add_by_rss rows
+              reason:
+                type: string
+                enum: [no_feed_url, item_references_only]
+                description: unresolved rows
     ApiGetAccountDownloadDataResponse200:
       type: object
       description: Operation-specific response payload for GET /account/download-data (200).
@@ -1189,6 +1247,28 @@ components:
         channel_id_texts:
           - "kM7T2xYqLp"
           - "9fZq4Nb1Rd"
+    ApiPostAccountUnfollowBulkRequest:
+      type: object
+      description: >-
+        At least one of channel_id_texts and add_by_rss_feed_urls is non-empty, and the two lists
+        together hold at most 1000 entries.
+      properties:
+        channel_id_texts:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+        add_by_rss_feed_urls:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            format: uri
+      example:
+        channel_id_texts:
+          - "kM7T2xYqLp"
+        add_by_rss_feed_urls:
+          - "https://example.com/album.xml"
     BulkFollowChannelResult:
       type: object
       required:
@@ -1993,6 +2073,22 @@ components:
       allOf:
         - $ref: "#/components/schemas/ChannelDetailResponse"
       nullable: true
+    ApiGetChannelDirectoryMatchResponse200:
+      type: object
+      nullable: true
+      required:
+        - id_text
+        - title
+        - medium_id
+      properties:
+        id_text:
+          type: string
+        title:
+          type: string
+          nullable: true
+        medium_id:
+          type: integer
+          nullable: true
     ApiGetClipPublicCategoryOldestResponse200:
       allOf:
         - $ref: "#/components/schemas/ClipListResponse"
@@ -2608,6 +2704,19 @@ components:
     CategoryDetailResponse:
       allOf:
         - $ref: "#/components/schemas/Category"
+    VerifiedPublisher:
+      type: object
+      required:
+        - id_text
+        - medium_id
+      properties:
+        id_text:
+          type: string
+        title:
+          type: string
+          nullable: true
+        medium_id:
+          type: integer
     Channel:
       type: object
       properties:
@@ -2630,6 +2739,11 @@ components:
           nullable: true
         channel_description:
           $ref: "#/components/schemas/DTOChannelDescription"
+        verified_publishers:
+          type: array
+          description: Publishers verified on the whole channel, primary first. Both feeds reference each other. Present on channel and item reads that attach it.
+          items:
+            $ref: "#/components/schemas/VerifiedPublisher"
     ChannelListResponse:
       type: object
       required:
@@ -2765,6 +2879,16 @@ components:
           $ref: "#/components/schemas/LiveItem"
         channel:
           $ref: "#/components/schemas/Channel"
+        verified_publishers:
+          type: array
+          description: Publishers credited on this item alone, primary first. Channel-wide publishers are on the channel.
+          items:
+            $ref: "#/components/schemas/VerifiedPublisher"
+        channel_wide_verified_publishers:
+          type: array
+          description: Publishers verified on this item's whole channel, primary first. Present only on by-channel item lists, whose items have no embedded channel.
+          items:
+            $ref: "#/components/schemas/VerifiedPublisher"
     ItemListResponse:
       type: object
       properties:
@@ -3958,6 +4082,13 @@ components:
           items:
             $ref: "#/components/schemas/RemoteItemGeneric"
     PublisherFeedRemoteItemsResponse:
+      description: >-
+        channelsAdded lists albums verified to this publisher (both feeds reference each other),
+        in the publisher feed's order. channelsUnadded lists albums the publisher feed lists that
+        Podverse has not parsed, as Podcast Index feeds. References Podcast Index does not know
+        are left out. itemsAdded lists tracks on the verified albums, plus tracks credited to this
+        publisher alone, newest first. itemsUnadded is always empty. Item references in a
+        publisher feed are not shown; nothing can verify them.
       allOf:
         - $ref: "#/components/schemas/RemoteItemsResultResponse"
         - type: object
@@ -7260,6 +7391,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/unfollow/bulk:
+    post:
+      operationId: apiPostAccountUnfollowBulk
+      tags:
+        - account
+      summary: POST /account/unfollow/bulk
+      description: >-
+        Ends this account's follow of the given directory channels and Add by RSS feed URLs.
+        Unknown ids and URLs are skipped. Not membership-gated.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountUnfollowBulkRequest"
+      responses:
+        "204":
+          description: Follows ended
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /account/unfollow/playlist:
     post:
       operationId: apiPostAccountUnfollowPlaylist
@@ -9854,6 +10024,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiGetChannelPodcastIndexPodcastIndexIdResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /channel/directory-match:
+    get:
+      operationId: apiGetChannelDirectoryMatch
+      tags:
+        - channel
+      summary: GET /channel/directory-match
+      description: >-
+        Public endpoint returning the directory channel a feed guid (or feed URL) resolves to, or
+        null. Reads public directory data only.
+      security: []
+      parameters:
+        - in: query
+          name: feed_guid
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: feed_url
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetChannelDirectoryMatchResponse200"
         "400":
           description: Bad request
           content:
@@ -15973,7 +16201,7 @@ paths:
       tags:
         - publisher-feed
       summary: GET /publisher-feed/channel/{id_or_id_text}
-      description: Public endpoint. Returns channel context and publisher feed channels/items partitioned by local availability.
+      description: Public endpoint. Returns the publisher channel, its verified albums, albums its feed lists that Podverse has not parsed (Podcast Index data), and tracks on the verified albums.
       security: []
       parameters:
         - in: path

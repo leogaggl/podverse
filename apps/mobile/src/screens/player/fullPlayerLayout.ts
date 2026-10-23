@@ -1,9 +1,16 @@
+import { spacing } from '../../theme/spacing';
+
 export type FullPlayerLayoutInput = {
   /**
    * Measured height of the rendered chip strip. Larger than the constant at accessibility text
    * sizes, so the peek reserve tracks what is actually on screen instead of assuming the default.
    */
   chipStripHeight?: number;
+  /**
+   * The item has a verified artist. Adds `FULL_PLAYER_ARTIST_LINE_RESERVE` to the title block for
+   * the whole item; the artwork gives up that height.
+   */
+  hasArtistLine: boolean;
   /**
    * The item has chapters, or the target is a clip, official clip, or chapter. Without one, the
    * segment band and its seam are dropped and the artwork takes that height.
@@ -56,8 +63,21 @@ export type FullPlayerViewport = {
  * with its seam, for an item that has neither.
  */
 export const FULL_PLAYER_SEGMENT_BAND_HEIGHT = 64;
-/** Episode title + channel title share one band with a tight internal gap. */
+/** Item title + channel title share one band with a tight internal gap. */
 export const FULL_PLAYER_TITLE_BLOCK_HEIGHT = 56;
+/** Artist line box inside the title block, between the item title and the album. */
+export const FULL_PLAYER_ARTIST_LINE_HEIGHT = 18;
+/**
+ * Extra title-block height for an item with an artist line: the line plus the block's internal
+ * gap. Reserved for the whole item, so a line never appears or disappears mid-play.
+ */
+export const FULL_PLAYER_ARTIST_LINE_RESERVE = FULL_PLAYER_ARTIST_LINE_HEIGHT + spacing.xs;
+
+export const resolveFullPlayerTitleBlockHeight = (hasArtistLine: boolean): number =>
+  hasArtistLine
+    ? FULL_PLAYER_TITLE_BLOCK_HEIGHT + FULL_PLAYER_ARTIST_LINE_RESERVE
+    : FULL_PLAYER_TITLE_BLOCK_HEIGHT;
+
 export const FULL_PLAYER_PROGRESS_BLOCK_HEIGHT = 56;
 export const FULL_PLAYER_TRANSPORT_ROW_HEIGHT = 72;
 export const FULL_PLAYER_UTILITY_ROW_HEIGHT = 48;
@@ -168,8 +188,10 @@ const fixedChromeHeight =
 /** Height the artwork gets back when the segment band and its seam are omitted. */
 const segmentBandReserve = FULL_PLAYER_SEGMENT_BAND_HEIGHT + FULL_PLAYER_REGION_GAP;
 
-const resolveFixedChromeHeight = (hasSegmentBand: boolean): number =>
-  hasSegmentBand ? fixedChromeHeight : fixedChromeHeight - segmentBandReserve;
+const resolveFixedChromeHeight = (hasSegmentBand: boolean, hasArtistLine: boolean): number => {
+  const chrome = hasSegmentBand ? fixedChromeHeight : fixedChromeHeight - segmentBandReserve;
+  return hasArtistLine ? chrome + FULL_PLAYER_ARTIST_LINE_RESERVE : chrome;
+};
 
 export const resolveFullPlayerLayout = (input: FullPlayerLayoutInput): FullPlayerLayout => {
   const viewportHeight = asNonNegative(input.viewportHeight);
@@ -202,7 +224,7 @@ export const resolveFullPlayerLayout = (input: FullPlayerLayoutInput): FullPlaye
 
   const viewerHeight = Math.max(
     0,
-    playerRegionHeight - resolveFixedChromeHeight(input.hasSegmentBand)
+    playerRegionHeight - resolveFixedChromeHeight(input.hasSegmentBand, input.hasArtistLine)
   );
 
   // Locked frame when scrolled to the sheet: chips + sheet + bottom gap fill the viewport.

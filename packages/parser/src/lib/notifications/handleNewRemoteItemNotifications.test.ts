@@ -10,6 +10,7 @@ const {
   getAllByPodcastGuidsMock,
   getByUrlMock,
   getDevicesMock,
+  isVerifiedMock,
   podcastGetByGuidMock,
   sendItemNotificationsMock,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   getAllByPodcastGuidsMock: vi.fn(),
   getByUrlMock: vi.fn(),
   getDevicesMock: vi.fn(),
+  isVerifiedMock: vi.fn(),
   podcastGetByGuidMock: vi.fn(),
   sendItemNotificationsMock: vi.fn(),
 }));
@@ -44,6 +46,9 @@ vi.mock('@podverse/orm', () => ({
     get = channelGetMock;
     getAllByPodcastGuids = getAllByPodcastGuidsMock;
   },
+  ChannelVerifiedPublisherService: class {
+    isVerified = isVerifiedMock;
+  },
   FeedService: class {
     getByUrl = getByUrlMock;
   },
@@ -66,9 +71,10 @@ const FEED_A = '11111111-1111-4111-8111-111111111111';
 const FEED_B = '22222222-2222-4222-8222-222222222222';
 const FEED_C = '33333333-3333-4333-8333-333333333333';
 
-/** The sender reads id_text, title, and medium_id. */
+/** The sender reads id, id_text, title, and medium_id. */
 function channelWithMedium(mediumId: number): Channel {
   return {
+    id: 9,
     id_text: 'artist-1',
     medium_id: mediumId,
     title: 'Artist',
@@ -99,6 +105,7 @@ describe('handleNewRemoteItemNotifications', () => {
     getAllByPodcastGuidsMock.mockResolvedValue([]);
     getByUrlMock.mockResolvedValue(null);
     channelGetMock.mockResolvedValue(null);
+    isVerifiedMock.mockResolvedValue(true);
     podcastGetByGuidMock.mockResolvedValue(null);
   });
 
@@ -138,6 +145,7 @@ describe('handleNewRemoteItemNotifications', () => {
           {
             channel_about: { id: 1 },
             channel_images: [],
+            id: 41,
             id_text: 'album-local',
             title: 'Local album',
           },
@@ -153,6 +161,8 @@ describe('handleNewRemoteItemNotifications', () => {
     await handleNewRemoteItemNotifications(channelWithMedium(MediumEnum.PublisherMusic), refs);
 
     expect(getAllByPodcastGuidsMock).toHaveBeenCalledTimes(1);
+    expect(isVerifiedMock).toHaveBeenCalledTimes(1);
+    expect(isVerifiedMock).toHaveBeenCalledWith(9, 41);
     expect(podcastGetByGuidMock).not.toHaveBeenCalled();
     expect(sendItemNotificationsMock).toHaveBeenCalledTimes(1);
     expect(sendItemNotificationsMock.mock.calls[0]?.[0]).toEqual([
@@ -196,5 +206,63 @@ describe('handleNewRemoteItemNotifications', () => {
         }),
       })
     );
+  });
+
+  it('skips a parsed album that does not name the artist back', async () => {
+    getAllByPodcastGuidsMock.mockImplementation(async (_config: unknown, guids: string[]) => {
+      if (guids[0] === FEED_A) {
+        return [
+          {
+            channel_about: { id: 1 },
+            channel_images: [],
+            id: 41,
+            id_text: 'album-unverified',
+            title: 'Unverified album',
+          },
+        ];
+      }
+      return [];
+    });
+    isVerifiedMock.mockResolvedValue(false);
+    podcastGetByGuidMock.mockImplementation(async (guid: string) => {
+      if (guid === FEED_B) {
+        return { feed: { id: 77, title: 'Preview album' } };
+      }
+      return null;
+    });
+
+    await handleNewRemoteItemNotifications(channelWithMedium(MediumEnum.PublisherMusic), [
+      albumRef(FEED_A, 'Skip'),
+      albumRef(FEED_B, 'Keep'),
+    ]);
+
+    expect(podcastGetByGuidMock.mock.calls.map((call) => call[0])).toEqual([FEED_B]);
+    expect(sendItemNotificationsMock.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({
+        itemIdText: '77',
+        itemTitle: 'Preview album',
+        messageType: 'podcast-index-feed',
+      }),
+    ]);
+  });
+
+  it('sends nothing when the only parsed album is unverified', async () => {
+    getAllByPodcastGuidsMock.mockResolvedValue([
+      {
+        channel_about: { id: 1 },
+        channel_images: [],
+        id: 41,
+        id_text: 'album-unverified',
+        title: 'Unverified album',
+      },
+    ]);
+    isVerifiedMock.mockResolvedValue(false);
+
+    await handleNewRemoteItemNotifications(channelWithMedium(MediumEnum.PublisherMusic), [
+      albumRef(FEED_A, 'A'),
+    ]);
+
+    expect(podcastGetByGuidMock).not.toHaveBeenCalled();
+    expect(sendItemNotificationsMock).not.toHaveBeenCalled();
   });
 });

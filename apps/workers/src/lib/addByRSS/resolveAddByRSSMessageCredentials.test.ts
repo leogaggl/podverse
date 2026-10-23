@@ -60,6 +60,34 @@ describe('resolveAddByRSSMessageCredentials', () => {
     expect(resolve(seal({}, 'c'.repeat(64)))).toEqual({ credentialsState: 'decrypt_failed' });
   });
 
+  it('reports the withheld decision a publisher parse put on a message without an envelope', () => {
+    expect(
+      resolveAddByRSSMessageCredentials({
+        ...message,
+        credentialsWithheld: 'withheld_other_domain',
+        keyHex: KEY,
+        allowInsecure: false,
+        nowMs: NOW,
+      })
+    ).toEqual({ credentialsState: 'withheld_other_domain' });
+  });
+
+  it('ignores a withheld decision when the message carries an envelope', () => {
+    expect(
+      resolveAddByRSSMessageCredentials({
+        ...message,
+        credentialsEnvelope: seal(),
+        credentialsWithheld: 'withheld_other_domain',
+        keyHex: KEY,
+        allowInsecure: false,
+        nowMs: NOW,
+      })
+    ).toEqual({
+      credentialsState: 'sent',
+      basicAuth: { username: 'alice', password: 'hunter2' },
+    });
+  });
+
   it('withholds opened credentials from an http feed URL', () => {
     const insecureUrl = 'http://feeds.example.com/private.xml';
     expect(resolve(seal({ feedUrl: insecureUrl }), insecureUrl)).toEqual({

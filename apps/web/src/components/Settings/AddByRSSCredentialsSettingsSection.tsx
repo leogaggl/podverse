@@ -12,6 +12,7 @@ import {
 import { Button, StackForm, TextInput } from '@podverse/ui';
 
 import { useMembershipGate } from '../../hooks/useMembershipGate';
+import type { ApplyAddByRSSParseStatusParams } from '../../utils/addByRSS/actions';
 import {
   applyAddByRSSParseStatus,
   pollAddByRSSParseStatus,
@@ -24,10 +25,16 @@ import { SettingsSection } from './SettingsSection';
 
 import styles from '../../styles/components/Settings/AddByRSSCredentialsSettingsSection.module.scss';
 
+export type AddByRSSCredentialsApplyStatus = (
+  params: Omit<ApplyAddByRSSParseStatusParams, 'onUpdated'>
+) => Promise<AddByRSSFeedRecord | null>;
+
 type AddByRSSCredentialsSettingsSectionProps = {
   accountIdText: string;
   feed: AddByRSSFeedRecord;
   onFeedUpdated?: (feed: AddByRSSFeedRecord) => void;
+  /** Applies each parse status in place of `applyAddByRSSParseStatus` (a listed album's store). */
+  applyStatus?: AddByRSSCredentialsApplyStatus;
 };
 
 const failureMessageKey = (reason: AddByRSSParseFailureReason | null | undefined): string => {
@@ -49,7 +56,7 @@ const failureMessageKey = (reason: AddByRSSParseFailureReason | null | undefined
  */
 export const AddByRSSCredentialsSettingsSection: React.FC<
   AddByRSSCredentialsSettingsSectionProps
-> = ({ accountIdText, feed, onFeedUpdated }) => {
+> = ({ accountIdText, feed, onFeedUpdated, applyStatus }) => {
   const tFeatures = useTranslations('features');
   const tMisc = useTranslations('misc');
   const { tryHandleMembershipGateError } = useMembershipGate();
@@ -112,14 +119,17 @@ export const AddByRSSCredentialsSettingsSection: React.FC<
         const finalStatus = await pollAddByRSSParseStatus({
           onStatusUpdate: async (statusResponse) => {
             setStatusMessage(tFeatures(`add_by_rss.status_${statusResponse.status}`));
-            const updated = await applyAddByRSSParseStatus({
+            const applyParams = {
               cache: statusResponse.cache,
               fallbackRecord: latestRecord,
               feedUrl: feed.feedUrl,
               outcome: statusResponse,
               parsedFeed: statusResponse.payload,
               status: statusResponse.status,
-            });
+            };
+            const updated = applyStatus
+              ? await applyStatus(applyParams)
+              : await applyAddByRSSParseStatus(applyParams);
             if (updated) {
               latestRecord = updated;
             }
@@ -159,6 +169,7 @@ export const AddByRSSCredentialsSettingsSection: React.FC<
     },
     [
       accountIdText,
+      applyStatus,
       feed,
       isChecking,
       onFeedUpdated,

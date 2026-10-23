@@ -36,14 +36,20 @@ import { useModals } from '../../../contexts/Modals';
 import { useMembershipGate } from '../../../hooks/useMembershipGate';
 import {
   applyAddByRSSParseStatus,
+  applyListedAddByRSSParseStatus,
   pollAddByRSSParseStatus,
   saveAddByRSSCredentialsAndQueue,
   unfollowAddByRSSChannelAndClear,
 } from '../../../utils/addByRSS/actions';
 import { getCredentials } from '../../../utils/addByRSS/credentialStore';
-import { getAddByRSSFeedByIdText, upsertAddByRSSFeed } from '../../../utils/addByRSS/storage';
+import { isListedFeedRecord } from '../../../utils/addByRSS/listedFeeds';
+import {
+  getAddByRSSAlbumSourceByIdText,
+  upsertAddByRSSFeed,
+  upsertListedAddByRSSFeed,
+} from '../../../utils/addByRSS/storage';
 import { syncAddByRSSCacheWithServer } from '../../../utils/addByRSS/sync';
-import type { AddByRSSFeedRecord } from '../../../utils/addByRSS/types';
+import type { AddByRSSFeedRecord, AddByRSSListedFeedRecord } from '../../../utils/addByRSS/types';
 import { handleRateLimitAlert } from '../../../utils/rateLimit/rateLimitAlert';
 
 import styles from '../../../styles/components/AddByRSS/AddByRSSAddFeed.module.scss';
@@ -78,6 +84,7 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
   const { tryHandleMembershipGateError } = useMembershipGate();
 
   const [feed, setFeed] = useState<AddByRSSFeedRecord | null>(null);
+  const [followed, setFollowed] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -99,11 +106,13 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
       }
       try {
         await syncAddByRSSCacheWithServer(loggedInAccount.id_text);
-        const record = await getAddByRSSFeedByIdText(idText);
+        const source = await getAddByRSSAlbumSourceByIdText(idText);
         if (cancelled) {
           return;
         }
+        const record = source?.feed ?? null;
         setFeed(record);
+        setFollowed(source?.followed ?? true);
         if (record) {
           const stored = await getCredentials(loggedInAccount.id_text, record.feedUrl);
           if (!cancelled && stored) {
@@ -164,16 +173,33 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
       }
 
       let latestRecord: AddByRSSFeedRecord = feed;
+      // A listed album's parse results stay in the listed store until the member follows it.
+      let latestListed: AddByRSSListedFeedRecord | null =
+        !followed && isListedFeedRecord(feed) ? feed : null;
       const finalStatus = await pollAddByRSSParseStatus({
         requestId,
         onStatusUpdate: async (statusResponse) => {
           setStatusMessage(tFeatures(`add_by_rss.status_${statusResponse.status}`));
-          const updated = await applyAddByRSSParseStatus({
+          const applyParams = {
             feedUrl: feed.feedUrl,
             parsedFeed: statusResponse.payload,
             status: statusResponse.status,
             cache: statusResponse.cache,
             outcome: statusResponse,
+          };
+          if (latestListed !== null) {
+            const updated = await applyListedAddByRSSParseStatus({
+              ...applyParams,
+              fallbackRecord: latestListed,
+            });
+            if (updated) {
+              latestListed = updated;
+              latestRecord = updated;
+            }
+            return;
+          }
+          const updated = await applyAddByRSSParseStatus({
+            ...applyParams,
             fallbackRecord: latestRecord,
           });
           if (updated) {
@@ -188,8 +214,14 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
         setPassword('');
         const resourceType = getAddByRSSResourceTypeFromMappedFeed(latestRecord.mappedFeed);
         if (latestRecord.resourceType !== resourceType) {
-          latestRecord = { ...latestRecord, resourceType };
-          await upsertAddByRSSFeed(latestRecord);
+          if (latestListed !== null) {
+            latestListed = { ...latestListed, resourceType };
+            latestRecord = latestListed;
+            await upsertListedAddByRSSFeed(latestListed);
+          } else {
+            latestRecord = { ...latestRecord, resourceType };
+            await upsertAddByRSSFeed(latestRecord);
+          }
         }
         router.push(
           `/add-by-rss/${getAddByRSSDetailRouteSegment(resourceType)}/${latestRecord.idText}`
@@ -300,17 +332,19 @@ export const AddByRSSCredentialsPageClient: React.FC<AddByRSSCredentialsPageClie
             disabled={isBusy}
           />
           <FormPrimaryActions>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                void handleRemoveFeed();
-              }}
-              disabled={isBusy}
-              isLoading={isRemoving}
-            >
-              {tFeatures('add_by_rss.credentials_remove_feed')}
-            </Button>
+            {followed ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  void handleRemoveFeed();
+                }}
+                disabled={isBusy}
+                isLoading={isRemoving}
+              >
+                {tFeatures('add_by_rss.credentials_remove_feed')}
+              </Button>
+            ) : null}
             <Button
               type="submit"
               variant="primary"

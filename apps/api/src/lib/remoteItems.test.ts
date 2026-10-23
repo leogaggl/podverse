@@ -131,4 +131,23 @@ describe('enrichMissedChannelsUnaddedByFeedUrl', () => {
 
     expect(extras).toEqual([]);
   });
+
+  it('leaves out a reference Podcast Index knows by neither guid nor URL', async () => {
+    const lookup = vi.fn(async () => null);
+    const extras = await enrichMissedChannelsUnaddedByFeedUrl(
+      [
+        {
+          feed_guid: 'unknown-guid',
+          feed_url: 'https://example.com/unknown.xml',
+          item_guid: null,
+        },
+      ],
+      [],
+      lookup
+    );
+
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(lookup).toHaveBeenCalledWith('https://example.com/unknown.xml');
+    expect(extras).toEqual([]);
+  });
 });

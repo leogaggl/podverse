@@ -20,6 +20,10 @@ import {
   validateParamsObject,
   validateQueryObject,
 } from '@api/lib/validation/index.js';
+import {
+  attachChannelListVerifiedPublishers,
+  attachVerifiedPublishers,
+} from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 import jwt from 'jsonwebtoken';
@@ -304,6 +308,7 @@ export class ItemController {
           String(data.channel_id)
         );
         if (!channelMerged) {
+          await attachVerifiedPublishers({ items: [data] });
           handleReturnDataOrNotFound(res, data, 'Item');
           return;
         }
@@ -311,7 +316,13 @@ export class ItemController {
           String(data.channel_id),
           channelGetOneRelations
         );
-        handleReturnDataOrNotFound(res, channel ? { ...data, channel } : data, 'Item');
+        if (channel) {
+          await attachVerifiedPublishers({ channels: [channel], items: [data] });
+          handleReturnDataOrNotFound(res, { ...data, channel }, 'Item');
+          return;
+        }
+        await attachVerifiedPublishers({ items: [data] });
+        handleReturnDataOrNotFound(res, data, 'Item');
       } catch (error) {
         handleGenericErrorResponse(res, error);
       }
@@ -391,9 +402,11 @@ export class ItemController {
           itemType,
           liveItemType
         );
+        const data = items.filter(Boolean);
+        await attachVerifiedPublishers({ items: data });
 
         const response: ApiListResponse<Item> = {
-          data: items.filter(Boolean),
+          data,
           meta: { page, count: null, limit },
         };
         res.json(response);
@@ -436,6 +449,7 @@ export class ItemController {
           offset,
           orderField: getStatsOrder(range),
         });
+        await attachVerifiedPublishers({ items });
         const response: ApiListResponse<Item> = {
           data: items,
           meta: { page, count: null, limit },
@@ -486,6 +500,7 @@ export class ItemController {
           liveItemType
         );
         const items = recentResults.filter(Boolean);
+        await attachVerifiedPublishers({ items });
 
         const response: ApiListResponse<Item> = {
           data: items,
@@ -533,6 +548,7 @@ export class ItemController {
           offset,
           orderField: getStatsOrder(range),
         });
+        await attachVerifiedPublishers({ items });
         const response: ApiListResponse<Item> = {
           data: items,
           meta: { page, count: null, limit },
@@ -588,6 +604,7 @@ export class ItemController {
               liveItemType,
               config
             );
+            await attachVerifiedPublishers({ items });
 
             const response: ApiListResponse<Item> = {
               data: items,
@@ -649,6 +666,7 @@ export class ItemController {
               offset,
               orderField: getStatsOrder(range),
             });
+            await attachVerifiedPublishers({ items });
 
             const response: ApiListResponse<Item> = {
               data: items,
@@ -687,6 +705,7 @@ export class ItemController {
             order: { pub_date: 'DESC' },
           };
           const items = await ItemController.itemService.getManyByChannel(channel, config);
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -722,6 +741,7 @@ export class ItemController {
             order: { pub_date: 'ASC' },
           };
           const items = await ItemController.itemService.getManyByChannel(channel, config);
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -769,6 +789,7 @@ export class ItemController {
             orderField: getStatsOrder(range),
             recentByChannel: channel,
           });
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -806,6 +827,7 @@ export class ItemController {
             'forward',
             config
           );
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -843,6 +865,7 @@ export class ItemController {
             'backward',
             config
           );
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -885,6 +908,7 @@ export class ItemController {
             shuffleHash,
             config
           );
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -916,6 +940,7 @@ export class ItemController {
             getParamRequired(req, 'idText'),
             direction
           );
+          await attachVerifiedPublishers({ items });
 
           res.json(items);
         } catch (error) {
@@ -944,6 +969,7 @@ export class ItemController {
             getParamRequired(req, 'idText'),
             direction
           );
+          await attachVerifiedPublishers({ items });
           res.json(items);
         } catch (error) {
           handleGenericErrorResponse(res, error);

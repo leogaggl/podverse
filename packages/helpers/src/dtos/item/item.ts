@@ -1,4 +1,5 @@
 import type { DTOChannel } from '../channel/channel.js';
+import type { DTOVerifiedPublisher } from '../channel/verifiedPublisher.js';
 import type { DTOLiveItem } from '../liveItem/liveItem.js';
 import type { DTOItemAbout } from './itemAbout.js';
 import type { DTOItemChaptersFeed } from './itemChaptersFeed.js';
@@ -47,6 +48,17 @@ export interface DTOItem {
   item_txts: DTOItemTxt[];
   item_values: DTOItemValue[];
   channel?: DTOChannel;
+  /**
+   * Publishers credited on this item alone, primary first. Channel-wide publishers live on the
+   * channel; read both through `resolveVerifiedPublishers`.
+   */
+  verified_publishers?: DTOVerifiedPublisher[];
+  /**
+   * Publishers verified on this item's whole channel, primary first. Set only by by-channel item
+   * lists, whose items carry no embedded `channel`; absent elsewhere and on items stored before
+   * the field existed.
+   */
+  channel_wide_verified_publishers?: DTOVerifiedPublisher[];
 }
 
 export interface DTOItemQueueItem {
@@ -63,4 +75,9 @@ export interface DTOItemQueueItem {
   item_enclosures: DTOItemEnclosure[];
   item_images: DTOItemImage[];
   channel?: DTOChannel;
+  /**
+   * Publishers credited on this item alone, primary first. Channel-wide publishers live on the
+   * channel; read both through `resolveVerifiedPublishers`.
+   */
+  verified_publishers?: DTOVerifiedPublisher[];
 }

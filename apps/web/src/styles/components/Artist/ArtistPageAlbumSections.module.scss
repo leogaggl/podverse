@@ -1,0 +1,20 @@
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-section-top);
+}
+
+.heading {
+  margin: 0;
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-color-primary);
+}
+
+.note {
+  margin: var(--spacing-md) 0 0;
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-color-secondary);
+}

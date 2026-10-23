@@ -5,4 +5,6 @@ export type AlbumListItem = {
   imageCandidates?: string[];
   href: string;
   subtitle?: string | null;
+  /** Shows the Add by RSS marker after the title. */
+  showAddByRssMarker?: boolean;
 };

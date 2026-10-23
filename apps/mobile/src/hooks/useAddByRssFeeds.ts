@@ -41,13 +41,16 @@ export function useAddByRssFeeds({ onNotice }: UseAddByRssFeedsOptions) {
   const reloadFeeds = useCallback(async () => {
     setIsLoading(true);
     setErrorKey(null);
-    const localFeeds = await addByRssRepository.listFeeds();
+    const allFeeds = await addByRssRepository.listAllFeeds();
+    const followedFeeds = allFeeds.filter((feed) => feed.followed !== false);
 
     // Viewing add-by-RSS feeds is anonymous tier (`add_by_rss_view`): adding and refreshing need a
     // membership because they need server-side parsing, but feeds already on the device stay
     // readable and playable signed out. Only the remote reconciliation below needs an account.
+    // Listed-only rows stay out of this list; they are passed into the merge so a server follow
+    // reuses the row this device already stored.
     if (status !== 'authenticated' || account?.id_text === undefined) {
-      await showPartitioned(localFeeds);
+      await showPartitioned(followedFeeds);
       setErrorKey(null);
       setIsLoading(false);
       return;
@@ -67,7 +70,7 @@ export function useAddByRssFeeds({ onNotice }: UseAddByRssFeedsOptions) {
           })
       );
 
-      const mergedFeeds = mergeLocalAndRemoteAddByRssFeeds(localFeeds, remoteFeeds);
+      const mergedFeeds = mergeLocalAndRemoteAddByRssFeeds(allFeeds, remoteFeeds);
       await showPartitioned(mergedFeeds);
       // Persist merged records without a bundle so each parsed mapped feed is preserved.
       for (const feed of mergedFeeds) {
@@ -75,8 +78,8 @@ export function useAddByRssFeeds({ onNotice }: UseAddByRssFeedsOptions) {
       }
     } catch {
       // Offline / API error: fall back to the last-synced feeds from SQLite so the list still renders.
-      if (localFeeds.length > 0) {
-        await showPartitioned(localFeeds);
+      if (followedFeeds.length > 0) {
+        await showPartitioned(followedFeeds);
         setErrorKey(null);
       } else {
         setErrorKey('errors.generic');
@@ -122,7 +125,7 @@ export function useAddByRssFeeds({ onNotice }: UseAddByRssFeedsOptions) {
             onNotice('errors.generic');
           }
 
-          await addByRssRepository.removeFeed(feedUrl);
+          await addByRssRepository.unfollowFeed(feedUrl);
           await refreshLocal();
           // Home stays mounted under its tab, so it will not reload on its own.
           homeFeedRefresh.notify();

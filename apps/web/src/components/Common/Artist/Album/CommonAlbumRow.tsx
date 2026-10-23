@@ -8,6 +8,7 @@ import { SkeletonFlashImage } from '@podverse/ui';
 
 import { IMAGES } from '../../../../constants/images';
 import { listItemImageCandidates } from '../../../../utils/image/listItemImageCandidates';
+import { AddByRSSRowMarker } from '../../../AddByRSS/AddByRSSRowMarker';
 import type { AlbumListItem } from './types';
 
 import styles from '../../../../styles/components/Common/List/Podcasts/ListPodcastRow.module.scss';
@@ -32,7 +33,10 @@ export const CommonAlbumListRow: React.FC<CommonAlbumListRowProps> = ({ item }) 
           className={styles.image}
         />
         <div className={styles.content}>
-          <h3 className={styles.title}>{item.title}</h3>
+          <h3 className={styles.title}>
+            {item.title}
+            {item.showAddByRssMarker ? <AddByRSSRowMarker /> : null}
+          </h3>
           {showSubtitle && (
             <span className={styles.lastPubDate}>{item.subtitle || tMisc('untitled')}</span>
           )}

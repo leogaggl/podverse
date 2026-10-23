@@ -514,3 +514,420 @@
   remove action remains the screen-reader path.
 - Who notices: screen-reader users on lists that swipe to reveal an action
 - Operator steps: none
+
+## Verified publisher links: schema
+
+- Surfaces: api, workers, ops
+- Change: new app migration `0022_channel_verified_publisher.sql`. Publisher claims
+  (`channel_publisher_remote_item`) may now hold several rows per feed and gain a nullable
+  `item_id` for item-level claims. New table `channel_verified_publisher` holds links between a
+  publisher feed and a content feed that reference each other (content channel, publisher
+  channel, optional item, claim position). Archiving or taking down a show removes its links on
+  either side. `GET /channel` and item reads that embed the channel now return
+  `channel_publisher.channel_publisher_remote_items` (array) instead of
+  `channel_publisher.channel_publisher_remote_item` (object); no Podverse client reads it.
+- Who notices: no one yet; nothing reads the links until the artist page and player changes ship.
+- Operator steps: run app linear migrations before rolling the API. The API readiness marker
+  `API_EXPECTED_MIGRATION_FILENAME` moves to `0022_channel_verified_publisher.sql`; a GitOps
+  overlay that pins it must move with it.
+
+## Verified publisher match rule
+
+- Surfaces: workers (parser), api
+- Change: an album is linked to a publisher (artist) feed only when both feeds reference each
+  other: the album's `<podcast:publisher>` names the publisher's guid and the publisher feed's
+  `podcast:remoteItem` names the album's guid. When either pointer carries a `feedUrl`, it must
+  match the other feed's URL; http versus https, host case, and one trailing slash are ignored,
+  and URLs of duplicate feeds merged into a channel count as that channel's. Both feeds must be
+  active or pending archive. Links are stored in `channel_verified_publisher` and recomputed from
+  stored references.
+- Who notices: no one yet; readers ship separately.
+- Operator steps: none.
+
+## Parser keeps verified publisher links current
+
+- Surfaces: workers (parser)
+- Change: after storing a feed's channel tables, the parser recomputes verified publisher links
+  for that feed as a content feed and for every content feed that names it as publisher, so a
+  reference dropped from either feed removes the link on that feed's next parse. A failed
+  recompute is logged and does not fail the parse. `<podcast:publisher>` is now mapped as a list
+  of claims (first is primary); feeds with one publisher store the same data as before.
+- Who notices: no one directly; artist pages and players read the links once their changes ship.
+- Operator steps: none. Feeds whose content has not changed are not reparsed; run the
+  verified publisher backfill command once to fill links for existing feeds.
+
+## New-album notifications skip albums that do not name the artist
+
+- Surfaces: workers (parser), notifications
+- Change: when an artist feed adds album references, the new-album notification names only an
+  album that names that artist back (a verified publisher link), or a Podcast Index preview for
+  an album Podverse has not parsed. A parsed album whose `<podcast:publisher>` does not point at
+  the artist is skipped.
+- Who notices: artist followers stop getting alerts for albums the artist page does not list.
+- Operator steps: none.
+
+## Channel merges keep verified publisher links honest
+
+- Surfaces: workers (duplicate merge), api
+- Change: absorbing a duplicate feed removes the absorbed channel's verified publisher links on
+  either side (journaled, so a revert restores them), then recomputes the surviving channel's
+  links so the absorbed feed's URL counts as one of its URLs.
+- Who notices: no one directly; artist pages stop listing a merged duplicate album.
+- Operator steps: none.
+
+## Backfill command for verified publisher links
+
+- Surfaces: workers, k8s cron
+- Change: new worker command `ormVerifiedPublisherLinksBackfill` (npm script
+  `orm_verified_publisher_links_backfill`) recomputes verified publisher links for every channel
+  with publisher claims or stored links. Flags: `-limit` (batch size), `-afterId` (resume),
+  `-dry-run`. New suspended CronJob `worker-verified-publisher-links-backfill` for one-off runs.
+- Who notices: operators; artist pages list verified albums for feeds parsed before this release
+  once it has run.
+- Operator steps: after the `0022_channel_verified_publisher.sql` migration and the parser
+  release, run the command once per deployment (trigger a Job from the suspended CronJob).
+
+## Verified publishers on channel and item responses
+
+- Surfaces: api, helpers (web and mobile clients read it)
+- Change: `GET /channel/:idOrIdText` and `GET /item/:idOrIdText` add `verified_publishers`, an
+  ordered list of `{ id_text, title, medium_id }`. On a channel it lists publishers (artists)
+  verified on the whole channel, meaning both feeds reference each other; on an item it lists
+  publishers credited on that item alone (empty until feeds can express item credits). Publishers
+  whose feed is not active or pending archive are left out. `@podverse/helpers` adds
+  `DTOVerifiedPublisher`, `resolveVerifiedPublishers`, and `joinVerifiedPublisherTitles`.
+- Who notices: no one until the player and track page changes ship; API consumers see a new field.
+- Operator steps: none.
+
+## Artist pages list only verified albums
+
+- Surfaces: api (web artist page and mobile artist screen read it)
+- Change: `GET /publisher-feed/channel/:idOrIdText` now returns as `channelsAdded` only albums
+  whose feed names the artist back (verified link), in the artist feed's order. `channelsUnadded`
+  lists albums the artist feed names that Podverse has not parsed, from Podcast Index; unknown
+  references stay hidden. Albums Podverse has parsed that do not name the artist back are no
+  longer shown. `itemsAdded` is now the tracks on the verified albums (newest first, at most 500)
+  instead of the artist feed's own track references; `itemsUnadded` is always empty. Field names
+  are unchanged, so installed apps pick this up without an update.
+- Who notices: listeners on artist pages; albums that never named the artist disappear, and the
+  Tracks tab fills with every track on the artist's verified albums.
+- Operator steps: run the verified-link backfill (`ormVerifiedPublisherLinksBackfill`) after the
+  migration and before this API ships, or artist pages show no albums until each feed is reparsed.
+
+## Verified publishers on item lists, queue, and playlists
+
+- Surfaces: api (web player and mobile player and queue cache read it); OpenAPI `Item` schema
+- Change: item list endpoints (global, category, subscribed, by channel, auto-queue), queue
+  resource reads (now playing, upcoming, history, promote, replay), and playlist resource reads
+  now include `verified_publishers` on each item and its embedded channel, the same field
+  `GET /channel` and `GET /item` carry. By-channel item lists (`/item/channel/...`), whose items
+  have no embedded channel, also include `channel_wide_verified_publishers` on each item: the
+  publishers verified on the whole channel. Clip, soundbite, and live item lists do not include
+  either field yet.
+- Who notices: no one until the player artist line ships; mobile stores both fields with queue
+  and list payloads (including its stored album track lists, which car album track lists and
+  downloads read), and rows stored earlier show no artist until they refresh.
+- Operator steps: none.
+
+## Adding an Add by RSS artist also parses its albums
+
+- Surfaces: workers, api (parse status response), web and mobile once they read it
+- Change: when an Add by RSS parse is an artist (publisher) feed, the worker resolves every feed
+  the artist lists. Albums already in the Podverse directory come back as links to the directory
+  album and are not fetched. Other albums are parsed for that member as their own Add by RSS
+  parses on the `add-by-rss-background` queue. The artist's parse status gains
+  `publisherListedFeeds` (directory links, album request ids, or why a listed feed was skipped),
+  and each album's status gains `publisherRequestId`. At most 100 listed feeds per artist. Feeds
+  named only by track-level references are not fetched. A listed album with no feed URL is looked
+  up on Podcast Index, except for artist feeds fetched with credentials. Credentials go only to
+  albums on the artist feed's own domain, re-sealed per album message; albums elsewhere are
+  fetched without them and report the withheld state. Nothing is added to the public directory.
+- Who notices: members who add an Add by RSS artist, once web and mobile show the albums
+- Operator steps: the Add by RSS parser workers now validate Podcast Index env at startup (the
+  k8s deployments already mount it; a custom deployment of `mqAddByRSSRunParser` must provide
+  `PODCAST_INDEX_*`). The `add-by-rss-background` consumer must be running.
+
+## Web artist page splits verified albums from albums not yet added
+
+- Surfaces: web
+- Change: the directory artist Albums tab shows Verified Albums, then Not Yet Added with the
+  note "This artist's feed lists these albums. They move up once both feeds confirm the link."
+  A Not Yet Added row opens the Podcast Index preview. The Tracks tab lists tracks on the
+  verified albums, newest first, and no longer renders item references from the artist feed.
+  A browser-only slot between Verified Albums and Not Yet Added stays empty until Add by RSS
+  albums for that artist are wired in; it is not in the server HTML.
+- Who notices: listeners on web artist pages
+- Operator steps: none
+
+## Artist screen separates verified albums from albums not yet added
+
+- Surfaces: mobile
+- Change: On an artist screen, Albums lists verified albums first, under a Verified Albums heading. Albums the artist names that Podverse has not parsed yet appear under Not Yet Added, with a note that they move up once both feeds confirm the link. Tapping one opens the Podcast Index preview on the same tab, where a member can add the feed. Albums Podverse has parsed that do not name the artist back are not listed. Tracks lists the tracks on the verified albums, and each row names its album. Track references that exist only on the artist feed are not listed.
+- Who notices: listeners browsing an artist
+- Operator steps: none
+
+## Web player shows the artist above the album
+
+- Surfaces: web
+- Change: While a directory album track is playing, the full-size player shows the verified
+  artist in smaller text between the track title and the album title. One artist links to that
+  artist's page. Several artists show as "A, B" and open a list of those artists. The player
+  bar's second line reads "Artist · Album" when an artist is verified, and stays the album title
+  otherwise. Playback with no verified artist, and Add by RSS playback, keep the two lines they
+  have today.
+- Who notices: anyone playing a directory album track on the website
+- Operator steps: none
+
+## Track pages link the verified artist
+
+- Surfaces: web
+- Change: A directory track page lists each verified artist as a link under the track title.
+  An album with no verified artist shows no artist link there. Album pages are unchanged.
+- Who notices: anyone opening a directory track on the website
+- Operator steps: none
+
+## Mobile full player shows the album's artist
+
+- Surfaces: mobile
+- Change: the full player shows the verified artist under the track title, above the album. It
+  links to the artist page, on Home when the artist is followed and on Browse otherwise. Several
+  artists read "A, B", and a tap opens a list of each artist. Music without a verified artist,
+  podcasts, and videos look as before. The title block grows by one line only for items with an
+  artist, decided when the item starts.
+- Who notices: mobile listeners playing music from albums whose artist feed lists them
+- Operator steps: none (needs the API from plans 10 and 12)
+
+## Mobile mini player names the artist
+
+- Surfaces: mobile
+- Change: the mini player's second line reads "Artist · Album" for music with a verified artist,
+  and the channel or album title otherwise. That line now scrolls after the title when it is too
+  long, for every item, instead of being cut off.
+- Who notices: mobile listeners; podcast listeners see long channel names scroll
+- Operator steps: none
+
+## Mobile track pages link the artist
+
+- Surfaces: mobile
+- Change: on a directory track page, the byline under the album name shows the verified artist
+  and opens the artist page. Several artists read "A, B" and open a list of each artist. Tracks
+  without a verified artist keep the feed's author text. Album pages are unchanged.
+- Who notices: mobile listeners browsing music
+- Operator steps: none (needs the API from plan 10)
+
+## Lock screen and car show the artist and album
+
+- Surfaces: mobile (iOS and Android native media engine)
+- Change: when music with a verified artist plays from the phone, the lock screen, Control Center, the Android media notification, CarPlay, and Android Auto show the track as the title, the artist names as the artist, and the album as the album. Without a verified artist, the album title stays in the artist field as before.
+- Who notices: mobile listeners using the lock screen or a car
+- Operator steps: native rebuild of the mobile app (new store build); check the lock screen on an iOS device and the media notification on Android
+
+## Car-started music shows the artist
+
+- Surfaces: mobile (CarPlay and Android Auto native services, native cache)
+- Change: music started from the car's Queue, History, or album track lists, including with the
+  phone app closed, shows the verified artist as the artist and the album as the album. With no
+  verified artist, the album (or podcast) title fills the artist field; car plays from a track
+  list used to leave that line blank. Album track lists stored before this update show the
+  artist after the album's next refresh.
+- Who notices: listeners who start music or podcasts from CarPlay or Android Auto
+- Operator steps: native rebuild of the mobile app; check in the CarPlay simulator and the
+  Android Auto DHU
+
+## Downloaded album tracks show the artist on the phone
+
+- Surfaces: mobile
+- Change: playing a downloaded album track shows the album's verified artist in the full player,
+  mini player, lock screen, and track page, including in Offline Mode. The artist comes from the
+  album's stored track list, so it shows only while this device follows the album; downloads of
+  albums you no longer follow show no artist. Track lists stored before this update show the
+  artist after the album's next refresh.
+- Who notices: listeners who download music
+- Operator steps: none
+
+## Car Downloads show the artist
+
+- Surfaces: mobile (CarPlay and Android Auto native services, native cache)
+- Change: in the car's Downloads list, a downloaded album track from an album you follow reads
+  "Artist · Album", and starting it from the car shows the verified artist as the artist and the
+  album as the album, including with the phone app closed. Downloads of podcasts and of albums
+  you no longer follow are unchanged. The list updates when an album refreshes, when you unfollow
+  one, and after account sync.
+- Who notices: listeners who download music and play it in the car
+- Operator steps: native rebuild of the mobile app; check in the CarPlay simulator and the
+  Android Auto DHU
+
+## Public read for a directory channel by feed guid
+
+- Surfaces: api, helpers-requests
+- Change: `GET /channel/directory-match?feed_guid=…&feed_url=…` returns `{ id_text, title,
+medium_id }` for the parsed, publicly visible directory channel with that podcast guid (or, for
+  a channel with no guid, that feed URL), else `null`. Reads only. The web and mobile players use
+  it to link an Add by RSS album to its directory artist.
+- Who notices: API consumers; members whose Add by RSS albums name a directory artist
+- Operator steps: none
+
+## Add by RSS artists list their albums, including ones you have not followed
+
+- Surfaces: web
+- Change: adding an Add by RSS artist now brings in every album its feed lists. Albums already in
+  the Podverse directory link to the directory album. The others are parsed for you and shown
+  only on that artist's page until you follow one. Albums that name the artist's guid show there
+  too, an album two artists list shows under both, and tracks the artist credits one by one show
+  in Tracks once their album is on this browser. Albums on another site that need a username and
+  password appear under Needs Username and Password on the artist page. Matching is by feed guid
+  on this browser; nothing is shared with other members.
+- Who notices: members who add music artist feeds by RSS
+- Operator steps: none
+
+## Follow an album from an Add by RSS artist's page
+
+- Surfaces: web
+- Change: albums that appear only under an Add by RSS artist open, play, and show their tracks
+  and livestreams like any Add by RSS album. Settings on that album includes the username and
+  password section. Subscribe on the album follows it and keeps the same page and track links.
+  Until you follow, the album is not in your library lists, on Home, or in the livestream lists.
+- Who notices: members who add music artist feeds by RSS
+- Operator steps: none
+
+## Directory artist pages show your Add by RSS albums by that artist
+
+- Surfaces: web
+- Change: on a Podverse artist page, a signed-in member now sees "Your Add by RSS Albums" and
+  matching tracks: Add by RSS albums on this browser whose podcast:publisher names that artist.
+  Rows carry an Add by RSS icon. The sections are built in the browser only; they are not in the
+  page HTML and nobody else sees them.
+- Who notices: members who add music albums by RSS
+- Operator steps: none
+
+## The player names Add by RSS artists
+
+- Surfaces: web
+- Change: when you play an album you added by RSS, the player shows its artist above the album
+  title (and in the player bar) when that artist is an Add by RSS artist on this browser, linking
+  to its Add by RSS artist page. If the album names an artist that is in the Podverse directory,
+  the line links to the directory artist instead. Directory albums with no verified artist show
+  the Add by RSS artists on this browser that list them. Verified directory artists always take
+  priority. Nothing is parsed or followed to fill the line.
+- Who notices: members who add music by RSS
+- Operator steps: none
+
+## Add by RSS track pages link the artist
+
+- Surfaces: web
+- Change: a track page for an album you added by RSS now shows the artist under the track title
+  when this browser knows it: an Add by RSS artist links to its Add by RSS page, and an artist
+  in the Podverse directory links to the directory artist page.
+- Who notices: members who add music by RSS
+- Operator steps: none
+
+## Mobile stores the albums an Add by RSS artist lists
+
+- Surfaces: mobile
+- Change: adding or refreshing an Add by RSS artist feed now stores every album it lists. Add by
+  RSS albums are fetched in the background and kept on the device, linked to the artist, without
+  being followed; directory albums are linked with their artwork. Albums on another domain never
+  receive the artist's username and password; one that needs its own waits under the artist in
+  Needs Username and Password. When the device already holds credentials for such an album, it
+  parses the album with them itself. Each Add by RSS album's publisher pointer is also matched
+  against the directory so its artist can be shown. Album fetch failures go to the error log, not
+  an on-screen message. Nothing is written to the public directory.
+- Who notices: members who add Add by RSS artist feeds (the screens arrive in the following entries)
+- Operator steps: none
+
+## Follow an album from an Add by RSS artist on mobile
+
+- Surfaces: mobile
+- Change: an album held on the device because an Add by RSS artist lists it shows Subscribe on
+  its page. Subscribing follows it like any Add by RSS feed. Unsubscribing an album that an Add by
+  RSS artist on the device still lists keeps it under that artist instead of deleting it.
+  Removing an Add by RSS artist removes the albums only it listed and that were never followed.
+- Who notices: members with Add by RSS artist feeds
+- Operator steps: none
+
+## Mobile Add by RSS artist pages list their albums and tracks
+
+- Surfaces: mobile
+- Change: an Add by RSS artist feed opens on a new Albums tab: the albums the artist lists
+  (directory albums open their directory page; Add by RSS albums open on the device), then Add by
+  RSS albums on the device that name the artist. Albums that need their own username and password
+  show above the album rows under Needs Username and Password. The Tracks tab lists the artist's
+  own tracks, the tracks of those Add by RSS albums, and any single tracks the artist references
+  in other albums on the device; directory albums' tracks stay on the directory album. Albums
+  still being fetched show a processing notice.
+- Who notices: members with Add by RSS artist feeds
+- Operator steps: none
+
+## Mobile directory artist pages show your Add by RSS albums
+
+- Surfaces: mobile
+- Change: a directory artist page lists, under Your Add by RSS Albums, the Add by RSS albums on
+  this device whose publisher pointer names that artist, and adds their tracks after the verified
+  tracks. Rows carry an RSS marker read as "Add by RSS". Only this device sees them. Add by RSS
+  pages opened from Browse or Search now stay on that tab.
+- Who notices: members with Add by RSS albums by directory artists
+- Operator steps: none
+
+## Mobile player shows Add by RSS artists
+
+- Surfaces: mobile
+- Change: playing an Add by RSS album shows its artist on the full player, mini player, and lock
+  screen: an Add by RSS artist on this device that lists the album or that the album names, else
+  the directory artist its publisher pointer matches. A directory album with no verified artist
+  shows the Add by RSS artists on this device that list it. Tapping opens that artist; several
+  open a chooser. Verified artists always come first, and nothing is fetched to fill the line.
+- Who notices: members who play Add by RSS music
+- Operator steps: none
+
+## Mobile Add by RSS track pages link the artist
+
+- Surfaces: mobile
+- Change: an Add by RSS track page shows its album's artist under the album title as a link: an
+  Add by RSS artist on this device opens its Add by RSS page, and a directory artist the album
+  points to opens the directory artist page. Several artists open a chooser. Without one, the
+  feed's author text shows as before.
+- Who notices: members who open Add by RSS tracks
+- Operator steps: none
+
+## Unfollow many feeds in one request
+
+- Surfaces: api, helpers-requests
+- Change: `POST /account/unfollow/bulk` takes `channel_id_texts` and/or `add_by_rss_feed_urls`
+  (at most 1000 together) and ends this account's follow of each; unknown ids and URLs are
+  skipped. Returns 204. Never membership-gated, like the single unfollows. Web and mobile use it
+  when a member unsubscribes from an artist together with its albums.
+- Who notices: API consumers
+- Operator steps: none
+
+## Web asks about albums when you unsubscribe from an artist
+
+- Surfaces: web
+- Change: on a directory artist page, Unsubscribe opens "Unsubscribe from [Artist]?" when you
+  follow at least one of the artist's verified albums. The dialog says how many, and offers
+  Cancel, Artist Only (today's behavior), and Artist and Albums (one request ends the artist and
+  those album follows). With no followed album, Unsubscribe works as before with no dialog.
+- Who notices: signed-in members who follow an artist and its albums
+- Operator steps: none
+
+## Web asks about albums when you unsubscribe from an Add by RSS artist
+
+- Surfaces: web
+- Change: Unsubscribe on an Add by RSS artist opens "Unsubscribe from [Artist]?" when you follow
+  at least one album it lists or that names it (Add by RSS or directory). Artist Only keeps those
+  album follows; Artist and Albums ends them with the artist in one request. Albums you never
+  followed, which only showed under the artist, still leave with it without asking.
+- Who notices: signed-in members with Add by RSS artists
+- Operator steps: none
+
+## Mobile asks about albums when you unsubscribe from an artist
+
+- Surfaces: mobile
+- Change: unsubscribing from an artist (directory or Add by RSS) on its screen, or from the
+  Artists chip on Home or in the Add by RSS library, opens "Unsubscribe from [Artist]?" when you
+  follow at least one of its albums: verified albums for a directory artist; albums it lists or
+  that name it for an Add by RSS artist. Artist and Albums ends them together; Artist Only keeps
+  the albums; Cancel changes nothing. Albums you never followed leave with the artist without
+  asking. Works signed out on the device; signed in, one request updates the account. Offline,
+  directory artists unsubscribe without the question.
+- Who notices: members who follow an artist and its albums
+- Operator steps: none

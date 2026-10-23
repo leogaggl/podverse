@@ -17,6 +17,7 @@ import { handleParsedChannelSocialInteract } from '@parser/lib/rss/channel/chann
 import { handleParsedChannelTrailer } from '@parser/lib/rss/channel/channelTrailer.js';
 import { handleParsedChannelTxt } from '@parser/lib/rss/channel/channelTxt.js';
 import { handleParsedChannelValue } from '@parser/lib/rss/channel/channelValue.js';
+import { handleParsedChannelVerifiedPublisher } from '@parser/lib/rss/channel/channelVerifiedPublisher.js';
 import type { DescriptionIngestContext } from '@parser/lib/rss/descriptionIngestContext.js';
 import type { FeedObject } from 'podverse-partytime';
 
@@ -56,6 +57,8 @@ export const handleParsedChannel = async (
           transactionalEntityManager
         );
       });
+
+  await handleParsedChannelVerifiedPublisher(channel);
 
   timerManager.end('handleParsedChannel');
   return { newRemoteItems };

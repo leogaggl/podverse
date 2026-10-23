@@ -30,7 +30,11 @@
       "album_go_to": "",
       "artist_go_to": "",
       "no_tracks_found": "",
-      "no_albums_found": ""
+      "no_albums_found": "",
+      "verified_albums": "",
+      "your_add_by_rss_albums": "",
+      "not_yet_added": "",
+      "not_yet_added_albums_note": ""
     },
     "video": {
       "channel": "",
@@ -335,6 +339,13 @@
     "copied": "",
     "subscribe": "",
     "unsubscribe": "",
+    "unsubscribe_artist": {
+      "title": "",
+      "followed_one_album": "",
+      "followed_albums": "",
+      "artist_only": "",
+      "artist_and_albums": ""
+    },
     "share": "",
     "download": {
       "download_episode": "",

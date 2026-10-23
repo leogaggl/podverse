@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CATEGORY_BASE,
   CATEGORY_BILLING,
+  CATEGORY_KEYVALDB,
   CATEGORY_MQ,
   CATEGORY_ORM,
   CATEGORY_PARSER,
@@ -39,6 +40,12 @@ describe('getCategoriesForCommand', () => {
 
   it('maps ormArchivedSlimReport to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('ormArchivedSlimReport'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps ormVerifiedPublisherLinksBackfill to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('ormVerifiedPublisherLinksBackfill'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });
@@ -113,6 +120,21 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+        ])
+      )
+    );
+  });
+
+  it('maps mqAddByRSSRunParser to Base, ORM, MQ, Parser, KeyValDB, and Podcast Index', () => {
+    expect(sortCategories(getCategoriesForCommand('mqAddByRSSRunParser'))).toEqual(
+      sortCategories(
+        new Set([
+          CATEGORY_BASE,
+          CATEGORY_ORM,
+          CATEGORY_MQ,
+          CATEGORY_PARSER,
+          CATEGORY_KEYVALDB,
+          CATEGORY_PODCAST_INDEX,
         ])
       )
     );

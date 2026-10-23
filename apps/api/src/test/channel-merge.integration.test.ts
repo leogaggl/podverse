@@ -1,6 +1,6 @@
 import type { Server } from 'http';
 import type { EntityManager } from 'typeorm';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MediumEnum } from '@podverse/helpers';
 import type { ORMContext } from '@podverse/orm';
@@ -178,6 +178,8 @@ describe('channel merge apply and revert', () => {
   let ormContext: ORMContext | undefined;
   let mergeApi: MergeApi;
 
+  const verifiedPublisherCleanupChannelIds: number[][] = [];
+
   beforeAll(async () => {
     const started = await startTestApp();
     server = started.server;
@@ -198,6 +200,24 @@ describe('channel merge apply and revert', () => {
 
   afterAll(async () => {
     await stopTestApp(server, ormContext);
+  });
+
+  afterEach(async () => {
+    const channelIds = verifiedPublisherCleanupChannelIds.pop();
+    if (!ormContext || channelIds === undefined) {
+      return;
+    }
+    const absorbedChannelId = channelIds[0];
+    const survivorChannelId = channelIds[1];
+    if (absorbedChannelId === undefined || survivorChannelId === undefined) {
+      return;
+    }
+    await ormContext.dataSourceReadWrite.query(
+      `DELETE FROM channel_verified_publisher
+       WHERE channel_id = $1 OR publisher_channel_id = $1
+          OR channel_id = $2 OR publisher_channel_id = $2`,
+      [absorbedChannelId, survivorChannelId]
+    );
   });
 
   it('absorbs both follows, keeps queue progress, and restores them on revert', async () => {
@@ -269,6 +289,22 @@ describe('channel merge apply and revert', () => {
     );
     expect(await lifecycleKey(manager, oldShow.feedId)).not.toBe('merged');
 
+    verifiedPublisherCleanupChannelIds.push([oldShow.channelId, survivor.channelId]);
+    const insertedLinks = rowsOf(
+      await manager.query(
+        `INSERT INTO channel_verified_publisher (channel_id, publisher_channel_id, item_id, claim_position)
+         VALUES ($1, $2, NULL, 0), ($2, $1, NULL, 0)
+         RETURNING id, channel_id, publisher_channel_id, item_id, claim_position`,
+        [oldShow.channelId, survivor.channelId]
+      )
+    );
+    const insertedLinkIds = insertedLinks
+      .map((row) => asId(row.id))
+      .sort((left, right) => left - right);
+    if (insertedLinkIds.length !== 2) {
+      throw new Error('expected two verified publisher links');
+    }
+
     const enqueued: string[] = [];
     await mergeApi.verifyAndApplyDuplicateMerges({
       mode: 'apply',
@@ -298,6 +334,15 @@ describe('channel merge apply and revert', () => {
     );
     expect(asId(clipRows[0]?.item_id)).toBe(survivorItemId);
     expect(await lifecycleKey(manager, oldShow.feedId)).toBe('merged');
+    const absorbedLinkCount = rowsOf(
+      await manager.query(
+        `SELECT count(*)::int AS n
+         FROM channel_verified_publisher
+         WHERE channel_id = $1 OR publisher_channel_id = $1`,
+        [oldShow.channelId]
+      )
+    );
+    expect(asId(absorbedLinkCount[0]?.n)).toBe(0);
 
     const journalBefore: unknown = await manager.query(
       `SELECT count(*)::int AS n FROM channel_merge_journal WHERE channel_merge_id = $1`,
@@ -334,6 +379,27 @@ describe('channel merge apply and revert', () => {
     );
     expect(asId(restoredClip[0]?.item_id)).toBe(oldItemId);
     expect(await lifecycleKey(manager, oldShow.feedId)).toBe('active');
+    const restoredLinks = rowsOf(
+      await manager.query(
+        `SELECT id, channel_id, publisher_channel_id, item_id, claim_position
+         FROM channel_verified_publisher
+         WHERE channel_id = $1 OR publisher_channel_id = $1
+         ORDER BY id`,
+        [oldShow.channelId]
+      )
+    );
+    expect(restoredLinks.map((row) => asId(row.id))).toEqual(insertedLinkIds);
+    const insertedById = new Map(insertedLinks.map((row) => [asId(row.id), row]));
+    for (const restored of restoredLinks) {
+      const inserted = insertedById.get(asId(restored.id));
+      if (inserted === undefined) {
+        throw new Error('restored verified publisher link was not inserted');
+      }
+      expect(asId(restored.channel_id)).toBe(asId(inserted.channel_id));
+      expect(asId(restored.publisher_channel_id)).toBe(asId(inserted.publisher_channel_id));
+      expect(restored.item_id).toBeNull();
+      expect(asId(restored.claim_position)).toBe(0);
+    }
     const reverted = await mergeRepo.findOne({ where: { id: detected.id } });
     expect(reverted?.status).toBe(mergeApi.ChannelMergeStatus.Reverted);
   });

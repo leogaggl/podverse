@@ -50,7 +50,7 @@ higher (after extra high, **Codex 5.3 · high**), and record the change on the p
 
 ## Phase 1
 
-- [ ] **01 — Publisher claims as lists, and the verified publisher link table**
+- [x] **01 — Publisher claims as lists, and the verified publisher link table**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -74,7 +74,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **20 — Add by RSS publisher listed feeds: response contract and pure planning**
+- [x] **20 — Add by RSS publisher listed feeds: response contract and pure planning**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -97,7 +97,7 @@ anything a later prompt needs.
 
 ## Phase 2
 
-- [ ] **02 — Verified publisher match rule and recompute service**
+- [x] **02 — Verified publisher match rule and recompute service**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -121,7 +121,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **80 — Mobile stores what an Add by RSS artist lists, and albums it holds only for that artist**
+- [x] **80 — Mobile stores what an Add by RSS artist lists, and albums it holds only for that artist**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -144,7 +144,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **90 — API: unfollow many feeds in one request**
+- [x] **90 — API: unfollow many feeds in one request**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -167,7 +167,7 @@ anything a later prompt needs.
 
 ## Phase 3
 
-- [ ] **03 — Recompute links on every parse, and map publisher claims as a list**
+- [x] **03 — Recompute links on every parse, and map publisher claims as a list**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -190,7 +190,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **04 — New-album notifications name only verified or not-yet-parsed albums**
+- [x] **04 — New-album notifications name only verified or not-yet-parsed albums**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -213,7 +213,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **05 — Channel merges remove the absorbed channel's verified publisher links**
+- [x] **05 — Channel merges remove the absorbed channel's verified publisher links**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -236,7 +236,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **06 — Worker command to backfill verified publisher links**
+- [x] **06 — Worker command to backfill verified publisher links**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -259,7 +259,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **10 — Verified publishers on channel and item responses**
+- [x] **10 — Verified publishers on channel and item responses**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -283,7 +283,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **21 — Find directory channels for the feeds an Add by RSS artist lists**
+- [x] **21 — Find directory channels for the feeds an Add by RSS artist lists**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -306,7 +306,7 @@ anything a later prompt needs.
 
 ## Phase 4
 
-- [ ] **22 — Adding an Add by RSS artist also parses the albums it lists**
+- [x] **22 — Adding an Add by RSS artist also parses the albums it lists**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -330,7 +330,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **23 — E2E fixture: an Add by RSS artist that lists two albums**
+- [x] **23 — E2E fixture: an Add by RSS artist that lists two albums**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -353,7 +353,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **70 — Public read: which directory channel a feed guid is**
+- [x] **70 — Public read: which directory channel a feed guid is**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -377,7 +377,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **81 — Mobile answers "which artist" for Add by RSS from memory**
+- [x] **81 — Mobile answers "which artist" for Add by RSS from memory**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -402,7 +402,7 @@ anything a later prompt needs.
 
 ## Phase 5
 
-- [ ] **11 — Artist endpoint: verified albums, Not Yet Added, tracks from verified albums**
+- [x] **11 — Artist endpoint: verified albums, Not Yet Added, tracks from verified albums**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -427,7 +427,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **60 — Mobile verified-artist helpers and the artist chooser sheet**
+- [x] **60 — Mobile verified-artist helpers and the artist chooser sheet**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -451,7 +451,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **71 — Web: store what an Add by RSS artist lists, and the albums parsed with it**
+- [x] **71 — Web: store what an Add by RSS artist lists, and the albums parsed with it**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -474,7 +474,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **82 — Mobile stores an Add by RSS artist's albums as their parses finish**
+- [x] **82 — Mobile stores an Add by RSS artist's albums as their parses finish**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -499,7 +499,7 @@ anything a later prompt needs.
 
 ## Phase 6
 
-- [ ] **12 — Verified publishers on item lists, queue resources, and playlist resources**
+- [x] **12 — Verified publishers on item lists, queue resources, and playlist resources**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -523,7 +523,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **13 — E2E fixtures for the artist page's album groups**
+- [x] **13 — E2E fixtures for the artist page's album groups**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -547,7 +547,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **61 — Mobile full player artist line**
+- [x] **61 — Mobile full player artist line**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -571,7 +571,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **62 — Mobile mini player "Artist · Album" line**
+- [x] **62 — Mobile mini player "Artist · Album" line**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -593,7 +593,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **63 — Mobile track screen artist byline**
+- [x] **63 — Mobile track screen artist byline**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -616,7 +616,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **64 — Lock screen and car now-playing: artist and album fields (phone-started playback)**
+- [x] **64 — Lock screen and car now-playing: artist and album fields (phone-started playback)**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -639,7 +639,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **74 — Web: open, play, and follow an album an Add by RSS artist lists**
+- [x] **74 — Web: open, play, and follow an album an Add by RSS artist lists**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -663,7 +663,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **83 — Mobile: follow an album an Add by RSS artist listed, and unfollow back to listed**
+- [x] **83 — Mobile: follow an album an Add by RSS artist listed, and unfollow back to listed**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -688,7 +688,7 @@ anything a later prompt needs.
 
 ## Phase 7
 
-- [ ] **40 — Mobile artist screen: verified albums, Not Yet Added, track list**
+- [x] **40 — Mobile artist screen: verified albums, Not Yet Added, track list**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -713,7 +713,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **50 — Web player artist line**
+- [x] **50 — Web player artist line**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -738,7 +738,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **65 — Car-started playback: artist and album from the native cache**
+- [x] **65 — Car-started playback: artist and album from the native cache**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -762,7 +762,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **66 — Maestro: artist line on the track screen, mini player, and full player**
+- [x] **66 — Maestro: artist line on the track screen, mini player, and full player**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -783,7 +783,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **67 — Phone playback from a download shows the album's artist**
+- [x] **67 — Phone playback from a download shows the album's artist**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -810,7 +810,7 @@ anything a later prompt needs.
 
 ## Phase 8
 
-- [ ] **30 — Web artist page: verified albums, Not Yet Added, verified tracks**
+- [x] **30 — Web artist page: verified albums, Not Yet Added, verified tracks**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -835,7 +835,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **41 — Maestro: artist album groups and the Podcast Index preview**
+- [x] **41 — Maestro: artist album groups and the Podcast Index preview**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -857,7 +857,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **68 — Car Downloads list and car-started download plays show the artist**
+- [x] **68 — Car Downloads list and car-started download plays show the artist**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -880,7 +880,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **72 — Web: match Add by RSS artists and albums by guid**
+- [x] **72 — Web: match Add by RSS artists and albums by guid**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -903,7 +903,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **84 — Mobile Add by RSS artist screen: Albums and Tracks**
+- [x] **84 — Mobile Add by RSS artist screen: Albums and Tracks**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -927,7 +927,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **86 — Mobile player artist line for Add by RSS albums and albums Add by RSS artists list**
+- [x] **86 — Mobile player artist line for Add by RSS albums and albums Add by RSS artists list**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -953,7 +953,7 @@ anything a later prompt needs.
 
 ## Phase 9
 
-- [ ] **51 — Directory track page artist byline**
+- [x] **51 — Directory track page artist byline**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -976,7 +976,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **73 — Web: Add by RSS artist page Albums and Tracks by guid**
+- [x] **73 — Web: Add by RSS artist page Albums and Tracks by guid**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -1000,7 +1000,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **76 — Web: player artist line for Add by RSS artists**
+- [x] **76 — Web: player artist line for Add by RSS artists**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1024,7 +1024,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **85 — Mobile directory artist page: Your Add by RSS Albums and their tracks**
+- [x] **85 — Mobile directory artist page: Your Add by RSS Albums and their tracks**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -1048,7 +1048,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **91 — Catalog keys for the unsubscribe-from-artist dialog**
+- [x] **91 — Catalog keys for the unsubscribe-from-artist dialog**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -1071,7 +1071,7 @@ anything a later prompt needs.
 
 ## Phase 10
 
-- [ ] **75 — Web: Your Add by RSS Albums and tracks on a directory artist page**
+- [x] **75 — Web: Your Add by RSS Albums and tracks on a directory artist page**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1096,7 +1096,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **77 — Web: artist byline on Add by RSS track pages**
+- [x] **77 — Web: artist byline on Add by RSS track pages**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -1119,7 +1119,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **87 — Mobile Add by RSS track screen: artist link in the byline**
+- [x] **87 — Mobile Add by RSS track screen: artist link in the byline**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1142,7 +1142,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **92 — Web: ask about albums when unsubscribing from a directory artist**
+- [x] **92 — Web: ask about albums when unsubscribing from a directory artist**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1166,7 +1166,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **94 — Mobile: the unsubscribe-from-artist dialog, its data, and many unfollows at once**
+- [x] **94 — Mobile: the unsubscribe-from-artist dialog, its data, and many unfollows at once**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -1192,7 +1192,7 @@ anything a later prompt needs.
 
 ## Phase 11
 
-- [ ] **78 — Web E2E: an Add by RSS artist's albums, player line, byline, and directory page**
+- [x] **78 — Web E2E: an Add by RSS artist's albums, player line, byline, and directory page**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -1216,7 +1216,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **88 — Maestro: an Add by RSS artist on mobile, end to end**
+- [x] **88 — Maestro: an Add by RSS artist on mobile, end to end**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1239,7 +1239,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **93 — Web: ask about albums when unsubscribing from an Add by RSS artist**
+- [x] **93 — Web: ask about albums when unsubscribing from an Add by RSS artist**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -1265,7 +1265,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **95 — Mobile: every artist unsubscribe asks about albums**
+- [x] **95 — Mobile: every artist unsubscribe asks about albums**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1291,7 +1291,7 @@ anything a later prompt needs.
 
 ## Phase 12
 
-- [ ] **96 — Playwright: the unsubscribe-from-artist dialog on web**
+- [x] **96 — Playwright: the unsubscribe-from-artist dialog on web**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1312,7 +1312,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **97 — Maestro: the unsubscribe-from-artist dialog on mobile**
+- [x] **97 — Maestro: the unsubscribe-from-artist dialog on mobile**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -1336,7 +1336,7 @@ anything a later prompt needs.
 
 ## Close
 
-- [ ] **Close — Release entries, archive the set, cumulative verification**
+- [x] **Close — Release entries, archive the set, cumulative verification**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 

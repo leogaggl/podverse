@@ -28,10 +28,13 @@ import {
   addByRSSFeedNeedsFirstParse,
   enqueueAddByRSSFirstParses,
 } from '../../../utils/addByRSS/firstParse';
-import { getAddByRSSFeedByIdText } from '../../../utils/addByRSS/storage';
+import {
+  getAddByRSSAlbumSourceByIdText,
+  getAddByRSSFeedByIdText,
+} from '../../../utils/addByRSS/storage';
 import { syncAddByRSSFollowStubs } from '../../../utils/addByRSS/sync';
 import type {
-  AddByRSSFeedRecord,
+  AddByRSSAlbumSource,
   AddByRSSMappedFeed,
   AddByRSSResourceType,
 } from '../../../utils/addByRSS/types';
@@ -59,31 +62,43 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
   const locale = useLocale();
   const router = useRouter();
   const { loggedInAccount } = useAccount();
-  const [feed, setFeed] = React.useState<AddByRSSFeedRecord | null>(null);
+  const [source, setSource] = React.useState<AddByRSSAlbumSource | null>(null);
+  const feed = source?.feed ?? null;
   const [isLoading, setIsLoading] = React.useState(true);
 
   const isEpisodesDetail = resourceType === 'episodes';
 
   const accountIdText = loggedInAccount?.id_text ?? null;
 
+  // Only albums fall back to the listed store: an Add by RSS artist lists albums, nothing else.
+  const readSource = React.useCallback(
+    (): Promise<AddByRSSAlbumSource | null> =>
+      resourceType === 'albums'
+        ? getAddByRSSAlbumSourceByIdText(idText)
+        : getAddByRSSFeedByIdText(idText).then((record): AddByRSSAlbumSource | null =>
+            record ? { followed: true, feed: record } : null
+          ),
+    [idText, resourceType]
+  );
+
   React.useEffect(() => {
     let isCurrent = true;
     const load = async () => {
       setIsLoading(true);
       if (accountIdText === null) {
-        setFeed(null);
+        setSource(null);
         setIsLoading(false);
         return;
       }
 
       // The stored record shows at once; the follow sync then brings in the server's title and
       // artwork, or removes a feed the account no longer follows.
-      const local = await getAddByRSSFeedByIdText(idText);
+      const local = await readSource();
       if (!isCurrent) {
         return;
       }
       if (local) {
-        setFeed(local);
+        setSource(local);
         setIsLoading(false);
       }
 
@@ -92,15 +107,18 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
       } catch (error) {
         console.error(error);
       }
-      const synced = await getAddByRSSFeedByIdText(idText);
+      const synced = await readSource();
       if (!isCurrent) {
         return;
       }
-      setFeed(synced);
+      setSource(synced);
       setIsLoading(false);
 
-      if (synced && addByRSSFeedNeedsFirstParse(synced)) {
-        void enqueueAddByRSSFirstParses({ accountId: accountIdText, feedUrls: [synced.feedUrl] });
+      if (synced?.followed === true && addByRSSFeedNeedsFirstParse(synced.feed)) {
+        void enqueueAddByRSSFirstParses({
+          accountId: accountIdText,
+          feedUrls: [synced.feed.feedUrl],
+        });
       }
     };
 
@@ -108,12 +126,12 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
     return () => {
       isCurrent = false;
     };
-  }, [accountIdText, idText]);
+  }, [accountIdText, readSource]);
 
   useAddByRSSFeedChanged(feed?.feedUrl ?? null, () => {
-    void getAddByRSSFeedByIdText(idText).then((record) => {
-      if (record) {
-        setFeed(record);
+    void readSource().then((next) => {
+      if (next) {
+        setSource(next);
       }
     });
   });
@@ -128,7 +146,7 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
     return <WebLoadingYourContentSpinnerOverlay isLoading />;
   }
 
-  if (!feed) {
+  if (source === null || feed === null) {
     return (
       <>
         <MainHeader title={tFeatures('add_by_rss.label')} />
@@ -148,7 +166,7 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
     return <AddByRSSPodcastPageDetailClient feed={feed} />;
   }
   if (resourceType === 'albums') {
-    return <AddByRSSAlbumPageClient feed={feed} />;
+    return <AddByRSSAlbumPageClient feed={source.feed} followed={source.followed} />;
   }
   if (resourceType === 'episodes') {
     return <WebLoadingYourContentSpinnerOverlay isLoading />;

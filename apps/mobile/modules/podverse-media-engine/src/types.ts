@@ -19,6 +19,11 @@ export type MediaEngineSourceMeta = {
   queueMedium: 'av' | 'music';
   title: string;
   subtitle?: string | null;
+  /**
+   * OS album field. Set only when `subtitle` holds artist names; otherwise the channel title is
+   * in `subtitle` and this is null.
+   */
+  albumTitle?: string | null;
   artworkUrl?: string | null;
   isLive?: boolean;
   clipStartSeconds?: number | null;

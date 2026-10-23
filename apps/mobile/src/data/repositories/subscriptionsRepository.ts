@@ -119,6 +119,23 @@ const upsertDirectoryEntries = async (entries: SubscribedChannel[]): Promise<voi
   }
 };
 
+/** One follow to end: a directory channel by `id_text`, or an Add by RSS feed by its URL. */
+export type SubscriptionTarget = { idText: string; source: SubscriptionSource };
+
+/**
+ * End one follow on this device only. An Add by RSS feed reports whether it stays as listed-only
+ * under an artist (`'listed'`) or left the device (`'removed'`); a directory follow reports null.
+ */
+const unsubscribeLocalTarget = async (
+  target: SubscriptionTarget
+): Promise<'listed' | 'removed' | null> => {
+  if (target.source === 'addByRss') {
+    return addByRssRepository.unfollowFeed(target.idText);
+  }
+  await subscriptionsRepository.unsubscribeLocal(target.idText);
+  return null;
+};
+
 /** One page of directory follows, plus where the walk goes next. */
 export type DirectoryPageResult = {
   entries: SubscribedChannel[];
@@ -286,23 +303,29 @@ export const subscriptionsRepository = {
 
   /**
    * End a follow. The local write always happens first and stands even if the account call fails.
+   * A listed album stays on the device under its artist.
    *
    * `accountSync` is the signed-in path: directory unfollows `channel_id_text`, add-by-RSS unfollows
-   * the feed URL. Omit it when signed out — local removal is the whole operation.
+   * the feed URL. Omit it when signed out — the local write is the whole operation.
    */
   unsubscribe: async (params: {
     accountSync?: MobileAuthRequestContext;
     idText: string;
     source: SubscriptionSource;
-  }): Promise<{ serverError: boolean }> => {
-    if (params.source === 'addByRss') {
-      await addByRssRepository.removeFeed(params.idText);
-    } else {
-      await subscriptionsRepository.unsubscribeLocal(params.idText);
-    }
+  }): Promise<{ addByRssOutcome?: 'listed' | 'removed'; serverError: boolean }> => {
+    const localOutcome = await unsubscribeLocalTarget({
+      idText: params.idText,
+      source: params.source,
+    });
+    const addByRssOutcome = localOutcome ?? undefined;
+
+    const finish = (
+      serverError: boolean
+    ): { addByRssOutcome?: 'listed' | 'removed'; serverError: boolean } =>
+      addByRssOutcome === undefined ? { serverError } : { addByRssOutcome, serverError };
 
     if (params.accountSync === undefined) {
-      return { serverError: false };
+      return finish(false);
     }
 
     try {
@@ -314,6 +337,46 @@ export const subscriptionsRepository = {
         }
         return api.reqAccountUnfollowChannel({ channel_id_text: params.idText });
       });
+      return finish(false);
+    } catch {
+      return finish(true);
+    }
+  },
+
+  /**
+   * End several follows: every local write first, in order, then one account request for all of
+   * them. Local writes stand even if the account request fails.
+   */
+  unsubscribeMany: async (params: {
+    accountSync?: MobileAuthRequestContext;
+    targets: readonly SubscriptionTarget[];
+  }): Promise<{ serverError: boolean }> => {
+    if (params.targets.length === 0) {
+      return { serverError: false };
+    }
+
+    const channelIdTexts: string[] = [];
+    const addByRssFeedUrls: string[] = [];
+    for (const target of params.targets) {
+      await unsubscribeLocalTarget(target);
+      if (target.source === 'addByRss') {
+        addByRssFeedUrls.push(target.idText);
+      } else {
+        channelIdTexts.push(target.idText);
+      }
+    }
+
+    if (params.accountSync === undefined) {
+      return { serverError: false };
+    }
+
+    try {
+      await requestWithMobileAuthRefresh(params.accountSync, async (api) =>
+        api.reqAccountUnfollowBulk({
+          ...(channelIdTexts.length > 0 ? { channel_id_texts: channelIdTexts } : {}),
+          ...(addByRssFeedUrls.length > 0 ? { add_by_rss_feed_urls: addByRssFeedUrls } : {}),
+        })
+      );
       return { serverError: false };
     } catch {
       return { serverError: true };

@@ -18,6 +18,7 @@ import {
   DEFAULT_ENCLOSURE_SELECTED_PARAMS,
   resolveItemEnclosureUrl,
 } from '../../lib/playback/resolveEnclosureUrl';
+import { itemArtistNames } from '../../lib/playback/verifiedArtists';
 import { publishQueueDataChanged } from '../../sync/queueDataRevision';
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { NativeCacheQueueEntry } from '../nativeCache';
@@ -130,6 +131,7 @@ const toNativeCacheEntry = (resource: DTOQueueResource): NativeCacheQueueEntry |
     artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
     mediaUrl,
     podcastTitle: item.channel?.title ?? null,
+    artist: itemArtistNames(item),
     startPositionSeconds:
       Number.isFinite(positionSeconds) && positionSeconds > 0 ? positionSeconds : null,
     durationMs:

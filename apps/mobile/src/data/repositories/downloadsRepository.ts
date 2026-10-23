@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
-import type { DTOItem } from '@podverse/helpers/dto';
+import type { DTOItem, DTOVerifiedPublisher } from '@podverse/helpers/dto';
 
 import type {
   DownloadMediaType,
@@ -76,6 +76,46 @@ const chunked = <T>(values: readonly T[], size: number): T[][] => {
 };
 
 /**
+ * Channel-wide verified publishers stored on the followed music channel item behind each
+ * completed download, keyed by item id_text. Reads the download to channel_item join; a download
+ * whose channel this device does not follow, or whose stored item has no publishers, has no entry.
+ */
+const readFollowedMusicPublishers = async (
+  itemIdTexts: readonly string[] | null
+): Promise<Map<string, DTOVerifiedPublisher[]>> => {
+  const byItem = new Map<string, DTOVerifiedPublisher[]>();
+  if (itemIdTexts !== null && itemIdTexts.length === 0) {
+    return byItem;
+  }
+  const rows = await getDb()
+    .select({
+      itemIdText: schema.download.itemIdText,
+      payloadJson: schema.channelItem.payloadJson,
+    })
+    .from(schema.download)
+    .innerJoin(schema.channelItem, eq(schema.channelItem.itemIdText, schema.download.itemIdText))
+    .innerJoin(
+      schema.subscribedChannel,
+      eq(schema.subscribedChannel.idText, schema.channelItem.channelIdText)
+    )
+    .where(
+      and(
+        eq(schema.download.status, 'complete'),
+        eq(schema.subscribedChannel.medium, 'music'),
+        itemIdTexts === null ? undefined : inArray(schema.download.itemIdText, [...itemIdTexts])
+      )
+    );
+  for (const row of rows) {
+    const item = safeJsonParse<DTOItem>(row.payloadJson);
+    const publishers = item?.channel?.verified_publishers ?? item?.channel_wide_verified_publishers;
+    if (Array.isArray(publishers) && publishers.length > 0) {
+      byItem.set(row.itemIdText, publishers);
+    }
+  }
+  return byItem;
+};
+
+/**
  * Project the current set of completed downloads (files that exist on disk) to the native cache so
  * CarPlay / Android Auto / watch can list offline episodes without SQLite. Called after every
  * mutation (see nativeCache/projection.ts and the mobile-data-layer skill).
@@ -95,6 +135,9 @@ const refreshNativeCacheProjection = async (): Promise<void> => {
     .from(schema.download)
     .where(eq(schema.download.status, 'complete'));
 
+  const publishersByItem = await readFollowedMusicPublishers(null);
+  const { verifiedArtistNames } = await import('../../lib/playback/verifiedArtists');
+
   await projectDownloadsIndexToNativeCache({
     entries: rows.flatMap((row) => {
       if (row.filePath === null) {
@@ -109,6 +152,9 @@ const refreshNativeCacheProjection = async (): Promise<void> => {
           mediaUrl: row.enclosureUri,
           bytes: row.byteSize,
           channelTitle: row.channelTitle,
+          artist: verifiedArtistNames({
+            channel: { verified_publishers: publishersByItem.get(row.itemIdText) },
+          }),
         },
       ];
     }),
@@ -500,6 +546,16 @@ export const downloadsRepository = {
       .limit(1);
     const row = rows[0];
     return row === undefined ? null : rowToRecord(row);
+  },
+
+  /**
+   * The album's channel-wide verified publishers for a completed download whose channel this device
+   * follows. Empty when the channel is not followed or the stored item has none.
+   */
+  followedMusicPublishers: async (itemIdText: string): Promise<DTOVerifiedPublisher[]> => {
+    await initializeDatabase();
+    const byItem = await readFollowedMusicPublishers([itemIdText]);
+    return byItem.get(itemIdText) ?? [];
   },
 
   /** Insert or replace a download row (e.g. enqueue). Projects the completed set on success. */

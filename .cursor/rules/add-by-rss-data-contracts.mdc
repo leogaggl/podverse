@@ -28,8 +28,10 @@ conversion is explicit, not that the schemas are identical.
 When changing Add-by-RSS data, trace this complete path:
 
 1. **Server:** `DTOAccountFollowingAddByRSSChannel`, the ORM entity, and
-   `AddByRSSParseCacheEntry` define followed metadata and parse-status payloads. Parsed feed items are
-   not stored in the server database.
+   `AddByRSSParseCacheEntry` define followed metadata and parse-status payloads. An artist feed's
+   parse entry also carries `publisherListedFeeds` (directory links and the request ids of albums
+   parsed with it), and each such album's own entry carries `publisherRequestId`. Parsed feed items
+   are not stored in the server database.
 2. **Parsed bundle:** `AddByRSSMappedFeed` is the canonical mapped result persisted in
    `add_by_rss_feed.mapped_feed_json`.
 3. **Mobile record:** `MobileAddByRSSFeedRecord`, `AddByRssFeedRow`, `schema.ts`, and

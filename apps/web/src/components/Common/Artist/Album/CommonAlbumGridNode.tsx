@@ -8,6 +8,7 @@ import { SkeletonFlashImage } from '@podverse/ui';
 
 import { IMAGES } from '../../../../constants/images';
 import { listItemImageCandidates } from '../../../../utils/image/listItemImageCandidates';
+import { AddByRSSRowMarker } from '../../../AddByRSS/AddByRSSRowMarker';
 import type { AlbumListItem } from './types';
 
 import styles from '../../../../styles/components/Common/List/ListGridNode.module.scss';
@@ -31,7 +32,10 @@ export const CommonAlbumListGridNode: React.FC<CommonAlbumListGridNodeProps> = (
           height={IMAGES.LIST.GRID.SIZE}
           className={styles.image}
         />
-        <div className={styles.title}>{item.title}</div>
+        <div className={styles.title}>
+          {item.title}
+          {item.showAddByRssMarker ? <AddByRSSRowMarker /> : null}
+        </div>
         {showSubtitle && (
           <span className={styles.lastPubDate}>{item.subtitle || tMisc('untitled')}</span>
         )}

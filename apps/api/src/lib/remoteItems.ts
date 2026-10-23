@@ -10,6 +10,11 @@ import type {
   RemoteItemGeneric,
 } from '@podverse/helpers';
 
+import {
+  findE2eArtistAlbumFeedByGuid,
+  findE2eArtistAlbumFeedByUrl,
+} from './e2eArtistAlbumsFixture.js';
+
 function isLocalFeedUrl(url: string | null | undefined): boolean {
   if (url === null || url === '' || url === undefined) return true;
   const lower = url.toLowerCase();
@@ -134,7 +139,14 @@ export async function buildRemoteItemsFinalResult(
 
   let channelsUnaddedFromPI: PodcastBatchByFeedGuidResponse['feeds'] = [];
   try {
-    if (feedGuids.length) {
+    if (config.e2e.fixturesEnabled) {
+      for (const guid of feedGuids) {
+        const feed = findE2eArtistAlbumFeedByGuid(guid);
+        if (feed) {
+          channelsUnaddedFromPI.push(feed);
+        }
+      }
+    } else if (feedGuids.length) {
       const cachedFeeds: PodcastBatchByFeedGuidResponse['feeds'] = [];
       const missingGuids: string[] = [];
 
@@ -177,15 +189,24 @@ export async function buildRemoteItemsFinalResult(
     }
 
     if (options?.enrichUnaddedChannelsByFeedUrl) {
-      const urlExtras = await enrichMissedChannelsUnaddedByFeedUrl(
-        originalChannelsUnadded || [],
-        channelsUnaddedFromPI,
-        lookupPodcastIndexFeedByUrl
-      );
-      for (const f of urlExtras) {
-        await cachePodcastIndexFeed(f);
+      if (config.e2e.fixturesEnabled) {
+        const urlExtras = await enrichMissedChannelsUnaddedByFeedUrl(
+          originalChannelsUnadded || [],
+          channelsUnaddedFromPI,
+          async (feedUrl) => findE2eArtistAlbumFeedByUrl(feedUrl)
+        );
+        channelsUnaddedFromPI = [...channelsUnaddedFromPI, ...urlExtras];
+      } else {
+        const urlExtras = await enrichMissedChannelsUnaddedByFeedUrl(
+          originalChannelsUnadded || [],
+          channelsUnaddedFromPI,
+          lookupPodcastIndexFeedByUrl
+        );
+        for (const f of urlExtras) {
+          await cachePodcastIndexFeed(f);
+        }
+        channelsUnaddedFromPI = [...channelsUnaddedFromPI, ...urlExtras];
       }
-      channelsUnaddedFromPI = [...channelsUnaddedFromPI, ...urlExtras];
     }
   } catch {
     channelsUnaddedFromPI = [];
@@ -193,6 +214,15 @@ export async function buildRemoteItemsFinalResult(
 
   let itemsUnaddedFromPI: NonNullable<EpisodeByGuidResponse['episode']>[] = [];
   try {
+    if (config.e2e.fixturesEnabled) {
+      return {
+        channelsAdded: originalChannelsAdded,
+        channelsUnadded: channelsUnaddedFromPI,
+        itemsAdded: originalItemsAdded,
+        itemsUnadded: itemsUnaddedFromPI,
+      };
+    }
+
     const items = originalItemsUnadded || [];
 
     const itemsWithFeedGuid = items.filter(

@@ -19,12 +19,15 @@ type CommonTrackRowProps = {
   imageUrl?: string | null;
   leftMetaNode?: React.ReactNode;
   rightMetaNode?: React.ReactNode;
+  /** Rendered inside the title, after the title text. */
+  titleMarker?: React.ReactNode;
 };
 
 const trackContent = (
   title: string,
   subtitle: string | null | undefined,
-  imageUrl: string | null | undefined
+  imageUrl: string | null | undefined,
+  titleMarker?: React.ReactNode
 ) => (
   <>
     <ImagesPerView
@@ -40,7 +43,10 @@ const trackContent = (
     <div className={styles.trackWrapper}>
       <div className={styles.trackContent}>
         <div className={styles.trackTextWrapper}>
-          <h3 className={styles.trackTitle}>{title}</h3>
+          <h3 className={styles.trackTitle}>
+            {title}
+            {titleMarker}
+          </h3>
           {subtitle ? <div className={styles.trackArtist}>{subtitle}</div> : null}
         </div>
       </div>
@@ -56,8 +62,9 @@ export const CommonTrackRow: React.FC<CommonTrackRowProps> = ({
   imageUrl,
   leftMetaNode,
   rightMetaNode,
+  titleMarker,
 }) => {
-  const content = trackContent(title, subtitle, imageUrl);
+  const content = trackContent(title, subtitle, imageUrl, titleMarker);
 
   return (
     <div className={styles.trackRow}>

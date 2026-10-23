@@ -2,10 +2,10 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isAlbumMediumId, isDescriptionTruncated, parseMediumId } from '@podverse/helpers';
-import { createAddByRSSIdText } from '@podverse/helpers';
+import type { AddByRSSParseStatus, DTOChannel } from '@podverse/helpers';
+import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
 import {
   CallToActionMessage,
@@ -20,26 +20,48 @@ import { useBoostMessagesView } from '../../../components/Boost/messages/useBoos
 import { WebLoadingYourContentSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { NoResults } from '../../../components/NoResults/NoResults';
+import { IMAGES } from '../../../constants/images';
 import { useAccount } from '../../../contexts/Account';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
-import { selectChannelOrderedLiveItems } from '../../../utils/addByRSS/channelLiveItems';
+import { getApiRequestService } from '../../../factories/apiRequestService';
 import {
-  buildAddByRSSItemsIndex,
-  buildAddByRSSLivestreamIndex,
-  buildItemIdTextMap,
-} from '../../../utils/addByRSS/itemIndex';
+  refreshAddByRSSPublisherLinks,
+  resumeListedAddByRSSPolls,
+} from '../../../utils/addByRSS/actions';
+import { loadAddByRSSAlbumTrackIndexItems } from '../../../utils/addByRSS/albumTracks';
+import { selectChannelOrderedLiveItems } from '../../../utils/addByRSS/channelLiveItems';
+import type { AddByRSSNeedsCredentialsFeed } from '../../../utils/addByRSS/credentialsStatus';
+import { getListedAddByRSSCredentialsNeed } from '../../../utils/addByRSS/credentialsStatus';
+import { listFeedsWithCredentials } from '../../../utils/addByRSS/credentialStore';
+import { onAddByRSSFeedChanged } from '../../../utils/addByRSS/feedChangedEvent';
+import { buildAddByRSSLivestreamIndex } from '../../../utils/addByRSS/itemIndex';
+import {
+  addByRSSPublisherLinksNeedRefresh,
+  toAddByRSSComparableFeedUrl,
+} from '../../../utils/addByRSS/listedFeeds';
+import type { AddByRSSArtistAlbumEntry } from '../../../utils/addByRSS/publisherLinks';
+import {
+  mergeAddByRSSAlbumSources,
+  resolveAddByRSSArtistAlbums,
+  resolveAddByRSSArtistTrackRefs,
+} from '../../../utils/addByRSS/publisherLinks';
 import {
   getAddByRSSFeedByIdText,
-  getAddByRSSFeedsByResourceType,
   getAddByRSSItemByGuid,
   getAddByRSSLivestreamByGuid,
+  getAddByRSSPublisherLink,
+  getAllAddByRSSFeeds,
+  getAllListedAddByRSSFeeds,
 } from '../../../utils/addByRSS/storage';
 import type {
   AddByRSSFeedRecord,
   AddByRSSItemIndexItem,
+  AddByRSSListedFeedRecord,
   AddByRSSLivestreamIndexItem,
 } from '../../../utils/addByRSS/types';
+import { addByRSSFeedListTitle } from '../../../utils/subscribed/channelListItems';
+import { toAddByRSSArtistAlbumListItems } from './addByRSSArtistAlbumListItems';
 import { AddByRSSArtistPageList } from './AddByRSSArtistPageList';
 import type { AddByRSSArtistPageTabKey } from './AddByRSSArtistPageListHeader';
 import { AddByRSSArtistPageListHeader } from './AddByRSSArtistPageListHeader';
@@ -61,25 +83,53 @@ const getFeedLastPubDateMs = (feed: AddByRSSFeedRecord): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-const normalizeKey = (value?: string | null): string => (value ?? '').trim().toLowerCase();
+/** A burst of album poll updates reloads the page once. */
+const RELOAD_DEBOUNCE_MS = 300;
+const DIRECTORY_CHANNEL_FETCH_CONCURRENCY = 5;
 
-const getArtistMatchKey = (feed: AddByRSSFeedRecord): string =>
-  normalizeKey(
-    feed.mappedFeed?.channel?.about?.author ??
-      feed.mappedFeed?.channel?.channel?.title ??
-      feed.title ??
-      feed.feedUrl
-  );
-
-const matchesArtist = (feed: AddByRSSFeedRecord, artistKey: string): boolean => {
-  if (!artistKey) {
-    return false;
+const getEntryLastPubDateMs = (
+  entry: AddByRSSArtistAlbumEntry,
+  directoryChannels: ReadonlyMap<string, DTOChannel>
+): number => {
+  if (entry.kind === 'add_by_rss') {
+    return getFeedLastPubDateMs(entry.source.feed);
   }
-  const author = normalizeKey(feed.mappedFeed?.channel?.about?.author ?? null);
-  const title = normalizeKey(
-    feed.mappedFeed?.channel?.channel?.title ?? feed.title ?? feed.feedUrl ?? null
-  );
-  return author === artistKey || title === artistKey;
+  const raw = directoryChannels.get(entry.channelIdText)?.channel_about?.last_pub_date ?? null;
+  if (!raw) {
+    return 0;
+  }
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const getEntryTitle = (
+  entry: AddByRSSArtistAlbumEntry,
+  directoryChannels: ReadonlyMap<string, DTOChannel>
+): string =>
+  entry.kind === 'add_by_rss'
+    ? addByRSSFeedListTitle(entry.source.feed)
+    : (directoryChannels.get(entry.channelIdText)?.title ?? entry.title);
+
+/** Fetches each directory album channel, a few at a time. A failed fetch keeps the listed title. */
+const fetchDirectoryAlbumChannels = async (
+  channelIdTexts: readonly string[],
+  onChannel: (channelIdText: string, channel: DTOChannel) => void
+): Promise<void> => {
+  const pending = [...channelIdTexts];
+  const api = getApiRequestService();
+  const worker = async (): Promise<void> => {
+    let channelIdText = pending.shift();
+    while (channelIdText !== undefined) {
+      try {
+        onChannel(channelIdText, await api.reqChannelGetByIdOrIdText(channelIdText));
+      } catch (error) {
+        console.error('Directory album could not be loaded', { channelIdText, error });
+      }
+      channelIdText = pending.shift();
+    }
+  };
+  const workerCount = Math.min(DIRECTORY_CHANNEL_FETCH_CONCURRENCY, pending.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 };
 
 type AddByRSSArtistPageClientProps = {
@@ -99,8 +149,15 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
   const { loggedInAccount } = useAccount();
   const { setModalAuthLogin } = useModals();
 
+  const accountId = loggedInAccount?.id_text ?? null;
+
   const [feed, setFeed] = useState<AddByRSSFeedRecord | null>(null);
-  const [albumFeeds, setAlbumFeeds] = useState<AddByRSSFeedRecord[]>([]);
+  const [albumEntries, setAlbumEntries] = useState<AddByRSSArtistAlbumEntry[]>([]);
+  const [directoryChannels, setDirectoryChannels] = useState<Map<string, DTOChannel>>(
+    () => new Map()
+  );
+  const [needsCredentials, setNeedsCredentials] = useState<AddByRSSNeedsCredentialsFeed[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
   const [trackItems, setTrackItems] = useState<AddByRSSItemIndexItem[]>([]);
   const [liveItems, setLiveItems] = useState<AddByRSSLivestreamIndexItem[]>([]);
   const initialType = useMemo<AddByRSSArtistPageTabKey>(() => {
@@ -117,6 +174,10 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
   }, [searchParams]);
   const [activeTab, setActiveTab] = useState<AddByRSSArtistPageTabKey>(initialType);
   const [isLoading, setIsLoading] = useState(true);
+  /** Comparable URLs whose change reloads the page: the artist's albums and list rows. */
+  const watchedFeedUrlsRef = useRef<ReadonlySet<string>>(new Set());
+  const freshnessCheckedIdTextRef = useRef<string | null>(null);
+  const requestedDirectoryIdsRef = useRef<Set<string>>(new Set());
 
   const initialSort = useMemo(() => toSortOption(searchParams.get('sort')), [searchParams]);
   const [sort, setSort] = useState<SortOption>(initialSort);
@@ -154,62 +215,103 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
     }
     let cancelled = false;
 
+    const readCredentialUrls = async (): Promise<ReadonlySet<string>> => {
+      if (accountId === null) {
+        return new Set();
+      }
+      try {
+        const feedUrls = await listFeedsWithCredentials(accountId);
+        return new Set(feedUrls.map(toAddByRSSComparableFeedUrl));
+      } catch (error) {
+        console.error(error);
+        return new Set();
+      }
+    };
+
     const loadRelated = async () => {
-      const albums = await getAddByRSSFeedsByResourceType('albums');
-      if (cancelled) {
-        return;
-      }
-      const artistKey = getArtistMatchKey(feed);
-      const filterAlbum = (record: AddByRSSFeedRecord) => {
-        const mediumId = parseMediumId(record.mappedFeed?.channel?.channel?.medium_id);
-        return isAlbumMediumId(mediumId);
-      };
-      const relatedAlbums = albums.filter(
-        (record) => filterAlbum(record) && matchesArtist(record, artistKey)
-      );
-      setAlbumFeeds(relatedAlbums);
-
-      // Build items index and extract track items from all related albums
-      await buildAddByRSSItemsIndex(relatedAlbums);
-      const livestreams = await buildAddByRSSLivestreamIndex(relatedAlbums);
-      const map = await buildItemIdTextMap();
+      const artistUrl = toAddByRSSComparableFeedUrl(feed.feedUrl);
+      const [followed, listed, link, credentialUrls] = await Promise.all([
+        getAllAddByRSSFeeds(),
+        getAllListedAddByRSSFeeds(),
+        getAddByRSSPublisherLink(artistUrl),
+        readCredentialUrls(),
+      ]);
       if (cancelled) {
         return;
       }
 
-      // Extract individual track items from album feeds
-      const items: AddByRSSItemIndexItem[] = [];
-      for (const albumFeed of relatedAlbums) {
-        const feedItems = albumFeed.mappedFeed?.items ?? [];
-        const channelTitle =
-          albumFeed.mappedFeed?.channel?.channel?.title ?? albumFeed.title ?? albumFeed.feedUrl;
-        const channelImageUrl =
-          albumFeed.imageUrl ?? albumFeed.mappedFeed?.channel?.images?.[0]?.url ?? undefined;
-        const mediumId = parseMediumId(albumFeed.mappedFeed?.channel?.channel?.medium_id);
+      const sources = mergeAddByRSSAlbumSources(followed, listed);
+      const entries = resolveAddByRSSArtistAlbums({ artist: feed, link, sources });
 
-        for (let i = 0; i < feedItems.length; i++) {
-          const bundle = feedItems[i];
-          if (!bundle) continue;
-          const itemGuid = bundle.item?.guid ?? `${albumFeed.idText}-${i}`;
-          const compositeId = `${albumFeed.idText}-${itemGuid}`;
-          const itemIdText = map.get(compositeId) ?? createAddByRSSIdText();
-          const pubDateMs = bundle.item?.pub_date ? new Date(bundle.item.pub_date).getTime() : 0;
-
-          items.push({
-            id: compositeId,
-            idText: itemIdText,
-            itemGuid,
-            channelIdText: albumFeed.idText,
-            channelTitle,
-            channelImageUrl,
-            mediumId,
-            bundle,
-            pubDateMs,
-          });
+      const listedInEntries: AddByRSSListedFeedRecord[] = [];
+      const nextNeedsCredentials: AddByRSSNeedsCredentialsFeed[] = [];
+      for (const entry of entries) {
+        if (entry.kind !== 'add_by_rss' || entry.source.followed) {
+          continue;
+        }
+        const listedFeed = entry.source.feed;
+        listedInEntries.push(listedFeed);
+        const need = getListedAddByRSSCredentialsNeed(
+          listedFeed,
+          credentialUrls.has(toAddByRSSComparableFeedUrl(listedFeed.feedUrl))
+        );
+        if (need !== null) {
+          nextNeedsCredentials.push({ feed: listedFeed, need });
         }
       }
-      setTrackItems(items);
-      setLiveItems(livestreams);
+
+      const watched = new Set<string>();
+      for (const record of listed) {
+        watched.add(toAddByRSSComparableFeedUrl(record.feedUrl));
+      }
+      for (const entry of entries) {
+        if (entry.kind === 'add_by_rss') {
+          watched.add(toAddByRSSComparableFeedUrl(entry.source.feed.feedUrl));
+        }
+      }
+      for (const row of link?.listedFeeds ?? []) {
+        if (row.feedUrl !== null) {
+          watched.add(toAddByRSSComparableFeedUrl(row.feedUrl));
+        }
+      }
+      watchedFeedUrlsRef.current = watched;
+
+      setAlbumEntries(entries);
+      setNeedsCredentials(nextNeedsCredentials);
+
+      if (accountId !== null && freshnessCheckedIdTextRef.current !== feed.idText) {
+        freshnessCheckedIdTextRef.current = feed.idText;
+        if (addByRSSPublisherLinksNeedRefresh(link, Date.now())) {
+          void refreshAddByRSSPublisherLinks({ accountId, publisher: feed });
+        } else {
+          void resumeListedAddByRSSPolls(listedInEntries);
+        }
+      }
+
+      const needsCredentialsIdTexts = new Set(
+        nextNeedsCredentials.map((entry) => entry.feed.idText)
+      );
+      const refs = resolveAddByRSSArtistTrackRefs({ link, albums: entries, sources }).filter(
+        (ref) => !needsCredentialsIdTexts.has(ref.source.feed.idText)
+      );
+      const tracks = await loadAddByRSSAlbumTrackIndexItems(refs);
+      if (cancelled) {
+        return;
+      }
+      setTrackItems(tracks);
+
+      // The builder replaces the whole livestream index, so it always gets every followed feed.
+      const followedAlbumIdTexts = new Set<string>();
+      for (const entry of entries) {
+        if (entry.kind === 'add_by_rss' && entry.source.followed) {
+          followedAlbumIdTexts.add(entry.source.feed.idText);
+        }
+      }
+      const livestreams = await buildAddByRSSLivestreamIndex(followed);
+      if (cancelled) {
+        return;
+      }
+      setLiveItems(livestreams.filter((item) => followedAlbumIdTexts.has(item.channelIdText)));
     };
 
     void loadRelated();
@@ -217,20 +319,100 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
     return () => {
       cancelled = true;
     };
+  }, [accountId, feed, reloadKey]);
+
+  useEffect(() => {
+    if (!feed) {
+      return;
+    }
+    const artistUrl = toAddByRSSComparableFeedUrl(feed.feedUrl);
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = onAddByRSSFeedChanged((changedUrl) => {
+      if (changedUrl !== artistUrl && !watchedFeedUrlsRef.current.has(changedUrl)) {
+        return;
+      }
+      if (reloadTimer !== null) {
+        clearTimeout(reloadTimer);
+      }
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        setReloadKey((key) => key + 1);
+      }, RELOAD_DEBOUNCE_MS);
+    });
+    return () => {
+      unsubscribe();
+      if (reloadTimer !== null) {
+        clearTimeout(reloadTimer);
+      }
+    };
   }, [feed]);
 
-  const sortedAlbums = useMemo(() => {
-    const next = [...albumFeeds];
-    next.sort((a, b) => {
-      const aDate = getFeedLastPubDateMs(a);
-      const bDate = getFeedLastPubDateMs(b);
+  const directoryIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of albumEntries) {
+      if (entry.kind === 'directory') {
+        ids.add(entry.channelIdText);
+      }
+    }
+    return [...ids].sort().join('|');
+  }, [albumEntries]);
+
+  useEffect(() => {
+    if (directoryIdsKey === '' || accountId === null) {
+      return;
+    }
+    const missing = directoryIdsKey
+      .split('|')
+      .filter((channelIdText) => !requestedDirectoryIdsRef.current.has(channelIdText));
+    if (missing.length === 0) {
+      return;
+    }
+    for (const channelIdText of missing) {
+      requestedDirectoryIdsRef.current.add(channelIdText);
+    }
+    void fetchDirectoryAlbumChannels(missing, (channelIdText, channel) => {
+      setDirectoryChannels((previous) => new Map(previous).set(channelIdText, channel));
+    });
+  }, [accountId, directoryIdsKey]);
+
+  const statusLabel = useCallback(
+    (status: AddByRSSParseStatus): string => {
+      switch (status) {
+        case 'queued':
+          return tFeatures('add_by_rss.status_queued');
+        case 'processing':
+          return tFeatures('add_by_rss.status_processing');
+        case 'parsed':
+          return tFeatures('add_by_rss.status_parsed');
+        case 'not_modified':
+          return tFeatures('add_by_rss.status_not_modified');
+        case 'failed':
+          return tFeatures('add_by_rss.status_failed');
+      }
+    },
+    [tFeatures]
+  );
+
+  const sortedAlbumItems = useMemo(() => {
+    const sortedEntries = [...albumEntries];
+    sortedEntries.sort((a, b) => {
+      const aDate = getEntryLastPubDateMs(a, directoryChannels);
+      const bDate = getEntryLastPubDateMs(b, directoryChannels);
       if (aDate === bDate) {
-        return (a.title || a.feedUrl).localeCompare(b.title || b.feedUrl);
+        return getEntryTitle(a, directoryChannels).localeCompare(
+          getEntryTitle(b, directoryChannels)
+        );
       }
       return sort === 'oldest' ? aDate - bDate : bDate - aDate;
     });
-    return next;
-  }, [albumFeeds, sort]);
+    return toAddByRSSArtistAlbumListItems({
+      entries: sortedEntries,
+      directoryChannels,
+      needsCredentialsIdTexts: new Set(needsCredentials.map((entry) => entry.feed.idText)),
+      statusLabel,
+      imageSize: IMAGES.LIST.PODCASTS.SIZE_FIND_TARGET,
+    });
+  }, [albumEntries, directoryChannels, needsCredentials, sort, statusLabel]);
 
   const sortedTrackItems = useMemo(() => {
     const next = [...trackItems];
@@ -246,7 +428,7 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
   const sortedLiveItems = useMemo(() => selectChannelOrderedLiveItems(liveItems), [liveItems]);
 
   const description = feed?.mappedFeed?.channel?.description?.value ?? null;
-  const hasAlbums = sortedAlbums.length > 0;
+  const hasAlbums = sortedAlbumItems.length > 0 || needsCredentials.length > 0;
   const hasTracks = sortedTrackItems.length > 0;
   const hasDescription = !!description;
   const boostChannel = useMemo(() => (feed ? buildAddByRssBoostChannel(feed) : null), [feed]);
@@ -366,7 +548,8 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
           ) : (
             <AddByRSSArtistPageList
               activeTab={activeTab}
-              albumFeeds={sortedAlbums}
+              albumItems={sortedAlbumItems}
+              needsCredentials={needsCredentials}
               trackItems={sortedTrackItems}
               liveItems={sortedLiveItems}
               description={description}

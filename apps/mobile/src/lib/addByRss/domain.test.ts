@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import type { AddByRSSParseCacheEntry, AddByRSSPublisherListedFeed } from '@podverse/helpers';
 import { getAddByRSSHashId } from '@podverse/helpers';
 import { convertParsedRSSFeedToCompat, Phase4LiveStatus } from '@podverse/parser-mapping';
 
@@ -10,6 +11,7 @@ import {
   localFeedForServerFollow,
   mapParsedFeedToPreview,
   mergeLocalAndRemoteAddByRssFeeds,
+  pollAddByRssParseStatus,
   toAddByRssLiveItemPlaybackResourceData,
 } from './domain';
 import { addByRssPlaybackMediaId } from './resourceData';
@@ -109,6 +111,43 @@ describe('mergeLocalAndRemoteAddByRssFeeds', () => {
       [{ feed_url: 'https://example.com/new.xml', image_url: null, title: 'New' }]
     );
     expect(remoteOnly?.resourceType).toBe('podcasts');
+    expect(remoteOnly?.followed).toBe(true);
+  });
+
+  it('reuses a listed-only row when the account follows that feed', () => {
+    const feedUrl = 'https://example.com/album.xml';
+    const merged = mergeLocalAndRemoteAddByRssFeeds(
+      [localFeed({ feedUrl, followed: false, id: 7, idText: 'rss-listed' })],
+      [{ feed_url: feedUrl, image_url: null, title: 'Album' }]
+    );
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.id).toBe(7);
+    expect(merged[0]?.idText).toBe('rss-listed');
+    expect(merged[0]?.followed).toBe(true);
+  });
+
+  it('omits a listed-only row the account does not follow', () => {
+    const merged = mergeLocalAndRemoteAddByRssFeeds(
+      [localFeed({ followed: false, idText: 'rss-listed' })],
+      [{ feed_url: 'https://example.com/other.xml', image_url: null, title: 'Other' }]
+    );
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.feedUrl).toBe('https://example.com/other.xml');
+    expect(merged.map((feed) => feed.idText)).not.toContain('rss-listed');
+  });
+
+  it('keeps a followed local row the account does not follow', () => {
+    const merged = mergeLocalAndRemoteAddByRssFeeds(
+      [
+        localFeed({ feedUrl: 'https://example.com/a.xml', followed: true, idText: 'rss-a' }),
+        localFeed({ feedUrl: 'https://example.com/b.xml', idText: 'rss-b' }),
+      ],
+      []
+    );
+
+    expect(merged.map((feed) => feed.idText)).toEqual(['rss-a', 'rss-b']);
   });
 });
 
@@ -173,6 +212,59 @@ describe('add-by-RSS parse previews', () => {
     expect(extractPreviewFromParsePayload({ ...rawParsePayload, title: '  ' }).title).toBe(
       'Episode One'
     );
+  });
+});
+
+describe('pollAddByRssParseStatus', () => {
+  const statusEntry = (
+    overrides: Partial<AddByRSSParseCacheEntry<unknown>>
+  ): AddByRSSParseCacheEntry<unknown> => ({
+    accountId: 1,
+    feedUrl: 'https://example.com/artist.xml',
+    requestId: 'r1',
+    status: 'parsed',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  });
+  const listed: AddByRSSPublisherListedFeed[] = [
+    {
+      feedGuid: 'album-1',
+      feedUrl: 'https://example.com/album.xml',
+      itemGuids: [],
+      kind: 'add_by_rss',
+      listedAtChannelLevel: true,
+      requestId: 'album-request',
+      title: 'Album',
+    },
+  ];
+
+  it('surfaces the list a parsed artist status carries', async () => {
+    const result = await pollAddByRssParseStatus('r1', async () =>
+      statusEntry({ publisherListedFeeds: listed })
+    );
+
+    expect(result.status).toBe('parsed');
+    expect(result.publisherListedFeeds).toEqual(listed);
+  });
+
+  it('leaves the list undefined when the status carries none', async () => {
+    const result = await pollAddByRssParseStatus('r1', async () => statusEntry({}));
+
+    expect(result.status).toBe('parsed');
+    expect(result.publisherListedFeeds).toBeUndefined();
+  });
+
+  it('reads once and returns pending without sleeping when asked for one attempt', async () => {
+    const fetchStatus = vi.fn(async () => statusEntry({ status: 'queued' }));
+
+    // A sleep of this length would outlast the test timeout.
+    const result = await pollAddByRssParseStatus('r1', fetchStatus, {
+      attempts: 1,
+      delayMs: 60000,
+    });
+
+    expect(fetchStatus).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('pending');
   });
 });
 

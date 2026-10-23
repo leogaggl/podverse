@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getAddByRSSCredentialsNeed,
+  getListedAddByRSSCredentialsNeed,
   nextLocalRequiresCredentials,
   partitionAddByRSSFeedsByCredentials,
 } from './credentialsStatus';
@@ -41,6 +42,32 @@ describe('getAddByRSSCredentialsNeed', () => {
   it('does not treat unrelated parse failures as a credentials problem', () => {
     expect(
       getAddByRSSCredentialsNeed({ requiresCredentials: true, lastFailureReason: 'network' }, true)
+    ).toBeNull();
+  });
+});
+
+describe('getListedAddByRSSCredentialsNeed', () => {
+  it('asks for credentials when they were withheld, and otherwise follows the followed-feed rules', () => {
+    expect(
+      getListedAddByRSSCredentialsNeed(
+        { lastFailureReason: 'credentials_withheld_other_domain' },
+        true
+      )
+    ).toBe('missing');
+    expect(
+      getListedAddByRSSCredentialsNeed({ lastFailureReason: 'credentials_withheld_insecure' }, true)
+    ).toBe('missing');
+    expect(
+      getListedAddByRSSCredentialsNeed(
+        { requiresCredentials: true, lastFailureReason: 'credentials_rejected' },
+        true
+      )
+    ).toBe('rejected');
+    expect(
+      getListedAddByRSSCredentialsNeed(
+        { requiresCredentials: false, lastFailureReason: null },
+        false
+      )
     ).toBeNull();
   });
 });

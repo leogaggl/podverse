@@ -73,6 +73,7 @@ import { listFilterFieldBottomMargin, screenBodyInsets } from '../../theme/scree
 import { typography } from '../../theme/typography';
 import { useFeedListColumns } from '../../theme/useFeedListColumns';
 import { useTheme } from '../../theme/useTheme';
+import { useArtistUnsubscribe } from '../artist/useArtistUnsubscribe';
 import type { BrowseMediaType } from '../browse/browseTypes';
 import { HOME_MEDIA_TYPE_ORDER, MEDIA_TYPE_LABEL_KEYS } from '../browse/browseTypes';
 import { useAddToPlaylist } from '../library/useAddToPlaylist';
@@ -276,6 +277,7 @@ export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const { visibleTabIds } = useTabLayout();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const { artistUnsubscribeDialog, unsubscribeArtist } = useArtistUnsubscribe();
   const { onRequestLogin } = useAuthPrompt();
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const { requestSync, state: syncState } = useSync();
@@ -805,14 +807,28 @@ export function HomeScreen() {
       unsubscribingIdsRef.current.add(row.id);
       setActionErrorKey(null);
       try {
-        const result = await subscriptionsRepository.unsubscribe({
-          accountSync:
-            status === 'authenticated'
-              ? { accessToken, clearSession, refreshToken, setTokens }
-              : undefined,
-          idText: row.id,
-          source: row.source ?? 'directory',
-        });
+        let serverError: boolean;
+        if (selectedMediaType === 'artists') {
+          const result = await unsubscribeArtist(
+            row.source === 'addByRss'
+              ? { feedUrl: row.id, source: 'addByRss', title: row.title }
+              : { idText: row.id, source: 'directory', title: row.title }
+          );
+          if (result.status === 'cancelled') {
+            return;
+          }
+          serverError = result.serverError;
+        } else {
+          const result = await subscriptionsRepository.unsubscribe({
+            accountSync:
+              status === 'authenticated'
+                ? { accessToken, clearSession, refreshToken, setTokens }
+                : undefined,
+            idText: row.id,
+            source: row.source ?? 'directory',
+          });
+          serverError = result.serverError;
+        }
         setFeedRows((prev) => prev.filter((item) => item.id !== row.id));
         if (selectedMediaType === 'podcasts') {
           setHasPodcastSubscriptions(feedRows.length > 1);
@@ -822,7 +838,7 @@ export function HomeScreen() {
             // The follow is already gone; the downloads footer can catch up on the next refresh.
           }
         }
-        if (result.serverError) {
+        if (serverError) {
           setActionErrorKey('errors.generic');
         }
       } catch {
@@ -832,7 +848,16 @@ export function HomeScreen() {
         unsubscribingIdsRef.current.delete(row.id);
       }
     },
-    [accessToken, clearSession, feedRows.length, refreshToken, selectedMediaType, setTokens, status]
+    [
+      accessToken,
+      clearSession,
+      feedRows.length,
+      refreshToken,
+      selectedMediaType,
+      setTokens,
+      status,
+      unsubscribeArtist,
+    ]
   );
 
   const handleDeleteUnsubscribedDownloads = useCallback(async (row: HomeFeedRowData) => {
@@ -1726,6 +1751,7 @@ export function HomeScreen() {
       </View>
       {addToPlaylistSheet}
       {addByRssAddToPlaylistSheet}
+      {artistUnsubscribeDialog}
     </View>
   );
 }

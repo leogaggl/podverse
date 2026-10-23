@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GestureResponderEvent } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { breakpoints } from '@podverse/design-tokens';
 
 import { useActionError } from '../../feedback/ActionErrorProvider';
+import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
+import { artistAlbumLine, playbackTargetArtists } from '../../lib/playback/verifiedArtists';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { MINI_PLAYER_ARTWORK_SIZE } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -21,7 +23,7 @@ type MiniPlayerProps = {
   onExpand: () => void;
 };
 
-/** Channel title ink paints 1pt above its layout slot. Both titles keep their layout positions. */
+/** Second-line ink paints 1pt above its layout slot. Both lines keep their layout positions. */
 const MINI_PLAYER_CHANNEL_TITLE_NUDGE = -2;
 
 /**
@@ -85,9 +87,17 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
     [themeStyles, tokens]
   );
 
+  const artistIndexVersion = useAddByRssArtistIndexVersion();
+  const artists = useMemo(
+    () => playbackTargetArtists(activeTarget),
+    [activeTarget, artistIndexVersion]
+  );
+
   if (activeTarget === null || nowPlaying === null) {
     return null;
   }
+
+  const secondLine = artistAlbumLine(artists, nowPlaying.channelTitle);
 
   const handlePlay = (event: GestureResponderEvent) => {
     stopPropagation(event);
@@ -126,10 +136,15 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
           >
             {nowPlaying.title}
           </MarqueeText>
-          {nowPlaying.channelTitle !== null ? (
-            <Text numberOfLines={1} style={styles.subtitle}>
-              {nowPlaying.channelTitle}
-            </Text>
+          {secondLine !== null ? (
+            <MarqueeText
+              style={styles.subtitle}
+              testID="mini-player-subtitle"
+              turnGroup="mini-player"
+              turnOrder={1}
+            >
+              {secondLine}
+            </MarqueeText>
           ) : null}
         </View>
         <View style={styles.transport}>

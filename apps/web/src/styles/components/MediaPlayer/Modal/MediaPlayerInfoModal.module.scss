@@ -46,6 +46,19 @@
   margin-top: var(--spacing-sm);
 }
 
+.artistTitle {
+  display: flex;
+  justify-content: center;
+}
+
+.artistTitle > button {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-light);
+  color: var(--text-color-accent) !important;
+  @include line-clamp(1);
+  margin-top: var(--spacing-sm);
+}
+
 .vtsLike {
   display: flex;
   justify-content: center;

@@ -52,6 +52,7 @@ import { listFilterFieldBottomMargin, screenBodyInsets } from '../../theme/scree
 import { typography } from '../../theme/typography';
 import { useResponsive } from '../../theme/useResponsive';
 import { useTheme } from '../../theme/useTheme';
+import { useArtistUnsubscribe } from '../artist/useArtistUnsubscribe';
 import { MEDIA_TYPE_LABEL_KEYS } from '../browse/browseTypes';
 import { useAddByRssItemActions } from '../home/addByRss/useAddByRssItemActions';
 import type { AddByRssItemRow } from '../home/addByRssItemRows';
@@ -172,6 +173,7 @@ function LibraryFeedListItem({
 export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
   const { t } = useTranslation();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const { artistUnsubscribeDialog, unsubscribeArtist } = useArtistUnsubscribe();
   const { columns: rowColumns, width } = useResponsive();
   const { styles: themeStyles, tokens } = useTheme();
   const { requestSync, state: syncState } = useSync();
@@ -463,18 +465,32 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
       unsubscribingIdsRef.current.add(row.id);
       setActionErrorKey(null);
       try {
-        const result = await subscriptionsRepository.unsubscribe({
-          accountSync:
-            status === 'authenticated'
-              ? { accessToken, clearSession, refreshToken, setTokens }
-              : undefined,
-          idText: row.id,
-          source: 'addByRss',
-        });
+        let serverError: boolean;
+        if (selectedMediaType === 'artists') {
+          const result = await unsubscribeArtist({
+            feedUrl: row.id,
+            source: 'addByRss',
+            title: row.title,
+          });
+          if (result.status === 'cancelled') {
+            return;
+          }
+          serverError = result.serverError;
+        } else {
+          const result = await subscriptionsRepository.unsubscribe({
+            accountSync:
+              status === 'authenticated'
+                ? { accessToken, clearSession, refreshToken, setTokens }
+                : undefined,
+            idText: row.id,
+            source: 'addByRss',
+          });
+          serverError = result.serverError;
+        }
         setFeedRows((prev) => prev.filter((item) => item.id !== row.id));
         // Home stays mounted under its tab, so it will not reload on its own.
         homeFeedRefresh.notify();
-        if (result.serverError) {
+        if (serverError) {
           setActionErrorKey('errors.generic');
         }
       } catch {
@@ -484,7 +500,15 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
         unsubscribingIdsRef.current.delete(row.id);
       }
     },
-    [accessToken, clearSession, refreshToken, setTokens, status]
+    [
+      accessToken,
+      clearSession,
+      refreshToken,
+      selectedMediaType,
+      setTokens,
+      status,
+      unsubscribeArtist,
+    ]
   );
 
   const resolveItemTarget = useCallback(
@@ -817,6 +841,7 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
         testID="rss-feed-list"
       />
       {addToPlaylistSheet}
+      {artistUnsubscribeDialog}
     </View>
   );
 }

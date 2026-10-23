@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FULL_PLAYER_ARTIST_LINE_HEIGHT,
+  FULL_PLAYER_ARTIST_LINE_RESERVE,
   FULL_PLAYER_ARTWORK_MAX_PHONE,
   FULL_PLAYER_ARTWORK_MAX_TABLET,
   FULL_PLAYER_CHIP_HEADER_HEIGHT,
@@ -16,10 +18,12 @@ import {
   FULL_PLAYER_TRANSPORT_ROW_HEIGHT,
   FULL_PLAYER_UTILITY_ROW_HEIGHT,
   resolveFullPlayerLayout,
+  resolveFullPlayerTitleBlockHeight,
   resolveFullPlayerViewport,
 } from './fullPlayerLayout';
 
 const phoneInput = {
+  hasArtistLine: false,
   hasSegmentBand: true,
   hasSections: true,
   isTablet: false,
@@ -39,6 +43,13 @@ describe('full player band constants', () => {
     expect(FULL_PLAYER_CONTROL_STACK_GAP_COUNT).toBe(2);
     expect(FULL_PLAYER_CONTROL_STACK_GAP).toBe(8);
     expect(FULL_PLAYER_PROGRESS_BLOCK_HEIGHT).toBe(56);
+  });
+
+  it('reserves the artist line and the title block gap for an item with an artist', () => {
+    expect(FULL_PLAYER_ARTIST_LINE_HEIGHT).toBe(18);
+    expect(resolveFullPlayerTitleBlockHeight(true) - resolveFullPlayerTitleBlockHeight(false)).toBe(
+      FULL_PLAYER_ARTIST_LINE_RESERVE
+    );
   });
 });
 
@@ -76,6 +87,16 @@ describe('resolveFullPlayerLayout', () => {
     );
     expect(withoutBand.viewerHeight - withBand.viewerHeight).toBe(
       FULL_PLAYER_SEGMENT_BAND_HEIGHT + FULL_PLAYER_REGION_GAP
+    );
+  });
+
+  it('takes the artist line from the artwork and leaves the player region height unchanged', () => {
+    const withoutArtist = resolveFullPlayerLayout(phoneInput);
+    const withArtist = resolveFullPlayerLayout({ ...phoneInput, hasArtistLine: true });
+    expect(withArtist.playerRegionHeight).toBe(withoutArtist.playerRegionHeight);
+    expect(withArtist.artworkSize).toBeLessThan(withoutArtist.artworkSize);
+    expect(withoutArtist.artworkSize - withArtist.artworkSize).toBeLessThanOrEqual(
+      FULL_PLAYER_ARTIST_LINE_RESERVE
     );
   });
 

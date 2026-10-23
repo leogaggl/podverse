@@ -1,8 +1,9 @@
 appId: com.podverse.app.next
 name: Track flow
 ---
-# Music detail and transport parity: album More opens track detail (row press plays),
-# then full player shows music controls and skip-next advances to the next seeded track.
+# Music detail and transport parity: album More opens track detail (row press plays), the album
+# byline names the verified artist, the mini player and full player show the artist, skip-next
+# advances to the next seeded track, and the track byline opens the artist.
 
 - runFlow: shared/launch-and-connect.yaml
 - runFlow: shared/login-seeded-user.yaml
@@ -32,6 +33,9 @@ name: Track flow
 - assertVisible:
     id: track-detail-album-header
 - assertVisible:
+    id: track-detail-artist-link
+    text: ".*E2E Music Artist.*"
+- assertVisible:
     id: track-detail-playback-chrome
 - assertVisible:
     id: track-detail-tab-summary
@@ -45,6 +49,10 @@ name: Track flow
     timeout: ${TIMEOUT_SLOW}
 - assertVisible:
     id: mini-player
+- assertVisible:
+    id: mini-player-subtitle
+- assertVisible:
+    text: ".*E2E Music Artist · E2E Music Album.*"
 - tapOn:
     id: mini-player
 
@@ -84,6 +92,12 @@ name: Track flow
 - assertVisible:
     id: full-player-title-link
     text: ".*E2E Music Track One.*"
+# Track title, then the artist, then the album.
+- assertVisible:
+    id: full-player-artist-link
+    text: ".*E2E Music Artist.*"
+- assertVisible:
+    id: full-player-channel-link
 - takeScreenshot: track-full-player-controls
 
 - tapOn:
@@ -112,3 +126,15 @@ name: Track flow
     timeout: ${TIMEOUT_SLOW}
 - assertVisible:
     id: playback-active-e2e
+# Closing the player returns to the track screen; its byline opens the artist page.
+- extendedWaitUntil:
+    visible:
+      id: track-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: track-detail-artist-link
+- extendedWaitUntil:
+    visible:
+      id: artist-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: track-artist-link-opens-artist

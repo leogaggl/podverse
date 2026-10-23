@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { FaCircleDollarToSlot, FaCommentDollar, FaGlobe, FaRss } from 'react-icons/fa6';
 
 import {
@@ -16,16 +16,21 @@ import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 import { IMAGES } from '../../../constants/images';
 import { useAccount } from '../../../contexts/Account';
 import { useModals } from '../../../contexts/Modals';
+import type { AddByRSSArtistFollowedAlbums } from '../../../lib/artistUnsubscribe';
+import { countAddByRSSArtistFollowedAlbums } from '../../../lib/artistUnsubscribe';
 import {
   followAddByRSSChannelAndQueue,
+  unfollowAddByRSSArtistAndAlbums,
   unfollowAddByRSSChannelAndClear,
 } from '../../../utils/addByRSS/actions';
+import { loadAddByRSSArtistFollowedAlbums } from '../../../utils/addByRSS/artistUnsubscribe';
 import type { AddByRSSFeedRecord } from '../../../utils/addByRSS/types';
 import { addByRSSChannelHeaderTriple } from '../../../utils/image/addByRSSChannelHeaderCandidates';
 import { CommonArtistHeader } from '../../Common/Artist/CommonArtistHeader';
 import { CommonArtistHeaderViewDesktop } from '../../Common/Artist/CommonArtistHeaderViewDesktop';
 import { CommonArtistHeaderViewTablet } from '../../Common/Artist/CommonArtistHeaderViewTablet';
 import { IconButton } from '../../Media/Header/IconButton';
+import { UnsubscribeArtistModal } from '../../Media/Header/UnsubscribeArtistModal';
 
 import headerButtonsStyles from '../../../styles/components/Common/Media/Header/HeaderButtons.module.scss';
 import subscribeButtonStyles from '../../../styles/components/Common/Media/Header/SubscribeButton.module.scss';
@@ -52,6 +57,9 @@ export const AddByRSSArtistHeader: React.FC<AddByRSSArtistHeaderProps> = ({ feed
   const { setModalLoginRequired, setModalBoost } = useModals();
   const [isUpdating, setIsUpdating] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [promptAlbums, setPromptAlbums] = useState<AddByRSSArtistFollowedAlbums | null>(null);
+  const [promptBusy, setPromptBusy] = useState<'artist_only' | 'artist_and_albums' | null>(null);
+  const promptInFlight = useRef(false);
   const title = feed.mappedFeed?.channel?.channel?.title ?? feed.title ?? feed.feedUrl;
   const author = feed.mappedFeed?.channel?.about?.author ?? null;
   const feedUrl = feed.feedUrl;
@@ -84,9 +92,29 @@ export const AddByRSSArtistHeader: React.FC<AddByRSSArtistHeaderProps> = ({ feed
       return;
     }
 
+    if (promptAlbums !== null || promptInFlight.current) {
+      return;
+    }
+
+    promptInFlight.current = true;
     setIsUpdating(true);
     try {
       if (isSubscribed) {
+        let albums: AddByRSSArtistFollowedAlbums | null = null;
+        try {
+          albums = await loadAddByRSSArtistFollowedAlbums({
+            artist: feed,
+            followingChannelIds: new Set(
+              loggedInAccount.account_following_channels?.map((row) => row.channel_id) ?? []
+            ),
+          });
+        } catch (error) {
+          console.error('Could not read albums for this artist', error);
+        }
+        if (albums !== null && countAddByRSSArtistFollowedAlbums(albums) > 0) {
+          setPromptAlbums(albums);
+          return;
+        }
         const nextAccount = await unfollowAddByRSSChannelAndClear({
           accountId: loggedInAccount.id_text,
           feedUrl,
@@ -107,7 +135,45 @@ export const AddByRSSArtistHeader: React.FC<AddByRSSArtistHeaderProps> = ({ feed
       console.error(error);
       window.alert('Error performing action.');
     } finally {
+      promptInFlight.current = false;
       setIsUpdating(false);
+    }
+  };
+
+  const cancelPrompt = () => {
+    if (promptInFlight.current) {
+      return;
+    }
+    setPromptAlbums(null);
+  };
+
+  const runPromptAction = async (action: 'artist_only' | 'artist_and_albums') => {
+    if (!loggedInAccount || promptAlbums === null || promptInFlight.current) {
+      return;
+    }
+    promptInFlight.current = true;
+    setPromptBusy(action);
+    try {
+      const nextAccount =
+        action === 'artist_only'
+          ? await unfollowAddByRSSChannelAndClear({
+              accountId: loggedInAccount.id_text,
+              feedUrl,
+              channelIdText: feed.idText,
+            })
+          : await unfollowAddByRSSArtistAndAlbums({
+              accountId: loggedInAccount.id_text,
+              artist: { feedUrl, idText: feed.idText },
+              albums: promptAlbums,
+            });
+      setLoggedInAccount(nextAccount);
+    } catch (error) {
+      console.error(error);
+      window.alert('Error performing action.');
+    } finally {
+      promptInFlight.current = false;
+      setPromptBusy(null);
+      setPromptAlbums(null);
     }
   };
 
@@ -237,23 +303,38 @@ export const AddByRSSArtistHeader: React.FC<AddByRSSArtistHeaderProps> = ({ feed
   const subtitleNode = <>{author && <span>{author}</span>}</>;
 
   return (
-    <CommonArtistHeader
-      desktop={
-        <CommonArtistHeaderViewDesktop
-          imageNode={headerImage}
-          titleNode={titleNode}
-          subtitleNode={subtitleNode}
-          buttonsNode={buttonsNode}
-        />
-      }
-      tablet={
-        <CommonArtistHeaderViewTablet
-          imageNode={headerImage}
-          titleNode={titleNodeTablet}
-          subtitleNode={subtitleNode}
-          buttonsNode={buttonsNode}
-        />
-      }
-    />
+    <>
+      <CommonArtistHeader
+        desktop={
+          <CommonArtistHeaderViewDesktop
+            imageNode={headerImage}
+            titleNode={titleNode}
+            subtitleNode={subtitleNode}
+            buttonsNode={buttonsNode}
+          />
+        }
+        tablet={
+          <CommonArtistHeaderViewTablet
+            imageNode={headerImage}
+            titleNode={titleNodeTablet}
+            subtitleNode={subtitleNode}
+            buttonsNode={buttonsNode}
+          />
+        }
+      />
+      <UnsubscribeArtistModal
+        isOpen={promptAlbums !== null}
+        albumCount={promptAlbums === null ? 0 : countAddByRSSArtistFollowedAlbums(promptAlbums)}
+        artistTitle={title}
+        busyAction={promptBusy}
+        onCancel={cancelPrompt}
+        onArtistOnly={() => {
+          void runPromptAction('artist_only');
+        }}
+        onArtistAndAlbums={() => {
+          void runPromptAction('artist_and_albums');
+        }}
+      />
+    </>
   );
 };

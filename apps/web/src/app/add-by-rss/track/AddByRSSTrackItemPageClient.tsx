@@ -26,14 +26,18 @@ import { NoResults } from '../../../components/NoResults/NoResults';
 import { useAccount } from '../../../contexts/Account';
 import { getApiRequestService } from '../../../factories/apiRequestService';
 import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
+import type { ArtistLineLink } from '../../../lib/artistPublishers';
 import {
   getAddByRSSChaptersTranscriptCredentials,
   getCachedChaptersTranscript,
   getChaptersAndTranscriptUrls,
   setCachedChaptersTranscript,
 } from '../../../utils/addByRSS/chaptersTranscript';
+import { resolveDeviceArtistLinks } from '../../../utils/addByRSS/deviceArtistLinks';
+import { onAddByRSSFeedChanged } from '../../../utils/addByRSS/feedChangedEvent';
+import { findListedAddByRSSTrack } from '../../../utils/addByRSS/listedFeeds';
 import {
-  getAddByRSSFeedByIdText,
+  getAddByRSSAlbumSourceByIdText,
   getAddByRSSItemByGuid,
   getAddByRSSItemByIdText,
   getAddByRSSLivestreamByGuid,
@@ -72,6 +76,8 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
   const accountId = loggedInAccount?.id_text ?? null;
   const [feed, setFeed] = React.useState<AddByRSSFeedRecord | null>(null);
   const [track, setTrack] = React.useState<AddByRSSItemIndexItem | null>(null);
+  const [artistLinks, setArtistLinks] = React.useState<ArtistLineLink[]>([]);
+  const [artistReloadKey, setArtistReloadKey] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const initialType = React.useMemo<'summary' | 'boosts' | 'transcript'>(() => {
     const typeParam = searchParams.get('type');
@@ -179,13 +185,17 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
       }
 
       if (!found) {
-        setTrack(null);
-        setFeed(null);
+        const listed = await findListedAddByRSSTrack(itemIdText);
+        if (cancelled) {
+          return;
+        }
+        setTrack(listed?.item ?? null);
+        setFeed(listed?.feed ?? null);
         setIsLoading(false);
         return;
       }
 
-      const feedRecord = await getAddByRSSFeedByIdText(found.channelIdText);
+      const feedRecord = (await getAddByRSSAlbumSourceByIdText(found.channelIdText))?.feed ?? null;
       if (cancelled) {
         return;
       }
@@ -201,6 +211,47 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
       cancelled = true;
     };
   }, [itemIdText, loggedInAccount]);
+
+  const artistFeedUrl = feed?.feedUrl;
+  const artistChannelIdText = feed?.idText;
+  const artistAccountIdText = loggedInAccount?.id_text;
+
+  React.useEffect(() => onAddByRSSFeedChanged(() => setArtistReloadKey((k) => k + 1)), []);
+
+  React.useEffect(() => {
+    if (
+      artistAccountIdText === undefined ||
+      artistFeedUrl === undefined ||
+      artistChannelIdText === undefined
+    ) {
+      setArtistLinks([]);
+      return;
+    }
+
+    let cancelled = false;
+    setArtistLinks([]);
+
+    void resolveDeviceArtistLinks({
+      addByRSS: { feedUrl: artistFeedUrl, channelIdText: artistChannelIdText },
+      channel: null,
+      item: null,
+    })
+      .then((links) => {
+        if (!cancelled) {
+          setArtistLinks(links);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Device artist links could not be read', error);
+        if (!cancelled) {
+          setArtistLinks([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artistFeedUrl, artistChannelIdText, artistAccountIdText, artistReloadKey]);
 
   React.useEffect(() => {
     if (!track || !transcriptUrl || selectedTab !== 'transcript') return;
@@ -328,7 +379,12 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
       <MainSidebarLayout>
         <SideContent />
         <MainColumnStack>
-          <AddByRSSTrackDetailHeader itemIdText={track.idText} title={title} indexItem={track} />
+          <AddByRSSTrackDetailHeader
+            itemIdText={track.idText}
+            title={title}
+            indexItem={track}
+            artistLinks={artistLinks}
+          />
           <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
           <DetailListWrapper>
             {selectedTab === 'summary' &&

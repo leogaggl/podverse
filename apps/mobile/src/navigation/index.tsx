@@ -183,6 +183,11 @@ export const CHANNEL_BROWSE_STACK_ROUTES = {
 
 export const SEARCH_STACK_ROUTES = {
   ...CHANNEL_BROWSE_STACK_ROUTES,
+  AddByRssCredentials: 'AddByRssCredentials',
+  AddByRssEpisodeDetail: 'AddByRssEpisodeDetail',
+  AddByRssLivestreamDetail: 'AddByRssLivestreamDetail',
+  AddByRssPodcastDetail: 'AddByRssPodcastDetail',
+  AddByRssTrackDetail: 'AddByRssTrackDetail',
   SearchRoot: 'SearchRoot',
 } as const;
 
@@ -214,6 +219,11 @@ export const LIBRARY_STACK_ROUTES = {
 
 export const BROWSE_STACK_ROUTES = {
   ...CHANNEL_BROWSE_STACK_ROUTES,
+  AddByRssCredentials: 'AddByRssCredentials',
+  AddByRssEpisodeDetail: 'AddByRssEpisodeDetail',
+  AddByRssLivestreamDetail: 'AddByRssLivestreamDetail',
+  AddByRssPodcastDetail: 'AddByRssPodcastDetail',
+  AddByRssTrackDetail: 'AddByRssTrackDetail',
   BrowseRoot: 'BrowseRoot',
   PlaylistDetail: 'PlaylistDetail',
   Profile: 'Profile',
@@ -356,6 +366,11 @@ const libraryTabLinkScreens = {
 } as const;
 
 const browseTabLinkScreens = {
+  AddByRssCredentials: 'browse/add-by-rss/credentials/:feedIdText',
+  AddByRssEpisodeDetail: 'browse/add-by-rss/:feedIdText/item/:itemKey',
+  AddByRssLivestreamDetail: 'browse/add-by-rss/:feedIdText/livestream/:liveItemKey',
+  AddByRssPodcastDetail: 'browse/add-by-rss/:feedIdText',
+  AddByRssTrackDetail: 'browse/add-by-rss/:feedIdText/track/:itemKey',
   AlbumDetail: `browse${APP_ROUTES.ALBUM}/:albumId`,
   ArtistDetail: `browse${APP_ROUTES.ARTIST}/:artistId`,
   BrowseRoot: 'browse',
@@ -372,6 +387,11 @@ const notificationsTabLinkScreens = {
 } as const;
 
 const searchTabLinkScreens = {
+  AddByRssCredentials: 'search/add-by-rss/credentials/:feedIdText',
+  AddByRssEpisodeDetail: 'search/add-by-rss/:feedIdText/item/:itemKey',
+  AddByRssLivestreamDetail: 'search/add-by-rss/:feedIdText/livestream/:liveItemKey',
+  AddByRssPodcastDetail: 'search/add-by-rss/:feedIdText',
+  AddByRssTrackDetail: 'search/add-by-rss/:feedIdText/track/:itemKey',
   AlbumDetail: `search${APP_ROUTES.ALBUM}/:albumId`,
   ArtistDetail: `search${APP_ROUTES.ARTIST}/:artistId`,
   ClipDetail: `search${APP_ROUTES.CLIP}/:clipId`,
@@ -496,15 +516,16 @@ export type HomeStackParamList = ChannelBrowseStackParamList &
     HomeRoot: undefined;
   };
 
-export type SearchStackParamList = ChannelBrowseStackParamList & {
-  /**
-   * `autoFocus` is a request from another tab (Home's empty state) to start a fresh search: the
-   * field is cleared and focused so the user can type straight away. Tapping the Search tab
-   * directly omits it and keeps whatever was already there.
-   * `medium` optionally selects the All / Music chip (and persists it) before the field focuses.
-   */
-  SearchRoot: { autoFocus?: boolean; medium?: 'all' | 'music' } | undefined;
-};
+export type SearchStackParamList = ChannelBrowseStackParamList &
+  AddByRssDetailStackParamList & {
+    /**
+     * `autoFocus` is a request from another tab (Home's empty state) to start a fresh search: the
+     * field is cleared and focused so the user can type straight away. Tapping the Search tab
+     * directly omits it and keeps whatever was already there.
+     * `medium` optionally selects the All / Music chip (and persists it) before the field focuses.
+     */
+    SearchRoot: { autoFocus?: boolean; medium?: 'all' | 'music' } | undefined;
+  };
 
 export type LibraryStackParamList = AddByRssDetailStackParamList & {
   AddByRssAdd: undefined;
@@ -527,16 +548,17 @@ export type LibraryStackParamList = AddByRssDetailStackParamList & {
   TrackDetail: TrackDetailRouteParams;
 };
 
-export type BrowseStackParamList = ChannelBrowseStackParamList & {
-  /**
-   * `mediaType` is a request from another tab (Home's empty state) to open Browse on a specific
-   * chip. Applied once on focus, persisted, then cleared so a later tab return keeps the user's
-   * last Browse choice.
-   */
-  BrowseRoot: { mediaType?: BrowseMediaType } | undefined;
-  PlaylistDetail: { playlistId: string };
-  Profile: { accountIdText: string };
-};
+export type BrowseStackParamList = ChannelBrowseStackParamList &
+  AddByRssDetailStackParamList & {
+    /**
+     * `mediaType` is a request from another tab (Home's empty state) to open Browse on a specific
+     * chip. Applied once on focus, persisted, then cleared so a later tab return keeps the user's
+     * last Browse choice.
+     */
+    BrowseRoot: { mediaType?: BrowseMediaType } | undefined;
+    PlaylistDetail: { playlistId: string };
+    Profile: { accountIdText: string };
+  };
 
 export type NotificationsStackParamList = {
   NotificationsInbox: undefined;
@@ -1140,6 +1162,31 @@ function SearchStackNavigator() {
         options={{ title: t('media.music.album') }}
       />
       <SearchStack.Screen
+        component={AddByRssHomeDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssPodcastDetail}
+        options={{ title: t('media.podcast.podcast') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssEpisodeDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssEpisodeDetail}
+        options={{ title: t('media.podcast.episode') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssLivestreamDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssLivestreamDetail}
+        options={{ title: t('media.livestream.livestream') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssTrackDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssTrackDetail}
+        options={{ title: t('media.music.track') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssCredentialsScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssCredentials}
+        options={{ title: t('features.add_by_rss.credentials_page_title') }}
+      />
+      <SearchStack.Screen
         component={TrackDetailScreen}
         name={SEARCH_STACK_ROUTES.TrackDetail}
         options={{ title: t('media.music.track') }}
@@ -1313,6 +1360,31 @@ function BrowseStackNavigator() {
         component={AlbumDetailScreen}
         name={BROWSE_STACK_ROUTES.AlbumDetail}
         options={{ title: t('media.music.album') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssHomeDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssPodcastDetail}
+        options={{ title: t('media.podcast.podcast') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssEpisodeDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssEpisodeDetail}
+        options={{ title: t('media.podcast.episode') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssLivestreamDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssLivestreamDetail}
+        options={{ title: t('media.livestream.livestream') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssTrackDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssTrackDetail}
+        options={{ title: t('media.music.track') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssCredentialsScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssCredentials}
+        options={{ title: t('features.add_by_rss.credentials_page_title') }}
       />
       <BrowseStack.Screen
         component={PodcastIndexFeedPreviewScreen}

@@ -26,6 +26,13 @@ type ChannelHeaderSettings = {
   testID: string;
 };
 
+/** Turns the subtitle into a link, e.g. a track's verified artists. */
+export type ChannelHeaderSubtitleLink = {
+  accessibilityLabel: string;
+  onPress: () => void;
+  testID: string;
+};
+
 export type ChannelHeaderProps = {
   /** List-size artwork. Missing art uses the shared headphone placeholder. */
   artworkUri: string | null;
@@ -43,6 +50,8 @@ export type ChannelHeaderProps = {
   notice?: string | null;
   /** Already-localized. Shown under the title, e.g. an author or track count. */
   subtitle?: string | null;
+  /** Makes the subtitle a link. Omit for plain text. */
+  subtitleLink?: ChannelHeaderSubtitleLink;
   /** Opens the linked channel when the title is pressed. */
   onTitlePress?: () => void;
   /**
@@ -60,6 +69,7 @@ type ChannelHeaderTitleRowProps = {
   onTitlePress?: () => void;
   settings?: ChannelHeaderSettings;
   subtitle?: string | null;
+  subtitleLink?: ChannelHeaderSubtitleLink;
   title: string;
   titleLines: number;
 };
@@ -72,6 +82,7 @@ function ChannelHeaderTitleRow({
   onTitlePress,
   settings,
   subtitle,
+  subtitleLink,
   title,
   titleLines,
 }: ChannelHeaderTitleRowProps) {
@@ -91,6 +102,10 @@ function ChannelHeaderTitleRow({
         subtitle: {
           ...typography.label,
           color: themeStyles.textSecondary.color,
+        },
+        subtitleLink: {
+          ...typography.label,
+          color: tokens.text.accent,
         },
         title: {
           ...typography.heading,
@@ -158,7 +173,23 @@ function ChannelHeaderTitleRow({
           </View>
         ) : null}
       </View>
-      {hasSubtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {hasSubtitle ? (
+        subtitleLink !== undefined ? (
+          <Pressable
+            accessibilityLabel={subtitleLink.accessibilityLabel}
+            accessibilityRole="link"
+            onPress={subtitleLink.onPress}
+            style={({ pressed }) => [styles.titlePress, pressed ? { opacity: 0.6 } : null]}
+            testID={subtitleLink.testID}
+          >
+            <Text numberOfLines={1} style={styles.subtitleLink}>
+              {subtitle}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        )
+      ) : null}
     </View>
   );
 }
@@ -216,6 +247,7 @@ export function ChannelHeader({
   onTitlePress,
   settings,
   subtitle,
+  subtitleLink,
   testID,
   title,
   viewerUri,
@@ -280,6 +312,7 @@ export function ChannelHeader({
             onTitlePress={onTitlePress}
             settings={settings}
             subtitle={hasSubtitle ? subtitle : null}
+            subtitleLink={hasSubtitle ? subtitleLink : undefined}
             title={title}
             titleLines={titleLines}
           />

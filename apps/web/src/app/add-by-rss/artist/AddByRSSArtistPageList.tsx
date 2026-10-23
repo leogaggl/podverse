@@ -2,19 +2,22 @@
 
 import React from 'react';
 
-import { AddByRSSAlbumNodes } from '../../../components/AddByRSS/Artist/Album/AddByRSSAlbumNodes';
 import { AddByRSSTrackNodes } from '../../../components/AddByRSS/Artist/Album/Track/AddByRSSTrackNodes';
+import { AddByRSSNeedsCredentialsSection } from '../../../components/AddByRSS/List/AddByRSSNeedsCredentialsSection';
 import { AddByRSSLivestreamNodes } from '../../../components/AddByRSS/Livestream/AddByRSSLivestreamNodes';
 import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMessagesSection';
 import type {
   BoostBreadcrumbLinkResolver,
   BoostMessagesPageFetcher,
 } from '../../../components/Boost/messages/types';
+import { CommonAlbumListNodes } from '../../../components/Common/Artist/Album/CommonAlbumNodes';
+import type { AlbumListItem } from '../../../components/Common/Artist/Album/types';
 import { ContentAbout } from '../../../components/Content/About/ContentAbout';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
 import { AddByRSSCredentialsSettingsSection } from '../../../components/Settings/AddByRSSCredentialsSettingsSection';
 import { SettingsWrapper } from '../../../components/Settings/SettingsWrapper';
 import type { ViewSelectedOption } from '../../../components/ViewSelector/ViewSelector';
+import type { AddByRSSNeedsCredentialsFeed } from '../../../utils/addByRSS/credentialsStatus';
 import type {
   AddByRSSFeedRecord,
   AddByRSSItemIndexItem,
@@ -24,7 +27,8 @@ import type { AddByRSSArtistPageTabKey } from './AddByRSSArtistPageListHeader';
 
 type AddByRSSArtistPageListProps = {
   activeTab: AddByRSSArtistPageTabKey;
-  albumFeeds: AddByRSSFeedRecord[];
+  albumItems: AlbumListItem[];
+  needsCredentials: AddByRSSNeedsCredentialsFeed[];
   trackItems: AddByRSSItemIndexItem[];
   liveItems: AddByRSSLivestreamIndexItem[];
   description: string | null;
@@ -43,7 +47,8 @@ type AddByRSSArtistPageListProps = {
 
 export const AddByRSSArtistPageList: React.FC<AddByRSSArtistPageListProps> = ({
   activeTab,
-  albumFeeds,
+  albumItems,
+  needsCredentials,
   trackItems,
   liveItems,
   description,
@@ -62,7 +67,10 @@ export const AddByRSSArtistPageList: React.FC<AddByRSSArtistPageListProps> = ({
   return (
     <DetailListWrapper>
       {activeTab === 'albums' && (
-        <AddByRSSAlbumNodes feeds={albumFeeds} viewSelected={viewSelected} />
+        <>
+          <AddByRSSNeedsCredentialsSection feeds={needsCredentials} />
+          <CommonAlbumListNodes items={albumItems} viewSelected={viewSelected} />
+        </>
       )}
       {activeTab === 'tracks' && (
         <>

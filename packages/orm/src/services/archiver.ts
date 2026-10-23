@@ -79,7 +79,8 @@ function deleteChannelIdentityRows(
 
 /**
  * Related channel rows removed from an archived show. Trailers precede seasons because
- * channel_trailer.channel_season_id has no ON DELETE.
+ * channel_trailer.channel_season_id has no ON DELETE. Verified publisher links are removed
+ * when the show is the content channel or the publisher channel.
  */
 export const CHANNEL_DETAIL_DELETE_QUERIES: ChannelDetailDeleteQuery[] = [
   {
@@ -114,6 +115,13 @@ export const CHANNEL_DETAIL_DELETE_QUERIES: ChannelDetailDeleteQuery[] = [
     byteFrom: `channel_publisher_remote_item t
             INNER JOIN channel_publisher parent ON parent.id = t.channel_publisher_id
             INNER JOIN channel c ON c.id = parent.channel_id`,
+  },
+  {
+    table: 'channel_verified_publisher',
+    sql: `DELETE FROM channel_verified_publisher
+            WHERE channel_id = $1 OR publisher_channel_id = $1`,
+    params: (channelId) => [channelId],
+    byteFrom: `channel_verified_publisher t INNER JOIN channel c ON c.id = t.channel_id`,
   },
   ...CHANNEL_OWNED_DETAIL_TABLES.map((table) => deleteOwnedChannelRows(table)),
 ];

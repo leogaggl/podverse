@@ -34,6 +34,25 @@ describe('native cache projection envelopes', () => {
     expect(payload.entries[0]?.mediaUrl).toBe('https://example.com/a.mp3');
   });
 
+  it('keeps an artist on a queue snapshot at schema version 2', () => {
+    const payload = buildQueueSnapshotPayload({
+      nowPlayingIdText: 'ep1',
+      entries: [
+        {
+          idText: 'ep1',
+          title: 'Episode',
+          artworkUrl: null,
+          mediaUrl: 'https://example.com/a.mp3',
+          artist: 'E2E Music Artist',
+        },
+      ],
+      mediumBucket: 'av',
+    });
+    expect(payload.schemaVersion).toBe(NATIVE_CACHE_SCHEMA_VERSION);
+    expect(payload.schemaVersion).toBe(2);
+    expect(payload.entries[0]?.artist).toBe('E2E Music Artist');
+  });
+
   it('includes relative download file names', () => {
     const payload = buildDownloadsIndexPayload({
       entries: [
@@ -43,27 +62,30 @@ describe('native cache projection envelopes', () => {
           filePath: 'downloads/ep1.mp3',
           artworkUrl: 'https://example.com/art.jpg',
           channelTitle: 'Show',
+          artist: 'E2E Music Artist',
         },
       ],
     });
     expect(payload.entries[0]?.filePath).toBe('downloads/ep1.mp3');
+    expect(payload.entries[0]?.artist).toBe('E2E Music Artist');
     expect(payload.schemaVersion).toBe(2);
   });
 
   it('builds library children and history / live envelopes', () => {
-    expect(
-      buildLibraryChildrenPayload({
-        channelIdText: 'ch1',
-        mediumBucket: 'av',
-        items: [
-          {
-            idText: 'ep1',
-            title: 'Episode',
-            mediaUrl: 'https://example.com/a.mp3',
-          },
-        ],
-      }).channelIdText
-    ).toBe('ch1');
+    const children = buildLibraryChildrenPayload({
+      channelIdText: 'ch1',
+      mediumBucket: 'av',
+      items: [
+        {
+          idText: 'ep1',
+          title: 'Episode',
+          mediaUrl: 'https://example.com/a.mp3',
+          artist: 'E2E Music Artist',
+        },
+      ],
+    });
+    expect(children.channelIdText).toBe('ch1');
+    expect(children.items[0]?.artist).toBe('E2E Music Artist');
     expect(buildHistoryIndexPayload({ entries: [] }).schemaVersion).toBe(2);
     expect(buildLiveIndexPayload({ entries: [] }).schemaVersion).toBe(2);
     expect(

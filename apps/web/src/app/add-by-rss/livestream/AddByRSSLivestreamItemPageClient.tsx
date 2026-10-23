@@ -21,6 +21,7 @@ import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { useAccount } from '../../../contexts/Account';
 import { useDescriptionClockPlayback } from '../../../hooks/useDescriptionClockPlayback';
+import { findListedAddByRSSLivestream } from '../../../utils/addByRSS/listedFeeds';
 import {
   getAddByRSSFeedByIdText,
   getAddByRSSItemByGuid,
@@ -151,8 +152,12 @@ export const AddByRSSLivestreamItemPageClient: React.FC<AddByRSSLivestreamItemPa
       }
 
       if (!found) {
-        setLivestream(null);
-        setFeed(null);
+        const listed = await findListedAddByRSSLivestream(itemIdText);
+        if (cancelled) {
+          return;
+        }
+        setLivestream(listed?.item ?? null);
+        setFeed(listed?.feed ?? null);
         setIsLoading(false);
         return;
       }

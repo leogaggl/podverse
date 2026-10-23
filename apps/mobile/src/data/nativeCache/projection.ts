@@ -36,6 +36,8 @@ export type NativeCacheQueueEntry = {
   mediaUrl: string | null;
   durationMs?: number | null;
   podcastTitle?: string | null;
+  /** Verified artist names; when set, `podcastTitle` is the album. */
+  artist?: string | null;
   startPositionSeconds?: number | null;
   kind?: string | null;
 };
@@ -58,6 +60,8 @@ export type NativeCacheDownloadEntry = {
   mediaUrl?: string | null;
   bytes?: number | null;
   channelTitle?: string | null;
+  /** Verified artist names; when set, `channelTitle` is the album. */
+  artist?: string | null;
 };
 
 export type DownloadsIndexProjection = {
@@ -81,6 +85,8 @@ export type NativeCacheChildItem = {
   idText: string;
   title: string;
   subtitle?: string | null;
+  /** Verified artist names; when set, `subtitle` or the library node title is the album. */
+  artist?: string | null;
   artworkUrl?: string | null;
   mediaUrl: string | null;
   durationMs?: number | null;
@@ -100,6 +106,8 @@ export type NativeCacheHistoryEntry = {
   idText: string;
   title: string;
   channelTitle?: string | null;
+  /** Verified artist names; when set, `channelTitle` is the album. */
+  artist?: string | null;
   artworkUrl?: string | null;
   mediaUrl: string | null;
   mediumBucket?: NativeCacheMediumBucket;

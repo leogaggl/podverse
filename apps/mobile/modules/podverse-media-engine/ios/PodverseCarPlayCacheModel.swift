@@ -32,6 +32,7 @@ enum PodverseCarPlayCacheModel {
     let artworkUrl: String?
     let mediaUrl: String?
     let channelTitle: String?
+    let artist: String?
   }
 
   struct QueueEntry {
@@ -40,6 +41,7 @@ enum PodverseCarPlayCacheModel {
     let artworkUrl: String?
     let mediaUrl: String?
     let podcastTitle: String?
+    let artist: String?
     let startPositionSeconds: Double?
     let downloadFileName: String?
   }
@@ -53,6 +55,7 @@ enum PodverseCarPlayCacheModel {
     let idText: String
     let title: String
     let subtitle: String?
+    let artist: String?
     let artworkUrl: String?
     let mediaUrl: String?
     let durationMs: Int?
@@ -65,6 +68,7 @@ enum PodverseCarPlayCacheModel {
     let idText: String
     let title: String
     let channelTitle: String?
+    let artist: String?
     let artworkUrl: String?
     let mediaUrl: String?
     let downloadFileName: String?
@@ -119,7 +123,8 @@ enum PodverseCarPlayCacheModel {
           filePath: filePath,
           artworkUrl: nonBlankString(obj["artworkUrl"]),
           mediaUrl: nonBlankString(obj["mediaUrl"]),
-          channelTitle: nonBlankString(obj["channelTitle"])))
+          channelTitle: nonBlankString(obj["channelTitle"]),
+          artist: nonBlankString(obj["artist"])))
     }
     return entries
   }
@@ -145,6 +150,7 @@ enum PodverseCarPlayCacheModel {
           artworkUrl: nonBlankString(obj["artworkUrl"]),
           mediaUrl: nonBlankString(obj["mediaUrl"]),
           podcastTitle: nonBlankString(obj["podcastTitle"]),
+          artist: nonBlankString(obj["artist"]),
           startPositionSeconds: doubleOrNil(obj["startPositionSeconds"]),
           downloadFileName: nonBlankString(obj["downloadFileName"])))
     }
@@ -166,6 +172,7 @@ enum PodverseCarPlayCacheModel {
           idText: idText,
           title: title,
           subtitle: nonBlankString(obj["subtitle"]),
+          artist: nonBlankString(obj["artist"]),
           artworkUrl: nonBlankString(obj["artworkUrl"]),
           mediaUrl: nonBlankString(obj["mediaUrl"]),
           durationMs: intOrNil(obj["durationMs"]),
@@ -191,6 +198,7 @@ enum PodverseCarPlayCacheModel {
           idText: idText,
           title: title,
           channelTitle: nonBlankString(obj["channelTitle"]),
+          artist: nonBlankString(obj["artist"]),
           artworkUrl: nonBlankString(obj["artworkUrl"]),
           mediaUrl: nonBlankString(obj["mediaUrl"]),
           downloadFileName: nonBlankString(obj["downloadFileName"])))

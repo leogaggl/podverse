@@ -2,13 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ImageNonReact, LoadingSpinner } from '@podverse/ui';
 
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
 import { useMediaPlayerVideo } from '../../../contexts/MediaPlayerVideo';
+import { useDeviceArtistLinks } from '../../../hooks/useDeviceArtistLinks';
 import { useModalArtworkSquareSize } from '../../../hooks/useModalArtworkSquareSize';
 import { isNonLiveVideoPlaying } from '../../../utils/mediaPlayer/isNonLiveVideoPlaying';
 import {
@@ -20,6 +21,7 @@ import { getMediaPlayerInfoResolution } from '../../../utils/mediaPlayer/mediaPl
 import { Link } from '../../Link/Link';
 import { ReadableTimeRange } from '../../Time/ReadableTimeRange';
 import { ChapterLinkButton } from './ChapterLinkButton';
+import { MediaPlayerArtistChooser } from './MediaPlayerArtistChooser';
 import { MediaPlayerVtsOverrideLikeButton } from './MediaPlayerVtsOverrideLikeButton';
 
 import styles from '../../../styles/components/MediaPlayer/Modal/MediaPlayerInfoModal.module.scss';
@@ -64,6 +66,7 @@ export const MediaPlayerInfoModal: React.FC = () => {
     mpEnclosureSelectedParams,
     setPlayerModalIsOpen,
   } = useMediaPlayer();
+  const deviceArtistLinks = useDeviceArtistLinks();
   const { mpCurrentTime } = useMediaPlayerCurrentTime();
   const { videoLocation, setModalVideoTarget, modalVideoAspectRatio } = useMediaPlayerVideo();
   const tMediaPlayer = useTranslations('media_player');
@@ -102,7 +105,11 @@ export const MediaPlayerInfoModal: React.FC = () => {
     mpItemChapter,
     mpItemChapters,
     currentTimeSeconds: mpCurrentTime,
+    deviceArtistLinks,
   });
+  const artistLine = infoResolution.artistLine;
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const chooserTriggerRef = useRef<HTMLButtonElement>(null);
 
   const showModalVideo = videoLocation === 'full-modal' && isVideoPlaying;
   const ratioKnown = modalVideoAspectRatio !== null;
@@ -117,6 +124,60 @@ export const MediaPlayerInfoModal: React.FC = () => {
     active: !showModalVideo,
   });
 
+  useEffect(() => {
+    if (artistLine.kind !== 'chooser') {
+      setChooserOpen(false);
+    }
+  }, [artistLine.kind]);
+
+  const closeChooser = () => {
+    setChooserOpen(false);
+    chooserTriggerRef.current?.focus();
+  };
+
+  const openArtist = (href: string) => {
+    setChooserOpen(false);
+    setPlayerModalIsOpen(false);
+    router.push(href);
+  };
+
+  const artistRow = ((): React.ReactNode => {
+    switch (artistLine.kind) {
+      case 'hidden':
+        return null;
+      case 'link':
+        return (
+          <ClickableTitle
+            title={artistLine.link.title}
+            className={styles.artistTitle}
+            onClick={() => router.push(artistLine.link.href)}
+            setPlayerModalIsOpen={setPlayerModalIsOpen}
+          />
+        );
+      case 'chooser':
+        return (
+          <div className={styles.artistTitle}>
+            <button
+              ref={chooserTriggerRef}
+              aria-expanded={chooserOpen}
+              aria-haspopup="dialog"
+              type="button"
+              onClick={() => setChooserOpen(true)}
+            >
+              {artistLine.label}
+            </button>
+            {chooserOpen ? (
+              <MediaPlayerArtistChooser
+                links={artistLine.links}
+                onClose={closeChooser}
+                onOpenArtist={openArtist}
+              />
+            ) : null}
+          </div>
+        );
+    }
+  })();
+
   const titleSection = (
     <div className={styles.titleSection} ref={titleRef}>
       <ClickableTitle
@@ -125,6 +186,7 @@ export const MediaPlayerInfoModal: React.FC = () => {
         onClick={() => infoResolution.itemLinkUrl && router.push(infoResolution.itemLinkUrl)}
         setPlayerModalIsOpen={setPlayerModalIsOpen}
       />
+      {artistRow}
       {infoResolution.channelLinkUrl ? (
         <ClickableTitle
           title={infoResolution.channelTitle ?? undefined}

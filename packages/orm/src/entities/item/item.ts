@@ -32,6 +32,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+import type { DTOVerifiedPublisher } from '@podverse/helpers';
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
 import type { LiveItem } from '../liveItem/liveItem.js';
@@ -60,6 +61,12 @@ export class Item {
   @ManyToOne('Channel', (channel: Channel) => channel.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'channel_id' })
   channel!: Relation<Channel>;
+
+  /** Filled by API reads from channel_verified_publisher; not a column. Item-only publishers. */
+  verified_publishers?: DTOVerifiedPublisher[];
+
+  /** Filled by by-channel list reads; not a column. The channel's channel-wide publishers. */
+  channel_wide_verified_publishers?: DTOVerifiedPublisher[];
 
   @Column({ type: 'varchar', name: 'guid', nullable: true, length: DATABASE_CONSTANTS.varchar_uri })
   guid?: string | null;

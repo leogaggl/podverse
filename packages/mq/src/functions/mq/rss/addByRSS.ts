@@ -1,7 +1,7 @@
 import type { ActiveMQArtemisService } from '@queue/services/activeMQArtemis/index.js';
 import type { MQAddByRSSMessage } from '@queue/types/mq.js';
 
-import type { MQQueueConfigFunctionParams } from '@podverse/helpers';
+import type { CredentialScopeDecision, MQQueueConfigFunctionParams } from '@podverse/helpers';
 import { ADD_BY_RSS_CREDENTIALS_TRANSIT_TTL_MS } from '@podverse/helpers-backend';
 
 type MQAddByRSSAddOptions = MQQueueConfigFunctionParams & {
@@ -12,6 +12,8 @@ type MQAddByRSSAddOptions = MQQueueConfigFunctionParams & {
   etag?: string;
   lastModified?: string;
   credentialsEnvelope?: string;
+  publisherRequestId?: string;
+  credentialsWithheld?: Exclude<CredentialScopeDecision, 'send'>;
 };
 
 /**
@@ -34,6 +36,8 @@ export const mqAddByRSSAdd = async (
       etag: options.etag,
       lastModified: options.lastModified,
       ...(options.credentialsEnvelope ? { credentialsEnvelope: options.credentialsEnvelope } : {}),
+      ...(options.publisherRequestId ? { publisherRequestId: options.publisherRequestId } : {}),
+      ...(options.credentialsWithheld ? { credentialsWithheld: options.credentialsWithheld } : {}),
     };
 
     await activeMQArtemisService.sendMessage({

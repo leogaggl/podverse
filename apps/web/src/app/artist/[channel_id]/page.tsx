@@ -105,7 +105,6 @@ export default async function ArtistPage({ params, searchParams }: ArtistPagePro
       ssrChannelsAdded={response.channelsAdded}
       ssrChannelsUnadded={response.channelsUnadded}
       ssrItemsAdded={response.itemsAdded}
-      ssrItemsUnadded={response.itemsUnadded}
       ssrPodroll={ssrPodroll}
       directoryRemoved={directoryRemoved}
     />

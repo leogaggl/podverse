@@ -43,6 +43,19 @@ describe('buildChannelFromDownload', () => {
     });
   });
 
+  it('carries the verified publishers it is given', () => {
+    const verifiedPublishers = [
+      {
+        id_text: 'e2eMusicChnl01',
+        title: 'E2E Music Artist',
+        medium_id: MediumEnum.PublisherMusic,
+      },
+    ];
+    expect(buildChannelFromDownload(record({}), verifiedPublishers)?.verified_publishers).toEqual(
+      verifiedPublishers
+    );
+  });
+
   it('returns null when the download has no channel id', () => {
     expect(buildChannelFromDownload(record({ channelIdText: null }))).toBeNull();
     expect(buildChannelFromDownload(record({ channelIdText: '' }))).toBeNull();

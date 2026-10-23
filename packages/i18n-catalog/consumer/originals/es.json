@@ -30,7 +30,11 @@
       "album_go_to": "Ir al álbum",
       "artist_go_to": "Ir al artista",
       "no_tracks_found": "No se encontraron pistas",
-      "no_albums_found": "No se encontraron álbumes"
+      "no_albums_found": "No se encontraron álbumes",
+      "verified_albums": "Álbumes verificados",
+      "your_add_by_rss_albums": "Tus álbumes de Añadir por RSS",
+      "not_yet_added": "Aún no añadidos",
+      "not_yet_added_albums_note": "El feed de este artista incluye estos álbumes. Suben en la lista cuando ambos feeds confirman el enlace."
     },
     "video": {
       "channel": "Canal",
@@ -335,6 +339,13 @@
     "copied": "Copiado",
     "subscribe": "Suscribirse",
     "unsubscribe": "Darse de baja",
+    "unsubscribe_artist": {
+      "title": "¿Darse de baja de {artist}?",
+      "followed_one_album": "También sigues 1 álbum de este artista.",
+      "followed_albums": "También sigues {count} álbumes de este artista.",
+      "artist_only": "Solo el artista",
+      "artist_and_albums": "Artista y álbumes"
+    },
     "share": "Compartir",
     "download": {
       "download_episode": "Descargar episodio",
