@@ -29,6 +29,8 @@ import { MembershipGateProvider } from './src/membership/MembershipGateProvider'
 import { MobileTabNavigator, navigateToMembershipScreen } from './src/navigation';
 import { isAuthGatedDeepLink } from './src/navigation/deepLinking';
 import { TabLayoutProvider, useTabLayout } from './src/navigation/TabLayoutProvider';
+import { BannerNotificationHost } from './src/notifications/BannerNotificationHost';
+import { NotificationsRuntime } from './src/notifications/NotificationsRuntime';
 import { PlaybackProvider } from './src/playback';
 import {
   getInitialNotificationDeepLinkUrl,
@@ -301,6 +303,7 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
         >
           <MembershipGateProvider onNavigateToMembership={navigateToMembershipScreen}>
             <TermsAcceptanceProvider>
+              <NotificationsRuntime />
               <ForcedLogoutNotice />
               <OverlayA11yShield>
                 <MembershipExpiredBanner onRenew={navigateToMembershipScreen} />
@@ -321,6 +324,8 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
               </OverlayA11yShield>
               {/* After the navigator so overlays cover root-stack cards. */}
               <OverlayOutlet />
+              {/* Above overlays. Touches outside the card pass through. */}
+              <BannerNotificationHost />
             </TermsAcceptanceProvider>
           </MembershipGateProvider>
         </AuthPromptProvider>

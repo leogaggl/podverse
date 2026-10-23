@@ -39,6 +39,9 @@ export class AccountNotification {
   @Column({ type: 'jsonb', nullable: true })
   payload?: Record<string, unknown> | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  read_at?: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz', default: () => 'NOW()' })
   created_at!: Date;
 

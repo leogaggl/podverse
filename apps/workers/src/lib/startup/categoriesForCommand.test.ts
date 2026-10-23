@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACCOUNT_NOTIFICATION_WRITER_COMMANDS,
   CATEGORY_BASE,
   CATEGORY_BILLING,
+  CATEGORY_KEYVALDB,
   CATEGORY_MQ,
   CATEGORY_ORM,
   CATEGORY_PARSER,
   CATEGORY_PODCAST_INDEX,
   CATEGORY_WEB_NOTIFICATIONS,
   getCategoriesForCommand,
+  usesKeyvaldbCache,
 } from './categoriesForCommand.js';
 
 function sortCategories(set: ReadonlySet<string>): string[] {
@@ -26,6 +29,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -113,6 +117,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -128,6 +133,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -143,6 +149,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -160,6 +167,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -169,5 +177,33 @@ describe('getCategoriesForCommand', () => {
     expect(sortCategories(getCategoriesForCommand('devDiscoverArtistPublisherFeeds'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_PODCAST_INDEX]))
     );
+  });
+
+  it('maps every notification-writing command to ORM and KeyValDB', () => {
+    for (const commandName of ACCOUNT_NOTIFICATION_WRITER_COMMANDS) {
+      const categories = getCategoriesForCommand(commandName);
+      expect({
+        commandName,
+        hasOrm: categories.has(CATEGORY_ORM),
+        hasKeyValDb: categories.has(CATEGORY_KEYVALDB),
+      }).toEqual({
+        commandName,
+        hasOrm: true,
+        hasKeyValDb: true,
+      });
+    }
+  });
+
+  it('keeps KeyValDB off queue-only full stack commands', () => {
+    expect(getCategoriesForCommand('mqRSSRunLiveItemListener').has(CATEGORY_KEYVALDB)).toBe(false);
+    expect(
+      getCategoriesForCommand('mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex').has(CATEGORY_KEYVALDB)
+    ).toBe(false);
+  });
+
+  it('requires a reachable KeyValDB cache only for the cache commands', () => {
+    expect(usesKeyvaldbCache('mqAddByRSSRunParser')).toBe(true);
+    expect(usesKeyvaldbCache('mqOpmlImportRun')).toBe(true);
+    expect(usesKeyvaldbCache('mqRSSRunParser')).toBe(false);
   });
 });

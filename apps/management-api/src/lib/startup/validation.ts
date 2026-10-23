@@ -117,6 +117,11 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateRequired('DB_MANAGEMENT_READ_WRITE_USER', 'Management Database'));
   results.push(validateRequired('DB_MANAGEMENT_READ_WRITE_PASSWORD', 'Management Database'));
 
+  // KeyValDB (account event publishing)
+  results.push(validateRequired('KEYVALDB_HOST', 'KeyValDB'));
+  results.push(validateRequired('KEYVALDB_PORT', 'KeyValDB'));
+  results.push(validateRequired('KEYVALDB_PASSWORD', 'KeyValDB'));
+
   // API Configuration
   results.push(validateRequired('API_PORT', 'API'));
   results.push(validateRequired('API_PREFIX', 'API'));

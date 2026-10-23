@@ -375,6 +375,10 @@ set_if_empty_or_equals "$WORKERS_APP_ENV" "MESSAGE_QUEUE_PORT" "5684" "5672"
 # apps/management-api/.env is for `npm run dev` on the host and must use localhost.
 set_if_empty_or_equals "$MANAGEMENT_API_INFRA_ENV" "DB_HOST" "podverse_local_db" "localhost"
 set_if_empty_or_equals "$MANAGEMENT_API_INFRA_ENV" "DB_PORT" "5432" "5999"
+set_if_empty_or_equals "$MANAGEMENT_API_INFRA_ENV" "KEYVALDB_HOST" "podverse_local_keyvaldb" "localhost"
+set_if_empty_or_equals "$MANAGEMENT_API_INFRA_ENV" "KEYVALDB_PORT" "6379" "6379"
+set_if_empty "$MANAGEMENT_API_APP_ENV" "KEYVALDB_HOST" "localhost"
+set_if_empty "$MANAGEMENT_API_APP_ENV" "KEYVALDB_PORT" "6379"
 set_if_empty_or_equals "$MANAGEMENT_API_APP_ENV" "DB_HOST" "localhost" "podverse_local_db"
 set_if_empty_or_equals "$MANAGEMENT_API_APP_ENV" "DB_PORT" "5432" "5999"
 
@@ -458,6 +462,9 @@ for file in "$API_APP_ENV" "$WORKERS_APP_ENV" "$API_INFRA_ENV" "$WORKERS_INFRA_E
 	upsert_var "$file" "KEYVALDB_PASSWORD" "$KEYVALDB_PASSWORD"
 	upsert_var "$file" "MESSAGE_QUEUE_USERNAME" "user"
 	upsert_var "$file" "MESSAGE_QUEUE_PASSWORD" "$ARTEMIS_PASSWORD"
+done
+for file in "$MANAGEMENT_API_APP_ENV" "$MANAGEMENT_API_INFRA_ENV"; do
+	upsert_var "$file" "KEYVALDB_PASSWORD" "$KEYVALDB_PASSWORD"
 done
 
 for file in "$API_APP_ENV" "$WORKERS_APP_ENV" "$API_INFRA_ENV" "$WORKERS_INFRA_ENV"; do

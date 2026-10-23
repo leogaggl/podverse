@@ -152,7 +152,8 @@ infra/              # Infrastructure
 
 ### Caching
 
-- Valkey/Redis for session and query caching
+- Valkey (Redis) holds the API and worker caches and carries account events over pub/sub (see
+  Account events below).
 - API response caching for high-traffic endpoints
 
 ## External Service Integrations
@@ -197,6 +198,54 @@ sandbox setup, and operations: [docs/billing/BILLING.md](/docs/billing/BILLING.m
 
 - Queue definitions in `packages/mq/`
 - Worker processors in `apps/workers/`
+
+## Account events
+
+`GET /account/events` is the account's one server-sent events stream. Web tabs share one stream
+per browser profile. The mobile app holds one in the foreground, and in the background while it
+plays audio. Event names are namespaced: `notification.*` is in use; `playback.*` is reserved for
+cross-device playback, both latest-value state and one-shot control commands. Neither kind carries
+an SSE id or replays. Clients ignore names they do not know. The client contract is
+[`accountEventStream.ts`](/packages/helpers/src/lib/accountEventStream.ts).
+
+A process writes notification state through `@podverse/orm`
+(`AccountNotificationService.createMany`, `AccountService.updateNotificationsLastReadAt`, and
+`publishAccountNotificationReadOne` for marking one notification read). After the write commits,
+the ORM publishes a small account event (account
+id, type, and ids) on the Redis channel `podverse:account-events` through the publisher that
+process registered. Each API pod holds one subscriber connection, loads the rows and unread count
+for accounts with open streams, and writes SSE events to them.
+
+Who publishes:
+
+- API pods, the management API, and the worker commands that write notifications. Those commands
+  are `ACCOUNT_NOTIFICATION_WRITER_COMMANDS` in
+  `apps/workers/src/lib/startup/categoriesForCommand.ts`. What Redis they need is in
+  [workers ENV](/apps/workers/ENV.md).
+- Each opens one dedicated publisher connection, separate from any cache connection, and registers
+  it at startup.
+- A process that writes notifications with none registered logs a warning at startup and on every
+  dropped batch, and the write throws in tests.
+
+A publish failure never fails the write. Redis being down does not stop the management API or the
+writing workers; they drop events until the publisher reconnects. The API still refuses to start
+when its cache connection cannot reach Valkey. Clients catch up on reconnect: every connection
+starts with a `notification.state` snapshot, and only events with an SSE id
+(`notification.created`) replay from `Last-Event-ID`, up to 50. A larger gap sends
+`notification.resync` instead of the rows. If a pod's subscriber drops, its open streams replay
+from the last delivered notification id and then receive a fresh state snapshot.
+
+To add an event type, add its data to `AccountEventDataByType` in
+[`accountEventPublisher.ts`](/packages/orm/src/lib/accountEventPublisher.ts), publish it after the
+write commits, and add its handler in
+[`apps/api/src/lib/accountEventStream/`](/apps/api/src/lib/accountEventStream/). Latest-value types
+carry no SSE id and send a snapshot on connect instead of replaying. One-shot command types carry
+no SSE id either and are never replayed, so a client that was disconnected never acts on a stale
+command. A type that needs replay needs a new SSE id format, because ids are notification ids.
+
+Proxy requirements for the stream are in [APPS-API.md](/apps/api/APPS-API.md). Environment
+variables: [API](/apps/api/ENV.md), [management API](/apps/management-api/ENV.md), and
+[workers](/apps/workers/ENV.md).
 
 ## Add-by-RSS
 

@@ -196,6 +196,34 @@ call the same `onClose` → `navigation.goBack()` path. Maestro on Android often
 `pressKey: Back` on Android (see [e2e/HOW-TO-RUN.md](e2e/HOW-TO-RUN.md)). Manually tap Close once
 on an Android AVD/device before release to confirm real input dismisses the player.
 
+## Notification stream
+
+`src/notifications/NotificationsRuntime.tsx` holds the API's account event stream
+(`GET /account/events`) open over `expo/fetch` and feeds
+`src/notifications/notificationStreamStore.ts`.
+
+- **When it runs:** signed in, and the app is in the foreground **or** local audio is playing.
+  In the background it closes once audio stops; `inactive` (Control Center, a call sheet) leaves
+  it open. `shouldRunNotificationStream` in `notificationStreamPolicy.ts` owns the condition, and
+  play state reaches it only as the `backgroundAudioActive` input. Offline Mode and the terms gate
+  close it too.
+- **No timers in the background:** on Android, JS timers do not fire while the app is in the
+  background, so nothing that must happen there waits on one. The open timeout, idle watchdog,
+  retry backoff, and poll resume when the app returns.
+- **One source:** the store is the only source of the unread count and of the in-app event
+  channel. Read it with `subscribeNotificationUnreadCount` (the tab badge, through
+  `useNotificationsUnreadCount`), `subscribeNotificationStreamEvents` (`created`, `read`, and
+  `resync` events for the inbox and banners), and `subscribeNotificationStreamConnection` (the
+  `notification-stream-e2e` marker). `isNotificationsInboxFocused` tells a subscriber whether the
+  inbox is on screen.
+- **Sessions:** a session runs from the controller's `start()` to its `stop()`. Its first
+  connection sends no `Last-Event-ID`, so notifications created while the stream was closed are
+  left to OS push; reconnects inside the session replay from the highest id received. A return to
+  the foreground keeps a connection that is still open and sent bytes within the last minute, and
+  otherwise starts a fresh session.
+- **Poll:** the unread-count poll runs only while the stream is down: one HTTP fetch right after a
+  failed connect, then every 60 seconds until a connection opens.
+
 ## Toolchain
 
 - **Node / npm:** from the repo Nix flake — use `./scripts/nix/with-env` from monorepo root (see

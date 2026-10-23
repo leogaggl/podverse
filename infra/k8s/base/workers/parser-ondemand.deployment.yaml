@@ -68,6 +68,8 @@ spec:
             - secretRef:
                 name: podverse-mq-opaque
             - secretRef:
+                name: podverse-keyvaldb-opaque
+            - secretRef:
                 name: podverse-api.podcastindex.org-opaque
             - secretRef:
                 name: podverse-workers-add-by-rss-opaque

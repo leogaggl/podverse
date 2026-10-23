@@ -70,6 +70,11 @@ type Config = {
     database: string;
     ssl_connection: boolean;
   };
+  keyvaldb: {
+    host: string;
+    port: number;
+    password: string;
+  };
   /** Main app web origin: user invite / set-password links */
   appWeb: {
     protocol: string;
@@ -162,6 +167,11 @@ export const config: Config = {
     read_write_password: process.env.DB_APP_READ_WRITE_PASSWORD!,
     database: process.env.DB_APP_NAME!,
     ssl_connection: process.env.DB_SSL_CONNECTION === 'true',
+  },
+  keyvaldb: {
+    host: process.env.KEYVALDB_HOST!,
+    port: parseInt(process.env.KEYVALDB_PORT!, 10),
+    password: process.env.KEYVALDB_PASSWORD!,
   },
   appWeb: {
     protocol: process.env.APP_WEB_PROTOCOL!,

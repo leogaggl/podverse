@@ -9,6 +9,8 @@ declare global {
       id_text: string;
       verified: boolean;
       entitlements?: AccountTrustEntitlements;
+      /** The auth token's `exp` claim, in epoch seconds. */
+      token_expires_at?: number;
     }
     interface Request {
       user?: User;

@@ -127,6 +127,7 @@ export * from './lib/queue/queueResourceAbridged.js';
 export * from './lib/remoteItem.js';
 export * from './lib/record.js';
 export * from './lib/notificationCategory.js';
+export * from './lib/accountEventStream.js';
 export * from './lib/sharableStatus.js';
 export * from './lib/sleep.js';
 export * from './lib/sortableTitle.js';

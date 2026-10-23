@@ -148,7 +148,11 @@
       "login_required_title": "Connexion requise",
       "login_required_message": "Connectez-vous pour utiliser cette fonctionnalité.",
       "open_system_settings": "Ouvrir les paramètres du système",
-      "permission_required": "L'autorisation de notification est requise pour activer ce paramètre."
+      "permission_required": "L'autorisation de notification est requise pour activer ce paramètre.",
+      "banner_section": "Notifications de bannière",
+      "banner_section_help": "Quand l'application est ouverte, une bannière descend depuis le haut pour chaque type que vous activez.",
+      "banner_dismiss": "Fermer",
+      "banner_open_hint": "Ouvre cette notification."
     },
     "tab_bar": {
       "title": "Barre d'onglets",
@@ -168,6 +172,7 @@
     "playback": "Lecture",
     "playback_intro": "Ces commandes n'existent que dans les builds de test E2E. Elles lancent le média de seed que les écrans produit n'exposent pas encore.",
     "play_video": "Lire la vidéo E2E",
+    "show_banner_notification": "Afficher la notification de bannière",
     "play_hls": "Lire HLS E2E",
     "skip_next": "Passer au suivant",
     "complete_now_playing": "Marquer la lecture en cours comme terminée",

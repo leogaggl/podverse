@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getApiRequestService } from '../factories/apiRequestService';
 
@@ -9,6 +9,8 @@ const READ_EVENT_NAME = 'podverse:notifications-read';
 
 type UseNotificationsUnreadCountOptions = {
   enabled: boolean;
+  /** True while the notification stream is open; the poll runs only when false. */
+  streamOpen: boolean;
 };
 
 export function emitNotificationsReadEvent() {
@@ -20,8 +22,19 @@ export function emitNotificationsReadEvent() {
 
 export function useNotificationsUnreadCount({
   enabled,
-}: UseNotificationsUnreadCountOptions): number {
-  const [unreadCount, setUnreadCount] = useState(0);
+  streamOpen,
+}: UseNotificationsUnreadCountOptions): {
+  unreadCount: number;
+  setUnreadCount: (count: number) => void;
+} {
+  const [unreadCount, setUnreadCountState] = useState(0);
+  // A stream update bumps this so a fetch that started earlier cannot overwrite it.
+  const countVersionRef = useRef(0);
+
+  const setUnreadCount = useCallback((count: number) => {
+    countVersionRef.current += 1;
+    setUnreadCountState(count);
+  }, []);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!enabled) {
@@ -29,13 +42,20 @@ export function useNotificationsUnreadCount({
       return;
     }
 
+    const version = countVersionRef.current;
     try {
       const data = await getApiRequestService().reqNotificationsUnreadCount();
-      setUnreadCount(data.unread_count);
+      if (countVersionRef.current !== version) {
+        return;
+      }
+      setUnreadCountState(data.unread_count);
     } catch {
-      setUnreadCount(0);
+      if (countVersionRef.current !== version) {
+        return;
+      }
+      setUnreadCountState(0);
     }
-  }, [enabled]);
+  }, [enabled, setUnreadCount]);
 
   useEffect(() => {
     if (!enabled) {
@@ -45,26 +65,37 @@ export function useNotificationsUnreadCount({
 
     void refreshUnreadCount();
 
-    const intervalId = window.setInterval(() => {
-      void refreshUnreadCount();
-    }, POLL_INTERVAL_MS);
-
-    const handleFocus = () => {
-      void refreshUnreadCount();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshUnreadCount();
+      }
     };
     const handleRead = () => {
       void refreshUnreadCount();
     };
 
-    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener(READ_EVENT_NAME, handleRead);
 
     return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener(READ_EVENT_NAME, handleRead);
     };
-  }, [enabled, refreshUnreadCount]);
+  }, [enabled, refreshUnreadCount, setUnreadCount]);
 
-  return unreadCount;
+  useEffect(() => {
+    if (!enabled || streamOpen) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshUnreadCount();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [enabled, streamOpen, refreshUnreadCount]);
+
+  return { unreadCount, setUnreadCount };
 }

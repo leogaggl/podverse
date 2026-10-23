@@ -8,6 +8,7 @@ import {
 } from '@api/controllers/account/accountChannelSeen.js';
 import { AccountContentLogController } from '@api/controllers/account/accountContentLog.js';
 import { AccountDeviceAutoDownloadController } from '@api/controllers/account/accountDeviceAutoDownload.js';
+import { AccountEventStreamController } from '@api/controllers/account/accountEventStream.js';
 import { AccountFCMDeviceController } from '@api/controllers/account/accountFCMDevice.js';
 import { AccountFollowingAccountController } from '@api/controllers/account/accountFollowingAccount.js';
 import { AccountFollowingAddByRSSChannelController } from '@api/controllers/account/accountFollowingAddByRSSChannel.js';
@@ -230,7 +231,16 @@ router.get(
   '/notifications/unread-count',
   asyncHandler(AccountNotificationController.getUnreadCount)
 );
+router.get('/events', asyncHandler(AccountEventStreamController.stream));
 router.post('/notifications/mark-read', asyncHandler(AccountNotificationController.markRead));
+router.post(
+  '/notifications/mark-read-by-item',
+  asyncHandler(AccountNotificationController.markReadByItem)
+);
+router.post(
+  '/notifications/:notification_id/mark-read',
+  asyncHandler(AccountNotificationController.markReadOne)
+);
 router.get('/notification-preferences', asyncHandler(AccountNotificationController.getPreferences));
 router.put(
   '/notification-preferences',

@@ -51,6 +51,18 @@ The main API, workers, and management-api all use shared `DB_HOST` and `DB_PORT`
 
 **Kubernetes:** `DB_HOST` / `DB_PORT` / `DB_SSL_CONNECTION` are non-secret in the management-api ConfigMap. `DB_MANAGEMENT_*` credentials come from `podverse-management-db-opaque`. `DB_APP_*` credentials for the app database come from the same main DB secret as the API (`podverse-db-opaque`); the management-api Deployment includes both secrets. Generate with `infra/k8s/scripts/secret-generators/create_db_secret.sh` and `infra/k8s/scripts/secret-generators/create_management_db_secret.sh` as needed.
 
+### KeyValDB
+
+| Variable            | Required | Description                          |
+| ------------------- | -------- | ------------------------------------ |
+| `KEYVALDB_HOST`     | Yes      | Valkey hostname                      |
+| `KEYVALDB_PORT`     | Yes      | Valkey port (must be a valid number) |
+| `KEYVALDB_PASSWORD` | Yes      | Valkey password                      |
+
+The management API opens one connection, used only to publish account events on the channel
+`podverse:account-events` after it writes notifications; an outage drops the events and never fails
+the request.
+
 ### API Configuration
 
 - **`API_PORT`** (Required) - API server port (must be a valid number)
@@ -133,6 +145,7 @@ as the API (`/var/secrets/apple-iap/AuthKey.p8`,
 Variables whose names end with `_EXPIRATION` or that contain `PORT` are automatically validated to ensure they are valid positive numbers where required:
 
 - `DB_PORT`
+- `KEYVALDB_PORT`
 - `API_PORT`
 - `AUTH_JWT_EXPIRATION`
 - `AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION`

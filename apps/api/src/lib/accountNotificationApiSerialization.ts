@@ -5,8 +5,12 @@ export const accountNotificationToJson = (
   row: AccountNotification,
   lastReadAt: Date | null
 ): DTOAccountNotification => {
-  // An account that has never opened its inbox has read nothing, so every row is unread.
-  const isUnread = lastReadAt === null ? true : row.created_at.getTime() > lastReadAt.getTime();
+  // Unread means created after the Mark All as Read cutoff and not read on its own. With no cutoff,
+  // only read_at decides.
+  const isReadOnItsOwn = row.read_at !== null && row.read_at !== undefined;
+  const isAfterCutoff =
+    lastReadAt === null ? true : row.created_at.getTime() > lastReadAt.getTime();
+  const isUnread = !isReadOnItsOwn && isAfterCutoff;
   return {
     id: row.id,
     account_id: row.account_id,
