@@ -1,13 +1,8 @@
-import { spacing } from '../../theme/spacing';
-
 /**
- * Air between the last glyph and the repeated first word. Wider than `spacing.base` so the seam
- * reads as a break rather than the next word of the same title.
+ * Scroll speed in layout units per second (dp on mobile, CSS px on web); slow enough to read a
+ * long episode title while it passes.
  */
-export const MARQUEE_LOOP_GAP = spacing['2xl'];
-
-/** Scroll speed. Slow enough to read a long episode title while it passes. */
-export const MARQUEE_SPEED_DP_PER_SECOND = 28;
+export const MARQUEE_SPEED_PER_SECOND = 28;
 
 /** Rest with the first word visible before every pass, so the label is readable between passes. */
 export const MARQUEE_EDGE_HOLD_MS = 2500;
@@ -16,7 +11,7 @@ export const MARQUEE_EDGE_HOLD_MS = 2500;
 const OVERFLOW_EPSILON = 1;
 
 /**
- * Ignore layout jitter so a 0.4dp onLayout wobble cannot restart the pass or flip
+ * Ignore layout jitter so a 0.4-unit onLayout wobble cannot restart the pass or flip
  * overflow on and off.
  */
 export const stabilizeMeasuredWidth = (previous: number, next: number): number => {
@@ -32,8 +27,8 @@ export const stabilizeMeasuredWidth = (previous: number, next: number): number =
 /**
  * Whether a label overflows its viewport by enough to be worth scrolling.
  *
- * Reduce Motion turns scrolling off entirely: the label then truncates, which is the same
- * information at rest.
+ * Reduced motion (Reduce Motion on mobile, `prefers-reduced-motion` on web) turns scrolling off
+ * entirely: the label then truncates, which is the same information at rest.
  */
 export const shouldMarqueeScroll = ({
   contentWidth,
@@ -82,11 +77,11 @@ export const resolveMarqueeLayout = ({
 };
 
 /** How far one revolution travels: one full copy plus the seam before the title repeats. */
-export const marqueeLoopDistance = (contentWidth: number): number => {
-  return Math.max(0, contentWidth) + MARQUEE_LOOP_GAP;
+export const marqueeLoopDistance = (contentWidth: number, loopGap: number): number => {
+  return Math.max(0, contentWidth) + Math.max(0, loopGap);
 };
 
 /** Travel time at a constant speed, so short and long titles scroll at the same rate. */
 export const marqueeScrollDurationMs = (distance: number): number => {
-  return Math.round((Math.max(0, distance) / MARQUEE_SPEED_DP_PER_SECOND) * 1000);
+  return Math.round((Math.max(0, distance) / MARQUEE_SPEED_PER_SECOND) * 1000);
 };

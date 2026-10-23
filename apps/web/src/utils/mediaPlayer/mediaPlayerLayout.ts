@@ -51,3 +51,19 @@ export function updateLayoutForMediaPlayer(
     }
   }
 }
+
+/**
+ * Toggles the class that gives the page scroller a trailing spacer while the segment strip
+ * overlaps the bottom of the page, so the last row can scroll clear of it.
+ */
+export function updateLayoutForMediaPlayerSegmentStrip(
+  segmentStripVisible: boolean,
+  options?: UpdateLayoutForMediaPlayerOptions
+) {
+  if (options?.skipMainAppLayoutMutations) {
+    return;
+  }
+  document
+    .getElementById('page-wrapper')
+    ?.classList.toggle('media-player-segment-strip-active', segmentStripVisible);
+}

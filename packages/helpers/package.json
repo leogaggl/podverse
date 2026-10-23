@@ -39,6 +39,10 @@
       "types": "./dist/lib/math.d.ts",
       "default": "./dist/lib/math.js"
     },
+    "./marquee": {
+      "types": "./dist/lib/marquee/index.d.ts",
+      "default": "./dist/lib/marquee/index.js"
+    },
     "./pagination": {
       "types": "./dist/lib/pagination.d.ts",
       "default": "./dist/lib/pagination.js"

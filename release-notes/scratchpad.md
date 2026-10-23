@@ -526,3 +526,40 @@
   a medium do not count against it. Existing channels change on their next parse.
 - Who notices: listeners browsing podcast lists; podcast networks that publish a publisher feed
 - Operator steps: none
+
+## Embed player titles scroll instead of truncating
+
+- Surfaces: web (embed player)
+- Change: in the embed player, the title line, the podcast or artist line, and the chapter, clip,
+  or soundbite strip on the video layout each stay on one line. A line too long for the space
+  scrolls horizontally after a 2.5 second rest on its first word, then hands off to the next long
+  line, one line at a time. Short lines stay still. Hovering a scrolling line pauses it. With
+  reduced motion turned on, long lines stay still and end in an ellipsis.
+- Who notices: listeners using embedded players on other sites, with long episode, podcast, or
+  chapter titles
+- Operator steps: none
+
+## Player bar titles scroll on one line
+
+- Surfaces: web
+- Change: The bottom player bar, on wide and narrow windows, shows the title and the channel name on one line each. A line wider than its space scrolls, rests, and repeats. Reduced motion keeps the ellipsis and does not scroll. The first line always shows the episode or track title. A chapter, clip, or official clip title no longer replaces it there; it appears on the new strip above the bar.
+- Who notices: listeners using the web player bar
+- Operator steps: none
+
+## Segment strip above the web player bar
+
+- Surfaces: web
+- Change: A slim strip above the bottom player bar, on wide and narrow windows, names the chapter, clip, or official clip that is playing. It shows only while one is active. Clips get a scissors icon and official clips a microphone icon; chapters show the title alone, centered. A long title scrolls in turn with the bar's title and channel lines, and reduced motion keeps it still with an ellipsis. Dragging the progress bar updates the chapter name as you drag. Screen readers hear "Chapter: <title>", "Clip: <title>", or "Official Clip: <title>". While the strip shows, the floating video sits on top of it and the page gains a small bottom spacer so the last row can scroll clear. New catalog keys: `media_player.segment_strip_chapter`, `media_player.segment_strip_clip`, `media_player.segment_strip_official_clip`.
+- Who notices: listeners using the web player on episodes with chapters, and anyone playing a clip or official clip
+- Operator steps: none
+
+## Full-size player titles scroll instead of truncating
+
+- Surfaces: web
+- Change: in the full-size player, the item title, the channel title, and the chapter, clip, or
+  soundbite title each stay on one line. A line too long for the space scrolls horizontally after
+  a 2.5 second rest on its first word, then hands off to the next long line, one line at a time.
+  Short lines stay still and centered. Hovering a scrolling line pauses it. With reduced motion
+  turned on, long lines stay still and end in an ellipsis. The lines remain links.
+- Who notices: web listeners with long episode, podcast, or chapter titles
+- Operator steps: none

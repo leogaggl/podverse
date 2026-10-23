@@ -13,6 +13,8 @@ import {
   E2E_MUSIC_TRACK_ONE_ID_TEXT,
   E2E_MUSIC_TRACK_TWO_ID_TEXT,
   E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT,
+  E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT,
+  E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT,
   E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT,
   E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT,
   E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT,
@@ -31,6 +33,10 @@ const API_BASE_URL = 'http://localhost:4030/api/v2';
  * resolves to 2 elements and `toBeVisible()` fails. Use these helpers in
  * specs to assert on player title presence/absence without depending on
  * the responsive layout in play at runtime.
+ *
+ * Both bar layouts are in the DOM, and the waited match is a visible one,
+ * because each marquee includes a visibility-hidden measurer that can sit
+ * earlier in the tree.
  */
 export async function expectMediaPlayerTitleVisible(
   page: Page,
@@ -38,7 +44,9 @@ export async function expectMediaPlayerTitleVisible(
   options?: { timeout?: number }
 ): Promise<void> {
   const titles = page.locator('aside#media-player').getByText(title, { exact: false });
-  await expect(titles.first()).toBeVisible({ timeout: options?.timeout });
+  await expect(titles.filter({ visible: true }).first()).toBeVisible({
+    timeout: options?.timeout,
+  });
 }
 
 /**
@@ -125,6 +133,8 @@ export async function clearSeededPodcastQueueResources(page: Page): Promise<void
     E2E_PODCAST_ITEM_RESUME_NEAR_END_ID_TEXT,
     E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT,
     E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT,
+    E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT,
+    E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT,
     E2E_EMBED_VIDEO_ITEM_ID_TEXT,
     E2E_EMBED_VIDEO_ITEM_TWO_ID_TEXT,
     E2E_EMBED_MUSIC_TRACK_VIDEO_ID_TEXT,

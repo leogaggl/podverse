@@ -27,6 +27,12 @@
   height: calc(100dvh - var(--media-player-height-mobile) - env(safe-area-inset-bottom, 0px));
 }
 
+// The segment strip overlaps the bottom of the page; this spacer lets the last row scroll clear.
+#page-wrapper.media-player-segment-strip-active #mainOuterWrapper::after {
+  content: '';
+  flex: 0 0 var(--media-player-height-top-section);
+}
+
 #media-player.media-player-active {
   display: flex;
   padding-bottom: env(safe-area-inset-bottom, 0px);

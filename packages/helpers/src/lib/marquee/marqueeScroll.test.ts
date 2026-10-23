@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { spacing } from '../../theme/spacing';
 import {
-  MARQUEE_LOOP_GAP,
   marqueeLoopDistance,
   marqueeScrollDurationMs,
   resolveMarqueeLayout,
   shouldMarqueeScroll,
   stabilizeMeasuredWidth,
-} from './marqueeScroll';
+} from './marqueeScroll.js';
 
 describe('shouldMarqueeScroll', () => {
   it('scrolls when the label is wider than the space it has', () => {
@@ -101,12 +99,7 @@ describe('resolveMarqueeLayout', () => {
 
 describe('marqueeLoopDistance', () => {
   it('travels one copy plus the seam', () => {
-    expect(marqueeLoopDistance(320)).toBe(320 + MARQUEE_LOOP_GAP);
-  });
-
-  it('keeps the seam wider than a word-sized gap', () => {
-    expect(MARQUEE_LOOP_GAP).toBe(spacing['2xl']);
-    expect(MARQUEE_LOOP_GAP).toBeGreaterThan(spacing.base);
+    expect(marqueeLoopDistance(320, 24)).toBe(344);
   });
 });
 

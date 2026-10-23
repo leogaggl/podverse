@@ -2,9 +2,13 @@
 
 import { useTranslations } from 'next-intl';
 
-import { ImageNonReact } from '@podverse/ui';
+import { ImageNonReact, MarqueeText } from '@podverse/ui';
 
 import { IMAGES } from '../../../constants/images';
+import {
+  MEDIA_PLAYER_MARQUEE_TURN_GROUP,
+  MEDIA_PLAYER_MARQUEE_TURN_ORDER,
+} from '../../../constants/mediaPlayerMarquee';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
 import {
@@ -42,7 +46,7 @@ export const MediaPlayerInfoMobile: React.FC = () => {
     mpItemChapters,
     currentTimeSeconds: mpCurrentTime,
   });
-  const title = hasContent ? (infoResolution.displayItemTitle ?? tMisc('untitled')) : '';
+  const title = hasContent ? (infoResolution.itemTitle ?? tMisc('untitled')) : '';
   const subtitle = hasContent ? (infoResolution.channelTitle ?? tMisc('untitled')) : '';
 
   const { channelImages, itemImages } = getMediaPlayerArtworkSources({
@@ -80,8 +84,22 @@ export const MediaPlayerInfoMobile: React.FC = () => {
           />
         </div>
         <div className={styles.textSection}>
-          <div className={styles.title}>{title}</div>
-          <div className={styles.subtitle}>{subtitle}</div>
+          <MarqueeText
+            className={styles.title}
+            data-testid="media-player-bar-title-mobile"
+            turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.playerBar}
+            turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.playerBar.title}
+          >
+            {title}
+          </MarqueeText>
+          <MarqueeText
+            className={styles.subtitle}
+            data-testid="media-player-bar-subtitle-mobile"
+            turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.playerBar}
+            turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.playerBar.channel}
+          >
+            {subtitle}
+          </MarqueeText>
         </div>
       </button>
     </div>
