@@ -563,3 +563,30 @@
   turned on, long lines stay still and end in an ellipsis. The lines remain links.
 - Who notices: web listeners with long episode, podcast, or chapter titles
 - Operator steps: none
+
+## Livestreams play without video.js
+
+- Surfaces: web, management-web (dependency only)
+- Change: Video.js 10 removed the imperative `videojs()` player the web livestream controller used,
+  so video.js is gone instead of upgraded. Livestream audio and video render the same native
+  `MediaElement` as regular episodes: a progressive file sets `src`, and an HLS playlist plays
+  natively or through the lazily loaded hls.js already used for non-live HLS. Play and pause follow
+  the player, and each source still mounts a fresh element, so going live, back to an episode, and
+  live again behaves as before. Live video sets `playsinline`, so iOS keeps it in the floating
+  portal. Only the selected source is played, as before (no automatic fallback). `video.js` and
+  `@types/video.js` are removed from web, management-web, and both sidecars; nothing in
+  management-web used them. The root `@xmldom/xmldom` override is dropped because only video.js 8's
+  HLS stack pulled that package in. The livestream container attribute is now
+  `data-livestream-player-audio` / `-video` (was `data-vjs-player-*`).
+- Who notices: listeners playing livestreams on the web; the web bundle no longer ships video.js
+- Operator steps: none
+
+## Next.js 16.4.2
+
+- Surfaces: web, management-web
+- Change: `next` moves from 16.4.0 to 16.4.2, including the 16.4.1 fixes for unauthenticated
+  remote code execution in `use cache` functions that return typed arrays, unauthenticated remote
+  code execution in the Image Optimization API when SVG files are used, and denial of service in
+  the App Router via Server Actions.
+- Who notices: operators running the web apps
+- Operator steps: none

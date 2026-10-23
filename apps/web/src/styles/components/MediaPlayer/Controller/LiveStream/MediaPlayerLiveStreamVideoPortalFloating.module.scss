@@ -49,8 +49,7 @@
   }
 }
 
-.floatingVideoPortal video,
-.floatingVideoPortal :global(.video-js) {
+.floatingVideoPortal video {
   display: block;
   width: 100%;
   height: 100%;

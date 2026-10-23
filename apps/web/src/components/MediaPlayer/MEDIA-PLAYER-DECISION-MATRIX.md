@@ -21,7 +21,7 @@ are sticky pointers — keep them updated when the code moves.
 - Anonymous restore: `AnonymousPlaybackRestoreController.tsx` +
   `anonymousPlaybackStorage.ts`
 - Keyboard shortcuts: `mediaPlayerWindowKeyDown.ts`
-- Livestream (video.js): `MediaPlayerControllerLiveStreamAV.tsx`
+- Livestream: `MediaPlayerControllerLiveStreamAV.tsx` (renders `MediaElement`)
 
 ## Source kinds
 
@@ -37,7 +37,7 @@ not a single enum. The matrix uses these labels:
 | **item-video**   | `mpItem !== null` and `mpChannel.medium_id === MediumEnum.Video`        |
 | **item-music**   | `mpItem !== null` and `mpChannel.medium_id === MediumEnum.Music`        |
 | **add-by-RSS**   | `mpAddByRSS !== null`                                                   |
-| **livestream**   | `mpItem.live_item` truthy (drives a separate video.js controller)       |
+| **livestream**   | `mpItem.live_item` truthy (drives a separate live-stream controller)    |
 
 Decision precedence inside the `loadedmetadata` handler (in
 [`NonLiveMediaOrchestrator.tsx`](./Controller/NonLiveMediaOrchestrator.tsx)
@@ -77,7 +77,7 @@ Notation: `p` = abridged stored position seconds (`queueResourcesAbridgedIndex.i
 | **item-video** | Same as item-podcast | follows `mpShouldPlay` | Same as item-podcast plus floating-portal video wrapper rendering |
 | **item-music** | **`0` for `explicit_play` / `fresh_transition`** (`p` ignored); **`session_restore`** uses snapshot + near-end clamp via `resolvePlaybackLoadDecision` | follows `mpShouldPlay` | `updateNowPlaying`; track stats item/channel |
 | **add-by-RSS** | If `addByRSSSeekToTime !== null` and `>= 0`: that value (applied on `loadedmetadata` once or directly if `readyState >= 1`); otherwise `0` | follows `mpShouldPlay`; stats tracking is **skipped** for add-by-RSS (see `if (!loggedInAccountRef.current |                                                                                                                                                                                                                                                      | mpAddByRSSRef.current) return`) | `onAddByRSSPositionSave` is called from `play`, `pause`, and every 15s of accumulated playback in `timeupdate` |
-| **livestream** | See **§ 6a** appendix (video.js owns position; `currentTime` typically meaningless) | video.js autoplay = true; player typically renders playing | See § 6a |
+| **livestream** | See **§ 6a** appendix (the live element owns position; `currentTime` typically meaningless) | plays once the element can play while `mpIsPlaying` is true | See § 6a |
 
 ### 1b. Alternate enclosure switch (same now-playing item)
 
@@ -258,30 +258,31 @@ track's saved position.
 no separate playlist intent — same `fresh_transition` vs `session_restore`
 split as § 3–§ 5.
 
-## Section 6 (REQUIRED) — Livestream / video.js baseline
+## Section 6 (REQUIRED) — Livestream baseline
 
-The architecture refactor does **not** retire `video.js`, but Phases 4a/4b/4c
+Livestreams render the shared `MediaElement` (native element; HLS through native
+support or lazy `hls.js`) from `MediaPlayerControllerLiveStreamAV.tsx`, which
+owns its own play/pause and mounts a fresh element per source. The § 6a table
+was recorded while video.js v8 still played livestreams. Phases 4a/4b/4c
 remove the global event bus (`EVENTS.MEDIA_PLAYER.*` group) and rewire the
 arbitration between non-live and live elements. Each can affect livestream
 behavior even without modifying `MediaPlayerControllerLiveStreamAV.tsx`. The
 specs and matrix entries below are the **regression oracle** for livestream
-behavior across this plan-set, **and** the baseline for the follow-up
-[`media-player-livestream-hls-migration`](/.llm/plans/active/media-player-livestream-hls-migration)
-plan-set.
+behavior.
 
 ### 6a. Matrix appendix — live-stream behavior
 
-| Trigger                             | Observed behavior (current production via video.js v8.23.4)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Trigger                             | Observed behavior (baseline recorded under video.js v8.23.4)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Initial play, audio live stream** | `<source>` selected via `getSelectedLabeledItemEnclosureAndSource` (same labeled-enclosure flow as VOD). video.js init: `controls: false, autoplay: true, preload: 'auto', sources: [{ src, type }]`. First-byte time depends on upstream; once `play` fires, `mpIsPlaying = true` syncs via the play/pause observer. `currentTime` typically reads `0` and never advances meaningfully (live edge). `duration` is `Infinity` in most cases. UI controls: seek bar disabled, jump buttons no-op (chrome currently leaves them rendered but inert). |
 | **Initial play, video live stream** | Same source-selection flow; the `<video>` element is rendered inside `MediaPlayerLiveStreamVideoWrapper` → `MediaPlayerLivestreamVideoPortalFloating` so fullscreen / floating UI behavior matches VOD video.                                                                                                                                                                                                                                                                                                                                      |
-| **Source fallback**                 | When the first labeled `<source>` 404s or codec unsupported, video.js currently tries the next source from the labeled enclosures array. Document **specific** observed fallbacks against the chosen test feeds in § 6c.                                                                                                                                                                                                                                                                                                                           |
-| **Live → non-live transition**      | User triggers an explicit play of a regular podcast item while live is playing. Today: enclosure selection updates → `selectedItemEnclosureAndSource` effect fires → previous video.js player is **disposed**; container DOM is emptied; a new audio / video element is appended; the non-live `NonLiveMediaOrchestrator` then drives playback. The bottom-of-file note in `MediaPlayerControllerLiveStreamAV.tsx` captures the bug class this dispose/recreate prevents. Quoted verbatim below.                                                   |
+| **Source fallback**                 | Only the selected labeled source is passed to the element (video.js also received a single source), so there is no automatic fallback to the next labeled enclosure. Document **specific** observed fallbacks against the chosen test feeds in § 6c.                                                                                                                                                                                                                                                                                               |
+| **Live → non-live transition**      | User triggers an explicit play of a regular podcast item while live is playing. Today: enclosure selection updates → `selectedItemEnclosureAndSource` effect fires → previous video.js player is **disposed**; container DOM is emptied; a new audio / video element is appended; the non-live `NonLiveMediaOrchestrator` then drives playback. The note quoted below captures the bug class this dispose/recreate prevents.                                                                                                                       |
 | **Non-live → live transition**      | Reverse direction. The non-live `<audio>`/`<video>` is unmounted from the wrapper (since `mpItem.live_item` becomes truthy, the non-live AV controller short-circuits source assignment) and the video.js controller mounts.                                                                                                                                                                                                                                                                                                                       |
 | **Live stream end / disconnect**    | When the upstream stops, video.js typically pauses and surfaces no user-facing retry. `mpIsPlaying` follows. Document specific observed behavior against the chosen test feeds in § 6c (this cell is intentionally underspecified until baseline runs occur).                                                                                                                                                                                                                                                                                      |
 | **Reload while live is playing**    | Full-page reload: `AnonymousPlaybackRestoreController` reads the snapshot; the snapshot writer skips livestream because `mpItem.live_item` items still write as `kind: 'item'`, but the live player does not honor `mpCurrentTime` since live `currentTime` is `0`. **Action item for § 6b** — assert via spec that anonymous restore for a live item does **not** auto-play, then capture whatever today's UI shows for the artist/episode page.                                                                                                  |
 
-#### Bottom-of-file note from `MediaPlayerControllerLiveStreamAV.tsx` (verbatim, the regression we must not re-introduce)
+#### Note recorded with the video.js controller (verbatim, the regression we must not re-introduce)
 
 ```
 NOTES:
@@ -328,7 +329,7 @@ on port 2111 serves the enclosures.
 | ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Live audio, no enclosure | Feed `v5fCrIj9Io` / item `e2eLiveStrm01`                                   | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Controller-tree mount on navigation, without play (audio-start spec)              |
 | Live audio, playable     | Feed `e2eLiveAvChn01` / item `e2eLiveAud001`, progressive mp3 on port 2111 | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Play, dispose, and recreate across live ⇄ non-live transitions (transition specs) |
-| Live video, playable     | Feed `e2eLiveAvChn01` / item `e2eLiveVid001`, progressive mp4 on port 2111 | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | video.js init and floating-portal placement (video-start spec)                    |
+| Live video, playable     | Feed `e2eLiveAvChn01` / item `e2eLiveVid001`, progressive mp4 on port 2111 | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Live `<video>` mount and floating-portal placement (video-start spec)             |
 
 The playable live items sit in their own unsubscribed channel so
 `v5fCrIj9Io` keeps a single enclosure-free live item — the audio-start and
@@ -337,13 +338,13 @@ header-image specs both resolve
 filter spec still matches exactly one channel on the term `livestream`.
 
 **What a progressive file does and does not cover.** Enclosure selection,
-controller selection, video.js init, dispose/recreate, and floating-portal
+controller selection, element mount, unmount/remount, and floating-portal
 placement are all real: they depend on the labeled enclosure's media type
 and on `mpItem.live_item`, not on the transport. Live-edge semantics —
 `duration === Infinity`, a `currentTime` that never advances, manifest
 reload, and cross-source fallback — need a real HLS source and are
-asserted nowhere today. Phase 4 replaces video.js with a single
-`<MediaElement>`, so it owns that infrastructure decision (real server vs
+asserted nowhere today. Phase 4 moves live playback onto the non-live bridge's
+single `<MediaElement>`, so it owns that infrastructure decision (real server vs
 `page.route` mock vs an `E2E_LIVE_FEEDS_OK`-gated public stream) and should
 extend these specs rather than start from scratch.
 

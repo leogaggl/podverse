@@ -571,8 +571,8 @@ npm run mobile:install
 
 Expo `@expo/plist` calls `parseFromString(xml)` with one argument while listing USB devices
 (usbmux). `@xmldom/xmldom@0.9.x` requires an explicit mimeType and throws. Mobile must pin
-**`@xmldom/xmldom@0.8.10`** in `apps/mobile/package.json` overrides (do **not** copy the root
-`0.9.10` pin used for video.js). After changing the override:
+**`@xmldom/xmldom@0.8.10`** in `apps/mobile/package.json` overrides (do **not** raise it to
+`0.9.x`). After changing the override:
 
 ```bash
 npm run mobile:install

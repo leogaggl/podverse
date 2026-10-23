@@ -199,12 +199,12 @@ export async function clearSeededPodcastQueueResources(page: Page): Promise<void
 }
 
 /**
- * `MediaPlayerControllerLiveStreamAV` builds its media element imperatively and appends it to a
- * container tagged `data-vjs-player-<mediaType>`. Scoping to that container separates the live
- * element from the always-mounted non-live `<audio>`, which shares the same tag name.
+ * `MediaPlayerControllerLiveStreamAV` renders its media element inside a container tagged
+ * `data-livestream-player-<mediaType>`. Scoping to that container separates the live element from
+ * the always-mounted non-live `<audio>`, which shares the same tag name.
  */
 export function liveStreamMediaContainer(page: Page, mediaType: 'audio' | 'video'): Locator {
-  return page.locator(`[data-vjs-player-${mediaType}]`);
+  return page.locator(`[data-livestream-player-${mediaType}]`);
 }
 
 export function liveStreamMediaElement(page: Page, mediaType: 'audio' | 'video'): Locator {

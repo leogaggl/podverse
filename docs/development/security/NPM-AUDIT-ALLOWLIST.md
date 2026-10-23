@@ -29,8 +29,7 @@ audit Expo / React Native. Mobile shares marketing version `X.Y.Z` via `bump-ver
 [DOCS-MOBILE-VERSIONING-RELEASE.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-VERSIONING-RELEASE.md)
 and **mobile-expo-monorepo** skill.
 
-Root overrides also pin **`@xmldom/xmldom@0.9.12`** so video.js / mpd-parser transitive chains clear
-those HIGH findings without allowlisting. Mobile pins **`@xmldom/xmldom@0.8.10`** instead: older
+Mobile pins **`@xmldom/xmldom@0.8.10`** in its own overrides: older
 `@expo/plist` call paths can invoke `DOMParser.parseFromString(xml)` without a mimeType, which throws
 on xmldom **0.9.x** (`mimeType "undefined" is not valid`) and breaks `expo run:ios --device` usbmux
 listing.
