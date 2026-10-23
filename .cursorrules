@@ -77,6 +77,7 @@ operator asks for more. Brevity never drops a command the operator must run or a
 ### Agent/plan work: operator-only git and publish
 
 - **Git operations = `git` + `gh`.** Do not run write/publish commands (`git push`, `gh pr create`, `gh pr merge`, releases, etc.) unless the user explicitly asks for a specific command in that message.
+- **Merge conflicts:** resolve and `git add` the files, then stop. Do not `git commit`. The operator commits. See **operator-only-git-operations**.
 - Implement locally; give the operator copy-pasteable `git` and `gh` commands in a fenced `bash` block. See **operator-only-git-operations** rule.
 
 ### Agent/plan work: do not run tests

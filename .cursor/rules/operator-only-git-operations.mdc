@@ -25,6 +25,14 @@ Also prohibited without explicit user request: admin merges to protected branche
 2. End with a fenced `bash` block of **exact `git` and `gh` commands for the operator** to review, commit, push, open PR, merge, and publish. The block must parse in fish (**fish-operator-commands**). Pass a one-line commit message as `git commit -m '...'`. Do not use `<<'EOF'`.
 3. State which branch the PR should target (e.g. `staging` for Podverse publish tags) and what to wait for after merge (CI tag, image publish).
 
+## Merge conflicts
+
+Asking to resolve merge conflicts is not a request to commit. Edit the files, `git add` the
+resolved paths so Git no longer lists them as unmerged, and stop. Do not run `git commit`.
+Give the operator the commit command and wait for them to run it. Use the merge message Git
+prepared (`Merge remote-tracking branch 'origin/<branch>' into <branch>`), as a one-line
+`git commit -m '...'`.
+
 ## Why
 
 Protected branches and publish pipelines are operator-controlled. Agent-driven pushes and merges bypass review and can trigger unintended releases.
