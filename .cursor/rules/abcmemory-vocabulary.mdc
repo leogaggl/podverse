@@ -34,6 +34,8 @@ These hold even before the skill is read:
 - **abcplan** — never implement in that chat.
 - **abcdeploysteps** `<repo> <env>` — never guess either word.
 - **abcresume** — never run the resume commands; the operator picks one.
+- **abccommitmsg** — draft a message for staged files, or for unstaged changes when nothing is
+  staged. Do not commit.
 - **abcagentoptimize** — during normal work, append ideas to its log; ask mid-turn only when the
   answer changes the current turn.
 
