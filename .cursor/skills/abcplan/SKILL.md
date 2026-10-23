@@ -32,20 +32,29 @@ files.
    - **Large**: anything else, including any request with several surfaces or several unrelated
      asks. Write only `00-REQUEST.md` (§ Request file) and give the plan command. The planning
      run does the research, so this chat keeps no more context than the questions needed.
-1. Reply with the command for the operator to run next, labeled **Root**.
+1. Reply with the commands for the operator to run next, in the two-block worktree format of
+   **git-worktree-sibling** § Plan sets in a worktree. Every set gets a fresh worktree off
+   `develop` before its planning run, so planners research the code the implementers will edit.
+   Block 1 (**Root** tab of this window) creates the worktree, moves only this set's folder into
+   it, allows its `.envrc`, and opens it in a new Cursor window. Block 2 (**Root** tab of the
+   worktree's window) sets up the env and deps and runs the set. When the request holds asks that
+   could ship separately and share no files, recommend separate slugs, one `00-REQUEST.md` and
+   one worktree each, and give every block 1 before any block 2.
 
-Large request, first command:
+Large request, last line of block 2:
 
 ```bash
 ./scripts/abcplan/run.sh plan <slug>
 ```
 
 After the planning run finishes, the operator reads `00-SUMMARY.md` and `COPY-PASTA.md` in the
-set, edits anything they disagree with, then runs:
+set, edits anything they disagree with, then runs, in the same worktree window:
 
 ```bash
 ./scripts/abcplan/run.sh run <slug>
 ```
+
+A small request's block 2 ends with that `run` line instead.
 
 Tell the operator, briefly:
 
@@ -54,7 +63,10 @@ Tell the operator, briefly:
 - When a step stops with a question, answer by continuing that same agent:
   `./scripts/abcplan/run.sh plan <slug> --resume 'Your answer.'` (or `run` for the
   implementation run). Running `/abcresume` then gives the ready-made commands, each with its
-  message also written out as readable prose (**abcresume** skill).
+  message also written out as readable prose (**abcresume** skill). Ask in a chat of the
+  worktree's window, and run the resume there.
+- Plan sets running in parallel worktrees collide on migration numbers and share the test
+  infrastructure; see **git-worktree-sibling** § Across parallel worktrees.
 - Each step's final message is saved in `.artifacts/plan-runner/<set>/`. The planning run's
   Close message lists the open questions and the run command. The implementation run's last
   message holds the cumulative verification.
