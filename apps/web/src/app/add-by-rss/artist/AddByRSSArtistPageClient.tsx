@@ -174,6 +174,12 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
   }, [searchParams]);
   const [activeTab, setActiveTab] = useState<AddByRSSArtistPageTabKey>(initialType);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedRelated, setHasLoadedRelated] = useState(false);
+  /**
+   * The tab the page left on its own because it had nothing to show. The page returns to it once
+   * it has content, because an artist's albums can be stored after the page opens.
+   */
+  const fallbackFromTabRef = useRef<AddByRSSArtistPageTabKey | null>(null);
   /** Comparable URLs whose change reloads the page: the artist's albums and list rows. */
   const watchedFeedUrlsRef = useRef<ReadonlySet<string>>(new Set());
   const freshnessCheckedIdTextRef = useRef<string | null>(null);
@@ -299,6 +305,7 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
         return;
       }
       setTrackItems(tracks);
+      setHasLoadedRelated(true);
 
       // The builder replaces the whole livestream index, so it always gets every followed feed.
       const followedAlbumIdTexts = new Set<string>();
@@ -464,7 +471,18 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
     [pathname, router, searchParams]
   );
 
+  const handleUserTabSelect = useCallback(
+    (key: AddByRSSArtistPageTabKey) => {
+      fallbackFromTabRef.current = null;
+      handleTabSelect(key);
+    },
+    [handleTabSelect]
+  );
+
   useEffect(() => {
+    if (isLoading || !hasLoadedRelated) {
+      return;
+    }
     const availableTabs: AddByRSSArtistPageTabKey[] = [];
     if (hasAlbums) {
       availableTabs.push('albums');
@@ -482,13 +500,33 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
     if (availableTabs.length === 0) {
       return;
     }
+    const fallbackFromTab = fallbackFromTabRef.current;
+    if (
+      fallbackFromTab !== null &&
+      fallbackFromTab !== activeTab &&
+      availableTabs.includes(fallbackFromTab)
+    ) {
+      fallbackFromTabRef.current = null;
+      handleTabSelect(fallbackFromTab);
+      return;
+    }
     if (!availableTabs.includes(activeTab)) {
       const nextTab = availableTabs[0];
       if (nextTab) {
+        fallbackFromTabRef.current ??= activeTab;
         handleTabSelect(nextTab);
       }
     }
-  }, [activeTab, canShowBoostTab, handleTabSelect, hasAlbums, hasDescription, hasTracks]);
+  }, [
+    activeTab,
+    canShowBoostTab,
+    handleTabSelect,
+    hasAlbums,
+    hasDescription,
+    hasLoadedRelated,
+    hasTracks,
+    isLoading,
+  ]);
 
   if (isLoading) {
     return <WebLoadingYourContentSpinnerOverlay isLoading />;
@@ -536,7 +574,7 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
         <MainColumnStack>
           <AddByRSSArtistPageListHeader
             selectedKey={activeTab}
-            onSelect={handleTabSelect}
+            onSelect={handleUserTabSelect}
             hasAlbums={hasAlbums}
             hasTracks={hasTracks}
             canShowBoosts={canShowBoostTab}

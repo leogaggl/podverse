@@ -170,7 +170,8 @@ The JS write-path is the auto-queue/queue store from sections 6–8; the read-pa
 
 ## 13. Known deferrals
 
-- **Livestream HLS:** web uses `video.js` (`MediaPlayerControllerLiveStream*`); native HLS is a
+- **Livestream HLS:** web plays livestreams through a native element with `hls.js`
+  (`MediaPlayerControllerLiveStream*`); native HLS is a
   separate effort (parallels the web livestream HLS migration).
 - **Embed mode:** web-only chromeless player; out of scope for mobile.
 

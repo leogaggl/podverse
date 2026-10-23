@@ -1,0 +1,53 @@
+@use '../../../styles/mixins/ellipsis' as ellipsis-mixin;
+
+.root {
+  display: block;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.track {
+  display: block;
+}
+
+.trackScroll {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.copyFit {
+  @include ellipsis-mixin.ellipsisSingleLineChild;
+  display: block;
+  box-sizing: border-box;
+}
+
+.copyCentered {
+  text-align: center;
+}
+
+.copyScroll {
+  flex: 0 0 auto;
+}
+
+.restInset {
+  flex: 0 0 auto;
+}
+
+.seam {
+  flex: 0 0 auto;
+  width: var(--spacing-2xl);
+}
+
+.measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}

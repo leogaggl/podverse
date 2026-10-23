@@ -931,3 +931,117 @@ medium_id }` for the parsed, publicly visible directory channel with that podcas
   directory artists unsubscribe without the question.
 - Who notices: members who follow an artist and its albums
 - Operator steps: none
+
+## Publisher feeds that name no remote-item medium are podcast publishers
+
+- Surfaces: workers (parser), api
+- Change: A feed whose `podcast:medium` is `publisher` and whose remote items carry no `medium`
+  attribute, or that lists no remote items, is now stored as a podcast publisher
+  (`publisher-podcast`) instead of a plain podcast. The Podcasting 2.0 spec reads a missing
+  `medium` as podcast. These feeds stop counting as podcasts in lists filtered to podcasts. A
+  publisher feed whose remote items name music or video keeps its type, and remote items without
+  a medium do not count against it. Existing channels change on their next parse.
+- Who notices: listeners browsing podcast lists; podcast networks that publish a publisher feed
+- Operator steps: none
+
+## Embed player titles scroll instead of truncating
+
+- Surfaces: web (embed player)
+- Change: in the embed player, the title line, the podcast or artist line, and the chapter, clip,
+  or soundbite strip on the video layout each stay on one line. A line too long for the space
+  scrolls horizontally after a 2.5 second rest on its first word, then hands off to the next long
+  line, one line at a time. Short lines stay still. Hovering a scrolling line pauses it. With
+  reduced motion turned on, long lines stay still and end in an ellipsis.
+- Who notices: listeners using embedded players on other sites, with long episode, podcast, or
+  chapter titles
+- Operator steps: none
+
+## Player bar titles scroll on one line
+
+- Surfaces: web
+- Change: The bottom player bar, on wide and narrow windows, shows the title and the channel name on one line each. A line wider than its space scrolls, rests, and repeats. Reduced motion keeps the ellipsis and does not scroll. The first line always shows the episode or track title. A chapter, clip, or official clip title no longer replaces it there; it appears on the new strip above the bar.
+- Who notices: listeners using the web player bar
+- Operator steps: none
+
+## Segment strip above the web player bar
+
+- Surfaces: web
+- Change: A slim strip above the bottom player bar, on wide and narrow windows, names the chapter, clip, or official clip that is playing. It shows only while one is active. Clips get a scissors icon and official clips a microphone icon; chapters show the title alone, centered. A long title scrolls in turn with the bar's title and channel lines, and reduced motion keeps it still with an ellipsis. Dragging the progress bar updates the chapter name as you drag. Screen readers hear "Chapter: <title>", "Clip: <title>", or "Official Clip: <title>". While the strip shows, the floating video sits on top of it and the page gains a small bottom spacer so the last row can scroll clear. New catalog keys: `media_player.segment_strip_chapter`, `media_player.segment_strip_clip`, `media_player.segment_strip_official_clip`.
+- Who notices: listeners using the web player on episodes with chapters, and anyone playing a clip or official clip
+- Operator steps: none
+
+## Full-size player titles scroll instead of truncating
+
+- Surfaces: web
+- Change: in the full-size player, the item title, the channel title, and the chapter, clip, or
+  soundbite title each stay on one line. A line too long for the space scrolls horizontally after
+  a 2.5 second rest on its first word, then hands off to the next long line, one line at a time.
+  Short lines stay still and centered. Hovering a scrolling line pauses it. With reduced motion
+  turned on, long lines stay still and end in an ellipsis. The lines remain links.
+- Who notices: web listeners with long episode, podcast, or chapter titles
+- Operator steps: none
+
+## Livestreams play without video.js
+
+- Surfaces: web, management-web (dependency only)
+- Change: Video.js 10 removed the imperative `videojs()` player the web livestream controller used,
+  so video.js is gone instead of upgraded. Livestream audio and video render the same native
+  `MediaElement` as regular episodes: a progressive file sets `src`, and an HLS playlist plays
+  natively or through the lazily loaded hls.js already used for non-live HLS. Play and pause follow
+  the player, and each source still mounts a fresh element, so going live, back to an episode, and
+  live again behaves as before. Live video sets `playsinline`, so iOS keeps it in the floating
+  portal. Only the selected source is played, as before (no automatic fallback). `video.js` and
+  `@types/video.js` are removed from web, management-web, and both sidecars; nothing in
+  management-web used them. The root `@xmldom/xmldom` override is dropped because only video.js 8's
+  HLS stack pulled that package in. The livestream container attribute is now
+  `data-livestream-player-audio` / `-video` (was `data-vjs-player-*`).
+- Who notices: listeners playing livestreams on the web; the web bundle no longer ships video.js
+- Operator steps: none
+
+## Next.js 16.4.2
+
+- Surfaces: web, management-web
+- Change: `next` moves from 16.4.0 to 16.4.2, including the 16.4.1 fixes for unauthenticated
+  remote code execution in `use cache` functions that return typed arrays, unauthenticated remote
+  code execution in the Image Optimization API when SVG files are used, and denial of service in
+  the App Router via Server Actions.
+- Who notices: operators running the web apps
+- Operator steps: none
+
+## Web player bar names the track and its artist and album together
+
+- Surfaces: web
+- Change: The bottom player bar title is the item title; the playing chapter or clip stays in the
+  segment strip above the bar. The bar's second line reads "Artist · Album" for music with a known
+  artist and the channel title otherwise, and scrolls when it is too long. In the full player the
+  artist link scrolls in turn between the title and the album.
+- Who notices: web listeners playing music with artist attribution
+- Operator steps: none
+
+## Add by RSS artist page stays on Albums while its albums load
+
+- Surfaces: web
+- Change: Opening an Add by RSS artist page no longer jumps to Settings before the artist's albums
+  and tracks are read from the browser store. When the page does move off an empty tab on its
+  own, it returns to that tab once it has content, unless the listener picked another tab first.
+  A newly added artist now lands on Albums when its listed albums arrive.
+- Who notices: web members adding or opening Add by RSS artists
+- Operator steps: none
+
+## Narrow web player bar keeps long titles inside the screen
+
+- Surfaces: web
+- Change: On narrow windows the bottom player bar stays the width of the window when the title is
+  long. Before, a long title stretched the bar past the screen edge, pushed the controls out of
+  view, and kept the title from scrolling.
+- Who notices: web listeners on phones and narrow windows
+- Operator steps: none
+
+## Live HLS streams keep playing in browsers that play HLS natively
+
+- Surfaces: web
+- Change: Starting a live item no longer asks the hidden on-demand player to play. In browsers that
+  play HLS playlists themselves (Safari, and current Chrome), that request reported an invalid
+  source about a second after the stream started and paused the live stream.
+- Who notices: web listeners starting livestreams in Safari or current Chrome
+- Operator steps: none

@@ -13,6 +13,7 @@ import {
   E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT,
   E2E_LIVE_AV_AUDIO_ITEM_TITLE,
   E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT,
+  E2E_PODCAST_SHORT_ENCLOSURE_URL,
 } from './helpers/seedConstants';
 
 const API_LOGIN_URL = 'http://localhost:4030/api/v2/auth/login';
@@ -34,7 +35,7 @@ async function loginSeedUser(page: Page): Promise<void> {
  * live-stream controller takes over as the only sourced element.
  */
 test.describe('Media player podcast to live-stream transition', () => {
-  test('Transitioning from a regular podcast item to a live audio stream pauses the non-live element and starts video.js cleanly', async ({
+  test('Transitioning from a regular podcast item to a live audio stream pauses the non-live element and starts the live-stream element cleanly', async ({
     page,
   }) => {
     test.setTimeout(45_000);
@@ -54,17 +55,17 @@ test.describe('Media player podcast to live-stream transition', () => {
 
     await openLivestreamAndPlay(page, E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT, E2E_LIVE_AV_AUDIO_ITEM_TITLE);
 
-    await test.step('The live-stream controller mounts video.js and becomes the only sourced media element', async () => {
+    await test.step('The live-stream controller mounts its `<audio>` and it becomes the only sourced media element', async () => {
       const liveAudio = liveStreamMediaElement(page, 'audio');
       await expect(liveAudio).toHaveCount(1);
-      await expect(liveAudio).toHaveClass(/vjs-tech/);
+      await expect(liveAudio).toHaveAttribute('src', E2E_PODCAST_SHORT_ENCLOSURE_URL);
       await expectSingleSourcedMediaElement(page);
     });
 
     await test.step('The non-live element is paused, so both sources are never audible at once', async () => {
       const nonLivePaused = await page.evaluate(() =>
         Array.from(document.querySelectorAll('audio'))
-          .filter((el) => el.closest('[data-vjs-player-audio]') === null)
+          .filter((el) => el.closest('[data-livestream-player-audio]') === null)
           .every((el) => el.paused)
       );
       expect(nonLivePaused).toBe(true);

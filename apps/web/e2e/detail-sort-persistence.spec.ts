@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 
 import {
   E2E_PODCAST_CHANNEL_ID_TEXT,
-  E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT,
+  E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT,
   E2E_PODCAST_ITEM_RESUME_P_POS_ID_TEXT,
   EMBED_FIXTURE_PODCAST_CHANNEL_ID_TEXT,
 } from './helpers/seedConstants';
@@ -24,8 +24,8 @@ const sortOption = (page: Page, label: string) =>
 
 /**
  * The first episode row's link identifies which end of the feed is on top: the seeded channel's
- * items are one hour apart, newest first is the resume fixture and oldest first is the long
- * notes one.
+ * items are one hour apart, newest first is the resume fixture and oldest first is the marquee
+ * chapter one.
  */
 const firstEpisodeLink = (page: Page) =>
   page.getByRole('main').locator('a[href^="/episode/"]').first();
@@ -56,7 +56,7 @@ test.describe('Detail page sort memory', () => {
 
       await expect(firstEpisodeLink(page)).toHaveAttribute(
         'href',
-        `/episode/${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}`
+        `/episode/${E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT}`
       );
       // The preference lives in the cookie, so choosing a sort must not put one in the URL. A
       // clean URL is what lets the later steps prove the memory rather than re-reading a param.
@@ -84,7 +84,7 @@ test.describe('Detail page sort memory', () => {
       await expect(sortButton(page)).toHaveText('Oldest');
       await expect(firstEpisodeLink(page)).toHaveAttribute(
         'href',
-        `/episode/${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}`
+        `/episode/${E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT}`
       );
     });
 
@@ -101,7 +101,7 @@ test.describe('Detail page sort memory', () => {
         await expect(sortButton(scriptlessPage)).toHaveText('Oldest');
         await expect(firstEpisodeLink(scriptlessPage)).toHaveAttribute(
           'href',
-          `/episode/${E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT}`
+          `/episode/${E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT}`
         );
 
         await capturePageLoad(

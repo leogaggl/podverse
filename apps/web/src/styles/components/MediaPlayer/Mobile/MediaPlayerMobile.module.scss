@@ -3,6 +3,7 @@
 
 .playerMobile {
   flex: 1;
+  min-width: 0;
   position: relative;
   height: var(--media-player-height-mobile);
 }

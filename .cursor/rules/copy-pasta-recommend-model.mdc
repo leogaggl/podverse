@@ -178,7 +178,12 @@ Judge by risk, not length: a long plan of mechanical edits is still medium. Prom
 that runs tests only at the end lean one level up when a mistake would be built on by later
 prompts.
 
-plan-runner's `models.json` pins one entry per level, each with Fast off. Codex 5.3 → **high**.
+plan-runner's `models.json` pins one entry per level, each with Fast off. Fast off is never
+assumed: a model's default variant can have Fast on (Codex 5.3's does), so the runner sends
+`fast=false` for every model that offers it, and any pin with `params` lists `fast=false` itself.
+Before handing over a run command for a set that uses a model not yet seen in a run, confirm with
+`node ../plan-runner/run-plan-set.mjs <set> --dry-run` that each step reads `fast=false`.
+Codex 5.3 → **high**.
 Opus 5.5 → **high**, **extra high** only for billing, concurrency, or safety-critical design.
 
 **Plans written for a cheaper model are more explicit.** When a prompt goes to Cursor Grok 4.7,

@@ -37,6 +37,28 @@ export const E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT = 'e2ePodChap0001';
 export const E2E_PODCAST_ITEM_LONG_NOTES_ID_TEXT = 'e2ePodLongNt01';
 export const E2E_PODCAST_ITEM_LONG_NOTES_LINK_URL = 'https://example.com/e2e-long-show-notes';
 
+export const E2E_PODCAST_ITEM_MARQUEE_TITLE_ID_TEXT = 'e2ePodMarqTi01';
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ID_TEXT = 'e2ePodMarqCh01';
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_ROW_ID_TEXT = 'e2eChapMarq01';
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_ROW_ID_TEXT = 'e2eChapMarq02';
+
+/** 215 characters. Wider than the full-size player title at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_TITLE = 'E2E Marquee Overflow Title '.repeat(8).trim();
+
+/** 207 characters. Wider than the player bar strip and the embed segment line at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE = 'E2E Marquee Chapter Title '.repeat(8).trim();
+
+/** 23 characters. Fits the player bar strip at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_TITLE = 'E2E Marquee Chapter Two';
+
+/** 27 characters. Fits the full-size player title and the player bar title at a 1200px window. */
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE = 'E2E Marquee Chapter Episode';
+
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_WEB_URL = 'https://example.com/e2e-marquee-chapter';
+
+export const E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TWO_WEB_URL =
+  'https://example.com/e2e-marquee-chapter-two';
+
 /** Archived, slimmed episode. Channel lists omit it; open `/episode/` and `/clip/` by these ids. */
 export const E2E_ARCHIVED_CLIP_EPISODE_ID_TEXT = 'e2ePodArchEp01';
 export const E2E_ARCHIVED_CLIP_EPISODE_TITLE = 'E2E Archived Clip Episode';
@@ -268,6 +290,7 @@ export const E2E_VIDEO_ITEM_DURATION_SECONDS = 30;
 export const E2E_HLS_ASSET_BASE_URL = 'http://localhost:2111/e2e/hls';
 export const E2E_HLS_VOD_ENCLOSURE_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-vod.m3u8?fixture=vod`;
 export const E2E_HLS_EVENT_PLAYLIST_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-event.m3u8`;
+export const E2E_HLS_VIDEO_EVENT_PLAYLIST_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-video-event.m3u8`;
 export const E2E_HLS_CHANNEL_ID_TEXT = 'e2eHlsChnl001';
 export const E2E_HLS_VOD_ITEM_ID_TEXT = 'e2eHlsVodIt01';
 export const E2E_HLS_CHANNEL_TITLE = 'E2E HLS VOD Channel';
@@ -275,11 +298,10 @@ export const E2E_HLS_VOD_ITEM_TITLE = 'E2E HLS VOD Episode';
 export const E2E_HLS_VOD_DURATION_SECONDS = 6;
 
 /**
- * Live items with real enclosures for the live-stream media-player specs, in their own unsubscribed
- * channel so the `v5fCrIj9Io` livestream specs keep their enclosure-free `.first()` link target.
- * The sources are progressive mp3/mp4 from the asset server, so these fixtures cover enclosure and
- * controller selection plus the floating video portal — not live-edge or manifest behavior.
- * Sync with `tools/web/seed-e2e.mjs`.
+ * Live items for the live-stream media-player specs, in their own unsubscribed channel so the
+ * `v5fCrIj9Io` livestream specs keep their enclosure-free `.first()` link target. The progressive
+ * mp3/mp4 items cover enclosure and controller selection plus the floating video portal. The HLS
+ * items cover live HLS playback and playlist reload. Sync with `tools/web/seed-e2e.mjs`.
  */
 export const E2E_LIVE_AV_CHANNEL_ID_TEXT = 'e2eLiveAvChn01';
 export const E2E_LIVE_AV_CHANNEL_TITLE = 'E2E Live AV Channel';
@@ -287,6 +309,10 @@ export const E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT = 'e2eLiveAud001';
 export const E2E_LIVE_AV_AUDIO_ITEM_TITLE = 'E2E Live Audio Stream';
 export const E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT = 'e2eLiveVid001';
 export const E2E_LIVE_AV_VIDEO_ITEM_TITLE = 'E2E Live Video Stream';
+export const E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT = 'e2eLiveHlsA01';
+export const E2E_LIVE_AV_HLS_AUDIO_ITEM_TITLE = 'E2E Live HLS Audio Stream';
+export const E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT = 'e2eLiveHlsV01';
+export const E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE = 'E2E Live HLS Video Stream';
 export const E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched01';
 export const E2E_LIVE_AV_SCHEDULED_ITEM_TITLE = 'E2E Scheduled Livestream';
 

@@ -1047,7 +1047,6 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       bridge.pause();
       return;
     }
-
     let cancelled = false;
     void (async () => {
       await waitForPlayableMediaSource(
@@ -1055,6 +1054,11 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
         () => cancelled
       );
       if (cancelled || mpIsPlayingRef.current !== true) {
+        return;
+      }
+      // The live controller plays live items. This element has no source for one, and asking it
+      // to play would report an invalid source that stops the live stream.
+      if (checkIsLiveItem(mpItemRef.current)) {
         return;
       }
       await bridge.play();

@@ -53,7 +53,7 @@ higher (after extra high, **Codex 5.3 · high**), and record the change on the p
 
 ## Phase 1
 
-- [ ] **10 — Move the marquee math and turn registry into @podverse/helpers**
+- [x] **10 — Move the marquee math and turn registry into @podverse/helpers**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -71,7 +71,7 @@ anything a later prompt needs.
 
 ## Phase 2
 
-- [ ] **11 — Web MarqueeText in @podverse/ui, plus the player turn groups**
+- [x] **11 — Web MarqueeText in @podverse/ui, plus the player turn groups**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -93,7 +93,7 @@ Four prompts at once. Each owns only the files its plan lists (see 00-EXECUTION-
 § Phase 3); none edits `packages/ui`, `packages/helpers`, or
 `apps/web/src/constants/mediaPlayerMarquee.ts`.
 
-- [ ] **12 — Embed player lines scroll with MarqueeText**
+- [x] **12 — Embed player lines scroll with MarqueeText**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -113,7 +113,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **20 — Player bar title and channel each scroll on one line**
+- [x] **20 — Player bar title and channel each scroll on one line**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -134,7 +134,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **21 — Segment strip above the web player bar**
+- [x] **21 — Segment strip above the web player bar**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -158,7 +158,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **30 — Full-size player lines scroll with MarqueeText**
+- [x] **30 — Full-size player lines scroll with MarqueeText**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -182,7 +182,7 @@ anything a later prompt needs.
 
 ## Phase 4
 
-- [ ] **40 — Playwright coverage for scrolling player titles; then archive the set**
+- [x] **40 — Playwright coverage for scrolling player titles; then archive the set**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 

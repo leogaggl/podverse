@@ -12,9 +12,10 @@ const API_LOGIN_URL = `${API_BASE_URL}/auth/login`;
 const LOGIN_EMAIL = 'e2e-user@example.com';
 const LOGIN_PASSWORD = 'Test!1Aa';
 
-/** Sync with packages/ui/src/styles/_variables-root.scss + #media-player 1px border-top */
+/** Sync with packages/ui/src/styles/_variables-root.scss (`--media-player-height`, `--media-player-height-top-section`) + #media-player 1px border-top */
 const MEDIA_PLAYER_HEIGHT_DESKTOP_PX = 100;
 const MEDIA_PLAYER_BORDER_TOP_PX = 1;
+const MEDIA_PLAYER_SEGMENT_STRIP_HEIGHT_PX = 28;
 const DESKTOP_VIEWPORT = { width: 1200, height: 900 };
 
 async function loginSeedUser(page: Page): Promise<void> {
@@ -38,7 +39,7 @@ test.describe('Floating video default appearance', () => {
     await loginSeedUser(page);
   });
 
-  test('loads the floating video portal flush to the right edge and bottom bar with square corners', async ({
+  test('loads the floating video portal flush to the right edge and on top of the segment strip with square corners', async ({
     page,
   }, testInfo) => {
     await page.goto(`/episode/${E2E_EMBED_VIDEO_ITEM_ID_TEXT}`);
@@ -51,29 +52,34 @@ test.describe('Floating video default appearance', () => {
     await expect(portal).toBeVisible();
     await expect(portal.locator('video')).toBeVisible();
 
+    const segmentStrip = page.getByTestId('media-player-segment-strip-desktop');
+    await expect(segmentStrip).toBeVisible();
+    await expect(segmentStrip).toHaveAttribute('data-segment-kind', 'chapter');
+
+    await expect(portal).toHaveCSS(
+      'bottom',
+      `${MEDIA_PLAYER_HEIGHT_DESKTOP_PX + MEDIA_PLAYER_BORDER_TOP_PX + MEDIA_PLAYER_SEGMENT_STRIP_HEIGHT_PX}px`
+    );
+
     const computed = await portal.evaluate((el) => {
       const style = window.getComputedStyle(el);
       return {
         right: style.right,
-        bottom: style.bottom,
         borderTopLeftRadius: style.borderTopLeftRadius,
       };
     });
 
     expect(computed.right).toBe('0px');
-    expect(computed.bottom).toBe(
-      `${MEDIA_PLAYER_HEIGHT_DESKTOP_PX + MEDIA_PLAYER_BORDER_TOP_PX}px`
-    );
     expect(computed.borderTopLeftRadius).toBe('0px');
 
     const portalBox = await portal.boundingBox();
-    const mediaPlayerBox = await page.locator('#media-player').boundingBox();
+    const stripBox = await segmentStrip.boundingBox();
     const viewport = page.viewportSize();
     expect(portalBox).not.toBeNull();
-    expect(mediaPlayerBox).not.toBeNull();
+    expect(stripBox).not.toBeNull();
     expect(viewport).not.toBeNull();
-    if (portalBox !== null && mediaPlayerBox !== null) {
-      expect(portalBox.y + portalBox.height).toBeCloseTo(mediaPlayerBox.y, 0);
+    if (portalBox !== null && stripBox !== null) {
+      expect(portalBox.y + portalBox.height).toBeCloseTo(stripBox.y, 0);
     }
     if (portalBox !== null && viewport !== null) {
       expect(portalBox.x + portalBox.width).toBeCloseTo(viewport.width, 0);
@@ -83,7 +89,7 @@ test.describe('Floating video default appearance', () => {
       page,
       testInfo,
       portal,
-      'The floating video portal is flush to the right edge and bottom media player bar with square corners.'
+      'The floating video portal is flush to the right edge and sits on the segment strip above the media player bar, with square corners.'
     );
   });
 });

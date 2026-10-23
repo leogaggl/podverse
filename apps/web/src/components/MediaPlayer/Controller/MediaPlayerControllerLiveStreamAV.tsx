@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import videojs from 'video.js';
 
 import type {
   DTOItem,
@@ -7,11 +6,11 @@ import type {
   LabeledItemEnclosure,
   SelectedLabeledItemEnclosureAndSource,
 } from '@podverse/helpers';
-import { getSelectedLabeledItemEnclosureAndSource, isEqual } from '@podverse/helpers';
+import { getSelectedLabeledItemEnclosureAndSource, isEqual, isHlsSource } from '@podverse/helpers';
 
-import { resolveLivestreamVideoJsSourceType } from './livestreamVideoJsSourceType';
-
-import 'video.js/dist/video-js.css';
+import type { MediaElementSource } from '../../../hooks/useMediaElementBridge';
+import { MediaElement } from '../MediaElement/MediaElement';
+import { resolveLivestreamSourceType } from './livestreamSourceType';
 
 export interface MediaPlayerControllerLiveStreamAVProps {
   mediaType: 'audio' | 'video';
@@ -21,6 +20,52 @@ export interface MediaPlayerControllerLiveStreamAVProps {
   style?: React.CSSProperties;
   hidden: boolean;
   mpIsPlaying: boolean;
+}
+
+function LivestreamMediaElement({
+  mediaType,
+  source,
+  playing,
+  style,
+}: {
+  mediaType: 'audio' | 'video';
+  source: MediaElementSource;
+  playing: boolean;
+  style?: React.CSSProperties;
+}) {
+  const liveMediaRef = useRef<HTMLMediaElement | null>(null);
+
+  useEffect(() => {
+    const media = liveMediaRef.current;
+    if (media === null) {
+      return;
+    }
+    if (!playing) {
+      media.pause();
+      return;
+    }
+    const start = () => {
+      void media.play().catch(() => undefined);
+    };
+    if (media.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      start();
+      return;
+    }
+    media.addEventListener('canplay', start, { once: true });
+    return () => {
+      media.removeEventListener('canplay', start);
+    };
+  }, [playing]);
+
+  return (
+    <MediaElement
+      source={source}
+      isVideo={mediaType === 'video'}
+      mediaRef={liveMediaRef}
+      playsInline={mediaType === 'video'}
+      style={{ width: '100%', ...style }}
+    />
+  );
 }
 
 export const MediaPlayerControllerLiveStreamAV: React.FC<
@@ -34,11 +79,6 @@ export const MediaPlayerControllerLiveStreamAV: React.FC<
   hidden,
   mpIsPlaying,
 }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mediaElRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
-  // Using ReturnType<typeof videojs> for the video.js player instance
-  const videoJsPlayerRef = useRef<ReturnType<typeof videojs> | null>(null);
-
   const prevSelectedRef = useRef<SelectedLabeledItemEnclosureAndSource | null>(null);
 
   const selectedItemEnclosureAndSource = useMemo(() => {
@@ -55,137 +95,48 @@ export const MediaPlayerControllerLiveStreamAV: React.FC<
     return next;
   }, [mpItemLabeledEnclosures, mpEnclosureSelectedParams]);
 
-  // Recreate player whenever mpItem (or source) changes.
-  useEffect(() => {
-    // Guard: container must exist.
-    if (!containerRef.current) {
-      return;
-    }
-
+  const source = useMemo((): MediaElementSource | null => {
     const labeled = selectedItemEnclosureAndSource?.labeledItemEnclosure;
     const srcObj = selectedItemEnclosureAndSource?.source;
     const srcUrl = typeof srcObj?.uri === 'string' ? srcObj.uri.trim() : '';
-
-    // A livestream needs a URI. The video.js type can be inferred when the enclosure type is empty.
     if (labeled === null || labeled === undefined || srcUrl === '') {
-      if (videoJsPlayerRef.current && !videoJsPlayerRef.current.isDisposed()) {
-        videoJsPlayerRef.current.dispose();
-        videoJsPlayerRef.current = null;
-      }
-      containerRef.current.innerHTML = '';
-      mediaElRef.current = null;
-      return;
+      return null;
     }
-
-    // If mediaType mismatch, dispose and bail.
     if (labeled.mediaType !== mediaType) {
-      if (videoJsPlayerRef.current && !videoJsPlayerRef.current.isDisposed()) {
-        videoJsPlayerRef.current.dispose();
-        videoJsPlayerRef.current = null;
-      }
-      containerRef.current.innerHTML = '';
-      mediaElRef.current = null;
-      return;
+      return null;
     }
-
-    const srcType = resolveLivestreamVideoJsSourceType(
+    const srcType = resolveLivestreamSourceType(
       srcUrl,
       labeled.enclosure.type,
       srcObj?.content_type
     );
-
-    // If item not a live item or the source type cannot be resolved, dispose.
     if (!mpItem?.live_item || srcType === null) {
-      if (videoJsPlayerRef.current && !videoJsPlayerRef.current.isDisposed()) {
-        videoJsPlayerRef.current.dispose();
-        videoJsPlayerRef.current = null;
-      }
-      containerRef.current.innerHTML = '';
-      mediaElRef.current = null;
-      return;
+      return null;
     }
-
-    // Dispose previous safely.
-    if (videoJsPlayerRef.current && !videoJsPlayerRef.current.isDisposed()) {
-      videoJsPlayerRef.current.dispose();
-      videoJsPlayerRef.current = null;
-    }
-
-    // Clear container.
-    containerRef.current.innerHTML = '';
-    mediaElRef.current = null;
-
-    // Create new media element (not controlled by React).
-    const el = document.createElement(mediaType === 'video' ? 'video' : 'audio');
-    el.className = 'video-js vjs-default-skin';
-    el.style.width = '100%';
-    el.setAttribute('playsinline', '');
-    if (style) {
-      Object.entries(style).forEach(([k, v]) => {
-        // @ts-expect-error Dynamic style property assignment
-        el.style[k] = v;
-      });
-    }
-    containerRef.current.appendChild(el);
-    mediaElRef.current = el;
-
-    // Init Video.js.
-    videoJsPlayerRef.current = videojs(el, {
-      controls: false,
-      autoplay: true,
-      preload: 'auto',
-      sources: [{ src: srcUrl, type: srcType }],
-    });
-
-    return () => {
-      // Only dispose once.
-      if (videoJsPlayerRef.current && !videoJsPlayerRef.current.isDisposed()) {
-        try {
-          videoJsPlayerRef.current.dispose();
-        } catch {
-          /* swallow removal race */
-        }
-        videoJsPlayerRef.current = null;
-      }
+    return {
+      kind: 'file',
+      src: srcUrl,
+      mimeType: srcType,
+      delivery: isHlsSource(srcUrl, srcType) ? 'hls' : 'file',
     };
-  }, [selectedItemEnclosureAndSource]);
-
-  // Play / pause sync.
-  useEffect(() => {
-    if (!videoJsPlayerRef.current || videoJsPlayerRef.current.isDisposed()) {
-      return;
-    }
-    if (mpIsPlaying) {
-      videoJsPlayerRef.current.play();
-    } else {
-      videoJsPlayerRef.current.pause();
-    }
-  }, [mpIsPlaying]);
+  }, [mediaType, mpItem?.live_item, selectedItemEnclosureAndSource]);
 
   const hiddenCommon = hidden || mediaType === 'audio';
 
   return (
-    <div
-      ref={containerRef}
-      {...{ [`data-vjs-player-${mediaType}`]: true }}
-      hidden={hiddenCommon}
-      style={style}
-    />
+    <div {...{ [`data-livestream-player-${mediaType}`]: true }} hidden={hiddenCommon} style={style}>
+      {source === null ? null : (
+        <LivestreamMediaElement
+          key={`${source.delivery}:${source.src}`}
+          mediaType={mediaType}
+          source={source}
+          playing={mpIsPlaying}
+          style={style}
+        />
+      )}
+    </div>
   );
 };
 
-/*
-
-NOTES:
-
-Special disposed logic was added to avoid problems with this scenario:
-
-step 1: load a livestream using video js
-step 2: a new non-livestream loads with a different controller, and video js instance disposes
-step 3: a new livestream using video js needs to load
-
-the problem is that since the video js instance was disposed, the DOM no longer has the element needed
-
-how to handle this situation? whenever mpItem changes, the video js needs to be disposed and recreated
-
-*/
+// Each source mounts its own media element. Leaving a livestream unmounts that element, so the
+// next livestream always starts from a fresh element.

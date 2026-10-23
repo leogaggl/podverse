@@ -9,7 +9,8 @@ export type PublisherMediumDetectInput = {
   podcastRemoteItems?: Array<{ medium?: string | null } | null> | null;
 };
 
-// Determine the most-appropriate publisher medium based on podcastRemoteItems
+// The sub-type comes from the remote items that name a medium. When none do, the spec's
+// default (podcast) applies, so the feed is a podcast publisher.
 export const detectDuckTypedPublisherMediumId = (parsedFeed: PublisherMediumDetectInput) => {
   const mediumRaw = parsedFeed.medium;
   const isPublisher = typeof mediumRaw === 'string' && mediumRaw.toLowerCase() === 'publisher';
@@ -40,7 +41,7 @@ export const detectDuckTypedPublisherMediumId = (parsedFeed: PublisherMediumDete
 
   const maxCount = Math.max(countPodcast, countVideo, countMusic);
   if (maxCount === 0) {
-    return getMediumEnumValue('podcast');
+    return getMediumEnumValue('publisherpodcast');
   } else if (maxCount === countVideo) {
     return getMediumEnumValue('publishervideo');
   } else if (maxCount === countMusic) {

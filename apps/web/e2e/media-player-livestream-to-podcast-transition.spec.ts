@@ -14,6 +14,7 @@ import {
   E2E_LIVE_AV_AUDIO_ITEM_TITLE,
   E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT,
   E2E_PODCAST_RESUME_ENCLOSURE_URL,
+  E2E_PODCAST_SHORT_ENCLOSURE_URL,
 } from './helpers/seedConstants';
 
 const API_LOGIN_URL = 'http://localhost:4030/api/v2/auth/login';
@@ -30,11 +31,10 @@ async function loginSeedUser(page: Page): Promise<void> {
 
 /**
  * Matrix cell (see `apps/web/src/components/MediaPlayer/MEDIA-PLAYER-DECISION-MATRIX.md` § 6a
- * "Live → non-live transition"): playing a regular podcast item while live is playing must dispose
- * the video.js player, empty its container, and leave the non-live `<audio>` as the only sourced
- * media element. The second case covers the dispose/recreate hazard recorded at the bottom of
- * `MediaPlayerControllerLiveStreamAV.tsx` — once disposed, the DOM element video.js needs is gone,
- * so returning to live has to rebuild it.
+ * "Live → non-live transition"): playing a regular podcast item while live is playing must unmount
+ * the live-stream media element, empty its container, and leave the non-live `<audio>` as the only
+ * sourced media element. The second case covers returning to live after that unmount: the
+ * live-stream controller has to mount a fresh element.
  */
 test.describe('Media player live-stream to podcast transition', () => {
   test.beforeEach(async ({ page }) => {
@@ -48,14 +48,14 @@ test.describe('Media player live-stream to podcast transition', () => {
   }) => {
     await openLivestreamAndPlay(page, E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT, E2E_LIVE_AV_AUDIO_ITEM_TITLE);
 
-    await test.step('The live stream mounts video.js in the live-stream audio container', async () => {
+    await test.step('The live stream mounts an `<audio>` in the live-stream audio container', async () => {
       await expect(liveStreamMediaElement(page, 'audio')).toHaveCount(1);
       await expectSingleSourcedMediaElement(page);
     });
 
     await openEpisodeAndPlay(page, E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT, PODCAST_ITEM_TITLE);
 
-    await test.step('Playing a podcast item disposes the video.js player and empties its container', async () => {
+    await test.step('Playing a podcast item unmounts the live-stream element and empties its container', async () => {
       await expect(liveStreamMediaContainer(page, 'audio').locator('audio')).toHaveCount(0);
     });
 
@@ -77,7 +77,7 @@ test.describe('Media player live-stream to podcast transition', () => {
     });
   });
 
-  test('Re-playing a live audio stream after a podcast item recreates the video.js DOM element without errors', async ({
+  test('Re-playing a live audio stream after a podcast item mounts a fresh live-stream element without errors', async ({
     page,
   }) => {
     const pageErrors: string[] = [];
@@ -89,7 +89,7 @@ test.describe('Media player live-stream to podcast transition', () => {
     await openEpisodeAndPlay(page, E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT, PODCAST_ITEM_TITLE);
     await expect(liveStreamMediaContainer(page, 'audio').locator('audio')).toHaveCount(0);
 
-    await test.step('Returning to the live stream rebuilds the media element the disposed player removed', async () => {
+    await test.step('Returning to the live stream mounts a new live-stream media element', async () => {
       await openLivestreamAndPlay(
         page,
         E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT,
@@ -98,7 +98,7 @@ test.describe('Media player live-stream to podcast transition', () => {
 
       const liveAudio = liveStreamMediaElement(page, 'audio');
       await expect(liveAudio).toHaveCount(1);
-      await expect(liveAudio).toHaveClass(/vjs-tech/);
+      await expect(liveAudio).toHaveAttribute('src', E2E_PODCAST_SHORT_ENCLOSURE_URL);
       await expectSingleSourcedMediaElement(page);
     });
 

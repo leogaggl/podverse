@@ -45,6 +45,8 @@ async function main(): Promise<void> {
   // VOD HLS playlist + MPEG-TS segments, and an EVENT HLS playlist that reuses those segments.
   // Written to assets/e2e/hls/; served on :2111.
   await generator.generateHlsAudioFixtures();
+  // Video VOD HLS playlist + MPEG-TS segments, plus an EVENT playlist that reuses them.
+  await generator.generateHlsVideoFixtures();
   console.log('E2E media fixtures ready.');
 }
 

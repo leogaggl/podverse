@@ -29,7 +29,7 @@ async function loginSeedUser(page: Page): Promise<void> {
 /**
  * Matrix cell (see `apps/web/src/components/MediaPlayer/MEDIA-PLAYER-DECISION-MATRIX.md` § 6a
  * "Initial play, video live stream"): a live item whose selected enclosure is video must go through
- * the same labeled-enclosure selection as audio, initialize video.js, and render its `<video>`
+ * the same labeled-enclosure selection as audio and render its `<video>`
  * inside `MediaPlayerLiveStreamVideoWrapper` → `MediaPlayerLivestreamVideoPortalFloating`.
  *
  * The seeded source is a progressive mp4 from the asset server, so this covers source selection,
@@ -37,7 +37,7 @@ async function loginSeedUser(page: Page): Promise<void> {
  * reload, source fallback) needs a real HLS source and is not asserted here.
  */
 test.describe('Media player live-stream video start', () => {
-  test('Starting a live video stream initializes video.js and mounts the floating portal video wrapper', async ({
+  test('Starting a live video stream mounts its video in the floating portal video wrapper', async ({
     page,
   }, testInfo) => {
     test.setTimeout(45_000);
@@ -47,13 +47,10 @@ test.describe('Media player live-stream video start', () => {
 
     await openLivestreamAndPlay(page, E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT, E2E_LIVE_AV_VIDEO_ITEM_TITLE);
 
-    await test.step('video.js initializes a `<video>` in the live-stream video container pointed at the selected enclosure source', async () => {
+    await test.step('The live-stream video container holds a `<video>` pointed at the selected enclosure source', async () => {
       const liveVideo = liveStreamMediaElement(page, 'video');
       await expect(liveVideo).toHaveCount(1);
       await expect(liveVideo).toHaveAttribute('src', E2E_VIDEO_SHORT_ENCLOSURE_URL);
-      // video.js replaces the tag's own classes with `vjs-tech` and moves `video-js` to a wrapper
-      // div it creates, so `vjs-tech` only exists once the player has taken over the element.
-      await expect(liveVideo).toHaveClass(/vjs-tech/);
     });
 
     await test.step('The live-stream audio container stays empty, so controller selection did not also mount the audio path', async () => {

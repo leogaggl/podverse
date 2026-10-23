@@ -9,6 +9,7 @@ import { useMediaPlayerVideo } from '../../../../contexts/MediaPlayerVideo';
 import { useFloatingVideoPortalClick } from '../../../../hooks/useFloatingVideoPortalClick';
 import { useFloatingVideoTransform } from '../../../../hooks/useFloatingVideoTransform';
 import { cssClass } from '../../../../utils/cssModule';
+import { useMediaPlayerSegmentStripVisible } from '../../SegmentStrip/mediaPlayerSegmentStripPresence';
 
 import styles from '../../../../styles/components/MediaPlayer/Controller/Video/MediaPlayerVideoPortalFloating.module.scss';
 
@@ -34,6 +35,7 @@ export const MediaPlayerVideoPortalFloating: React.FC<MediaPlayerVideoPortalFloa
     resizeEnabled,
     consumeClickAfterDrag,
   } = useFloatingVideoTransform(portalRef);
+  const segmentStripVisible = useMediaPlayerSegmentStripVisible();
   const { handlePortalClick } = useFloatingVideoPortalClick({ consumeClickAfterDrag });
 
   if (!mounted || typeof document === 'undefined') {
@@ -43,7 +45,7 @@ export const MediaPlayerVideoPortalFloating: React.FC<MediaPlayerVideoPortalFloa
   return ReactDOM.createPortal(
     <div
       ref={portalRef}
-      className={`${cssClass(styles, 'floatingVideoPortal')}${isDragging ? ` ${cssClass(styles, 'isDragging')}` : ''}${isResizing ? ` ${cssClass(styles, 'isResizing')}` : ''}`}
+      className={`${cssClass(styles, 'floatingVideoPortal')}${isDragging ? ` ${cssClass(styles, 'isDragging')}` : ''}${isResizing ? ` ${cssClass(styles, 'isResizing')}` : ''}${segmentStripVisible ? ` ${cssClass(styles, 'hasMarquee')}` : ''}`}
       data-testid="floating-video-portal"
       style={containerStyle}
       onClick={handlePortalClick}

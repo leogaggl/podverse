@@ -35,7 +35,8 @@ export function toFileMediaElementSource(src: string, mime?: string | null): Med
 
 /**
  * Resolves a single file URL for non-live playback targets. Returns `null` for
- * livestreams (HLS / video.js path) or when no enclosure URL is available.
+ * livestreams (the live-stream controller resolves its own source) or when no enclosure URL is
+ * available.
  */
 export function mediaElementSourceFromTarget(
   target: PlaybackTarget,

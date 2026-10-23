@@ -79,8 +79,7 @@ import { defineConfig } from 'vitest/config';
  * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the Add by RSS chapters and
  * transcript kept for the item now playing
  * (`src/playback/addByRssNowPlayingSectionsStore.ts` — one item, dropped on reset, nothing on
- * disk), the marquee overflow and travel math
- * (`src/lib/text/marqueeScroll.ts`), the offset that scrolls a selected chip into its row
+ * disk), the offset that scrolls a selected chip into its row
  * (`src/components/form/chipRowReveal.ts`), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
  * and whether a server refresh should replace what a cache-first screen already painted
  * (`src/lib/cachedValue.ts`), the E2E-gated perf mark/counter buffer
@@ -167,7 +166,6 @@ export default defineConfig({
       'src/lib/rows/liveItemRows.test.ts',
       'src/lib/share/shareSheetPassthrough.test.ts',
       'src/lib/share/shareUrl.test.ts',
-      'src/lib/text/marqueeScroll.test.ts',
       'src/membership/checkoutUrl.test.ts',
       'src/membership/membershipDenial.test.ts',
       'src/membership/storeCheckout.test.ts',

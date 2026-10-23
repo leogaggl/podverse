@@ -5,9 +5,13 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { FaListOl } from 'react-icons/fa6';
 
-import { ImageNonReact } from '@podverse/ui';
+import { ImageNonReact, MarqueeText } from '@podverse/ui';
 
 import { IMAGES } from '../../constants/images';
+import {
+  MEDIA_PLAYER_MARQUEE_TURN_GROUP,
+  MEDIA_PLAYER_MARQUEE_TURN_ORDER,
+} from '../../constants/mediaPlayerMarquee';
 import { useConfig } from '../../contexts/Config';
 import { useMediaPlayer } from '../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../contexts/MediaPlayerCurrentTime';
@@ -203,9 +207,14 @@ export function EmbedPlayerInfo({
             onClick={() => setPreferItemTitle((current) => !current)}
           >
             {channelTitle !== null && channelTitle !== '' ? (
-              <span className={styles.channelTitle} data-testid="embed-channel-title">
+              <MarqueeText
+                className={styles.channelTitle}
+                data-testid="embed-channel-title"
+                turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.embedPlayer}
+                turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.embedPlayer.channel}
+              >
                 {channelTitle}
-              </span>
+              </MarqueeText>
             ) : null}
             {itemTitle !== null && itemTitle !== '' ? (
               <span className={styles.titleRow}>
@@ -217,7 +226,14 @@ export function EmbedPlayerInfo({
                     data-testid="embed-chapter-title-icon"
                   />
                 ) : null}
-                <span className={styles.title}>{itemTitle}</span>
+                <MarqueeText
+                  className={styles.title}
+                  data-testid="embed-title-toggle-title"
+                  turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.embedPlayer}
+                  turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.embedPlayer.title}
+                >
+                  {itemTitle}
+                </MarqueeText>
               </span>
             ) : null}
             <span
@@ -234,9 +250,14 @@ export function EmbedPlayerInfo({
         ) : (
           <div className={styles.textStack}>
             {channelTitle !== null && channelTitle !== '' ? (
-              <span className={styles.channelTitle} data-testid="embed-channel-title">
+              <MarqueeText
+                className={styles.channelTitle}
+                data-testid="embed-channel-title"
+                turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.embedPlayer}
+                turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.embedPlayer.channel}
+              >
                 {channelTitle}
-              </span>
+              </MarqueeText>
             ) : null}
             {itemTitle !== null && itemTitle !== '' ? (
               <span className={styles.titleRow}>
@@ -248,9 +269,14 @@ export function EmbedPlayerInfo({
                     data-testid="embed-chapter-title-icon"
                   />
                 ) : null}
-                <span className={styles.title} data-testid="embed-title">
+                <MarqueeText
+                  className={styles.title}
+                  data-testid="embed-title"
+                  turnGroup={MEDIA_PLAYER_MARQUEE_TURN_GROUP.embedPlayer}
+                  turnOrder={MEDIA_PLAYER_MARQUEE_TURN_ORDER.embedPlayer.title}
+                >
                   {itemTitle}
-                </span>
+                </MarqueeText>
               </span>
             ) : null}
             <span
