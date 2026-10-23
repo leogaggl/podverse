@@ -8,7 +8,7 @@ import {
   getLiveItemStatusEnumValue,
   LiveItemStatusEnum,
 } from '@orm/entities/liveItem/liveItemStatus.js';
-import type { StatsAggregatedItem } from '@orm/entities/stats/statsAggregatedItem.js';
+import type { StatsPopularityItem } from '@orm/entities/stats/statsPopularityItem.js';
 import { applyProperties } from '@orm/lib/applyProperties.js';
 import { getChannelCategoryWhere } from '@orm/lib/categoryFilterWhere.js';
 import {
@@ -1092,8 +1092,8 @@ export const itemGetManyRelations: FindOptionsRelations<Item> = findOptionsRelat
   ]
 );
 
-export const subItemGetManyRelations: FindOptionsRelations<StatsAggregatedItem> =
-  findOptionsRelationsFromPaths<StatsAggregatedItem>([
+export const subItemGetManyRelations: FindOptionsRelations<StatsPopularityItem> =
+  findOptionsRelationsFromPaths<StatsPopularityItem>([
     'item',
     'item.item_about',
     'item.item_chat',
@@ -1115,8 +1115,8 @@ export const itemGetManyRelationsWithChannel: FindOptionsRelations<Item> =
     'channel.channel_about',
   ]);
 
-export const subItemGetManyRelationsWithChannel: FindOptionsRelations<StatsAggregatedItem> =
-  mergeFindOptionsRelations<StatsAggregatedItem>(subItemGetManyRelations, [
+export const subItemGetManyRelationsWithChannel: FindOptionsRelations<StatsPopularityItem> =
+  mergeFindOptionsRelations<StatsPopularityItem>(subItemGetManyRelations, [
     'item.channel',
     'item.channel.channel_images',
   ]);

@@ -8,10 +8,12 @@ import { useTheme } from '../../theme/useTheme';
 import type { FormAction } from '../form/FormActions';
 import { FormActions } from '../form/FormActions';
 import { AppOverlay, OverlayScrim } from '../overlay';
+import type { ButtonVariant } from '../primitives/Button';
 
 /**
- * Presentational dialog: title + body with one dismiss action, an optional confirm action, and an
- * optional second confirm. Top to bottom: confirm, second confirm, dismiss.
+ * Presentational dialog: title + body with a required dismiss action, an optional confirm action,
+ * and an optional second confirm. The second confirm is shown only with a first confirm. Top to
+ * bottom: confirm, second confirm, dismiss.
  * All copy arrives already localized so each host owns wording and test IDs.
  */
 export type ConfirmDialogProps = {
@@ -20,6 +22,7 @@ export type ConfirmDialogProps = {
   body: string;
   cancelLabel: string;
   confirmLabel?: string;
+  confirmVariant?: ButtonVariant;
   onCancel: () => void;
   onConfirm?: () => void;
   testID: string;
@@ -37,6 +40,7 @@ export function ConfirmDialog({
   body,
   cancelLabel,
   confirmLabel,
+  confirmVariant,
   onCancel,
   onConfirm,
   testID,
@@ -96,7 +100,12 @@ export function ConfirmDialog({
   };
   const confirmAction: FormAction | undefined =
     confirmLabel !== undefined && confirmTestID !== undefined && onConfirm !== undefined
-      ? { label: confirmLabel, onPress: onConfirm, testID: confirmTestID }
+      ? {
+          label: confirmLabel,
+          onPress: onConfirm,
+          testID: confirmTestID,
+          ...(confirmVariant === undefined ? {} : { variant: confirmVariant }),
+        }
       : undefined;
   const secondaryConfirmAction: FormAction | undefined =
     confirmAction !== undefined &&

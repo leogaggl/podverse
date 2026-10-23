@@ -213,6 +213,7 @@ npm run mobile:e2e:test -- settings-select
 npm run mobile:e2e:test -- subscriptions-anonymous
 npm run mobile:e2e:test -- error-log
 npm run mobile:e2e:test -- tab-switch-playback
+npm run mobile:e2e:test -- taste-profile
 npm run mobile:e2e:test -- track
 npm run mobile:e2e:test -- v4v
 npm run mobile:e2e:test -- video-transition

@@ -303,6 +303,9 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(
     validateOptional('ACCOUNT_CHANNEL_SEEN_READ_MAX_PER_MINUTE', 'Account', 'Use Default (60)')
   );
+  results.push(
+    validateOptional('STATS_TRACK_MAX_PER_MINUTE', 'Popularity Tracking', 'Use Default (60)')
+  );
 
   // MQ rate limits (optional)
   results.push(
@@ -388,6 +391,9 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateOptional('TERMS_OF_SERVICE_CONTENT_DIR', 'Legal'));
   results.push(validateOptional('CONTACT_EMAIL', 'Legal'));
   results.push(validateOptional('STATS_TRACK_EVENT_RETENTION_DAYS', 'Legal'));
+  results.push(
+    validateOptional('STATS_LISTEN_DAILY_CAP', 'Popularity Tracking', 'Use Default (300)')
+  );
 
   results.push(validateRequired('POPULARITY_TRACKING_AGREEMENT_VERSION', 'Legal'));
   results.push(validateOptional('POPULARITY_TRACKING_CONTENT_DIR', 'Legal'));

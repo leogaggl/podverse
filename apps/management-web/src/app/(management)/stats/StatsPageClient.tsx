@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { StatsBarChartDatum } from '@podverse/ui';
+import type { SortDirection, StatsBarChartDatum } from '@podverse/ui';
 import {
   Alert,
   Breadcrumbs,
@@ -16,7 +16,6 @@ import {
   ManagementPageShell,
   SectionBlock,
   SectionHeading,
-  type SortDirection,
   StatsBarChart,
   StatSummaryGrid,
   Table,
@@ -28,15 +27,10 @@ import { ManagementLoadingSpinnerOverlayStatus } from '../../../components/Loadi
 import { ManagementProbeChromeGate } from '../../../components/ManagementProbeChromeGate/ManagementProbeChromeGate';
 import { useManagementTableChrome } from '../../../components/Table/managementTableChrome';
 import { managementSearchParamsObject } from '../../../lib/managementTableUrl';
-import { type CurrentUser, getCurrentUser } from '../../../lib/requests/auth';
-import {
-  type EntityType,
-  reqStatsDetail,
-  reqStatsSearch,
-  reqStatsTop,
-  type StatsRange,
-  type StatsRow,
-} from '../../../lib/requests/stats';
+import type { CurrentUser } from '../../../lib/requests/auth';
+import { getCurrentUser } from '../../../lib/requests/auth';
+import type { EntityType, StatsDetail, StatsRange, StatsRow } from '../../../lib/requests/stats';
+import { reqStatsDetail, reqStatsSearch, reqStatsTop } from '../../../lib/requests/stats';
 import { ROUTES } from '../../../lib/routes';
 import { resolveManagementTableEmptyState } from '../../../lib/tableEmptyState';
 
@@ -60,14 +54,11 @@ function rangeLabel(t: (key: string) => string, r: StatsRange): string {
   if (r === 'day') {
     return t('ranges.day');
   }
-  if (r === '7day') {
-    return t('ranges.day7');
+  if (r === 'week') {
+    return t('ranges.week');
   }
-  if (r === '30day') {
-    return t('ranges.day30');
-  }
-  if (r === '1year') {
-    return t('ranges.year1');
+  if (r === 'month') {
+    return t('ranges.month');
   }
   return t('ranges.allTime');
 }
@@ -86,13 +77,7 @@ function parseEntityParam(value: string | null): EntityType {
 }
 
 function parseRangeParam(value: string | null): StatsRange {
-  if (
-    value === 'day' ||
-    value === '7day' ||
-    value === '30day' ||
-    value === '1year' ||
-    value === 'all-time'
-  ) {
+  if (value === 'day' || value === 'week' || value === 'month' || value === 'all-time') {
     return value;
   }
   return 'all-time';
@@ -100,7 +85,7 @@ function parseRangeParam(value: string | null): StatsRange {
 
 const ENTITY_TYPES: EntityType[] = ['channel', 'item', 'clip', 'playlist', 'account'];
 
-const RANGES: StatsRange[] = ['day', '7day', '30day', '1year', 'all-time'];
+const RANGES: StatsRange[] = ['day', 'week', 'month', 'all-time'];
 
 const STATS_COLUMN_IDS = ['title', 'range_count', 'all_time_count'] as const;
 
@@ -126,8 +111,7 @@ function sortStatsRows(rows: StatsRow[], sortKey: string, order: SortDirection):
 type DetailData = {
   id: number;
   title: string | null;
-  dayBuckets: StatsBarChartDatum[];
-  weekBuckets: StatsBarChartDatum[];
+  daily: StatsBarChartDatum[];
   overview: { label: string; value: number }[];
 };
 
@@ -313,32 +297,18 @@ export function StatsPageClient({ initialUser }: StatsPageClientProps) {
   const handleRowClick = async (row: StatsRow) => {
     setDetailLoading(true);
     try {
-      const data = await reqStatsDetail(entityType, row.id);
-      const dayBuckets: StatsBarChartDatum[] = [
-        { label: ts('detail.dayToday'), value: data.day_current_count },
-        { label: ts('detail.dayN', { count: 1 }), value: data.day_1_count },
-        { label: ts('detail.dayN', { count: 2 }), value: data.day_2_count },
-        { label: ts('detail.dayN', { count: 3 }), value: data.day_3_count },
-        { label: ts('detail.dayN', { count: 4 }), value: data.day_4_count },
-        { label: ts('detail.dayN', { count: 5 }), value: data.day_5_count },
-        { label: ts('detail.dayN', { count: 6 }), value: data.day_6_count },
-        { label: ts('detail.dayN', { count: 7 }), value: data.day_7_count },
-        { label: ts('detail.dayN', { count: 8 }), value: data.day_8_count },
-      ];
-      const weekBuckets: StatsBarChartDatum[] = [
-        { label: ts('detail.weekCurrent'), value: data.week_current_count },
-        { label: ts('detail.weekN', { count: 1 }), value: data.week_1_count },
-        { label: ts('detail.weekN', { count: 2 }), value: data.week_2_count },
-        { label: ts('detail.weekN', { count: 3 }), value: data.week_3_count },
-        { label: ts('detail.weekN', { count: 4 }), value: data.week_4_count },
-      ];
+      const data: StatsDetail = await reqStatsDetail(entityType, row.id);
       const overview = [
-        { label: ts('detail.dayToday'), value: data.day_current_count },
-        { label: ts('detail.weekCurrent'), value: data.week_current_count },
-        { label: ts('detail.monthCurrent'), value: data.month_current_count },
+        { label: ts('ranges.day'), value: data.day_count },
+        { label: ts('ranges.week'), value: data.week_count },
+        { label: ts('ranges.month'), value: data.month_count },
         { label: ts('ranges.allTime'), value: data.all_time_count },
       ];
-      setDetail({ id: data.id, title: data.title, dayBuckets, weekBuckets, overview });
+      const daily = data.daily.map((point) => ({
+        label: point.day,
+        value: point.listener_count,
+      }));
+      setDetail({ id: data.id, title: data.title, daily, overview });
     } catch {
       setDetail(null);
     } finally {
@@ -371,16 +341,7 @@ export function StatsPageClient({ initialUser }: StatsPageClientProps) {
     () =>
       RANGES.map((r) => ({
         key: r,
-        label:
-          r === 'day'
-            ? ts('ranges.day')
-            : r === '7day'
-              ? ts('ranges.day7')
-              : r === '30day'
-                ? ts('ranges.day30')
-                : r === '1year'
-                  ? ts('ranges.year1')
-                  : ts('ranges.allTime'),
+        label: rangeLabel(ts, r),
         onClick: () => {
           handleRangeChange(r);
         },
@@ -584,20 +545,11 @@ export function StatsPageClient({ initialUser }: StatsPageClientProps) {
 
                   <SectionHeading level={4}>{ts('detail.dailyBreakdown')}</SectionHeading>
                   <StatsBarChart
-                    data={detail.dayBuckets}
+                    data={detail.daily}
                     emptyMessage={ts('noStatsDataForRange')}
                     loadingLabel={ts('loadingChart')}
                     valueLabel={ts('views')}
-                  />
-
-                  <SectionHeading level={4} spacedTop>
-                    {ts('detail.weeklyBreakdown')}
-                  </SectionHeading>
-                  <StatsBarChart
-                    data={detail.weekBuckets}
-                    emptyMessage={ts('noStatsDataForRange')}
-                    loadingLabel={ts('loadingChart')}
-                    valueLabel={ts('views')}
+                    xTickInterval="preserveStartEnd"
                   />
                 </Card>
               </div>

@@ -18,9 +18,9 @@ import { devParserRSSParseTrendingFeeds } from '@workers/commands/parser/rss/par
 import { podcastIndexDeadFeedsFlagAndMerge } from '@workers/commands/podcastIndex/deadFeeds/flagAndMerge.js';
 import podcastIndexTrendingPodcastsGet from '@workers/commands/podcastIndex/trending/podcastsGet.js';
 import { podcastIndexValueUpdateAll } from '@workers/commands/podcastIndex/value/updateAll.js';
-import { devStatsSeedSimulatedAggregated } from '@workers/commands/stats/devStatsSeedSimulatedAggregated.js';
-import { statsUpdateAggregated } from '@workers/commands/stats/statsUpdateAggregated.js';
-import { statsUpdateAggregatedRolling } from '@workers/commands/stats/statsUpdateAggregatedRolling.js';
+import { devStatsSeedSimulatedPopularity } from '@workers/commands/stats/devStatsSeedSimulatedPopularity.js';
+import { statsEventPartitionsMaintain } from '@workers/commands/stats/statsEventPartitionsMaintain.js';
+import { statsPopularityRefresh } from '@workers/commands/stats/statsPopularityRefresh.js';
 
 import { billingCheckoutChannelEnable } from './billing/checkoutChannelEnable.js';
 import { billingStrikeEnsureWebhook } from './billing/ensureStrikeWebhook.js';
@@ -72,9 +72,9 @@ export default {
   mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex,
   mqRSSAddTrendingPodcastsFromPodcastIndex,
   devSeedLocalUserContent,
-  devStatsSeedSimulatedAggregated,
-  statsUpdateAggregated,
-  statsUpdateAggregatedRolling,
+  devStatsSeedSimulatedPopularity,
+  statsEventPartitionsMaintain,
+  statsPopularityRefresh,
   billingCheckoutChannelEnable,
   billingImportLegacyMembershipExpiry,
   billingProcessorProductAdd,

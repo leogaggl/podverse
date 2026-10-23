@@ -701,7 +701,7 @@ function getValidationResultsForCommand(commandName: string): ValidationResult[]
  * Runs early in the initialization process to catch configuration errors
  * before the application attempts to start.
  *
- * @param commandName - The worker command name (e.g. statsUpdateAggregated, mqRSSRunParser)
+ * @param commandName - The worker command name (e.g. statsPopularityRefresh, mqRSSRunParser)
  * @throws Error if command is unknown or any required variable for that command is missing
  */
 export const validateStartupRequirements = (commandName: string): void => {

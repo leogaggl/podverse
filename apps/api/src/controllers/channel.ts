@@ -23,7 +23,7 @@ import type {
   CategoryMappingKeys,
   DTOChannelDirectoryMatch,
   QueryParamsMedium,
-  StatsAggregatedRangeCountField,
+  StatsPopularityCountField,
 } from '@podverse/helpers';
 import { fillTopPage, getCategoryEnumValue, TOP_STATS_PAD_MAX_RANKED } from '@podverse/helpers';
 import type { ApiListResponse, QueryParamsStatsRange } from '@podverse/helpers-requests';
@@ -31,7 +31,7 @@ import type {
   AccountFollowingChannel,
   Channel,
   FindManyOptions,
-  StatsAggregatedChannel,
+  StatsPopularityChannel,
 } from '@podverse/orm';
 import {
   AccountFollowingChannelService,
@@ -40,7 +40,7 @@ import {
   channelGetOneRelations,
   ChannelMergeRedirectService,
   ChannelService,
-  StatsAggregatedChannelService,
+  StatsPopularityChannelService,
   subChannelGetManyRelations,
 } from '@podverse/orm';
 
@@ -57,7 +57,7 @@ export class ChannelController {
   private static channelService = new ChannelService();
   private static directoryMatchService = new ChannelAddByRSSDirectoryMatchService();
   private static mergeRedirects = new ChannelMergeRedirectService();
-  private static statsAggregatedChannelService = new StatsAggregatedChannelService();
+  private static statsPopularityChannelService = new StatsPopularityChannelService();
 
   private static isParsedReadyChannel(channel: Channel | null): channel is Channel {
     return Boolean(channel?.channel_about);
@@ -69,13 +69,13 @@ export class ChannelController {
     limit: number;
     medium: QueryParamsMedium;
     offset: number;
-    orderField: StatsAggregatedRangeCountField;
+    orderField: StatsPopularityCountField;
   }): Promise<Channel[]> {
     const { category_id, channelIds, limit, medium, offset, orderField } = args;
 
     return fillTopPage({
       countRanked: () =>
-        ChannelController.statsAggregatedChannelService.countRanked(
+        ChannelController.statsPopularityChannelService.countRanked(
           medium,
           category_id,
           orderField,
@@ -83,7 +83,7 @@ export class ChannelController {
         ),
       limit,
       loadRankedIds: () =>
-        ChannelController.statsAggregatedChannelService.getRankedChannelIds(
+        ChannelController.statsPopularityChannelService.getRankedChannelIds(
           medium,
           category_id,
           orderField,
@@ -103,13 +103,13 @@ export class ChannelController {
         });
       },
       loadStatsPage: async () => {
-        const topConfig: FindManyOptions<StatsAggregatedChannel> = {
-          order: { [orderField]: 'DESC' },
+        const topConfig: FindManyOptions<StatsPopularityChannel> = {
+          order: { [orderField]: 'DESC', channel_id: 'ASC' },
           skip: offset,
           take: limit,
           relations: subChannelGetManyRelations,
         };
-        const statsResults = await ChannelController.statsAggregatedChannelService.getMany(
+        const statsResults = await ChannelController.statsPopularityChannelService.getMany(
           topConfig,
           medium,
           category_id,

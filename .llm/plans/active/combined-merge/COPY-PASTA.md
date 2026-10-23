@@ -62,7 +62,7 @@ to the deferred file and does not block the run. Read the final message of step 
 
 ## Phase 4 — Popularity tracking rebuild
 
-- [ ] **04 — Merge feature/popularity-tracking-rebuild**
+- [x] **04 — Merge feature/popularity-tracking-rebuild**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

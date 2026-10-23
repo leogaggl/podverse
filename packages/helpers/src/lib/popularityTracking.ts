@@ -51,3 +51,13 @@ export function getPopularityTrackingChoice(
   }
   return 'undecided';
 }
+
+/**
+ * True when answering No now would delete stored listening data, so the client confirms first.
+ * Any recorded Yes counts, on any version: a paused Taste Profile is still stored.
+ */
+export function isPopularityTrackingOptOutDestructive(
+  decision: PopularityTrackingDecision | null | undefined
+): boolean {
+  return decision?.listen_stats_accepted === true;
+}

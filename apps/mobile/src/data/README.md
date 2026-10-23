@@ -90,8 +90,11 @@ Screen / hook  →  repository  →  SQLite (source of truth for phone UI)
   item-list 404, in `sync_event_log` with a per-entry `details_json` map, surfaced at
   More ▸ Advanced ▸ Error log; local-only, with the cap and eviction rule in the pure sibling `syncEventLog.ts`). `playbackOutboxRepository` (durable replay rows in
   `playback_outbox` plus signed-in local playback state in `playback_local_state`, with meaningful
-  event filtering, collapse rules, and bounded retention). `exampleRepository` is a scaffold proving
-  the pattern.
+  event filtering, collapse rules, and bounded retention). `statsRepository` (listen reports
+  waiting for `POST /stats/listen` in `stats_listen_outbox`, one row per listen session and keyed by
+  account, with the merge, age, and response rules in the pure sibling `statsListenOutbox.ts`; the
+  request body has no listen time, and `counted_at` stays on the row for the age rules).
+  `exampleRepository` is a scaffold proving the pattern.
 - `sync/` — generic `readThrough` / `writeBehind` primitives + `kv_meta` watermark helpers
   (`readSyncWatermark`, `writeSyncWatermark`, `isWatermarkStale`) and playback clock-offset
   metadata (`readPlaybackClockOffsetMs`, `writePlaybackClockOffsetMs`).

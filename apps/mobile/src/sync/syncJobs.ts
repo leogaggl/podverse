@@ -23,6 +23,7 @@ import { homeLivestreamsCacheRepository } from '../data/repositories/homeLivestr
 import { identityRemapRepository } from '../data/repositories/identityRemapRepository';
 import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import { queueRepository } from '../data/repositories/queueRepository';
+import { statsRepository } from '../data/repositories/statsRepository';
 import type { SubscribedChannel } from '../data/repositories/subscriptionsRepository';
 import { subscriptionsRepository } from '../data/repositories/subscriptionsRepository';
 import type { MobileAuthRequestContext } from '../data/repositories/types';
@@ -521,6 +522,7 @@ const createPlaybackReplayJob = (deps: SyncJobDeps, priority: SyncJobPriority): 
     publishPlaybackReconcileConflicts(result.resolveConflicts);
     publishPlaybackPositionAdoptions(result.adoptPositions);
     publishQueueDataChanged();
+    await statsRepository.drainListens(deps.getAuthContext(), account.id_text);
   });
 };
 

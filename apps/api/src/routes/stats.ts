@@ -1,9 +1,7 @@
 import { config } from '@api/config/index.js';
-import { StatsTrackEventAccountController } from '@api/controllers/stats/statsTrackEventAccount.js';
-import { StatsTrackEventChannelController } from '@api/controllers/stats/statsTrackEventChannel.js';
-import { StatsTrackEventClipController } from '@api/controllers/stats/statsTrackEventClip.js';
-import { StatsTrackEventItemController } from '@api/controllers/stats/statsTrackEventItem.js';
-import { StatsTrackEventPlaylistController } from '@api/controllers/stats/statsTrackEventPlaylist.js';
+import { StatsListenController } from '@api/controllers/stats/statsListen.js';
+import { StatsOpenController } from '@api/controllers/stats/statsOpen.js';
+import { statsTrackRateLimit } from '@api/controllers/stats/statsTrackRateLimit.js';
 import { asyncHandler } from '@api/middleware/asyncHandler.js';
 import { Router } from 'express';
 
@@ -11,10 +9,7 @@ const router = Router();
 
 router.use(`${config.api.prefix}${config.api.version}/stats`, router);
 
-router.post('/account', asyncHandler(StatsTrackEventAccountController.create));
-router.post('/channel', asyncHandler(StatsTrackEventChannelController.create));
-router.post('/clip', asyncHandler(StatsTrackEventClipController.create));
-router.post('/item', asyncHandler(StatsTrackEventItemController.create));
-router.post('/playlist', asyncHandler(StatsTrackEventPlaylistController.create));
+router.post('/listen', statsTrackRateLimit, asyncHandler(StatsListenController.create));
+router.post('/open', statsTrackRateLimit, asyncHandler(StatsOpenController.create));
 
 export const statsRouter = router;

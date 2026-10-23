@@ -297,9 +297,8 @@
     },
     "ranges": {
       "day": "",
-      "day7": "",
-      "day30": "",
-      "year1": "",
+      "week": "",
+      "month": "",
       "allTime": ""
     },
     "table": {
@@ -307,13 +306,7 @@
       "rangeViews": ""
     },
     "detail": {
-      "dayToday": "",
-      "dayN": "",
-      "weekCurrent": "",
-      "weekN": "",
-      "monthCurrent": "",
-      "dailyBreakdown": "",
-      "weeklyBreakdown": ""
+      "dailyBreakdown": ""
     }
   },
   "products": {

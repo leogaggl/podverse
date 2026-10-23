@@ -18,6 +18,7 @@ import { ModalDeleteAccount } from './ModalDeleteAccount';
 import { SettingsListenStats } from './SettingsListenStats';
 import { SettingsMembership } from './SettingsMembership';
 import { SettingsSessions } from './SettingsSessions';
+import { SettingsTasteProfile } from './SettingsTasteProfile';
 import { SettingsTerms } from './SettingsTerms';
 
 export function SettingsAccount() {
@@ -81,6 +82,8 @@ export function SettingsAccount() {
       <SettingsTerms />
       <Divider withSpacing />
       <SettingsListenStats />
+      <Divider withSpacing />
+      <SettingsTasteProfile />
       <Divider withSpacing />
       {capabilities.canUseEmailVerificationFlows && (
         <>

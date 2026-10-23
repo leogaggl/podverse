@@ -296,10 +296,9 @@
       "account": "Accounts"
     },
     "ranges": {
-      "day": "1 day",
-      "day7": "7 day",
-      "day30": "30 day",
-      "year1": "1 year",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
       "allTime": "All-time"
     },
     "table": {
@@ -307,13 +306,7 @@
       "rangeViews": "{range} views"
     },
     "detail": {
-      "dayToday": "Today",
-      "dayN": "Day {count}",
-      "weekCurrent": "This week",
-      "weekN": "Week {count}",
-      "monthCurrent": "This month",
-      "dailyBreakdown": "Daily breakdown",
-      "weeklyBreakdown": "Weekly breakdown"
+      "dailyBreakdown": "Daily Breakdown"
     }
   },
   "products": {

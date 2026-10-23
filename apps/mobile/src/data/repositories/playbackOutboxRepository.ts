@@ -36,8 +36,6 @@ import type {
 } from './playbackReconcile';
 import { findNowPlayingInvariantViolations, planPlaybackReconcile } from './playbackReconcile';
 import { queueRepository } from './queueRepository';
-import type { PlaybackStatsTargets } from './statsRepository';
-import { statsRepository } from './statsRepository';
 import type { MobileAuthRequestContext } from './types';
 
 type PlaybackReplayEventPayload = {
@@ -195,26 +193,6 @@ const normalizeNonEmptyString = (value: unknown): string | null => {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-};
-
-const parseStatsReplayPayload = (payloadJson: string | null): PlaybackStatsTargets | null => {
-  const payload = parsePayloadObject(payloadJson);
-  if (payload === null) {
-    return null;
-  }
-  const statsTargets = payload.stats_targets;
-  if (!isRecord(statsTargets)) {
-    return null;
-  }
-
-  const channelIdText = normalizeNonEmptyString(statsTargets.channel_id_text);
-  const clipIdText = normalizeNonEmptyString(statsTargets.clip_id_text);
-  const itemIdText = normalizeNonEmptyString(statsTargets.item_id_text);
-  if (channelIdText === null && clipIdText === null && itemIdText === null) {
-    return null;
-  }
-
-  return { channelIdText, clipIdText, itemIdText };
 };
 
 const extractAddByRssResourceData = (
@@ -549,53 +527,6 @@ const toQueueExtraParams = (event: PlaybackOutboxEnqueueEvent): QueueExtraParams
   return params;
 };
 
-const replayBufferedStats = async (
-  context: MobileAuthRequestContext,
-  rows: PlaybackOutboxRowShape[]
-): Promise<void> => {
-  const channelIds = new Set<string>();
-  const clipIds = new Set<string>();
-  const itemIds = new Set<string>();
-
-  for (const row of rows) {
-    const statsTargets = parseStatsReplayPayload(row.payloadJson);
-    if (statsTargets === null) {
-      continue;
-    }
-    if (statsTargets.channelIdText !== null) {
-      channelIds.add(statsTargets.channelIdText);
-    }
-    if (statsTargets.clipIdText !== null) {
-      clipIds.add(statsTargets.clipIdText);
-    }
-    if (statsTargets.itemIdText !== null) {
-      itemIds.add(statsTargets.itemIdText);
-    }
-  }
-
-  for (const channelIdText of channelIds) {
-    await statsRepository.replayPlaybackStats(context, {
-      channelIdText,
-      clipIdText: null,
-      itemIdText: null,
-    });
-  }
-  for (const clipIdText of clipIds) {
-    await statsRepository.replayPlaybackStats(context, {
-      channelIdText: null,
-      clipIdText,
-      itemIdText: null,
-    });
-  }
-  for (const itemIdText of itemIds) {
-    await statsRepository.replayPlaybackStats(context, {
-      channelIdText: null,
-      clipIdText: null,
-      itemIdText,
-    });
-  }
-};
-
 const replayOneQueueBatch = async (
   context: MobileAuthRequestContext,
   queueIdText: string,
@@ -637,8 +568,6 @@ const replayOneQueueBatch = async (
   if (measuredOffset !== null) {
     await writePlaybackClockOffsetMs(measuredOffset);
   }
-
-  await replayBufferedStats(context, rows);
 
   await getDb()
     .delete(schema.playbackOutbox)

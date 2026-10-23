@@ -54,8 +54,8 @@ const {
   notificationChannelTypeDeleteMock,
   notificationChannelTypeBulkSetMock,
   settingsNotificationGetByAccountIdMock,
-  statsAggregatedGetManyMock,
-  statsAggregatedGetManyByAccountsAndCountMock,
+  statsPopularityGetManyMock,
+  statsPopularityGetManyByAccountsAndCountMock,
   followingAccountGetAllWithCountMock,
   hasFollowedAddByRSSChannelMock,
   getFollowedAddByRSSChannelCountMock,
@@ -131,8 +131,8 @@ const {
     account_settings_id: 1,
     auto_enable_on_subscribe: false,
   })),
-  statsAggregatedGetManyMock: vi.fn(async () => []),
-  statsAggregatedGetManyByAccountsAndCountMock: vi.fn(async () => []),
+  statsPopularityGetManyMock: vi.fn(async () => []),
+  statsPopularityGetManyByAccountsAndCountMock: vi.fn(async () => []),
   followingAccountGetAllWithCountMock: vi.fn(async () => ({ results: [], count: 0 })),
   hasFollowedAddByRSSChannelMock: vi.fn(async () => false),
   getFollowedAddByRSSChannelCountMock: vi.fn(async () => 0),
@@ -202,9 +202,9 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getByAccountId = settingsNotificationGetByAccountIdMock;
   }
 
-  class MockStatsAggregatedAccountService {
-    getMany = statsAggregatedGetManyMock;
-    getManyByAccountsAndCount = statsAggregatedGetManyByAccountsAndCountMock;
+  class MockStatsPopularityAccountService {
+    getMany = statsPopularityGetManyMock;
+    getManyByAccountsAndCount = statsPopularityGetManyByAccountsAndCountMock;
   }
 
   return {
@@ -218,7 +218,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     AccountNotificationChannelService: MockAccountNotificationChannelService,
     AccountNotificationChannelTypeService: MockAccountNotificationChannelTypeService,
     AccountSettingsNotificationService: MockAccountSettingsNotificationService,
-    StatsAggregatedAccountService: MockStatsAggregatedAccountService,
+    StatsPopularityAccountService: MockStatsPopularityAccountService,
   };
 });
 
@@ -1095,7 +1095,7 @@ describe('account follows and notification routes', () => {
 
   describe('GET /top', () => {
     it('returns 200 with public top accounts', async () => {
-      statsAggregatedGetManyMock.mockResolvedValueOnce([]);
+      statsPopularityGetManyMock.mockResolvedValueOnce([]);
 
       const res = await request(app).get(`${accountBase}/top?page=1&range=day`);
 
@@ -1164,7 +1164,7 @@ describe('account follows and notification routes', () => {
 
   describe('GET /subscribed/top', () => {
     it('returns 200 with top subscribed accounts', async () => {
-      statsAggregatedGetManyByAccountsAndCountMock.mockResolvedValueOnce([]);
+      statsPopularityGetManyByAccountsAndCountMock.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get(`${accountBase}/subscribed/top?page=1&range=day`)

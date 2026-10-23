@@ -1,5 +1,10 @@
+import { config } from '@api/config/index.js';
+import type { Server } from 'http';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { PopularityListenResult, PopularityOpenResult } from '@podverse/helpers';
+import type { ORMContext, StatsListenReport, StatsOpenReport } from '@podverse/orm';
 
 import {
   authHeaders,
@@ -10,59 +15,39 @@ import {
   stopTestApp,
 } from './helpers/index.js';
 
-const {
-  statsTrackAccountCreateMock,
-  statsTrackChannelCreateMock,
-  statsTrackClipCreateMock,
-  statsTrackItemCreateMock,
-  statsTrackPlaylistCreateMock,
-  isListenStatsAllowedMock,
-  clipGetByIdTextMock,
-} = vi.hoisted(() => ({
-  clipGetByIdTextMock: vi.fn<
-    () => Promise<{ item_id: string | null; source_removed_at: Date | null } | null>
-  >(async () => null),
-  statsTrackAccountCreateMock: vi.fn(async () => {}),
-  statsTrackChannelCreateMock: vi.fn(async () => {}),
-  statsTrackClipCreateMock: vi.fn(async () => {}),
-  statsTrackItemCreateMock: vi.fn(async () => {}),
-  statsTrackPlaylistCreateMock: vi.fn(async () => {}),
-  isListenStatsAllowedMock: vi.fn(async () => true),
-}));
+const TEST_USER_ID = 1;
+
+const CLIENT_LISTEN_ID = '3f6c2a9e-8d41-4b7a-9c35-1e2f4a6b8c0d';
+
+const { accountGetMock, recordListenMock, recordOpenMock, isListenStatsAllowedMock } = vi.hoisted(
+  () => ({
+    accountGetMock:
+      vi.fn<
+        (id: number, options?: { relations?: string[] }) => Promise<Record<string, unknown> | null>
+      >(),
+    recordListenMock: vi.fn<(report: StatsListenReport) => Promise<PopularityListenResult>>(),
+    recordOpenMock: vi.fn<(report: StatsOpenReport) => Promise<PopularityOpenResult>>(),
+    isListenStatsAllowedMock: vi.fn<() => Promise<boolean>>(),
+  })
+);
 
 vi.mock('@podverse/orm', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@podverse/orm')>();
 
   class MockAccountService {
-    get = defaultAccountGet;
-  }
-
-  class MockStatsTrackEventAccountService {
-    _create = statsTrackAccountCreateMock;
-  }
-
-  class MockStatsTrackEventChannelService {
-    _create = statsTrackChannelCreateMock;
-  }
-
-  class MockStatsTrackEventClipService {
-    _create = statsTrackClipCreateMock;
-  }
-
-  class MockClipService {
-    getByIdText = clipGetByIdTextMock;
-  }
-
-  class MockStatsTrackEventItemService {
-    _create = statsTrackItemCreateMock;
+    get = accountGetMock;
   }
 
   class MockAccountSettingsListenStatsService {
     isListenStatsAllowed = isListenStatsAllowedMock;
   }
 
-  class MockStatsTrackEventPlaylistService {
-    _create = statsTrackPlaylistCreateMock;
+  class MockStatsListenWriteService {
+    recordListen = recordListenMock;
+  }
+
+  class MockStatsOpenWriteService {
+    recordOpen = recordOpenMock;
   }
 
   return {
@@ -70,21 +55,20 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     CategoryService: IntegrationTestNoopCategoryService,
     AccountService: MockAccountService,
     AccountSettingsListenStatsService: MockAccountSettingsListenStatsService,
-    ClipService: MockClipService,
-    StatsTrackEventAccountService: MockStatsTrackEventAccountService,
-    StatsTrackEventChannelService: MockStatsTrackEventChannelService,
-    StatsTrackEventClipService: MockStatsTrackEventClipService,
-    StatsTrackEventItemService: MockStatsTrackEventItemService,
-    StatsTrackEventPlaylistService: MockStatsTrackEventPlaylistService,
+    StatsListenWriteService: MockStatsListenWriteService,
+    StatsOpenWriteService: MockStatsOpenWriteService,
   };
 });
 
+type StatsTrackRateLimitModule = typeof import('@api/controllers/stats/statsTrackRateLimit.js');
+
 let statsBase: string;
 
-describe('stats track POST routes', () => {
-  let server: import('http').Server | undefined;
-  let ormContext: import('@podverse/orm').ORMContext | undefined;
+describe('stats listen and open POST routes', () => {
+  let server: Server | undefined;
+  let ormContext: ORMContext | undefined;
   let app: import('express').Express;
+  let statsTrackRateLimit: StatsTrackRateLimitModule['statsTrackRateLimit'];
 
   beforeAll(async () => {
     const result = await startTestApp();
@@ -92,112 +76,287 @@ describe('stats track POST routes', () => {
     server = result.server;
     ormContext = result.ormContext;
     statsBase = (await getBaseApiUrl()) + '/stats';
+    // `startTestApp` resets the module registry, so the limiter the routes use is only reachable
+    // through an import made after it.
+    ({ statsTrackRateLimit } = await import('@api/controllers/stats/statsTrackRateLimit.js'));
   }, 30000);
 
   afterAll(async () => {
     await stopTestApp(server, ormContext);
   });
 
-  it('returns 401 without auth for stats/account', async () => {
-    const res = await request(app).post(`${statsBase}/account`).send({ account_id_text: 'abc' });
-    expect(res.status).toBe(401);
+  beforeEach(() => {
+    accountGetMock.mockReset();
+    accountGetMock.mockImplementation(defaultAccountGet);
+    recordListenMock.mockReset();
+    recordListenMock.mockResolvedValue('counted');
+    recordOpenMock.mockReset();
+    recordOpenMock.mockResolvedValue('counted');
+    isListenStatsAllowedMock.mockReset();
+    isListenStatsAllowedMock.mockResolvedValue(true);
+    // The limiter store is in-memory for the process lifetime; the case that exhausts it would
+    // otherwise 429 every case after it.
+    statsTrackRateLimit.resetForUser(TEST_USER_ID);
   });
 
-  it('returns 201 for stats/account when authenticated', async () => {
-    statsTrackAccountCreateMock.mockClear();
-    const res = await request(app)
-      .post(`${statsBase}/account`)
-      .set(authHeaders())
-      .send({ account_id_text: 'target-account-id-text' });
+  const postListen = (body: object) =>
+    request(app).post(`${statsBase}/listen`).set(authHeaders(TEST_USER_ID)).send(body);
 
-    expect(res.status).toBe(201);
-    expect(statsTrackAccountCreateMock).toHaveBeenCalledTimes(1);
+  const postOpen = (body: object) =>
+    request(app).post(`${statsBase}/open`).set(authHeaders(TEST_USER_ID)).send(body);
+
+  const listenBody = {
+    item_id_text: 'item-id-text',
+    client_listen_id: CLIENT_LISTEN_ID,
+    seconds_heard: 75,
+  };
+
+  describe('authentication', () => {
+    it('returns 401 without auth for stats/listen', async () => {
+      const res = await request(app).post(`${statsBase}/listen`).send(listenBody);
+
+      expect(res.status).toBe(401);
+      expect(recordListenMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 without auth for stats/open', async () => {
+      const res = await request(app)
+        .post(`${statsBase}/open`)
+        .send({ playlist_id_text: 'playlist-id-text' });
+
+      expect(res.status).toBe(401);
+      expect(recordOpenMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 feature_not_available_for_account_type when the account lacks trackStats', async () => {
+      accountGetMock.mockImplementation(async (id) => {
+        const account = await defaultAccountGet(id);
+        return account === null
+          ? null
+          : {
+              ...account,
+              account_membership_status: {
+                ...account.account_membership_status,
+                track_stats: false,
+              },
+            };
+      });
+
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('feature_not_available_for_account_type');
+      expect(recordListenMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 popularity_tracking_not_allowed when consent is not current, without calling the service', async () => {
+      isListenStatsAllowedMock.mockResolvedValue(false);
+
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        message: 'Listen stats tracking is disabled for this account',
+        code: 'popularity_tracking_not_allowed',
+      });
+      expect(recordListenMock).not.toHaveBeenCalled();
+    });
   });
 
-  it('invokes stats/account handler twice on repeated POST (client idempotent)', async () => {
-    statsTrackAccountCreateMock.mockClear();
-    const headers = authHeaders();
+  describe('POST /stats/listen', () => {
+    it('passes exactly the report fields to the service, with the configured version and daily cap', async () => {
+      const res = await postListen({
+        clip_id_text: 'clip-id-text',
+        client_listen_id: CLIENT_LISTEN_ID,
+        seconds_heard: 75,
+        completed: true,
+        listened_at: '2026-01-01T00:00:00.000Z',
+      });
 
-    await request(app)
-      .post(`${statsBase}/account`)
-      .set(headers)
-      .send({ account_id_text: 'repeat-account-id-text' });
+      expect(res.status).toBe(201);
+      expect(recordListenMock).toHaveBeenCalledTimes(1);
+      expect(recordListenMock.mock.calls[0]?.[0]).toEqual({
+        account_id: TEST_USER_ID,
+        agreement_version: config.popularityTracking.version,
+        daily_cap: config.popularityTracking.dailyListenCap,
+        target: { kind: 'clip', id_text: 'clip-id-text' },
+        client_listen_id: CLIENT_LISTEN_ID,
+        seconds_heard: 75,
+        completed: true,
+      });
+    });
 
-    await request(app)
-      .post(`${statsBase}/account`)
-      .set(headers)
-      .send({ account_id_text: 'repeat-account-id-text' });
+    it('defaults completed to false and targets the item when item_id_text is sent', async () => {
+      await postListen(listenBody);
 
-    expect(statsTrackAccountCreateMock).toHaveBeenCalledTimes(2);
+      expect(recordListenMock.mock.calls[0]?.[0]).toMatchObject({
+        target: { kind: 'item', id_text: 'item-id-text' },
+        completed: false,
+      });
+    });
+
+    it('answers 201 with the result when a new session is counted', async () => {
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual({ result: 'counted' });
+    });
+
+    it.each(['updated', 'unchanged', 'daily_cap_reached'] as const)(
+      'answers 200 with the result for %s',
+      async (result) => {
+        recordListenMock.mockResolvedValue(result);
+
+        const res = await postListen(listenBody);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ result });
+      }
+    );
+
+    it('answers 400 listen_below_threshold when the listen does not meet the counted-listen rule', async () => {
+      recordListenMock.mockResolvedValue('below_threshold');
+
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Listen does not meet the counted-listen rule.',
+        code: 'listen_below_threshold',
+      });
+    });
+
+    it('answers 403 popularity_tracking_not_allowed when the service finds consent missing', async () => {
+      recordListenMock.mockResolvedValue('not_allowed');
+
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        message: 'Listen stats tracking is disabled for this account',
+        code: 'popularity_tracking_not_allowed',
+      });
+    });
+
+    it('answers 404 when the item or clip is not found', async () => {
+      recordListenMock.mockResolvedValue('not_found');
+
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ message: 'Not found', code: 'not_found' });
+    });
+
+    it("answers 410 when the clip's source was removed", async () => {
+      recordListenMock.mockResolvedValue('clip_source_removed');
+
+      const res = await postListen({
+        clip_id_text: 'clip-id-text',
+        client_listen_id: CLIENT_LISTEN_ID,
+        seconds_heard: 75,
+      });
+
+      expect(res.status).toBe(410);
+      expect(res.body).toEqual({ message: 'Clip source was removed', removed: true });
+    });
+
+    it.each([
+      ['both ids', { ...listenBody, clip_id_text: 'clip-id-text' }],
+      ['neither id', { client_listen_id: CLIENT_LISTEN_ID, seconds_heard: 75 }],
+      ['a missing client_listen_id', { item_id_text: 'item-id-text', seconds_heard: 75 }],
+      ['a non-uuid client_listen_id', { ...listenBody, client_listen_id: 'not-a-uuid' }],
+      ['a negative seconds_heard', { ...listenBody, seconds_heard: -1 }],
+      ['a seconds_heard above one day', { ...listenBody, seconds_heard: 86401 }],
+      [
+        'a missing seconds_heard',
+        { item_id_text: 'item-id-text', client_listen_id: CLIENT_LISTEN_ID },
+      ],
+    ])('answers 400 for %s without calling the service', async (_label, body) => {
+      const res = await postListen(body);
+
+      expect(res.status).toBe(400);
+      expect(recordListenMock).not.toHaveBeenCalled();
+    });
   });
 
-  it('returns 201 for stats/channel when authenticated', async () => {
-    statsTrackChannelCreateMock.mockClear();
-    const res = await request(app)
-      .post(`${statsBase}/channel`)
-      .set(authHeaders())
-      .send({ channel_id_text: 'chan-id-text' });
+  describe('POST /stats/open', () => {
+    it('answers 201 for the first open today and passes the target to the service', async () => {
+      const res = await postOpen({ playlist_id_text: 'playlist-id-text' });
 
-    expect(res.status).toBe(201);
-    expect(statsTrackChannelCreateMock).toHaveBeenCalledTimes(1);
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual({ result: 'counted' });
+      expect(recordOpenMock.mock.calls[0]?.[0]).toEqual({
+        account_id: TEST_USER_ID,
+        agreement_version: config.popularityTracking.version,
+        target: { kind: 'playlist', id_text: 'playlist-id-text' },
+      });
+    });
+
+    it('targets the profile when account_id_text is sent', async () => {
+      await postOpen({ account_id_text: 'target-account-id-text' });
+
+      expect(recordOpenMock.mock.calls[0]?.[0]).toMatchObject({
+        target: { kind: 'account', id_text: 'target-account-id-text' },
+      });
+    });
+
+    it.each(['unchanged', 'own_content'] as const)(
+      'answers 200 with the result for %s',
+      async (result) => {
+        recordOpenMock.mockResolvedValue(result);
+
+        const res = await postOpen({ account_id_text: 'target-account-id-text' });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ result });
+      }
+    );
+
+    it('answers 404 when the profile or playlist is not found', async () => {
+      recordOpenMock.mockResolvedValue('not_found');
+
+      const res = await postOpen({ playlist_id_text: 'missing-playlist' });
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ message: 'Not found', code: 'not_found' });
+    });
+
+    it('answers 400 when both ids are sent, without calling the service', async () => {
+      const res = await postOpen({
+        account_id_text: 'target-account-id-text',
+        playlist_id_text: 'playlist-id-text',
+      });
+
+      expect(res.status).toBe(400);
+      expect(recordOpenMock).not.toHaveBeenCalled();
+    });
   });
 
-  it('returns 201 for stats/clip when authenticated', async () => {
-    statsTrackClipCreateMock.mockClear();
-    const res = await request(app)
-      .post(`${statsBase}/clip`)
-      .set(authHeaders())
-      .send({ clip_id_text: 'clip-id-text' });
+  describe('rate limit', () => {
+    it('answers 429 once the account reaches its per-minute ceiling', async () => {
+      const max = config.rateLimits.statsTrack.max;
 
-    expect(res.status).toBe(201);
-    expect(statsTrackClipCreateMock).toHaveBeenCalledTimes(1);
-  });
+      for (let sent = 0; sent < max; sent += 1) {
+        const allowed = await postListen(listenBody);
+        expect(allowed.status).toBe(201);
+      }
 
-  it('returns 410 for stats/clip when the clip source was removed', async () => {
-    statsTrackClipCreateMock.mockClear();
-    clipGetByIdTextMock.mockResolvedValueOnce({ item_id: null, source_removed_at: new Date() });
-    const res = await request(app)
-      .post(`${statsBase}/clip`)
-      .set(authHeaders())
-      .send({ clip_id_text: 'clip-id-text' });
+      const limited = await postListen(listenBody);
+      expect(limited.status).toBe(429);
+      expect(limited.headers['ratelimit-limit']).toBe(String(max));
+      expect(recordListenMock).toHaveBeenCalledTimes(max);
+    });
 
-    expect(res.status).toBe(410);
-    expect(res.body).toEqual({ message: 'Clip source was removed', removed: true });
-    expect(statsTrackClipCreateMock).not.toHaveBeenCalled();
-  });
+    it('counts listens and opens against one shared budget', async () => {
+      const max = config.rateLimits.statsTrack.max;
 
-  it('returns 201 for stats/item when authenticated', async () => {
-    statsTrackItemCreateMock.mockClear();
-    const res = await request(app)
-      .post(`${statsBase}/item`)
-      .set(authHeaders())
-      .send({ item_id_text: 'item-id-text' });
+      for (let sent = 0; sent < max; sent += 1) {
+        await postOpen({ playlist_id_text: 'playlist-id-text' });
+      }
 
-    expect(res.status).toBe(201);
-    expect(statsTrackItemCreateMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns 201 for stats/playlist when authenticated', async () => {
-    statsTrackPlaylistCreateMock.mockClear();
-    const res = await request(app)
-      .post(`${statsBase}/playlist`)
-      .set(authHeaders())
-      .send({ playlist_id_text: 'playlist-id-text' });
-
-    expect(res.status).toBe(201);
-    expect(statsTrackPlaylistCreateMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns 403 for stats/item when listen stats are not allowed', async () => {
-    isListenStatsAllowedMock.mockResolvedValueOnce(false);
-    statsTrackItemCreateMock.mockClear();
-
-    const res = await request(app)
-      .post(`${statsBase}/item`)
-      .set(authHeaders())
-      .send({ item_id_text: 'blocked-item-id-text' });
-
-    expect(res.status).toBe(403);
-    expect(statsTrackItemCreateMock).not.toHaveBeenCalled();
+      const limited = await postListen(listenBody);
+      expect(limited.status).toBe(429);
+      expect(recordListenMock).not.toHaveBeenCalled();
+    });
   });
 });

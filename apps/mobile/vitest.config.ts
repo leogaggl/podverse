@@ -54,9 +54,10 @@ import { defineConfig } from 'vitest/config';
  * `src/lib/device/deviceModel.ts`, `src/auth/loginWithMobileToken.ts`,
  * `src/screens/more/accountSessionRows.ts`), the rule
  * that tells an E2E session left behind by a finished flow apart from one a relaunch should keep
- * (`src/auth/e2eSessionReset.ts`), the best-effort replay of buffered listen stats, which must
- * resolve even when the account is not entitled to them (`src/data/repositories/statsRepository.ts` —
- * its only dependency is the auth request helper, which mocks), the
+ * (`src/auth/e2eSessionReset.ts`), the listen outbox rules — merging reports of one session, the
+ * age limits, which send failures drop a report, and the request body
+ * (`src/data/repositories/statsListenOutbox.ts` — pure; the SQLite half stays in
+ * `statsRepository.ts`), the
  * membership denial mapping (`src/membership/membershipDenial.ts` — pure; note the membership-state
  * derivation now lives in `@podverse/helpers` `deriveMembershipState`, tested there, and the RN-coupled
  * `useMembership` hook is excluded), the membership checkout URL builder
@@ -149,7 +150,7 @@ export default defineConfig({
       'src/data/repositories/playbackOutbox.test.ts',
       'src/data/repositories/playbackReconcile.test.ts',
       'src/data/repositories/subscriptionsMerge.test.ts',
-      'src/data/repositories/statsRepository.test.ts',
+      'src/data/repositories/statsListenOutbox.test.ts',
       'src/data/repositories/subscriptionsSignupPlan.test.ts',
       'src/data/repositories/syncEventLog.test.ts',
       'src/data/sync/syncScheduler.test.ts',

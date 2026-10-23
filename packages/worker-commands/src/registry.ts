@@ -359,10 +359,10 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run podcast_index_value_update_all -w apps/workers',
   },
   {
-    name: 'devStatsSeedSimulatedAggregated',
+    name: 'devStatsSeedSimulatedPopularity',
     label: 'Dev: seed simulated Top / trending stats',
     description:
-      'Write staggered non-zero stats_aggregated rows for public channels, a capped set of newest items, and public clips, playlists, and accounts when those rows exist.',
+      'Write 31 days of staggered daily listener totals plus one older history day for public channels, a capped set of newest items, and public clips, playlists, and accounts, then refresh popularity range totals.',
     category: 'dev',
     risk: 'dev_only',
     example_cli: 'npm run workers:seed_simulated_stats',
@@ -377,20 +377,22 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run workers:seed_local_user_content',
   },
   {
-    name: 'statsUpdateAggregated',
-    label: 'Stats: update aggregated',
-    description: 'Recompute aggregated application statistics (cron / scheduled).',
+    name: 'statsPopularityRefresh',
+    label: 'Stats: refresh popularity range totals',
+    description:
+      'Rebuild day, week, month, and all-time popularity totals from daily totals. Hourly runs cover entities active in the last 30 days; -full recomputes every entity.',
     category: 'stats',
     risk: 'normal',
-    example_cli: 'npm run stats_update_aggregated -w apps/workers',
+    example_cli: 'npm run stats_popularity_refresh -w apps/workers -- -full',
   },
   {
-    name: 'statsUpdateAggregatedRolling',
-    label: 'Stats: update aggregated rolling',
-    description: 'Rolling window variant of aggregated stats update.',
+    name: 'statsEventPartitionsMaintain',
+    label: 'Stats: maintain listen event partitions',
+    description:
+      'Create monthly partitions for popularity listen and open events two months ahead, then drop months whose rows are all older than STATS_TRACK_EVENT_RETENTION_DAYS.',
     category: 'stats',
     risk: 'normal',
-    example_cli: 'npm run stats_update_aggregated_rolling -w apps/workers',
+    example_cli: 'npm run stats_event_partitions_maintain -w apps/workers',
   },
 ] as const satisfies Readonly<readonly WorkerCommandDef[]>;
 

@@ -17,6 +17,7 @@ export type StatsBarChartProps = {
   emptyMessage: string;
   /** Shown while `loading` is true. */
   loadingLabel: string;
+  xTickInterval?: number | 'preserveStartEnd' | 'equidistantPreserveStart';
 };
 
 export function StatsBarChart({
@@ -25,6 +26,7 @@ export function StatsBarChart({
   loading = false,
   loadingLabel,
   valueLabel,
+  xTickInterval = 0,
 }: StatsBarChartProps) {
   if (loading) {
     return <div className={styles.loading}>{loadingLabel}</div>;
@@ -56,7 +58,7 @@ export function StatsBarChart({
           <XAxis
             dataKey="label"
             tick={{ fontSize: 12 }}
-            interval={0}
+            interval={xTickInterval}
             angle={-30}
             textAnchor="end"
             height={60}

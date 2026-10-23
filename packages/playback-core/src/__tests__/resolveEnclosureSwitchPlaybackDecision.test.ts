@@ -47,7 +47,7 @@ describe('resolveEnclosureSwitchPlaybackDecision', () => {
       reason: 'enclosure-switch-resume',
       shouldAutoPlay: false,
       shouldClearAutoQueue: false,
-      shouldRecordPlaybackStat: false,
+      listenSession: 'continue',
     });
   });
 

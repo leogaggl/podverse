@@ -97,10 +97,10 @@ describe('Add by RSS playback events', () => {
     expect(nowPlayingResourceFromTarget({ channel, item: null, kind: 'livestream' })).toBe(null);
   });
 
-  it('carries the canonical resource data next to any stats payload', () => {
+  it('carries the canonical resource data next to other payload keys', () => {
     const payload = playbackEventPayloadForTarget(
       addByRssTarget({ feed_url: 'https://user:secret@example.com/feed.xml' }),
-      { stats_targets: { item_id_text: 'unused' } }
+      { note: 'kept' }
     );
 
     expect(payload).toEqual({
@@ -110,7 +110,7 @@ describe('Add by RSS playback events', () => {
         guid: 'episode-guid-1',
         title: 'Add by RSS Episode',
       },
-      stats_targets: { item_id_text: 'unused' },
+      note: 'kept',
     });
     expect(JSON.stringify(payload)).not.toContain('secret');
   });

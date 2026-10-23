@@ -14,7 +14,7 @@ describe('LONG_RUNNING_COMMANDS', () => {
   });
 
   it('excludes one-shot CronJob-style commands', () => {
-    expect(isLongRunningCommand('statsUpdateAggregated')).toBe(false);
+    expect(isLongRunningCommand('statsPopularityRefresh')).toBe(false);
     expect(isLongRunningCommand('archiveAll')).toBe(false);
   });
 });

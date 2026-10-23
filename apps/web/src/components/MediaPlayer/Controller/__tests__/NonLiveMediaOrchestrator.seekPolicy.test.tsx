@@ -438,7 +438,7 @@ describe('NonLiveMediaOrchestrator — enclosure switch resume', () => {
         reason: 'enclosure-switch-resume',
         shouldAutoPlay: false,
         shouldClearAutoQueue: false,
-        shouldRecordPlaybackStat: false,
+        listenSession: 'continue',
       },
     });
 

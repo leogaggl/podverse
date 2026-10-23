@@ -35,7 +35,7 @@ import type {
   DTOChannelGone,
   DTOItemDescriptionDetail,
   QueryParamsMedium,
-  StatsAggregatedRangeCountField,
+  StatsPopularityCountField,
 } from '@podverse/helpers';
 import {
   CHANNEL_GONE_ARCHIVED_MESSAGE,
@@ -56,7 +56,7 @@ import type {
   FindOptionsOrder,
   Item,
   ItemChapter,
-  StatsAggregatedItem,
+  StatsPopularityItem,
 } from '@podverse/orm';
 import {
   archivedShowFeedUrlForFollower,
@@ -69,7 +69,7 @@ import {
   itemGetManyRelationsWithChannel,
   itemGetOneRelations,
   ItemService,
-  StatsAggregatedItemService,
+  StatsPopularityItemService,
   subItemGetManyRelations,
   subItemGetManyRelationsWithChannel,
 } from '@podverse/orm';
@@ -87,8 +87,8 @@ export class ItemController {
   private static itemChapterService: ItemChapterService = new ItemChapterService();
   private static channelService: ChannelService = new ChannelService();
   private static mergeRedirects = new ChannelMergeRedirectService();
-  private static statsAggregatedItemService: StatsAggregatedItemService =
-    new StatsAggregatedItemService();
+  private static statsPopularityItemService: StatsPopularityItemService =
+    new StatsPopularityItemService();
 
   private static isParsedReadyChannel(channel: { channel_about?: unknown } | null): boolean {
     return Boolean(channel?.channel_about);
@@ -161,7 +161,7 @@ export class ItemController {
     liveItemType: 'pending' | 'live' | 'ended' | null;
     medium: QueryParamsMedium | null;
     offset: number;
-    orderField: StatsAggregatedRangeCountField;
+    orderField: StatsPopularityCountField;
     recentByChannel?: Channel;
   }): Promise<Item[]> {
     const {
@@ -178,7 +178,7 @@ export class ItemController {
 
     return fillTopPage({
       countRanked: () =>
-        ItemController.statsAggregatedItemService.countRanked(
+        ItemController.statsPopularityItemService.countRanked(
           medium,
           category_id,
           itemType,
@@ -188,7 +188,7 @@ export class ItemController {
         ),
       limit,
       loadRankedIds: () =>
-        ItemController.statsAggregatedItemService.getRankedItemIds(
+        ItemController.statsPopularityItemService.getRankedItemIds(
           medium,
           category_id,
           itemType,
@@ -228,13 +228,13 @@ export class ItemController {
         );
       },
       loadStatsPage: async () => {
-        const config: FindManyOptions<StatsAggregatedItem> = {
-          order: { [orderField]: 'DESC' },
+        const config: FindManyOptions<StatsPopularityItem> = {
+          order: { [orderField]: 'DESC', item_id: 'ASC' },
           skip: offset,
           take: limit,
           relations: recentByChannel ? subItemGetManyRelations : subItemGetManyRelationsWithChannel,
         };
-        const statsResults = await ItemController.statsAggregatedItemService.getMany(
+        const statsResults = await ItemController.statsPopularityItemService.getMany(
           config,
           medium,
           category_id,

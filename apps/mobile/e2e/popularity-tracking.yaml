@@ -3,6 +3,7 @@ name: Popularity Tracking Gate
 ---
 # Undecided seeded account must choose before the tab shell is usable.
 # Sign-in is the E2E shortcut; this flow still asserts the consent prompt itself.
+# After Yes, Settings also covers the opt-out confirmation.
 
 - runFlow: shared/launch-and-connect.yaml
 
@@ -49,3 +50,28 @@ name: Popularity Tracking Gate
 - assertVisible:
     id: more-settings-popularity-tracking-screen
 - takeScreenshot: popularity-tracking-settings
+
+- tapOn:
+    id: more-settings-popularity-tracking-switch
+- extendedWaitUntil:
+    visible:
+      id: more-settings-popularity-tracking-opt-out-dialog
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: popularity-tracking-opt-out-dialog
+- tapOn:
+    id: more-settings-popularity-tracking-opt-out-cancel
+- assertNotVisible:
+    id: more-settings-popularity-tracking-opt-out-dialog
+- takeScreenshot: popularity-tracking-opt-out-cancelled
+
+- tapOn:
+    id: more-settings-popularity-tracking-switch
+- extendedWaitUntil:
+    visible:
+      id: more-settings-popularity-tracking-opt-out-dialog
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: more-settings-popularity-tracking-opt-out-confirm
+- assertNotVisible:
+    id: more-settings-popularity-tracking-opt-out-dialog
+- takeScreenshot: popularity-tracking-opted-out

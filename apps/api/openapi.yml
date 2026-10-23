@@ -788,6 +788,232 @@ components:
               type: string
               format: date-time
               nullable: true
+    ApiGetAccountTasteProfileResponse200:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required:
+                  - channel
+                  - listen_count
+                  - completion_count
+                  - first_listened_at
+                  - last_listened_at
+                properties:
+                  channel:
+                    type: object
+                    required:
+                      - id_text
+                      - slug
+                      - title
+                      - medium_id
+                      - channel_images
+                    properties:
+                      id_text:
+                        type: string
+                        example: kM7T2xYqLp
+                      slug:
+                        type: string
+                        nullable: true
+                        example: example-show
+                      title:
+                        type: string
+                        nullable: true
+                        example: Example Show
+                      medium_id:
+                        type: integer
+                        example: 1
+                      channel_images:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - url
+                            - image_width_size
+                            - is_resized
+                          properties:
+                            url:
+                              type: string
+                              example: https://example.com/artwork.jpg
+                            image_width_size:
+                              type: integer
+                              nullable: true
+                              example: 600
+                            is_resized:
+                              type: boolean
+                              example: false
+                  listen_count:
+                    type: integer
+                    example: 4
+                  completion_count:
+                    type: integer
+                    example: 1
+                  first_listened_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: "2026-03-01T00:00:00.000Z"
+                  last_listened_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: "2026-03-03T00:00:00.000Z"
+            pagination:
+              type: object
+              required:
+                - page
+                - total_count
+                - total_pages
+              properties:
+                page:
+                  type: integer
+                  example: 1
+                total_count:
+                  type: integer
+                  example: 3
+                total_pages:
+                  type: integer
+                  example: 1
+    ApiGetAccountTasteProfileHiddenResponse200:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required:
+                  - channel
+                  - hidden_at
+                properties:
+                  channel:
+                    type: object
+                    required:
+                      - id_text
+                      - slug
+                      - title
+                      - medium_id
+                      - channel_images
+                    properties:
+                      id_text:
+                        type: string
+                        example: kM7T2xYqLp
+                      slug:
+                        type: string
+                        nullable: true
+                        example: example-show
+                      title:
+                        type: string
+                        nullable: true
+                        example: Example Show
+                      medium_id:
+                        type: integer
+                        example: 1
+                      channel_images:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - url
+                            - image_width_size
+                            - is_resized
+                          properties:
+                            url:
+                              type: string
+                              example: https://example.com/artwork.jpg
+                            image_width_size:
+                              type: integer
+                              nullable: true
+                              example: 600
+                            is_resized:
+                              type: boolean
+                              example: false
+                  hidden_at:
+                    type: string
+                    format: date-time
+                    example: "2026-04-04T15:00:00.000Z"
+            pagination:
+              type: object
+              required:
+                - page
+                - total_count
+                - total_pages
+              properties:
+                page:
+                  type: integer
+                  example: 1
+                total_count:
+                  type: integer
+                  example: 1
+                total_pages:
+                  type: integer
+                  example: 1
+    ApiPostAccountTasteProfileHideRequest:
+      type: object
+      required:
+        - channel_id_text
+      properties:
+        channel_id_text:
+          type: string
+          description: Public id of the show to hide.
+          example: kM7T2xYqLp
+      example:
+        channel_id_text: kM7T2xYqLp
+    ApiPostAccountTasteProfileUnhideRequest:
+      type: object
+      required:
+        - channel_id_text
+        - add_to_taste_profile
+      properties:
+        channel_id_text:
+          type: string
+          description: Public id of the show to take off Hidden From Taste Profile.
+          example: kM7T2xYqLp
+        add_to_taste_profile:
+          type: boolean
+          description: When true, also starts a fresh Taste Profile row at zero counts and scores.
+          example: true
+      example:
+        channel_id_text: kM7T2xYqLp
+        add_to_taste_profile: true
+    ApiPostAccountTasteProfileShowStateResponse200:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - channel_id_text
+            - hidden
+            - in_taste_profile
+          properties:
+            channel_id_text:
+              type: string
+              example: kM7T2xYqLp
+            hidden:
+              type: boolean
+              example: true
+            in_taste_profile:
+              type: boolean
+              example: false
     TermsAcceptanceRequiredErrorResponse:
       type: object
       required:
@@ -2813,46 +3039,6 @@ components:
     ApiGetQueueResourcesAllByAccountAbridgedResponse200:
       allOf:
         - $ref: "#/components/schemas/QueueResourceAbridgedResponse"
-    ApiPostStatsAccountRequest:
-      type: object
-      required:
-        - account_id_text
-      properties:
-        account_id_text:
-          type: string
-    ApiPostStatsAccountResponse200:
-      allOf:
-        - $ref: "#/components/schemas/MessageResponse"
-    ApiPostStatsChannelRequest:
-      type: object
-      required:
-        - channel_id_text
-      properties:
-        channel_id_text:
-          type: string
-    ApiPostStatsChannelResponse200:
-      allOf:
-        - $ref: "#/components/schemas/MessageResponse"
-    ApiPostStatsItemRequest:
-      type: object
-      required:
-        - item_id_text
-      properties:
-        item_id_text:
-          type: string
-    ApiPostStatsItemResponse200:
-      allOf:
-        - $ref: "#/components/schemas/MessageResponse"
-    ApiPostStatsPlaylistRequest:
-      type: object
-      required:
-        - playlist_id_text
-      properties:
-        playlist_id_text:
-          type: string
-    ApiPostStatsPlaylistResponse200:
-      allOf:
-        - $ref: "#/components/schemas/MessageResponse"
     Category:
       type: object
       properties:
@@ -3828,13 +4014,92 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/QueueResourceAbridgedEntry"
-    StatsClipEventRequest:
+    StatsListenRequest:
       type: object
+      description: >-
+        One report of a listening session. Exactly one of item_id_text and clip_id_text is
+        required. The body carries no device time; the server's receive time dates the listen.
       required:
-        - clip_id_text
+        - client_listen_id
+        - seconds_heard
+      oneOf:
+        - required:
+            - item_id_text
+        - required:
+            - clip_id_text
       properties:
+        item_id_text:
+          type: string
+          description: The episode or track heard. A soundbite listen sends its item.
         clip_id_text:
           type: string
+          description: The clip heard. The server derives its item and channel.
+        client_listen_id:
+          type: string
+          format: uuid
+          description: >-
+            One random id per listening session, generated by the device. Every report for the
+            session reuses it.
+        seconds_heard:
+          type: integer
+          minimum: 0
+          maximum: 86400
+          description: Media seconds actually played in this session so far.
+        completed:
+          type: boolean
+          default: false
+          description: The session reached the end of the item or clip.
+      example:
+        item_id_text: "kM7T2xYqLp"
+        client_listen_id: "3f6c2a9e-8d41-4b7a-9c35-1e2f4a6b8c0d"
+        seconds_heard: 75
+        completed: false
+    StatsListenResponse:
+      type: object
+      required:
+        - result
+      properties:
+        result:
+          type: string
+          enum:
+            - counted
+            - updated
+            - unchanged
+            - daily_cap_reached
+            - below_threshold
+            - not_allowed
+            - not_found
+            - clip_source_removed
+      example:
+        result: counted
+    StatsOpenRequest:
+      type: object
+      description: Exactly one of account_id_text (a profile opened) and playlist_id_text (a playlist opened) is required.
+      oneOf:
+        - required:
+            - account_id_text
+        - required:
+            - playlist_id_text
+      properties:
+        account_id_text:
+          type: string
+        playlist_id_text:
+          type: string
+      example:
+        playlist_id_text: "9fZq4Nb1Rd"
+    StatsOpenResponse:
+      type: object
+      required:
+        - result
+      properties:
+        result:
+          type: string
+          enum:
+            - counted
+            - unchanged
+            - own_content
+      example:
+        result: counted
     AccountFollowingAddByRSSChannel:
       type: object
       required:
@@ -4514,7 +4779,7 @@ paths:
       tags:
         - account-settings
       summary: PATCH /account-settings/listen-stats
-      description: Record a Yes or No decision for the current popularity-tracking agreement version.
+      description: Record a Yes or No decision for the current popularity-tracking agreement version. A No also deletes the account's pseudonymous listener id in the same request, which removes its listen records, Taste Profile, and Hidden From Taste Profile list. Anonymous public totals stay.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -6858,6 +7123,202 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/taste-profile:
+    get:
+      operationId: apiGetAccountTasteProfile
+      tags:
+        - account
+      summary: GET /account/taste-profile
+      description: Returns the signed-in account's Taste Profile, newest listen first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAccountTasteProfileResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/taste-profile/hidden:
+    get:
+      operationId: apiGetAccountTasteProfileHidden
+      tags:
+        - account
+      summary: GET /account/taste-profile/hidden
+      description: Returns the signed-in account's Hidden From Taste Profile list, most recently hidden first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAccountTasteProfileHiddenResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/taste-profile/hide:
+    post:
+      operationId: apiPostAccountTasteProfileHide
+      tags:
+        - account
+      summary: POST /account/taste-profile/hide
+      description: Removes the show from the Taste Profile, deletes its taste data, and adds it to Hidden From Taste Profile; public totals are unaffected.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountTasteProfileHideRequest"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountTasteProfileShowStateResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/taste-profile/unhide:
+    post:
+      operationId: apiPostAccountTasteProfileUnhide
+      tags:
+        - account
+      summary: POST /account/taste-profile/unhide
+      description: Takes the show off Hidden From Taste Profile; with `add_to_taste_profile` true it also starts a fresh Taste Profile row.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountTasteProfileUnhideRequest"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountTasteProfileShowStateResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
         "500":
           description: Internal server error
           content:
@@ -18865,13 +19326,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
-  /stats/account:
+  /stats/listen:
     post:
-      operationId: apiPostStatsAccount
+      operationId: apiPostStatsListen
       tags:
         - stats
-      summary: POST /stats/account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      summary: POST /stats/listen
+      description: >-
+        Records one report of a listening session for Popularity Tracking. Requires a Premium
+        membership with the trackStats capability and current Popularity Tracking consent, and is
+        rate limited per account (one budget shared with POST /stats/open). The first report of a
+        session stores one listen event, which counts toward the listener's daily cap; later reports
+        with the same client_listen_id keep the larger seconds_heard and a sticky completed and
+        never count the session twice. The server's receive time dates the listen for daily totals
+        and Taste Profile score decay. Authenticated endpoint (cookieAuth or bearerAuth).
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -18880,16 +19348,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ApiPostStatsAccountRequest"
+              $ref: "#/components/schemas/StatsListenRequest"
       responses:
         "201":
-          description: Event logged successfully
+          description: A new listening session was stored (result counted)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiPostStatsAccountResponse200"
+                $ref: "#/components/schemas/StatsListenResponse"
+        "200":
+          description: >-
+            The report was accepted without storing a new session: updated, unchanged, or
+            daily_cap_reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsListenResponse"
+              example:
+                result: daily_cap_reached
         "400":
-          description: Bad request
+          description: >-
+            Validation failed, or the listen does not meet the counted-listen rule (code
+            listen_below_threshold)
           content:
             application/json:
               schema:
@@ -18901,119 +19381,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
         "403":
-          description: Forbidden
+          description: >-
+            Terms not accepted, membership expired, no trackStats capability
+            (feature_not_available_for_account_type), or Popularity Tracking consent not current
+            (popularity_tracking_not_allowed)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthorizationErrorResponse"
         "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotFoundErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InternalServerErrorResponse"
-  /stats/channel:
-    post:
-      operationId: apiPostStatsChannel
-      tags:
-        - stats
-      summary: POST /stats/channel
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ApiPostStatsChannelRequest"
-      responses:
-        "201":
-          description: Event logged successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiPostStatsChannelResponse200"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValidationErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthenticationErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthorizationErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotFoundErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InternalServerErrorResponse"
-  /stats/clip:
-    post:
-      operationId: apiPostStatsClip
-      tags:
-        - stats
-      summary: POST /stats/clip
-      description: Authenticated endpoint (cookieAuth or bearerAuth). Returns 410 when the clip's episode was removed.
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StatsClipEventRequest"
-      responses:
-        "201":
-          description: Event logged successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValidationErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthenticationErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthorizationErrorResponse"
-        "404":
-          description: Not found
+          description: The item or clip was not found
           content:
             application/json:
               schema:
@@ -19024,19 +19401,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClipSourceRemovedResponse"
+        "429":
+          description: Too many requests for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
-  /stats/item:
+  /stats/open:
     post:
-      operationId: apiPostStatsItem
+      operationId: apiPostStatsOpen
       tags:
         - stats
-      summary: POST /stats/item
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      summary: POST /stats/open
+      description: >-
+        Records a profile or playlist open for Popularity Tracking. Counts once per opener, profile
+        or playlist, and UTC day, never for the opener's own profile or playlist, and never feeds
+        the Taste Profile. Requires a Premium membership with the trackStats capability and current
+        Popularity Tracking consent, and is rate limited per account (one budget shared with POST
+        /stats/listen). Authenticated endpoint (cookieAuth or bearerAuth).
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -19045,16 +19433,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ApiPostStatsItemRequest"
+              $ref: "#/components/schemas/StatsOpenRequest"
       responses:
         "201":
-          description: Event logged successfully
+          description: The first open of that profile or playlist by this listener today (result counted)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiPostStatsItemResponse200"
+                $ref: "#/components/schemas/StatsOpenResponse"
+        "200":
+          description: Already opened today (unchanged), or the opener's own profile or playlist (own_content)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsOpenResponse"
+              example:
+                result: unchanged
         "400":
-          description: Bad request
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -19066,70 +19462,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
         "403":
-          description: Forbidden
+          description: >-
+            Terms not accepted, membership expired, no trackStats capability
+            (feature_not_available_for_account_type), or Popularity Tracking consent not current
+            (popularity_tracking_not_allowed)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthorizationErrorResponse"
         "404":
-          description: Not found
+          description: The profile or playlist was not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
-        "500":
-          description: Internal server error
+        "429":
+          description: Too many requests for this account
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InternalServerErrorResponse"
-  /stats/playlist:
-    post:
-      operationId: apiPostStatsPlaylist
-      tags:
-        - stats
-      summary: POST /stats/playlist
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ApiPostStatsPlaylistRequest"
-      responses:
-        "201":
-          description: Event logged successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiPostStatsPlaylistResponse200"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValidationErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthenticationErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthorizationErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotFoundErrorResponse"
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal server error
           content:

@@ -83,9 +83,11 @@ describe('GET /legal/popularity-tracking', () => {
     const res = await request(app).get(`${legalBase}/popularity-tracking`).set(authHeaders());
 
     expect(res.status).toBe(200);
-    expect(res.body.version).toBe('2026-10-15');
+    expect(res.body.version).toBe('2026-10-21');
     expect(res.body.markdown).toContain('Popularity Tracking is optional');
     expect(res.body.markdown).toContain('not anonymous');
+    expect(res.body.markdown).toContain('Taste Profile');
+    expect(res.body.markdown).toContain('Hidden From Taste Profile');
   });
 
   it('returns Spanish markdown when the account locale is es', async () => {
@@ -96,6 +98,27 @@ describe('GET /legal/popularity-tracking', () => {
     expect(res.status).toBe(200);
     expect(res.body.markdown).toContain('El seguimiento de popularidad es opcional');
     expect(res.body.markdown).toContain('no es anónimo');
+    expect(res.body.markdown).toContain('Perfil de gustos');
+  });
+
+  it('returns French markdown when the account locale is fr', async () => {
+    localeGetByAccountIdMock.mockResolvedValueOnce({ locale: 'fr' });
+
+    const res = await request(app).get(`${legalBase}/popularity-tracking`).set(authHeaders());
+
+    expect(res.status).toBe(200);
+    expect(res.body.markdown).toContain('Le suivi de popularité est optionnel');
+    expect(res.body.markdown).toContain('Profil de goûts');
+  });
+
+  it('returns Greek markdown when the account locale is el-GR', async () => {
+    localeGetByAccountIdMock.mockResolvedValueOnce({ locale: 'el-GR' });
+
+    const res = await request(app).get(`${legalBase}/popularity-tracking`).set(authHeaders());
+
+    expect(res.status).toBe(200);
+    expect(res.body.markdown).toContain('Η παρακολούθηση δημοτικότητας είναι προαιρετική');
+    expect(res.body.markdown).toContain('Προφίλ γούστου');
   });
 
   it('returns 401 without auth', async () => {

@@ -438,6 +438,26 @@ export const MIGRATIONS: Migration[] = [
         ON add_by_rss_listed_feed (channel_id_text);`,
     ],
   },
+  {
+    version: 26,
+    statements: [
+      // One row per listen session waiting to reach the server. A later report of the same
+      // session merges into its row; the row goes once the server accepts the latest state.
+      `CREATE TABLE IF NOT EXISTS stats_listen_outbox (
+        client_listen_id TEXT PRIMARY KEY NOT NULL,
+        account_id_text TEXT NOT NULL,
+        target_kind TEXT NOT NULL,
+        target_id_text TEXT NOT NULL,
+        seconds_heard INTEGER NOT NULL,
+        completed INTEGER NOT NULL DEFAULT 0,
+        first_report INTEGER NOT NULL DEFAULT 1,
+        counted_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_stats_listen_outbox_account
+        ON stats_listen_outbox (account_id_text, counted_at);`,
+    ],
+  },
 ];
 
 export const LATEST_MIGRATION_VERSION: number = MIGRATIONS.reduce(

@@ -10,6 +10,9 @@ resources:
   - worker-account-content-log-purge.cronjob.yaml
   - worker-account-session-purge.cronjob.yaml
   - management-api-admin-session-purge.cronjob.yaml
+  - worker-stats-event-partitions.cronjob.yaml
+  - worker-stats-popularity-refresh.cronjob.yaml
+  - worker-stats-popularity-refresh-full.cronjob.yaml
   - worker-recent-feeds.cronjob.yaml
   - worker-archive-all.cronjob.yaml
   - worker-generate-reports.cronjob.yaml

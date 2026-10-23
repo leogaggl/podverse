@@ -122,7 +122,7 @@ describe('resolvePlaybackLoadDecision', () => {
       reason: 'clip-start',
       shouldAutoPlay: true,
       shouldClearAutoQueue: true,
-      shouldRecordPlaybackStat: true,
+      listenSession: 'start',
     });
   });
 
@@ -145,7 +145,7 @@ describe('resolvePlaybackLoadDecision', () => {
       reason: 'clip-start',
       shouldAutoPlay: true,
       shouldClearAutoQueue: true,
-      shouldRecordPlaybackStat: true,
+      listenSession: 'start',
     });
   });
 
@@ -378,7 +378,7 @@ describe('resolvePlaybackLoadDecision', () => {
       initialSeekSeconds: 45,
       reason: 'item-music-session-restore',
       shouldClearAutoQueue: false,
-      shouldRecordPlaybackStat: false,
+      listenSession: 'start',
     });
   });
 
@@ -459,7 +459,7 @@ describe('resolvePlaybackLoadDecision', () => {
       initialSeekSeconds: 0,
       reason: 'item-music-explicit',
       shouldClearAutoQueue: true,
-      shouldRecordPlaybackStat: true,
+      listenSession: 'start',
     });
   });
 
@@ -516,7 +516,7 @@ describe('resolvePlaybackLoadDecision', () => {
     ).toMatchObject({
       initialSeekSeconds: 120.5,
       reason: 'add-by-rss-resume',
-      shouldRecordPlaybackStat: false,
+      listenSession: 'none',
     });
   });
 
@@ -531,7 +531,7 @@ describe('resolvePlaybackLoadDecision', () => {
     ).toMatchObject({
       initialSeekSeconds: 0,
       reason: 'add-by-rss-fresh',
-      shouldRecordPlaybackStat: false,
+      listenSession: 'none',
     });
   });
 
@@ -552,6 +552,7 @@ describe('resolvePlaybackLoadDecision', () => {
       initialSeekSeconds: 0,
       pauseAtSeconds: undefined,
       reason: 'livestream',
+      listenSession: 'none',
     });
   });
 });

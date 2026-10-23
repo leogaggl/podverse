@@ -30,10 +30,10 @@ const {
   clipGetManyByItemAndCountPublicMock,
   clipGetManyByAccountMock,
   clipGetManyByChannelsMock,
-  statsAggregatedClipGetManyPublicMock,
-  statsAggregatedClipGetManyAndCountPublicMock,
-  statsAggregatedClipGetManyByChannelsAndCountPublicMock,
-  statsAggregatedClipGetManyByItemAndCountPublicMock,
+  statsPopularityClipGetManyPublicMock,
+  statsPopularityClipGetManyAndCountPublicMock,
+  statsPopularityClipGetManyByChannelsAndCountPublicMock,
+  statsPopularityClipGetManyByItemAndCountPublicMock,
   channelGetByIdTextMock,
   itemGetByIdTextMock,
   getAccountMock,
@@ -55,10 +55,10 @@ const {
   clipGetManyByItemAndCountPublicMock: vi.fn(async () => [[], 0]),
   clipGetManyByAccountMock: vi.fn(async () => []),
   clipGetManyByChannelsMock: vi.fn(async () => [[], 0]),
-  statsAggregatedClipGetManyPublicMock: vi.fn(async () => []),
-  statsAggregatedClipGetManyAndCountPublicMock: vi.fn(async () => [[], 0]),
-  statsAggregatedClipGetManyByChannelsAndCountPublicMock: vi.fn(async () => [[], 0]),
-  statsAggregatedClipGetManyByItemAndCountPublicMock: vi.fn(async () => [[], 0]),
+  statsPopularityClipGetManyPublicMock: vi.fn(async () => []),
+  statsPopularityClipGetManyAndCountPublicMock: vi.fn(async () => [[], 0]),
+  statsPopularityClipGetManyByChannelsAndCountPublicMock: vi.fn(async () => [[], 0]),
+  statsPopularityClipGetManyByItemAndCountPublicMock: vi.fn(async () => [[], 0]),
   channelGetByIdTextMock: vi.fn(async () => ({ id: 1, channel_id_text: CHANNEL_ID_TEXT })),
   itemGetByIdTextMock: vi.fn(async () => ({ id: 1, item_id_text: ITEM_ID_TEXT })),
   getAccountMock: vi.fn(async () => ({
@@ -107,11 +107,11 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     getByIdText = itemGetByIdTextMock;
   }
 
-  class MockStatsAggregatedClipService {
-    getManyPublic = statsAggregatedClipGetManyPublicMock;
-    getManyAndCountPublic = statsAggregatedClipGetManyAndCountPublicMock;
-    getManyByChannelsAndCountPublic = statsAggregatedClipGetManyByChannelsAndCountPublicMock;
-    getManyByItemAndCountPublic = statsAggregatedClipGetManyByItemAndCountPublicMock;
+  class MockStatsPopularityClipService {
+    getManyPublic = statsPopularityClipGetManyPublicMock;
+    getManyAndCountPublic = statsPopularityClipGetManyAndCountPublicMock;
+    getManyByChannelsAndCountPublic = statsPopularityClipGetManyByChannelsAndCountPublicMock;
+    getManyByItemAndCountPublic = statsPopularityClipGetManyByItemAndCountPublicMock;
   }
 
   class MockAccountFollowingChannelService {
@@ -127,7 +127,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     ClipService: MockClipService,
     ChannelService: MockChannelService,
     ItemService: MockItemService,
-    StatsAggregatedClipService: MockStatsAggregatedClipService,
+    StatsPopularityClipService: MockStatsPopularityClipService,
     AccountFollowingChannelService: MockAccountFollowingChannelService,
   };
 });
@@ -493,7 +493,7 @@ describe('clip routes', () => {
 
   describe('GET /public/top', () => {
     it('returns 200 with paginated clips', async () => {
-      statsAggregatedClipGetManyPublicMock.mockResolvedValueOnce([]);
+      statsPopularityClipGetManyPublicMock.mockResolvedValueOnce([]);
 
       const res = await request(app).get(`${clipBase}/public/top?medium=all&page=1&range=day`);
 
@@ -603,7 +603,7 @@ describe('clip routes', () => {
 
   describe('GET /public/subscribed/top', () => {
     it('returns 200 with subscribed top clips when authenticated', async () => {
-      statsAggregatedClipGetManyByChannelsAndCountPublicMock.mockResolvedValueOnce([[], 0]);
+      statsPopularityClipGetManyByChannelsAndCountPublicMock.mockResolvedValueOnce([[], 0]);
 
       const res = await request(app)
         .get(`${clipBase}/public/subscribed/top?medium=all&page=1&range=day`)
@@ -623,7 +623,7 @@ describe('clip routes', () => {
 
     it('returns an empty page and does not query clips when the account follows nothing', async () => {
       followingChannelGetFollowedChannelsWithCountMock.mockResolvedValueOnce({ results: [] });
-      statsAggregatedClipGetManyByChannelsAndCountPublicMock.mockClear();
+      statsPopularityClipGetManyByChannelsAndCountPublicMock.mockClear();
 
       const res = await request(app)
         .get(`${clipBase}/public/subscribed/top?medium=all&page=1&range=day`)
@@ -631,7 +631,7 @@ describe('clip routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([]);
-      expect(statsAggregatedClipGetManyByChannelsAndCountPublicMock).not.toHaveBeenCalled();
+      expect(statsPopularityClipGetManyByChannelsAndCountPublicMock).not.toHaveBeenCalled();
     });
   });
 });
