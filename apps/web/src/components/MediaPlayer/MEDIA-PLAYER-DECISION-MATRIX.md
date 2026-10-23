@@ -315,13 +315,14 @@ Added under [`apps/web/e2e/`](/apps/web/e2e):
   audio and no stuck UI.
 - `media-player-podcast-to-livestream-transition.spec.ts` — reverse
   direction.
+- `media-player-livestream-hls-start.spec.ts` — live HLS playback and playlist reload.
 
 These specs gate Phase 4a/4b/4c **and** the follow-up HLS migration. They
 must run unchanged across every phase.
 
 ### 6c. Test feed selection
 
-All four live-stream specs run against the internal seed. No live-stream
+The live-stream specs run against the internal seed. No live-stream
 test server or external network dependency is involved; the asset server
 on port 2111 serves the enclosures.
 
@@ -330,6 +331,8 @@ on port 2111 serves the enclosures.
 | Live audio, no enclosure | Feed `v5fCrIj9Io` / item `e2eLiveStrm01`                                   | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Controller-tree mount on navigation, without play (audio-start spec)              |
 | Live audio, playable     | Feed `e2eLiveAvChn01` / item `e2eLiveAud001`, progressive mp3 on port 2111 | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Play, dispose, and recreate across live ⇄ non-live transitions (transition specs) |
 | Live video, playable     | Feed `e2eLiveAvChn01` / item `e2eLiveVid001`, progressive mp4 on port 2111 | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Live `<video>` mount and floating-portal placement (video-start spec)             |
+| Live audio HLS           | Feed `e2eLiveAvChn01` / item `e2eLiveHlsA01`, `e2e-hls-event.m3u8`         | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Live audio HLS playback and playlist reload (hls-start spec)                      |
+| Live video HLS           | Feed `e2eLiveAvChn01` / item `e2eLiveHlsV01`, `e2e-hls-video-event.m3u8`   | [tools/web/seed-e2e.mjs](/tools/web/seed-e2e.mjs) | Live video HLS playback, decoded frames, and floating portal (hls-start spec)     |
 
 The playable live items sit in their own unsubscribed channel so
 `v5fCrIj9Io` keeps a single enclosure-free live item — the audio-start and
@@ -340,13 +343,10 @@ filter spec still matches exactly one channel on the term `livestream`.
 **What a progressive file does and does not cover.** Enclosure selection,
 controller selection, element mount, unmount/remount, and floating-portal
 placement are all real: they depend on the labeled enclosure's media type
-and on `mpItem.live_item`, not on the transport. Live-edge semantics —
-`duration === Infinity`, a `currentTime` that never advances, manifest
-reload, and cross-source fallback — need a real HLS source and are
-asserted nowhere today. Phase 4 moves live playback onto the non-live bridge's
-single `<MediaElement>`, so it owns that infrastructure decision (real server vs
-`page.route` mock vs an `E2E_LIVE_FEEDS_OK`-gated public stream) and should
-extend these specs rather than start from scratch.
+and on `mpItem.live_item`, not on the transport. Playlist reload and
+playback from a live HLS playlist are asserted in Chromium through `hls.js`.
+Safari native HLS, real live-edge advance, `duration === Infinity`, and
+cross-source fallback are still not asserted.
 
 ## Cross-cutting side effects glossary
 
@@ -434,7 +434,7 @@ without losing coverage.
   (see the "Phase 1 deliverable-5 substitution" subsection above).
 - **E2E specs** that drive the matrix end-to-end live under
   [`apps/web/e2e/`](/apps/web/e2e) prefixed with `media-player-` — including
-  the four livestream specs from § 6b.
+  the livestream specs from § 6b.
 
 > Open **Phase 2** items (capture before extracting helpers):
 >

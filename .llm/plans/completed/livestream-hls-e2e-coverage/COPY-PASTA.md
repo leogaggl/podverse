@@ -18,7 +18,7 @@ you want to read each result before the next prompt starts.
 
 ## Phase 1 — import guard
 
-- [ ] **01 — Block video.js imports**
+- [x] **01 — Block video.js imports**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** low
 
@@ -32,7 +32,7 @@ changed and anything prompt 02 needs, without a verification block. Then move th
 
 ## Phase 2 — live HLS fixtures, seed, and spec
 
-- [ ] **02 — Live HLS E2E coverage**
+- [x] **02 — Live HLS E2E coverage**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 

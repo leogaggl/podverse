@@ -165,6 +165,7 @@ export default tseslint.config(
       '**/.llm/plans/**',
       '**/*.md',
       '**/*.mdc',
+      'tools/test-assets/assets/**',
     ],
   },
   {
@@ -205,6 +206,30 @@ export default tseslint.config(
             'CallExpression[callee.type="MemberExpression"][callee.object.type="MemberExpression"][callee.object.object.name="mediaRef"][callee.object.property.name="current"][callee.property.name="removeAttribute"]',
           message:
             'Do not call mediaRef.current.removeAttribute() here; only useMediaElementBridge may do that.',
+        },
+      ],
+    },
+  },
+  {
+    files: ['apps/web/src/**/*.{ts,tsx}', 'apps/management-web/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'video.js',
+              message:
+                'Livestreams play through MediaElement with hls.js; do not add video.js (see .cursor/skills/media-player-architecture/SKILL.md).',
+            },
+          ],
+          patterns: [
+            {
+              group: ['video.js/*', '@videojs/*'],
+              message:
+                'Livestreams play through MediaElement with hls.js; do not add Video.js packages (see .cursor/skills/media-player-architecture/SKILL.md).',
+            },
+          ],
         },
       ],
     },

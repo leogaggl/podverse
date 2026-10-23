@@ -262,12 +262,14 @@ const E2E_VIDEO_ITEM_DURATION_SECONDS = 30;
 
 // Non-live VOD HLS playlist for playback start. The enclosure MIME stays audio/mpeg so
 // playback must classify the `.m3u8` path (the query does not change that). Unsubscribed
-// and not queued, so list and queue specs keep their existing rows. The EVENT HLS playlist
-// is served beside it and is not seeded.
+// and not queued, so list and queue specs keep their existing rows. The EVENT playlists
+// are served beside the VOD playlist and are seeded as live-item enclosures.
 const E2E_HLS_FEED_URL = 'https://e2e-seed-hls-vod.example/podcast.xml';
 const E2E_HLS_FEED_PI_ID = 876543222;
 const E2E_HLS_ASSET_BASE_URL = 'http://localhost:2111/e2e/hls';
 const E2E_HLS_VOD_ENCLOSURE_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-vod.m3u8?fixture=vod`;
+const E2E_HLS_EVENT_PLAYLIST_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-event.m3u8`;
+const E2E_HLS_VIDEO_EVENT_PLAYLIST_URL = `${E2E_HLS_ASSET_BASE_URL}/e2e-hls-video-event.m3u8`;
 const E2E_HLS_CHANNEL_ID_TEXT = 'e2eHlsChnl001';
 const E2E_HLS_VOD_ITEM_ID_TEXT = 'e2eHlsVodIt01';
 const E2E_HLS_CHANNEL_TITLE = 'E2E HLS VOD Channel';
@@ -288,6 +290,10 @@ const E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT = 'e2eLiveAud001';
 const E2E_LIVE_AV_AUDIO_ITEM_TITLE = 'E2E Live Audio Stream';
 const E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT = 'e2eLiveVid001';
 const E2E_LIVE_AV_VIDEO_ITEM_TITLE = 'E2E Live Video Stream';
+const E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT = 'e2eLiveHlsA01';
+const E2E_LIVE_AV_HLS_AUDIO_ITEM_TITLE = 'E2E Live HLS Audio Stream';
+const E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT = 'e2eLiveHlsV01';
+const E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE = 'E2E Live HLS Video Stream';
 const E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched01';
 const E2E_LIVE_AV_SCHEDULED_ITEM_TITLE = 'E2E Scheduled Livestream';
 
@@ -2136,6 +2142,21 @@ async function seedLiveAvFixtures(client) {
     enclosureType: 'video/mp4',
     enclosureUrl: E2E_VIDEO_SHORT_ENCLOSURE_URL,
   });
+  // Enclosure type stays a progressive MIME. The `.m3u8` path is what classifies the source as HLS.
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT,
+    guidSlug: 'live-hls-audio',
+    title: E2E_LIVE_AV_HLS_AUDIO_ITEM_TITLE,
+    enclosureType: 'audio/mpeg',
+    enclosureUrl: E2E_HLS_EVENT_PLAYLIST_URL,
+  });
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT,
+    guidSlug: 'live-hls-video',
+    title: E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE,
+    enclosureType: 'video/mp4',
+    enclosureUrl: E2E_HLS_VIDEO_EVENT_PLAYLIST_URL,
+  });
   await insertLiveItem({
     idText: E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT,
     guidSlug: 'scheduled',
@@ -2149,7 +2170,7 @@ async function seedLiveAvFixtures(client) {
   await client.query(`UPDATE channel SET may_have_live_items = true WHERE id = $1`, [channelId]);
 
   console.log(
-    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT})`
+    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, hls audio ${E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT}, hls video ${E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT})`
   );
 }
 
