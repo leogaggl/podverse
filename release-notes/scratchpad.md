@@ -2230,3 +2230,23 @@ family revoked`.
   membership, and the form says so.
 - Who notices: people creating an API key from the phone
 - Operator steps: none
+
+## Concurrent first listen reports no longer deadlock
+
+- Surfaces: api
+- Change: The first listen or open reports for an account take an advisory lock on that account
+  before inserting the listener row. Concurrent first reports were deadlocking on the unique
+  insert and the write failed. Later reports for an account that already has a listener are
+  unchanged.
+- Who notices: a listener whose first reports arrive together
+- Operator steps: none
+
+## API docs find the OpenAPI file from the app directory
+
+- Surfaces: api, management-api
+- Change: `/docs.yaml` looks for `openapi.yml` beside the app (`src/lib/docs` and `dist/lib/docs`
+  both walk up to the app directory) and in the process working directory. The previous walk
+  stopped one directory early, so a server started in the app directory answered 500.
+- Who notices: anyone opening the API or management API docs when the process working directory
+  is the app directory
+- Operator steps: none

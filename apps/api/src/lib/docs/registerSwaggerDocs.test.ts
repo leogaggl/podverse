@@ -102,7 +102,7 @@ const PATH_LINE = /^ {2}\/.*:$/;
 
 function readOpenApiSpec(): string {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  const specPath = path.resolve(currentDir, '../../openapi.yml');
+  const specPath = path.resolve(currentDir, '../../../openapi.yml');
   return fs.readFileSync(specPath, 'utf8');
 }
 

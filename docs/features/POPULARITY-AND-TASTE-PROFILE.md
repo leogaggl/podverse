@@ -146,6 +146,11 @@ Wait for the first job to finish before starting the second.
 
 - The listen and open write paths update daily totals in the same transaction that inserts the
   event. No job builds daily totals from events.
+- Creating the listener row takes
+  `SELECT pg_advisory_xact_lock(hashtextextended('popularity_listen_account:' || $account_id::text, 0))`
+  first. Concurrent first writes of one account insert the same unique key, and Postgres can
+  deadlock those inserts. The lock is held until the transaction ends and is taken before the
+  per-listener lock. `getOrCreateListenerId` runs it.
 - Once the listener id is known, and before it reads any of the listener's events, the
   transaction takes
   `SELECT pg_advisory_xact_lock(hashtextextended('popularity_listen:' || $listener_id::text, 0))`,

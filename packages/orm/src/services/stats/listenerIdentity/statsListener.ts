@@ -14,7 +14,15 @@ const EMPTY_OPT_OUT_DAY_CARRY: OptOutDayCarry = { storedCount: 0, firstStoredAt:
  */
 export class StatsListenerService {
   async getOrCreateListenerId(account_id: number, manager?: EntityManager): Promise<string> {
-    const result = await this.entityManager(manager)
+    const db = this.entityManager(manager);
+    // Concurrent first writes of one account insert the same unique key. Postgres can deadlock
+    // those inserts. This lock is held until the caller's transaction ends, and it is taken
+    // before the per-listener lock.
+    await db.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended('popularity_listen_account:' || $1::text, 0))`,
+      [account_id]
+    );
+    const result = await db
       .createQueryBuilder()
       .insert()
       .into(StatsListener)
