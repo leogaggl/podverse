@@ -77,7 +77,10 @@ class AccountUnfollowBulkController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'delete' },
+      }
     );
   }
 }

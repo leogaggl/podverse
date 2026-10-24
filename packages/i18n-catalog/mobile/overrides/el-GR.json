@@ -103,6 +103,11 @@
       "downloads_description": "",
       "notifications_description": ""
     },
+    "developer": {
+      "menu_subtitle": "",
+      "docs_unavailable": "",
+      "spec_copy_hint": ""
+    },
     "offline_mode": {
       "title": "",
       "description": "",

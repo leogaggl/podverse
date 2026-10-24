@@ -1,0 +1,131 @@
+appId: com.podverse.app.next
+name: Developer API Keys
+---
+# More → Settings → Developer creates a key, shows the secret once, lists the key, and
+# revokes it. Each platform uses its own name so a parallel run stays on its own row.
+# The OpenAPI row copies a URL. The API Reference row is not tapped, because that leaves
+# the app. The seeded user has a membership, so neither membership dialog opens.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- tapOn:
+    id: tab-more
+- tapOn:
+    id: more-settings
+- tapOn:
+    id: more-settings-developer
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-screen
+    timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-docs
+    timeout: ${TIMEOUT_SLOW}
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-docs-yaml
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: more-settings-developer-docs-yaml
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-docs-yaml-copied
+      text: "Copied"
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: more-settings-developer-create
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-create-screen
+    timeout: ${TIMEOUT_FAST}
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-permission-account-create
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    text: "Account Create is not available."
+- assertVisible:
+    id: more-settings-developer-permission-account-read
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: more-settings-developer-name
+      - inputText: "E2E Agent iOS"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: more-settings-developer-name
+      - inputText: "E2E Agent Android"
+      - hideKeyboard
+- tapOn:
+    id: more-settings-developer-submit
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-token
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: settings-developer-token
+- tapOn:
+    id: more-settings-developer-copy
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-copy
+      text: "Copied"
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: more-settings-developer-done
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-screen
+    timeout: ${TIMEOUT_SLOW}
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          text: "E2E Agent iOS"
+      - assertVisible:
+          text: "Read Only"
+      - tapOn:
+          text: "Revoke E2E Agent iOS"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          text: "E2E Agent Android"
+      - assertVisible:
+          text: "Read Only"
+      - tapOn:
+          text: "Revoke E2E Agent Android"
+- extendedWaitUntil:
+    visible:
+      id: more-settings-developer-revoke-dialog
+    timeout: ${TIMEOUT_FAST}
+- takeScreenshot: settings-developer-revoke-dialog
+- tapOn:
+    id: more-settings-developer-revoke-confirm
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            text: "E2E Agent iOS"
+          timeout: ${TIMEOUT_SLOW}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            text: "E2E Agent Android"
+          timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: settings-developer-revoked

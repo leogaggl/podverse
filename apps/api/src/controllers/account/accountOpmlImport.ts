@@ -33,6 +33,7 @@ const MAX_OPML_FEEDS = 1000;
 export const opmlImportEnqueueRateLimit = rateLimitAuthEndpoint({
   windowMs: config.rateLimits.accountOpmlImportEnqueue.windowMs,
   max: config.rateLimits.accountOpmlImportEnqueue.max,
+  apiKeyAccess: { resource: 'subscriptions', action: 'create' },
 });
 
 const cacheSetJsonAdapter: CacheSetJson = (key, value, ttlSeconds) =>
@@ -162,7 +163,10 @@ class AccountOpmlImportController {
           });
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'create' },
+      }
     );
   }
 
@@ -196,7 +200,10 @@ class AccountOpmlImportController {
           }
         );
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+      }
     );
   }
 }

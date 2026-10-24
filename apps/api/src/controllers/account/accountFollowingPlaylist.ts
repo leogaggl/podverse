@@ -91,7 +91,10 @@ class AccountFollowingPlaylistController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'subscriptions', action: 'create' },
+      }
     );
   }
 
@@ -115,7 +118,10 @@ class AccountFollowingPlaylistController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'delete' },
+      }
     );
   }
 }

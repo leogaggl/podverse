@@ -23,6 +23,8 @@ export type ConfirmDialogProps = {
   cancelLabel: string;
   confirmLabel?: string;
   confirmVariant?: ButtonVariant;
+  /** When true, the confirm action shows its loading state. */
+  confirmLoading?: boolean;
   onCancel: () => void;
   onConfirm?: () => void;
   testID: string;
@@ -41,6 +43,7 @@ export function ConfirmDialog({
   cancelLabel,
   confirmLabel,
   confirmVariant,
+  confirmLoading,
   onCancel,
   onConfirm,
   testID,
@@ -104,6 +107,7 @@ export function ConfirmDialog({
           label: confirmLabel,
           onPress: onConfirm,
           testID: confirmTestID,
+          ...(confirmLoading === true ? { loading: true } : {}),
           ...(confirmVariant === undefined ? {} : { variant: confirmVariant }),
         }
       : undefined;

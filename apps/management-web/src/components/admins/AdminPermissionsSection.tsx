@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { CrudAction } from '@podverse/helpers';
+import { CRUD_ACTIONS, CRUD_BITS } from '@podverse/helpers';
 import type { FormDropdownOption } from '@podverse/ui';
 import {
   Button,
@@ -31,12 +33,17 @@ import {
   rolePermissionScore,
 } from './adminPermissionModel';
 
-const CRUD_BITS = [
-  { bit: 1, labelKey: 'create' },
-  { bit: 2, labelKey: 'read' },
-  { bit: 4, labelKey: 'update' },
-  { bit: 8, labelKey: 'deletePerm' },
-] as const;
+const CRUD_LABEL_KEYS = {
+  create: 'create',
+  read: 'read',
+  update: 'update',
+  delete: 'deletePerm',
+} as const satisfies Record<CrudAction, string>;
+
+const CRUD_COLUMNS = CRUD_ACTIONS.map((action) => ({
+  bit: CRUD_BITS[action],
+  labelKey: CRUD_LABEL_KEYS[action],
+}));
 
 const RESOURCE_LABEL_KEYS: Record<(typeof ADMIN_PERMISSION_RESOURCE_KEYS)[number], string> = {
   feeds_crud: 'feeds',
@@ -303,7 +310,7 @@ export function AdminPermissionsSection({
           <Table.Head>
             <Table.Row>
               <Table.HeaderCell>{tp('resource')}</Table.HeaderCell>
-              {CRUD_BITS.map((check) => (
+              {CRUD_COLUMNS.map((check) => (
                 <Table.HeaderCell key={check.bit}>{tp(check.labelKey)}</Table.HeaderCell>
               ))}
             </Table.Row>
@@ -312,7 +319,7 @@ export function AdminPermissionsSection({
             {ADMIN_PERMISSION_RESOURCE_KEYS.map((key) => (
               <Table.Row key={key}>
                 <Table.Cell>{tp(RESOURCE_LABEL_KEYS[key])}</Table.Cell>
-                {CRUD_BITS.map((check) => (
+                {CRUD_COLUMNS.map((check) => (
                   <Table.Cell key={check.bit}>
                     <Checkbox
                       aria-label={`${tp(RESOURCE_LABEL_KEYS[key])}, ${tp(check.labelKey)}`}

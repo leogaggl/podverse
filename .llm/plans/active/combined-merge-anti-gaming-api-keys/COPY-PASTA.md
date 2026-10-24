@@ -34,7 +34,7 @@ cannot fix goes to the deferred file and does not block the run.
 
 ## Phase 2 — Developer API keys
 
-- [ ] **02 — Merge feature/developer-api-keys**
+- [x] **02 — Merge feature/developer-api-keys**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

@@ -53,6 +53,10 @@ const E2E_OUTDATED_TASTE_PROFILE_AGREEMENT_VERSION = '2026-01-01';
 const E2E_CONSENT_ORDER_EMAIL = 'e2e-consent-order@example.com';
 /** Sync with apps/web/e2e/helpers/accountSessions.ts */
 const E2E_SESSIONS_EMAIL = 'e2e-sessions@example.com';
+/** Sync with apps/web/e2e/settings-developer.spec.ts */
+const E2E_API_KEYS_EMAIL = 'e2e-api-keys@example.com';
+const E2E_API_KEYS_EXPIRED_EMAIL = 'e2e-api-keys-expired@example.com';
+const E2E_API_KEYS_NONE_EMAIL = 'e2e-api-keys-none@example.com';
 /** Sync with apps/mobile/src/lib/e2e/e2eSeedConstants.ts (`E2E_PERF_EMAIL`). */
 const E2E_PERF_EMAIL = 'e2e-perf@example.com';
 /** Sync with apps/web/e2e/settings-account-change-password.spec.ts */
@@ -776,6 +780,132 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
     [sessionsAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
+  const apiKeysIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const apiKeysAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [apiKeysIdText]
+  );
+  const apiKeysAccountId = apiKeysAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [apiKeysAccountId, E2E_API_KEYS_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+     VALUES ($1, 1, $2)`,
+    [apiKeysAccountId, membershipExpiresAt]
+  );
+  await client.query(
+    `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+     VALUES ($1, 'trial', $2, $3)`,
+    [apiKeysAccountId, membershipStartsAt, membershipExpiresAt]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [apiKeysAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, false, false, $2, NOW())`,
+    [apiKeysAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
+  );
+
+  const apiKeysExpiredEndsAt = new Date();
+  apiKeysExpiredEndsAt.setUTCDate(apiKeysExpiredEndsAt.getUTCDate() - 1);
+  const apiKeysExpiredStartsAt = new Date(apiKeysExpiredEndsAt.getTime());
+  apiKeysExpiredStartsAt.setUTCDate(apiKeysExpiredStartsAt.getUTCDate() - 30);
+
+  const apiKeysExpiredIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const apiKeysExpiredAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [apiKeysExpiredIdText]
+  );
+  const apiKeysExpiredAccountId = apiKeysExpiredAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [apiKeysExpiredAccountId, E2E_API_KEYS_EXPIRED_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
+     VALUES ($1, 1, $2)`,
+    [apiKeysExpiredAccountId, apiKeysExpiredEndsAt]
+  );
+  await client.query(
+    `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
+     VALUES ($1, 'trial', $2, $3)`,
+    [apiKeysExpiredAccountId, apiKeysExpiredStartsAt, apiKeysExpiredEndsAt]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [apiKeysExpiredAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, false, false, $2, NOW())`,
+    [apiKeysExpiredAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
+  );
+
+  const apiKeysNoneIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const apiKeysNoneAccountResult = await client.query(
+    `INSERT INTO "account" (id_text, verified, sharable_status_id)
+     VALUES ($1, true, 1)
+     RETURNING id`,
+    [apiKeysNoneIdText]
+  );
+  const apiKeysNoneAccountId = apiKeysNoneAccountResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO "account_credentials" (account_id, email, password)
+     VALUES ($1, $2, $3)`,
+    [apiKeysNoneAccountId, E2E_API_KEYS_NONE_EMAIL, passwordHash]
+  );
+
+  await client.query(
+    `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
+     VALUES ($1, $2, NOW())`,
+    [apiKeysNoneAccountId, E2E_CONFIGURED_TERMS_VERSION]
+  );
+
+  await client.query(
+    `INSERT INTO "account_settings" (
+       account_id,
+       allow_listen_stats,
+       listen_stats_accepted,
+       listen_stats_agreement_version,
+       listen_stats_decided_at
+     )
+     VALUES ($1, false, false, $2, NOW())`,
+    [apiKeysNoneAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
+  );
+
   const tasteProfileIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
   const tasteProfileAccountResult = await client.query(
     `INSERT INTO "account" (id_text, verified, sharable_status_id)
@@ -870,6 +1000,9 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
   );
   console.log(`Seeded consent-order user: ${E2E_CONSENT_ORDER_EMAIL}`);
   console.log(`Seeded sessions user: ${E2E_SESSIONS_EMAIL}`);
+  console.log(`Seeded API keys user: ${E2E_API_KEYS_EMAIL}`);
+  console.log(`Seeded API keys expired user: ${E2E_API_KEYS_EXPIRED_EMAIL}`);
+  console.log(`Seeded API keys no-membership user: ${E2E_API_KEYS_NONE_EMAIL}`);
   console.log(`Seeded stale-terms user: ${E2E_STALE_TERMS_EMAIL}`);
   console.log(`Seeded taste-profile user: ${E2E_TASTE_PROFILE_EMAIL}`);
   console.log(`Seeded Taste Profile consent stale user: ${E2E_TASTE_PROFILE_CONSENT_STALE_EMAIL}`);

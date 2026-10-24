@@ -3,14 +3,21 @@ import { loggerService } from '@api/factories/loggerService.js';
 import type { CookieOptions, NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 
-import type { AccountEntitlementCapability, AuthSessionEndedNotice } from '@podverse/helpers';
+import type {
+  AccountEntitlementCapability,
+  ApiKeyPermissionRequirement,
+  AuthSessionEndedNotice,
+} from '@podverse/helpers';
 import {
+  API_KEY_ERROR_CODES,
+  apiKeyPermissionsAllow,
   APP_ROUTES,
   AUTH_SESSION_ENDED_CODE,
   AuthCookieName,
   BILLING_CLIENT_PLATFORM_HEADER,
   ERROR_MESSAGES,
   hasValidMembership,
+  MS_PER_SECOND,
 } from '@podverse/helpers';
 import type { AccountSessionRow, FindOptionsRelations } from '@podverse/orm';
 import {
@@ -29,6 +36,8 @@ import {
   rotateMobileRefreshToken,
   startAccountSession,
 } from './accountSessionStore.js';
+import type { ApiKeyCheck } from './apiKeyStore.js';
+import { checkApiKey, recordApiKeyUse } from './apiKeyStore.js';
 import { deviceLabelForMobile, deviceLabelFromUserAgent } from './deviceLabel.js';
 import { verifyPassword } from './password.js';
 import type { RequestToken } from './sessionTokens.js';
@@ -54,14 +63,26 @@ import {
  *
  * Login responses omit `token` unless AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY=true and the client sends
  * includeTokenInResponseBody.
+ *
+ * An API key (`Authorization: Bearer pvk_…`) is a third credential. It names no session: it is
+ * checked against its own row, never renewed, and recorded as used at most once per
+ * API_KEY_LAST_USED_INTERVAL_MS.
  */
 const isProduction = config.nodeEnv === 'production';
 const MEMBERSHIP_EXPIRED_I18N_KEY = 'membership.membership_expired';
 
-type AuthenticatedRequestOptions = {
+export type AuthenticatedRequestOptions = {
   skipMembershipStatus: boolean;
   skipTermsAcceptance?: boolean;
   requiredCapability?: AccountEntitlementCapability;
+  /**
+   * The permission a key needs on this route. Omitted: the route never accepts a key.
+   *
+   * A key authenticates as its owner and can never do more than the owner can signed in. It goes
+   * through the same terms and `requiredCapability` checks as a session, and always through the
+   * membership check, even where `skipMembershipStatus` lets a session through.
+   */
+  apiKeyAccess?: ApiKeyPermissionRequirement;
 };
 
 /** What a valid token naming an ended session gets: a 401, or (public routes) anonymous access. */
@@ -344,6 +365,164 @@ function readJwtExpSeconds(decoded: unknown): number | undefined {
   return exp;
 }
 
+function sendTermsAcceptanceRequired(res: Response): void {
+  res.status(403).json({
+    message: 'Terms of service acceptance is required.',
+    code: 'terms_acceptance_required',
+  });
+}
+
+function sendMembershipExpired(res: Response): void {
+  res.status(403).json({
+    message: 'Your membership has expired. Renew to use this feature.',
+    code: 'membership_expired',
+    i18nKey: MEMBERSHIP_EXPIRED_I18N_KEY,
+    renewPath: APP_ROUTES.MEMBERSHIP_RENEW,
+  });
+}
+
+function sendCapabilityMissing(res: Response): void {
+  res.status(403).json({
+    message: 'Your account does not currently have access to this feature.',
+    code: 'feature_not_available_for_account_type',
+    i18nKey: 'membership.feature_not_available_for_account_type',
+    renewPath: APP_ROUTES.MEMBERSHIP_RENEW,
+  });
+}
+
+/**
+ * Terms, then membership, then capability, in that order and with the same bodies for sessions
+ * and keys. Sets `user.entitlements` when membership is checked. False once a 403 has been sent.
+ */
+async function passesAccountGates(
+  res: Response,
+  account: Account,
+  user: Express.User,
+  gates: {
+    enforceTerms: boolean;
+    enforceMembership: boolean;
+    requiredCapability: AccountEntitlementCapability | undefined;
+  }
+): Promise<boolean> {
+  if (gates.enforceTerms && accountNeedsCurrentTerms(account, config.terms.version)) {
+    sendTermsAcceptanceRequired(res);
+    return false;
+  }
+
+  if (!gates.enforceMembership) {
+    return true;
+  }
+
+  const membershipStatus = account.account_membership_status;
+  if (!hasValidMembership(membershipStatus)) {
+    console.warn('[verifyTokenAndMembership] Membership expired or missing for user id:', user.id);
+    sendMembershipExpired(res);
+    return false;
+  }
+
+  const capDefaults = await getBillingPriceCatalogService().resolveProductMembershipCapDefaults();
+  const entitlements = getAccountEntitlements(membershipStatus, capDefaults);
+  user.entitlements = entitlements;
+
+  if (gates.requiredCapability && !accountHasCapability(entitlements, gates.requiredCapability)) {
+    sendCapabilityMissing(res);
+    return false;
+  }
+
+  return true;
+}
+
+function sendApiKeyRejected(
+  res: Response,
+  code: Extract<ApiKeyCheck, { kind: 'rejected' }>['code']
+): void {
+  res.status(401).json({
+    message: code === API_KEY_ERROR_CODES.expired ? 'API key expired' : 'Invalid API key',
+    code,
+  });
+}
+
+/**
+ * A key reaches a route only when the route declares `apiKeyAccess` and the key holds that bit.
+ * Membership is checked on every route, whatever `skipMembershipStatus` says. A key never sets or
+ * clears the session cookie.
+ */
+async function verifyApiKeyAndMembership(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  token: string,
+  options: AuthenticatedRequestOptions
+): Promise<void> {
+  const check = await checkApiKey(token);
+  if (check.kind === 'rejected') {
+    sendApiKeyRejected(res, check.code);
+    return;
+  }
+  const { apiKey } = check;
+
+  const requirement = options.apiKeyAccess;
+  if (requirement === undefined) {
+    res.status(403).json({
+      message: 'API keys cannot be used for this endpoint.',
+      code: API_KEY_ERROR_CODES.notAllowed,
+    });
+    return;
+  }
+  if (!apiKeyPermissionsAllow(apiKey.permissions, requirement)) {
+    res.status(403).json({
+      message: `This API key needs the ${requirement.action} permission on ${requirement.resource}.`,
+      code: API_KEY_ERROR_CODES.permissionDenied,
+      required_permission: { resource: requirement.resource, action: requirement.action },
+    });
+    return;
+  }
+
+  let relations: FindOptionsRelations<Account> = findOptionsRelationsFromPaths<Account>([
+    'account_membership_status',
+    'account_membership_status.account_membership',
+  ]);
+  const enforceTerms = options.skipTermsAcceptance !== true && config.terms.version !== '';
+  if (enforceTerms) {
+    relations = mergeFindOptionsRelations<Account>(relations, ['account_terms_acceptance']);
+  }
+  const account = await getAccountService().get(apiKey.account_id, { relations });
+  const accountIdText =
+    account && typeof account.id_text === 'string' && account.id_text !== ''
+      ? account.id_text
+      : undefined;
+  if (!account || accountIdText === undefined) {
+    sendApiKeyRejected(res, API_KEY_ERROR_CODES.invalid);
+    return;
+  }
+
+  req.user = {
+    id: account.id,
+    id_text: accountIdText,
+    verified: typeof account.verified === 'boolean' ? account.verified : true,
+    session_id_text: null,
+    api_key: { id_text: apiKey.id_text, permissions: apiKey.permissions },
+  };
+  if (apiKey.expires_at !== null) {
+    req.user.token_expires_at = Math.floor(apiKey.expires_at.getTime() / MS_PER_SECOND);
+  }
+
+  const passed = await passesAccountGates(res, account, req.user, {
+    enforceTerms,
+    enforceMembership: true,
+    requiredCapability: options.requiredCapability,
+  });
+  if (!passed) {
+    return;
+  }
+
+  if (check.lastUsedDue) {
+    await recordApiKeyUse(apiKey);
+  }
+
+  next();
+}
+
 const verifyTokenAndMembership = async (
   req: Request,
   res: Response,
@@ -352,6 +531,11 @@ const verifyTokenAndMembership = async (
   options: AuthenticatedRequestOptions,
   endedSessionHandling: EndedSessionHandling
 ): Promise<void> => {
+  if (requestToken.source === 'api_key') {
+    await verifyApiKeyAndMembership(req, res, next, requestToken.token, options);
+    return;
+  }
+
   const rejectUnauthorized = (notice: AuthSessionEndedNotice | null) => {
     if (requestToken.source === 'cookie') {
       clearAuthCookie(res);
@@ -402,6 +586,7 @@ const verifyTokenAndMembership = async (
     id_text: typeof account.id_text === 'string' && account.id_text !== '' ? account.id_text : '',
     verified: typeof account.verified === 'boolean' ? account.verified : true,
     session_id_text: claims.sid,
+    api_key: null,
   };
   const tokenExpiresAt = readJwtExpSeconds(decoded);
   if (tokenExpiresAt !== undefined) {
@@ -412,47 +597,13 @@ const verifyTokenAndMembership = async (
     await renewSessionOnUse(res, requestToken, sessionCheck.session, claims);
   }
 
-  if (enforceTerms && accountNeedsCurrentTerms(account, config.terms.version)) {
-    res.status(403).json({
-      message: 'Terms of service acceptance is required.',
-      code: 'terms_acceptance_required',
-    });
+  const passed = await passesAccountGates(res, account, req.user, {
+    enforceTerms,
+    enforceMembership: !options.skipMembershipStatus,
+    requiredCapability: options.requiredCapability,
+  });
+  if (!passed) {
     return;
-  }
-
-  if (!options.skipMembershipStatus) {
-    const membershipStatus = account.account_membership_status;
-
-    if (!hasValidMembership(membershipStatus)) {
-      console.warn(
-        '[verifyTokenAndMembership] Membership expired or missing for user id:',
-        req.user.id
-      );
-      res.status(403).json({
-        message: 'Your membership has expired. Renew to use this feature.',
-        code: 'membership_expired',
-        i18nKey: MEMBERSHIP_EXPIRED_I18N_KEY,
-        renewPath: APP_ROUTES.MEMBERSHIP_RENEW,
-      });
-      return;
-    }
-
-    const capDefaults = await getBillingPriceCatalogService().resolveProductMembershipCapDefaults();
-    const entitlements = getAccountEntitlements(membershipStatus, capDefaults);
-    req.user.entitlements = entitlements;
-
-    if (
-      options.requiredCapability &&
-      !accountHasCapability(entitlements, options.requiredCapability)
-    ) {
-      res.status(403).json({
-        message: 'Your account does not currently have access to this feature.',
-        code: 'feature_not_available_for_account_type',
-        i18nKey: 'membership.feature_not_available_for_account_type',
-        renewPath: APP_ROUTES.MEMBERSHIP_RENEW,
-      });
-      return;
-    }
   }
 
   next();
@@ -484,7 +635,9 @@ export const ensureAuthenticated = (
 
 /**
  * A valid token whose session has ended continues as anonymous and keeps its cookie, so the next
- * signed-in route can answer with the reason and clear the cookie in the same response.
+ * signed-in route can answer with the reason and clear the cookie in the same response. An API key
+ * is checked exactly as in ensureAuthenticated: an invalid or expired key is a 401, never
+ * anonymous access.
  */
 export const optionalEnsureAuthenticated = (
   req: Request,
@@ -530,6 +683,19 @@ export const getAuthenticatedUser = (req: Request): Express.User => {
     throw new Error('User not authenticated');
   }
   return req.user;
+};
+
+/**
+ * The session id on a session-authenticated request. Throws on an API key request; routes that
+ * call this never declare `apiKeyAccess`, so a key cannot reach code that treats a missing session
+ * as "end every session".
+ */
+export const getAuthenticatedSessionIdText = (req: Request): string => {
+  const sessionIdText = getAuthenticatedUser(req).session_id_text;
+  if (sessionIdText === null) {
+    throw new Error('Request is not authenticated by an account session');
+  }
+  return sessionIdText;
 };
 
 /** Ends the calling session when the request names one. Always clears the cookie and answers 200. */

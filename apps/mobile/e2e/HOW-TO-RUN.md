@@ -267,6 +267,7 @@ npm run mobile:e2e:test -- --platform ios queue-screen
 npm run mobile:e2e:test -- --platform ios removed-content
 npm run mobile:e2e:test -- --platform ios search
 npm run mobile:e2e:test -- --platform ios search-unparsed
+npm run mobile:e2e:test -- --platform ios settings-developer
 npm run mobile:e2e:test -- --platform ios settings-downloads
 npm run mobile:e2e:test -- --platform ios settings-select
 npm run mobile:e2e:test -- --platform ios subscriptions-anonymous
@@ -329,6 +330,7 @@ npm run mobile:e2e:test -- --platform android queue-screen
 npm run mobile:e2e:test -- --platform android removed-content
 npm run mobile:e2e:test -- --platform android search
 npm run mobile:e2e:test -- --platform android search-unparsed
+npm run mobile:e2e:test -- --platform android settings-developer
 npm run mobile:e2e:test -- --platform android settings-downloads
 npm run mobile:e2e:test -- --platform android settings-select
 npm run mobile:e2e:test -- --platform android subscriptions-anonymous
@@ -463,6 +465,7 @@ npm run mobile:e2e:test -- queue-screen
 npm run mobile:e2e:test -- removed-content
 npm run mobile:e2e:test -- search
 npm run mobile:e2e:test -- search-unparsed
+npm run mobile:e2e:test -- settings-developer
 npm run mobile:e2e:test -- settings-downloads
 npm run mobile:e2e:test -- subscriptions-anonymous
 npm run mobile:e2e:test -- taste-profile

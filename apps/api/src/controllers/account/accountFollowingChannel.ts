@@ -175,7 +175,10 @@ class AccountFollowingChannelController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'subscriptions', action: 'create' },
+      }
     );
   }
 
@@ -240,7 +243,10 @@ class AccountFollowingChannelController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'subscriptions', action: 'create' },
+      }
     );
   }
 
@@ -264,7 +270,10 @@ class AccountFollowingChannelController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'delete' },
+      }
     );
   }
 }

@@ -82,7 +82,7 @@ class QueueResourceItemController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -116,7 +116,7 @@ class QueueResourceItemController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -150,7 +150,7 @@ class QueueResourceItemController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -188,7 +188,7 @@ class QueueResourceItemController {
             });
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
       );
     });
   }
@@ -239,7 +239,7 @@ class QueueResourceItemController {
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'create' } }
         );
       });
     });
@@ -274,7 +274,7 @@ class QueueResourceItemController {
               }
             });
           },
-          { skipMembershipStatus: true }
+          { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'delete' } }
         );
       });
     });

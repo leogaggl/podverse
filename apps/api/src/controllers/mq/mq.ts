@@ -33,6 +33,7 @@ export class MQController {
   static rssOnDemandMiddleware = rateLimitAuthEndpoint({
     windowMs: config.rateLimits.mqRssOnDemand.windowMs,
     max: config.rateLimits.mqRssOnDemand.max,
+    apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
   });
 
   static rssAddToOnDemandMQ(type: OnDemandParserEventType) {
@@ -129,6 +130,7 @@ export class MQController {
             type === 'add'
               ? ACCOUNT_ENTITLEMENT_CAPABILITY.allowDirectoryAddByRSS
               : ACCOUNT_ENTITLEMENT_CAPABILITY.maxManualRefreshesPerHour,
+          apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
         }
       );
     };

@@ -39,6 +39,7 @@ export type TextFieldProps = {
   keyboardType?: TextInputProps['keyboardType'];
   /** Decorative. Taps land on the field and focus the input. */
   leading?: ReactNode;
+  maxLength?: number;
   multiline?: boolean;
   onBlur?: () => void;
   onChangeText: (value: string) => void;
@@ -88,6 +89,7 @@ export function TextField({
   invalid = false,
   keyboardType,
   leading,
+  maxLength,
   multiline = false,
   onBlur,
   onChangeText,
@@ -207,6 +209,7 @@ export function TextField({
           editable={editable}
           importantForAutofill={autoComplete === undefined || autoComplete === 'off' ? 'no' : 'yes'}
           keyboardType={keyboardType}
+          maxLength={maxLength}
           multiline={multiline}
           onBlur={() => {
             setIsFocused(false);

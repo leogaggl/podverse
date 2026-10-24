@@ -51,7 +51,7 @@ class PlaylistResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
       );
     });
   }
@@ -113,7 +113,7 @@ class PlaylistResourceController {
               handleGenericErrorResponse(res, err);
             }
           },
-          { skipMembershipStatus: true }
+          { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
         );
       });
     });
@@ -166,7 +166,7 @@ class PlaylistResourceController {
               }
             });
           },
-          { skipMembershipStatus: true }
+          { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
         );
       });
     });
@@ -210,7 +210,7 @@ class PlaylistResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
       );
     });
   }

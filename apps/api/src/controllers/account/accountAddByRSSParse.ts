@@ -310,6 +310,7 @@ const buildE2eParsedFeedPayload = (
 export const addByRssParseEnqueueRateLimit = rateLimitAuthEndpoint({
   windowMs: config.rateLimits.accountAddByRssParseEnqueue.windowMs,
   max: config.rateLimits.accountAddByRssParseEnqueue.max,
+  apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
 });
 
 class AccountAddByRSSParseController {
@@ -453,6 +454,7 @@ class AccountAddByRSSParseController {
         requiredCapability: config.e2e.fixturesEnabled
           ? undefined
           : ACCOUNT_ENTITLEMENT_CAPABILITY.maxAddByRSSFeeds,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
       }
     );
   }
@@ -609,6 +611,7 @@ class AccountAddByRSSParseController {
         requiredCapability: config.e2e.fixturesEnabled
           ? undefined
           : ACCOUNT_ENTITLEMENT_CAPABILITY.maxAddByRSSFeeds,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
       }
     );
   }
@@ -647,6 +650,7 @@ class AccountAddByRSSParseController {
         requiredCapability: config.e2e.fixturesEnabled
           ? undefined
           : ACCOUNT_ENTITLEMENT_CAPABILITY.maxAddByRSSFeeds,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'read' },
       }
     );
   }

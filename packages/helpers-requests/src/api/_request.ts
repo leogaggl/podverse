@@ -1,4 +1,4 @@
-import type { QueueExtraParams } from '@podverse/helpers';
+import type { AccountApiKeyCreateBody, QueueExtraParams } from '@podverse/helpers';
 import type { BetweenParams } from '@podverse/helpers';
 import type { AddByRssSeenMarkEntry, ChannelSeenMarkEntry } from '@podverse/helpers';
 import type { MediaTypePreference } from '@podverse/helpers';
@@ -134,6 +134,7 @@ import {
   reqAccountSettingsNotificationUpdate,
   reqAccountSettingsPlaybackUpdate,
 } from './accountSettings/accountSettings.js';
+import { reqAuthApiKeyCreate, reqAuthApiKeyRevoke, reqAuthApiKeys } from './auth/apiKeys.js';
 import type { ReqAuthMobileTokenParams } from './auth/auth.js';
 import {
   reqAuthCheckSession,
@@ -1039,6 +1040,18 @@ export class ApiRequestService {
 
   reqAuthSessionsRevokeOthers() {
     return reqAuthSessionsRevokeOthers(this);
+  }
+
+  reqAuthApiKeys() {
+    return reqAuthApiKeys(this);
+  }
+
+  reqAuthApiKeyCreate(body: AccountApiKeyCreateBody) {
+    return reqAuthApiKeyCreate(this, body);
+  }
+
+  reqAuthApiKeyRevoke(apiKeyIdText: string) {
+    return reqAuthApiKeyRevoke(this, apiKeyIdText);
   }
 
   /* CATEGORY */

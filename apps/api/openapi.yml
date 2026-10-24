@@ -1,7 +1,19 @@
 openapi: 3.0.3
 info:
   title: Podverse API
-  description: Comprehensive OpenAPI specification generated from audited route matrix coverage for Podverse public API.
+  description: >
+    HTTP API for Podverse. Paths are relative to the server URL (`/api/v2`).
+
+    API keys are created in Settings → Developer on web or mobile and shown once.
+    Send a key as `Authorization: Bearer pvk_…`. An operation accepts a key only when
+    its `security` list includes `apiKeyAuth`. `x-api-key-permission` on that operation
+    names the resource and the CRUD action the key needs (`create`, `read`, `update`,
+    or `delete`). A session cookie or a session JWT (`bearerAuth`) is a different
+    credential. When a request sends both a cookie and a key, the cookie is used.
+    While the account's membership is expired, every key is rejected. Operations that
+    omit `apiKeyAuth` refuse a key. When `security` includes an empty requirement
+    (`{}`), the call still works with no credentials, and a key that is sent is checked.
+    The `apiKeyAuth` scheme description lists the actions each resource supports.
   version: 2.0.0
 servers:
   - url: https://api.podverse.fm/api/v2
@@ -37,6 +49,7 @@ tags:
   - name: publisher-feed
   - name: queue
   - name: stats
+  - name: meta
 components:
   securitySchemes:
     cookieAuth:
@@ -52,6 +65,26 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: >
+        Session JWT sent as `Authorization: Bearer <token>`: the mobile access token from
+        POST /auth/mobile/token, or the web session token sent as a header. It names a server-side
+        account session. Not an API key; see `apiKeyAuth`.
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: pvk_ API key
+      description: >
+        A long-lived API key created in Settings → Developer on web or mobile and shown once.
+        Send it as `Authorization: Bearer pvk_…`. A key works only on operations that list
+        `apiKeyAuth` in `security`; `x-api-key-permission` names the resource and CRUD action the
+        key needs there. Supported actions: account read, update; settings update; subscriptions
+        create, read, update, delete; add_by_rss create, read, delete; playlists create, read,
+        update, delete; queue create, read, update, delete; history read, update; clips create,
+        read, update, delete; notifications create, read, update, delete. Account create and
+        delete, settings create, read, and delete, add_by_rss update, and history create and
+        delete open no route. A key is rejected on every operation while the account's membership
+        has expired. Keys never manage keys, change a password or email, delete the account, or
+        reach billing.
   parameters:
     BillingClientVersionHeader:
       in: header
@@ -117,6 +150,64 @@ components:
       properties:
         message:
           type: string
+    ApiGetRootResponse200:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: ok
+        message:
+          type: string
+          example: API is online
+    ApiGetHealthResponse200:
+      type: object
+      required:
+        - status
+        - message
+        - fixturesEnabled
+      properties:
+        status:
+          type: string
+          example: ok
+        message:
+          type: string
+          example: The server is running.
+        fixturesEnabled:
+          type: boolean
+          description: True when this server is serving end-to-end fixtures.
+    ApiGetHealthReadyResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - unavailable
+        message:
+          type: string
+    ApiGetMetaResponse200:
+      type: object
+      required:
+        - version
+        - release
+        - status
+      properties:
+        version:
+          type: string
+          description: API version path segment, such as /v2.
+          example: /v2
+        release:
+          type: string
+          example: X.Y.Z-staging.N
+        status:
+          type: string
+          example: ok
     ErrorResponse:
       type: object
       required:
@@ -665,8 +756,10 @@ components:
               type: string
               description: >
                 `session_ended` when the token names a session that was ended somewhere other than
-                this device; `notice` then says why. Absent for a plain 401 (no token, invalid
-                token, idle expiry, or a session this device ended itself).
+                this device; `notice` then says why. `api_key_invalid` for an unknown, malformed,
+                or revoked API key, or one whose account no longer exists; `api_key_expired` for an
+                API key past its expiry. Absent for a plain 401 (no token, invalid session token,
+                idle expiry, or a session this device ended itself).
               example: session_ended
             notice:
               type: string
@@ -708,6 +801,57 @@ components:
                 Present on membership denials. Destination path for the renew/extend action (web
                 route; native clients map it to their own membership screen).
               example: /membership/renew
+    ApiKeyPermissionRequirement:
+      type: object
+      description: The resource and CRUD action an API key needs on an operation.
+      required:
+        - resource
+        - action
+      properties:
+        resource:
+          type: string
+          enum:
+            - account
+            - settings
+            - subscriptions
+            - add_by_rss
+            - playlists
+            - queue
+            - history
+            - clips
+            - notifications
+        action:
+          type: string
+          enum:
+            - create
+            - read
+            - update
+            - delete
+    ApiKeyAuthorizationErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            message:
+              type: string
+              description: Why the API key was refused
+              example: This API key needs the read permission on account.
+            code:
+              type: string
+              description: >
+                `api_key_not_allowed` when the operation never accepts an API key;
+                `api_key_permission_denied` when the key lacks the permission the operation needs.
+              enum:
+                - api_key_not_allowed
+                - api_key_permission_denied
+              example: api_key_permission_denied
+            required_permission:
+              description: >-
+                The permission the key lacks. Present only when `code` is
+                `api_key_permission_denied`.
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/ApiKeyPermissionRequirement"
     NotFoundErrorResponse:
       allOf:
         - $ref: "#/components/schemas/ErrorResponse"
@@ -1723,6 +1867,139 @@ components:
         revoked_count:
           type: integer
           minimum: 0
+    AccountApiKeyPermissions:
+      type: object
+      additionalProperties: false
+      description: >
+        A CRUD mask per resource. Bits are create 1, read 2, update 4, and delete 8; a mask is
+        their sum, from 0 through 15. A missing resource is stored as 0.
+      properties:
+        account:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        settings:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        subscriptions:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        add_by_rss:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        playlists:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        queue:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        history:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        clips:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+        notifications:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: "CRUD mask. create 1, read 2, update 4, delete 8."
+    AccountApiKey:
+      type: object
+      required:
+        - id_text
+        - name
+        - token_hint
+        - permissions
+        - created_at
+        - expires_at
+        - last_used_at
+      properties:
+        id_text:
+          type: string
+        name:
+          type: string
+          maxLength: 50
+        token_hint:
+          type: string
+          description: Last four characters of the token.
+        permissions:
+          $ref: "#/components/schemas/AccountApiKeyPermissions"
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null when the key does not expire.
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last accepted request, kept to within five minutes. Null until first use.
+    ApiGetAuthApiKeysResponse200:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          description: The account's keys, newest first, expired keys included.
+          items:
+            $ref: "#/components/schemas/AccountApiKey"
+    ApiPostAuthApiKeysRequest:
+      type: object
+      required:
+        - name
+        - permissions
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: My agent
+        permissions:
+          $ref: "#/components/schemas/AccountApiKeyPermissions"
+        expires_in_days:
+          type: integer
+          nullable: true
+          default: 90
+          description: >
+            Days until the key expires. 30, 90, or 365. Null means the key does not expire.
+            Omitted means 90.
+          enum:
+            - 30
+            - 90
+            - 365
+    ApiPostAuthApiKeysResponse201:
+      type: object
+      required:
+        - api_key
+        - token
+      properties:
+        api_key:
+          $ref: "#/components/schemas/AccountApiKey"
+        token:
+          type: string
+          description: The API key. Returned only in this response.
+          pattern: "^pvk_[A-Za-z0-9_-]{43}$"
+          example: pvk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     ApiGetAccountContentLogResponse200:
       type: object
       required:
@@ -4605,6 +4882,124 @@ security:
   - bearerAuth: []
   - cookieAuth: []
 paths:
+  /:
+    get:
+      operationId: apiGetRoot
+      tags:
+        - meta
+      summary: GET /
+      description: "Online ping. Returns `{ status: 'ok', message: 'API is online' }`."
+      security: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetRootResponse200"
+  /health:
+    get:
+      operationId: apiGetHealth
+      tags:
+        - meta
+      summary: GET /health
+      description: Liveness. The process is up. This is the probe route; the unversioned host root is the same JSON as `GET /` and is outside this server URL.
+      security: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetHealthResponse200"
+  /health/ready:
+    get:
+      operationId: apiGetHealthReady
+      tags:
+        - meta
+      summary: GET /health/ready
+      description: Readiness. 200 when the database and the key-value store answer. 503 when either does not.
+      security: []
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetHealthReadyResponse"
+              example:
+                status: ok
+                message: Ready
+        "503":
+          description: >-
+            The database or the key-value store did not answer. `message` is `Database not
+            reachable` or `KeyValDB not reachable`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetHealthReadyResponse"
+              examples:
+                databaseNotReachable:
+                  value:
+                    status: unavailable
+                    message: Database not reachable
+                keyValDbNotReachable:
+                  value:
+                    status: unavailable
+                    message: KeyValDB not reachable
+  /meta:
+    get:
+      operationId: apiGetMeta
+      tags:
+        - meta
+      summary: GET /meta
+      description: Version, release, and status of this API server.
+      security: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetMetaResponse200"
+  /docs:
+    get:
+      operationId: apiGetDocs
+      tags:
+        - meta
+      summary: GET /docs
+      description: Interactive API docs (HTML). The page loads the spec from this server's `/docs.yaml`.
+      security: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            text/html:
+              schema:
+                type: string
+  /docs.yaml:
+    get:
+      operationId: apiGetDocsYaml
+      tags:
+        - meta
+      summary: GET /docs.yaml
+      description: The OpenAPI document served by this server.
+      security: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/yaml:
+              schema:
+                type: string
+        "500":
+          description: Failed to load OpenAPI spec
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+              example:
+                message: Failed to load OpenAPI spec
   /account:
     post:
       operationId: apiPostAccount
@@ -4661,10 +5056,14 @@ paths:
       tags:
         - account
       summary: PUT /account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs account update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: update
       requestBody:
         required: true
         content:
@@ -4734,10 +5133,14 @@ paths:
       tags:
         - account-settings
       summary: PATCH /account-settings/locale
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs settings update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: settings
+        action: update
       requestBody:
         required: true
         content:
@@ -4939,10 +5342,14 @@ paths:
       tags:
         - account-settings
       summary: PATCH /account-settings/playback
-      description: Update the preferred media type used to pick the default enclosure for the authenticated account.
+      description: Update the preferred media type used to pick the default enclosure for the authenticated account. An API key needs settings update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: settings
+        action: update
       requestBody:
         required: true
         content:
@@ -4992,10 +5399,14 @@ paths:
       tags:
         - account-settings
       summary: PATCH /account-settings/notification
-      description: Update whether following a channel also enables notifications for that channel.
+      description: Update whether following a channel also enables notifications for that channel. An API key needs settings update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: settings
+        action: update
       requestBody:
         required: true
         content:
@@ -5039,10 +5450,14 @@ paths:
       tags:
         - account-settings
       summary: DELETE /account-settings/notification-type
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs settings update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: settings
+        action: update
       requestBody:
         required: true
         content:
@@ -5091,10 +5506,14 @@ paths:
       tags:
         - account-settings
       summary: POST /account-settings/notification-type
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs settings update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: settings
+        action: update
       requestBody:
         required: true
         content:
@@ -5197,10 +5616,19 @@ paths:
       tags:
         - account
       summary: GET /account/{id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: >
+        Returns an account by id. With no credentials, a public or unlisted account is returned
+        and a private account is not found. The owner, signed in or using a key with account
+        read, receives their own account even when it is private. A key that lacks account read
+        is refused rather than treated as anonymous.
       security:
+        - {}
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: read
       parameters:
         - in: path
           name: id_text
@@ -5250,10 +5678,14 @@ paths:
       tags:
         - account
       summary: POST /account/add-by-rss/chapters-transcript
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: read
       requestBody:
         required: true
         content:
@@ -5303,10 +5735,14 @@ paths:
       tags:
         - account
       summary: POST /account/add-by-rss/parse
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: create
       requestBody:
         required: true
         content:
@@ -5356,10 +5792,14 @@ paths:
       tags:
         - account
       summary: POST /account/add-by-rss/parse/all
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: create
       requestBody:
         required: true
         content:
@@ -5409,10 +5849,14 @@ paths:
       tags:
         - account
       summary: GET /account/add-by-rss/parse/status/{request_id}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: read
       parameters:
         - in: path
           name: request_id
@@ -5558,10 +6002,14 @@ paths:
       tags:
         - account
       summary: GET /account/opml/export
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       responses:
         "200":
           description: Successful response
@@ -5608,10 +6056,14 @@ paths:
       tags:
         - account
       summary: POST /account/opml/import
-      description: Enqueue an async OPML import job. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Enqueue an async OPML import job. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: create
       requestBody:
         required: true
         content:
@@ -5669,10 +6121,14 @@ paths:
       tags:
         - account
       summary: GET /account/opml/import/status/{request_id}
-      description: Poll OPML import job status/report. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Poll OPML import job status/report. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - name: request_id
           in: path
@@ -5712,10 +6168,14 @@ paths:
       tags:
         - account
       summary: POST /account/notification/channels/bulk-enable
-      description: Enable notifications for every followed channel that does not already have a row. Authenticated.
+      description: Enable notifications for every followed channel that does not already have a row. Authenticated. An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       responses:
         "200":
           description: Successful response
@@ -5752,10 +6212,14 @@ paths:
       tags:
         - account
       summary: POST /account/notification/channels/bulk-disable
-      description: Remove every per-channel notification row for the account. Authenticated.
+      description: Remove every per-channel notification row for the account. Authenticated. An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       responses:
         "200":
           description: Successful response
@@ -5786,10 +6250,14 @@ paths:
       tags:
         - account
       summary: POST /account/notification/channels/bulk-type
-      description: Add or remove one notification type across every channel with notifications. Authenticated.
+      description: Add or remove one notification type across every channel with notifications. Authenticated. An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -5846,10 +6314,14 @@ paths:
       tags:
         - account
       summary: PUT /account/auto-download/channels
-      description: Replace the full set of auto-download channel registrations for one installation. Authenticated endpoint (cookieAuth or bearerAuth). Requires valid membership.
+      description: Replace the full set of auto-download channel registrations for one installation. Authenticated endpoint (cookieAuth or bearerAuth). Requires valid membership. An API key needs settings update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: settings
+        action: update
       requestBody:
         required: true
         content:
@@ -5899,10 +6371,14 @@ paths:
       tags:
         - account
       summary: GET /account/fcm-device/all-for-account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       responses:
         "200":
           description: Successful response
@@ -5946,10 +6422,14 @@ paths:
       tags:
         - account
       summary: POST /account/fcm-device/create
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: create
       requestBody:
         required: true
         content:
@@ -5999,10 +6479,14 @@ paths:
       tags:
         - account
       summary: DELETE /account/fcm-device/delete
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: delete
       responses:
         "200":
           description: Successful response
@@ -6046,10 +6530,14 @@ paths:
       tags:
         - account
       summary: PUT /account/fcm-device/update
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -6099,10 +6587,14 @@ paths:
       tags:
         - account
       summary: PUT /account/fcm-device/update-locale
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -6152,10 +6644,14 @@ paths:
       tags:
         - account
       summary: POST /account/follow/account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: create
       requestBody:
         required: true
         content:
@@ -6205,10 +6701,14 @@ paths:
       tags:
         - account
       summary: POST /account/follow/add-by-rss-channel
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: create
       requestBody:
         required: true
         content:
@@ -6258,10 +6758,14 @@ paths:
       tags:
         - account
       summary: GET /account/follow/add-by-rss-channel/{account_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: read
       parameters:
         - in: path
           name: account_id_text
@@ -6311,10 +6815,14 @@ paths:
       tags:
         - account
       summary: POST /account/follow/channel
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: create
       requestBody:
         required: true
         content:
@@ -6369,9 +6877,14 @@ paths:
         resubmitting the same list reports `already_following` and changes nothing. Requires a valid
         membership, matching single follow. Used by mobile to push locally-made subscriptions up when
         a signed-out user creates an account.
+        An API key needs subscriptions create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: create
       requestBody:
         required: true
         content:
@@ -6415,10 +6928,14 @@ paths:
       tags:
         - account
       summary: POST /account/follow/playlist
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: create
       requestBody:
         required: true
         content:
@@ -6475,9 +6992,14 @@ paths:
         subscription list — there is no per-channel request. Ordered by channel id, which is not the
         order any client renders, so callers match on channel_id_text rather than by position. Rate
         limited per account, shared with the add-by-RSS read.
+        An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - name: page
           in: query
@@ -6516,9 +7038,14 @@ paths:
         count: the server stores no add-by-RSS items, so only the device holding the parsed feed can
         count them. Paginated separately from the channel list because the two lists differ in
         length. Rate limited per account, shared with the channel read.
+        An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - name: page
           in: query
@@ -6556,9 +7083,14 @@ paths:
         Marks channels seen. Omit last_seen_at to record now, which is the ordinary case of opening a
         channel; supply it to replay a moment a device already recorded, as the sign-in merge does.
         Stored timestamps only move forward, so replaying an older value is a no-op.
+        An API key needs subscriptions update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: update
       requestBody:
         required: true
         content:
@@ -6616,9 +7148,14 @@ paths:
       description: >-
         Marks every followed channel and add-by-RSS feed seen. Swept server-side so the cost does not
         scale with how much the account follows.
+        An API key needs subscriptions update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: update
       responses:
         "200":
           description: Successful response
@@ -6648,9 +7185,14 @@ paths:
         Marks add-by-RSS feeds seen. The server stores no add-by-RSS items and so returns no unseen
         count — the device derives that from the feed it holds. This keeps the timestamp in sync
         across devices.
+        An API key needs subscriptions update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: update
       requestBody:
         required: true
         content:
@@ -6705,10 +7247,14 @@ paths:
       tags:
         - account
       summary: POST /account/notification/channel
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: create
       requestBody:
         required: true
         content:
@@ -6758,10 +7304,14 @@ paths:
       tags:
         - account
       summary: DELETE /account/notification/channel/{channel_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: delete
       parameters:
         - in: path
           name: channel_id_text
@@ -6806,10 +7356,14 @@ paths:
       tags:
         - account
       summary: GET /account/notification/channel/{channel_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       parameters:
         - in: path
           name: channel_id_text
@@ -6859,10 +7413,14 @@ paths:
       tags:
         - account
       summary: DELETE /account/notification/channel/{channel_id_text}/type/{type}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: delete
       parameters:
         - in: path
           name: channel_id_text
@@ -6913,10 +7471,14 @@ paths:
       tags:
         - account
       summary: POST /account/notification/channel/type
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: create
       requestBody:
         required: true
         content:
@@ -6966,10 +7528,14 @@ paths:
       tags:
         - account
       summary: GET /account/notification/channels
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       responses:
         "200":
           description: Successful response
@@ -7013,10 +7579,14 @@ paths:
       tags:
         - account
       summary: GET /account/notification-preferences
-      description: Returns category-level notification preferences for the authenticated account.
+      description: Returns category-level notification preferences for the authenticated account. An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       responses:
         "200":
           description: Successful response
@@ -7053,10 +7623,14 @@ paths:
       tags:
         - account
       summary: PUT /account/notification-preferences
-      description: Bulk upserts category-level notification preferences for the authenticated account.
+      description: Bulk upserts category-level notification preferences for the authenticated account. An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -7100,10 +7674,14 @@ paths:
       tags:
         - account
       summary: GET /account/content-log
-      description: Returns that account's content log, newest first.
+      description: Returns that account's content log, newest first. An API key needs history read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: read
       parameters:
         - name: type
           in: query
@@ -7143,10 +7721,14 @@ paths:
       tags:
         - account
       summary: GET /account/taste-profile
-      description: Returns the signed-in account's Taste Profile, newest listen first.
+      description: Returns the signed-in account's Taste Profile, newest listen first. An API key needs history read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: read
       parameters:
         - name: page
           in: query
@@ -7194,10 +7776,14 @@ paths:
       tags:
         - account
       summary: GET /account/taste-profile/hidden
-      description: Returns the signed-in account's Hidden From Taste Profile list, most recently hidden first.
+      description: Returns the signed-in account's Hidden From Taste Profile list, most recently hidden first. An API key needs history read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: read
       parameters:
         - name: page
           in: query
@@ -7245,10 +7831,14 @@ paths:
       tags:
         - account
       summary: POST /account/taste-profile/hide
-      description: Removes the show from the Taste Profile, deletes its taste data, and adds it to Hidden From Taste Profile; public totals are unaffected.
+      description: Removes the show from the Taste Profile, deletes its taste data, and adds it to Hidden From Taste Profile; public totals are unaffected. An API key needs history update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: update
       requestBody:
         required: true
         content:
@@ -7292,10 +7882,14 @@ paths:
       tags:
         - account
       summary: POST /account/taste-profile/unhide
-      description: Takes the show off Hidden From Taste Profile; with `add_to_taste_profile` true it also starts a fresh Taste Profile row.
+      description: Takes the show off Hidden From Taste Profile; with `add_to_taste_profile` true it also starts a fresh Taste Profile row. An API key needs history update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: update
       requestBody:
         required: true
         content:
@@ -7339,10 +7933,14 @@ paths:
       tags:
         - account
       summary: GET /account/notifications
-      description: Returns a paginated notification feed for the authenticated account.
+      description: Returns a paginated notification feed for the authenticated account. An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       parameters:
         - name: page
           in: query
@@ -7394,9 +7992,14 @@ paths:
         Mark All as Read. Moves the authenticated account's notifications_last_read_at cutoff to
         now. Every notification created at or before the cutoff reads as read; per-notification read
         state is left as is.
+        An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       responses:
         "200":
           description: Successful response
@@ -7425,9 +8028,14 @@ paths:
       description: >-
         Marks read the account's unread notifications whose payload matches an OS push's
         `itemIdText` and `type`. No match returns 200 with empty `marked_ids`.
+        An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -7471,9 +8079,14 @@ paths:
       description: >-
         Marks one notification read. An already-read notification returns 200 with empty
         `marked_ids` and sends no stream event. Another account's id returns 404.
+        An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       parameters:
         - name: notification_id
           in: path
@@ -7523,10 +8136,14 @@ paths:
       tags:
         - account
       summary: GET /account/notifications/unread-count
-      description: Returns the unread notification count for the authenticated account.
+      description: Returns the unread notification count for the authenticated account. An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       responses:
         "200":
           description: Successful response
@@ -7557,9 +8174,14 @@ paths:
         valid membership is not required. Auth, terms, and stream-limit failures return JSON before
         any stream bytes, and clients treat 401 and 403 as final and stop reconnecting. At most 10
         streams per account per API pod; more get 429.
+        An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       parameters:
         - name: Last-Event-ID
           in: header
@@ -7661,6 +8283,8 @@ paths:
       security:
         - bearerAuth: []
         - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -8049,10 +8673,16 @@ paths:
       tags:
         - account
       summary: GET /account/subscribed/az
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -8096,10 +8726,16 @@ paths:
       tags:
         - account
       summary: GET /account/subscribed/recent
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -8143,10 +8779,17 @@ paths:
       tags:
         - account
       summary: GET /account/subscribed/top
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
+        - $ref: "#/components/parameters/StatsRangeQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -8194,6 +8837,9 @@ paths:
       security:
         - bearerAuth: []
         - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
+        - $ref: "#/components/parameters/StatsRangeQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -8237,10 +8883,14 @@ paths:
       tags:
         - account
       summary: POST /account/unfollow/account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: delete
       requestBody:
         required: true
         content:
@@ -8286,10 +8936,14 @@ paths:
       tags:
         - account
       summary: POST /account/unfollow/add-by-rss-channel
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: delete
       requestBody:
         required: true
         content:
@@ -8335,10 +8989,14 @@ paths:
       tags:
         - account
       summary: POST /account/unfollow/channel
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: delete
       requestBody:
         required: true
         content:
@@ -8387,9 +9045,14 @@ paths:
       description: >-
         Ends this account's follow of the given directory channels and Add by RSS feed URLs.
         Unknown ids and URLs are skipped. Not membership-gated.
+        An API key needs subscriptions delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: delete
       requestBody:
         required: true
         content:
@@ -8423,10 +9086,14 @@ paths:
       tags:
         - account
       summary: POST /account/unfollow/playlist
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: delete
       requestBody:
         required: true
         content:
@@ -8472,10 +9139,14 @@ paths:
       tags:
         - account
       summary: POST /account/up-device/create
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: create
       requestBody:
         required: true
         content:
@@ -8525,10 +9196,14 @@ paths:
       tags:
         - account
       summary: DELETE /account/up-device/delete
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: delete
       responses:
         "200":
           description: Successful response
@@ -8572,10 +9247,14 @@ paths:
       tags:
         - account
       summary: DELETE /account/up-device/delete-all
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: delete
       responses:
         "200":
           description: Successful response
@@ -8619,10 +9298,14 @@ paths:
       tags:
         - account
       summary: GET /account/up-device/for-account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       responses:
         "200":
           description: Successful response
@@ -8666,10 +9349,14 @@ paths:
       tags:
         - account
       summary: PUT /account/up-device/update
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -8719,10 +9406,14 @@ paths:
       tags:
         - account
       summary: PUT /account/up-device/update-locale
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -8874,10 +9565,14 @@ paths:
       tags:
         - account
       summary: GET /account/webpush-device/all-for-account
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: read
       responses:
         "200":
           description: Successful response
@@ -8921,10 +9616,14 @@ paths:
       tags:
         - account
       summary: POST /account/webpush-device/create
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: create
       requestBody:
         required: true
         content:
@@ -8974,10 +9673,14 @@ paths:
       tags:
         - account
       summary: DELETE /account/webpush-device/delete
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: delete
       responses:
         "200":
           description: Successful response
@@ -9021,10 +9724,14 @@ paths:
       tags:
         - account
       summary: PUT /account/webpush-device/update
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -9074,10 +9781,14 @@ paths:
       tags:
         - account
       summary: PUT /account/webpush-device/update-locale
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs notifications update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: notifications
+        action: update
       requestBody:
         required: true
         content:
@@ -9313,12 +10024,18 @@ paths:
         - auth
       summary: GET /auth/me
       description: >
-        Authenticated endpoint (cookieAuth or bearerAuth). Returns the signed-in account. A web
-        cookie due for renewal is re-set on the response. A 401 for a cookie also clears the
-        cookie.
+        Authenticated endpoint (cookieAuth, bearerAuth, or apiKeyAuth). Returns the signed-in
+        account. A web cookie due for renewal is re-set on the response. A 401 for a cookie also
+        clears the cookie. An API key needs `account` read and is the "who am I" check for a key;
+        sessions skip the membership check here, but a key is refused while the membership has
+        expired.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: read
       responses:
         "200":
           description: Successful response
@@ -9335,8 +10052,8 @@ paths:
         "401":
           description: >
             Unauthorized — no token, an invalid or expired token, a token that names no session,
-            or an ended session (with `code: session_ended` and `notice` when it was ended
-            elsewhere)
+            an ended session (with `code: session_ended` and `notice` when it was ended
+            elsewhere), or an invalid or expired API key (`api_key_invalid`, `api_key_expired`)
           content:
             application/json:
               schema:
@@ -9348,12 +10065,42 @@ paths:
                     message: Unauthorized
                     code: session_ended
                     notice: signed_out_elsewhere
+                apiKeyInvalid:
+                  summary: Unknown, malformed, or revoked API key
+                  value:
+                    message: Invalid API key
+                    code: api_key_invalid
+                apiKeyExpired:
+                  summary: API key past its expiry
+                  value:
+                    message: API key expired
+                    code: api_key_expired
         "403":
-          description: Forbidden
+          description: >
+            API key only — the key lacks `account` read (`api_key_permission_denied`), or the
+            account's membership has expired (`membership_expired`). Sessions are not refused here.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthorizationErrorResponse"
+                oneOf:
+                  - $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+                  - $ref: "#/components/schemas/AuthorizationErrorResponse"
+              examples:
+                apiKeyPermissionDenied:
+                  summary: The key lacks account read
+                  value:
+                    message: This API key needs the read permission on account.
+                    code: api_key_permission_denied
+                    required_permission:
+                      resource: account
+                      action: read
+                membershipExpired:
+                  summary: The key's account membership has expired
+                  value:
+                    message: Your membership has expired. Renew to use this feature.
+                    code: membership_expired
+                    i18nKey: membership.membership_expired
+                    renewPath: /membership/renew
         "404":
           description: Not found
           content:
@@ -9618,6 +10365,207 @@ paths:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/api-keys:
+    get:
+      operationId: apiGetAuthApiKeys
+      tags:
+        - auth
+      summary: GET /auth/api-keys
+      description: >
+        Lists the signed-in account's API keys, newest first, expired keys included. Works while
+        the account's membership is expired. An API key cannot call this operation.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAuthApiKeysResponse200"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: An API key cannot call this operation (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+              example:
+                message: API keys cannot be used for this endpoint.
+                code: api_key_not_allowed
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+    post:
+      operationId: apiPostAuthApiKeys
+      tags:
+        - auth
+      summary: POST /auth/api-keys
+      description: >
+        Creates an API key for the signed-in account. The token is returned only in this
+        response; store it now. An account may hold at most 20 keys, expired keys included. An
+        API key cannot call this operation. Creating a key requires a membership that has not
+        expired, and current terms.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAuthApiKeysRequest"
+            example:
+              name: My agent
+              permissions:
+                playlists: 2
+                queue: 2
+              expires_in_days: 90
+      responses:
+        "201":
+          description: API key created. The token is shown only here.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAuthApiKeysResponse201"
+              example:
+                api_key:
+                  id_text: apiKeyAb12cd
+                  name: My agent
+                  token_hint: AAAA
+                  permissions:
+                    account: 0
+                    settings: 0
+                    subscriptions: 0
+                    add_by_rss: 0
+                    playlists: 2
+                    queue: 2
+                    history: 0
+                    clips: 0
+                    notifications: 0
+                  created_at: "2026-10-23T16:00:00.000Z"
+                  expires_at: "2027-01-21T16:00:00.000Z"
+                  last_used_at: null
+                token: pvk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        "400":
+          description: >
+            Bad request. `api_key_permissions_empty` when no supported action is set; unsupported
+            bits alone do not count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+              example:
+                message: Grant at least one permission.
+                code: api_key_permissions_empty
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: >
+            Membership has expired (`membership_expired`) or terms are not accepted, or an API
+            key cannot call this operation (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthorizationErrorResponse"
+                  - $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+              examples:
+                membershipExpired:
+                  summary: The account membership has expired
+                  value:
+                    message: Your membership has expired. Renew to use this feature.
+                    code: membership_expired
+                    i18nKey: membership.membership_expired
+                    renewPath: /membership/renew
+                apiKeyNotAllowed:
+                  summary: An API key cannot call this operation
+                  value:
+                    message: API keys cannot be used for this endpoint.
+                    code: api_key_not_allowed
+        "409":
+          description: >
+            The account already holds 20 keys, expired keys included; revoke one first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: This account already has the most API keys allowed. Revoke one first.
+                code: api_key_limit_reached
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/api-keys/{api_key_id_text}:
+    delete:
+      operationId: apiDeleteAuthApiKey
+      tags:
+        - auth
+      summary: DELETE /auth/api-keys/{api_key_id_text}
+      description: >
+        Deletes the key at once. Its next request gets 401 `api_key_invalid`. Works while the
+        account's membership is expired. An API key cannot call this operation.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: api_key_id_text
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+              example:
+                message: API key revoked
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: An API key cannot call this operation (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+              example:
+                message: API keys cannot be used for this endpoint.
+                code: api_key_not_allowed
+        "404":
+          description: No API key with that id on this account
           content:
             application/json:
               schema:
@@ -11256,10 +12204,14 @@ paths:
       tags:
         - channel
       summary: GET /channel/subscribed/az
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -11320,10 +12272,14 @@ paths:
       tags:
         - channel
       summary: GET /channel/subscribed/recent
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -11384,10 +12340,14 @@ paths:
       tags:
         - channel
       summary: GET /channel/subscribed/top
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -11449,10 +12409,14 @@ paths:
       tags:
         - clip
       summary: POST /clip
-      description: Authenticated endpoint for creating a clip.
+      description: Authenticated endpoint for creating a clip. An API key needs clips create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: clips
+        action: create
       requestBody:
         required: true
         content:
@@ -11502,10 +12466,14 @@ paths:
       tags:
         - clip
       summary: DELETE /clip/{clip_id_text}
-      description: Authenticated endpoint (cookieAuth or bearerAuth). Ownership is required, active membership is not.
+      description: Authenticated endpoint (cookieAuth or bearerAuth). Ownership is required, active membership is not. An API key needs clips delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: clips
+        action: delete
       parameters:
         - in: path
           name: clip_id_text
@@ -11550,8 +12518,15 @@ paths:
       tags:
         - clip
       summary: GET /clip/{clip_id_text}
-      description: Public endpoint for clip lookup; private clips are only visible to the owner. When the clip's episode was removed, the owner gets 200 with item null, removed_source, and source_removed_at; everyone else gets 410.
-      security: []
+      description: Public endpoint for clip lookup; private clips are only visible to the owner. When the clip's episode was removed, the owner gets 200 with item null, removed_source, and source_removed_at; everyone else gets 410. An API key needs clips read. A request with no credentials is still accepted. A key that lacks that permission is refused.
+      security:
+        - {}
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: clips
+        action: read
       parameters:
         - in: path
           name: clip_id_text
@@ -11606,10 +12581,14 @@ paths:
       tags:
         - clip
       summary: PATCH /clip/{clip_id_text}
-      description: Authenticated endpoint (cookieAuth or bearerAuth). When the clip's episode was removed, a change to start_time, end_time, or sharable_status_id returns 400; title and description changes are accepted.
+      description: Authenticated endpoint (cookieAuth or bearerAuth). When the clip's episode was removed, a change to start_time, end_time, or sharable_status_id returns 400; title and description changes are accepted. An API key needs clips update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: clips
+        action: update
       parameters:
         - in: path
           name: clip_id_text
@@ -11665,10 +12644,14 @@ paths:
       tags:
         - clip
       summary: GET /clip/private
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs clips read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: clips
+        action: read
       responses:
         "200":
           description: Successful response
@@ -12245,10 +13228,14 @@ paths:
       tags:
         - clip
       summary: GET /clip/public/subscribed/recent
-      description: Authenticated endpoint returning recent clips from followed channels.
+      description: Authenticated endpoint returning recent clips from followed channels. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -12299,10 +13286,14 @@ paths:
       tags:
         - clip
       summary: GET /clip/public/subscribed/top
-      description: Authenticated endpoint returning top clips from followed channels.
+      description: Authenticated endpoint returning top clips from followed channels. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -13286,6 +14277,7 @@ paths:
           required: true
           schema:
             type: string
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -13345,6 +14337,7 @@ paths:
           required: true
           schema:
             type: string
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -13401,6 +14394,12 @@ paths:
       parameters:
         - in: path
           name: channel_id_or_id_text
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/PageQueryRequired"
+        - name: shuffleHash
+          in: query
           required: true
           schema:
             type: string
@@ -13818,10 +14817,14 @@ paths:
       tags:
         - item
       summary: GET /item/subscribed/recent
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -13891,10 +14894,14 @@ paths:
       tags:
         - item
       summary: GET /item/subscribed/top
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -14390,10 +15397,14 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/subscribed/recent
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -14463,10 +15474,14 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/subscribed/top
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -14537,10 +15552,14 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/subscribed/upcoming
-      description: Live items on the air now, then scheduled ones, by start time, from channels the account follows. Ended live items are never listed.
+      description: Live items on the air now, then scheduled ones, by start time, from channels the account follows. Ended live items are never listed. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -14801,10 +15820,14 @@ paths:
       tags:
         - mq
       summary: POST /mq/rss/add/on-demand
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: create
       requestBody:
         required: true
         content:
@@ -14854,10 +15877,14 @@ paths:
       tags:
         - mq
       summary: POST /mq/rss/refresh/on-demand
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs add_by_rss create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: add_by_rss
+        action: create
       requestBody:
         required: true
         content:
@@ -14907,10 +15934,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       requestBody:
         required: true
         content:
@@ -14988,10 +16019,14 @@ paths:
       tags:
         - playlist
       summary: DELETE /playlist/{playlist_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: delete
       parameters:
         - in: path
           name: playlist_id_text
@@ -15040,10 +16075,18 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/{playlist_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: >
+        Returns a playlist. With no credentials, a public playlist is returned. The owner,
+        signed in or using a key with playlists read, can read a private playlist. A key that
+        lacks playlists read is refused rather than treated as anonymous.
       security:
+        - {}
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: path
           name: playlist_id_text
@@ -15092,10 +16135,14 @@ paths:
       tags:
         - playlist
       summary: PATCH /playlist/{playlist_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: update
       parameters:
         - in: path
           name: playlist_id_text
@@ -15151,10 +16198,14 @@ paths:
       tags:
         - playlist
       summary: DELETE /playlist/{playlist_id_text}/clip/{clip_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: delete
       parameters:
         - in: path
           name: playlist_id_text
@@ -15205,10 +16256,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/clip/{clip_id_text}/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15269,10 +16324,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/clip/{clip_id_text}/first
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15327,10 +16386,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/clip/{clip_id_text}/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15385,10 +16448,14 @@ paths:
       tags:
         - playlist
       summary: DELETE /playlist/{playlist_id_text}/item-add-by-rss/{add_by_rss_hash_id}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: delete
       parameters:
         - in: path
           name: playlist_id_text
@@ -15443,10 +16510,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item-add-by-rss/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15502,10 +16573,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item-add-by-rss/first
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15561,10 +16636,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item-add-by-rss/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15620,10 +16699,14 @@ paths:
       tags:
         - playlist
       summary: DELETE /playlist/{playlist_id_text}/item-soundbite/{soundbite_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: delete
       parameters:
         - in: path
           name: playlist_id_text
@@ -15678,10 +16761,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item-soundbite/{soundbite_id_text}/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15742,10 +16829,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item-soundbite/{soundbite_id_text}/first
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15806,10 +16897,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item-soundbite/{soundbite_id_text}/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15870,10 +16965,14 @@ paths:
       tags:
         - playlist
       summary: DELETE /playlist/{playlist_id_text}/item/{item_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: delete
       parameters:
         - in: path
           name: playlist_id_text
@@ -15928,10 +17027,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item/{item_id_text}/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -15992,10 +17095,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item/{item_id_text}/first
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -16056,10 +17163,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/{playlist_id_text}/item/{item_id_text}/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: create
       parameters:
         - in: path
           name: playlist_id_text
@@ -16120,8 +17231,15 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/{playlist_id_text}/resources
-      description: Playlist resources with pagination. Public for public playlists; private playlists require ownership.
-      security: []
+      description: Playlist resources with pagination. Public for public playlists; private playlists require ownership. An API key needs playlists read. A request with no credentials is still accepted. A key that lacks that permission is refused.
+      security:
+        - {}
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: path
           name: playlist_id_text
@@ -16173,10 +17291,14 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/{playlist_id_text}/resources/private-all
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: path
           name: playlist_id_text
@@ -16226,8 +17348,15 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/{playlist_id_text}/resources/queue-by-list-position
-      description: Queue window around a resource, ordered by list position.
-      security: []
+      description: Queue window around a resource, ordered by list position. An API key needs playlists read. A request with no credentials is still accepted. A key that lacks that permission is refused.
+      security:
+        - {}
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: path
           name: playlist_id_text
@@ -16297,8 +17426,15 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/{playlist_id_text}/resources/shuffle
-      description: Deterministic shuffled playlist resources using a client-provided shuffle hash.
-      security: []
+      description: Deterministic shuffled playlist resources using a client-provided shuffle hash. An API key needs playlists read. A request with no credentials is still accepted. A key that lacks that permission is refused.
+      security:
+        - {}
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: path
           name: playlist_id_text
@@ -16355,17 +17491,21 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/az
-      description: Private playlists ordered alphabetically by title.
+      description: Private playlists ordered alphabetically by title. An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: query
           name: medium
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16410,17 +17550,21 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/followed/az
-      description: Followed private playlists ordered alphabetically by title.
+      description: Followed private playlists ordered alphabetically by title. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16465,17 +17609,21 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/followed/oldest
-      description: Followed private playlists ordered by oldest update first.
+      description: Followed private playlists ordered by oldest update first. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16520,17 +17668,21 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/followed/recent
-      description: Followed private playlists ordered by most recent update first.
+      description: Followed private playlists ordered by most recent update first. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16575,10 +17727,14 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/followed/top
-      description: Followed private playlists ranked by stats range.
+      description: Followed private playlists ranked by stats range. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: subscriptions
+        action: read
       parameters:
         - in: query
           name: medium
@@ -16590,7 +17746,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16635,10 +17791,14 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/likes
-      description: Default likes playlists for the authenticated account.
+      description: Default likes playlists for the authenticated account. An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: query
           name: include_resources
@@ -16690,10 +17850,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/private/likes/membership
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       requestBody:
         required: true
         content:
@@ -16743,10 +17907,14 @@ paths:
       tags:
         - playlist
       summary: POST /playlist/private/likes/toggle
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs playlists update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: update
       requestBody:
         required: true
         content:
@@ -16796,17 +17964,21 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/oldest
-      description: Private playlists ordered by oldest update first.
+      description: Private playlists ordered by oldest update first. An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: query
           name: medium
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16851,17 +18023,21 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/recent
-      description: Private playlists ordered by most recent update first.
+      description: Private playlists ordered by most recent update first. An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: query
           name: medium
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16906,10 +18082,14 @@ paths:
       tags:
         - playlist
       summary: GET /playlist/private/top
-      description: Private playlists ranked by stats range.
+      description: Private playlists ranked by stats range. An API key needs playlists read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: playlists
+        action: read
       parameters:
         - in: query
           name: medium
@@ -16921,7 +18101,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -16979,7 +18159,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
         - $ref: "#/components/parameters/LimitQueryOptional"
       responses:
         "200":
@@ -17139,7 +18319,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -17191,7 +18371,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -17243,7 +18423,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -17295,7 +18475,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: "#/components/parameters/PageQueryOptional"
+        - $ref: "#/components/parameters/PageQueryRequired"
       responses:
         "200":
           description: Successful response
@@ -17327,6 +18507,194 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /my-profile/podcasts/az:
+    get:
+      operationId: apiGetMyProfilePodcastsAz
+      tags:
+        - profile
+      summary: GET /my-profile/podcasts/az
+      description: The signed-in account's followed podcast channels, A–Z. `page` is required. A session does not need a current membership. An API key needs account read.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetProfileAccountIdTextPodcastsAzResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /my-profile/albums/az:
+    get:
+      operationId: apiGetMyProfileAlbumsAz
+      tags:
+        - profile
+      summary: GET /my-profile/albums/az
+      description: The signed-in account's followed music channels, A–Z. `page` is required. A session does not need a current membership. An API key needs account read.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetProfileAccountIdTextAlbumsAzResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /my-profile/playlists/az:
+    get:
+      operationId: apiGetMyProfilePlaylistsAz
+      tags:
+        - profile
+      summary: GET /my-profile/playlists/az
+      description: The signed-in account's playlists, A–Z, including playlists that are not public. `page` is required. A session does not need a current membership. An API key needs account read.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetProfileAccountIdTextPlaylistsAzResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /my-profile/clips/recent:
+    get:
+      operationId: apiGetMyProfileClipsRecent
+      tags:
+        - profile
+      summary: GET /my-profile/clips/recent
+      description: The signed-in account's clips, newest first, including clips that are not public. `page` is required. A session does not need a current membership. An API key needs account read.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: account
+        action: read
+      parameters:
+        - $ref: "#/components/parameters/PageQueryRequired"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetProfileAccountIdTextClipsRecentResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
         "500":
           description: Internal server error
           content:
@@ -17390,10 +18758,14 @@ paths:
       tags:
         - queue
       summary: DELETE /queue/{queue_id_text}/clip/{clip_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: delete
       parameters:
         - in: path
           name: queue_id_text
@@ -17450,10 +18822,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/clip/{clip_id_text}/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17514,10 +18890,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/clip/{clip_id_text}/history
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17578,10 +18958,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/clip/{clip_id_text}/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17642,10 +19026,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/clip/{clip_id_text}/next
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17706,10 +19094,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/clip/{clip_id_text}/now-playing
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17770,10 +19162,14 @@ paths:
       tags:
         - queue
       summary: DELETE /queue/{queue_id_text}/item-add-by-rss/{add_by_rss_hash_id}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: delete
       parameters:
         - in: path
           name: queue_id_text
@@ -17834,10 +19230,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-add-by-rss/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17893,10 +19293,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-add-by-rss/history
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -17952,10 +19356,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-add-by-rss/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18011,10 +19419,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-add-by-rss/next
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18070,10 +19482,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-add-by-rss/now-playing
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18129,10 +19545,14 @@ paths:
       tags:
         - queue
       summary: DELETE /queue/{queue_id_text}/item-soundbite/{item_soundbite_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: delete
       parameters:
         - in: path
           name: queue_id_text
@@ -18193,10 +19613,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-soundbite/{item_soundbite_id_text}/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18257,10 +19681,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-soundbite/{item_soundbite_id_text}/history
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18321,10 +19749,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-soundbite/{item_soundbite_id_text}/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18385,10 +19817,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-soundbite/{item_soundbite_id_text}/next
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18449,10 +19885,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item-soundbite/{item_soundbite_id_text}/now-playing
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18513,10 +19953,14 @@ paths:
       tags:
         - queue
       summary: DELETE /queue/{queue_id_text}/item/{item_id_text}
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue delete.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: delete
       parameters:
         - in: path
           name: queue_id_text
@@ -18577,10 +20021,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item/{item_id_text}/between
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18641,10 +20089,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item/{item_id_text}/history
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18705,10 +20157,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item/{item_id_text}/last
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18769,10 +20225,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item/{item_id_text}/next
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18833,10 +20293,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/item/{item_id_text}/now-playing
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue create.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: create
       parameters:
         - in: path
           name: queue_id_text
@@ -18897,10 +20361,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/playback-events/replay
-      description: Replays queued playback mutations in one transactional batch.
+      description: Replays queued playback mutations in one transactional batch. An API key needs queue update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: update
       parameters:
         - in: path
           name: queue_id_text
@@ -18956,10 +20424,14 @@ paths:
       tags:
         - queue
       summary: GET /queue/{queue_id_text}/resources/history-paginated
-      description: History queue resources ordered from most recent history item backward.
+      description: History queue resources ordered from most recent history item backward. An API key needs queue read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: read
       parameters:
         - in: path
           name: queue_id_text
@@ -19011,10 +20483,14 @@ paths:
       tags:
         - queue
       summary: GET /queue/{queue_id_text}/resources/now-playing
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: read
       parameters:
         - in: path
           name: queue_id_text
@@ -19068,9 +20544,14 @@ paths:
         When the queue has no now-playing row, move the first upcoming row to now-playing
         (`list_position` 0) without changing last_played_at, playback position, or completed.
         When now-playing already exists, return it unchanged. Returns null when both are empty.
+        An API key needs queue update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: update
       parameters:
         - in: path
           name: queue_id_text
@@ -19134,10 +20615,14 @@ paths:
       tags:
         - queue
       summary: GET /queue/{queue_id_text}/resources/upcoming-all
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: read
       parameters:
         - in: path
           name: queue_id_text
@@ -19187,10 +20672,14 @@ paths:
       tags:
         - queue
       summary: POST /queue/{queue_id_text}/update-is-active
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue update.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: update
       parameters:
         - in: path
           name: queue_id_text
@@ -19246,10 +20735,14 @@ paths:
       tags:
         - queue
       summary: GET /queue/all-for-account/private
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: read
       responses:
         "200":
           description: Successful response
@@ -19293,10 +20786,14 @@ paths:
       tags:
         - queue
       summary: GET /queue/resources/all-by-account-abridged
-      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth).
+      description: Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). An API key needs queue read.
       security:
         - bearerAuth: []
         - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: queue
+        action: read
       responses:
         "200":
           description: Successful response

@@ -5,6 +5,8 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 
+import type { CrudAction } from '@podverse/helpers';
+import { CRUD_MASK_NONE, crudMaskToActions, isCrudMask } from '@podverse/helpers';
 import {
   ActionLink,
   Alert,
@@ -34,27 +36,23 @@ import { resolveManagementTableEmptyState } from '../../../lib/tableEmptyState';
 
 import dataSurfaceBusyStyles from '../../../styles/managementDataSurfaceBusy.module.scss';
 
-const CRUD_LABELS: Record<number, string> = {
-  0: 'None',
-  1: 'C',
-  2: 'R',
-  3: 'CR',
-  4: 'U',
-  5: 'CU',
-  6: 'RU',
-  7: 'CRU',
-  8: 'D',
-  9: 'CD',
-  10: 'RD',
-  11: 'CRD',
-  12: 'UD',
-  13: 'CUD',
-  14: 'RUD',
-  15: 'CRUD',
-};
+const CRUD_ACTION_LETTERS = {
+  create: 'C',
+  read: 'R',
+  update: 'U',
+  delete: 'D',
+} as const satisfies Record<CrudAction, string>;
 
 function crudLabel(value: number): string {
-  return CRUD_LABELS[value] ?? String(value);
+  if (!isCrudMask(value)) {
+    return String(value);
+  }
+  if (value === CRUD_MASK_NONE) {
+    return 'None';
+  }
+  return crudMaskToActions(value)
+    .map((action) => CRUD_ACTION_LETTERS[action])
+    .join('');
 }
 
 const ADMIN_COLUMN_IDS = [

@@ -201,7 +201,7 @@ class PlaylistController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
     );
   }
 
@@ -252,7 +252,7 @@ class PlaylistController {
           });
         });
       },
-      { skipMembershipStatus: false }
+      { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'update' } }
     );
   }
 
@@ -275,7 +275,7 @@ class PlaylistController {
           });
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'delete' } }
     );
   }
 
@@ -358,7 +358,7 @@ class PlaylistController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
     );
   }
 
@@ -394,7 +394,7 @@ class PlaylistController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
     );
   }
 
@@ -430,7 +430,7 @@ class PlaylistController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
     );
   }
 
@@ -466,7 +466,7 @@ class PlaylistController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
     );
   }
 
@@ -510,7 +510,7 @@ class PlaylistController {
           res.json(response);
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'subscriptions', action: 'read' } }
     );
   }
 
@@ -557,7 +557,7 @@ class PlaylistController {
           res.json(response);
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'subscriptions', action: 'read' } }
     );
   }
 
@@ -604,7 +604,7 @@ class PlaylistController {
           res.json(response);
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'subscriptions', action: 'read' } }
     );
   }
 
@@ -651,7 +651,7 @@ class PlaylistController {
           res.json(response);
         });
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'subscriptions', action: 'read' } }
     );
   }
 
@@ -669,7 +669,7 @@ class PlaylistController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
     );
   }
 
@@ -706,7 +706,7 @@ class PlaylistController {
           }
         );
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
     );
   }
 
@@ -861,7 +861,7 @@ class PlaylistController {
           }
         );
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'update' } }
     );
   }
 
@@ -899,7 +899,7 @@ class PlaylistController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'read' } }
       );
     });
   }

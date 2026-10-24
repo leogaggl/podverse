@@ -142,6 +142,33 @@ describe('readRequestToken', () => {
     ).toEqual({ token: 'header-token', source: 'bearer' });
   });
 
+  it('reads a bearer value with the key prefix as an API key, well-formed or not', () => {
+    const wellFormed = `pvk_${'a'.repeat(43)}`;
+    expect(
+      readRequestToken({ cookies: {}, headers: { authorization: `Bearer ${wellFormed}` } })
+    ).toEqual({ token: wellFormed, source: 'api_key' });
+    expect(readRequestToken({ cookies: {}, headers: { authorization: 'Bearer pvk_x' } })).toEqual({
+      token: 'pvk_x',
+      source: 'api_key',
+    });
+  });
+
+  it('prefers the auth cookie over an API key header', () => {
+    expect(
+      readRequestToken({
+        cookies: { jwt: 'cookie-token' },
+        headers: { authorization: `Bearer pvk_${'a'.repeat(43)}` },
+      })
+    ).toEqual({ token: 'cookie-token', source: 'cookie' });
+  });
+
+  it('reads a session JWT in the bearer header as a bearer token', () => {
+    const token = signWebSessionToken(identity);
+    expect(
+      readRequestToken({ cookies: {}, headers: { authorization: `Bearer ${token}` } })
+    ).toEqual({ token, source: 'bearer' });
+  });
+
   it('returns null with no token, another scheme, or an empty bearer', () => {
     expect(readRequestToken({ cookies: undefined, headers: {} })).toBeNull();
     expect(readRequestToken({ cookies: {}, headers: { authorization: 'Basic abc' } })).toBeNull();

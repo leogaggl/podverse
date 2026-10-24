@@ -84,7 +84,10 @@ export class AccountEventStreamController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 }

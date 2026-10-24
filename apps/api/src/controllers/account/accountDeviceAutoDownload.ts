@@ -41,7 +41,10 @@ export class AccountDeviceAutoDownloadController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'settings', action: 'update' },
+      }
     );
   }
 }

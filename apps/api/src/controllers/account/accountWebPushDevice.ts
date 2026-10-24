@@ -40,7 +40,10 @@ export class AccountWebPushDeviceController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'notifications', action: 'create' },
+      }
     );
   }
 
@@ -75,7 +78,10 @@ export class AccountWebPushDeviceController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 
@@ -103,7 +109,10 @@ export class AccountWebPushDeviceController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'delete' },
+      }
     );
   }
 
@@ -123,7 +132,10 @@ export class AccountWebPushDeviceController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 
@@ -146,7 +158,10 @@ export class AccountWebPushDeviceController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 }

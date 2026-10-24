@@ -9,6 +9,8 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { API_KEY_TOKEN_PREFIX } from '@podverse/helpers';
+
 const JWT_SECRET = process.env.AUTH_JWT_SECRET ?? '';
 const ADMIN_AUTH_COOKIE_NAME = 'pv_mgmt_auth';
 
@@ -314,6 +316,29 @@ describe('management-api auth routes', () => {
 
       expect(res.status).toBe(401);
       expect(res.body).toEqual({ message: 'Unauthorized' });
+    });
+
+    it('returns 401 for a Podverse API key sent as a bearer token, without a session lookup', async () => {
+      const apiKey = `${API_KEY_TOKEN_PREFIX}${'a'.repeat(43)}`;
+      const res = await request(app).get(`${authBase}/me`).set('Authorization', `Bearer ${apiKey}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ message: 'Unauthorized' });
+      expect(adminSessionStoreStub.checkAdminSession).not.toHaveBeenCalled();
+
+      const cookieToken = jwt.sign(
+        { id: 1, id_text: 'pvMgtAu001', ...TEST_ADMIN_SESSION_CLAIMS },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      const withCookie = await request(app)
+        .get(`${authBase}/me`)
+        .set('Cookie', [`${ADMIN_AUTH_COOKIE_NAME}=${cookieToken}`])
+        .set('Authorization', `Bearer ${apiKey}`);
+
+      expect(withCookie.status).toBe(401);
+      expect(withCookie.body).toEqual({ message: 'Unauthorized' });
+      expect(adminSessionStoreStub.checkAdminSession).not.toHaveBeenCalled();
     });
 
     it('returns 401 with the notice when the session was ended elsewhere', async () => {
