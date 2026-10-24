@@ -20,21 +20,21 @@
 
 ## iOS Maestro blocked on unmanaged API :4230
 
-- Command: `npm run mobile:e2e:test -- --platform ios api-health` (same preflight for every
-  API-backed area in this step)
+- Command: `npm run mobile:e2e:test -- --platform ios play-mini-player` (same preflight for
+  every API-backed area). Earlier `api-health` / `alternate-enclosure` hits were this same
+  refusal, from the other checkout.
 - Assertion: runner exit 1 before Maestro: `cannot reseed while an unmanaged mobile E2E API is
-  listening on :4230`. `alternate-enclosure` did reach Maestro and failed
-  `id: e2e-session-authenticated is visible` because `POST /auth/mobile/token` returned 401
-  after `make mobile_e2e_deps` recreated the empty test database.
-- What I tried: Confirmed Metro is this checkout's `npm run mobile:dev:e2e` on `:8081`. API
-  health on `:4230` is `fixturesEnabled: true`, but the process cwd is
-  `/Users/mitcheldowney/repos/pv/podverse` (`develop`, pid 86576, that checkout's
-  `.artifacts/mobile-e2e-api/api.pid`). This checkout has no managed pid file. Did not stop
-  that process. Test-assets on `:2111` is the same other checkout and its fixture health
-  check passed.
-- Competing explanations: none for the reseed refusal. The 401 is the empty database, not a
-  login-screen defect.
-- Operator decision: In the `podverse` checkout, run `npm run mobile:e2e:api:stop`. In this
-  checkout, **Mobile E2E API**: `npm run mobile:e2e:api:bg`, then
-  `npm run mobile:e2e:api:health` (`fixturesEnabled: true`). Resume this step. Leave `:2111`
-  unless a playback flow needs this tree's fixtures.
+  listening on :4230`. The flow did not start, so there is no Maestro assertion.
+- What I tried: From `/Users/mitcheldowney/repos/pv/podverse`, `make mobile_e2e_deps` succeeded
+  and `hello-world` passed. `:4230` health is `fixturesEnabled: true` and `/health/ready` is
+  ok, but the listener is `podverse_combined` (cwd `apps/api`, pid 10259, that checkout's
+  `.artifacts/mobile-e2e-api/api.pid`). This checkout has no `api.pid`. Did not stop that
+  process. `:8081` is `npm run mobile:dev:e2e` from `podverse_combined`. `:2111` test-assets
+  is the same checkout and the fixture range request returned 206. The deps step recreated
+  `podverse_app_test` empty; seed did not run.
+- Competing explanations: none for the reseed refusal. The listener is a healthy E2E API from
+  the other checkout, which this checkout's runner cannot stop and restart around the seed.
+- Operator decision: In `podverse_combined`, run `npm run mobile:e2e:api:stop`. In `podverse`,
+  **Mobile E2E API**: `npm run mobile:e2e:api:bg`, then `npm run mobile:e2e:api:health`
+  (`fixturesEnabled: true`). Leave `:8081` and `:2111` unless this tree's bundle or media
+  fixtures are required.
