@@ -1,6 +1,6 @@
 {
   "name": "@podverse/external-services-google-play",
-  "version": "5.5.3",
+  "version": "5.6.0",
   "description": "Google Play billing integration for Podverse",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@podverse/worker-commands",
-  "version": "5.5.3",
+  "version": "5.6.0",
   "sideEffects": false,
   "description": "Canonical list and metadata for Podverse workers CLI / job names",
   "main": "dist/index.js",

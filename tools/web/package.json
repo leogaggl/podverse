@@ -1,6 +1,6 @@
 {
   "name": "podverse-web-tools",
-  "version": "5.5.3",
+  "version": "5.6.0",
   "description": "Web E2E seed and fixture utilities for Podverse",
   "private": true,
   "type": "module",
