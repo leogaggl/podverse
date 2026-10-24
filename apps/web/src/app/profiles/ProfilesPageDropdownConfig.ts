@@ -8,39 +8,22 @@ import {
   QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
 } from '@podverse/helpers-requests';
 
-import {
-  buildSubscribedListDropdownConfig,
-  buildSubscribedListFilterParams,
-} from '../../utils/dropdownMenuItems';
+import { buildSubscribedListFilterParams } from '../../utils/dropdownMenuItems';
 
-export function getProfilesPageDropdownConfig({
+export function getProfilesPageSortOptions({
   type,
-  sort,
   tFilters,
 }: {
-  sort: QueryParamsSubscribedFullSort;
   type: QueryParamsSubscribedType;
   tFilters: (key: string) => string;
-}) {
-  return buildSubscribedListDropdownConfig({
-    globalSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    showRangeWhenSort: 'top',
-    sort,
-    subscribedSorts: [
-      { label: tFilters('sort.a_z'), value: 'a_z' },
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    tFilters,
-    type,
-    typeOptions: [
-      { label: tFilters('type.global'), value: 'global' },
-      { label: tFilters('type.subscribed'), value: 'subscribed' },
-    ],
-  });
+}): { label: string; value: QueryParamsSubscribedFullSort }[] {
+  const recentAndTop: { label: string; value: QueryParamsSubscribedFullSort }[] = [
+    { label: tFilters('sort.recent'), value: 'recent' },
+    { label: tFilters('sort.top'), value: 'top' },
+  ];
+  return type === 'subscribed'
+    ? [{ label: tFilters('sort.a_z'), value: 'a_z' }, ...recentAndTop]
+    : recentAndTop;
 }
 
 type ProfilesPageDropdownConfigParams = {

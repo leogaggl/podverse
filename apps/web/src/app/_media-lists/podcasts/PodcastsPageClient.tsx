@@ -1,19 +1,19 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOChannel } from '@podverse/helpers';
 import type { QueryParamsGetMany } from '@podverse/helpers-requests';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import type { MediaListScope } from '../../../utils/mediaListChips';
+import { MediaListPageHeader } from '../MediaListPageHeader';
+import { PodcastsPageChipRow } from './PodcastsPageChipRow';
 import { PodcastsPageContextProvider } from './PodcastsPageContext';
-import { PodcastsPageHeader } from './PodcastsPageHeader';
 import { PodcastsPageList } from './PodcastsPageList';
 
 type PodcastsPageClientProps = {
-  chipsNode: ReactNode;
+  chipsConfig: MediaListChipsConfig;
   initialFilterTerm: string;
   initialQueryParams: QueryParamsGetMany;
   scope: MediaListScope;
@@ -21,10 +21,10 @@ type PodcastsPageClientProps = {
   ssrTotalPages: number;
 };
 
-export type PodcastsListProps = Omit<PodcastsPageClientProps, 'chipsNode'>;
+export type PodcastsListProps = Omit<PodcastsPageClientProps, 'chipsConfig'>;
 
 export function PodcastsPageClient(props: PodcastsPageClientProps) {
-  const { chipsNode, initialFilterTerm, initialQueryParams, scope, ssrChannels, ssrTotalPages } =
+  const { chipsConfig, initialFilterTerm, initialQueryParams, scope, ssrChannels, ssrTotalPages } =
     props;
 
   return (
@@ -35,11 +35,11 @@ export function PodcastsPageClient(props: PodcastsPageClientProps) {
       ssrChannels={ssrChannels}
       ssrTotalPages={ssrTotalPages}
     >
-      <PodcastsPageHeader />
+      <MediaListPageHeader scope={scope} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <PodcastsPageChipRow chipsConfig={chipsConfig} />
             <PodcastsPageList />
           </MainColumnStack>
         </MainSidebarLayout>

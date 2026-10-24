@@ -119,6 +119,12 @@ export { RouteNavigationLoading } from './components/layout/RouteNavigationLoadi
 export type { RouteNavigationLoadingProps } from './components/layout/RouteNavigationLoading/RouteNavigationLoading';
 export { MainPageScaffold } from './components/layout/MainPageScaffold/MainPageScaffold';
 export type { MainPageScaffoldProps } from './components/layout/MainPageScaffold/MainPageScaffold';
+export {
+  AppBarTitleProvider,
+  useAppBarTitle,
+  usePublishAppBarTitle,
+} from './components/layout/AppBarTitle/AppBarTitle';
+export type { AppBarTitleProviderProps } from './components/layout/AppBarTitle/AppBarTitle';
 export { MainHeader } from './components/layout/MainHeader/MainHeader';
 export type { MainHeaderProps } from './components/layout/MainHeader/MainHeader';
 export { MainColumnStack } from './components/layout/MainColumnStack/MainColumnStack';
@@ -170,7 +176,6 @@ export type {
   NavBarAccountMenuItem,
   NavBarAccountMenuProps,
   NavBarAppearance,
-  NavBarBackForwardProps,
   NavBarBrandProps,
   NavBarBrandVisibility,
   NavBarLinkComponentProps,
@@ -271,6 +276,19 @@ export type {
 } from './components/navigation/TableOfContents/index';
 export { ButtonTabs } from './components/navigation/ButtonTabs/ButtonTabs';
 export type { ButtonTab, ButtonTabsProps } from './components/navigation/ButtonTabs/ButtonTabs';
+export { Chip, ChipRow, MenuChip, SortChip } from './components/navigation/Chip/index';
+export type {
+  ChipProps,
+  ChipRowItem,
+  ChipRowProps,
+  ChipVariant,
+  MenuChipOption,
+  MenuChipProps,
+  SortChipOption,
+  SortChipProps,
+  SortChipRange,
+  SortChipRangeOption,
+} from './components/navigation/Chip/index';
 export { ActionLink } from './components/navigation/ActionLink/ActionLink';
 export type {
   ActionLinkLinkProps,

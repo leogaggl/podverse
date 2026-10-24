@@ -1,29 +1,29 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOItem } from '@podverse/helpers';
 import type { QueryParamsGetManyPartialMusic } from '@podverse/helpers-requests';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import type { MediaListScope } from '../../../utils/mediaListChips';
+import { MediaListPageHeader } from '../MediaListPageHeader';
+import { TracksPageChipRow } from './TracksPageChipRow';
 import { TracksPageContextProvider } from './TracksPageContext';
-import { TracksPageHeader } from './TracksPageHeader';
 import { TracksPageList } from './TracksPageList';
 
 type TracksPageClientProps = {
-  chipsNode: ReactNode;
+  chipsConfig: MediaListChipsConfig;
   initialQueryParams: QueryParamsGetManyPartialMusic;
   scope: MediaListScope;
   ssrItems: DTOItem[];
   ssrTotalPages: number;
 };
 
-export type TracksListProps = Omit<TracksPageClientProps, 'chipsNode'>;
+export type TracksListProps = Omit<TracksPageClientProps, 'chipsConfig'>;
 
 export function TracksPageClient(props: TracksPageClientProps) {
-  const { chipsNode, initialQueryParams, scope, ssrItems, ssrTotalPages } = props;
+  const { chipsConfig, initialQueryParams, scope, ssrItems, ssrTotalPages } = props;
 
   return (
     <TracksPageContextProvider
@@ -32,11 +32,11 @@ export function TracksPageClient(props: TracksPageClientProps) {
       ssrItems={ssrItems}
       ssrTotalPages={ssrTotalPages}
     >
-      <TracksPageHeader />
+      <MediaListPageHeader scope={scope} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <TracksPageChipRow chipsConfig={chipsConfig} />
             <TracksPageList />
           </MainColumnStack>
         </MainSidebarLayout>

@@ -3,11 +3,11 @@ import React from 'react';
 
 import type { DTOCategory } from '@podverse/helpers';
 
+import { CategoriesList } from '../../../components/Category/CategoriesList';
 import { HowToStartInfo } from '../../../components/HowToStartInfo/HowToStartInfo';
 import { ListClips } from '../../../components/List/Clips/ListClips';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
-import { ModalCategoriesSelect } from '../../../components/Modal/ModalCategoriesSelect';
-import { onClickCategory } from '../../../utils/categories';
+import { onClickAllCategories, onClickCategory } from '../../../utils/categories';
 import { buildMediaListChipPath } from '../../../utils/mediaListChips';
 import { useClipsPageContext } from './ClipsPageContext';
 
@@ -19,8 +19,8 @@ export const ClipsPageList: React.FC = () => {
     totalPages,
     isLoading,
     showSubscribeMessage,
-    showCategoriesModal,
-    setShowCategoriesModal,
+    isCategoryListOpen,
+    setIsCategoryListOpen,
   } = useClipsPageContext();
   const { page, type, category } = filterParams;
   const router = useRouter();
@@ -30,11 +30,25 @@ export const ClipsPageList: React.FC = () => {
       category,
       setFilterParams,
       filterParams,
-      setShowCategoriesModal,
+      setIsCategoryListOpen,
       linkPath: buildMediaListChipPath('browse', 'clips'),
       router,
     });
   };
+
+  const handleOnClickAllCategories = () => {
+    onClickAllCategories({ filterParams, setFilterParams, setIsCategoryListOpen });
+  };
+
+  if (isCategoryListOpen) {
+    return (
+      <CategoriesList
+        onAllCategoriesClick={handleOnClickAllCategories}
+        onCategoryClick={handleOnClickCategory}
+        selectedCategory={filterParams.category}
+      />
+    );
+  }
 
   return (
     <>
@@ -53,11 +67,6 @@ export const ClipsPageList: React.FC = () => {
         showItemInfo
       />
       <WebLoadingSpinnerOverlay isLoading={isLoading} />
-      <ModalCategoriesSelect
-        isOpen={showCategoriesModal}
-        onCategoryClick={handleOnClickCategory}
-        setIsOpen={setShowCategoriesModal}
-      />
     </>
   );
 };

@@ -1,29 +1,29 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOItem } from '@podverse/helpers';
 import type { QueryParamsGetManyPartial } from '@podverse/helpers-requests';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import type { MediaListScope } from '../../../utils/mediaListChips';
+import { MediaListPageHeader } from '../MediaListPageHeader';
+import { EpisodesPageChipRow } from './EpisodesPageChipRow';
 import { EpisodesPageContextProvider } from './EpisodesPageContext';
-import { EpisodesPageHeader } from './EpisodesPageHeader';
 import { EpisodesPageList } from './EpisodesPageList';
 
 type EpisodesPageClientProps = {
-  chipsNode: ReactNode;
+  chipsConfig: MediaListChipsConfig;
   initialQueryParams: QueryParamsGetManyPartial;
   scope: MediaListScope;
   ssrItems: DTOItem[];
   ssrTotalPages: number;
 };
 
-export type EpisodesListProps = Omit<EpisodesPageClientProps, 'chipsNode'>;
+export type EpisodesListProps = Omit<EpisodesPageClientProps, 'chipsConfig'>;
 
 export function EpisodesPageClient(props: EpisodesPageClientProps) {
-  const { chipsNode, initialQueryParams, scope, ssrItems, ssrTotalPages } = props;
+  const { chipsConfig, initialQueryParams, scope, ssrItems, ssrTotalPages } = props;
 
   return (
     <EpisodesPageContextProvider
@@ -32,11 +32,11 @@ export function EpisodesPageClient(props: EpisodesPageClientProps) {
       ssrItems={ssrItems}
       ssrTotalPages={ssrTotalPages}
     >
-      <EpisodesPageHeader />
+      <MediaListPageHeader scope={scope} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <EpisodesPageChipRow chipsConfig={chipsConfig} />
             <EpisodesPageList />
           </MainColumnStack>
         </MainSidebarLayout>

@@ -1,4 +1,4 @@
-import { MediaListChips } from '../../components/MediaListChips/MediaListChips';
+import type { MediaListChipsConfig } from '../../components/MediaListChips/MediaListChips';
 import { getCuratedStaticPageMetadata } from '../../lib/seo/curatedPageMetadata';
 import {
   BROWSE_CHIPS,
@@ -43,16 +43,19 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     storedValue: readStoredMediaListChip(ssr.localSettings, 'browse'),
     defaultChip: DEFAULT_MEDIA_LIST_CHIP,
   });
-  const chipsNode = (
-    <MediaListChips page="browse" chips={BROWSE_CHIPS} selected={chip} urlChip={urlChip} />
-  );
+  const chipsConfig: MediaListChipsConfig = {
+    page: 'browse',
+    chips: BROWSE_CHIPS,
+    selected: chip,
+    urlChip,
+  };
 
   switch (chip) {
     case 'podcasts':
       return (
         <PodcastsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadPodcastsListProps('browse', params, ssr)}
         />
       );
@@ -60,7 +63,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <EpisodesPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadEpisodesListProps('browse', params, ssr)}
         />
       );
@@ -68,7 +71,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <ClipsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadClipsListProps('browse', params, ssr)}
         />
       );
@@ -76,7 +79,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <ArtistsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadArtistsListProps('browse', params, ssr)}
         />
       );
@@ -84,7 +87,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <AlbumsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadAlbumsListProps('browse', params, ssr)}
         />
       );
@@ -92,7 +95,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <TracksPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadTracksListProps('browse', params, ssr)}
         />
       );
@@ -100,7 +103,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <LivestreamsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadLivestreamsListProps('browse', params, ssr)}
         />
       );
@@ -108,7 +111,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <PlaylistsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadPlaylistsBrowseProps(params, ssr)}
         />
       );
@@ -116,7 +119,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       return (
         <ProfilesPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadProfilesBrowseProps(params, ssr)}
         />
       );

@@ -1,29 +1,29 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOClip } from '@podverse/helpers';
 import type { QueryParamsGetManyPartial } from '@podverse/helpers-requests';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import type { MediaListScope } from '../../../utils/mediaListChips';
+import { MediaListPageHeader } from '../MediaListPageHeader';
+import { ClipsPageChipRow } from './ClipsPageChipRow';
 import { ClipsPageContextProvider } from './ClipsPageContext';
-import { ClipsPageHeader } from './ClipsPageHeader';
 import { ClipsPageList } from './ClipsPageList';
 
 type ClipsPageClientProps = {
-  chipsNode: ReactNode;
+  chipsConfig: MediaListChipsConfig;
   initialQueryParams: QueryParamsGetManyPartial;
   scope: MediaListScope;
   ssrClips: DTOClip[];
   ssrTotalPages: number;
 };
 
-export type ClipsListProps = Omit<ClipsPageClientProps, 'chipsNode'>;
+export type ClipsListProps = Omit<ClipsPageClientProps, 'chipsConfig'>;
 
 export function ClipsPageClient(props: ClipsPageClientProps) {
-  const { chipsNode, initialQueryParams, scope, ssrClips, ssrTotalPages } = props;
+  const { chipsConfig, initialQueryParams, scope, ssrClips, ssrTotalPages } = props;
 
   return (
     <ClipsPageContextProvider
@@ -32,11 +32,11 @@ export function ClipsPageClient(props: ClipsPageClientProps) {
       ssrClips={ssrClips}
       ssrTotalPages={ssrTotalPages}
     >
-      <ClipsPageHeader />
+      <MediaListPageHeader scope={scope} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <ClipsPageChipRow chipsConfig={chipsConfig} />
             <ClipsPageList />
           </MainColumnStack>
         </MainSidebarLayout>

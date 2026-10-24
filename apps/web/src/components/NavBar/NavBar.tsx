@@ -1,12 +1,12 @@
 'use client';
 
 import NextLink from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 
 import type { NavBarAccountMenuItem } from '@podverse/ui';
-import { NavBar as NavBarUi } from '@podverse/ui';
+import { NavBar as NavBarUi, useAppBarTitle } from '@podverse/ui';
 
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
@@ -17,8 +17,8 @@ import { NavBarBrand } from './NavBarBrand';
 import { NotificationBellButton } from './NotificationBellButton';
 
 export const NavBar = () => {
-  const router = useRouter();
   const pathname = usePathname();
+  const appBarTitle = useAppBarTitle();
   const { loggedInAccount } = useAccount();
   const { mobileSidebarOpen, setMobileSidebarOpen } = useLocalSettings();
   const { setModalAuthLogin } = useModals();
@@ -88,16 +88,6 @@ export const NavBar = () => {
         items: accountItems,
         LinkComponent: NextLink,
       }}
-      backForward={{
-        backLabel: tMisc('browser_back'),
-        forwardLabel: tMisc('browser_forward'),
-        onBack: () => {
-          router.back();
-        },
-        onForward: () => {
-          router.forward();
-        },
-      }}
       brand={{
         children: <NavBarBrand />,
         href: '/',
@@ -115,6 +105,7 @@ export const NavBar = () => {
         href: ROUTES.SEARCH,
         LinkComponent: NextLink,
       }}
+      title={appBarTitle ?? undefined}
       trailingActions={
         loggedInAccount !== null && loggedInAccount !== undefined ? (
           <NotificationBellButton />

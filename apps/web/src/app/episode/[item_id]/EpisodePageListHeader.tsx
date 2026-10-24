@@ -3,21 +3,13 @@
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
-import type {
-  QueryParamsItemSort,
-  QueryParamsItemType,
-  QueryParamsStatsRange,
-} from '@podverse/helpers-requests';
-import {
-  QUERY_PARAMS_ITEM_SORT_VALUES,
-  QUERY_PARAMS_ITEM_TYPE_VALUES,
-  QUERY_PARAMS_STATS_RANGE_VALUES,
-} from '@podverse/helpers-requests';
-import { Button, Dropdown, Tabs } from '@podverse/ui';
+import type { QueryParamsItemSort, QueryParamsItemType } from '@podverse/helpers-requests';
+import type { ChipRowItem } from '@podverse/ui';
+import { Button } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
+import { ListSortChip } from '../../../components/ListSortChip/ListSortChip';
 import { useEpisodePageContext } from './EpisodePageContext';
-import { getEpisodePageDropdownConfig } from './EpisodePageDropdownConfig';
 
 type EpisodePageListHeaderProps = {
   ssrHasChapters: boolean;
@@ -26,6 +18,8 @@ type EpisodePageListHeaderProps = {
   ssrHasTranscripts: boolean;
   ssrCanShowBoosts?: boolean;
 };
+
+type EpisodeClipSort = 'recent' | 'oldest';
 
 export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
   ssrHasChapters,
@@ -42,130 +36,94 @@ export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
   const tMisc = useTranslations('misc');
   const tValue = useTranslations('value');
 
-  const { sortMenuItems, rangeMenuItems, showRangeDropdown } = getEpisodePageDropdownConfig({
-    sort,
-    tFilters,
-  });
-
-  function isItemType(val: string): val is QueryParamsItemType {
-    return QUERY_PARAMS_ITEM_TYPE_VALUES.includes(val as QueryParamsItemType);
-  }
-  function isItemSort(val: string): val is QueryParamsItemSort {
-    return QUERY_PARAMS_ITEM_SORT_VALUES.includes(val as QueryParamsItemSort);
-  }
-  function isStatsRange(val: string): val is QueryParamsStatsRange {
-    return QUERY_PARAMS_STATS_RANGE_VALUES.includes(val as QueryParamsStatsRange);
-  }
-
-  const handleTypeChange = (value: string) => {
-    if (isItemType(value)) {
-      setFilterParams({ ...filterParams, type: value, page: 1 });
-    }
-  };
-
-  const handleSortChange = (value: string) => {
-    if (isItemSort(value)) {
-      if (value === 'top') {
-        setFilterParams({ ...filterParams, sort: value, range: 'week', page: 1 });
-      } else {
-        setFilterParams({ ...filterParams, sort: value, page: 1 });
-      }
-    }
-  };
-
-  const handleRangeChange = (value: string) => {
-    if (isStatsRange(value)) {
-      setFilterParams({ ...filterParams, range: value, page: 1 });
-    }
-  };
-
-  const tabData = [
+  const items: ChipRowItem<QueryParamsItemType>[] = [
     {
       key: 'summary',
       label: tInfo('summary.summary'),
-      onClick: () => handleTypeChange('summary'),
-      zIndex: 5,
     },
   ];
 
   if (ssrHasChapters) {
-    tabData.push({
+    items.push({
       key: 'chapters',
       label: tInfo('chapter.chapters'),
-      onClick: () => handleTypeChange('chapters'),
-      zIndex: 4,
     });
   }
 
   if (ssrHasSoundbites) {
-    tabData.push({
+    items.push({
       key: 'soundbites',
       label: tInfo('soundbite.official_clips'),
-      onClick: () => handleTypeChange('soundbites'),
-      zIndex: 3,
     });
   }
 
-  tabData.push({
+  items.push({
     key: 'clips',
     label: tFeatures('clip.clips'),
-    onClick: () => handleTypeChange('clips'),
-    zIndex: 2,
   });
 
   if (ssrCanShowBoosts) {
-    tabData.push({
+    items.push({
       key: 'boosts',
       label: tValue('boost'),
-      onClick: () => handleTypeChange('boosts'),
-      zIndex: 1,
     });
   }
 
   if (ssrHasTranscripts) {
-    tabData.push({
+    items.push({
       key: 'transcript',
       label: tInfo('transcript.transcript'),
-      onClick: () => handleTypeChange('transcript'),
-      zIndex: 0,
     });
   }
 
   if (ssrHasPeople) {
-    tabData.push({
+    items.push({
       key: 'people',
       label: tInfo('people.people'),
-      onClick: () => handleTypeChange('people'),
-      zIndex: 0,
     });
   }
 
-  let sideButtons: React.ReactNode = null;
-  if (type === 'soundbites' || type === 'clips') {
-    sideButtons = (
-      <>
-        <Dropdown
-          key="sort"
-          value={sort ?? ''}
-          menuItems={sortMenuItems}
-          onChange={handleSortChange}
-          position="right"
-        />
-        {showRangeDropdown && (
-          <Dropdown
-            key="range"
-            value={range ?? ''}
-            menuItems={rangeMenuItems}
-            onChange={handleRangeChange}
-            position="right"
-          />
-        )}
-      </>
-    );
-  }
+  const clipSortOptions: { value: QueryParamsItemSort; label: string }[] = [
+    { value: 'recent', label: tFilters('sort.recent') },
+    { value: 'oldest', label: tFilters('sort.oldest') },
+    { value: 'top', label: tFilters('sort.top') },
+  ];
+  const soundbiteSortOptions: { value: EpisodeClipSort; label: string }[] = [
+    { value: 'recent', label: tFilters('sort.recent') },
+    { value: 'oldest', label: tFilters('sort.oldest') },
+  ];
+  const soundbiteSort: EpisodeClipSort = sort === 'oldest' ? 'oldest' : 'recent';
 
-  if (type === 'transcript') {
-    sideButtons = (
+  let trailing: React.ReactNode = null;
+  if (type === 'clips') {
+    trailing = (
+      <ListSortChip
+        onChange={(nextSort, nextRange) => {
+          setFilterParams({ ...filterParams, page: 1, range: nextRange, sort: nextSort });
+        }}
+        options={clipSortOptions}
+        position="right"
+        range={sort === 'top' ? range : null}
+        rangeSort="top"
+        testId="episode-detail-sort"
+        value={sort}
+      />
+    );
+  } else if (type === 'soundbites') {
+    trailing = (
+      <ListSortChip
+        onChange={(nextSort) => {
+          setFilterParams({ ...filterParams, page: 1, sort: nextSort });
+        }}
+        options={soundbiteSortOptions}
+        position="right"
+        range={null}
+        testId="episode-detail-sort"
+        value={soundbiteSort}
+      />
+    );
+  } else if (type === 'transcript') {
+    trailing = (
       <Button onClick={() => setAutoScrollOn(!autoScrollOn)} variant="mini">
         {autoScrollOn ? tMisc('autoscroll.autoscroll_on') : tMisc('autoscroll.autoscroll_off')}
       </Button>
@@ -174,8 +132,13 @@ export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
 
   return (
     <CommonDetailListHeader
-      tabs={<Tabs tabData={tabData} selectedKey={type ?? ''} />}
-      sideButtons={sideButtons}
+      items={items}
+      onSelect={(nextType) => {
+        setFilterParams({ ...filterParams, type: nextType, page: 1 });
+      }}
+      selectedKey={type}
+      testId="episode-detail-chips"
+      trailing={trailing}
     />
   );
 };

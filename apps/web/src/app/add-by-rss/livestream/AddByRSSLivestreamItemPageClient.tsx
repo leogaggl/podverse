@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
-import { MainColumnStack, MainSidebarLayout, SideContent, Tabs } from '@podverse/ui';
+import type { ChipRowItem } from '@podverse/ui';
+import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
 
 import { AddByRSSArtistHeader } from '../../../components/AddByRSS/Artist/AddByRSSArtistHeader';
 import { AddByRSSAlbumHeader } from '../../../components/AddByRSS/Artist/Album/AddByRSSAlbumHeader';
@@ -203,20 +204,16 @@ export const AddByRSSLivestreamItemPageClient: React.FC<AddByRSSLivestreamItemPa
   const title = livestream.item.title ?? tInfo('livestream.livestream');
   const description = livestream.item.description ?? null;
 
-  const tabData = [
+  const items: ChipRowItem<'summary' | 'boosts'>[] = [
     {
       key: 'summary',
       label: tInfo('summary.summary'),
-      onClick: () => handleTabSelect('summary'),
-      zIndex: 1,
     },
   ];
   if (canShowBoostTab) {
-    tabData.push({
+    items.push({
       key: 'boosts',
       label: tValue('boost'),
-      onClick: () => handleTabSelect('boosts'),
-      zIndex: 2,
     });
   }
 
@@ -241,7 +238,12 @@ export const AddByRSSLivestreamItemPageClient: React.FC<AddByRSSLivestreamItemPa
             mediumSlug={mediumSlug}
             indexItem={livestream}
           />
-          <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
+          <CommonDetailListHeader
+            items={items}
+            onSelect={handleTabSelect}
+            selectedKey={selectedTab}
+            testId="add-by-rss-livestream-detail-chips"
+          />
           <DetailListWrapper>
             {selectedTab === 'summary' &&
               (description ? (

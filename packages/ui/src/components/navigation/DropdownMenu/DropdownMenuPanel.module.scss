@@ -13,6 +13,8 @@
 }
 
 .menuItem {
+  display: flex;
+  align-items: center;
   padding: var(--spacing-md) var(--spacing-xl);
   margin: var(--spacing-md);
   cursor: pointer;
@@ -28,6 +30,14 @@
     background: var(--background-color-opaque);
     outline: none;
   }
+}
+
+.check {
+  display: inline-flex;
+  flex: none;
+  width: var(--font-size-base);
+  margin-right: var(--spacing-md);
+  color: var(--text-color-accent);
 }
 
 .menuItemWarning {

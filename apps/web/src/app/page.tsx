@@ -1,4 +1,4 @@
-import { MediaListChips } from '../components/MediaListChips/MediaListChips';
+import type { MediaListChipsConfig } from '../components/MediaListChips/MediaListChips';
 import { getCuratedStaticPageMetadata } from '../lib/seo/curatedPageMetadata';
 import {
   DEFAULT_MEDIA_LIST_CHIP,
@@ -39,16 +39,19 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
     storedValue: readStoredMediaListChip(ssr.localSettings, 'subscribed'),
     defaultChip: DEFAULT_MEDIA_LIST_CHIP,
   });
-  const chipsNode = (
-    <MediaListChips page="subscribed" chips={SUBSCRIBED_CHIPS} selected={chip} urlChip={urlChip} />
-  );
+  const chipsConfig: MediaListChipsConfig = {
+    page: 'subscribed',
+    chips: SUBSCRIBED_CHIPS,
+    selected: chip,
+    urlChip,
+  };
 
   switch (chip) {
     case 'podcasts':
       return (
         <PodcastsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadPodcastsListProps('subscribed', params, ssr)}
         />
       );
@@ -56,7 +59,7 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
       return (
         <EpisodesPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadEpisodesListProps('subscribed', params, ssr)}
         />
       );
@@ -64,7 +67,7 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
       return (
         <ClipsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadClipsListProps('subscribed', params, ssr)}
         />
       );
@@ -72,7 +75,7 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
       return (
         <ArtistsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadArtistsListProps('subscribed', params, ssr)}
         />
       );
@@ -80,7 +83,7 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
       return (
         <AlbumsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadAlbumsListProps('subscribed', params, ssr)}
         />
       );
@@ -88,7 +91,7 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
       return (
         <TracksPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadTracksListProps('subscribed', params, ssr)}
         />
       );
@@ -96,7 +99,7 @@ export default async function SubscribedPage({ searchParams }: SubscribedPagePro
       return (
         <LivestreamsPageClient
           key={chip}
-          chipsNode={chipsNode}
+          chipsConfig={chipsConfig}
           {...await loadLivestreamsListProps('subscribed', params, ssr)}
         />
       );

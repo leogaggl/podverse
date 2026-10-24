@@ -34,8 +34,8 @@ interface PodcastsPageContextType {
   setIsLoading: (isLoading: boolean) => void;
   showSubscribeMessage: boolean;
   setShowSubscribeMessage: (show: boolean) => void;
-  showCategoriesModal: boolean;
-  setShowCategoriesModal: (show: boolean) => void;
+  isCategoryListOpen: boolean;
+  setIsCategoryListOpen: (open: boolean) => void;
 }
 
 const PodcastsPageContext = createContext<PodcastsPageContextType | undefined>(undefined);
@@ -78,7 +78,7 @@ export const PodcastsPageContextProvider = ({
   const [showSubscribeMessage, setShowSubscribeMessage] = useState<boolean>(
     scope === 'subscribed' && loggedInAccount === null
   );
-  const [showCategoriesModal, setShowCategoriesModal] = useState<boolean>(false);
+  const [isCategoryListOpen, setIsCategoryListOpen] = useState<boolean>(false);
   const medium = 'av';
 
   useFilterDefaults(scope === 'subscribed' ? 'subscribed-podcasts' : 'podcasts', filterParams);
@@ -196,8 +196,8 @@ export const PodcastsPageContextProvider = ({
         setIsLoading,
         showSubscribeMessage,
         setShowSubscribeMessage,
-        showCategoriesModal,
-        setShowCategoriesModal,
+        isCategoryListOpen,
+        setIsCategoryListOpen,
       }}
     >
       {children}

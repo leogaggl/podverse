@@ -27,6 +27,8 @@ test.describe('Recommendations page', () => {
     expect(recommendationsIndex).toBe(browseIndex + 1);
 
     await page.goto('/recommendations');
+    const chrome = page.locator('[data-appearance="web"]');
+    await expect(chrome.getByRole('heading', { level: 1, name: 'Recommendations' })).toBeVisible();
     const loginPrompt = page.getByText('Log in to use this feature.');
     await expect(loginPrompt).toBeVisible();
     await capturePageLoad(

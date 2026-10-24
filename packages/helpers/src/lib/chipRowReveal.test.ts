@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getChipRevealOffset } from './chipRowReveal';
+import { getChipRevealOffset } from './chipRowReveal.js';
 
 const row = { viewportWidth: 400, contentWidth: 900, edgeInset: 12 };
 

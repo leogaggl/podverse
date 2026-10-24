@@ -130,6 +130,7 @@
     },
     "browse": {
       "browse": "Parcourir",
+      "category_all": "Toutes les catégories",
       "users": "Utilisateurs"
     },
     "recommendations": {
@@ -681,6 +682,7 @@
       "title": "Filtrer et trier",
       "filter_heading": "Filtrer",
       "sort_heading": "Trier",
+      "sections_heading": "Sections",
       "range_heading": "Période"
     }
   },
@@ -779,8 +781,6 @@
     "mobile": "Mobile",
     "donate": "Faire un don",
     "open_source": "Open source",
-    "browser_back": "Retour",
-    "browser_forward": "Avancer",
     "navbar_menu_open": "Ouvrir le menu",
     "navbar_menu_close": "Fermer le menu",
     "close_modal": "Fermer la fenêtre modale",

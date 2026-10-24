@@ -34,7 +34,6 @@
       "section_requires_connection": "Cette section nécessite une connexion. Réessayez une fois de retour en ligne."
     },
     "browse": {
-      "category_all": "Toutes les catégories",
       "collapse_category": "Masquer les sous-catégories de {name}",
       "expand_category": "Afficher les sous-catégories de {name}",
       "empty": "Rien à afficher pour le moment",

@@ -6,17 +6,17 @@ import type { AddByRSSResourceType, DTOCategory } from '@podverse/helpers';
 import { PAGINATION } from '@podverse/helpers';
 import { InfoWrapper } from '@podverse/ui';
 
+import { CategoriesList } from '../../../components/Category/CategoriesList';
 import type { PodcastListItem } from '../../../components/Common/Podcast/types';
 import { CorePodcasts } from '../../../components/Core/Podcast/CorePodcasts';
 import { HowToStartInfo } from '../../../components/HowToStartInfo/HowToStartInfo';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
-import { ModalCategoriesSelect } from '../../../components/Modal/ModalCategoriesSelect';
 import { ROUTES } from '../../../constants/routes';
 import { useChannelUnseenBadges } from '../../../hooks/useChannelUnseenBadges';
 import { useFullSubscribedChannels } from '../../../hooks/useFullSubscribedChannels';
 import { useListViewMode } from '../../../hooks/useListViewMode';
 import { useReadyAddByRSSFeeds } from '../../../hooks/useReadyAddByRSSFeeds';
-import { onClickCategory } from '../../../utils/categories';
+import { onClickAllCategories, onClickCategory } from '../../../utils/categories';
 import {
   podcastListItemFromAddByRSSFeed,
   podcastListItemFromChannel,
@@ -47,8 +47,8 @@ export const PodcastsPageList: React.FC = () => {
     totalPages,
     isLoading,
     showSubscribeMessage,
-    showCategoriesModal,
-    setShowCategoriesModal,
+    isCategoryListOpen,
+    setIsCategoryListOpen,
   } = usePodcastsPageContext();
   const { viewSelected } = useListViewMode(podcastsListViewModeScope(scope));
   const { medium, page, range, sort, type, category } = filterParams;
@@ -134,11 +134,25 @@ export const PodcastsPageList: React.FC = () => {
       category: selectedCategory,
       setFilterParams,
       filterParams,
-      setShowCategoriesModal,
+      setIsCategoryListOpen,
       linkPath: ROUTES.BROWSE,
       router,
     });
   };
+
+  const handleOnClickAllCategories = () => {
+    onClickAllCategories({ filterParams, setFilterParams, setIsCategoryListOpen });
+  };
+
+  if (isCategoryListOpen) {
+    return (
+      <CategoriesList
+        onAllCategoriesClick={handleOnClickAllCategories}
+        onCategoryClick={handleOnClickCategory}
+        selectedCategory={filterParams.category}
+      />
+    );
+  }
 
   return (
     <>
@@ -193,11 +207,6 @@ export const PodcastsPageList: React.FC = () => {
       />
       <WebLoadingSpinnerOverlay
         isLoading={isLoading || fullList.isLoading || (isMerged && !fullList.isReady)}
-      />
-      <ModalCategoriesSelect
-        isOpen={showCategoriesModal}
-        onCategoryClick={handleOnClickCategory}
-        setIsOpen={setShowCategoriesModal}
       />
     </>
   );

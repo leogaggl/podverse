@@ -29,23 +29,6 @@ describe('NavBar', () => {
     expect(link.getAttribute('href')).toBe('/home');
   });
 
-  it('renders back and forward controls when backForward is set', () => {
-    render(
-      <NavBar
-        backForward={{
-          backLabel: 'Go Back',
-          forwardLabel: 'Go forward',
-          onBack: vi.fn(),
-          onForward: vi.fn(),
-        }}
-        brand={{ children: 'X', href: '#' }}
-      />
-    );
-
-    expect(screen.getByRole('button', { name: 'Go Back' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Go forward' })).toBeTruthy();
-  });
-
   it('renders search link when search is set', () => {
     render(
       <NavBar
@@ -154,6 +137,13 @@ describe('NavBar', () => {
 
     expect(screen.queryByRole('button', { name: 'Account' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Find' })).toBeNull();
+    expect(screen.queryByRole('heading')).toBeNull();
+  });
+
+  it('renders the page title as a level-1 heading when title is set', () => {
+    render(<NavBar appearance="web" brand={{ children: 'X', href: '#' }} title="Settings" />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
   });
 
   it('renders trailing actions before account menu', () => {

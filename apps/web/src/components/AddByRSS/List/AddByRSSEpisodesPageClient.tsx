@@ -5,15 +5,17 @@ import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { AddByRSSParseStatus } from '@podverse/helpers';
-import { Dropdown, MainColumnStack, MainSidebarLayout } from '@podverse/ui';
+import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { AddByRSSEpisodesListNodes } from '../../../components/AddByRSS/Podcast/Episode/AddByRSSEpisodesListNodes';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { Pagination } from '../../../components/Pagination/Pagination';
 import { dismissToast, showToast, showToastLoading } from '../../../components/Toast/Toast';
 import { useAccount } from '../../../contexts/Account';
+import type { AddByRSSListSortOrder } from '../../../contexts/AddByRSSListContext';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
 import type { AddByRSSParseOutcome } from '../../../utils/addByRSS/actions';
@@ -32,24 +34,21 @@ import type {
   AddByRSSItemIndexItem,
   AddByRSSParsedFeed,
 } from '../../../utils/addByRSS/types';
-import { AddByRSSListHeader } from './AddByRSSListHeader';
+import { AddByRSSListHeader, AddByRSSListToolbar } from './AddByRSSListHeader';
 
 import styles from '../../../styles/components/Common/List/Podcasts/Episodes/ListEpisodes.module.scss';
 
-type SortOption = 'recent' | 'oldest';
-
-const toSortOption = (value: string | null): SortOption =>
+const toSortOption = (value: string | null): AddByRSSListSortOrder =>
   value === 'oldest' ? 'oldest' : 'recent';
 
 type AddByRSSEpisodesPageClientProps = {
-  chipsNode: React.ReactNode;
+  chipsConfig: MediaListChipsConfig;
 };
 
 export const AddByRSSEpisodesPageClient: React.FC<AddByRSSEpisodesPageClientProps> = ({
-  chipsNode,
+  chipsConfig,
 }) => {
   const tFeatures = useTranslations('features');
-  const tFilters = useTranslations('filters');
   const tMisc = useTranslations('misc');
   const { loggedInAccount } = useAccount();
   const { setModalAuthLogin } = useModals();
@@ -64,7 +63,7 @@ export const AddByRSSEpisodesPageClient: React.FC<AddByRSSEpisodesPageClientProp
   const initialSort = useMemo(() => toSortOption(searchParams.get('sort')), [searchParams]);
 
   const [page, setPage] = useState(initialPage);
-  const [sort, setSort] = useState<SortOption>(initialSort);
+  const [sort, setSort] = useState<AddByRSSListSortOrder>(initialSort);
 
   const [items, setItems] = useState<AddByRSSItemIndexItem[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -86,17 +85,8 @@ export const AddByRSSEpisodesPageClient: React.FC<AddByRSSEpisodesPageClientProp
     };
   };
 
-  const sortMenuItems = useMemo(
-    () => [
-      { label: tFilters('sort.recent'), param: 'sort', value: 'recent' },
-      { label: tFilters('sort.oldest'), param: 'sort', value: 'oldest' },
-    ],
-    [tFilters]
-  );
-
-  const handleSortChange = (value: string) => {
-    const nextSort = toSortOption(value);
-    setSort(nextSort);
+  const handleSortChange = (value: AddByRSSListSortOrder) => {
+    setSort(value);
     setPage(1);
   };
 
@@ -290,21 +280,17 @@ export const AddByRSSEpisodesPageClient: React.FC<AddByRSSEpisodesPageClientProp
 
   return (
     <>
-      <AddByRSSListHeader
-        title={tFeatures('add_by_rss.label')}
-        isUpdating={isUpdating}
-        onCheckUpdates={handleCheckForUpdates}
-        checkUpdatesLabel={tFeatures('add_by_rss.check_updates')}
-        viewSelected={viewSelected}
-        setViewSelected={setViewSelected}
-        extraButtons={
-          <Dropdown key="sort" value={sort} menuItems={sortMenuItems} onChange={handleSortChange} />
-        }
-      />
+      <AddByRSSListHeader title={tFeatures('add_by_rss.label')} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <AddByRSSListToolbar
+              chipsConfig={chipsConfig}
+              isUpdating={isUpdating}
+              onCheckUpdates={handleCheckForUpdates}
+              sort={{ onChange: handleSortChange, value: sort }}
+              view={{ setViewSelected, viewSelected }}
+            />
             {totalPages > 1 ? (
               <Pagination
                 currentPage={page}

@@ -2,6 +2,7 @@
 description: Keep top NavBar visible during scroll on pages with app chrome.
 globs:
   - packages/ui/src/components/navigation/NavBar/**
+  - packages/ui/src/components/layout/MainHeader/**
   - packages/ui/src/components/layout/PageWrapper/**
   - packages/ui/src/components/layout/PageWrapperMain/**
   - packages/ui/src/components/layout/MainPageScaffold/**
@@ -27,3 +28,14 @@ Pages with app chrome must keep `@podverse/ui` **NavBar** visible while the user
 
 - Do not move scroll from `#mainOuterWrapper` without updating `apps/web/src/utils/scroll.ts` and scroll-restore callers.
 - Do not re-enable `overflow-y: auto` on `#page-wrapper` — that recreates double scrollbars with `#mainOuterWrapper`.
+
+## Page title
+
+- Pages set their title with `MainHeader` from `@podverse/ui`. On large screens the NavBar shows
+  it; on small screens `MainHeader` shows it as a row under the bar. Do not add a second bar under
+  the NavBar.
+- Page actions go in `MainHeader` `buttonsNode` or in the page content, never into the NavBar.
+- Detail pages (podcast, episode, album, artist, track, clip, playlist, profile, Add by RSS feed)
+  render no `MainHeader`; their own header holds the page's `h1`.
+- Keep exactly one level-1 heading per width; NavBar and `MainHeader` switch at the same `mobile`
+  breakpoint.

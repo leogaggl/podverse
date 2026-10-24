@@ -1,29 +1,29 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOChannel } from '@podverse/helpers';
 import type { QueryParamsGetManyMusic } from '@podverse/helpers-requests';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import type { MediaListScope } from '../../../utils/mediaListChips';
+import { MediaListPageHeader } from '../MediaListPageHeader';
+import { ArtistsPageChipRow } from './ArtistsPageChipRow';
 import { ArtistsPageContextProvider } from './ArtistsPageContext';
-import { ArtistsPageHeader } from './ArtistsPageHeader';
 import { ArtistsPageList } from './ArtistsPageList';
 
 type ArtistsPageClientProps = {
-  chipsNode: ReactNode;
+  chipsConfig: MediaListChipsConfig;
   initialQueryParams: QueryParamsGetManyMusic;
   scope: MediaListScope;
   ssrChannels: DTOChannel[];
   ssrTotalPages: number;
 };
 
-export type ArtistsListProps = Omit<ArtistsPageClientProps, 'chipsNode'>;
+export type ArtistsListProps = Omit<ArtistsPageClientProps, 'chipsConfig'>;
 
 export function ArtistsPageClient(props: ArtistsPageClientProps) {
-  const { chipsNode, initialQueryParams, scope, ssrChannels, ssrTotalPages } = props;
+  const { chipsConfig, initialQueryParams, scope, ssrChannels, ssrTotalPages } = props;
 
   return (
     <ArtistsPageContextProvider
@@ -32,11 +32,11 @@ export function ArtistsPageClient(props: ArtistsPageClientProps) {
       ssrChannels={ssrChannels}
       ssrTotalPages={ssrTotalPages}
     >
-      <ArtistsPageHeader />
+      <MediaListPageHeader scope={scope} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <ArtistsPageChipRow chipsConfig={chipsConfig} />
             <ArtistsPageList />
           </MainColumnStack>
         </MainSidebarLayout>

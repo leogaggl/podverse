@@ -8,12 +8,13 @@ import type {
 } from 'react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { getChipRevealOffset } from '@podverse/helpers/chipRowReveal';
+
 import { notePerfTouch, stampPerfFrame } from '../../lib/perf/perfFrames';
 import { perfMark } from '../../lib/perf/perfSpans';
 import { listChipRowBottomGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { chipFacePadding, chipLabelTypography, filterChipChrome } from './chipChrome';
-import { getChipRevealOffset } from './chipRowReveal';
 
 export type SectionChipVariant = 'filter' | 'pill';
 

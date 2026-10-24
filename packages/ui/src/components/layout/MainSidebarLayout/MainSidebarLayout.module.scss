@@ -3,7 +3,7 @@
 .mainSidebarLayout {
   display: flex;
   flex-direction: row-reverse;
-  /* Horizontal inset matches web `NavBar` / `MainHeader` (`padding-inline: var(--spacing-2xl)`). */
+  /* Horizontal inset matches the web NavBar title inset (`--spacing-2xl`). */
   margin: var(--spacing-xl) var(--spacing-2xl) var(--spacing-4xl) var(--spacing-2xl);
 }
 

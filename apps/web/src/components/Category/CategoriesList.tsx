@@ -1,58 +1,97 @@
+'use client';
+
 import { useTranslations } from 'next-intl';
-import React from 'react';
 
 import type { DTOCategory } from '@podverse/helpers';
 
 import { useCategories } from '../../contexts/Categories';
-import { Link } from '../Link/Link';
 
 import styles from '../../styles/components/Category/CategoriesList.module.scss';
 
+export const MEDIA_LIST_CATEGORIES_LIST_ID = 'media-list-categories';
+
 type CategoriesListProps = {
-  onCategoryClick: (category: DTOCategory, event: React.MouseEvent<HTMLButtonElement>) => void;
+  onAllCategoriesClick: () => void;
+  onCategoryClick: (category: DTOCategory) => void;
+  /** Mapping key of the current category; `null` marks All Categories as current. */
+  selectedCategory: string | null;
+};
+
+type CategoryListItemsProps = {
+  categories: DTOCategory[];
+  onCategoryClick: (category: DTOCategory) => void;
+  selectedCategory: string | null;
+  tCategories: (key: string) => string;
 };
 
 function CategoryListItems({
   categories,
-  tCategories,
   onCategoryClick,
-}: {
-  categories: DTOCategory[];
-  tCategories: (key: string) => string;
-  onCategoryClick: (category: DTOCategory, event: React.MouseEvent<HTMLButtonElement>) => void;
-}) {
-  if (!categories || categories.length === 0) {
-    return null;
-  }
-  return (
-    <ul className={styles.categoryList}>
-      {categories.map((category) => (
-        <li key={category.id}>
-          <Link onClick={(e) => onCategoryClick(category, e)}>
-            {category.mapping_key ? tCategories(category.mapping_key) : ''}
-          </Link>
-          {category.children && category.children.length > 0 && (
+  selectedCategory,
+  tCategories,
+}: CategoryListItemsProps) {
+  return categories.map((category) => {
+    const isCurrent = category.mapping_key === selectedCategory;
+    return (
+      <li key={category.id}>
+        <button
+          type="button"
+          className={styles.categoryButton}
+          aria-current={isCurrent ? 'true' : undefined}
+          onClick={() => onCategoryClick(category)}
+        >
+          {category.mapping_key ? tCategories(category.mapping_key) : ''}
+        </button>
+        {category.children && category.children.length > 0 ? (
+          <ul className={styles.categoryList}>
             <CategoryListItems
               categories={category.children}
-              tCategories={tCategories}
               onCategoryClick={onCategoryClick}
+              selectedCategory={selectedCategory}
+              tCategories={tCategories}
             />
-          )}
-        </li>
-      ))}
-    </ul>
-  );
+          </ul>
+        ) : null}
+      </li>
+    );
+  });
 }
 
-export const CategoriesList = ({ onCategoryClick }: CategoriesListProps) => {
+/** Category picker shown in place of a media list, with All Categories first. */
+export const CategoriesList = ({
+  onAllCategoriesClick,
+  onCategoryClick,
+  selectedCategory,
+}: CategoriesListProps) => {
   const { categories } = useCategories();
   const tCategories = useTranslations('categories');
+  const tFeatures = useTranslations('features');
+  const isAllCurrent = selectedCategory === null || selectedCategory === '';
 
   return (
-    <CategoryListItems
-      categories={categories}
-      tCategories={tCategories}
-      onCategoryClick={onCategoryClick}
-    />
+    <section
+      aria-label={tCategories('categories')}
+      data-testid="media-list-categories"
+      id={MEDIA_LIST_CATEGORIES_LIST_ID}
+    >
+      <ul className={styles.categoryList}>
+        <li>
+          <button
+            type="button"
+            className={styles.categoryButton}
+            aria-current={isAllCurrent ? 'true' : undefined}
+            onClick={onAllCategoriesClick}
+          >
+            {tFeatures('browse.category_all')}
+          </button>
+        </li>
+        <CategoryListItems
+          categories={categories}
+          onCategoryClick={onCategoryClick}
+          selectedCategory={selectedCategory}
+          tCategories={tCategories}
+        />
+      </ul>
+    </section>
   );
 };

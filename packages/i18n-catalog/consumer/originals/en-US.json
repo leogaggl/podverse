@@ -130,6 +130,7 @@
     },
     "browse": {
       "browse": "Browse",
+      "category_all": "All Categories",
       "users": "Users"
     },
     "recommendations": {
@@ -681,6 +682,7 @@
       "title": "Filter & Sort",
       "filter_heading": "Filter",
       "sort_heading": "Sort",
+      "sections_heading": "Sections",
       "range_heading": "Range"
     }
   },
@@ -779,8 +781,6 @@
     "mobile": "Mobile",
     "donate": "Donate",
     "open_source": "Open Source",
-    "browser_back": "Back",
-    "browser_forward": "Forward",
     "navbar_menu_open": "Open Menu",
     "navbar_menu_close": "Close Menu",
     "close_modal": "Close Modal",

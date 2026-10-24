@@ -3,7 +3,6 @@ export type {
   NavBarAccountMenuItem,
   NavBarAccountMenuProps,
   NavBarAppearance,
-  NavBarBackForwardProps,
   NavBarBrandProps,
   NavBarBrandVisibility,
   NavBarLinkComponentProps,

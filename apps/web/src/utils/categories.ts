@@ -8,7 +8,7 @@ type OnClickCategoryParams<T extends object> = {
   category: DTOCategory;
   setFilterParams: (params: T) => void;
   filterParams: T;
-  setShowCategoriesModal: (isOpen: boolean) => void;
+  setIsCategoryListOpen: (isOpen: boolean) => void;
   linkPath?: string;
   router: AppRouterInstance;
 };
@@ -17,7 +17,7 @@ export const onClickCategory = <T extends { sort?: string }>({
   category,
   setFilterParams,
   filterParams,
-  setShowCategoriesModal,
+  setIsCategoryListOpen,
   linkPath,
   router,
 }: OnClickCategoryParams<T>) => {
@@ -32,7 +32,7 @@ export const onClickCategory = <T extends { sort?: string }>({
       category: category.mapping_key,
       page: 1,
     } as T);
-    setShowCategoriesModal(false);
+    setIsCategoryListOpen(false);
     const categoryQuery = `category=${category.mapping_key}`;
     const target =
       linkPath === undefined
@@ -40,4 +40,23 @@ export const onClickCategory = <T extends { sort?: string }>({
         : `${linkPath}${linkPath.includes('?') ? '&' : '?'}${categoryQuery}`;
     router.replace(target);
   }
+};
+
+type OnClickAllCategoriesParams<T extends { category: string | null; page: number; type: string }> =
+  {
+    filterParams: T;
+    setFilterParams: (params: T) => void;
+    setIsCategoryListOpen: (isOpen: boolean) => void;
+  };
+
+/** Clears the category: the list returns to the global directory on page 1. */
+export const onClickAllCategories = <
+  T extends { category: string | null; page: number; type: string },
+>({
+  filterParams,
+  setFilterParams,
+  setIsCategoryListOpen,
+}: OnClickAllCategoriesParams<T>) => {
+  setFilterParams({ ...filterParams, type: 'global', category: null, page: 1 });
+  setIsCategoryListOpen(false);
 };

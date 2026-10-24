@@ -16,6 +16,7 @@ import {
   Button,
   CallToActionMessage,
   MainColumnStack,
+  MainHeader,
   MainSidebarLayout,
   SideContent,
 } from '@podverse/ui';
@@ -97,74 +98,76 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
   };
 
   return (
-    <MainWrapper>
-      <MainSidebarLayout>
-        <SideContent />
-        <MainColumnStack>
-          <h1>{t('title')}</h1>
-          <MediaListChips
-            chips={RECOMMENDATION_CHIPS}
-            page="recommendations"
-            selected={chip}
-            urlChip={urlChip}
-          />
-          {!signedIn ? (
-            <CallToActionMessage
-              buttonLabel={tAuth('login')}
-              message={tAuth('login_required')}
-              onButtonClick={() => {
-                setModalAuthLogin({ isOpen: true });
-              }}
+    <>
+      <MainHeader title={t('title')} />
+      <MainWrapper>
+        <MainSidebarLayout>
+          <SideContent />
+          <MainColumnStack>
+            <MediaListChips
+              chips={RECOMMENDATION_CHIPS}
+              page="recommendations"
+              selected={chip}
+              urlChip={urlChip}
             />
-          ) : null}
-          {signedIn && !trackingAllowed && state.status === 'ready' && items.length === 0 ? (
-            <CallToActionMessage
-              buttonLabel={t('enable')}
-              message={t('need_taste_profile')}
-              onButtonClick={openSettings}
-            />
-          ) : null}
-          {signedIn && !trackingAllowed && items.length > 0 ? (
-            <div className={styles.note}>
-              <p>{t('paused')}</p>
-              <Button type="button" variant="secondary" onClick={openSettings}>
-                {t('enable')}
-              </Button>
-            </div>
-          ) : null}
-          {signedIn && trackingAllowed && state.status === 'ready' && items.length === 0 ? (
-            <p className={styles.status}>{t('check_back')}</p>
-          ) : null}
-          {signedIn && state.status === 'error' ? (
-            <p className={styles.status} role="alert">
-              {t('load_error')}
-            </p>
-          ) : null}
-          {signedIn && state.status === 'loading' ? (
-            <p className={styles.status}>{tMisc('loading')}</p>
-          ) : null}
-          {items.length > 0 ? (
-            <ul className={styles.list}>
-              {items.map((item) => {
-                const title = item.channel.title?.trim() || tMisc('untitled');
-                return (
-                  <li key={item.channel.id_text} className={styles.row}>
-                    <Link className={styles.title} href={showPath(chip, item.channel.id_text)}>
-                      {title}
-                    </Link>
-                    <span
-                      aria-label={t('strength', { level: item.strength })}
-                      className={styles.strength}
-                    >
-                      {item.strength}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-        </MainColumnStack>
-      </MainSidebarLayout>
-    </MainWrapper>
+            {!signedIn ? (
+              <CallToActionMessage
+                buttonLabel={tAuth('login')}
+                message={tAuth('login_required')}
+                onButtonClick={() => {
+                  setModalAuthLogin({ isOpen: true });
+                }}
+              />
+            ) : null}
+            {signedIn && !trackingAllowed && state.status === 'ready' && items.length === 0 ? (
+              <CallToActionMessage
+                buttonLabel={t('enable')}
+                message={t('need_taste_profile')}
+                onButtonClick={openSettings}
+              />
+            ) : null}
+            {signedIn && !trackingAllowed && items.length > 0 ? (
+              <div className={styles.note}>
+                <p>{t('paused')}</p>
+                <Button type="button" variant="secondary" onClick={openSettings}>
+                  {t('enable')}
+                </Button>
+              </div>
+            ) : null}
+            {signedIn && trackingAllowed && state.status === 'ready' && items.length === 0 ? (
+              <p className={styles.status}>{t('check_back')}</p>
+            ) : null}
+            {signedIn && state.status === 'error' ? (
+              <p className={styles.status} role="alert">
+                {t('load_error')}
+              </p>
+            ) : null}
+            {signedIn && state.status === 'loading' ? (
+              <p className={styles.status}>{tMisc('loading')}</p>
+            ) : null}
+            {items.length > 0 ? (
+              <ul className={styles.list}>
+                {items.map((item) => {
+                  const title = item.channel.title?.trim() || tMisc('untitled');
+                  return (
+                    <li key={item.channel.id_text} className={styles.row}>
+                      <Link className={styles.title} href={showPath(chip, item.channel.id_text)}>
+                        {title}
+                      </Link>
+                      <span
+                        aria-label={t('strength', { level: item.strength })}
+                        className={styles.strength}
+                      >
+                        {item.strength}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </MainColumnStack>
+        </MainSidebarLayout>
+      </MainWrapper>
+    </>
   );
 }

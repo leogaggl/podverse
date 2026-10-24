@@ -17,7 +17,6 @@ import {
   CallToActionMessage,
   DescriptionRenderer,
   Divider,
-  Dropdown,
   MainColumnStack,
   MainSidebarLayout,
   SideContent,
@@ -30,6 +29,7 @@ import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMe
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
 import { DescriptionTruncationNotice } from '../../../components/Content/Description/DescriptionTruncationNotice';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
+import { ListSortChip } from '../../../components/ListSortChip/ListSortChip';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { Pagination } from '../../../components/Pagination/Pagination';
 import type { AddByRSSCredentialsApplyStatus } from '../../../components/Settings/AddByRSSCredentialsSettingsSection';
@@ -213,18 +213,10 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
     setCurrentPage(1);
   };
 
-  const sortMenuItems = useMemo(
-    () => [
-      { label: tFilters('sort.forward'), param: 'sort', value: 'forward' },
-      { label: tFilters('sort.backward'), param: 'sort', value: 'backward' },
-    ],
-    [tFilters]
-  );
-
-  const sideButtons =
-    activeTab === 'tracks' ? (
-      <Dropdown value={sort} menuItems={sortMenuItems} onChange={handleSortChange} />
-    ) : null;
+  const sortOptions: { value: 'forward' | 'backward'; label: string }[] = [
+    { value: 'forward', label: tFilters('sort.forward') },
+    { value: 'backward', label: tFilters('sort.backward') },
+  ];
 
   const statusLines = useAddByRSSFeedParseStatusLines(localFeed, locale, tFeatures, tSettings);
 
@@ -442,7 +434,20 @@ export const AddByRSSAlbumPageClient: React.FC<AddByRSSAlbumPageClientProps> = (
             selectedKey={activeTab}
             onSelect={handleTabSelect}
             canShowBoosts={canShowBoostTab}
-            sideButtons={sideButtons}
+            trailing={
+              activeTab === 'tracks' ? (
+                <ListSortChip
+                  onChange={(nextSort) => {
+                    handleSortChange(nextSort);
+                  }}
+                  options={sortOptions}
+                  position="right"
+                  range={null}
+                  testId="add-by-rss-album-detail-sort"
+                  value={sort === 'reverse' ? 'backward' : 'forward'}
+                />
+              ) : null
+            }
           />
           <DetailListWrapper>
             {activeTab === 'tracks' && (

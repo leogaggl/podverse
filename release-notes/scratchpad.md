@@ -2676,3 +2676,101 @@ family revoked`.
   Screen-Reader Accessibility. Support Open Source Software stays last.
 - Who notices: anyone comparing plans on Membership or About
 - Operator steps: none
+
+## Add by RSS library puts its actions above the chips
+
+- Surfaces: web
+- Change: On the Add by RSS library, Add Feed and Check for Updates are large filled buttons side
+  by side above the media chips. Recent and Oldest move into a Sort chip after those chips, and
+  the grid/list gear sits to the right of Sort. The Livestreams chip still has no Sort chip and
+  no gear. The page title stays Add by RSS in the top bar.
+- Who notices: listeners using Add by RSS on the web
+- Operator steps: none
+
+## Web app bar drops the Back and Forward buttons
+
+- Surfaces: web
+- Change: the browser-history Back and Forward arrows at the top left of the web app bar are
+  gone on every page. The browser's own back and forward still work. Media player skip-back and
+  skip-forward buttons are unchanged. The shared `@podverse/ui` NavBar no longer accepts a
+  `backForward` prop. `NavArrowButton` stays in the package because pagination still uses it.
+- Who notices: web listeners on tablet and desktop widths
+- Operator steps: none
+
+## Web chip row and gear restyle
+
+- Surfaces: web
+- Change: The media chips on Subscribed, Browse, Add by RSS, and Recommendations are round pills
+  that fill with the primary color when selected. When the chips do not fit, the row stays on one
+  line and scrolls sideways (no visible scrollbar) instead of wrapping, and the selected chip is
+  scrolled into view. The grid/list gear is a square chip with the
+  same height, and its menu marks the current view with a check (announced as checked to screen
+  readers) instead of a "✓" text prefix. Adds the shared sort chip used by later list changes.
+- Who notices: everyone using list pages on the web
+- Operator steps: none
+
+## Web pages use one top bar with the page title
+
+- Surfaces: web, packages/ui (management-web unaffected)
+- Change: on tablet and desktop widths the page title (Settings, Subscribed, Browse, Membership,
+  and every other page with a title) sits at the left of the top bar, to the right of the sidebar
+  logo, with search, notifications, and the account menu on the right. The second title bar under
+  it is gone; page buttons such as Add Feed or Create Playlist sit at the top of the page content.
+  On phone widths the bar keeps the logo and icons and the title is its own row under it. Podcast,
+  episode, album, artist, track, and other detail pages show no title in the bar; their own header
+  carries the name. `@podverse/ui` adds `AppBarTitleProvider`, `useAppBarTitle`,
+  `usePublishAppBarTitle`, and a `title` prop on `NavBar`; the `--header-desktop-height` and
+  `--header-mobile-height` tokens are removed.
+- Who notices: every web listener
+- Operator steps: none
+
+## Subscribed and Browse list controls move into the chip row
+
+- Surfaces: web, mobile (catalog key moved layers only)
+- Change: On Subscribed and Browse, the type, sort, and range dropdowns in the page header are
+  gone. Sort is a chip at the end of the media chips; choosing Top asks for the range (Day, Week,
+  Month, All Time) in the same menu instead of defaulting to Week. The grid/list gear follows Sort
+  on lists that have two layouts (not Clips or Livestreams). On Browse Podcasts, Episodes, and
+  Clips, a Categories chip comes first: pressing it shows the category list in place of the
+  results (Sort and the gear hide while it is open), with All Categories at the top and the current
+  choice marked. The chip then shows the chosen category ("Categories: Arts" to screen readers).
+  The category modal is removed, and the page title no longer adds "> Category". The
+  `features.browse.category_all` string moved from the mobile catalog layer to the consumer layer.
+- Who notices: everyone using Subscribed or Browse on the web; translators see the All Categories
+  string under consumer instead of mobile
+- Operator steps: none
+
+## Recommendations, Embed Player, renew, and Add by RSS feed titles follow the top bar
+
+- Surfaces: web
+- Change: Recommendations, the Embed Player demo page, and the membership renew page show their
+  title in the top bar like other pages (a row under the bar on phones). The renew page also gets
+  the normal page layout with the side column and footer. Add by RSS feed detail pages no longer
+  show "Add by RSS · feed name" above the feed; the feed's own header carries the name, matching
+  podcast and album pages.
+- Who notices: web listeners on those pages
+- Operator steps: none
+
+## Playlists and Users list controls become chips
+
+- Surfaces: web
+- Change: Browse > Playlists and Browse > Users show their Sort control at the end of the Browse
+  chip row instead of dropdowns. Playlists also get a "Filter" chip (Podcasts or Music) in place of
+  the Podcasts/Music tabs. On the standalone Playlists page, My Playlists, Subscribed, and Global
+  are pill chips followed by Filter and Sort; on the standalone Profiles page, Global and
+  Subscribed are pill chips followed by Sort. Choosing Top asks for the range in the same menu.
+  Changing the Podcasts/Music filter returns to page 1.
+- Who notices: web listeners browsing playlists and profiles
+- Operator steps: none
+
+## Detail pages use section chips and a sort chip
+
+- Surfaces: web
+- Change: Podcast, episode, album, artist, track, and livestream pages, and the Add by RSS
+  pages for those, show their sections as round chips. Where a page had a sort dropdown, and a
+  second dropdown for the time range when the sort was Top, that is now one Sort chip at the end
+  of the row. Choosing Top opens the range list in that chip, and the chip then reads the range.
+  About, Podroll, and People stay in the side column on wide screens and remain chips on narrower
+  screens. A transcript's autoscroll button stays put.
+- Who notices: web listeners on those pages
+- Operator steps: none

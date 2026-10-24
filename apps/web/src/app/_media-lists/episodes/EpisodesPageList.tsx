@@ -3,13 +3,13 @@ import React, { useMemo } from 'react';
 
 import type { AddByRSSResourceType, DTOCategory } from '@podverse/helpers';
 
+import { CategoriesList } from '../../../components/Category/CategoriesList';
 import { CoreEpisodes } from '../../../components/Core/Podcast/Episodes/CoreEpisodes';
 import { HowToStartInfo } from '../../../components/HowToStartInfo/HowToStartInfo';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
-import { ModalCategoriesSelect } from '../../../components/Modal/ModalCategoriesSelect';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useSubscribedAddByRSSItems } from '../../../hooks/useSubscribedAddByRSSItems';
-import { onClickCategory } from '../../../utils/categories';
+import { onClickAllCategories, onClickCategory } from '../../../utils/categories';
 import { buildMediaListChipPath } from '../../../utils/mediaListChips';
 import { mergeSubscribedItemEntries } from '../../../utils/subscribed/mergeSubscribedItems';
 import { useEpisodesPageContext } from './EpisodesPageContext';
@@ -25,8 +25,8 @@ export const EpisodesPageList: React.FC = () => {
     totalPages,
     isLoading,
     showSubscribeMessage,
-    showCategoriesModal,
-    setShowCategoriesModal,
+    isCategoryListOpen,
+    setIsCategoryListOpen,
     scope,
   } = useEpisodesPageContext();
   const { viewSelected } = useLocalSettings();
@@ -55,11 +55,25 @@ export const EpisodesPageList: React.FC = () => {
       category,
       setFilterParams,
       filterParams,
-      setShowCategoriesModal,
+      setIsCategoryListOpen,
       linkPath: buildMediaListChipPath('browse', 'episodes'),
       router,
     });
   };
+
+  const handleOnClickAllCategories = () => {
+    onClickAllCategories({ filterParams, setFilterParams, setIsCategoryListOpen });
+  };
+
+  if (isCategoryListOpen) {
+    return (
+      <CategoriesList
+        onAllCategoriesClick={handleOnClickAllCategories}
+        onCategoryClick={handleOnClickCategory}
+        selectedCategory={filterParams.category}
+      />
+    );
+  }
 
   return (
     <>
@@ -79,11 +93,6 @@ export const EpisodesPageList: React.FC = () => {
         entries={entries}
       />
       <WebLoadingSpinnerOverlay isLoading={isLoading} />
-      <ModalCategoriesSelect
-        isOpen={showCategoriesModal}
-        onCategoryClick={handleOnClickCategory}
-        setIsOpen={setShowCategoriesModal}
-      />
     </>
   );
 };

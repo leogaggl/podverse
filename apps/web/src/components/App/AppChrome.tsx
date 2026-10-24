@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 
-import { AppWrapper, PageWrapper, PageWrapperMain } from '@podverse/ui';
+import { AppBarTitleProvider, AppWrapper, PageWrapper, PageWrapperMain } from '@podverse/ui';
 
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
@@ -67,15 +67,17 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <WindowWrapper>
-        <AppWrapper>
-          <SideBar />
-          <PageWrapper>
-            <NavBar />
-            <MembershipExpiredBanner />
-            <CookieConsentBanner />
-            <PageWrapperMain>{children}</PageWrapperMain>
-          </PageWrapper>
-        </AppWrapper>
+        <AppBarTitleProvider>
+          <AppWrapper>
+            <SideBar />
+            <PageWrapper>
+              <NavBar />
+              <MembershipExpiredBanner />
+              <CookieConsentBanner />
+              <PageWrapperMain>{children}</PageWrapperMain>
+            </PageWrapper>
+          </AppWrapper>
+        </AppBarTitleProvider>
         <LazyLoadedComponents />
         <BackgroundActivityOverlay />
         <SessionEndedNotice />

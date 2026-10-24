@@ -27,8 +27,6 @@ interface ArtistsPageContextType {
   setIsLoading: (isLoading: boolean) => void;
   showSubscribeMessage: boolean;
   setShowSubscribeMessage: (show: boolean) => void;
-  showCategoriesModal: boolean;
-  setShowCategoriesModal: (show: boolean) => void;
 }
 
 const ArtistsPageContext = createContext<ArtistsPageContextType | undefined>(undefined);
@@ -68,7 +66,6 @@ export const ArtistsPageContextProvider = ({
   const [showSubscribeMessage, setShowSubscribeMessage] = useState<boolean>(
     scope === 'subscribed' && loggedInAccount === null
   );
-  const [showCategoriesModal, setShowCategoriesModal] = useState<boolean>(false);
 
   useFilterDefaults(scope === 'subscribed' ? 'subscribed-artists' : 'artists', filterParams);
 
@@ -138,8 +135,6 @@ export const ArtistsPageContextProvider = ({
         setIsLoading,
         showSubscribeMessage,
         setShowSubscribeMessage,
-        showCategoriesModal,
-        setShowCategoriesModal,
       }}
     >
       {children}

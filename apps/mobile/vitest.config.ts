@@ -97,8 +97,7 @@ import { defineConfig } from 'vitest/config';
  * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the Add by RSS chapters and
  * transcript kept for the item now playing
  * (`src/playback/addByRssNowPlayingSectionsStore.ts` — one item, dropped on reset, nothing on
- * disk), the offset that scrolls a selected chip into its row
- * (`src/components/form/chipRowReveal.ts`), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
+ * disk), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
  * and whether a server refresh should replace what a cache-first screen already painted
  * (`src/lib/cachedValue.ts`), the E2E-gated perf mark/counter buffer
  * (`src/lib/perf/perfSpans.ts` — env is mocked so both flag states are reachable in node), the
@@ -128,7 +127,6 @@ export default defineConfig({
       'src/auth/mobileSessionDeviceLabel.test.ts',
       'src/billing/**/*.test.ts',
       'src/components/content/itemDetailDateLabel.test.ts',
-      'src/components/form/chipRowReveal.test.ts',
       'src/components/overlay/overlayStore.test.ts',
       'src/components/overlay/overlayTransitions.test.ts',
       'src/components/player/MediaRowActions.test.ts',

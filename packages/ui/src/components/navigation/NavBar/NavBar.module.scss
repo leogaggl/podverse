@@ -1,5 +1,6 @@
 @use '../../../styles/mixins/flexbox' as *;
 @use '../../../styles/mixins/flexShrink' as *;
+@use '../../../styles/mixins/lineClamp' as *;
 @use '../../../styles/mixins/media-queries' as *;
 @use '../../../styles/variables' as *;
 
@@ -72,7 +73,7 @@
   align-items: center;
 }
 
-// Absorbed from apps/web NavBarBrand.module.scss — logo link visible on small viewports only.
+// Logo link visible on small viewports only.
 .brandMobileOnly {
   display: none;
   align-items: center;
@@ -94,29 +95,38 @@
   color: inherit;
 }
 
-// Absorbed from NavBarLeftButtons — desktop history controls.
-.leftCluster {
+// Page title on large screens; the page renders its own title row on small screens.
+.titleRegion {
   display: flex;
   align-items: center;
-  gap: var(--spacing-base);
-  @include flexItemAllowShrink;
+  flex: 1 1 auto;
+  min-width: 0;
 
   @include mobile {
     display: none;
   }
 }
 
-// Absorbed from NavBarRightButtons — cluster anchored end.
+.title {
+  @include line-clamp(1);
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-light);
+  color: var(--text-color-primary);
+}
+
+// Cluster anchored at the end of the bar, with or without a title.
 .rightCluster {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
+  margin-left: auto;
   justify-content: flex-end;
   align-items: center;
   gap: $spacing-md;
   @include flexItemAllowShrink;
 }
 
-// Absorbed from NavBarSearchButton — icon search visible only on mobile/collapsed chrome.
+// Icon search visible only on mobile/collapsed chrome.
 .searchLink {
   display: none;
   background: none;
@@ -169,7 +179,7 @@
   }
 }
 
-// Absorbed from NavBarMoreButton — menu toggle on small viewports.
+// Menu toggle on small viewports.
 .mobileToggleButton {
   display: none;
   background: none;

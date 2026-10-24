@@ -13,10 +13,7 @@ import {
   QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
 } from '@podverse/helpers-requests';
 
-import {
-  buildSubscribedListDropdownConfig,
-  buildSubscribedListFilterParams,
-} from '../../../utils/dropdownMenuItems';
+import { buildSubscribedListFilterParams } from '../../../utils/dropdownMenuItems';
 import type { MediaListScope } from '../../../utils/mediaListChips';
 
 export function artistsListViewModeScope(scope: MediaListScope): SortPrefScope {
@@ -25,35 +22,20 @@ export function artistsListViewModeScope(scope: MediaListScope): SortPrefScope {
     : BROWSE_LIST_VIEW_MODE_SCOPE_ARTISTS;
 }
 
-export function getArtistsPageDropdownConfig({
+export function getArtistsPageSortOptions({
   type,
-  sort,
   tFilters,
 }: {
-  /** Every channel list passes its scope. Artists have no type menu in either one. */
-  scope: MediaListScope;
-  sort: QueryParamsSubscribedFullSort;
   type: QueryParamsSubscribedMusicType;
   tFilters: (key: string) => string;
-}) {
-  const typeOptions: { label: string; value: QueryParamsSubscribedMusicType }[] = [];
-
-  return buildSubscribedListDropdownConfig({
-    globalSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    showRangeWhenSort: 'top',
-    sort,
-    subscribedSorts: [
-      { label: tFilters('sort.a_z'), value: 'a_z' },
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    tFilters,
-    type,
-    typeOptions,
-  });
+}): { label: string; value: QueryParamsSubscribedFullSort }[] {
+  const recentAndTop: { label: string; value: QueryParamsSubscribedFullSort }[] = [
+    { label: tFilters('sort.recent'), value: 'recent' },
+    { label: tFilters('sort.top'), value: 'top' },
+  ];
+  return type === 'subscribed'
+    ? [{ label: tFilters('sort.a_z'), value: 'a_z' }, ...recentAndTop]
+    : recentAndTop;
 }
 
 type ArtistsPageDropdownConfigParams = {

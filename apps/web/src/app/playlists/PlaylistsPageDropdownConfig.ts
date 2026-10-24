@@ -6,44 +6,22 @@ import type {
 } from '@podverse/helpers-requests';
 import { getValidQueryParam, QUERY_PARAMS_SUBSCRIBED_FULL_SORT } from '@podverse/helpers-requests';
 
-import { getRangeDropdownItems } from '../../utils/dropdownMenuItems';
-
-type GetPlaylistsPageDropdownConfig = {
-  sort: QueryParamsSubscribedFullSort;
-  type: QueryParamsPlaylistsType;
-  tFilters: (key: string) => string;
-};
-
-export function getPlaylistsPageDropdownConfig({
-  sort,
+export function getPlaylistsPageSortOptions({
   type,
   tFilters,
-}: GetPlaylistsPageDropdownConfig) {
-  let sortDropdownMenuItems = [{ label: tFilters('sort.top'), param: 'sort', value: 'top' }];
-
+}: {
+  type: QueryParamsPlaylistsType;
+  tFilters: (key: string) => string;
+}): { label: string; value: QueryParamsSubscribedFullSort }[] {
   if (type === 'public') {
-    sortDropdownMenuItems = [{ label: tFilters('sort.top'), param: 'sort', value: 'top' }];
-  } else if (type === 'private' || type === 'private_followed') {
-    sortDropdownMenuItems = [
-      { label: tFilters('sort.top'), param: 'sort', value: 'top' },
-      { label: tFilters('sort.a_z'), param: 'sort', value: 'a_z' },
-      { label: tFilters('sort.recent'), param: 'sort', value: 'recent' },
-      { label: tFilters('sort.oldest'), param: 'sort', value: 'oldest' },
-    ];
+    return [{ label: tFilters('sort.top'), value: 'top' }];
   }
-
-  const rangeDropdownMenuItems = getRangeDropdownItems(tFilters);
-
-  let showRangeDropdown = false;
-  if (sort === 'top') {
-    showRangeDropdown = true;
-  }
-
-  return {
-    sortMenuItems: sortDropdownMenuItems,
-    rangeMenuItems: rangeDropdownMenuItems,
-    showRangeDropdown,
-  };
+  return [
+    { label: tFilters('sort.top'), value: 'top' },
+    { label: tFilters('sort.a_z'), value: 'a_z' },
+    { label: tFilters('sort.recent'), value: 'recent' },
+    { label: tFilters('sort.oldest'), value: 'oldest' },
+  ];
 }
 
 type PlaylistsPageDropdownConfigParams = {

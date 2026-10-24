@@ -1,16 +1,17 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import React from 'react';
 
 import { MainHeader } from '@podverse/ui';
 
-import { useLivestreamsPageContext } from './LivestreamsPageContext';
+import type { MediaListScope } from '../../utils/mediaListChips';
 
-export const LivestreamsPageHeader: React.FC = () => {
-  const { scope } = useLivestreamsPageContext();
+type MediaListPageHeaderProps = { scope: MediaListScope };
+
+/** Subscribed or Browse title. The list's controls live in its chip row. */
+export function MediaListPageHeader({ scope }: MediaListPageHeaderProps) {
   const tSubscriptions = useTranslations('subscriptions');
   const tFeatures = useTranslations('features');
   const title = scope === 'subscribed' ? tSubscriptions('subscribed') : tFeatures('browse.browse');
   return <MainHeader title={title} />;
-};
+}

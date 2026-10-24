@@ -17,4 +17,8 @@ describe('MainHeader', () => {
     render(<MainHeader title="T" buttonsNode={<button type="button">Action</button>} />);
     expect(screen.getByRole('button', { name: 'Action' })).toBeTruthy();
   });
+
+  it('renders without an AppBarTitleProvider', () => {
+    expect(() => render(<MainHeader title="No provider" />)).not.toThrow();
+  });
 });

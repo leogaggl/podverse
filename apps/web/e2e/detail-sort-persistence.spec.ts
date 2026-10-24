@@ -13,14 +13,13 @@ const SEEDED_PODCAST_URL = `/podcast/${E2E_PODCAST_CHANNEL_ID_TEXT}`;
 const OTHER_PODCAST_URL = `/podcast/${EMBED_FIXTURE_PODCAST_CHANNEL_ID_TEXT}`;
 
 /**
- * The sort control is the only button in the list header labelled with a sort name, so the label
- * doubles as the assertion: whatever it reads is the sort the page is showing.
+ * The sort chip's accessible name is "Sort:" plus the face. The face text is the sort the list
+ * is showing. The menu renders in a portal on the page, outside the chip row.
  */
-const sortButton = (page: Page) =>
-  page.getByRole('main').getByRole('button', { name: /^(Recent|Oldest|Top)$/ });
+const sortButton = (page: Page) => page.getByRole('button', { name: /^Sort: (Recent|Oldest)$/ });
 
 const sortOption = (page: Page, label: string) =>
-  page.getByRole('menuitem', { name: label, exact: true });
+  page.getByRole('menuitemradio', { name: label, exact: true });
 
 /**
  * The first episode row's link identifies which end of the feed is on top: the seeded channel's

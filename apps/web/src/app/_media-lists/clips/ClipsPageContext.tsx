@@ -28,8 +28,8 @@ interface ClipsPageContextType {
   setIsLoading: (isLoading: boolean) => void;
   showSubscribeMessage: boolean;
   setShowSubscribeMessage: (show: boolean) => void;
-  showCategoriesModal: boolean;
-  setShowCategoriesModal: (show: boolean) => void;
+  isCategoryListOpen: boolean;
+  setIsCategoryListOpen: (open: boolean) => void;
 }
 
 const ClipsPageContext = createContext<ClipsPageContextType | undefined>(undefined);
@@ -71,7 +71,7 @@ export const ClipsPageContextProvider = ({
   const [showSubscribeMessage, setShowSubscribeMessage] = useState<boolean>(
     scope === 'subscribed' && loggedInAccount === null
   );
-  const [showCategoriesModal, setShowCategoriesModal] = useState<boolean>(false);
+  const [isCategoryListOpen, setIsCategoryListOpen] = useState<boolean>(false);
 
   useFilterDefaults(scope === 'subscribed' ? 'subscribed-clips' : 'clips', filterParams);
 
@@ -151,8 +151,8 @@ export const ClipsPageContextProvider = ({
         setIsLoading,
         showSubscribeMessage,
         setShowSubscribeMessage,
-        showCategoriesModal,
-        setShowCategoriesModal,
+        isCategoryListOpen,
+        setIsCategoryListOpen,
       }}
     >
       {children}

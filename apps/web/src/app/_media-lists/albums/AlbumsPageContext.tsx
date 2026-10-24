@@ -27,8 +27,6 @@ interface AlbumsPageContextType {
   setIsLoading: (isLoading: boolean) => void;
   showSubscribeMessage: boolean;
   setShowSubscribeMessage: (show: boolean) => void;
-  showCategoriesModal: boolean;
-  setShowCategoriesModal: (show: boolean) => void;
 }
 
 const AlbumsPageContext = createContext<AlbumsPageContextType | undefined>(undefined);
@@ -68,7 +66,6 @@ export const AlbumsPageContextProvider = ({
   const [showSubscribeMessage, setShowSubscribeMessage] = useState<boolean>(
     scope === 'subscribed' && loggedInAccount === null
   );
-  const [showCategoriesModal, setShowCategoriesModal] = useState<boolean>(false);
 
   useFilterDefaults(scope === 'subscribed' ? 'subscribed-albums' : 'albums', filterParams);
 
@@ -138,8 +135,6 @@ export const AlbumsPageContextProvider = ({
         setIsLoading,
         showSubscribeMessage,
         setShowSubscribeMessage,
-        showCategoriesModal,
-        setShowCategoriesModal,
       }}
     >
       {children}

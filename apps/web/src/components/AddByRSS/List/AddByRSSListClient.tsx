@@ -5,9 +5,10 @@ import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { AddByRSSParseStatus } from '@podverse/helpers';
-import { CallToActionMessage, Dropdown, MainColumnStack, MainSidebarLayout } from '@podverse/ui';
+import { CallToActionMessage, MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { useAccount } from '../../../contexts/Account';
+import type { AddByRSSListSortOrder } from '../../../contexts/AddByRSSListContext';
 import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
 import type { AddByRSSParseOutcome } from '../../../utils/addByRSS/actions';
@@ -36,6 +37,7 @@ import type {
 } from '../../../utils/addByRSS/types';
 import { WebLoadingSpinnerOverlay } from '../../LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../MediaListChips/MediaListChips';
 import { NoResults } from '../../NoResults/NoResults';
 import { dismissToast, showToast, showToastLoading } from '../../Toast/Toast';
 import { AddByRSSArtistNodes } from '../Artist/AddByRSSArtistNodes';
@@ -43,15 +45,13 @@ import { AddByRSSAlbumNodes } from '../Artist/Album/AddByRSSAlbumNodes';
 import { AddByRSSTrackNodes } from '../Artist/Album/Track/AddByRSSTrackNodes';
 import { AddByRSSPodcastListNodes } from '../Podcast/AddByRSSPodcastListNodes';
 import { AddByRSSEpisodeNodes } from '../Podcast/Episode/AddByRSSEpisodeNodes';
-import { AddByRSSListHeader } from './AddByRSSListHeader';
+import { AddByRSSListHeader, AddByRSSListToolbar } from './AddByRSSListHeader';
 import { AddByRSSNeedsCredentialsSection } from './AddByRSSNeedsCredentialsSection';
 
 type AddByRSSListClientProps = {
-  chipsNode: React.ReactNode;
+  chipsConfig: MediaListChipsConfig;
   resourceType: AddByRSSResourceType;
 };
-
-type ListSort = 'recent' | 'oldest';
 
 const FEED_CHANGED_REFRESH_DELAY_MS = 250;
 
@@ -69,11 +69,10 @@ const upsertFeedInState = (
 };
 
 export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
-  chipsNode,
+  chipsConfig,
   resourceType,
 }) => {
   const tFeatures = useTranslations('features');
-  const tFilters = useTranslations('filters');
   const tInstructions = useTranslations('instructions');
   const tAuthentication = useTranslations('authentication');
   const tMisc = useTranslations('misc');
@@ -97,11 +96,11 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
   );
   const showsNeedsCredentialsSection = resourceType !== 'tracks' && resourceType !== 'episodes';
 
-  const initialListSort = useMemo<ListSort>(() => {
+  const initialListSort = useMemo<AddByRSSListSortOrder>(() => {
     return searchParams.get('sort') === 'oldest' ? 'oldest' : 'recent';
   }, [searchParams]);
 
-  const [listSort, setListSort] = useState<ListSort>(initialListSort);
+  const [listSort, setListSort] = useState<AddByRSSListSortOrder>(initialListSort);
 
   useEffect(() => {
     if (searchParams.has('sort')) {
@@ -109,27 +108,16 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
     }
   }, [initialListSort, searchParams]);
 
-  const handleListSortChange = (value: string) => {
-    const nextSort: ListSort = value === 'oldest' ? 'oldest' : 'recent';
-    setListSort(nextSort);
+  const handleListSortChange = (value: AddByRSSListSortOrder) => {
+    setListSort(value);
   };
 
-  const sortMenuItems = useMemo(
-    () => [
-      { label: tFilters('sort.recent'), param: 'sort', value: 'recent' },
-      { label: tFilters('sort.oldest'), param: 'sort', value: 'oldest' },
-    ],
-    [tFilters]
-  );
-
-  const extraButtons =
-    resourceType === 'podcasts' || resourceType === 'albums' || resourceType === 'tracks' ? (
-      <Dropdown value={listSort} menuItems={sortMenuItems} onChange={handleListSortChange} />
-    ) : null;
+  const showsListSort =
+    resourceType === 'podcasts' || resourceType === 'albums' || resourceType === 'tracks';
 
   const sortFeedsByDate = (
     nextFeeds: AddByRSSFeedRecord[],
-    sortOrder: ListSort
+    sortOrder: AddByRSSListSortOrder
   ): AddByRSSFeedRecord[] => {
     return [...nextFeeds].sort((a, b) => {
       const aDateRaw = a.mappedFeed?.channel?.about?.last_pub_date ?? null;
@@ -374,19 +362,17 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
 
   return (
     <>
-      <AddByRSSListHeader
-        title={tFeatures('add_by_rss.label')}
-        isUpdating={isUpdating}
-        onCheckUpdates={handleCheckForUpdates}
-        checkUpdatesLabel={tFeatures('add_by_rss.check_updates')}
-        viewSelected={viewSelected}
-        setViewSelected={setViewSelected}
-        extraButtons={extraButtons}
-      />
+      <AddByRSSListHeader title={tFeatures('add_by_rss.label')} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <AddByRSSListToolbar
+              chipsConfig={chipsConfig}
+              isUpdating={isUpdating}
+              onCheckUpdates={handleCheckForUpdates}
+              sort={showsListSort ? { value: listSort, onChange: handleListSortChange } : undefined}
+              view={{ viewSelected, setViewSelected }}
+            />
             {!loggedInAccount && (
               <CallToActionMessage
                 message={tInstructions('login_for_subscriptions')}

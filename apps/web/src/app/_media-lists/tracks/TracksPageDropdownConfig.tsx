@@ -1,6 +1,5 @@
 import type {
   QueryParamsStatsRange,
-  QueryParamsSubscribedFullSort,
   QueryParamsSubscribedMusicType,
   QueryParamsSubscribedPartialSort,
 } from '@podverse/helpers-requests';
@@ -9,38 +8,16 @@ import {
   QUERY_PARAMS_SUBSCRIBED_PARTIAL_SORT,
 } from '@podverse/helpers-requests';
 
-import {
-  buildSubscribedListDropdownConfig,
-  buildSubscribedListFilterParams,
-} from '../../../utils/dropdownMenuItems';
+import { buildSubscribedListFilterParams } from '../../../utils/dropdownMenuItems';
 import type { MediaListScope } from '../../../utils/mediaListChips';
 
-export function getTracksPageDropdownConfig({
-  type,
-  sort,
-  tFilters,
-}: {
-  sort: QueryParamsSubscribedFullSort;
-  type: QueryParamsSubscribedMusicType;
-  tFilters: (key: string) => string;
-}) {
-  const typeOptions: { label: string; value: QueryParamsSubscribedMusicType }[] = [];
-
-  return buildSubscribedListDropdownConfig({
-    globalSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    showRangeWhenSort: 'top',
-    sort,
-    subscribedSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    tFilters,
-    type,
-    typeOptions,
-  });
+export function getTracksPageSortOptions(
+  tFilters: (key: string) => string
+): { label: string; value: QueryParamsSubscribedPartialSort }[] {
+  return [
+    { label: tFilters('sort.recent'), value: 'recent' },
+    { label: tFilters('sort.top'), value: 'top' },
+  ];
 }
 
 type TracksPageDropdownConfigParams = {
