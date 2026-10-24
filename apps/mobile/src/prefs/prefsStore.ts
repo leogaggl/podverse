@@ -4,6 +4,8 @@ import type { UITheme } from '@podverse/design-tokens';
 import { ALL_POSSIBLE_THEMES } from '@podverse/design-tokens';
 import type { MediaTypePreference } from '@podverse/helpers';
 import { DEFAULT_MEDIA_TYPE_PREFERENCE } from '@podverse/helpers';
+import type { AuthSessionEndedNotice } from '@podverse/helpers/authSessionNotice';
+import { AUTH_SESSION_ENDED_NOTICES } from '@podverse/helpers/authSessionNotice';
 
 const HOME_MEDIA_TYPES = [
   'podcasts',
@@ -23,6 +25,7 @@ export type PrefKey =
   | 'aqc.rd'
   | 'aqc.rp'
   | 'auth.forced_logout_at'
+  | 'auth.forced_logout_notice'
   | 'downloads.auto_delete'
   | 'home.subscriptionFilter'
   | 'library.subscriptionFilter'
@@ -43,6 +46,10 @@ export type PrefValueMap = {
    * failure, so its presence is proof the user needs to be told they are signed out.
    */
   'auth.forced_logout_at': string;
+  /**
+   * The server's reason for the pending forced logout. Absent when the 401 named none.
+   */
+  'auth.forced_logout_notice': AuthSessionEndedNotice;
   'downloads.auto_delete': boolean;
   'home.subscriptionFilter': SubscriptionListFilter;
   'library.subscriptionFilter': SubscriptionListFilter;
@@ -72,6 +79,7 @@ const PREF_KEYS: readonly PrefKey[] = [
   'aqc.rd',
   'aqc.rp',
   'auth.forced_logout_at',
+  'auth.forced_logout_notice',
   'home.subscriptionFilter',
   'library.subscriptionFilter',
   'locale',
@@ -103,10 +111,15 @@ const isMediaTypePreference = (value: string): value is MediaTypePreference => {
   return value === 'audio' || value === 'video';
 };
 
+const isAuthSessionEndedNotice = (value: string): value is AuthSessionEndedNotice => {
+  return AUTH_SESSION_ENDED_NOTICES.some((notice) => notice === value);
+};
+
 const createEmptySnapshot = (): PrefSnapshot => ({
   'aqc.rd': null,
   'aqc.rp': null,
   'auth.forced_logout_at': null,
+  'auth.forced_logout_notice': null,
   'downloads.auto_delete': null,
   'home.subscriptionFilter': null,
   'library.subscriptionFilter': null,
@@ -132,6 +145,7 @@ const parseBoolean = (value: string | null): boolean | null => {
 export function getPref(key: 'aqc.rd'): Promise<boolean | null>;
 export function getPref(key: 'aqc.rp'): Promise<boolean | null>;
 export function getPref(key: 'auth.forced_logout_at'): Promise<string | null>;
+export function getPref(key: 'auth.forced_logout_notice'): Promise<AuthSessionEndedNotice | null>;
 export function getPref(key: 'downloads.auto_delete'): Promise<boolean | null>;
 export function getPref(key: 'home.subscriptionFilter'): Promise<SubscriptionListFilter | null>;
 export function getPref(key: 'library.subscriptionFilter'): Promise<SubscriptionListFilter | null>;
@@ -167,6 +181,12 @@ export async function getPref(key: PrefKey): Promise<PrefValueMap[PrefKey] | nul
   ) {
     return stored;
   }
+  if (key === 'auth.forced_logout_notice') {
+    if (stored === null) {
+      return null;
+    }
+    return isAuthSessionEndedNotice(stored) ? stored : null;
+  }
   if (key === 'pmt') {
     if (stored === null) {
       return null;
@@ -188,6 +208,10 @@ export async function getPref(key: PrefKey): Promise<PrefValueMap[PrefKey] | nul
 export function setPref(key: 'aqc.rd', value: boolean): Promise<void>;
 export function setPref(key: 'aqc.rp', value: boolean): Promise<void>;
 export function setPref(key: 'auth.forced_logout_at', value: string): Promise<void>;
+export function setPref(
+  key: 'auth.forced_logout_notice',
+  value: AuthSessionEndedNotice
+): Promise<void>;
 export function setPref(key: 'downloads.auto_delete', value: boolean): Promise<void>;
 export function setPref(
   key: 'home.subscriptionFilter',
@@ -239,6 +263,10 @@ export const hydratePrefs = async (): Promise<PrefSnapshot> => {
       }
       if (key === 'auth.forced_logout_at') {
         snapshot['auth.forced_logout_at'] = await getPref('auth.forced_logout_at');
+        return;
+      }
+      if (key === 'auth.forced_logout_notice') {
+        snapshot['auth.forced_logout_notice'] = await getPref('auth.forced_logout_notice');
         return;
       }
       if (key === 'downloads.auto_delete') {

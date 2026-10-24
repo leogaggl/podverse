@@ -1,6 +1,7 @@
 import { app } from '@management-api/app.js';
 import { config } from '@management-api/config/index.js';
 import { TABLE_POLICIES } from '@management-api/lib/database/tablePolicy.js';
+import { TEST_ADMIN_SESSION_CLAIMS } from '@management-api/test/adminSessionStoreStub.js';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -152,7 +153,11 @@ const adminIdTextByUserId: Record<number, string> = {
 
 const adminAuthHeaders = (userId: number = 1): { Authorization: string } => ({
   Authorization: `Bearer ${jwt.sign(
-    { id: userId, id_text: adminIdTextByUserId[userId] ?? 'pvMgtSu001' },
+    {
+      id: userId,
+      id_text: adminIdTextByUserId[userId] ?? 'pvMgtSu001',
+      ...TEST_ADMIN_SESSION_CLAIMS,
+    },
     JWT_SECRET,
     { expiresIn: '1h' }
   )}`,
@@ -178,11 +183,19 @@ describe('management-api database routes', () => {
       const names = res.body.tables.map((t: { tableName: string }) => t.tableName);
       expect(names).toContain('feed');
       expect(names).toContain('feed_takedown_reason');
-      expect(names).toContain('stats_aggregated_channel');
-      expect(names).toContain('stats_aggregated_item');
-      expect(names).toContain('stats_aggregated_clip');
-      expect(names).toContain('stats_aggregated_playlist');
-      expect(names).toContain('stats_aggregated_account');
+      expect(names).toContain('stats_popularity_channel');
+      expect(names).toContain('stats_popularity_item');
+      expect(names).toContain('stats_popularity_clip');
+      expect(names).toContain('stats_popularity_playlist');
+      expect(names).toContain('stats_popularity_account');
+      expect(names).not.toContain('stats_aggregated_channel');
+      expect(names).not.toContain('stats_aggregated_item');
+      expect(names).not.toContain('stats_aggregated_clip');
+      expect(names).not.toContain('stats_aggregated_playlist');
+      expect(names).not.toContain('stats_aggregated_account');
+      expect(names).not.toContain('stats_listener');
+      expect(names).not.toContain('stats_daily_channel');
+      expect(names).not.toContain('stats_taste_profile');
     });
 
     it('includes readOnly flag in table metadata', async () => {

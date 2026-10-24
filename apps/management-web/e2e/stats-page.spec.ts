@@ -11,24 +11,24 @@ import { capturePageLoad } from './helpers/stepScreenshots';
 const MOCK_STATS_ROW = {
   id: 4242,
   title: 'E2E stats mock title',
-  day_current_count: 3,
-  day_1_count: 2,
-  day_2_count: 1,
-  day_3_count: 0,
-  day_4_count: 0,
-  day_5_count: 0,
-  day_6_count: 0,
-  day_7_count: 0,
-  day_8_count: 0,
-  week_current_count: 10,
-  week_1_count: 5,
-  week_2_count: 0,
-  week_3_count: 0,
-  week_4_count: 0,
-  month_current_count: 20,
-  month_1_count: 0,
+  day_count: 3,
+  week_count: 10,
+  month_count: 20,
   all_time_count: 999,
   range_count: 42,
+};
+
+const MOCK_STATS_DETAIL = {
+  id: MOCK_STATS_ROW.id,
+  title: MOCK_STATS_ROW.title,
+  day_count: MOCK_STATS_ROW.day_count,
+  week_count: MOCK_STATS_ROW.week_count,
+  month_count: MOCK_STATS_ROW.month_count,
+  all_time_count: MOCK_STATS_ROW.all_time_count,
+  daily: [
+    { day: '2026-10-20', listener_count: 1 },
+    { day: '2026-10-21', listener_count: 2 },
+  ],
 };
 
 test.describe('Management-web stats page', () => {
@@ -62,7 +62,7 @@ test.describe('Management-web stats page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK_STATS_ROW),
+        body: JSON.stringify(MOCK_STATS_DETAIL),
       });
     });
 
@@ -77,6 +77,8 @@ test.describe('Management-web stats page', () => {
 
     await expect(page.getByRole('heading', { name: 'Stats', level: 1 })).toBeVisible();
 
+    await expect(page.getByRole('link', { name: 'Flagged Listeners' })).toBeVisible();
+
     await expect(page.getByRole('button', { name: 'Sort by Title' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Items' }).click();
@@ -87,6 +89,8 @@ test.describe('Management-web stats page', () => {
     await expect(
       page.getByRole('heading', { name: 'E2E stats mock title', level: 3 })
     ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Daily Breakdown' })).toBeVisible();
+    await expect(page.getByText('Weekly breakdown')).toHaveCount(0);
 
     await capturePageLoad(
       page,
@@ -104,5 +108,18 @@ test.describe('Management-web stats page', () => {
       'The stats detail panel closes and returns to the table view.',
       page.getByRole('heading', { name: 'Stats', level: 1 })
     );
+
+    const weekTopRequest = page.waitForRequest(
+      (statsRequest) =>
+        statsRequest.method() === 'GET' &&
+        statsRequest.url().includes('/stats/item/top') &&
+        statsRequest.url().includes('range=week')
+    );
+    await page.getByRole('button', { name: 'Week', exact: true }).click();
+    await expect(page).toHaveURL(/range=week/);
+    expect(new URL(page.url()).searchParams.get('entity')).toBe('item');
+    expect(new URL(page.url()).searchParams.get('range')).toBe('week');
+    const topRequest = await weekTopRequest;
+    expect(topRequest.url()).toContain('range=week');
   });
 });

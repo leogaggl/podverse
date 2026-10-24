@@ -32,3 +32,22 @@ export const extractNotificationTargetPath = (
   }
   return destination.mobileStackPath ?? destination.webPath;
 };
+
+export type NotificationReadTarget = { itemIdText: string; type: string };
+
+/** The push's item and type, used to mark its inbox row read. Null when either is missing. */
+export const extractNotificationReadTarget = (
+  data: Record<string, unknown> | null | undefined
+): NotificationReadTarget | null => {
+  if (data === null || data === undefined) {
+    return null;
+  }
+
+  const itemIdText = asNonEmptyString(data.itemIdText);
+  const type = asNonEmptyString(data.type);
+  if (itemIdText === null || type === null) {
+    return null;
+  }
+
+  return { itemIdText, type };
+};

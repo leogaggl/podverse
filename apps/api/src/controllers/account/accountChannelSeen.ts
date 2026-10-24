@@ -47,6 +47,7 @@ import {
 export const channelSeenReadRateLimit = rateLimitAuthEndpoint({
   windowMs: config.rateLimits.accountChannelSeenRead.windowMs,
   max: config.rateLimits.accountChannelSeenRead.max,
+  apiKeyAccess: { resource: 'subscriptions', action: 'read' },
 });
 
 export class AccountChannelSeenController {
@@ -84,7 +85,10 @@ export class AccountChannelSeenController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -125,7 +129,10 @@ export class AccountChannelSeenController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -169,7 +176,10 @@ export class AccountChannelSeenController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'update' },
+        }
       );
     });
   }
@@ -210,7 +220,10 @@ export class AccountChannelSeenController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'update' },
+      }
     );
   }
 
@@ -255,7 +268,10 @@ export class AccountChannelSeenController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'update' },
+        }
       );
     });
   }

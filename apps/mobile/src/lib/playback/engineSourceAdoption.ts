@@ -77,6 +77,9 @@ export const buildItemFromEngineMeta = (
   title: meta.title,
 });
 
+const nonEmptyMetaString = (value: string | null | undefined): string | null =>
+  typeof value === 'string' && value.length > 0 ? value : null;
+
 /**
  * A channel from engine metadata. It has no `id_text`, so screens that navigate to the channel
  * wait for the whole item to arrive.
@@ -91,7 +94,7 @@ export const buildChannelFromEngineMeta = (meta: MediaEngineSourceMeta): DTOChan
   podcast_guid: null,
   slug: null,
   sortable_title: null,
-  title: typeof meta.subtitle === 'string' && meta.subtitle.length > 0 ? meta.subtitle : null,
+  title: nonEmptyMetaString(meta.albumTitle) ?? nonEmptyMetaString(meta.subtitle),
 });
 
 /** The phone target for an adopted source. Car plays are whole items, never clips or chapters. */

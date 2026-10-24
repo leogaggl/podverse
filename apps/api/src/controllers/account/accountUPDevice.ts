@@ -39,7 +39,10 @@ export class AccountUPDeviceController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'notifications', action: 'create' },
+      }
     );
   }
 
@@ -73,7 +76,10 @@ export class AccountUPDeviceController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 
@@ -90,7 +96,10 @@ export class AccountUPDeviceController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'delete' },
+      }
     );
   }
 
@@ -109,7 +118,10 @@ export class AccountUPDeviceController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 
@@ -132,7 +144,10 @@ export class AccountUPDeviceController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 
@@ -149,7 +164,10 @@ export class AccountUPDeviceController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'delete' },
+      }
     );
   }
 }

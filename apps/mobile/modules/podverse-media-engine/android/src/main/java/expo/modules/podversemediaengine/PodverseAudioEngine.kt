@@ -407,6 +407,7 @@ object PodverseAudioEngine {
         "queueMedium" to obj.optString("queueMedium", "av"),
         "title" to title,
         "subtitle" to obj.optString("subtitle").takeIf { it.isNotBlank() },
+        "albumTitle" to obj.optString("albumTitle").takeIf { it.isNotBlank() },
         "artworkUrl" to obj.optString("artworkUrl").takeIf { it.isNotBlank() },
         "isLive" to obj.optBoolean("isLive", false),
         "clipStartSeconds" to
@@ -437,6 +438,7 @@ object PodverseAudioEngine {
           .setIsBrowsable(false)
           .setIsPlayable(true)
       (meta["subtitle"] as? String)?.let { metadataBuilder.setArtist(it) }
+      (meta["albumTitle"] as? String)?.let { metadataBuilder.setAlbumTitle(it) }
       (meta["artworkUrl"] as? String)?.let { metadataBuilder.setArtworkUri(Uri.parse(it)) }
       if (meta["isLive"] == true) {
         metadataBuilder.setIsBrowsable(false)

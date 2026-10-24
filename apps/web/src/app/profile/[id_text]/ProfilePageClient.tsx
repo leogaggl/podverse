@@ -9,7 +9,7 @@ import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { ProfileHeader } from '../../../components/Media/Profile/ProfileHeader';
 import { useAccount } from '../../../contexts/Account';
-import { trackStatsAccountVisit } from '../../../utils/statsTracking/statsTracking';
+import { trackStatsProfileOpen } from '../../../utils/statsTracking/statsTracking';
 import { ProfilePageContentContextProvider } from './ProfilePageContentContext';
 import { ProfilePageContentList } from './ProfilePageContentList';
 import { ProfilePageContentListHeader } from './ProfilePageContentListHeader';
@@ -33,7 +33,7 @@ export function ProfilePageClient(props: ProfilePageClientProps) {
   }, [loggedInAccount, ssrAccount.id, router]);
 
   useEffect(() => {
-    trackStatsAccountVisit(loggedInAccount?.id, ssrAccount.id, ssrAccount.id_text);
+    trackStatsProfileOpen(loggedInAccount?.id, ssrAccount.id, ssrAccount.id_text);
   }, [loggedInAccount?.id, ssrAccount.id, ssrAccount.id_text]);
 
   // Don't render if redirecting

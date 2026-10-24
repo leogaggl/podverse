@@ -3,22 +3,22 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isPopularityTrackingAllowed } from '@podverse/helpers';
+import { isTasteProfileTrackingAllowed } from '@podverse/helpers';
 
 import { useAuth } from '../../auth/AuthProvider';
 import type { MenuListItem } from '../../components/screen/MenuListScreen';
 import { MenuListScreen } from '../../components/screen/MenuListScreen';
 import type { MoreStackParamList } from '../../navigation';
 import { MORE_STACK_ROUTES } from '../../navigation';
-import { getPopularityTrackingCurrentVersion } from '../../popularityTracking/popularityTrackingGate';
+import { getTasteProfileAgreementCurrentVersion } from '../../tasteProfileConsent/tasteProfileConsentGate';
 
 export function MoreSettingsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const { account } = useAuth();
-  const popularityAllowed = isPopularityTrackingAllowed(
+  const tasteProfileAllowed = isTasteProfileTrackingAllowed(
     account?.account_settings,
-    getPopularityTrackingCurrentVersion()
+    getTasteProfileAgreementCurrentVersion()
   );
   const agreedVersion = account?.account_terms_acceptance?.terms_version;
   const termsSubtitle =
@@ -70,6 +70,29 @@ export function MoreSettingsScreen() {
       },
       {
         onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsChangePassword);
+        },
+        subtitle: t('settings.account.change_password.description'),
+        testID: 'more-settings-change-password',
+        title: t('settings.account.change_password.heading'),
+      },
+      {
+        onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsSessions);
+        },
+        testID: 'more-settings-sessions',
+        title: t('settings.account.sessions.heading'),
+      },
+      {
+        onPress: () => {
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsDeveloper);
+        },
+        subtitle: t('settings.developer.menu_subtitle'),
+        testID: 'more-settings-developer',
+        title: t('settings.developer.developer'),
+      },
+      {
+        onPress: () => {
           navigation.navigate(MORE_STACK_ROUTES.MoreTermsOfService);
         },
         subtitle: termsSubtitle,
@@ -78,14 +101,14 @@ export function MoreSettingsScreen() {
       },
       {
         onPress: () => {
-          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsPopularityTracking);
+          navigation.navigate(MORE_STACK_ROUTES.MoreSettingsTasteProfile);
         },
-        subtitle: popularityAllowed ? t('misc.on') : t('misc.off'),
-        testID: 'more-settings-popularity-tracking',
-        title: t('popularity_tracking.title'),
+        subtitle: tasteProfileAllowed ? t('misc.on') : t('misc.off'),
+        testID: 'more-settings-taste-profile',
+        title: t('taste_profile.title'),
       },
     ],
-    [navigation, popularityAllowed, t, termsSubtitle]
+    [navigation, tasteProfileAllowed, t, termsSubtitle]
   );
 
   return (

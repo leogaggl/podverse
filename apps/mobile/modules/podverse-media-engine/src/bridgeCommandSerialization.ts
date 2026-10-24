@@ -47,6 +47,7 @@ function assertSourceMeta(meta: MediaEngineSourceMeta): MediaEngineSourceMeta {
     throw new Error('serializeLoadCommand: `meta.title` is required');
   }
   return {
+    albumTitle: meta.albumTitle ?? null,
     artworkUrl: meta.artworkUrl ?? null,
     clipEndSeconds: meta.clipEndSeconds ?? null,
     clipStartSeconds: meta.clipStartSeconds ?? null,

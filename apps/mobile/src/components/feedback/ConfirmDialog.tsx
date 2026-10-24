@@ -8,9 +8,12 @@ import { useTheme } from '../../theme/useTheme';
 import type { FormAction } from '../form/FormActions';
 import { FormActions } from '../form/FormActions';
 import { AppOverlay, OverlayScrim } from '../overlay';
+import type { ButtonVariant } from '../primitives/Button';
 
 /**
- * Presentational dialog: title + body with a required dismiss action and an optional confirm action.
+ * Presentational dialog: title + body with a required dismiss action, an optional confirm action,
+ * and an optional second confirm. The second confirm is shown only with a first confirm. Top to
+ * bottom: confirm, second confirm, dismiss.
  * All copy arrives already localized so each host owns wording and test IDs.
  */
 export type ConfirmDialogProps = {
@@ -19,11 +22,18 @@ export type ConfirmDialogProps = {
   body: string;
   cancelLabel: string;
   confirmLabel?: string;
+  confirmVariant?: ButtonVariant;
+  /** When true, the confirm action shows its loading state. */
+  confirmLoading?: boolean;
   onCancel: () => void;
   onConfirm?: () => void;
   testID: string;
   cancelTestID: string;
   confirmTestID?: string;
+  /** A second confirm between the first and cancel. Shown only with all three set and a first confirm. */
+  secondaryConfirmLabel?: string;
+  onSecondaryConfirm?: () => void;
+  secondaryConfirmTestID?: string;
 };
 
 export function ConfirmDialog({
@@ -32,11 +42,16 @@ export function ConfirmDialog({
   body,
   cancelLabel,
   confirmLabel,
+  confirmVariant,
+  confirmLoading,
   onCancel,
   onConfirm,
   testID,
   cancelTestID,
   confirmTestID,
+  secondaryConfirmLabel,
+  onSecondaryConfirm,
+  secondaryConfirmTestID,
 }: ConfirmDialogProps) {
   const { styles: themeStyles, tokens } = useTheme();
 
@@ -88,10 +103,31 @@ export function ConfirmDialog({
   };
   const confirmAction: FormAction | undefined =
     confirmLabel !== undefined && confirmTestID !== undefined && onConfirm !== undefined
-      ? { label: confirmLabel, onPress: onConfirm, testID: confirmTestID }
+      ? {
+          label: confirmLabel,
+          onPress: onConfirm,
+          testID: confirmTestID,
+          ...(confirmLoading === true ? { loading: true } : {}),
+          ...(confirmVariant === undefined ? {} : { variant: confirmVariant }),
+        }
       : undefined;
-  const actions: readonly FormAction[] =
-    confirmAction === undefined ? [cancelAction] : [confirmAction, cancelAction];
+  const secondaryConfirmAction: FormAction | undefined =
+    confirmAction !== undefined &&
+    secondaryConfirmLabel !== undefined &&
+    secondaryConfirmTestID !== undefined &&
+    onSecondaryConfirm !== undefined
+      ? {
+          label: secondaryConfirmLabel,
+          onPress: onSecondaryConfirm,
+          testID: secondaryConfirmTestID,
+          variant: 'outline',
+        }
+      : undefined;
+  const actions: readonly FormAction[] = [
+    confirmAction,
+    secondaryConfirmAction,
+    cancelAction,
+  ].filter((action): action is FormAction => action !== undefined);
 
   return (
     <AppOverlay animation="fade" onRequestClose={onCancel} visible={visible}>

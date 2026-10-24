@@ -36,19 +36,19 @@ Both surfaces show `LoadingSection` until the request settles, then content or a
 arrives over the network every time, so there is always a moment with nothing to paint, and a blank
 panel reads as "there is nothing here" rather than "this is coming".
 
-**The existing popularity-tracking body has this bug and is fixed in the same change.**
-`PopularityTrackingAgreementBody` renders an empty markdown area with live Yes / No buttons while the
+**The existing Taste Profile consent body has this bug and is fixed in the same change.**
+`TasteProfileAgreementBody` renders an empty markdown area with live Yes / No buttons while the
 agreement is still loading, which asks someone to consent to text they cannot see yet. It is the same
 fetch-and-render shape as these two screens, so it gets the same spinner rather than staying the one
 counter-example in the codebase.
 
 ### Shared markdown rendering
 
-`parsePopularityTrackingMarkdown` and its abridging helper in `@podverse/helpers` are named after
-their first caller but do not know anything about popularity tracking — they parse headings, lists,
+The agreement markdown parser and its abridging helper in `@podverse/helpers` are named after
+their first caller but do not know anything about Taste Profile consent — they parse headings, lists,
 and paragraphs. They are renamed to generic copy-markdown names, and mobile's
-`PopularityTrackingMarkdown` becomes a shared `CopyMarkdown` component under
-`apps/mobile/src/components/`, with the popularity-tracking call sites updated in the same change.
+agreement markdown component becomes a shared `CopyMarkdown` component under
+`apps/mobile/src/components/`, with the Taste Profile consent call sites updated in the same change.
 
 Renaming rather than adding a second parser: three documents rendering markdown through two
 near-identical components is how a codebase ends up with two markdown dialects, one of which quietly
@@ -60,8 +60,8 @@ A new rule records when copy is served and when it is a catalog key, so the next
 to infer it from the existence of two endpoints:
 
 - Served as API markdown when the text describes how the service behaves and can change without an
-  app release — FAQ, how-tos, terms of service, and the Popularity Tracking explanation. The
-  Popularity Tracking document informs the listener. The legal notice for that feature is the
+  app release — FAQ, how-tos, terms of service, and the Taste Profile agreement. The
+  Taste Profile agreement informs the listener. The legal notice for that feature is the
   terms of service.
 - A catalog key for everything else, which is nearly all UI copy: labels, buttons, empty states,
   errors.
@@ -74,7 +74,7 @@ to infer it from the existence of two endpoints:
 - The footer How To and FAQ controls open that content on any visit, and dismissing either returns to
   the form with the draft intact.
 - Both surfaces show a spinner while loading and a retryable error on failure.
-- The popularity-tracking agreement body shows a spinner instead of an empty panel with live consent
+- The Taste Profile agreement body shows a spinner instead of an empty panel with live consent
   buttons.
 - One markdown parser and one mobile markdown component serve all three documents.
 - Headings, lists, paragraphs, and inline emphasis render; screen readers announce headings as
@@ -83,7 +83,7 @@ to infer it from the existence of two endpoints:
 
 ## Web parity references
 
-- `apps/web/src/app/popularity-tracking/PopularityTrackingGateClient.tsx` — same fetch shape, same
+- `apps/web/src/components/Legal/TasteProfileAgreementGate.tsx` — same fetch shape, same
   missing spinner
 - Web's FAQ counterpart: [756](756-web-faq-and-clip-preview-parity.md)
 

@@ -20,7 +20,6 @@ import {
   MediumEnum,
 } from '@podverse/helpers';
 
-import { useAccount } from '../../../contexts/Account';
 import { useEmbedPlaybackGuardrails } from '../../../contexts/EmbedPlaybackMode';
 import type { MediaPlayerAddByRSSState } from '../../../contexts/MediaPlayer';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
@@ -37,8 +36,17 @@ import {
   resolveEmbedPlaybackPauseAtSeconds,
   resolveEmbedPlaybackResetSeconds,
 } from '../../../lib/embed/resolveEmbedPlaybackResetSeconds';
-import type { MusicItemPlaybackIntent, PlaybackLoadDecision } from '../../../lib/playback';
-import { clampNearEndSeconds, selectItemChapterForTime } from '../../../lib/playback';
+import type {
+  ListenSessionDirective,
+  ListenSessionTarget,
+  MusicItemPlaybackIntent,
+  PlaybackLoadDecision,
+} from '../../../lib/playback';
+import {
+  clampNearEndSeconds,
+  listenSessionTargetForClip,
+  selectItemChapterForTime,
+} from '../../../lib/playback';
 import {
   decideBlockedHostPlayback,
   resolvedPlaybackUrlForIdentity,
@@ -59,11 +67,7 @@ import {
 } from '../../../utils/mediaPlayer/mediaPlayerItemEnclosureType';
 import { waitForSourceUri } from '../../../utils/mediaPlayer/mediaPlayerPlayMediaWhenReady';
 import { resolveModalVideoAspectRatio } from '../../../utils/mediaPlayer/modalVideoAspectRatio';
-import {
-  trackStatsChannel,
-  trackStatsClip,
-  trackStatsItem,
-} from '../../../utils/statsTracking/statsTracking';
+import { webListenSession } from '../../../utils/statsTracking/statsTracking';
 import { MediaElement } from '../MediaElement/MediaElement';
 import { toFileMediaElementSource } from '../MediaElement/mediaElementSourceFromTarget';
 
@@ -94,6 +98,22 @@ const playbackErrorForLoadedItem = (params: {
     message: params.message,
   };
 };
+
+function listenSessionTargetFromPlayerState(state: {
+  isAddByRSS: boolean;
+  clip: DTOClip | null;
+  item: DTOItem | null;
+  soundbite: DTOItemSoundbite | null;
+}): ListenSessionTarget | null {
+  if (state.isAddByRSS) {
+    return null;
+  }
+  if (state.clip !== null) {
+    return listenSessionTargetForClip(state.clip);
+  }
+  const itemIdText = state.item?.id_text ?? state.soundbite?.item?.id_text ?? null;
+  return itemIdText ? { kind: 'item', idText: itemIdText } : null;
+}
 
 export interface NonLiveMediaOrchestratorProps {
   mediaType: 'audio' | 'video';
@@ -156,7 +176,6 @@ export interface NonLiveMediaOrchestratorProps {
 }
 
 export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> = (props) => {
-  const { loggedInAccount } = useAccount();
   const { embedPlayerSize, isEmbedRoute } = useEmbedPlaybackGuardrails();
   const { activePlaybackTarget, mpPlaybackError, reportPlaybackError, setMPPlaybackError } =
     useMediaPlayer();
@@ -165,10 +184,6 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
   mpPlaybackErrorRef.current = playbackError;
   const reportPlaybackErrorRef = useRef(reportPlaybackError);
   reportPlaybackErrorRef.current = reportPlaybackError;
-  const loggedInAccountRef = useRef(loggedInAccount);
-  useEffect(() => {
-    loggedInAccountRef.current = loggedInAccount;
-  }, [loggedInAccount]);
 
   const {
     mediaType,
@@ -425,6 +440,20 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
     })();
   };
 
+  const loadListenSession = (directive: ListenSessionDirective, newDuration: number): void => {
+    const isAddByRSS = Boolean(mpAddByRSSRef.current);
+    webListenSession.load({
+      directive: isAddByRSS ? 'none' : directive,
+      target: listenSessionTargetFromPlayerState({
+        isAddByRSS,
+        clip: mpClipRef.current ?? null,
+        item: mpItemRef.current ?? null,
+        soundbite: mpItemSoundbiteRef.current ?? null,
+      }),
+      mediaDurationSeconds: Number.isFinite(newDuration) && newDuration > 0 ? newDuration : null,
+    });
+  };
+
   const bridge = useMediaElementBridge(mediaRef, {
     onError(error) {
       if (!error) {
@@ -530,23 +559,7 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
 
         setPendingPlaybackDecision?.(null);
 
-        if (!loggedInAccountRef.current || mpAddByRSSRef.current) {
-          return;
-        }
-        if (!stagedDecision.shouldRecordPlaybackStat) {
-          return;
-        }
-        if (mpChannelRef.current) {
-          trackStatsChannel(mpChannelRef.current.id_text);
-        }
-        if (mpClipRef.current) {
-          trackStatsClip(mpClipRef.current.id_text);
-        }
-        const itemIdText =
-          mpItemRef.current?.id_text ?? mpItemSoundbiteRef.current?.item?.id_text ?? null;
-        if (itemIdText) {
-          trackStatsItem(itemIdText);
-        }
+        loadListenSession(stagedDecision.listenSession, newDuration);
         return;
       }
 
@@ -600,23 +613,7 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
         });
       }
 
-      if (!loggedInAccountRef.current || mpAddByRSSRef.current) {
-        return;
-      }
-      if (mpShouldPlayRef.current !== true) {
-        return;
-      }
-      if (mpChannelRef.current) {
-        trackStatsChannel(mpChannelRef.current.id_text);
-      }
-      if (mpClipRef.current) {
-        trackStatsClip(mpClipRef.current.id_text);
-      }
-      const itemIdText =
-        mpItemRef.current?.id_text ?? mpItemSoundbiteRef.current?.item?.id_text ?? null;
-      if (itemIdText) {
-        trackStatsItem(itemIdText);
-      }
+      loadListenSession('start', newDuration);
     },
     onPlay() {
       // Media events are queued, so a fast pause-then-play can deliver `pause` after the element
@@ -652,6 +649,7 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       if (!mediaRef.current) {
         return;
       }
+      webListenSession.recordSeek();
       if (suppressNextSeekEventRef.current) {
         suppressNextSeekEventRef.current = false;
         return;
@@ -683,6 +681,7 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       if (!mediaRef.current || !mediaRef.current.paused) {
         return;
       }
+      webListenSession.recordPause();
       const newCurrentTime = mediaRef.current.currentTime;
       if (mpAddByRSSRef.current && onAddByRSSPositionSaveRef.current) {
         try {
@@ -709,6 +708,12 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       if (!mediaRef.current) {
         return;
       }
+
+      webListenSession.recordPosition({
+        positionSeconds: newCurrentTime,
+        isPlaying: !mediaRef.current.paused,
+        playbackRate: mediaRef.current.playbackRate,
+      });
 
       const shouldUpdateCurrentTime = !mpAddByRSSRef.current || !mediaRef.current.paused;
       if (shouldUpdateCurrentTime) {
@@ -812,6 +817,7 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       ) {
         return;
       }
+      webListenSession.recordCompleted();
       void (async () => {
         if (isEmbedRouteRef.current) {
           if (notifyEmbedListItemEnded()) {
@@ -1047,7 +1053,6 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       bridge.pause();
       return;
     }
-
     let cancelled = false;
     void (async () => {
       await waitForPlayableMediaSource(
@@ -1055,6 +1060,11 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
         () => cancelled
       );
       if (cancelled || mpIsPlayingRef.current !== true) {
+        return;
+      }
+      // The live controller plays live items. This element has no source for one, and asking it
+      // to play would report an invalid source that stops the live stream.
+      if (checkIsLiveItem(mpItemRef.current)) {
         return;
       }
       await bridge.play();

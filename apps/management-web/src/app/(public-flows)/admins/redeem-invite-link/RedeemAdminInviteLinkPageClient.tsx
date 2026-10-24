@@ -30,7 +30,6 @@ export function RedeemAdminInviteLinkPageClient({ token }: Props) {
   const ta = useTranslations('users');
   const tc = useTranslations('common');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -42,10 +41,6 @@ export function RedeemAdminInviteLinkPageClient({ token }: Props) {
     setError(null);
     if (password.length < 8) {
       setError(ta('passwordMinLength'));
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError(t('passwordsDoNotMatch'));
       return;
     }
     setLoading(true);
@@ -117,15 +112,6 @@ export function RedeemAdminInviteLinkPageClient({ token }: Props) {
             required
           />
           <FormHintText>{ta('passwordMinLength')}</FormHintText>
-          <TextInput
-            autoComplete="new-password"
-            eyebrow={t('confirmLabel')}
-            minLength={8}
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
           <Alert>{error}</Alert>
           <FormPrimaryActions>
             <Button type="submit" disabled={loading}>

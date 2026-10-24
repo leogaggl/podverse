@@ -9,7 +9,7 @@ import { MediumEnum } from '@podverse/helpers/medium';
 import type { MusicItemPlaybackIntent, PlaybackTarget } from '@podverse/playback-core';
 
 import type { MediaEngineSource } from '../../../modules/podverse-media-engine';
-import type { MoveNowPlayingToHistoryTarget, PlaybackStatsTargets } from '../../data';
+import type { MoveNowPlayingToHistoryTarget } from '../../data';
 import {
   addByRssPlaybackMediaId,
   isAddByRssLivestreamResourceData,
@@ -147,34 +147,6 @@ export function playbackTargetToHistoryTarget(
       };
     case 'livestream':
       return null;
-  }
-}
-
-/**
- * Listen-stats targets for a playback target (mirrors web NonLiveMediaOrchestrator: track the
- * channel, the clip when playing a clip, and the item). Add-by-RSS / livestream do not record stats.
- */
-export function playbackTargetToStatsTargets(target: PlaybackTarget): PlaybackStatsTargets {
-  switch (target.kind) {
-    case 'clip':
-      return {
-        channelIdText: target.channel.id_text,
-        clipIdText: target.clip.id_text,
-        itemIdText: target.item.id_text,
-      };
-    case 'soundbite':
-    case 'chapter':
-    case 'item-podcast':
-    case 'item-video':
-    case 'item-music':
-      return {
-        channelIdText: target.channel.id_text,
-        clipIdText: null,
-        itemIdText: target.item.id_text,
-      };
-    case 'add-by-rss':
-    case 'livestream':
-      return { channelIdText: null, clipIdText: null, itemIdText: null };
   }
 }
 

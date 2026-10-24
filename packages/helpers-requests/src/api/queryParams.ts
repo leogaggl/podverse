@@ -175,14 +175,6 @@ export type QueryParamsSubscribedMusicType = (typeof QUERY_PARAMS_SUBSCRIBED_MUS
 export const QUERY_PARAMS_STATS_RANGE_VALUES = ['day', 'week', 'month', 'all-time'] as const;
 export type QueryParamsStatsRange = (typeof QUERY_PARAMS_STATS_RANGE_VALUES)[number];
 
-export const STATS_SORT_COLUMNS = [
-  'day_current_count',
-  'week_current_count',
-  'month_current_count',
-  'all_time_count',
-] as const;
-export type StatsSortColumn = (typeof STATS_SORT_COLUMNS)[number];
-
 // Channel
 
 export const QUERY_PARAMS_CHANNEL_TYPE_VALUES = [

@@ -152,6 +152,10 @@ vi.mock('@podverse/orm', async (importOriginal) => {
     updateIsActiveQueue = queueUpdateIsActiveMock;
   }
 
+  class MockChannelVerifiedPublisherService {
+    getPublisherSummaries = vi.fn(async () => []);
+  }
+
   class MockQueueResourceService {
     getAllByAccountAbridged = qrGetAllByAccountAbridgedMock;
     getNowPlayingByQueueIdText = qrGetNowPlayingMock;
@@ -188,6 +192,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
   return {
     ...actual,
     CategoryService: MockCategoryService,
+    ChannelVerifiedPublisherService: MockChannelVerifiedPublisherService,
     AccountService: MockAccountService,
     QueueService: MockQueueService,
     QueueResourceService: MockQueueResourceService,

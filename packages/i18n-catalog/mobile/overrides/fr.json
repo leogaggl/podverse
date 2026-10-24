@@ -103,6 +103,11 @@
       "downloads_description": "",
       "notifications_description": ""
     },
+    "developer": {
+      "menu_subtitle": "",
+      "docs_unavailable": "",
+      "spec_copy_hint": ""
+    },
     "offline_mode": {
       "title": "",
       "description": "",
@@ -148,7 +153,11 @@
       "login_required_title": "",
       "login_required_message": "",
       "open_system_settings": "",
-      "permission_required": ""
+      "permission_required": "",
+      "banner_section": "",
+      "banner_section_help": "",
+      "banner_dismiss": "",
+      "banner_open_hint": ""
     },
     "tab_bar": {
       "title": "",
@@ -168,11 +177,12 @@
     "playback": "",
     "playback_intro": "",
     "play_video": "",
+    "show_banner_notification": "",
     "play_hls": "",
     "skip_next": "",
     "complete_now_playing": "",
     "quick_login": "",
-    "quick_login_popularity": "",
+    "quick_login_taste_profile_undecided": "",
     "quick_login_stale_terms": "",
     "quick_login_perf": "",
     "session_ready": "",

@@ -2,9 +2,25 @@
 
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-import { getApiRequestService } from '../factories/apiRequestService';
+import type { AccountNotificationStreamEvent } from '@podverse/helpers';
+
+import { getApiRequestService, getClientApiBaseUrl } from '../factories/apiRequestService';
+import { useNotificationsUnreadCount } from '../hooks/useNotificationsUnreadCount';
+import type { NotificationStreamStatus } from '../lib/notifications/stream/notificationStreamConnection';
+import { startNotificationStreamCoordinator } from '../lib/notifications/stream/notificationStreamCoordinator';
+import { getNotificationStreamEventUnreadCount } from '../lib/notifications/stream/notificationStreamEventUnreadCount';
+import type { PushMarkReadParams } from '../lib/notifications/webpush/foregroundPush';
+import {
+  buildForegroundPushNotificationOptions,
+  readForegroundPushMessage,
+  shouldShowForegroundPushPopup,
+} from '../lib/notifications/webpush/foregroundPush';
+import {
+  ensureWebPushServiceWorkerScriptUrl,
+  WEB_PUSH_SERVICE_WORKER_PATH,
+} from '../lib/notifications/webpush/webPushServiceWorkerUrl';
 import { useAccount } from './Account';
 import { useConfig } from './Config';
 
@@ -17,6 +33,12 @@ type NotificationsContextType = {
   setUPRegistered: (val: boolean) => void;
   upEndpoint: string | null;
   setUPEndpoint: (val: string | null) => void;
+  unreadCount: number;
+  notificationStreamStatus: NotificationStreamStatus;
+  /** Subscribe to parsed stream events in this tab. Returns the unsubscribe function. */
+  subscribeToNotificationStream: (
+    listener: (event: AccountNotificationStreamEvent) => void
+  ) => () => void;
 };
 
 export const NotificationsContext = createContext<NotificationsContextType>({
@@ -28,6 +50,9 @@ export const NotificationsContext = createContext<NotificationsContextType>({
   setUPRegistered: () => {},
   upEndpoint: null,
   setUPEndpoint: () => {},
+  unreadCount: 0,
+  notificationStreamStatus: 'off',
+  subscribeToNotificationStream: () => () => {},
 });
 
 type NotificationsProviderProps = {
@@ -53,41 +78,95 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
   const [registered, setRegistered] = useState<boolean>(false);
   const [upRegistered, setUPRegistered] = useState<boolean>(false);
   const [upEndpoint, setUPEndpoint] = useState<string | null>(null);
+  const [notificationStreamStatus, setNotificationStreamStatus] =
+    useState<NotificationStreamStatus>('off');
   const { loggedInAccount } = useAccount();
+  const accountId = loggedInAccount?.id ?? null;
+  const { unreadCount, setUnreadCount } = useNotificationsUnreadCount({
+    enabled: accountId !== null,
+    streamOpen: notificationStreamStatus === 'open',
+  });
+  const streamListenersRef = useRef(new Set<(event: AccountNotificationStreamEvent) => void>());
+  const subscribeToNotificationStream = useCallback(
+    (listener: (event: AccountNotificationStreamEvent) => void) => {
+      const listeners = streamListenersRef.current;
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    []
+  );
 
-  const handleForegroundPush = useCallback(
-    (event: MessageEvent) => {
-      if (event.data?.type === 'PUSH_NOTIFICATION') {
-        const data = event.data.payload;
-        const title = data.title || 'Notification';
-        const body = data.body || '';
-        const icon = data.icon;
-        const link = data.link || '/';
-
-        if (Notification.permission === 'granted' && title) {
-          const notification = new Notification(title, {
-            body,
-            icon,
-            data: { url: link },
-          });
-
-          notification.onclick = (e) => {
-            e.preventDefault();
-            notification.close();
-            window.focus();
-            const sameOriginPath = toSameOriginPath(link);
-            if (sameOriginPath !== null && sameOriginPath !== '/') {
-              router.push(sameOriginPath);
-              return;
-            }
-            if (sameOriginPath === null && typeof link === 'string' && link !== '/') {
-              window.location.assign(link);
-            }
-          };
-        }
+  const markPushNotificationRead = useCallback(
+    (params: PushMarkReadParams) => {
+      try {
+        void getApiRequestService()
+          .reqNotificationsMarkReadByItem(params)
+          .then((response) => {
+            setUnreadCount(response.unread_count);
+          })
+          .catch(() => undefined);
+      } catch {
+        // A failed mark leaves navigation and the badge update to the stream or the next poll.
       }
     },
-    [router]
+    [setUnreadCount]
+  );
+
+  const handleForegroundPush = useCallback(
+    (event: MessageEvent<unknown>) => {
+      const notification = readForegroundPushMessage(event.data);
+      if (notification === null) {
+        return;
+      }
+      if (!shouldShowForegroundPushPopup(window.location.pathname)) {
+        return;
+      }
+      if (Notification.permission !== 'granted') {
+        return;
+      }
+
+      const shownOptions = buildForegroundPushNotificationOptions(notification);
+      try {
+        const popup = new Notification(notification.title, {
+          body: notification.body,
+          icon: notification.icon,
+          tag: shownOptions.tag,
+          data: { url: notification.link },
+        });
+
+        popup.onclick = (clickEvent) => {
+          clickEvent.preventDefault();
+          popup.close();
+          window.focus();
+          if (notification.markRead !== null) {
+            markPushNotificationRead(notification.markRead);
+          }
+          const sameOriginPath = toSameOriginPath(notification.link);
+          if (sameOriginPath !== null && sameOriginPath !== '/') {
+            router.push(sameOriginPath);
+            return;
+          }
+          if (sameOriginPath === null && notification.link !== '/') {
+            window.location.assign(notification.link);
+          }
+        };
+      } catch {
+        // Chrome on Android allows notifications only through the service worker registration.
+        if (!('serviceWorker' in navigator)) {
+          console.warn('Could not show the foreground push notification');
+          return;
+        }
+        void navigator.serviceWorker
+          .getRegistration(WEB_PUSH_SERVICE_WORKER_PATH)
+          .then((registration) => registration?.showNotification(notification.title, shownOptions))
+          .catch((error: unknown) => {
+            console.warn('Could not show the foreground push notification', error);
+          });
+      }
+    },
+    [markPushNotificationRead, router]
   );
 
   useEffect(() => {
@@ -105,6 +184,9 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
     const init = async () => {
       const p = Notification.permission;
       setPermission(p);
+      if (p === 'granted') {
+        void ensureWebPushServiceWorkerScriptUrl(getClientApiBaseUrl());
+      }
 
       try {
         const upDevice = await apiRequestService.reqAccountUPDeviceGetForAccount();
@@ -130,7 +212,9 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
             setRegistered(false);
           } else {
             // Check if we have a current push subscription
-            const registration = await navigator.serviceWorker.getRegistration('/webpush-sw.js');
+            const registration = await navigator.serviceWorker.getRegistration(
+              WEB_PUSH_SERVICE_WORKER_PATH
+            );
             if (registration) {
               const subscription = await registration.pushManager.getSubscription();
               if (subscription) {
@@ -170,6 +254,33 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
     };
   }, [loggedInAccount, handleForegroundPush]);
 
+  useEffect(() => {
+    if (accountId === null) {
+      setNotificationStreamStatus('off');
+      return;
+    }
+
+    const listeners = streamListenersRef.current;
+    const coordinator = startNotificationStreamCoordinator({
+      accountId,
+      apiBaseUrl: getClientApiBaseUrl(),
+      onStatus: setNotificationStreamStatus,
+      onEvent: (event) => {
+        const nextUnreadCount = getNotificationStreamEventUnreadCount(event);
+        if (nextUnreadCount !== null) {
+          setUnreadCount(nextUnreadCount);
+        }
+        for (const listener of listeners) {
+          listener(event);
+        }
+      },
+    });
+
+    return () => {
+      coordinator.stop();
+    };
+  }, [accountId, setUnreadCount]);
+
   return (
     <NotificationsContext.Provider
       value={{
@@ -181,6 +292,9 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
         setUPRegistered,
         upEndpoint,
         setUPEndpoint,
+        unreadCount,
+        notificationStreamStatus,
+        subscribeToNotificationStream,
       }}
     >
       {children}

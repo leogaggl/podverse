@@ -1,6 +1,7 @@
 import { getParamRequired } from '@api/lib/params.js';
 import { buildRemoteItemsFinalResult } from '@api/lib/remoteItems.js';
 import { idOrIdTextParamSchema, validateParamsObject } from '@api/lib/validation/index.js';
+import { attachVerifiedPublishers } from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
@@ -18,12 +19,17 @@ export class PublisherFeedController {
         await PublisherFeedController.publisherFeedService.getPublisherFeedRemoteItemsForChannel(
           idOrIdText
         );
+      await attachVerifiedPublishers({
+        channels: result.verifiedAlbums,
+        items: result.tracks,
+      });
 
+      // Channel and Item entities are serialized as the shared channel and item DTOs.
       const finalRemoteItemsResult = await buildRemoteItemsFinalResult(
-        result.publisherChannelsAdded as unknown as DTOChannel[],
-        result.publisherChannelsUnadded,
-        result.publisherItemsAdded as unknown as DTOItem[],
-        result.publisherItemsUnadded,
+        result.verifiedAlbums as unknown as DTOChannel[],
+        result.notYetAddedAlbumRefs,
+        result.tracks as unknown as DTOItem[],
+        [],
         { enrichUnaddedChannelsByFeedUrl: true }
       );
 

@@ -2,14 +2,21 @@
 
 import type { AccountSignupMode } from '@podverse/helpers';
 import {
-  DEFAULT_AUTH_JWT_EXPIRATION,
-  DEFAULT_AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION,
-  DEFAULT_AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION,
+  DEFAULT_AUTH_ACCESS_TOKEN_EXPIRATION,
+  DEFAULT_AUTH_SESSION_IDLE_EXPIRATION,
   DEFAULT_FREE_TRIAL_EXPIRATION,
   DEFAULT_RESET_PASSWORD_TOKEN_EXPIRATION,
   DEFAULT_VERIFY_AND_EMAIL_CHANGE_TOKEN_EXPIRATION,
   MS_PER_SECOND,
   parseCountPerWindowEnvFromKey,
+  parseOptionalNonNegativeInt,
+  POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS,
+  POPULARITY_DEFAULT_DAILY_LISTEN_POPULARITY_CAP,
+  POPULARITY_DEFAULT_DAILY_LISTEN_STORED_CAP,
+  POPULARITY_DEFAULT_DAILY_OPEN_CAP,
+  POPULARITY_DEFAULT_FLAG_STORED_CAP_WITHIN_HOURS,
+  POPULARITY_DEFAULT_FLAG_TOO_SOON_MINUTES,
+  POPULARITY_DEFAULT_LISTEN_MIN_INTERVAL_SECONDS,
   readOptionalPositiveExpirationEnv,
   readRequiredPositiveExpirationEnv,
 } from '@podverse/helpers';
@@ -34,12 +41,14 @@ type Config = {
     accountSendResetPasswordEmail: { windowMs: number; max: number };
     accountResetPassword: { windowMs: number; max: number };
     accountSetPassword: { windowMs: number; max: number };
+    accountChangePassword: { windowMs: number; max: number };
     accountDownloadData: { windowMs: number; max: number };
     accountOpmlExport: { windowMs: number; max: number };
     accountOpmlImportEnqueue: { windowMs: number; max: number };
     accountAddByRssParseEnqueue: { windowMs: number; max: number };
     accountAddByRssChaptersTranscript: { windowMs: number; max: number };
     accountChannelSeenRead: { windowMs: number; max: number };
+    statsTrack: { windowMs: number; max: number };
     mqRssOnDemand: { windowMs: number; max: number };
     billingPurchase: { windowMs: number; max: number };
     billingWebhook: { windowMs: number; max: number };
@@ -69,13 +78,11 @@ type Config = {
   };
   auth: {
     jwtSecret: string;
-    /** From AUTH_JWT_EXPIRATION. */
-    jwtExpiration: number;
+    /** From AUTH_SESSION_IDLE_EXPIRATION, in seconds. Bounds the session row, web JWT, and refresh JWT. */
+    sessionIdleExpiration: number;
     sessionCookieMaxAgeMs: number;
-    /** From AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION. */
-    mobileAccessTokenExpiration: number;
-    /** From AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION. */
-    mobileRefreshTokenExpiration: number;
+    /** From AUTH_ACCESS_TOKEN_EXPIRATION. Silently refreshed; does not bound sign-in length. */
+    accessTokenExpiration: number;
     /** When true, login may include JWT in JSON if the client sends includeTokenInResponseBody (non-cookie clients only). */
     allowTokenInResponseBody: boolean;
   };
@@ -102,9 +109,39 @@ type Config = {
     contactEmail: string;
     retentionDays: string;
   };
-  popularityTracking: {
+  tasteProfileAgreement: {
     version: string;
     contentDir: string;
+  };
+  popularityTracking: {
+    /** Stored listens per listener per UTC day; each feeds the listener's Taste Profile. */
+    dailyListenStoredCap: number;
+    /**
+     * Stored listens per listener per UTC day that count toward popularity; never above
+     * `dailyListenStoredCap`.
+     */
+    dailyListenPopularityCap: number;
+    /** Server seconds between one listener's new stored listens; 0 turns the check off. */
+    listenMinIntervalSeconds: number;
+    /** Counted profile and playlist opens per listener per UTC day, both kinds together. */
+    dailyOpenCap: number;
+    /**
+     * Days after an opt-out during which the listener's new listens and opens count toward no
+     * popularity total. Also the number of days in which one listener adds to an entity's all-time
+     * total at most once. Startup validation rejects a value above
+     * `STATS_TRACK_EVENT_RETENTION_DAYS`.
+     */
+    allTimeRecountDays: number;
+    /**
+     * Too-soon minutes in one unbroken run that flag a listener out of popularity; 0 turns the
+     * signal off.
+     */
+    flagTooSoonMinutes: number;
+    /**
+     * Hours from a listener's first stored listen of a UTC day within which reaching
+     * `dailyListenStoredCap` flags the listener out of popularity; 0 turns the signal off.
+     */
+    flagStoredCapWithinHours: number;
   };
   managedCopy: {
     contentDir: string;
@@ -185,6 +222,26 @@ type Config = {
   };
 };
 
+function readWholeNumberEnv(name: string, fallback: number, min: number): number {
+  const parsed = parseOptionalNonNegativeInt(process.env[name]);
+  return parsed !== undefined && parsed >= min ? parsed : fallback;
+}
+
+const statsListenStoredCap = readWholeNumberEnv(
+  'STATS_LISTEN_DAILY_STORED_CAP',
+  POPULARITY_DEFAULT_DAILY_LISTEN_STORED_CAP,
+  1
+);
+
+const statsListenPopularityCap = Math.min(
+  readWholeNumberEnv(
+    'STATS_LISTEN_DAILY_POPULARITY_CAP',
+    POPULARITY_DEFAULT_DAILY_LISTEN_POPULARITY_CAP,
+    1
+  ),
+  statsListenStoredCap
+);
+
 export const config: Config = {
   rateLimits: {
     authLogin: parseCountPerWindowEnvFromKey({
@@ -232,6 +289,11 @@ export const config: Config = {
       key: 'ACCOUNT_SET_PASSWORD_MAX_PER_10_MINUTES',
       defaultMax: 4,
     }),
+    accountChangePassword: parseCountPerWindowEnvFromKey({
+      envValue: process.env.ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES,
+      key: 'ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES',
+      defaultMax: 4,
+    }),
     accountDownloadData: parseCountPerWindowEnvFromKey({
       envValue: process.env.ACCOUNT_DOWNLOAD_DATA_MAX_PER_DAY,
       key: 'ACCOUNT_DOWNLOAD_DATA_MAX_PER_DAY',
@@ -260,6 +322,11 @@ export const config: Config = {
     accountChannelSeenRead: parseCountPerWindowEnvFromKey({
       envValue: process.env.ACCOUNT_CHANNEL_SEEN_READ_MAX_PER_MINUTE,
       key: 'ACCOUNT_CHANNEL_SEEN_READ_MAX_PER_MINUTE',
+      defaultMax: 60,
+    }),
+    statsTrack: parseCountPerWindowEnvFromKey({
+      envValue: process.env.STATS_TRACK_MAX_PER_MINUTE,
+      key: 'STATS_TRACK_MAX_PER_MINUTE',
       defaultMax: 60,
     }),
     mqRssOnDemand: parseCountPerWindowEnvFromKey({
@@ -302,21 +369,17 @@ export const config: Config = {
     },
   },
   auth: (() => {
-    const jwtExpiration = readOptionalPositiveExpirationEnv(
-      'AUTH_JWT_EXPIRATION',
-      DEFAULT_AUTH_JWT_EXPIRATION
+    const sessionIdleExpiration = readOptionalPositiveExpirationEnv(
+      'AUTH_SESSION_IDLE_EXPIRATION',
+      DEFAULT_AUTH_SESSION_IDLE_EXPIRATION
     );
     return {
       jwtSecret: process.env.AUTH_JWT_SECRET!,
-      jwtExpiration,
-      sessionCookieMaxAgeMs: jwtExpiration * MS_PER_SECOND,
-      mobileAccessTokenExpiration: readOptionalPositiveExpirationEnv(
-        'AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION',
-        DEFAULT_AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION
-      ),
-      mobileRefreshTokenExpiration: readOptionalPositiveExpirationEnv(
-        'AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION',
-        DEFAULT_AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION
+      sessionIdleExpiration,
+      sessionCookieMaxAgeMs: sessionIdleExpiration * MS_PER_SECOND,
+      accessTokenExpiration: readOptionalPositiveExpirationEnv(
+        'AUTH_ACCESS_TOKEN_EXPIRATION',
+        DEFAULT_AUTH_ACCESS_TOKEN_EXPIRATION
       ),
       allowTokenInResponseBody: process.env.AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY === 'true',
     };
@@ -349,9 +412,34 @@ export const config: Config = {
     contactEmail: process.env.CONTACT_EMAIL ?? '',
     retentionDays: process.env.STATS_TRACK_EVENT_RETENTION_DAYS ?? '',
   },
+  tasteProfileAgreement: {
+    version: process.env.TASTE_PROFILE_AGREEMENT_VERSION!,
+    contentDir: process.env.TASTE_PROFILE_AGREEMENT_CONTENT_DIR ?? '',
+  },
   popularityTracking: {
-    version: process.env.POPULARITY_TRACKING_AGREEMENT_VERSION!,
-    contentDir: process.env.POPULARITY_TRACKING_CONTENT_DIR ?? '',
+    dailyListenStoredCap: statsListenStoredCap,
+    dailyListenPopularityCap: statsListenPopularityCap,
+    listenMinIntervalSeconds: readWholeNumberEnv(
+      'STATS_LISTEN_MIN_INTERVAL_SECONDS',
+      POPULARITY_DEFAULT_LISTEN_MIN_INTERVAL_SECONDS,
+      0
+    ),
+    dailyOpenCap: readWholeNumberEnv('STATS_OPEN_DAILY_CAP', POPULARITY_DEFAULT_DAILY_OPEN_CAP, 1),
+    allTimeRecountDays: readWholeNumberEnv(
+      'STATS_ALL_TIME_RECOUNT_DAYS',
+      POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS,
+      1
+    ),
+    flagTooSoonMinutes: readWholeNumberEnv(
+      'STATS_FLAG_TOO_SOON_MINUTES',
+      POPULARITY_DEFAULT_FLAG_TOO_SOON_MINUTES,
+      0
+    ),
+    flagStoredCapWithinHours: readWholeNumberEnv(
+      'STATS_FLAG_STORED_CAP_WITHIN_HOURS',
+      POPULARITY_DEFAULT_FLAG_STORED_CAP_WITHIN_HOURS,
+      0
+    ),
   },
   managedCopy: {
     contentDir: process.env.MANAGED_COPY_CONTENT_DIR ?? '',

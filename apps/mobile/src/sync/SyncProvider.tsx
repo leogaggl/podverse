@@ -34,6 +34,9 @@ import {
   reportUserNetworkAction,
   subscribeConnectivity,
 } from '../net/connectivity';
+import { clearBannerNotificationQueue } from '../notifications/bannerNotificationStore';
+import { resetNotificationsInboxCache } from '../notifications/notificationsInboxCache';
+import { resetNotificationStreamStore } from '../notifications/notificationStreamStore';
 import { nowPlayingAddByRssSections } from '../playback/nowPlayingAddByRssSections';
 import {
   hydrateOfflineMode,
@@ -44,7 +47,10 @@ import {
 import { subscribeTermsBlocksAccountSync, termsBlocksAccountSync } from '../terms/termsSyncGate';
 import { publishPlaybackPositionAdoptions } from './playbackPositionAdoption';
 import { publishPlaybackReconcileConflicts } from './playbackReconcileConflict';
-import { registerAddByRssRefreshRequest } from './requestAddByRssRefresh';
+import {
+  registerAddByRssListedFeedsRequest,
+  registerAddByRssRefreshRequest,
+} from './requestAddByRssRefresh';
 import { attachSyncEventLogSink } from './syncEventLogSink';
 import type { SyncTrigger } from './syncJobPlan';
 import { planSyncRun } from './syncJobPlan';
@@ -211,20 +217,29 @@ export function SyncProvider({ children }: PropsWithChildren) {
     registerAddByRssRefreshRequest(() => {
       requestSync('add-by-rss-pull-to-refresh');
     });
+    registerAddByRssListedFeedsRequest(() => {
+      requestSync('add-by-rss-listed-feeds');
+    });
     return () => {
       registerAddByRssRefreshRequest(null);
+      registerAddByRssListedFeedsRequest(null);
     };
   }, [requestSync]);
 
   // Signing out drops queued account work, the in-memory queue, and pending playback conflicts.
-  // Those conflicts name queue ids the next account does not own. It also drops the now-playing
-  // Add by RSS chapters and transcript, which this account's saved feed credentials may have
-  // fetched.
+  // Those conflicts name queue ids the next account does not own. The cached notifications inbox
+  // is account data too: Offline Mode would otherwise open the next account on the previous
+  // account's rows. It also drops the now-playing Add by RSS chapters and transcript, which this
+  // account's saved feed credentials may have fetched. Waiting banner cards are that account's
+  // notifications, so they are cleared too. Banner kind switches are device preferences and stay.
   useEffect(() => {
     if (status !== 'anonymous') {
       return;
     }
     syncQueue.reset();
+    resetNotificationStreamStore();
+    resetNotificationsInboxCache();
+    clearBannerNotificationQueue();
     nowPlayingAddByRssSections.reset();
     publishPlaybackReconcileConflicts([]);
     publishPlaybackPositionAdoptions([]);

@@ -5,6 +5,8 @@ import { StyleSheet, View } from 'react-native';
 import { HelperNote } from '../../components/feedback/HelperNote';
 import { Button } from '../../components/primitives';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
+import { isMobileE2eFromEnv } from '../../config/env';
+import { presentE2eBannerNotification } from '../../notifications/bannerNotificationE2e';
 import { E2ePlayHlsButton } from '../../playback/E2ePlayHlsButton';
 import { E2ePlayVideoButton } from '../../playback/E2ePlayVideoButton';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
@@ -12,7 +14,7 @@ import { useTheme } from '../../theme/useTheme';
 
 /**
  * E2E-only playback harness. Product screens do not grow fixture buttons; Maestro reaches seeded
- * video play, HLS play, skip-next, and complete from this More page instead.
+ * video play, HLS play, skip-next, complete, and a banner from this More page instead.
  */
 export function MoreE2ePlaybackScreen() {
   const { t } = useTranslation();
@@ -33,6 +35,16 @@ export function MoreE2ePlaybackScreen() {
     <MobileScreenContainer testID="more-e2e-playback-screen">
       <View style={styles.stack}>
         <HelperNote message={t('e2e.playback_intro')} testID="more-e2e-playback-intro" />
+        {isMobileE2eFromEnv() ? (
+          <Button
+            fullWidth
+            label={t('e2e.show_banner_notification')}
+            onPress={() => {
+              presentE2eBannerNotification();
+            }}
+            testID="e2e-show-banner-notification"
+          />
+        ) : null}
         <E2ePlayVideoButton />
         <E2ePlayHlsButton />
         <Button

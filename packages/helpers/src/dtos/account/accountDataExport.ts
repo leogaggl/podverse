@@ -137,6 +137,51 @@ export interface DTOAccountDataExportTermsAcceptance {
   accepted_at: string;
 }
 
+export interface DTOAccountDataExportTasteProfileRow {
+  channel_id_text: string;
+  channel_title: string | null;
+  listen_count: number;
+  completion_count: number;
+  first_listened_at: string;
+  last_listened_at: string;
+  recent_score: number;
+  long_term_score: number;
+  scores_updated_at: string;
+}
+
+export interface DTOAccountDataExportHiddenFromTasteProfileRow {
+  channel_id_text: string;
+  channel_title: string | null;
+  hidden_at: string;
+}
+
+export interface DTOAccountDataExportListenEvent {
+  created_at: string;
+  channel_id_text: string;
+  item_id_text: string;
+  item_title: string | null;
+  clip_id_text: string | null;
+  seconds_heard: number;
+  completed: boolean;
+}
+
+export interface DTOAccountDataExportOpenEvent {
+  opened_at: string;
+  account_id_text: string | null;
+  playlist_id_text: string | null;
+}
+
+/**
+ * Stored Taste Profile listening data linked to the account; empty lists when tracking never
+ * stored anything or Taste Profile was turned off.
+ */
+export interface DTOAccountDataExportListeningData {
+  taste_profile: DTOAccountDataExportTasteProfileRow[];
+  hidden_from_taste_profile: DTOAccountDataExportHiddenFromTasteProfileRow[];
+  listen_events: DTOAccountDataExportListenEvent[];
+  open_events: DTOAccountDataExportOpenEvent[];
+}
+
 export interface DTOAccountDataExport {
   export_date: string;
   account: DTOAccountDataExportAccount;
@@ -146,6 +191,8 @@ export interface DTOAccountDataExport {
   listen_stats_accepted: boolean | null;
   listen_stats_agreement_version: string | null;
   listen_stats_decided_at: string | null;
+  listen_stats_opted_out_at: string | null;
+  listening_data: DTOAccountDataExportListeningData;
   following: DTOAccountDataExportFollowing;
   playlists: DTOAccountDataExportPlaylist[];
   clips: DTOAccountDataExportClip[];

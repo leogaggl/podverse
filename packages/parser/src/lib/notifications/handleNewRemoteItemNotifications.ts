@@ -5,7 +5,7 @@ import { loggerService } from '@parser/factories/loggerService.js';
 import type { RemoteItemDto } from '@podverse/helpers';
 import { AccountNotificationTypeEnum, NotificationCategoryEnum } from '@podverse/helpers';
 import type { Channel, ChannelImage } from '@podverse/orm';
-import { ChannelService, FeedService } from '@podverse/orm';
+import { ChannelService, ChannelVerifiedPublisherService, FeedService } from '@podverse/orm';
 
 import type { RemoteAlbumGroup } from './remoteAlbumNotification.js';
 import {
@@ -65,8 +65,22 @@ const localAlbum = (channel: Channel, group: RemoteAlbumGroup): ResolvedRemoteAl
   };
 };
 
+/** A parsed album resolves only when it and the artist feed reference each other. */
+async function verifiedLocalAlbum(
+  channel: Channel & { id_text: string },
+  group: RemoteAlbumGroup,
+  publisherChannelId: number
+): Promise<ResolvedRemoteAlbum | null> {
+  const verified = await new ChannelVerifiedPublisherService().isVerified(
+    publisherChannelId,
+    channel.id
+  );
+  return verified ? localAlbum(channel, group) : null;
+}
+
 async function resolveRemoteAlbumGroup(
-  group: RemoteAlbumGroup
+  group: RemoteAlbumGroup,
+  publisherChannelId: number
 ): Promise<ResolvedRemoteAlbum | null> {
   const channelService = new ChannelService();
   const byGuid = await channelService.getAllByPodcastGuids(
@@ -75,7 +89,7 @@ async function resolveRemoteAlbumGroup(
   );
   const parsedByGuid = byGuid.find((channel) => isParsedReadyAlbum(channel));
   if (parsedByGuid !== undefined) {
-    return localAlbum(parsedByGuid, group);
+    return verifiedLocalAlbum(parsedByGuid, group, publisherChannelId);
   }
 
   const feedService = new FeedService();
@@ -90,7 +104,7 @@ async function resolveRemoteAlbumGroup(
       channel_images: true,
     });
     if (isParsedReadyAlbum(channel)) {
-      return localAlbum(channel, group);
+      return verifiedLocalAlbum(channel, group, publisherChannelId);
     }
   }
 
@@ -114,7 +128,8 @@ async function resolveRemoteAlbumGroup(
 
 /**
  * One new-content notification for newly referenced albums on an artist feed.
- * The link is that album, or its Podcast Index preview when the album is not parsed yet.
+ * The link is a verified album, or the Podcast Index preview when the album is not parsed yet.
+ * A parsed album that does not name the artist back is skipped.
  */
 export async function handleNewRemoteItemNotifications(
   channel: Channel,
@@ -139,7 +154,9 @@ export async function handleNewRemoteItemNotifications(
       return;
     }
 
-    const resolved = await pickFirstResolvedRemoteAlbum(groups, resolveRemoteAlbumGroup);
+    const resolved = await pickFirstResolvedRemoteAlbum(groups, (group) =>
+      resolveRemoteAlbumGroup(group, channel.id)
+    );
     if (resolved === null) {
       return;
     }

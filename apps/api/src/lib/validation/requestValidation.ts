@@ -57,10 +57,14 @@ export function validateQueryObject(
     res.status(400).json({ message: error.details[0]?.message ?? 'Validation error' });
     return;
   }
-  const q = req.query as Record<string, unknown>;
-  for (const key of Object.keys(q)) {
-    delete q[key];
-  }
-  Object.assign(req.query, value as Record<string, unknown>);
+  // Express 5 defines req.query as a prototype getter that reparses the URL on every read.
+  // Writing onto the object that getter returns does not change the next read, so the validated
+  // query (defaults, coercion, and unknown keys removed) is installed as an own property.
+  Object.defineProperty(req, 'query', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value,
+  });
   next();
 }

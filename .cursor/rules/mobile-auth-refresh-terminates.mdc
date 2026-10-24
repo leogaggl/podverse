@@ -4,7 +4,7 @@ globs:
   - "apps/mobile/src/auth/**"
   - "apps/mobile/src/**/*Request*"
   - "apps/mobile/src/push/**"
-  - "apps/mobile/src/popularityTracking/**"
+  - "apps/mobile/src/tasteProfileConsent/**"
   - "apps/mobile/src/hooks/useManagedCopy.ts"
 alwaysApply: false
 ---
@@ -17,10 +17,10 @@ refresh. That pattern is how an ended session turns into an infinite request sto
 
 ## Why this exists
 
-`accessToken` is in the dependency list of many effects (notifications unread count, popularity
-tracking, queue loaders, FCM sync). Each `setTokens` call gives those effects a new token value and
-they fire again. If a refresh returns 200 but the next request is still 401, and the client only
-rethrows without clearing, every effect retries forever.
+`accessToken` is in the dependency list of many effects (notifications unread count, Taste
+Profile consent, queue loaders, FCM sync). Each `setTokens` call gives those effects a new token
+value and they fire again. If a refresh returns 200 but the next request is still 401, and the
+client only rethrows without clearing, every effect retries forever.
 
 ## Do
 

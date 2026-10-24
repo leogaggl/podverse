@@ -2,7 +2,7 @@ appId: com.podverse.app.next
 name: Terms Account Access
 ---
 # Stale-terms seeded account: Reject opens Account Access; Review Terms returns to the gate.
-# Accept keeps the same modal until the popularity agreement version is known. This account
+# Accept keeps the same modal until the Taste Profile agreement version is known. This account
 # already accepted the current version, so the tab shell follows.
 
 - runFlow: shared/launch-and-connect.yaml

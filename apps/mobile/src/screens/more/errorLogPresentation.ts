@@ -62,7 +62,8 @@ export const isCreatorHostedEntry = (entry: SyncEventLogEntry): boolean => {
   return (
     entry.jobKind === PLAYBACK_LOG_KIND ||
     entry.jobKind === ADD_BY_RSS_ADD_LOG_KIND ||
-    entry.jobKind === 'add-by-rss-parse'
+    entry.jobKind === 'add-by-rss-parse' ||
+    entry.jobKind === 'add-by-rss-listed-feeds'
   );
 };
 

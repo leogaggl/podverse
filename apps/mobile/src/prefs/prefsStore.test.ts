@@ -76,6 +76,7 @@ describe('prefsStore', () => {
       'aqc.rd': true,
       'aqc.rp': null,
       'auth.forced_logout_at': null,
+      'auth.forced_logout_notice': null,
       'downloads.auto_delete': null,
       'home.subscriptionFilter': null,
       'library.subscriptionFilter': null,
@@ -98,6 +99,18 @@ describe('prefsStore', () => {
       'playback.handoff_dismissed_state',
       'episode-2::456'
     );
+  });
+
+  it('round-trips a forced-logout notice and rejects an unknown string', async () => {
+    await setPref('auth.forced_logout_notice', 'signed_out_elsewhere');
+
+    await expect(getPref('auth.forced_logout_notice')).resolves.toBe('signed_out_elsewhere');
+    await expect(hydratePrefs()).resolves.toMatchObject({
+      'auth.forced_logout_notice': 'signed_out_elsewhere',
+    });
+
+    inMemoryStore.set('auth.forced_logout_notice', 'not-a-notice');
+    await expect(getPref('auth.forced_logout_notice')).resolves.toBeNull();
   });
 
   it('parses offline.mode as a boolean pref', async () => {

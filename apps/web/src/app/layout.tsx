@@ -16,9 +16,10 @@ import { ASSETS } from '../constants/assets';
 import { getSSRApiRequestService } from '../factories/apiRequestService';
 import { useLocaleDetect } from '../hooks/useLocaleDetect';
 import { setSSRAccountForLocale } from '../i18n/request';
+import { decodeJwtPayloadUnverified } from '../lib/auth/jwtPayload';
 import { isTermsAcceptanceRequired } from '../lib/termsAcceptanceRequired';
 import Providers from '../providers/Providers';
-import { getSSRJwtFromCookies, getSSRLoggedInAccount } from '../utils/auth/ssrAuth';
+import { getSSRAuthState, getSSRJwtFromCookies } from '../utils/auth/ssrAuth';
 import { getParsedLocalSettings } from '../utils/localSettings/localSettings';
 import { toUITheme } from '../utils/localSettings/uiTheme';
 
@@ -69,8 +70,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const ssrUITheme = toUITheme(ssrLocalSettings.uit);
 
   const jwt = await getSSRJwtFromCookies();
-  const ssrLoggedInAccount = await getSSRLoggedInAccount();
+  const { account: ssrLoggedInAccount, sessionEndedNotice } = await getSSRAuthState();
   const ssrShouldLogout = !!(jwt && !ssrLoggedInAccount);
+  let ssrAccountIdText: string | null = null;
+  if (ssrShouldLogout && jwt) {
+    const payload = decodeJwtPayloadUnverified(jwt);
+    const idText = payload?.id_text;
+    ssrAccountIdText = typeof idText === 'string' ? idText : null;
+  }
 
   setSSRAccountForLocale(ssrLoggedInAccount);
 
@@ -112,7 +119,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <FavIcons />
       </head>
       <body>
-        {ssrShouldLogout && <AuthSessionChecker ssrShouldLogout={ssrShouldLogout} />}
+        {ssrShouldLogout && (
+          <AuthSessionChecker
+            ssrShouldLogout={ssrShouldLogout}
+            sessionEndedNotice={sessionEndedNotice}
+            accountIdText={ssrAccountIdText}
+          />
+        )}
         {!ssrShouldLogout && (
           <Providers
             config={config}

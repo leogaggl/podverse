@@ -1,7 +1,7 @@
 import type { Channel } from '@orm/entities/channel/channel.js';
 import type { ChannelPublisherRemoteItem } from '@orm/entities/channel/channelPublisherRemoteItem.js';
 import type { Relation } from 'typeorm';
-import { Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({ name: 'channel_publisher' })
 export class ChannelPublisher {
@@ -12,10 +12,9 @@ export class ChannelPublisher {
   @JoinColumn({ name: 'channel_id' })
   channel!: Relation<Channel>;
 
-  // Per RSS spec, publisher can only have ONE remote item
-  @OneToOne(
+  @OneToMany(
     'ChannelPublisherRemoteItem',
     (remoteItem: ChannelPublisherRemoteItem) => remoteItem.channel_publisher
   )
-  channel_publisher_remote_item!: Relation<ChannelPublisherRemoteItem> | null;
+  channel_publisher_remote_items!: ChannelPublisherRemoteItem[];
 }

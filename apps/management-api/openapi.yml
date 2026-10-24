@@ -27,6 +27,10 @@ components:
       type: apiKey
       in: cookie
       name: pv_mgmt_auth
+      description: >
+        Web admin session JWT set by `POST /auth/login`. Renewed (re-set with a fresh JWT) at most
+        once a day of use; ends when the session idle limit passes with no use or when the session
+        is ended. An `Authorization: Bearer` header wins over this cookie.
     bearerAuth:
       type: http
       scheme: bearer
@@ -53,14 +57,13 @@ components:
       in: query
       name: range
       required: false
-      description: Aggregation range used for ranked stats list ordering.
+      description: The popularity window used to order the list. Defaults to all-time when the query omits range.
       schema:
         type: string
         enum:
           - day
-          - 7day
-          - 30day
-          - 1year
+          - week
+          - month
           - all-time
     FeedSortQueryOptional:
       in: query
@@ -120,6 +123,19 @@ components:
       properties:
         message:
           type: string
+    UserForceLogoutResponse:
+      type: object
+      required:
+        - message
+        - sessions_ended
+      properties:
+        message:
+          type: string
+          example: User signed out
+        sessions_ended:
+          type: integer
+          minimum: 0
+          example: 2
     ErrorResponse:
       type: object
       required:
@@ -176,7 +192,20 @@ components:
               example: Unauthorized
             code:
               type: string
-              example: unauthorized
+              description: >
+                `session_ended` when the token names an admin session that was ended somewhere other
+                than this client; `notice` then says why. Absent for a plain 401 (no token, invalid
+                token, idle expiry, or a session this client ended itself).
+              example: session_ended
+            notice:
+              type: string
+              description: Why the session ended. Present only when `code` is `session_ended`.
+              enum:
+                - signed_out_elsewhere
+                - password_changed
+                - admin_force_logout
+                - security
+              example: signed_out_elsewhere
     AuthorizationErrorResponse:
       allOf:
         - $ref: "#/components/schemas/ErrorResponse"
@@ -284,6 +313,12 @@ components:
           type: string
           format: password
           example: adminPassword123
+        device_label:
+          type: string
+          description: >
+            Optional label for this install in the admin's session list. When absent or blank, the
+            platform from the X-Podverse-Client-Platform header is used (`iOS`, `Android`).
+          example: Pixel 8
     MobileTokenResponse:
       type: object
       required:
@@ -313,7 +348,8 @@ components:
         refresh_token_expires_in:
           type: integer
           format: int32
-          example: 2592000
+          description: The session idle limit in seconds; each refresh issues a token with a fresh expiry.
+          example: 31536000
     MobileTokenRefreshRequest:
       type: object
       required:
@@ -332,6 +368,53 @@ components:
           type: string
           format: jwt
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    AdminSession:
+      type: object
+      required:
+        - id_text
+        - client_type
+        - device_label
+        - created_at
+        - last_seen_at
+        - is_current
+      properties:
+        id_text:
+          type: string
+        client_type:
+          type: string
+          enum:
+            - web
+            - mobile
+        device_label:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Last request on this session, kept to within a day.
+        is_current:
+          type: boolean
+          description: True for the session that made this request.
+    ManagementGetAuthSessionsResponse200:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSession"
+    ManagementPostAuthSessionsRevokeOthersResponse200:
+      type: object
+      required:
+        - revoked_count
+      properties:
+        revoked_count:
+          type: integer
+          minimum: 0
     EmptyResponse:
       type: object
       properties:
@@ -1253,91 +1336,104 @@ components:
               type: string
             resourceIdText:
               type: string
-    StatsAggregatedRow:
+    StatsFlaggedListenerRow:
       type: object
       required:
         - id
-        - day_current_count
-        - day_1_count
-        - day_2_count
-        - day_3_count
-        - day_4_count
-        - day_5_count
-        - day_6_count
-        - day_7_count
-        - day_8_count
-        - week_current_count
-        - week_1_count
-        - week_2_count
-        - week_3_count
-        - week_4_count
-        - month_current_count
-        - month_1_count
+        - listener_id
+        - reason
+        - flagged_at
+        - times_flagged
+        - cleared_at
+        - cleared_by_admin_id
+        - listens_last_7_days
+        - opens_last_7_days
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        listener_id:
+          type: string
+          format: uuid
+          description: Pseudonymous listener id.
+        reason:
+          type: string
+          enum:
+            - stored_cap_reached
+            - too_soon_minutes
+          description: >
+            stored_cap_reached — the listener's stored listens reached the daily stored cap
+            within the server-set number of hours of its first stored listen that UTC day.
+            too_soon_minutes — the listener's new listens arrived inside the minimum interval
+            for the server-set number of minutes in one unbroken run.
+        flagged_at:
+          type: string
+          format: date-time
+          description: When the listener was flagged.
+        times_flagged:
+          type: integer
+          minimum: 1
+        cleared_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When an admin cleared the flag. Null while the flag is active.
+        cleared_by_admin_id:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Management admin id that cleared the flag. Null while the flag is active.
+        listens_last_7_days:
+          type: integer
+          minimum: 0
+          description: Stored listen events in the last 7 days, popularity-counted or not.
+        opens_last_7_days:
+          type: integer
+          minimum: 0
+          description: Stored open events in the last 7 days.
+    StatsPopularityRow:
+      type: object
+      required:
+        - id
+        - day_count
+        - week_count
+        - month_count
         - all_time_count
       properties:
         id:
           type: integer
-        channel_id:
-          type: integer
-          nullable: true
-        item_id:
-          type: integer
-          nullable: true
-        clip_id:
-          type: integer
-          nullable: true
-        playlist_id:
-          type: integer
-          nullable: true
-        tracked_account_id:
-          type: integer
-          nullable: true
+          description: Entity id.
         title:
           type: string
           nullable: true
-        day_current_count:
+        day_count:
           type: integer
-        day_1_count:
+        week_count:
           type: integer
-        day_2_count:
-          type: integer
-        day_3_count:
-          type: integer
-        day_4_count:
-          type: integer
-        day_5_count:
-          type: integer
-        day_6_count:
-          type: integer
-        day_7_count:
-          type: integer
-        day_8_count:
-          type: integer
-        week_current_count:
-          type: integer
-        week_1_count:
-          type: integer
-        week_2_count:
-          type: integer
-        week_3_count:
-          type: integer
-        week_4_count:
-          type: integer
-        month_current_count:
-          type: integer
-        month_1_count:
+        month_count:
           type: integer
         all_time_count:
           type: integer
-    StatsAggregatedRowWithRange:
+    StatsPopularityListRow:
       allOf:
-        - $ref: "#/components/schemas/StatsAggregatedRow"
+        - $ref: "#/components/schemas/StatsPopularityRow"
         - type: object
           required:
             - range_count
           properties:
             range_count:
               type: integer
+    StatsDailyListenerPoint:
+      type: object
+      required:
+        - day
+        - listener_count
+      properties:
+        day:
+          type: string
+          format: date
+        listener_count:
+          type: integer
     PaginationMeta:
       type: object
       required:
@@ -1383,7 +1479,16 @@ components:
           minimum: 1
           description: Number of rows returned per page.
     ManagementGetStatsEntitytypeIdResponse200:
-      $ref: "#/components/schemas/StatsAggregatedRow"
+      allOf:
+        - $ref: "#/components/schemas/StatsPopularityRow"
+        - type: object
+          required:
+            - daily
+          properties:
+            daily:
+              type: array
+              items:
+                $ref: "#/components/schemas/StatsDailyListenerPoint"
     ManagementGetStatsEntitytypeSearchResponse200:
       allOf:
         - $ref: "#/components/schemas/StatsPaginationMeta"
@@ -1394,7 +1499,7 @@ components:
             rows:
               type: array
               items:
-                $ref: "#/components/schemas/StatsAggregatedRowWithRange"
+                $ref: "#/components/schemas/StatsPopularityListRow"
     ManagementGetStatsEntitytypeTopResponse200:
       allOf:
         - $ref: "#/components/schemas/StatsPaginationMeta"
@@ -1405,7 +1510,36 @@ components:
             rows:
               type: array
               items:
-                $ref: "#/components/schemas/StatsAggregatedRowWithRange"
+                $ref: "#/components/schemas/StatsPopularityListRow"
+    ManagementGetStatsFlaggedListenersResponse200:
+      allOf:
+        - $ref: "#/components/schemas/StatsPaginationMeta"
+        - type: object
+          required:
+            - rows
+          properties:
+            rows:
+              type: array
+              items:
+                $ref: "#/components/schemas/StatsFlaggedListenerRow"
+    ManagementPostStatsFlaggedListenersIdClearResponse200:
+      type: object
+      required:
+        - row
+      properties:
+        row:
+          $ref: "#/components/schemas/StatsFlaggedListenerRow"
+      example:
+        row:
+          id: 12
+          listener_id: "11111111-1111-4111-8111-111111111111"
+          reason: stored_cap_reached
+          flagged_at: "2026-10-23T12:00:00.000Z"
+          times_flagged: 1
+          cleared_at: "2026-10-23T15:04:00.000Z"
+          cleared_by_admin_id: 7
+          listens_last_7_days: 40
+          opens_last_7_days: 3
     SystemStatusResponse:
       type: object
       required:
@@ -3333,7 +3467,7 @@ paths:
       tags:
         - admins
       summary: PATCH /admins/{id}
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('admins', 'update')."
+      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: requireCrud('admins', 'update'). When the body includes a password, every other session of that admin ends. When another admin sets the password, every session of the target ends. Signed-in browsers are told the password changed."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -3362,6 +3496,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /admins/{id}/force-logout:
+    post:
+      operationId: managementPostAdminsIdForceLogout
+      tags:
+        - admins
+      summary: POST /admins/{id}/force-logout
+      description: "Ends every session of this admin. Superuser only. Cannot target the caller. The signed-out admin is told an administrator signed them out."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revoked_count
+                properties:
+                  revoked_count:
+                    type: integer
+                    minimum: 0
+              example:
+                revoked_count: 1
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -3549,7 +3745,7 @@ paths:
       tags:
         - admins
       summary: POST /admins/invite-link/redeem
-      description: "Auto-generated from route matrix. Public endpoint. Permission/auth note: public."
+      description: "Auto-generated from route matrix. Public endpoint. Permission/auth note: public. On success every session of that admin ends; signed-in browsers are told the password changed."
       security: []
       requestBody:
         required: true
@@ -3788,7 +3984,12 @@ paths:
       tags:
         - auth
       summary: POST /auth/login
-      description: Public endpoint for admin authentication. Returns JWT token via response body when configured.
+      description: >
+        Public endpoint for admin web sign-in. Checks the credentials, starts a web admin session
+        labeled from the User-Agent, and sets the `pv_mgmt_auth` cookie with a JWT that names it.
+        When the request already carries a validly signed session cookie, that earlier session is
+        ended first. The JWT is also returned as `token` only when
+        AUTH_ALLOW_TOKEN_IN_RESPONSE_BODY=true and the client sends includeTokenInResponseBody.
       security: []
       requestBody:
         required: true
@@ -3861,7 +4062,10 @@ paths:
       tags:
         - auth
       summary: POST /auth/logout
-      description: Auto-generated from route matrix. Public endpoint. Permission/auth note is runtime-idempotent and does not require authentication.
+      description: >
+        Public endpoint. Ends the admin session named by the request's bearer token or
+        `pv_mgmt_auth` cookie, then clears the cookie and returns `Logged out successfully`. A
+        missing or invalid token still clears the cookie and returns 200.
       security: []
       responses:
         "200":
@@ -3906,7 +4110,12 @@ paths:
       tags:
         - auth
       summary: GET /auth/me
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
+      description: >
+        Authenticated endpoint (bearerAuth, then cookieAuth). Returns the signed-in admin. The token
+        must name an active admin session; a web session presented by its cookie is renewed at most
+        once a day, and the renewing response re-sets `pv_mgmt_auth`. A 401 for a cookie token also
+        clears the cookie, and carries `code: session_ended` and `notice` when the session was ended
+        somewhere else.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -3929,6 +4138,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                unauthorized:
+                  summary: No token, an invalid token, or a session this client ended
+                  value:
+                    message: Unauthorized
+                sessionEnded:
+                  summary: The session was ended from another device
+                  value:
+                    message: Unauthorized
+                    code: session_ended
+                    notice: signed_out_elsewhere
         "403":
           description: Forbidden
           content:
@@ -3953,16 +4173,25 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/refresh
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: >
+        Public endpoint. Exchanges a refresh JWT for a new access/refresh pair and rotates the admin
+        session's refresh token. The newest refresh token and the one presented just before it are
+        both accepted, so a client that lost a refresh response can retry with the token it still
+        holds. Presenting any older refresh token ends the session as suspected theft.
+        `refresh_token_expires_in` is the session idle limit. A missing `refresh_token` is 400
+        `refresh_token is required`.
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRefreshRequest"
+            examples:
+              refresh:
+                summary: Rotate the refresh token
+                value:
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       responses:
         "200":
           description: Successful response
@@ -3977,11 +4206,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
-          description: Unauthorized
+          description: >
+            `Invalid refresh token` — an invalid or expired refresh JWT, a token that is not a
+            management refresh token or names no session, a missing or replaced admin, a reused
+            refresh token, or an ended session. Carries `code: session_ended` and `notice` when the
+            session was ended elsewhere or by reuse (`security`).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
+              examples:
+                sessionEnded:
+                  summary: Refresh token reused; the session was ended
+                  value:
+                    message: Invalid refresh token
+                    code: session_ended
+                    notice: security
         "403":
           description: Forbidden
           content:
@@ -4006,16 +4246,22 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/revoke
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: >
+        Public endpoint for signing out a mobile install. Ends the admin session named by a validly
+        signed refresh token. Always returns 200 with `Mobile token family revoked`, including for a
+        missing or invalid token, so signing out on the device never fails on this call.
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRevokeRequest"
+            examples:
+              revoke:
+                summary: Sign out the install holding this refresh token
+                value:
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       responses:
         "200":
           description: Successful response
@@ -4023,6 +4269,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmptyResponse"
+              examples:
+                revoked:
+                  summary: Session ended (or no session named)
+                  value:
+                    message: Mobile token family revoked
         "400":
           description: Bad request
           content:
@@ -4059,16 +4310,25 @@ paths:
       tags:
         - auth
       summary: POST /auth/mobile/token
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: authenticated."
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
+      description: >
+        Public endpoint. Checks the admin's credentials, starts a mobile admin session, and returns
+        a short access token and a refresh token for it. Both tokens carry the
+        `podverse_management_mobile` scope. The session's label is `device_label` when sent, else
+        the platform from the X-Podverse-Client-Platform header.
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/MobileTokenRequest"
+            examples:
+              withDeviceLabel:
+                summary: Admin mobile sign-in with a device label
+                value:
+                  email: admin@podverse.fm
+                  password: adminPassword123
+                  device_label: Pixel 8
       responses:
         "200":
           description: Successful response
@@ -4100,6 +4360,120 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions:
+    get:
+      operationId: managementGetAuthSessions
+      tags:
+        - auth
+      summary: GET /auth/sessions
+      description: Returns the signed-in admin's active sessions, most recently used first.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementGetAuthSessionsResponse200"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions/revoke-others:
+    post:
+      operationId: managementPostAuthSessionsRevokeOthers
+      tags:
+        - auth
+      summary: POST /auth/sessions/revoke-others
+      description: Ends every session of this admin except the one making the request.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementPostAuthSessionsRevokeOthersResponse200"
+              example:
+                revoked_count: 1
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /auth/sessions/{session_id_text}:
+    delete:
+      operationId: managementDeleteAuthSession
+      tags:
+        - auth
+      summary: DELETE /auth/sessions/{session_id_text}
+      description: >
+        Ends one session of this admin. Ending the caller's own session signs it out and
+        clears the `pv_mgmt_auth` cookie, the same as `POST /auth/logout`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: session_id_text
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+              examples:
+                otherSession:
+                  summary: Ended another of this admin's sessions
+                  value:
+                    message: Session ended
+                ownSession:
+                  summary: Ended the caller's own session
+                  value:
+                    message: Logged out successfully
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+              example:
+                message: Session not found
         "500":
           description: Internal server error
           content:
@@ -5351,6 +5725,148 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /stats/flagged-listeners:
+    get:
+      operationId: managementGetStatsFlaggedListeners
+      tags:
+        - stats
+      summary: GET /stats/flagged-listeners
+      description: >
+        Lists listeners flagged out of popularity. Active flags are the default. Each row
+        includes the pseudonymous listener id, the reason, when the listener was flagged, how
+        many times, and listens and opens stored in the last 7 days. Permission/auth note:
+        requireCrud('stats', 'read').
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          description: >
+            Which flags to list. active (default) is uncleared, cleared is flags with a clear
+            time, and all is both.
+          schema:
+            type: string
+            enum:
+              - active
+              - cleared
+              - all
+            default: active
+        - in: query
+          name: page
+          required: false
+          description: 1-based page number.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          required: false
+          description: Page size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementGetStatsFlaggedListenersResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /stats/flagged-listeners/{id}/clear:
+    post:
+      operationId: managementPostStatsFlaggedListenersIdClear
+      tags:
+        - stats
+      summary: POST /stats/flagged-listeners/{id}/clear
+      description: >
+        Clears one flagged listener by row id. A clear holds for the rest of its UTC day; a
+        later day's signal flags the listener again. The audit log records the clear.
+        Permission/auth note: requireCrud('stats', 'update').
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Flagged listener row id.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: The flag is cleared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementPostStatsFlaggedListenersIdClearResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "409":
+          description: The flag is already cleared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Flag already cleared
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /stats/{entity_type}/{id}:
     get:
       operationId: managementGetStatsEntitytypeId
@@ -5376,6 +5892,7 @@ paths:
         - in: path
           name: id
           required: true
+          description: Entity id.
           schema:
             type: integer
             minimum: 1
@@ -6438,13 +6955,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /users/{id}/force-logout:
+    post:
+      operationId: managementPostUsersIdForceLogout
+      tags:
+        - users
+      summary: POST /users/{id}/force-logout
+      description: "Superuser only. Ends every session of the account. Signed-in devices are told an administrator signed them out. An account with no sessions still returns 200 and sessions_ended 0."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserForceLogoutResponse"
+              example:
+                message: User signed out
+                sessions_ended: 2
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /users/{id}/password:
     post:
       operationId: managementPostUsersIdPassword
       tags:
         - users
       summary: POST /users/{id}/password
-      description: "Auto-generated from route matrix. Authenticated endpoint (cookieAuth or bearerAuth). Permission/auth note: superuser."
+      description: "Superuser only. Sets the account password and ends every session of that account. Signed-in devices are told the password changed."
       security:
         - bearerAuth: []
         - cookieAuth: []

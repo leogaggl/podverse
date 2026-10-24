@@ -4,5 +4,6 @@ export interface DTOChannelPublisherRemoteItem {
   feed_guid: string;
   feed_url: string | null;
   item_guid: string | null;
+  item_id: number | null;
   title: string | null;
 }

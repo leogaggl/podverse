@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 import { useAccount } from '../../contexts/Account';
-import { trackStatsPlaylist } from '../../utils/statsTracking/statsTracking';
+import { trackStatsPlaylistOpen } from '../../utils/statsTracking/statsTracking';
 
 export function StatsPlaylistPageView(props: { playlistIdText: string }) {
   const { loggedInAccount } = useAccount();
@@ -12,7 +12,7 @@ export function StatsPlaylistPageView(props: { playlistIdText: string }) {
     if (!loggedInAccount) {
       return;
     }
-    trackStatsPlaylist(props.playlistIdText);
+    trackStatsPlaylistOpen(props.playlistIdText);
   }, [loggedInAccount, props.playlistIdText]);
 
   return null;

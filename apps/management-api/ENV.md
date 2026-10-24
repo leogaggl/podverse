@@ -51,6 +51,18 @@ The main API, workers, and management-api all use shared `DB_HOST` and `DB_PORT`
 
 **Kubernetes:** `DB_HOST` / `DB_PORT` / `DB_SSL_CONNECTION` are non-secret in the management-api ConfigMap. `DB_MANAGEMENT_*` credentials come from `podverse-management-db-opaque`. `DB_APP_*` credentials for the app database come from the same main DB secret as the API (`podverse-db-opaque`); the management-api Deployment includes both secrets. Generate with `infra/k8s/scripts/secret-generators/create_db_secret.sh` and `infra/k8s/scripts/secret-generators/create_management_db_secret.sh` as needed.
 
+### KeyValDB
+
+| Variable            | Required | Description                          |
+| ------------------- | -------- | ------------------------------------ |
+| `KEYVALDB_HOST`     | Yes      | Valkey hostname                      |
+| `KEYVALDB_PORT`     | Yes      | Valkey port (must be a valid number) |
+| `KEYVALDB_PASSWORD` | Yes      | Valkey password                      |
+
+The management API opens one connection, used only to publish account events on the channel
+`podverse:account-events` after it writes notifications; an outage drops the events and never fails
+the request.
+
 ### API Configuration
 
 - **`API_PORT`** (Required) - API server port (must be a valid number)
@@ -73,10 +85,14 @@ Management-api builds absolute URLs for invite links. **Regular users** open the
 
 ### Auth & user management
 
-- **`AUTH_JWT_EXPIRATION`** (Optional) - JWT session and cookie max-age in seconds (default: 31536000, 365 days)
-- **`AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION`** (Optional) - Mobile access JWT lifetime in seconds (default: 900, 15 minutes)
-- **`AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION`** (Optional) - Mobile refresh JWT lifetime in seconds (default: 31536000, 365 days). Rotating `AUTH_JWT_SECRET` ends every mobile session.
+- **`AUTH_SESSION_IDLE_EXPIRATION`** (Optional) - Session idle limit in seconds for every management client (default: 31536000, 365 days). Every admin login creates a server-side `admin_session` row, and a session that goes this long with no use ends. This value bounds the `pv_mgmt_auth` cookie, the web JWT it carries, and the mobile refresh JWT. Use renews it at most once a day: the session's idle expiry moves forward, the web cookie and its JWT are re-signed, and each mobile refresh issues a refresh JWT with this lifetime. Revocation is server-side and checked on every request, so ending a session takes effect on its next request. This one value sets how long web and mobile stay signed in.
+- **`AUTH_ACCESS_TOKEN_EXPIRATION`** (Optional) - Access JWT lifetime in seconds for token clients, which get an access/refresh pair (the mobile app today; the web cookie is not affected) (default: 900, 15 minutes). Clients refresh it silently, so it does not change how long anyone stays signed in. It bounds how long a leaked access token works without its refresh token; shorten it only if your security policy calls for that.
 - **`MANAGEMENT_API_SET_PASSWORD_EXPIRATION`** (Optional) - Set-password invite link lifetime in seconds (default: 604800, 7 days)
+- **`ADMIN_SESSION_RETENTION_DAYS`** (Optional) - Days an `admin_session` row is kept after its idle expiry (default: 30). A revoked row keeps its idle expiry, so the cutoff is the same for expired and revoked rows. Blank uses the default. A set value must be a whole number of days from 1 to 3650.
+
+Rotating `AUTH_JWT_SECRET` ends every admin session at once. Ending one session is done through the admin session endpoints and superuser force-logout.
+
+`node apps/management-api/dist/index.js adminSessionPurge` deletes `admin_session` rows whose idle expiry is older than that window, then exits. It connects only the management database. CronJob `management-api-admin-session-purge` runs that command daily.
 
 ### General
 
@@ -133,10 +149,10 @@ as the API (`/var/secrets/apple-iap/AuthKey.p8`,
 Variables whose names end with `_EXPIRATION` or that contain `PORT` are automatically validated to ensure they are valid positive numbers where required:
 
 - `DB_PORT`
+- `KEYVALDB_PORT`
 - `API_PORT`
-- `AUTH_JWT_EXPIRATION`
-- `AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION`
-- `AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION`
+- `AUTH_SESSION_IDLE_EXPIRATION`
+- `AUTH_ACCESS_TOKEN_EXPIRATION`
 - `MANAGEMENT_API_SET_PASSWORD_EXPIRATION`
 
 ### Format Validation

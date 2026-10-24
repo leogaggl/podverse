@@ -67,6 +67,65 @@ describe('migration 24 add-by-RSS livestreams flag', () => {
   });
 });
 
+describe('migration 25 add-by-RSS listed feeds', () => {
+  it('adds the followed and guid columns and the listed-feed table on version 24', async () => {
+    const { database, executed } = createRecordingDatabase(24);
+
+    await runMigrations(database);
+
+    const sql = executed.join('\n').toLowerCase();
+    for (const statement of [
+      'alter table add_by_rss_feed add column followed integer not null default 1',
+      'alter table add_by_rss_feed add column podcast_guid text',
+      'alter table add_by_rss_feed add column publisher_guids_json text',
+      'alter table add_by_rss_feed add column publisher_directory_json text',
+      'create table if not exists add_by_rss_listed_feed',
+      'primary key (publisher_feed_url, feed_guid)',
+    ]) {
+      expect(sql).toContain(statement);
+    }
+    expect(sql).not.toContain('may_have_livestreams');
+    expect(executed).toContain('PRAGMA user_version = 25;');
+    expect(executed).not.toContain('PRAGMA user_version = 24;');
+  });
+
+  it('leaves existing add-by-RSS rows in place', () => {
+    const migration25 = MIGRATIONS.find((migration) => migration.version === 25);
+    const sql = (migration25?.statements ?? []).join('\n').toLowerCase();
+
+    expect(sql.includes('delete from add_by_rss_feed')).toBe(false);
+    expect(sql.includes('drop table')).toBe(false);
+  });
+});
+
+describe('migration 26 stats listen outbox', () => {
+  it('creates the outbox table and its index on a database at version 25', async () => {
+    const { database, executed } = createRecordingDatabase(25);
+
+    await runMigrations(database);
+
+    const sql = executed.join('\n').toLowerCase();
+    expect(sql).toContain('create table if not exists stats_listen_outbox');
+    for (const column of [
+      'client_listen_id text primary key not null',
+      'account_id_text text not null',
+      'target_kind text not null',
+      'target_id_text text not null',
+      'seconds_heard integer not null',
+      'completed integer not null default 0',
+      'first_report integer not null default 1',
+      'counted_at integer not null',
+      'updated_at integer not null',
+    ]) {
+      expect(sql).toContain(column);
+    }
+    expect(sql).toContain('create index if not exists idx_stats_listen_outbox_account');
+    expect(sql).not.toContain('add_by_rss_listed_feed');
+    expect(executed).toContain('PRAGMA user_version = 26;');
+    expect(executed).not.toContain('PRAGMA user_version = 25;');
+  });
+});
+
 describe('migration 20 add-by-RSS credentials', () => {
   it('adds the credential flag and index without a column for secrets', () => {
     const migration20 = MIGRATIONS.find((migration) => migration.version === 20);

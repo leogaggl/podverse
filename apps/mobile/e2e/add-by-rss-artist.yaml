@@ -1,0 +1,140 @@
+appId: com.podverse.app.next
+name: Add By RSS Artist Flow
+---
+# The artist fixture lists its Add by RSS album and its directory album, shows the album's track,
+# names the artist on the full player and the track page, and removes the artist.
+#
+# Needs flow_needs_e2e_api + flow_needs_test_assets.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+- tapOn:
+    id: tab-my-library
+- tapOn:
+    id: library-nav-add-by-rss
+- tapOn:
+    id: rss-add-button
+- tapOn:
+    id: rss-url-input
+- inputText: https://e2e-seed-addbyrss.example/artist.xml
+- tapOn:
+    id: rss-add-submit
+- extendedWaitUntil:
+    visible:
+      id: rss-root-screen
+    timeout: ${TIMEOUT_SLOWER}
+- runFlow:
+    file: shared/reveal-chip-row-trailing.yaml
+    env:
+      CHIP_ROW_ID: rss-media-type-selector
+      TRAILING_ID: rss-media-type-artists
+- tapOn:
+    id: rss-media-type-artists
+- extendedWaitUntil:
+    visible:
+      id: "home-feed-row-title-.*"
+      text: E2E Add-by-RSS Artist
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: "home-feed-row-title-.*"
+    text: E2E Add-by-RSS Artist
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+# Albums is the default section. The listed album is stored after the add.
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-artist-album-row-0
+      text: E2E Add-by-RSS Album
+    timeout: ${TIMEOUT_SLOWER}
+- assertVisible:
+    id: add-by-rss-artist-album-row-1
+    text: E2E Music Album
+- takeScreenshot: add-by-rss-artist-albums
+- tapOn:
+    id: add-by-rss-home-section-tracks
+- extendedWaitUntil:
+    visible:
+      id: "home-feed-row-title-.*"
+      text: E2E Add-by-RSS Track
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: add-by-rss-artist-tracks
+# A track row tap plays; it does not open the page.
+- tapOn:
+    id: "home-feed-row-title-.*"
+    text: E2E Add-by-RSS Track
+- extendedWaitUntil:
+    visible:
+      id: playback-now-playing-title-e2e
+      text: E2E Add-by-RSS Track
+    timeout: ${TIMEOUT_SLOWEST}
+- tapOn:
+    id: mini-player
+- extendedWaitUntil:
+    visible:
+      id: full-player-artist-link
+    timeout: ${TIMEOUT_FAST}
+# The link's accessible name is "Open Artist: …", so the artist title is a substring.
+- assertVisible:
+    id: full-player-artist-link
+    text: ".*E2E Add-by-RSS Artist.*"
+- takeScreenshot: add-by-rss-artist-player-line
+- tapOn:
+    id: full-player-artist-link
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    text: E2E Add-by-RSS Album
+- tapOn:
+    id: add-by-rss-artist-album-row-0
+- extendedWaitUntil:
+    visible:
+      id: "home-feed-row-title-.*"
+      text: E2E Add-by-RSS Track
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: "home-row-more-.*"
+- extendedWaitUntil:
+    visible:
+      id: "media-row-action-go-to-track.*"
+    timeout: ${TIMEOUT_FASTER}
+- tapOn:
+    id: "media-row-action-go-to-track.*"
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-track-detail-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: add-by-rss-track-detail-artist-link
+    text: ".*E2E Add-by-RSS Artist.*"
+- takeScreenshot: add-by-rss-artist-track-byline
+- tapOn:
+    id: add-by-rss-track-detail-artist-link
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-home-detail-screen
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    text: E2E Music Album
+# The artist leaves this account's follows. When the account follows an album the artist lists,
+# the dialog appears and Artist Only keeps that album.
+- tapOn:
+    id: add-by-rss-home-remove
+- extendedWaitUntil:
+    visible:
+      id: "artist-unsubscribe-dialog|add-by-rss-track-detail-screen"
+    timeout: ${TIMEOUT_FAST}
+- runFlow:
+    when:
+      visible:
+        id: artist-unsubscribe-dialog
+    commands:
+      - tapOn:
+          id: artist-unsubscribe-dialog-artist-only
+- extendedWaitUntil:
+    visible:
+      id: add-by-rss-track-detail-screen
+    timeout: ${TIMEOUT_FAST}

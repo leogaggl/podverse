@@ -44,7 +44,10 @@ export class AccountFCMDeviceController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'notifications', action: 'create' },
+      }
     );
   }
 
@@ -84,7 +87,10 @@ export class AccountFCMDeviceController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 
@@ -115,7 +121,10 @@ export class AccountFCMDeviceController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'delete' },
+      }
     );
   }
 
@@ -134,7 +143,10 @@ export class AccountFCMDeviceController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'read' },
+      }
     );
   }
 
@@ -157,7 +169,10 @@ export class AccountFCMDeviceController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'notifications', action: 'update' },
+      }
     );
   }
 }

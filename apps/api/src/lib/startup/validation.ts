@@ -7,8 +7,11 @@ import {
 import type { AccountSignupMode } from '@podverse/helpers';
 import {
   ACCOUNT_SIGNUP_MODE_VALUES,
+  DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS,
   isValidServerEnv,
   isValidUUID,
+  parseOptionalNonNegativeInt,
+  POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS,
   SERVER_ENV_VALUES,
 } from '@podverse/helpers';
 import type { ValidationResult, ValidationSummary } from '@podverse/helpers-config';
@@ -97,6 +100,37 @@ const validateMetaboostAppAssertionPair = (): ValidationResult[] => {
 };
 
 /**
+ * The all-time recount period may not outlast event retention: the period is read from marks on
+ * stored listen and open events, so a longer one would let a listener count again once the mark
+ * that started it is deleted. Values resolve the way config and the legal loaders read them.
+ */
+const validateAllTimeRecountWithinRetention = (): ValidationResult => {
+  const resolve = (name: string, fallback: number): number => {
+    const parsed = parseOptionalNonNegativeInt(process.env[name]);
+    return parsed !== undefined && parsed >= 1 ? parsed : fallback;
+  };
+  const recountDays = resolve(
+    'STATS_ALL_TIME_RECOUNT_DAYS',
+    POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS
+  );
+  const retentionDays = resolve(
+    'STATS_TRACK_EVENT_RETENTION_DAYS',
+    DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS
+  );
+  const isValid = recountDays <= retentionDays;
+  return {
+    name: 'STATS_ALL_TIME_RECOUNT_DAYS',
+    isSet: true,
+    isValid,
+    isRequired: false,
+    message: isValid
+      ? `${recountDays} days, within STATS_TRACK_EVENT_RETENTION_DAYS (${retentionDays})`
+      : `STATS_ALL_TIME_RECOUNT_DAYS (${recountDays}) is greater than STATS_TRACK_EVENT_RETENTION_DAYS (${retentionDays}). Lower STATS_ALL_TIME_RECOUNT_DAYS, or raise STATS_TRACK_EVENT_RETENTION_DAYS on the API and the workers.`,
+    category: 'Popularity',
+  };
+};
+
+/**
  * Validates critical environment variables and configuration at application startup.
  * This function runs early in the initialization process to catch configuration errors
  * before the application attempts to start serving requests.
@@ -151,23 +185,16 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateJwtSecret());
   results.push(
     validateOptional(
-      'AUTH_JWT_EXPIRATION',
+      'AUTH_SESSION_IDLE_EXPIRATION',
       'Auth & Security',
       'Blank uses default (31536000 seconds)'
     )
   );
   results.push(
     validateOptional(
-      'AUTH_MOBILE_ACCESS_TOKEN_EXPIRATION',
+      'AUTH_ACCESS_TOKEN_EXPIRATION',
       'Auth & Security',
       'Blank uses default (900 seconds)'
-    )
-  );
-  results.push(
-    validateOptional(
-      'AUTH_MOBILE_REFRESH_TOKEN_EXPIRATION',
-      'Auth & Security',
-      'Blank uses default (31536000 seconds)'
     )
   );
   results.push(
@@ -303,10 +330,14 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(
     validateOptional('ACCOUNT_SET_PASSWORD_MAX_PER_10_MINUTES', 'Account', 'Use Default (4)')
   );
+  results.push(
+    validateOptional('ACCOUNT_CHANGE_PASSWORD_MAX_PER_10_MINUTES', 'Account', 'Use Default (4)')
+  );
   results.push(validateOptional('ACCOUNT_DOWNLOAD_DATA_MAX_PER_DAY', 'Account', 'Use Default (3)'));
   results.push(
     validateOptional('ACCOUNT_CHANNEL_SEEN_READ_MAX_PER_MINUTE', 'Account', 'Use Default (60)')
   );
+  results.push(validateOptional('STATS_TRACK_MAX_PER_MINUTE', 'Popularity', 'Use Default (60)'));
 
   // MQ rate limits (optional)
   results.push(
@@ -392,9 +423,25 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateOptional('TERMS_OF_SERVICE_CONTENT_DIR', 'Legal'));
   results.push(validateOptional('CONTACT_EMAIL', 'Legal'));
   results.push(validateOptional('STATS_TRACK_EVENT_RETENTION_DAYS', 'Legal'));
+  results.push(
+    validateOptional('STATS_LISTEN_DAILY_STORED_CAP', 'Popularity', 'Use Default (300)')
+  );
+  results.push(
+    validateOptional('STATS_LISTEN_MIN_INTERVAL_SECONDS', 'Popularity', 'Use Default (20)')
+  );
+  results.push(
+    validateOptional('STATS_LISTEN_DAILY_POPULARITY_CAP', 'Popularity', 'Use Default (100)')
+  );
+  results.push(validateOptional('STATS_OPEN_DAILY_CAP', 'Popularity', 'Use Default (10)'));
+  results.push(validateOptional('STATS_ALL_TIME_RECOUNT_DAYS', 'Popularity', 'Use Default (90)'));
+  results.push(validateAllTimeRecountWithinRetention());
+  results.push(validateOptional('STATS_FLAG_TOO_SOON_MINUTES', 'Popularity', 'Use Default (30)'));
+  results.push(
+    validateOptional('STATS_FLAG_STORED_CAP_WITHIN_HOURS', 'Popularity', 'Use Default (3)')
+  );
 
-  results.push(validateRequired('POPULARITY_TRACKING_AGREEMENT_VERSION', 'Legal'));
-  results.push(validateOptional('POPULARITY_TRACKING_CONTENT_DIR', 'Legal'));
+  results.push(validateRequired('TASTE_PROFILE_AGREEMENT_VERSION', 'Legal'));
+  results.push(validateOptional('TASTE_PROFILE_AGREEMENT_CONTENT_DIR', 'Legal'));
   results.push(validateOptional('MANAGED_COPY_CONTENT_DIR', 'Legal'));
 
   // Social Media (optional - used when signup mode uses email flows but not required)

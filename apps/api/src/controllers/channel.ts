@@ -15,13 +15,15 @@ import {
   validateParamsObject,
   validateQueryObject,
 } from '@api/lib/validation/index.js';
+import { attachVerifiedPublishers } from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
 import type {
   CategoryMappingKeys,
+  DTOChannelDirectoryMatch,
   QueryParamsMedium,
-  StatsAggregatedRangeCountField,
+  StatsPopularityCountField,
 } from '@podverse/helpers';
 import { fillTopPage, getCategoryEnumValue, TOP_STATS_PAD_MAX_RANKED } from '@podverse/helpers';
 import type { ApiListResponse, QueryParamsStatsRange } from '@podverse/helpers-requests';
@@ -29,22 +31,33 @@ import type {
   AccountFollowingChannel,
   Channel,
   FindManyOptions,
-  StatsAggregatedChannel,
+  StatsPopularityChannel,
 } from '@podverse/orm';
 import {
   AccountFollowingChannelService,
+  ChannelAddByRSSDirectoryMatchService,
   channelGetManyRelations,
   channelGetOneRelations,
   ChannelMergeRedirectService,
   ChannelService,
-  StatsAggregatedChannelService,
+  StatsPopularityChannelService,
   subChannelGetManyRelations,
 } from '@podverse/orm';
 
+const directoryMatchQuerySchema = {
+  feed_guid: Joi.string().trim().min(1).max(255).required(),
+  feed_url: Joi.string()
+    .trim()
+    .uri({ scheme: ['http', 'https'] })
+    .max(2048)
+    .optional(),
+};
+
 export class ChannelController {
   private static channelService = new ChannelService();
+  private static directoryMatchService = new ChannelAddByRSSDirectoryMatchService();
   private static mergeRedirects = new ChannelMergeRedirectService();
-  private static statsAggregatedChannelService = new StatsAggregatedChannelService();
+  private static statsPopularityChannelService = new StatsPopularityChannelService();
 
   private static isParsedReadyChannel(channel: Channel | null): channel is Channel {
     return Boolean(channel?.channel_about);
@@ -56,13 +69,13 @@ export class ChannelController {
     limit: number;
     medium: QueryParamsMedium;
     offset: number;
-    orderField: StatsAggregatedRangeCountField;
+    orderField: StatsPopularityCountField;
   }): Promise<Channel[]> {
     const { category_id, channelIds, limit, medium, offset, orderField } = args;
 
     return fillTopPage({
       countRanked: () =>
-        ChannelController.statsAggregatedChannelService.countRanked(
+        ChannelController.statsPopularityChannelService.countRanked(
           medium,
           category_id,
           orderField,
@@ -70,7 +83,7 @@ export class ChannelController {
         ),
       limit,
       loadRankedIds: () =>
-        ChannelController.statsAggregatedChannelService.getRankedChannelIds(
+        ChannelController.statsPopularityChannelService.getRankedChannelIds(
           medium,
           category_id,
           orderField,
@@ -90,13 +103,13 @@ export class ChannelController {
         });
       },
       loadStatsPage: async () => {
-        const topConfig: FindManyOptions<StatsAggregatedChannel> = {
-          order: { [orderField]: 'DESC' },
+        const topConfig: FindManyOptions<StatsPopularityChannel> = {
+          order: { [orderField]: 'DESC', channel_id: 'ASC' },
           skip: offset,
           take: limit,
           relations: subChannelGetManyRelations,
         };
-        const statsResults = await ChannelController.statsAggregatedChannelService.getMany(
+        const statsResults = await ChannelController.statsPopularityChannelService.getMany(
           topConfig,
           medium,
           category_id,
@@ -122,6 +135,9 @@ export class ChannelController {
           channelGetOneRelations
         );
         const parsedReadyChannel = ChannelController.isParsedReadyChannel(data) ? data : null;
+        if (parsedReadyChannel) {
+          await attachVerifiedPublishers({ channels: [parsedReadyChannel] });
+        }
         handleReturnDataOrNotFound(res, parsedReadyChannel, 'Channel');
       } catch (error) {
         handleGenericErrorResponse(res, error);
@@ -159,6 +175,41 @@ export class ChannelController {
         handleGenericErrorResponse(res, error);
       }
     });
+  }
+
+  static async getDirectoryMatch(req: Request, res: Response): Promise<void> {
+    validateQueryObject(
+      Joi.object(directoryMatchQuerySchema),
+      req,
+      res,
+      async (): Promise<void> => {
+        try {
+          const feedGuidQuery = req.query.feed_guid;
+          const feedUrlQuery = req.query.feed_url;
+          if (typeof feedGuidQuery !== 'string') {
+            res.status(400).json({ message: '"feed_guid" is required' });
+            return;
+          }
+          const feedUrl = typeof feedUrlQuery === 'string' ? feedUrlQuery : null;
+          const matches = await ChannelController.directoryMatchService.getForListedFeeds([
+            { feedGuid: feedGuidQuery, feedUrl },
+          ]);
+          const match = matches.get(feedGuidQuery.trim().toLowerCase()) ?? null;
+          // No match is null with 200 so a client can tell "not in the directory" from a failure.
+          const body: DTOChannelDirectoryMatch | null =
+            match === null
+              ? null
+              : {
+                  id_text: match.channelIdText,
+                  title: match.title,
+                  medium_id: match.mediumId,
+                };
+          res.json(body);
+        } catch (error) {
+          handleGenericErrorResponse(res, error);
+        }
+      }
+    );
   }
 
   static async getManyGlobalRecent(req: Request, res: Response): Promise<void> {
@@ -339,7 +390,10 @@ export class ChannelController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -395,7 +449,10 @@ export class ChannelController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -437,7 +494,10 @@ export class ChannelController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }

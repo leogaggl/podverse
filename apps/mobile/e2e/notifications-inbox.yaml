@@ -5,6 +5,11 @@ name: Notifications Inbox
 
 - runFlow: shared/launch-and-connect.yaml
 
+# Signed out, the account event stream stays closed.
+- assertVisible:
+    id: notification-stream-e2e
+    text: idle
+
 - tapOn:
     id: tab-more
 - tapOn:
@@ -20,6 +25,24 @@ name: Notifications Inbox
 - takeScreenshot: notifications-inbox-login-required
 
 - runFlow: shared/login-seeded-user.yaml
+
+# Signed in, the marker reads `open` once the stream's first event arrives. Nothing plays, so the
+# background closes the stream and the return to the foreground opens a fresh one.
+- extendedWaitUntil:
+    visible:
+      id: notification-stream-e2e
+      text: open
+    timeout: ${TIMEOUT_SLOW}
+- pressKey: Home
+- launchApp:
+    clearState: false
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: notification-stream-e2e
+      text: open
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: notifications-inbox-stream-reopened
 
 - tapOn:
     id: tab-more
@@ -80,3 +103,29 @@ name: Notifications Inbox
 - assertVisible:
     id: more-settings-notifications-screen
 - takeScreenshot: more-settings-notification-auto-enable-toggled
+
+# Banner switches are stored on this device. They do not open the apply dialog. Livestream
+# Scheduled starts off; the second tap leaves that default in place for the rest of this process.
+- scrollUntilVisible:
+    element:
+      id: more-settings-banner-notification-livestream-scheduled-switch
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: more-settings-banner-notifications-card
+- assertVisible:
+    id: more-settings-banner-notification-new-item-switch
+- assertVisible:
+    id: more-settings-banner-notification-livestream-started-switch
+- tapOn:
+    id: more-settings-banner-notification-livestream-scheduled-switch
+- tapOn:
+    id: more-settings-banner-notification-livestream-scheduled-switch
+- assertNotVisible:
+    id: more-settings-notifications-apply-dialog
+- scrollUntilVisible:
+    element:
+      id: more-settings-banner-notification-general
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: more-settings-banner-notifications

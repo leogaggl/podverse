@@ -1,7 +1,8 @@
 import { AccountFollowingAddByRSSChannel } from '@orm/entities/account/accountFollowingAddByRSSChannel.js';
 import { AccountService } from '@orm/services/account/account.js';
 import { BaseManyService } from '@orm/services/base/baseManyService.js';
-import type { EntityManager, FindManyOptions, FindOptionsSelect } from 'typeorm';
+import type { EntityManager, FindManyOptions, FindOptionsSelect, FindOptionsWhere } from 'typeorm';
+import { Equal, In } from 'typeorm';
 
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
@@ -156,6 +157,24 @@ export class AccountFollowingAddByRSSChannelService extends BaseManyService<
     }
 
     return this._delete(account, { feed_url });
+  }
+
+  /** Ends this account's follow of each Add by RSS feed URL. URLs it does not follow are skipped. */
+  async removeRSSChannelsBulk(account_id: number, feed_urls: string[]): Promise<void> {
+    const account = await this.accountService.get(account_id);
+    if (!account) {
+      throw new Error('Account not found.');
+    }
+
+    const unique = [...new Set(feed_urls)];
+    if (unique.length === 0) {
+      return;
+    }
+
+    await this.repositoryReadWrite.delete({
+      account_id: Equal(account.id),
+      feed_url: In(unique),
+    } as FindOptionsWhere<AccountFollowingAddByRSSChannel>);
   }
 
   /**

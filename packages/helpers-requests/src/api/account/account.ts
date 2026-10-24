@@ -137,6 +137,18 @@ export async function reqAccountResetPassword(
   });
 }
 
+export async function reqAccountChangePassword(
+  api: ApiRequestService,
+  params: { current_password: string; new_password: string }
+): Promise<{ message: string; revoked_count: number }> {
+  return api.apiRequest<{ message: string; revoked_count: number }>({
+    path: '/account/change-password',
+    method: 'POST',
+    data: params,
+    config: { withCredentials: true },
+  });
+}
+
 export async function reqAccountSendChangeEmailAddressEmail(
   api: ApiRequestService,
   params: { new_email: string }

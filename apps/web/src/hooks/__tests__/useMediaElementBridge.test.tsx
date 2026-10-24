@@ -37,7 +37,7 @@ function decision(over: Partial<PlaybackLoadDecision> = {}): PlaybackLoadDecisio
     initialSeekSeconds: 0,
     shouldAutoPlay: false,
     shouldClearAutoQueue: false,
-    shouldRecordPlaybackStat: false,
+    listenSession: 'start',
     reason: 'item-podcast-fresh',
     ...over,
   };

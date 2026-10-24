@@ -70,13 +70,23 @@ export async function reqAuthCheckSession(
   });
 }
 
-export async function reqAuthMobileToken(api: ApiRequestService, params: ReqAuthLoginParams) {
+export type ReqAuthMobileTokenParams = {
+  email: string;
+  password: string;
+  /** Shown in the account's session list; the API falls back to the client platform header. */
+  device_label?: string;
+};
+
+export async function reqAuthMobileToken(api: ApiRequestService, params: ReqAuthMobileTokenParams) {
   return api.apiRequest<MobileTokenResponse>({
     path: '/auth/mobile/token',
     method: 'POST',
     data: {
       email: params.email,
       password: params.password,
+      ...(params.device_label !== undefined && params.device_label !== ''
+        ? { device_label: params.device_label }
+        : {}),
     },
   });
 }

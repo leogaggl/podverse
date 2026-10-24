@@ -99,6 +99,21 @@ The API exposes endpoints at `{host}:{port}/api/v2/`:
 - `/playlist/*` - User playlists
 - And more...
 
+### Account event stream
+
+`GET /api/v2/account/events` is the account's one server-sent events stream, with cookie or bearer
+auth. Event names are namespaced: `notification.*` is in use, and `playback.*` is reserved for
+cross-device playback state and control commands, which carry no SSE id. Only events that carry an
+SSE id replay from `Last-Event-ID`. API pods receive account changes from the Redis channel
+`podverse:account-events` and fan them out to the streams they hold.
+
+A proxy in front of the API must:
+
+- Not buffer `text/event-stream` responses.
+- Allow idle connections longer than 25 seconds, the heartbeat interval.
+- Serve HTTP/2 to browsers where possible, so open tabs do not use up the per-origin connection
+  limit.
+
 ## Environment Configuration
 
 See [ENV.md](ENV.md) for complete documentation of all environment variables.

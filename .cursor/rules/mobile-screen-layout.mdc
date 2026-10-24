@@ -402,11 +402,11 @@ first CTA look like another paragraph.
 - Do not add a second display heading when the stack title already names the screen.
 - Full-screen Modal variants also use **`ModalSafeArea`**.
 
-Login and Sign up already use this seam above Submit. Popularity tracking uses the same helpers
-for Yes / No / Learn more. Under `AgreementChoices`, `proseDisclosureGap` sits above the
-disclosure and `formActionsTopGap` starts under it: accordion to the "I have read" checkbox,
-then checkbox to the action block. A prompt with no checkbox uses that same seam from the
-accordion to the action column.
+Login and Sign up already use this seam above Submit. The Taste Profile consent prompt
+(`TasteProfileAgreementBody`) uses the same helpers for Yes / No / How It Works. Under
+`AgreementChoices`, `proseDisclosureGap` sits above the disclosure and `formActionsTopGap` starts
+under it: accordion to the "I have read" checkbox, then checkbox to the action block. A prompt
+with no checkbox uses that same seam from the accordion to the action column.
 
 ## Login / Sign up overlay
 

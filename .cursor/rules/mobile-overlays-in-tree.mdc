@@ -90,10 +90,10 @@ Dismiss the overlay explicitly, then interact with the screen:
 
 ## The one boundary
 
-`App.tsx`'s auth sheet and the popularity-tracking consent prompt stay RN `Modal`s with
-`presentationStyle="fullScreen"`. They are top-level app modes that replace the whole screen, they
-only ever appear over the tab navigator, and a presented view controller is the platform-correct
-presentation for them.
+`App.tsx`'s auth sheet and the Taste Profile consent prompt (`TasteProfileAgreementBody` inside
+`TermsAcceptanceProvider`) stay RN `Modal`s with `presentationStyle="fullScreen"`. They are
+top-level app modes that replace the whole screen, they only ever appear over the tab navigator,
+and a presented view controller is the platform-correct presentation for them.
 
 That boundary is narrow: a full-screen mode at the root, never over a root-stack card. Anything that
 can open while the full player or make clip is up belongs in `AppOverlay`, and new overlays start

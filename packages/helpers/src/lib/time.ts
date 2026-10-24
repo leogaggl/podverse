@@ -6,8 +6,8 @@ export const TIME_CONSTANTS = {
   ONE_MONTH_IN_MINUTES: 43200,
 };
 
-/** Default retention for raw stats track events before prune (see STATS_TRACK_EVENT_RETENTION_DAYS). */
-export const DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS = 30;
+/** Default days raw popularity listen and open events are kept. A monthly partition is dropped once every row in it is older than this (STATS_TRACK_EVENT_RETENTION_DAYS). */
+export const DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS = 90;
 
 /**
  * Default retention for delivered notification rows (see NOTIFICATION_RETENTION_DAYS).
@@ -46,6 +46,13 @@ export const DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS = 30;
  * was just updated for a later takedown.
  */
 export const DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS = 30;
+
+/**
+ * Days an account_session row is kept after its idle expiry (see
+ * ACCOUNT_SESSION_RETENTION_DAYS). A revoked row keeps its idle expiry, so a device that returns
+ * within its idle limit can still be told why it was signed out.
+ */
+export const DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS = 30;
 
 /**
  * Player clock for every Podverse surface. First unit is never zero-padded:

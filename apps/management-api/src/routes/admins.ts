@@ -6,9 +6,10 @@ import {
   handleUpdateManagementAdminRole,
   resolvePodverseManagementAdminRole,
 } from '@management-api/lib/adminRoles.js';
+import { endAdminSessions } from '@management-api/lib/auth/adminSessionStore.js';
 import { ensureAuthenticated } from '@management-api/lib/auth/index.js';
 import { requireCrud } from '@management-api/lib/authz/requireCrud.js';
-import { hasCrud } from '@management-api/lib/crud.js';
+import { requireSuperuser } from '@management-api/lib/authz/requireSuperuser.js';
 import { getParamRequired } from '@management-api/lib/params.js';
 import { AdminAccountRoleEnum } from '@management-api/orm/entities/adminAccountRole.js';
 import {
@@ -19,12 +20,17 @@ import {
 import express from 'express';
 import Joi from 'joi';
 
-import { ADMIN_ACCOUNT_CREDENTIALS_USERNAME_MAX_LENGTH } from '@podverse/helpers';
+import {
+  ADMIN_ACCOUNT_CREDENTIALS_USERNAME_MAX_LENGTH,
+  CRUD_MASK_ALL,
+  CRUD_MASK_NONE,
+  crudMaskHas,
+} from '@podverse/helpers';
 import { validatePassword } from '@podverse/helpers-validation';
 
 const router = express.Router();
 
-const crudSchema = Joi.number().integer().min(0).max(15);
+const crudSchema = Joi.number().integer().min(CRUD_MASK_NONE).max(CRUD_MASK_ALL);
 
 /** Letters, digits, period, underscore, hyphen — stored lowercased for login. */
 const ADMIN_USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
@@ -162,7 +168,12 @@ router.post('/invite-link/redeem', async (req, res, next) => {
     }
 
     const service = new AdminAccountService();
-    await service.completeSetPasswordFromToken(token, password);
+    const result = await service.completeSetPasswordFromToken(token, password);
+    await endAdminSessions({
+      adminAccountId: result.adminAccountId,
+      reason: 'password_changed',
+      exceptSessionIdText: null,
+    });
     res.json({ message: 'Password updated' });
   } catch (error) {
     if (error instanceof Error && error.message === 'Invalid or expired set-password token') {
@@ -467,7 +478,8 @@ router.patch(
       // Non-superuser actors need admins:create or admins:update to modify permissions
       if (wantsPermissionChange && !isSuperuser) {
         const adminsCrud = actor.permissions?.admins_crud ?? 0;
-        const canChangePermissions = hasCrud(adminsCrud, 'create') || hasCrud(adminsCrud, 'update');
+        const canChangePermissions =
+          crudMaskHas(adminsCrud, 'create') || crudMaskHas(adminsCrud, 'update');
         if (!canChangePermissions) {
           res.status(403).json({
             message: 'Create or update permission on admins required to change permissions',
@@ -489,6 +501,21 @@ router.patch(
       }
 
       const updated = await service.update(targetId, patch);
+      if (patch.password !== undefined) {
+        if (actor.id === targetId) {
+          await endAdminSessions({
+            adminAccountId: targetId,
+            reason: 'password_changed',
+            exceptSessionIdText: actor.session_id_text,
+          });
+        } else {
+          await endAdminSessions({
+            adminAccountId: targetId,
+            reason: 'admin_password_set',
+            exceptSessionIdText: null,
+          });
+        }
+      }
       res.json(adminAccountToJson(updated));
     } catch (error) {
       if (
@@ -548,6 +575,45 @@ router.delete(
     }
   }
 );
+
+// Ends every session of the target admin, including another superuser.
+// The caller signs out their own browser with logout.
+router.post('/:id/force-logout', ensureAuthenticated, requireSuperuser, async (req, res, next) => {
+  try {
+    const actor = req.user;
+    if (!actor) {
+      res.status(401).json({ message: 'Authentication required' });
+      return;
+    }
+
+    const targetId = parseAdminIdParam(req.params.id);
+    if (targetId === null) {
+      res.status(400).json({ message: 'Invalid id' });
+      return;
+    }
+
+    if (actor.id === targetId) {
+      res.status(400).json({ message: 'Cannot force logout your own account' });
+      return;
+    }
+
+    const service = new AdminAccountService();
+    const target = await service.getWithRoleAndPermissions(targetId);
+    if (!target) {
+      res.status(404).json({ message: 'Admin account not found' });
+      return;
+    }
+
+    const revokedCount = await endAdminSessions({
+      adminAccountId: targetId,
+      reason: 'admin_force_logout',
+      exceptSessionIdText: null,
+    });
+    res.json({ revoked_count: revokedCount });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Get active invite link for admin
 router.get(

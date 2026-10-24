@@ -8,6 +8,7 @@ const router = Router();
 router.use(`${config.api.prefix}${config.api.version}/channel`, router);
 
 router.get('/podcast-index/:podcast_index_id', asyncHandler(ChannelController.getbyPodcastIndexId));
+router.get('/directory-match', asyncHandler(ChannelController.getDirectoryMatch));
 
 router.get('/global/recent', asyncHandler(ChannelController.getManyGlobalRecent));
 router.get('/global/top', asyncHandler(ChannelController.getManyGlobalTop));

@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next';
 import type { FlatList } from 'react-native';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import type { DTOChannel, DTOItem } from '@podverse/helpers';
-import { primaryChannelListArtworkUrl } from '@podverse/helpers';
+import type { DTOChannel, DTOItem, DTOVerifiedPublisher } from '@podverse/helpers';
+import { joinVerifiedPublisherTitles, primaryChannelListArtworkUrl } from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { ChannelHeader } from '../../components/channel';
 import {
+  ArtistChooserSheet,
   DescriptionText,
   FundingLinksSection,
   itemDetailDateLabel,
@@ -39,11 +40,17 @@ import { shouldReplaceCachedValue } from '../../lib/cachedValue';
 import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLabel';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import { directoryLineArtist } from '../../lib/playback/lineArtist';
+import { resolveVerifiedArtists } from '../../lib/playback/verifiedArtists';
 import { getCachedItemSectionFlags } from '../../lib/sectionChromeFlags';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { ChannelBrowseStackParamList } from '../../navigation';
-import { buildAlbumDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
+import {
+  buildAlbumDetailParams,
+  buildArtistDetailParams,
+  CHANNEL_BROWSE_STACK_ROUTES,
+} from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import type { TrackTab } from '../../prefs/detailListPrefs';
@@ -542,6 +549,35 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     );
   }, [channel, navigation]);
 
+  const trackArtists = useMemo(
+    () => resolveVerifiedArtists({ channel, item: track }),
+    [channel, track]
+  );
+  const trackLineArtists = useMemo(() => trackArtists.map(directoryLineArtist), [trackArtists]);
+  const artistByline = joinVerifiedPublisherTitles(trackArtists);
+  const [isArtistChooserOpen, setIsArtistChooserOpen] = useState(false);
+
+  const openArtist = useCallback(
+    (artist: DTOVerifiedPublisher) => {
+      navigation.navigate(
+        CHANNEL_BROWSE_STACK_ROUTES.ArtistDetail,
+        buildArtistDetailParams({ artistId: artist.id_text, previewTitle: artist.title })
+      );
+    },
+    [navigation]
+  );
+
+  const onArtistBylinePress = useCallback(() => {
+    const [only] = trackArtists;
+    if (trackArtists.length === 1 && only !== undefined) {
+      openArtist(only);
+      return;
+    }
+    if (trackArtists.length > 1) {
+      setIsArtistChooserOpen(true);
+    }
+  }, [openArtist, trackArtists]);
+
   const handleRetryTrack = useCallback(() => {
     void loadTrack();
   }, [loadTrack]);
@@ -564,7 +600,23 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
           <ChannelHeader
             artworkUri={headerArtworkUri}
             onTitlePress={channel !== null ? openAlbum : undefined}
-            subtitle={channel?.channel_about?.author ?? null}
+            subtitle={
+              artistByline.length > 0 ? artistByline : (channel?.channel_about?.author ?? null)
+            }
+            subtitleLink={
+              artistByline.length > 0
+                ? {
+                    accessibilityLabel: t('media_player.open_named_screen', {
+                      name: artistByline,
+                      screen: t(
+                        trackArtists.length > 1 ? 'media.music.artists' : 'media.music.artist'
+                      ),
+                    }),
+                    onPress: onArtistBylinePress,
+                    testID: 'track-detail-artist-link',
+                  }
+                : undefined
+            }
             testID="track-detail-album-header"
             title={channel?.title ?? channelTitle ?? previewTitle ?? t('media.music.album')}
           />
@@ -594,6 +646,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
       ) : null,
     [
       activeTab,
+      artistByline,
       channel,
       channelTitle,
       handleAddToPlaylist,
@@ -603,6 +656,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
       handleShare,
       handleTabPress,
       headerArtworkUri,
+      onArtistBylinePress,
       openAlbum,
       playbackNoticeKey,
       previewTitle,
@@ -611,6 +665,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
       styles.notice,
       t,
       track,
+      trackArtists,
       trackRow,
     ]
   );
@@ -750,6 +805,20 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         />
       ) : null}
       {addToPlaylistSheet}
+      <ArtistChooserSheet
+        artists={trackLineArtists}
+        onCancel={() => {
+          setIsArtistChooserOpen(false);
+        }}
+        onSelect={(artist) => {
+          setIsArtistChooserOpen(false);
+          if (artist.kind === 'directory') {
+            openArtist(artist.publisher);
+          }
+        }}
+        testID="track-detail-artist-chooser"
+        visible={isArtistChooserOpen}
+      />
     </View>
   );
 }

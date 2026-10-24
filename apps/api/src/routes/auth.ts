@@ -1,5 +1,7 @@
 import { config } from '@api/config/index.js';
 import { AccountController } from '@api/controllers/account/account.js';
+import { AccountApiKeyController } from '@api/controllers/account/accountApiKey.js';
+import { AccountSessionController } from '@api/controllers/account/accountSession.js';
 import {
   authenticate,
   issueMobileToken,
@@ -23,5 +25,12 @@ router.post('/mobile/revoke', revokeMobileToken);
 
 router.get('/me', asyncHandler(AccountController.getLoggedInAccount));
 router.get('/check-session', asyncHandler(AccountController.checkIfValidAuthSession));
+router.get('/sessions', asyncHandler(AccountSessionController.list));
+router.post('/sessions/revoke-others', asyncHandler(AccountSessionController.revokeOthers));
+router.delete('/sessions/:session_id_text', asyncHandler(AccountSessionController.revoke));
+
+router.get('/api-keys', asyncHandler(AccountApiKeyController.list));
+router.post('/api-keys', asyncHandler(AccountApiKeyController.create));
+router.delete('/api-keys/:api_key_id_text', asyncHandler(AccountApiKeyController.revoke));
 
 export const authRouter = router;

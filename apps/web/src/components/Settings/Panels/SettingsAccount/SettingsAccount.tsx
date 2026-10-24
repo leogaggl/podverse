@@ -13,9 +13,11 @@ import { handleRateLimitAlert } from '../../../../utils/rateLimit/rateLimitAlert
 import { dismissToast, showToast, showToastLoading } from '../../../Toast/Toast';
 import { SettingsSection } from '../../SettingsSection';
 import { ModalChangeEmail } from './ModalChangeEmail';
+import { ModalChangePassword } from './ModalChangePassword';
 import { ModalDeleteAccount } from './ModalDeleteAccount';
-import { SettingsListenStats } from './SettingsListenStats';
 import { SettingsMembership } from './SettingsMembership';
+import { SettingsSessions } from './SettingsSessions';
+import { SettingsTasteProfile } from './SettingsTasteProfile';
 import { SettingsTerms } from './SettingsTerms';
 
 export function SettingsAccount() {
@@ -25,6 +27,7 @@ export function SettingsAccount() {
   const { loggedInAccount } = useAccount();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isChangeEmailModalOpen, setIsChangeEmailModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const config = getConfig();
@@ -77,7 +80,7 @@ export function SettingsAccount() {
       <Divider withSpacing />
       <SettingsTerms />
       <Divider withSpacing />
-      <SettingsListenStats />
+      <SettingsTasteProfile />
       <Divider withSpacing />
       {capabilities.canUseEmailVerificationFlows && (
         <>
@@ -100,6 +103,22 @@ export function SettingsAccount() {
         </>
       )}
       <SettingsSection>
+        <h3>{tSettings('account.change_password.heading')}</h3>
+        <Button
+          type="button"
+          onClick={() => setIsChangePasswordModalOpen(true)}
+          variant="primary"
+          description={tSettings('account.change_password.description')}
+        >
+          {tSettings('account.change_password.submit')}
+        </Button>
+        <ModalChangePassword
+          isOpen={isChangePasswordModalOpen}
+          onClose={() => setIsChangePasswordModalOpen(false)}
+        />
+      </SettingsSection>
+      <Divider withSpacing />
+      <SettingsSection>
         <h3>{tSettings('account.download_my_data')}</h3>
         <Button
           type="button"
@@ -112,6 +131,8 @@ export function SettingsAccount() {
           {tSettings('account.download_my_data')}
         </Button>
       </SettingsSection>
+      <Divider withSpacing />
+      <SettingsSessions />
       <Divider withSpacing />
       <SettingsSection>
         <h3>{tSettings('account.delete_account')}</h3>

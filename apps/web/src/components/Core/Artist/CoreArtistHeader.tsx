@@ -10,13 +10,14 @@ import { CoreArtistHeaderViewTablet } from './CoreArtistHeaderViewTablet';
 
 type CoreArtistHeaderProps = {
   channel: DTOChannel;
+  artistAlbums?: readonly DTOChannel[];
 };
 
-export const CoreArtistHeader: React.FC<CoreArtistHeaderProps> = ({ channel }) => {
+export const CoreArtistHeader: React.FC<CoreArtistHeaderProps> = ({ channel, artistAlbums }) => {
   return (
     <CommonArtistHeader
-      desktop={<CoreArtistHeaderViewDesktop channel={channel} />}
-      tablet={<CoreArtistHeaderViewTablet channel={channel} />}
+      desktop={<CoreArtistHeaderViewDesktop channel={channel} artistAlbums={artistAlbums} />}
+      tablet={<CoreArtistHeaderViewTablet channel={channel} artistAlbums={artistAlbums} />}
     />
   );
 };

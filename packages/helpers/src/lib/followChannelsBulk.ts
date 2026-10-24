@@ -11,6 +11,12 @@
 /** Upper bound on channels per request. Matches the OPML import feed cap. */
 export const MAX_BULK_FOLLOW_CHANNELS = 1000;
 
+/**
+ * Upper bound on feeds per `POST /account/unfollow/bulk`, counting directory channels and Add by
+ * RSS feed URLs together.
+ */
+export const MAX_BULK_UNFOLLOW_FEEDS = 1000;
+
 export type BulkFollowChannelOutcome =
   /** Newly followed by this request. */
   | 'followed'

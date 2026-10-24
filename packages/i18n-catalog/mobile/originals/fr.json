@@ -103,6 +103,11 @@
       "downloads_description": "Limite de stockage, libération automatique et suppression de tous les téléchargements",
       "notifications_description": "Alertes dans l'app et push"
     },
+    "developer": {
+      "menu_subtitle": "Clés d'API pour les scripts et les agents",
+      "docs_unavailable": "La documentation de l'API n'est pas disponible tant que cette app n'a pas d'adresse de serveur.",
+      "spec_copy_hint": "Copie l'URL du document OpenAPI du serveur que cette app utilise."
+    },
     "offline_mode": {
       "title": "Mode hors ligne",
       "description": "Le mode hors ligne n'utilise que les téléchargements et le reste du contenu déjà stocké sur cet appareil. Recherche, Parcourir, la synchro et tout ce qui a besoin d'Internet restent indisponibles jusqu'à ce que vous le désactiviez.",
@@ -148,7 +153,11 @@
       "login_required_title": "Connexion requise",
       "login_required_message": "Connectez-vous pour utiliser cette fonctionnalité.",
       "open_system_settings": "Ouvrir les paramètres du système",
-      "permission_required": "L'autorisation de notification est requise pour activer ce paramètre."
+      "permission_required": "L'autorisation de notification est requise pour activer ce paramètre.",
+      "banner_section": "Notifications de bannière",
+      "banner_section_help": "Quand l'application est ouverte, une bannière descend depuis le haut pour chaque type que vous activez.",
+      "banner_dismiss": "Fermer",
+      "banner_open_hint": "Ouvre cette notification."
     },
     "tab_bar": {
       "title": "Barre d'onglets",
@@ -168,11 +177,12 @@
     "playback": "Lecture",
     "playback_intro": "Ces commandes n'existent que dans les builds de test E2E. Elles lancent le média de seed que les écrans produit n'exposent pas encore.",
     "play_video": "Lire la vidéo E2E",
+    "show_banner_notification": "Afficher la notification de bannière",
     "play_hls": "Lire HLS E2E",
     "skip_next": "Passer au suivant",
     "complete_now_playing": "Marquer la lecture en cours comme terminée",
     "quick_login": "Se connecter en tant qu'utilisateur E2E",
-    "quick_login_popularity": "Se connecter en tant qu'utilisateur E2E indécis",
+    "quick_login_taste_profile_undecided": "Se connecter en tant qu'utilisateur E2E indécis",
     "quick_login_stale_terms": "Se connecter en tant qu'utilisateur E2E avec des conditions obsolètes",
     "quick_login_perf": "Se connecter en tant qu'utilisateur E2E perf",
     "session_ready": "Session E2E prête",

@@ -38,15 +38,31 @@ describe('interpolateTermsMarkdown', () => {
     expect(markdown).not.toContain('{contact_email}');
   });
 
-  it('serves popularity tracking as optional in every locale', () => {
+  it('serves Taste Profile as optional in every locale', () => {
     const cases = [
-      { locale: 'en-US', heading: 'Popularity Tracking', notice: 'an optional feature' },
-      { locale: 'es', heading: 'Seguimiento de popularidad', notice: 'una función opcional' },
-      { locale: 'fr', heading: 'Suivi de popularité', notice: 'une fonctionnalité optionnelle' },
+      {
+        locale: 'en-US',
+        heading: '## Taste Profile',
+        notice: 'Taste Profile is an optional feature',
+        profile: 'Taste Profile',
+      },
+      {
+        locale: 'es',
+        heading: '## Perfil de gustos',
+        notice: 'El Perfil de gustos es una función opcional',
+        profile: 'Perfil de gustos',
+      },
+      {
+        locale: 'fr',
+        heading: '## Profil de goûts',
+        notice: 'Le Profil de goûts est une fonctionnalité optionnelle',
+        profile: 'Profil de goûts',
+      },
       {
         locale: 'el-GR',
-        heading: 'Παρακολούθηση δημοτικότητας',
-        notice: 'μια προαιρετική λειτουργία',
+        heading: '## Προφίλ γούστου',
+        notice: 'Το Προφίλ γούστου είναι μια προαιρετική λειτουργία',
+        profile: 'Προφίλ γούστου',
       },
     ];
 
@@ -54,8 +70,12 @@ describe('interpolateTermsMarkdown', () => {
       const markdown = loadTermsMarkdown(item.locale);
       expect(markdown).toContain(item.heading);
       expect(markdown).toContain(item.notice);
+      expect(markdown).toContain(item.profile);
       expect(markdown).toContain(config.legal.address.trim());
       expect(markdown).not.toContain('{legal_address}');
+      if (item.locale === 'en-US') {
+        expect(markdown).toContain('not anonymous');
+      }
     }
   });
 });

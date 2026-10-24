@@ -18,7 +18,10 @@ import type {
 } from '@orm/lib/duplicateFeedMatch.js';
 import { assessDuplicatePair } from '@orm/lib/duplicateFeedMatch.js';
 import { isPodcastGuidUniqueViolation } from '@orm/lib/postgresUniqueViolation.js';
+import { ChannelVerifiedPublisherService } from '@orm/services/channel/channelVerifiedPublisher.js';
 import type { EntityManager } from 'typeorm';
+
+import { POPULARITY_TASTE_HALF_LIFE_DAYS } from '@podverse/helpers';
 
 import { FeedService } from '../feed/feed.js';
 import type { SqlKey } from './channelMergeRowJournal.js';
@@ -29,26 +32,6 @@ import {
   revertChannelMergeJournal,
   selectMergeRows,
 } from './channelMergeRowJournal.js';
-
-const STATS_COUNT_COLUMNS = [
-  'day_current_count',
-  'day_1_count',
-  'day_2_count',
-  'day_3_count',
-  'day_4_count',
-  'day_5_count',
-  'day_6_count',
-  'day_7_count',
-  'day_8_count',
-  'week_current_count',
-  'week_1_count',
-  'week_2_count',
-  'week_3_count',
-  'week_4_count',
-  'month_current_count',
-  'month_1_count',
-  'all_time_count',
-] as const;
 
 export type SurvivorFeedSnapshot = {
   url: string;
@@ -73,6 +56,11 @@ export type VerifyAndApplyDuplicateMergesOptions = {
   mode: 'dry_run' | 'apply';
   fetchSurvivorFeed: (podcastIndexId: number) => Promise<SurvivorFeedSnapshot | null>;
   enqueueRepointParse: (request: RepointParseRequest) => Promise<void>;
+  /**
+   * `STATS_TRACK_EVENT_RETENTION_DAYS`. Daily totals on days this recent drop listeners who
+   * listened to both copies that day; older days are summed.
+   */
+  statsTrackEventRetentionDays: number;
 };
 
 type StoredChannel = {
@@ -608,6 +596,25 @@ async function moveAutoDownload(
   }
 }
 
+async function removeVerifiedPublisherLinks(
+  manager: EntityManager,
+  channelMergeId: number,
+  channelId: number
+): Promise<void> {
+  for (const column of ['channel_id', 'publisher_channel_id']) {
+    const rows = await selectMergeRows(manager, 'channel_verified_publisher', {
+      [column]: channelId,
+    });
+    for (const row of rows) {
+      const id = sqlKey(row.id);
+      if (id === null) {
+        continue;
+      }
+      await journaledDelete(manager, channelMergeId, 'channel_verified_publisher', { id });
+    }
+  }
+}
+
 async function movePendingFollows(
   manager: EntityManager,
   channelMergeId: number,
@@ -744,67 +751,366 @@ async function moveItemColumn(
   return rows.length;
 }
 
-async function addStats(
+type MergeStatsKey = 'channel_id' | 'item_id';
+
+/** Listeners (and finishers) with listen events on both copies on one UTC day. */
+type SameDayOverlap = { listeners: number; completions: number };
+
+type SameDayOverlapRow = SameDayOverlap & { day: string };
+
+function isSameDayOverlapRow(value: unknown): value is SameDayOverlapRow {
+  return (
+    isRecord(value) &&
+    typeof value.day === 'string' &&
+    typeof value.listeners === 'number' &&
+    typeof value.completions === 'number'
+  );
+}
+
+/** Runs a `SELECT … FOR UPDATE` and keeps its row locks without reading the rows back. */
+async function lockRows(
+  manager: EntityManager,
+  lockingSelectSql: string,
+  params: readonly unknown[]
+): Promise<void> {
+  await manager.query(`SELECT count(*)::int AS locked FROM (${lockingSelectSql}) locked_rows`, [
+    ...params,
+  ]);
+}
+
+/**
+ * Locks taken before any popularity row moves. The popularity refresh job's per-type advisory
+ * locks come first, so no refresh writes a range row the merge deletes before it commits. Row
+ * locks follow the listen write path's order (events, item daily rows, channel daily rows): the
+ * old channel's events, and any matched old item's events, come first, so a completion report on
+ * one of them waits at its event row while holding nothing the merge needs.
+ */
+async function lockMergeStatsRows(
+  manager: EntityManager,
+  fromChannelId: number,
+  channelIds: readonly number[],
+  oldItemIds: readonly number[],
+  survivorItemIds: readonly number[]
+): Promise<void> {
+  await manager.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended('popularity_refresh:channel', 0))`
+  );
+  await manager.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended('popularity_refresh:item', 0))`
+  );
+  await lockRows(
+    manager,
+    `SELECT 1 FROM stats_listen_event
+     WHERE channel_id = $1 OR item_id = ANY($2::int[])
+     FOR UPDATE`,
+    [fromChannelId, [...oldItemIds]]
+  );
+  const itemIds = [...oldItemIds, ...survivorItemIds];
+  if (itemIds.length > 0) {
+    await lockRows(
+      manager,
+      'SELECT 1 FROM stats_daily_item WHERE item_id = ANY($1::int[]) FOR UPDATE',
+      [itemIds]
+    );
+  }
+  await lockRows(
+    manager,
+    'SELECT 1 FROM stats_daily_channel WHERE channel_id = ANY($1::int[]) FOR UPDATE',
+    [[...channelIds]]
+  );
+}
+
+/**
+ * The first UTC day whose listen events are all still stored: the current UTC date minus the
+ * retention days, on the merge transaction's clock.
+ */
+async function retentionBoundaryDay(
+  manager: EntityManager,
+  retentionDays: number
+): Promise<string> {
+  const rows: unknown = await manager.query(
+    `SELECT ((now() AT TIME ZONE 'UTC')::date - $1::integer)::text AS boundary_day`,
+    [retentionDays]
+  );
+  const first: unknown = Array.isArray(rows) ? rows[0] : null;
+  const boundaryDay = isRecord(first) ? nullableText(first.boundary_day) : null;
+  if (boundaryDay === null) {
+    throw new Error('channel merge: could not read the retention boundary day');
+  }
+  return boundaryDay;
+}
+
+/**
+ * Per UTC day on or after `boundaryDay`, the listeners with popularity-counted listen events on
+ * both copies, and those with a completed one on both. Keyed by `YYYY-MM-DD`.
+ */
+async function readSameDayOverlap(
+  manager: EntityManager,
+  key: MergeStatsKey,
+  fromId: SqlKey,
+  toId: SqlKey,
+  boundaryDay: string
+): Promise<Map<string, SameDayOverlap>> {
+  const rows: unknown = await manager.query(
+    `WITH per_copy AS (
+       SELECT listener_id,
+              (created_at AT TIME ZONE 'UTC')::date AS day,
+              ${key} = $1 AS on_old,
+              bool_or(completed) AS completed
+       FROM stats_listen_event
+       WHERE ${key} IN ($1, $2)
+         AND created_at >= ($3::date)::timestamp AT TIME ZONE 'UTC'
+         AND popularity_counted
+       GROUP BY 1, 2, 3
+     )
+     SELECT o.day::text AS day,
+            COUNT(*)::int AS listeners,
+            (COUNT(*) FILTER (WHERE o.completed AND s.completed))::int AS completions
+     FROM per_copy o
+     JOIN per_copy s ON s.listener_id = o.listener_id AND s.day = o.day AND NOT s.on_old
+     WHERE o.on_old
+     GROUP BY o.day`,
+    [fromId, toId, boundaryDay]
+  );
+  const overlap = new Map<string, SameDayOverlap>();
+  if (!Array.isArray(rows)) {
+    return overlap;
+  }
+  for (const row of rows) {
+    if (isSameDayOverlapRow(row)) {
+      overlap.set(row.day, { listeners: row.listeners, completions: row.completions });
+    }
+  }
+  return overlap;
+}
+
+/** One copy's daily row. */
+type DailyCopyCounts = SameDayOverlap & { allTimeListeners: number };
+
+/**
+ * One day's merged totals. Overlap is removed, but the result never goes below either copy, and
+ * finishers never exceed listeners. All-time listeners are added and capped at the merged
+ * listeners; no all-time overlap is removed.
+ */
+function mergedDailyCounts(
+  old: DailyCopyCounts,
+  survivor: DailyCopyCounts,
+  shared: SameDayOverlap
+): { listener_count: number; completion_count: number; all_time_listener_count: number } {
+  const listenerCount = Math.max(
+    old.listeners + survivor.listeners - shared.listeners,
+    old.listeners,
+    survivor.listeners
+  );
+  const completionCount = Math.min(
+    Math.max(
+      old.completions + survivor.completions - shared.completions,
+      old.completions,
+      survivor.completions
+    ),
+    listenerCount
+  );
+  return {
+    listener_count: listenerCount,
+    completion_count: completionCount,
+    all_time_listener_count: Math.min(
+      old.allTimeListeners + survivor.allTimeListeners,
+      listenerCount
+    ),
+  };
+}
+
+/**
+ * Adds every old daily row into the survivor's row for the same day, or moves it when the survivor
+ * has none, then deletes the old row. Same-day overlap is removed only on days on or after
+ * `boundaryDay`. Every write is journaled.
+ */
+async function moveDailyTotals(
   manager: EntityManager,
   channelMergeId: number,
-  table: 'stats_aggregated_channel' | 'stats_aggregated_item',
-  key: 'channel_id' | 'item_id',
+  table: 'stats_daily_channel' | 'stats_daily_item',
+  key: MergeStatsKey,
   fromId: SqlKey,
-  toId: SqlKey
+  toId: SqlKey,
+  overlap: ReadonlyMap<string, SameDayOverlap>,
+  boundaryDay: string
 ): Promise<void> {
-  const sources = await selectMergeRows(manager, table, { [key]: fromId });
-  const source = sources[0];
-  if (source === undefined) {
+  const oldRows = await selectMergeRows(manager, table, { [key]: fromId });
+  if (oldRows.length === 0) {
     return;
   }
-  const sourceId = sqlKey(source.id);
-  const destinations = await selectMergeRows(manager, table, { [key]: toId });
-  const destination = destinations[0];
-  if (destination === undefined) {
-    const values: Record<string, unknown> = { [key]: toId };
-    for (const column of STATS_COUNT_COLUMNS) {
-      values[column] = asNumber(source[column]);
-    }
-    await journaledInsert(manager, channelMergeId, table, values);
-  } else {
-    const destinationId = sqlKey(destination.id);
-    if (destinationId !== null) {
-      const values: Record<string, unknown> = {};
-      for (const column of STATS_COUNT_COLUMNS) {
-        values[column] = asNumber(destination[column]) + asNumber(source[column]);
-      }
-      await journaledUpdate(manager, channelMergeId, table, { id: destinationId }, values);
+  const survivorByDay = new Map<string, Record<string, unknown>>();
+  for (const row of await selectMergeRows(manager, table, { [key]: toId })) {
+    const day = nullableText(row.day);
+    if (day !== null) {
+      survivorByDay.set(day, row);
     }
   }
-  if (sourceId !== null) {
-    await journaledDelete(manager, channelMergeId, table, { id: sourceId });
+  for (const oldRow of oldRows) {
+    const day = nullableText(oldRow.day);
+    if (day === null) {
+      continue;
+    }
+    const old: DailyCopyCounts = {
+      listeners: asNumber(oldRow.listener_count),
+      completions: asNumber(oldRow.completion_count),
+      allTimeListeners: asNumber(oldRow.all_time_listener_count),
+    };
+    const survivorRow = survivorByDay.get(day);
+    if (survivorRow === undefined) {
+      await journaledInsert(manager, channelMergeId, table, {
+        [key]: toId,
+        day,
+        listener_count: old.listeners,
+        completion_count: old.completions,
+        all_time_listener_count: old.allTimeListeners,
+      });
+    } else {
+      const survivor: DailyCopyCounts = {
+        listeners: asNumber(survivorRow.listener_count),
+        completions: asNumber(survivorRow.completion_count),
+        allTimeListeners: asNumber(survivorRow.all_time_listener_count),
+      };
+      const shared = (day >= boundaryDay ? overlap.get(day) : undefined) ?? {
+        listeners: 0,
+        completions: 0,
+      };
+      await journaledUpdate(
+        manager,
+        channelMergeId,
+        table,
+        { [key]: toId, day },
+        mergedDailyCounts(old, survivor, shared)
+      );
+    }
+    await journaledDelete(manager, channelMergeId, table, { [key]: fromId, day });
   }
 }
 
-async function moveTrackEvents(
+/** Journals and deletes the merged-away copy's range row. The survivor's row is not written. */
+async function deleteMergedPopularityRow(
   manager: EntityManager,
   channelMergeId: number,
-  table: 'stats_track_event_channel' | 'stats_track_event_item',
-  key: 'channel_id' | 'item_id',
-  fromId: SqlKey,
-  toId: SqlKey
+  table: 'stats_popularity_channel' | 'stats_popularity_item',
+  key: MergeStatsKey,
+  fromId: SqlKey
 ): Promise<void> {
-  const rows = await selectMergeRows(manager, table, { [key]: fromId });
-  for (const row of rows) {
-    const id = sqlKey(row.id);
-    if (id === null || typeof row.account_guid !== 'string') {
-      continue;
-    }
-    const existing = await selectMergeRows(manager, table, {
-      [key]: toId,
-      account_guid: row.account_guid,
-    });
-    if (existing.length > 0) {
-      await journaledDelete(manager, channelMergeId, table, { id });
-    } else {
-      await journaledUpdate(manager, channelMergeId, table, { id }, { [key]: toId });
-    }
-  }
+  await journaledDelete(manager, channelMergeId, table, { [key]: fromId });
+}
+
+/**
+ * Not journaled: listen events are listener-linked and must stay within retention and opt-out.
+ * `created_at` does not change, so rows stay in their partitions.
+ */
+async function moveListenEvents(
+  manager: EntityManager,
+  fromItemId: SqlKey,
+  toItemId: SqlKey,
+  toChannelId: number
+): Promise<void> {
+  await manager.query(
+    `UPDATE stats_listen_event SET item_id = $1, channel_id = $2 WHERE item_id = $3`,
+    [toItemId, toChannelId, fromItemId]
+  );
+}
+
+/**
+ * Every remaining event of the old channel counts toward the survivor channel; unmatched items
+ * keep their `item_id`. Not journaled, for the reason `moveListenEvents` gives.
+ */
+async function moveChannelListenEvents(
+  manager: EntityManager,
+  fromChannelId: number,
+  toChannelId: number
+): Promise<void> {
+  await manager.query(`UPDATE stats_listen_event SET channel_id = $2 WHERE channel_id = $1`, [
+    fromChannelId,
+    toChannelId,
+  ]);
+}
+
+function elapsedDaysSql(interval: string): string {
+  return `(extract(epoch FROM ${interval})::double precision / 86400.0)`;
+}
+
+/**
+ * Merges the old channel's taste and Hidden From Taste Profile rows into the survivor. Not
+ * journaled (listener-linked rows stay within retention and opt-out). A show hidden on either copy
+ * stays hidden on the survivor and loses both taste rows. Two taste rows for one listener become
+ * one: counts add, listen times widen, and each score fades to the later `scores_updated_at` and
+ * adds.
+ */
+async function mergeTasteRows(
+  manager: EntityManager,
+  fromChannelId: number,
+  toChannelId: number
+): Promise<void> {
+  const ids = [fromChannelId, toChannelId];
+  await lockRows(
+    manager,
+    `SELECT 1 FROM stats_taste_profile
+     WHERE channel_id = $1
+        OR (channel_id = $2 AND listener_id IN (
+              SELECT listener_id FROM stats_taste_profile WHERE channel_id = $1
+              UNION
+              SELECT listener_id FROM stats_taste_profile_hidden WHERE channel_id = $1
+            ))
+     FOR UPDATE`,
+    ids
+  );
+
+  await manager.query(
+    `INSERT INTO stats_taste_profile_hidden (listener_id, channel_id, hidden_at)
+     SELECT listener_id, $2::int, hidden_at FROM stats_taste_profile_hidden WHERE channel_id = $1
+     ON CONFLICT (listener_id, channel_id) DO NOTHING`,
+    ids
+  );
+  await manager.query(`DELETE FROM stats_taste_profile_hidden WHERE channel_id = $1`, [
+    fromChannelId,
+  ]);
+
+  await manager.query(
+    `DELETE FROM stats_taste_profile tp
+     WHERE tp.channel_id IN ($1, $2)
+       AND EXISTS (
+         SELECT 1 FROM stats_taste_profile_hidden h
+         WHERE h.listener_id = tp.listener_id AND h.channel_id = $2
+       )`,
+    ids
+  );
+
+  const latest = 'GREATEST(s.scores_updated_at, f.scores_updated_at)';
+  const fadedSum = (column: 'recent_score' | 'long_term_score', halfLife: string): string =>
+    `s.${column} * power(0.5, ${elapsedDaysSql(`${latest} - s.scores_updated_at`)} / ${halfLife})
+       + f.${column} * power(0.5, ${elapsedDaysSql(`${latest} - f.scores_updated_at`)} / ${halfLife})`;
+  await manager.query(
+    `UPDATE stats_taste_profile s SET
+       listen_count = s.listen_count + f.listen_count,
+       completion_count = s.completion_count + f.completion_count,
+       first_listened_at = LEAST(s.first_listened_at, f.first_listened_at),
+       last_listened_at = GREATEST(s.last_listened_at, f.last_listened_at),
+       recent_score = ${fadedSum('recent_score', '$3::double precision')},
+       long_term_score = ${fadedSum('long_term_score', '$4::double precision')},
+       scores_updated_at = ${latest}
+     FROM stats_taste_profile f
+     WHERE s.channel_id = $2 AND f.channel_id = $1 AND f.listener_id = s.listener_id`,
+    [
+      fromChannelId,
+      toChannelId,
+      POPULARITY_TASTE_HALF_LIFE_DAYS.recent,
+      POPULARITY_TASTE_HALF_LIFE_DAYS.longTerm,
+    ]
+  );
+  await manager.query(
+    `DELETE FROM stats_taste_profile f
+     WHERE f.channel_id = $1
+       AND EXISTS (
+         SELECT 1 FROM stats_taste_profile s
+         WHERE s.channel_id = $2 AND s.listener_id = f.listener_id
+       )`,
+    ids
+  );
+  await manager.query(`UPDATE stats_taste_profile SET channel_id = $2 WHERE channel_id = $1`, ids);
 }
 
 async function listenerKeepsItem(manager: EntityManager, itemId: SqlKey): Promise<boolean> {
@@ -820,56 +1126,118 @@ async function listenerKeepsItem(manager: EntityManager, itemId: SqlKey): Promis
   return playlists.length > 0;
 }
 
+/**
+ * Popularity data moves under row locks rather than per-listener locks; one merge can cover more
+ * listeners than one transaction should hold advisory locks for. The channel's same-day overlap
+ * is read before any event moves, because moving an item's events rewrites their `channel_id`.
+ * Each item pair reads its overlap after the earlier pairs' events moved, so several old items
+ * matched to one survivor item are each counted against everything merged before them. After the
+ * matched pairs, every remaining old-channel event moves to the survivor channel, so the
+ * survivor's day, week, and month counts include the old copy's listeners.
+ */
 async function applyAbsorb(
   manager: EntityManager,
   merge: ChannelMerge,
   from: StoredChannel,
-  to: StoredChannel
+  to: StoredChannel,
+  statsTrackEventRetentionDays: number
 ): Promise<void> {
   await moveFollows(manager, merge.id, from.channelId, to.channelId);
   await moveNotificationChannels(manager, merge.id, from.channelId, to.channelId);
   await moveAutoDownload(manager, merge.id, from.channelId, to.channelId);
   await movePendingFollows(manager, merge.id, from, to);
+  await removeVerifiedPublisherLinks(manager, merge.id, from.channelId);
 
   const maps = await manager.getRepository(ItemMergeMap).find({
     where: { channel_merge_id: merge.id },
     order: { id: 'ASC' },
   });
-  let uncertainClipCount = 0;
+  const matched: { fromItemId: number; toItemId: number; fuzzy: boolean }[] = [];
   for (const map of maps) {
-    if (map.to_item_id === null) {
-      continue;
+    if (map.to_item_id !== null) {
+      matched.push({
+        fromItemId: map.from_item_id,
+        toItemId: map.to_item_id,
+        fuzzy: isFuzzyTier(map.match_tier),
+      });
     }
-    const fuzzy = isFuzzyTier(map.match_tier);
-    await moveQueueRows(manager, merge.id, map.from_item_id, map.to_item_id, fuzzy);
+  }
+
+  await lockMergeStatsRows(
+    manager,
+    from.channelId,
+    [from.channelId, to.channelId],
+    matched.map((pair) => pair.fromItemId),
+    matched.map((pair) => pair.toItemId)
+  );
+  const boundaryDay = await retentionBoundaryDay(manager, statsTrackEventRetentionDays);
+
+  const channelOverlap = await readSameDayOverlap(
+    manager,
+    'channel_id',
+    from.channelId,
+    to.channelId,
+    boundaryDay
+  );
+  await moveDailyTotals(
+    manager,
+    merge.id,
+    'stats_daily_channel',
+    'channel_id',
+    from.channelId,
+    to.channelId,
+    channelOverlap,
+    boundaryDay
+  );
+  await deleteMergedPopularityRow(
+    manager,
+    merge.id,
+    'stats_popularity_channel',
+    'channel_id',
+    from.channelId
+  );
+
+  let uncertainClipCount = 0;
+  for (const pair of matched) {
+    await moveQueueRows(manager, merge.id, pair.fromItemId, pair.toItemId, pair.fuzzy);
     const clipCount = await moveItemColumn(
       manager,
       merge.id,
       'clip',
-      map.from_item_id,
-      map.to_item_id
+      pair.fromItemId,
+      pair.toItemId
     );
-    if (fuzzy) {
+    if (pair.fuzzy) {
       uncertainClipCount += clipCount;
     }
-    await moveItemColumn(manager, merge.id, 'playlist_resource', map.from_item_id, map.to_item_id);
-    await addStats(
+    await moveItemColumn(manager, merge.id, 'playlist_resource', pair.fromItemId, pair.toItemId);
+    const itemOverlap = await readSameDayOverlap(
+      manager,
+      'item_id',
+      pair.fromItemId,
+      pair.toItemId,
+      boundaryDay
+    );
+    await moveDailyTotals(
       manager,
       merge.id,
-      'stats_aggregated_item',
+      'stats_daily_item',
       'item_id',
-      map.from_item_id,
-      map.to_item_id
+      pair.fromItemId,
+      pair.toItemId,
+      itemOverlap,
+      boundaryDay
     );
-    await moveTrackEvents(
+    await deleteMergedPopularityRow(
       manager,
       merge.id,
-      'stats_track_event_item',
+      'stats_popularity_item',
       'item_id',
-      map.from_item_id,
-      map.to_item_id
+      pair.fromItemId
     );
+    await moveListenEvents(manager, pair.fromItemId, pair.toItemId, to.channelId);
   }
+  await moveChannelListenEvents(manager, from.channelId, to.channelId);
 
   let unmatchedKept = 0;
   for (const map of maps) {
@@ -891,22 +1259,7 @@ async function applyAbsorb(
     );
   }
 
-  await addStats(
-    manager,
-    merge.id,
-    'stats_aggregated_channel',
-    'channel_id',
-    from.channelId,
-    to.channelId
-  );
-  await moveTrackEvents(
-    manager,
-    merge.id,
-    'stats_track_event_channel',
-    'channel_id',
-    from.channelId,
-    to.channelId
-  );
+  await mergeTasteRows(manager, from.channelId, to.channelId);
 
   await new FeedService().setFeedLifecycleState(
     from.feedId,
@@ -1002,7 +1355,8 @@ async function appliedAtMs(manager: EntityManager, channelMergeId: number): Prom
 
 async function applyMerge(
   manager: EntityManager,
-  channelMergeId: number
+  channelMergeId: number,
+  statsTrackEventRetentionDays: number
 ): Promise<RepointParseRequest | null> {
   const merge = await lockMerge(manager, channelMergeId);
   if (merge === null || merge.status !== ChannelMergeStatus.Verified) {
@@ -1021,7 +1375,7 @@ async function applyMerge(
     if (to === null || to.channelId === from.channelId) {
       return null;
     }
-    await applyAbsorb(manager, merge, from, to);
+    await applyAbsorb(manager, merge, from, to, statsTrackEventRetentionDays);
   } else {
     return null;
   }
@@ -1045,6 +1399,10 @@ function warnMerge(channelMergeId: number, error: unknown): void {
 export async function verifyAndApplyDuplicateMerges(
   options: VerifyAndApplyDuplicateMergesOptions
 ): Promise<void> {
+  const { statsTrackEventRetentionDays } = options;
+  if (!Number.isInteger(statsTrackEventRetentionDays) || statsTrackEventRetentionDays < 1) {
+    throw new Error('statsTrackEventRetentionDays must be a positive integer');
+  }
   const repo = AppDataSourceReadWrite.getRepository(ChannelMerge);
   const detected = await repo.find({
     where: { status: ChannelMergeStatus.Detected },
@@ -1071,8 +1429,21 @@ export async function verifyAndApplyDuplicateMerges(
   for (const row of verified) {
     try {
       const request = await AppDataSourceReadWrite.transaction((manager) =>
-        applyMerge(manager, row.id)
+        applyMerge(manager, row.id, statsTrackEventRetentionDays)
       );
+      const applied = await repo.findOne({ where: { id: row.id } });
+      if (
+        applied !== null &&
+        applied.status === ChannelMergeStatus.Applied &&
+        applied.mode === ChannelMergeMode.Absorb &&
+        applied.to_channel_id !== null
+      ) {
+        try {
+          await new ChannelVerifiedPublisherService().recomputeForChannel(applied.to_channel_id);
+        } catch (error) {
+          warnMerge(row.id, error);
+        }
+      }
       if (request !== null) {
         try {
           await options.enqueueRepointParse(request);

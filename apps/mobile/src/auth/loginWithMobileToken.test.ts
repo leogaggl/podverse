@@ -4,9 +4,14 @@ import { ERROR_MESSAGES } from '@podverse/helpers/error';
 
 const reqAuthMobileToken = vi.fn();
 const createMobileApiRequestService = vi.fn();
+const readMobileSessionDeviceLabel = vi.fn<() => string | null>();
 
 vi.mock('./mobileApi', () => ({
   createMobileApiRequestService: () => createMobileApiRequestService(),
+}));
+
+vi.mock('./mobileSessionDeviceLabel.read', () => ({
+  readMobileSessionDeviceLabel: () => readMobileSessionDeviceLabel(),
 }));
 
 import { loginWithMobileToken } from './loginWithMobileToken';
@@ -30,6 +35,8 @@ describe('loginWithMobileToken', () => {
     setTokens.mockReset();
     createMobileApiRequestService.mockReset();
     createMobileApiRequestService.mockReturnValue({ reqAuthMobileToken });
+    readMobileSessionDeviceLabel.mockReset();
+    readMobileSessionDeviceLabel.mockReturnValue('iPhone · iOS');
   });
 
   it('maps a 401 to invalid_credentials', async () => {
@@ -57,6 +64,42 @@ describe('loginWithMobileToken', () => {
     await expect(
       loginWithMobileToken({ email: 'person@example.com', password: 'correct', setTokens })
     ).rejects.toBe(error);
+  });
+
+  it('sends the device label when this device has one', async () => {
+    reqAuthMobileToken.mockResolvedValue({
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
+    });
+
+    await expect(
+      loginWithMobileToken({ email: 'person@example.com', password: 'correct', setTokens })
+    ).resolves.toEqual({
+      accessToken: 'access-token',
+      ok: true,
+      refreshToken: 'refresh-token',
+    });
+    expect(reqAuthMobileToken).toHaveBeenCalledWith({
+      device_label: 'iPhone · iOS',
+      email: 'person@example.com',
+      password: 'correct',
+    });
+  });
+
+  it('omits device_label when this device has no label', async () => {
+    readMobileSessionDeviceLabel.mockReturnValue(null);
+    reqAuthMobileToken.mockResolvedValue({
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
+    });
+
+    await loginWithMobileToken({ email: 'person@example.com', password: 'correct', setTokens });
+
+    expect(reqAuthMobileToken).toHaveBeenCalledWith({
+      device_label: undefined,
+      email: 'person@example.com',
+      password: 'correct',
+    });
   });
 
   it('rethrows a 429 so the screen can show the rate-limit message', async () => {

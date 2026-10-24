@@ -24,6 +24,7 @@ import {
 import { ManagementLoadingSpinnerOverlay } from '../../../../components/LoadingSpinner/ManagementLoadingSpinnerOverlay';
 import {
   deleteUser,
+  forceLogoutUser,
   generateInviteLink,
   getInviteLink,
   getUser,
@@ -50,6 +51,9 @@ export function UserDetailPageClient({ userId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [forceLogoutConfirmOpen, setForceLogoutConfirmOpen] = useState(false);
+  const [forceLogoutLoading, setForceLogoutLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const userLinkSection =
     user !== null
@@ -105,6 +109,22 @@ export function UserDetailPageClient({ userId }: Props) {
     }
   };
 
+  const handleForceLogout = async () => {
+    setForceLogoutLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await forceLogoutUser(userId);
+      setSuccess(t('forceLogoutSuccess'));
+      setForceLogoutConfirmOpen(false);
+    } catch {
+      setError(t('failedToForceLogout'));
+      setForceLogoutConfirmOpen(false);
+    } finally {
+      setForceLogoutLoading(false);
+    }
+  };
+
   const handleGenerateLink = async () => {
     try {
       const result = await generateInviteLink(userId);
@@ -145,6 +165,7 @@ export function UserDetailPageClient({ userId }: Props) {
           }
           title={t('userDetail')}
         >
+          {success !== null ? <Alert variant="success">{success}</Alert> : null}
           <DescriptionList variant="rows">
             <DescriptionListRow detail={user.id_text} term="ID" />
             <DescriptionListRow detail={user.email ?? '-'} term={t('tableHeaders.email')} />
@@ -170,6 +191,15 @@ export function UserDetailPageClient({ userId }: Props) {
             <ActionLink href={buildUserBillingPath(userId)} LinkComponent={Link}>
               {t('billingLink')}
             </ActionLink>
+            <Button
+              onClick={() => {
+                setForceLogoutConfirmOpen(true);
+              }}
+              type="button"
+              variant="danger"
+            >
+              {t('forceLogout')}
+            </Button>
             <Button
               onClick={() => {
                 setDeleteConfirmOpen(true);
@@ -253,6 +283,40 @@ export function UserDetailPageClient({ userId }: Props) {
               <Button
                 isLoading={deleteLoading}
                 onClick={() => void handleDelete()}
+                type="button"
+                variant="primary"
+              >
+                {tc('confirm')}
+              </Button>
+            </ModalActions>
+          </Modal>
+
+          <Modal
+            ariaLabel={t('forceLogoutConfirmAria')}
+            closeButtonAriaLabel={tc('closeModalAria')}
+            isOpen={forceLogoutConfirmOpen}
+            onClose={() => {
+              if (forceLogoutLoading) {
+                return;
+              }
+              setForceLogoutConfirmOpen(false);
+            }}
+          >
+            <p>{t('confirmForceLogout')}</p>
+            <ModalActions>
+              <Button
+                disabled={forceLogoutLoading}
+                onClick={() => {
+                  setForceLogoutConfirmOpen(false);
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {tc('cancel')}
+              </Button>
+              <Button
+                isLoading={forceLogoutLoading}
+                onClick={() => void handleForceLogout()}
                 type="button"
                 variant="primary"
               >

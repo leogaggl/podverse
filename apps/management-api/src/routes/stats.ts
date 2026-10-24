@@ -1,91 +1,176 @@
+// These routes read popularity range totals and the daily listener series, and list and clear
+// flagged listeners. The window lengths live in `@podverse/helpers`. The storage rules are in
+// docs/features/POPULARITY-AND-TASTE-PROFILE.md.
+
 import { config } from '@management-api/config/index.js';
 import { ensureAuthenticated } from '@management-api/lib/auth/index.js';
 import { requireCrud } from '@management-api/lib/authz/requireCrud.js';
 import { getParamRequired } from '@management-api/lib/params.js';
+import {
+  buildDailyListenerSeries,
+  readDailyListenerQueryRow,
+  readPopularityCountRow,
+  readPopularityListRow,
+  readQueryTotal,
+  utcDateDaysBefore,
+  utcTodayDateString,
+} from '@management-api/lib/stats/dailyListenerSeries.js';
 import { AppDbDataSourceRead } from '@management-api/orm/db/appDb.js';
 import express from 'express';
 import Joi from 'joi';
 
+import type { StatsPopularityCountField, StatsPopularityRange } from '@podverse/helpers';
+import {
+  STATS_POPULARITY_COUNT_FIELDS,
+  STATS_POPULARITY_RANGE_LOOKBACK_DAYS,
+} from '@podverse/helpers';
+
+import { registerStatsFlaggedListenerRoutes } from './statsFlaggedListeners.js';
+
 const router = express.Router();
+
+registerStatsFlaggedListenerRoutes(router);
 
 const VALID_ENTITY_TYPES = ['channel', 'item', 'clip', 'playlist', 'account'] as const;
 type EntityType = (typeof VALID_ENTITY_TYPES)[number];
 
-const STATS_RANGE_COLUMNS: Record<string, string> = {
-  day: 'day_current_count',
-  '7day':
-    'day_current_count + day_1_count + day_2_count + day_3_count + day_4_count + day_5_count + day_6_count',
-  '30day': 'month_current_count',
-  '1year': 'month_current_count + COALESCE(month_1_count, 0)',
-  'all-time': 'all_time_count',
-};
-
-const ENTITY_CONFIG: Record<
-  EntityType,
-  { fkColumn: string; titleColumn: string; titleTable: string; titleJoin: string }
-> = {
+const ENTITY_CONFIG = {
   channel: {
     fkColumn: 'channel_id',
-    titleColumn: 'c.title',
-    titleTable: 'channel c ON c.id = sa.channel_id',
-    titleJoin: 'channel',
+    titleExpression: 'c.title',
+    titleJoin: 'LEFT JOIN channel c ON c.id = sa.channel_id',
   },
   item: {
     fkColumn: 'item_id',
-    titleColumn: 'i.title',
-    titleTable: 'item i ON i.id = sa.item_id',
-    titleJoin: 'item',
+    titleExpression: 'i.title',
+    titleJoin: 'LEFT JOIN item i ON i.id = sa.item_id',
   },
   clip: {
     fkColumn: 'clip_id',
-    titleColumn: 'cl.title',
-    titleTable: 'clip cl ON cl.id = sa.clip_id',
-    titleJoin: 'clip',
+    titleExpression: 'cl.title',
+    titleJoin: 'LEFT JOIN clip cl ON cl.id = sa.clip_id',
   },
   playlist: {
     fkColumn: 'playlist_id',
-    titleColumn: 'p.title',
-    titleTable: 'playlist p ON p.id = sa.playlist_id',
-    titleJoin: 'playlist',
+    titleExpression: 'p.title',
+    titleJoin: 'LEFT JOIN playlist p ON p.id = sa.playlist_id',
   },
   account: {
-    fkColumn: 'tracked_account_id',
-    titleColumn: 'ap.display_name',
-    titleTable:
-      'account a ON a.id = sa.tracked_account_id LEFT JOIN account_profile ap ON ap.account_id = a.id',
-    titleJoin: 'account',
+    fkColumn: 'account_id',
+    titleExpression: 'ap.display_name',
+    titleJoin: 'LEFT JOIN account_profile ap ON ap.account_id = sa.account_id',
   },
-};
+} as const satisfies Record<
+  EntityType,
+  { fkColumn: string; titleExpression: string; titleJoin: string }
+>;
 
 const topQuerySchema = Joi.object({
-  range: Joi.string().valid('day', '7day', '30day', '1year', 'all-time').default('all-time'),
+  range: Joi.string().valid('day', 'week', 'month', 'all-time').default('all-time'),
   limit: Joi.number().integer().min(1).max(100).default(25),
   page: Joi.number().integer().min(1).default(1),
 });
 
 const searchQuerySchema = Joi.object({
   q: Joi.string().min(1).max(200).required(),
-  range: Joi.string().valid('day', '7day', '30day', '1year', 'all-time').default('all-time'),
+  range: Joi.string().valid('day', 'week', 'month', 'all-time').default('all-time'),
   limit: Joi.number().integer().min(1).max(100).default(25),
   page: Joi.number().integer().min(1).default(1),
 });
 
-function validateEntityType(entityType: string): EntityType | null {
-  if (VALID_ENTITY_TYPES.includes(entityType as EntityType)) {
-    return entityType as EntityType;
+type StatsListQuery = {
+  range: StatsPopularityRange;
+  limit: number;
+  page: number;
+};
+
+function isEntityType(value: string): value is EntityType {
+  for (const entityType of VALID_ENTITY_TYPES) {
+    if (entityType === value) {
+      return true;
+    }
   }
-  return null;
+  return false;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPopularityRange(value: unknown): value is StatsPopularityRange {
+  return value === 'day' || value === 'week' || value === 'month' || value === 'all-time';
+}
+
+function readStatsListQuery(value: unknown): StatsListQuery {
+  if (!isRecord(value) || !isPopularityRange(value.range)) {
+    throw new Error('Expected a stats list query');
+  }
+  const { limit, page } = value;
+  if (
+    typeof limit !== 'number' ||
+    typeof page !== 'number' ||
+    !Number.isInteger(limit) ||
+    !Number.isInteger(page) ||
+    limit < 1 ||
+    limit > 100 ||
+    page < 1
+  ) {
+    throw new Error('Expected a stats list query');
+  }
+  return { range: value.range, limit, page };
+}
+
+function readStatsSearchQuery(value: unknown): StatsListQuery & { q: string } {
+  const listQuery = readStatsListQuery(value);
+  if (!isRecord(value) || typeof value.q !== 'string') {
+    throw new Error('Expected a stats search query');
+  }
+  return { ...listQuery, q: value.q };
+}
+
+function readQueryRows(result: unknown): unknown[] {
+  if (!Array.isArray(result)) {
+    throw new Error('Expected query rows');
+  }
+  return result;
+}
+
+function readTotal(result: unknown): number {
+  const first = readQueryRows(result)[0];
+  if (first === undefined) {
+    throw new Error('Expected a count row');
+  }
+  return readQueryTotal(first);
+}
+
+function countColumn(range: StatsPopularityRange): StatsPopularityCountField {
+  return STATS_POPULARITY_COUNT_FIELDS[range];
+}
+
+function popularityCountSelect(entityType: EntityType): string {
+  const entity = ENTITY_CONFIG[entityType];
+  return `sa.${entity.fkColumn}::int AS id,
+    ${entity.titleExpression} AS title,
+    sa.day_count::int AS day_count,
+    sa.week_count::int AS week_count,
+    sa.month_count::int AS month_count,
+    sa.all_time_count::int AS all_time_count`;
+}
+
+function listOrderBy(entityType: EntityType, range: StatsPopularityRange): string {
+  const entity = ENTITY_CONFIG[entityType];
+  const countField = countColumn(range);
+  return `ORDER BY sa.${countField} DESC, sa.${entity.fkColumn} ASC`;
 }
 
 router.get(
   '/:entityType/top',
   ensureAuthenticated,
   requireCrud('stats', 'read'),
-  async (req, res) => {
+  async (req, res): Promise<void> => {
     try {
       const entityTypeParam = getParamRequired(req, 'entityType');
-      const entityType = validateEntityType(entityTypeParam);
-      if (!entityType) {
+      if (!isEntityType(entityTypeParam)) {
         res.status(400).json({
           message: `Invalid entity type. Must be one of: ${VALID_ENTITY_TYPES.join(', ')}`,
         });
@@ -98,46 +183,29 @@ router.get(
         return;
       }
 
-      const ec = ENTITY_CONFIG[entityType];
-      const sortColumn = STATS_RANGE_COLUMNS[value.range];
-      const offset = (value.page - 1) * value.limit;
+      const query = readStatsListQuery(value);
+      const entity = ENTITY_CONFIG[entityTypeParam];
+      const countField = countColumn(query.range);
+      const offset = (query.page - 1) * query.limit;
 
-      const countResult = await AppDbDataSourceRead.query(
-        `SELECT COUNT(*)::int AS total FROM stats_aggregated_${entityType} sa`
+      const countResult: unknown = await AppDbDataSourceRead.query(
+        `SELECT COUNT(*)::int AS total FROM stats_popularity_${entityTypeParam} sa`
       );
-      const total = countResult[0]?.total ?? 0;
+      const total = readTotal(countResult);
 
-      const rows = await AppDbDataSourceRead.query(
+      const rowResult: unknown = await AppDbDataSourceRead.query(
         `SELECT
-          sa.id,
-          sa.${ec.fkColumn},
-          ${ec.titleColumn} AS title,
-          sa.day_current_count,
-          sa.day_1_count,
-          sa.day_2_count,
-          sa.day_3_count,
-          sa.day_4_count,
-          sa.day_5_count,
-          sa.day_6_count,
-          sa.day_7_count,
-          sa.day_8_count,
-          sa.week_current_count,
-          sa.week_1_count,
-          sa.week_2_count,
-          sa.week_3_count,
-          sa.week_4_count,
-          sa.month_current_count,
-          sa.month_1_count,
-          sa.all_time_count,
-          (${sortColumn}) AS range_count
-        FROM stats_aggregated_${entityType} sa
-        LEFT JOIN ${ec.titleTable}
-        ORDER BY range_count DESC NULLS LAST
+          ${popularityCountSelect(entityTypeParam)},
+          sa.${countField}::int AS range_count
+        FROM stats_popularity_${entityTypeParam} sa
+        ${entity.titleJoin}
+        ${listOrderBy(entityTypeParam, query.range)}
         LIMIT $1 OFFSET $2`,
-        [value.limit, offset]
+        [query.limit, offset]
       );
+      const rows = readQueryRows(rowResult).map(readPopularityListRow);
 
-      res.json({ rows, total, page: value.page, pageSize: value.limit });
+      res.json({ rows, total, page: query.page, pageSize: query.limit });
     } catch (err) {
       console.error('[stats/:entityType/top]', err);
       res.status(500).json({ message: 'Internal server error' });
@@ -149,11 +217,10 @@ router.get(
   '/:entityType/search',
   ensureAuthenticated,
   requireCrud('stats', 'read'),
-  async (req, res) => {
+  async (req, res): Promise<void> => {
     try {
       const entityTypeParam = getParamRequired(req, 'entityType');
-      const entityType = validateEntityType(entityTypeParam);
-      if (!entityType) {
+      if (!isEntityType(entityTypeParam)) {
         res.status(400).json({
           message: `Invalid entity type. Must be one of: ${VALID_ENTITY_TYPES.join(', ')}`,
         });
@@ -166,53 +233,35 @@ router.get(
         return;
       }
 
-      const ec = ENTITY_CONFIG[entityType];
-      const sortColumn = STATS_RANGE_COLUMNS[value.range];
-      const offset = (value.page - 1) * value.limit;
+      const query = readStatsSearchQuery(value);
+      const entity = ENTITY_CONFIG[entityTypeParam];
+      const countField = countColumn(query.range);
+      const offset = (query.page - 1) * query.limit;
+      const searchPattern = `%${query.q}%`;
 
-      const searchPattern = `%${value.q}%`;
-
-      const rows = await AppDbDataSourceRead.query(
+      const rowResult: unknown = await AppDbDataSourceRead.query(
         `SELECT
-          sa.id,
-          sa.${ec.fkColumn},
-          ${ec.titleColumn} AS title,
-          sa.day_current_count,
-          sa.day_1_count,
-          sa.day_2_count,
-          sa.day_3_count,
-          sa.day_4_count,
-          sa.day_5_count,
-          sa.day_6_count,
-          sa.day_7_count,
-          sa.day_8_count,
-          sa.week_current_count,
-          sa.week_1_count,
-          sa.week_2_count,
-          sa.week_3_count,
-          sa.week_4_count,
-          sa.month_current_count,
-          sa.month_1_count,
-          sa.all_time_count,
-          (${sortColumn}) AS range_count
-        FROM stats_aggregated_${entityType} sa
-        LEFT JOIN ${ec.titleTable}
-        WHERE ${ec.titleColumn} ILIKE $1
-        ORDER BY range_count DESC NULLS LAST
+          ${popularityCountSelect(entityTypeParam)},
+          sa.${countField}::int AS range_count
+        FROM stats_popularity_${entityTypeParam} sa
+        ${entity.titleJoin}
+        WHERE ${entity.titleExpression} ILIKE $1
+        ${listOrderBy(entityTypeParam, query.range)}
         LIMIT $2 OFFSET $3`,
-        [searchPattern, value.limit, offset]
+        [searchPattern, query.limit, offset]
       );
+      const rows = readQueryRows(rowResult).map(readPopularityListRow);
 
-      const countResult = await AppDbDataSourceRead.query(
+      const countResult: unknown = await AppDbDataSourceRead.query(
         `SELECT COUNT(*)::int AS total
-        FROM stats_aggregated_${entityType} sa
-        LEFT JOIN ${ec.titleTable}
-        WHERE ${ec.titleColumn} ILIKE $1`,
+        FROM stats_popularity_${entityTypeParam} sa
+        ${entity.titleJoin}
+        WHERE ${entity.titleExpression} ILIKE $1`,
         [searchPattern]
       );
-      const total = countResult[0]?.total ?? 0;
+      const total = readTotal(countResult);
 
-      res.json({ rows, total, page: value.page, pageSize: value.limit });
+      res.json({ rows, total, page: query.page, pageSize: query.limit });
     } catch (err) {
       console.error('[stats/:entityType/search]', err);
       res.status(500).json({ message: 'Internal server error' });
@@ -224,11 +273,10 @@ router.get(
   '/:entityType/:id',
   ensureAuthenticated,
   requireCrud('stats', 'read'),
-  async (req, res) => {
+  async (req, res): Promise<void> => {
     try {
       const entityTypeParam = getParamRequired(req, 'entityType');
-      const entityType = validateEntityType(entityTypeParam);
-      if (!entityType) {
+      if (!isEntityType(entityTypeParam)) {
         res.status(400).json({
           message: `Invalid entity type. Must be one of: ${VALID_ENTITY_TYPES.join(', ')}`,
         });
@@ -242,43 +290,49 @@ router.get(
         return;
       }
 
-      const ec = ENTITY_CONFIG[entityType];
-
-      const rows = await AppDbDataSourceRead.query(
+      const entity = ENTITY_CONFIG[entityTypeParam];
+      const rowResult: unknown = await AppDbDataSourceRead.query(
         `SELECT
-          sa.id,
-          sa.${ec.fkColumn},
-          ${ec.titleColumn} AS title,
-          sa.day_current_count,
-          sa.day_1_count,
-          sa.day_2_count,
-          sa.day_3_count,
-          sa.day_4_count,
-          sa.day_5_count,
-          sa.day_6_count,
-          sa.day_7_count,
-          sa.day_8_count,
-          sa.week_current_count,
-          sa.week_1_count,
-          sa.week_2_count,
-          sa.week_3_count,
-          sa.week_4_count,
-          sa.month_current_count,
-          sa.month_1_count,
-          sa.all_time_count
-        FROM stats_aggregated_${entityType} sa
-        LEFT JOIN ${ec.titleTable}
-        WHERE sa.id = $1
+          ${popularityCountSelect(entityTypeParam)}
+        FROM stats_popularity_${entityTypeParam} sa
+        ${entity.titleJoin}
+        WHERE sa.${entity.fkColumn} = $1
         LIMIT 1`,
         [id]
       );
-
-      if (rows.length === 0) {
+      const popularityRows = readQueryRows(rowResult);
+      const popularityRow = popularityRows[0];
+      if (popularityRow === undefined) {
         res.status(404).json({ message: 'Stats record not found' });
         return;
       }
 
-      res.json(rows[0]);
+      const counts = readPopularityCountRow(popularityRow);
+      const todayUtc = utcTodayDateString();
+      const lookbackDays = STATS_POPULARITY_RANGE_LOOKBACK_DAYS.month;
+      const windowStart = utcDateDaysBefore(todayUtc, lookbackDays);
+      const dailyResult: unknown = await AppDbDataSourceRead.query(
+        `SELECT day::text AS day, listener_count::int AS listener_count
+        FROM stats_daily_${entityTypeParam}
+        WHERE ${entity.fkColumn} = $1 AND day >= $2::date
+        ORDER BY day ASC`,
+        [id, windowStart]
+      );
+      const daily = buildDailyListenerSeries(
+        readQueryRows(dailyResult).map(readDailyListenerQueryRow),
+        todayUtc,
+        lookbackDays
+      );
+
+      res.json({
+        id: counts.id,
+        title: counts.title,
+        day_count: counts.day_count,
+        week_count: counts.week_count,
+        month_count: counts.month_count,
+        all_time_count: counts.all_time_count,
+        daily,
+      });
     } catch (err) {
       console.error('[stats/:entityType/:id]', err);
       res.status(500).json({ message: 'Internal server error' });

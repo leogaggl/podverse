@@ -188,7 +188,10 @@ export class LiveItemController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }

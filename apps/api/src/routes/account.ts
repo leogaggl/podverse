@@ -8,6 +8,7 @@ import {
 } from '@api/controllers/account/accountChannelSeen.js';
 import { AccountContentLogController } from '@api/controllers/account/accountContentLog.js';
 import { AccountDeviceAutoDownloadController } from '@api/controllers/account/accountDeviceAutoDownload.js';
+import { AccountEventStreamController } from '@api/controllers/account/accountEventStream.js';
 import { AccountFCMDeviceController } from '@api/controllers/account/accountFCMDevice.js';
 import { AccountFollowingAccountController } from '@api/controllers/account/accountFollowingAccount.js';
 import { AccountFollowingAddByRSSChannelController } from '@api/controllers/account/accountFollowingAddByRSSChannel.js';
@@ -18,6 +19,8 @@ import { AccountNotificationChannelController } from '@api/controllers/account/a
 import { AccountNotificationChannelTypeController } from '@api/controllers/account/accountNotificationChannelType.js';
 import { AccountOpmlExportController } from '@api/controllers/account/accountOpmlExport.js';
 import { AccountOpmlImportController } from '@api/controllers/account/accountOpmlImport.js';
+import { AccountTasteProfileController } from '@api/controllers/account/accountTasteProfile.js';
+import { AccountUnfollowBulkController } from '@api/controllers/account/accountUnfollowBulk.js';
 import { AccountUPDeviceController } from '@api/controllers/account/accountUPDevice.js';
 import { AccountWebPushDeviceController } from '@api/controllers/account/accountWebPushDevice.js';
 import { rateLimitAuthEndpoint, rateLimitEndpoint } from '@api/lib/rateLimiter.js';
@@ -38,6 +41,13 @@ const requireEmailFlows = (_req: Request, res: Response, next: NextFunction): vo
   }
   next();
 };
+
+export const accountChangePasswordRateLimit = rateLimitAuthEndpoint({
+  ...config.rateLimits.accountChangePassword,
+  skipTermsAcceptance: true,
+});
+
+export const accountSetPasswordRateLimit = rateLimitEndpoint(config.rateLimits.accountSetPassword);
 
 const router = Router();
 
@@ -81,6 +91,11 @@ router.post(
   asyncHandler(AccountController.verifyEmailChange)
 );
 router.post(
+  '/change-password',
+  accountChangePasswordRateLimit,
+  asyncHandler(AccountController.changePassword)
+);
+router.post(
   '/send-reset-password-email',
   requireEmailFlows,
   rateLimitEndpoint(config.rateLimits.accountSendResetPasswordEmail),
@@ -94,7 +109,7 @@ router.post(
 );
 router.post(
   '/set-password',
-  rateLimitEndpoint(config.rateLimits.accountSetPassword),
+  accountSetPasswordRateLimit,
   asyncHandler(AccountController.setPassword)
 );
 router.delete('/delete', asyncHandler(AccountController.delete));
@@ -111,6 +126,7 @@ router.get(
   rateLimitAuthEndpoint({
     ...config.rateLimits.accountOpmlExport,
     skipTermsAcceptance: true,
+    apiKeyAccess: { resource: 'subscriptions', action: 'read' },
   }),
   asyncHandler(AccountOpmlExportController.exportOpml)
 );
@@ -192,6 +208,7 @@ router.post(
   asyncHandler(AccountFollowingChannelController.followChannelsBulk)
 );
 router.post('/unfollow/channel', asyncHandler(AccountFollowingChannelController.unfollowChannel));
+router.post('/unfollow/bulk', asyncHandler(AccountUnfollowBulkController.unfollowBulk));
 
 router.get(
   '/channel-seen',
@@ -225,12 +242,25 @@ router.get(
   asyncHandler(AccountNotificationChannelController.getAllByAccount)
 );
 router.get('/content-log', asyncHandler(AccountContentLogController.list));
+router.get('/taste-profile', asyncHandler(AccountTasteProfileController.list));
+router.get('/taste-profile/hidden', asyncHandler(AccountTasteProfileController.listHidden));
+router.post('/taste-profile/hide', asyncHandler(AccountTasteProfileController.hide));
+router.post('/taste-profile/unhide', asyncHandler(AccountTasteProfileController.unhide));
 router.get('/notifications', asyncHandler(AccountNotificationController.getNotifications));
 router.get(
   '/notifications/unread-count',
   asyncHandler(AccountNotificationController.getUnreadCount)
 );
+router.get('/events', asyncHandler(AccountEventStreamController.stream));
 router.post('/notifications/mark-read', asyncHandler(AccountNotificationController.markRead));
+router.post(
+  '/notifications/mark-read-by-item',
+  asyncHandler(AccountNotificationController.markReadByItem)
+);
+router.post(
+  '/notifications/:notification_id/mark-read',
+  asyncHandler(AccountNotificationController.markReadOne)
+);
 router.get('/notification-preferences', asyncHandler(AccountNotificationController.getPreferences));
 router.put(
   '/notification-preferences',

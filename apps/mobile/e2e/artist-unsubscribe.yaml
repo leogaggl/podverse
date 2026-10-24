@@ -1,0 +1,85 @@
+appId: com.podverse.app.next
+name: Artist Unsubscribe Flow
+---
+# Follows the seeded artist and its verified album, checks the unsubscribe dialog, and ends
+# with neither followed.
+# Subscribe only when that label is showing, so a rerun that already follows still reaches the dialog.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+- openLink: podverse-next://album/e2eMusicAlbm01
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: album-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- runFlow:
+    when:
+      visible: "Subscribe"
+    commands:
+      - tapOn:
+          id: album-detail-subscribe-toggle
+# "Unsubscribe" is the whole button label, so it does not match the dialog title.
+- extendedWaitUntil:
+    visible: "Unsubscribe"
+    timeout: ${TIMEOUT_SLOW}
+
+- openLink: podverse-next://artist/e2eMusicChnl01
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: artist-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- extendedWaitUntil:
+    visible:
+      id: artist-album-row-0
+    timeout: ${TIMEOUT_SLOW}
+- runFlow:
+    when:
+      visible: "Subscribe"
+    commands:
+      - tapOn:
+          id: artist-detail-subscribe-toggle
+- extendedWaitUntil:
+    visible: "Unsubscribe"
+    timeout: ${TIMEOUT_SLOW}
+
+- tapOn:
+    id: artist-detail-subscribe-toggle
+- extendedWaitUntil:
+    visible:
+      id: artist-unsubscribe-dialog
+    timeout: ${TIMEOUT_FAST}
+- assertVisible: "Unsubscribe from E2E Music Artist?"
+- assertVisible: "You also follow 1 album by this artist."
+- takeScreenshot: artist-unsubscribe-dialog
+
+- tapOn:
+    id: artist-unsubscribe-dialog-cancel
+- assertNotVisible:
+    id: artist-unsubscribe-dialog
+- assertVisible: "Unsubscribe"
+
+- tapOn:
+    id: artist-detail-subscribe-toggle
+- extendedWaitUntil:
+    visible:
+      id: artist-unsubscribe-dialog
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: artist-unsubscribe-dialog-artist-and-albums
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: artist-unsubscribe-done
+
+- openLink: podverse-next://album/e2eMusicAlbm01
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: album-detail-screen
+    timeout: ${TIMEOUT_SLOWEST}
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: ${TIMEOUT_SLOW}

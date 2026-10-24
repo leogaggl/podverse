@@ -1,0 +1,41 @@
+---
+description: Only the listener identity zone may read the account-to-listener mapping; user-facing copy calls the id pseudonymous at most.
+globs:
+  - "packages/orm/src/services/stats/**"
+  - "packages/orm/src/entities/stats/**"
+  - "apps/api/src/controllers/stats/**"
+  - "apps/workers/src/commands/stats/**"
+  - "apps/management-api/src/routes/stats.ts"
+  - "apps/management-api/src/routes/statsFlaggedListeners.ts"
+  - "apps/management-api/src/lib/stats/flaggedListeners.ts"
+  - "apps/management-api/src/lib/database/tablePolicy.ts"
+alwaysApply: false
+---
+
+# Listener-id separation
+
+The mapping table and `StatsListenerService` are read only inside
+`packages/orm/src/services/stats/listenerIdentity/`. The listener entity
+(`packages/orm/src/entities/stats/statsListener.ts`) and its registration in
+`packages/orm/src/db/entities.ts` name the table for TypeORM. Zone services exported from
+`@podverse/orm` take an `account_id` and never return a `listener_id`.
+
+Workers, management API and web, popularity readers, the range-totals refresh, and recommendation
+jobs work from `listener_id` values already stored in event and taste rows.
+
+Flagged listeners (`stats_flagged_listener`) and their too-soon signal (`stats_flag_signal`) are
+keyed by `listener_id`. Management lists and clears flags by row id and `listener_id` and never
+looks up or shows an account for them.
+
+The read-only database role cannot select the mapping. Zone code uses the read-write data source.
+
+The management database browser never lists `stats_listener`. Which event, taste, daily, and range
+tables it lists is set in `apps/management-api/src/lib/database/tablePolicy.ts`.
+
+User-facing copy calls the id pseudonymous at most, never anonymous or anonymized.
+
+Enforcement is the `no-restricted-imports` block in `eslint.config.mjs` and
+`statsListenerSeparation.sourceGuard.test.ts`. Adding a reader outside the zone means changing
+this rule first. The import block and the source-guard allowlist follow that change.
+
+Data model and contracts: `docs/features/POPULARITY-AND-TASTE-PROFILE.md`.

@@ -3,6 +3,7 @@ import { AdminAccount } from '@management-api/orm/entities/adminAccount.js';
 import { AdminAccountCredentials } from '@management-api/orm/entities/adminAccountCredentials.js';
 import { AdminAccountPermissions } from '@management-api/orm/entities/adminAccountPermissions.js';
 import { AdminAccountRole } from '@management-api/orm/entities/adminAccountRole.js';
+import { AdminSession } from '@management-api/orm/entities/adminSession.js';
 import { DatabaseAuditLog } from '@management-api/orm/entities/databaseAuditLog.js';
 import { ManagementAdminRole } from '@management-api/orm/entities/managementAdminRole.js';
 import type { DataSourceOptions } from 'typeorm';
@@ -23,6 +24,7 @@ const commonConfig: DataSourceOptions = {
     AdminAccountCredentials,
     AdminAccountPermissions,
     AdminAccountRole,
+    AdminSession,
     DatabaseAuditLog,
     ManagementAdminRole,
   ],

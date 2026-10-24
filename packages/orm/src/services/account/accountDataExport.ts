@@ -4,12 +4,15 @@ import type { PlaylistResource } from '@orm/entities/playlist/playlistResource.j
 import type { QueueResource } from '@orm/entities/queue/queueResource.js';
 import { findOptionsRelationsFromPaths } from '@orm/lib/findOptionsRelationsFromPaths.js';
 
+import type { DTOAccountDataExportListeningData } from '@podverse/helpers';
+
 import { ClipService } from '../clip.js';
 import { PlaylistService } from '../playlist/playlist.js';
 import { PlaylistResourceService } from '../playlist/playlistResource.js';
 import { QueueService } from '../queue/queue.js';
 import { listResourceRelations, QueueResourceService } from '../queue/queueResource.js';
 import { QUEUE_HISTORY_MAX_TAKE } from '../queue/queueResourceListGuardrails.js';
+import { ListeningDataExportService } from '../stats/listenerIdentity/listeningDataExport.js';
 import { AccountService } from './account.js';
 import { AccountFollowingAccountService } from './accountFollowingAccount.js';
 import { AccountFollowingAddByRSSChannelService } from './accountFollowingAddByRSSChannel.js';
@@ -80,6 +83,8 @@ export class AccountDataExportService {
     listen_stats_accepted: boolean | null;
     listen_stats_agreement_version: string | null;
     listen_stats_decided_at: string | null;
+    listen_stats_opted_out_at: string | null;
+    listening_data: DTOAccountDataExportListeningData;
   }> {
     const account = await this.accountService.get(account_id, {
       relations: { account_profile: true, account_settings: true },
@@ -124,6 +129,11 @@ export class AccountDataExportService {
       account.account_settings?.listen_stats_decided_at !== null &&
       account.account_settings?.listen_stats_decided_at !== undefined
         ? account.account_settings.listen_stats_decided_at.toISOString()
+        : null;
+    const listenStatsOptedOutAt =
+      account.account_settings?.listen_stats_opted_out_at !== null &&
+      account.account_settings?.listen_stats_opted_out_at !== undefined
+        ? account.account_settings.listen_stats_opted_out_at.toISOString()
         : null;
 
     // Get following relationships
@@ -409,6 +419,8 @@ export class AccountDataExportService {
       })
     );
 
+    const listeningData = await new ListeningDataExportService().getForAccount(account_id);
+
     // Build export data
     const exportData = {
       export_date: new Date().toISOString(),
@@ -419,6 +431,8 @@ export class AccountDataExportService {
       listen_stats_accepted: listenStatsAccepted,
       listen_stats_agreement_version: listenStatsAgreementVersion,
       listen_stats_decided_at: listenStatsDecidedAt,
+      listen_stats_opted_out_at: listenStatsOptedOutAt,
+      listening_data: listeningData,
       following: {
         accounts: followingAccounts.map((fa) => ({
           id_text: fa.following_account.id_text,

@@ -18,21 +18,22 @@ The workers app validates environment variables **per command**. Each job only v
 
 ### Command groups and env categories
 
-| Command group                       | Categories validated                     | Commands (examples)                                                                                                                                                                                                                                                            |
-| ----------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base + ORM only                     | Base, ORM                                | archiveAll, statsUpdateAggregated, devStatsSeedSimulatedAggregated, devSeedLocalUserContent, ormDescriptionsBackfill, notificationsPlatformPurge, accountContentLogPurge, billingImportLegacyMembershipExpiry, billingProcessorProductAdd, billingCheckoutChannelEnable, orm\* |
-| Base + ORM + Billing                | Base, ORM, Billing                       | billingReconcile, billingStrikeEnsureWebhook                                                                                                                                                                                                                                   |
-| Base + Podcast Index                | Base, PodcastIndex                       | podcastIndexTrendingPodcastsGet, podcastIndexValueUpdateAll                                                                                                                                                                                                                    |
-| Base + ORM + Podcast Index          | Base, ORM, PodcastIndex                  | podcastIndexDeadFeedsFlagAndMerge                                                                                                                                                                                                                                              |
-| Base + ORM + MQ                     | Base, ORM, MQ                            | mqRSSRunDlqConsumer, mqRSSAddAll                                                                                                                                                                                                                                               |
-| Base + MQ                           | Base, MQ                                 | devPiBulkFeedsAddFromFile                                                                                                                                                                                                                                                      |
-| Base + ORM + MQ + Podcast Index     | Base, ORM, MQ, PodcastIndex              | mqRSSAdd                                                                                                                                                                                                                                                                       |
-| Base + MQ + Parser + KeyValDB       | Base, MQ, Parser, KeyValDB               | mqAddByRSSRunParser                                                                                                                                                                                                                                                            |
-| Base + ORM + MQ + KeyValDB + PI     | Base, ORM, MQ, KeyValDB, PodcastIndex    | mqOpmlImportRun                                                                                                                                                                                                                                                                |
-| Base + ORM + MQ + Parser + PI + Web | Base, ORM, MQ, Parser, PodcastIndex, Web | parserRSSParseFeed, scheduledJobsRunDue, devParserRSSParseTrendingFeeds, devParserRSSParseMusicMediumFeeds, devParserRSSParsePodcasting20Feeds                                                                                                                                 |
-| Base + ORM + MQ + Image Shrink      | Base, ORM, MQ, ImageShrink               | imageShrinkRunConsumer, imageShrinkBackfill                                                                                                                                                                                                                                    |
-| Base + ORM + Image Shrink           | Base, ORM, ImageShrink                   | imageShrinkCleanupOrphans, imageShrinkResetShrunken, imageShrinkResetShrunkenDryRun, imageShrinkSourcePrune                                                                                                                                                                    |
-| Full stack                          | Base, ORM, MQ, Parser, PodcastIndex, Web | mqRSSRunParser, mqRSSRunLiveItemListener                                                                                                                                                                                                                                       |
+| Command group                                  | Categories validated                               | Commands (examples)                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base + ORM only                                | Base, ORM                                          | archiveAll, statsPopularityRefresh, statsEventPartitionsMaintain, devStatsSeedSimulatedPopularity, devSeedLocalUserContent, ormDescriptionsBackfill, notificationsPlatformPurge, accountContentLogPurge, accountSessionPurge, billingImportLegacyMembershipExpiry, billingProcessorProductAdd, billingCheckoutChannelEnable, orm\* |
+| Base + ORM + Billing                           | Base, ORM, Billing                                 | billingReconcile, billingStrikeEnsureWebhook                                                                                                                                                                                                                                                                                       |
+| Base + Podcast Index                           | Base, PodcastIndex                                 | podcastIndexTrendingPodcastsGet, podcastIndexValueUpdateAll                                                                                                                                                                                                                                                                        |
+| Base + ORM + Podcast Index                     | Base, ORM, PodcastIndex                            | podcastIndexDeadFeedsFlagAndMerge                                                                                                                                                                                                                                                                                                  |
+| Base + ORM + MQ                                | Base, ORM, MQ                                      | mqRSSRunDlqConsumer, mqRSSAddAll                                                                                                                                                                                                                                                                                                   |
+| Base + MQ                                      | Base, MQ                                           | devPiBulkFeedsAddFromFile                                                                                                                                                                                                                                                                                                          |
+| Base + ORM + MQ + Podcast Index                | Base, ORM, MQ, PodcastIndex                        | mqRSSAdd                                                                                                                                                                                                                                                                                                                           |
+| Base + ORM + MQ + Parser + KeyValDB + PI       | Base, ORM, MQ, Parser, KeyValDB, PodcastIndex      | mqAddByRSSRunParser                                                                                                                                                                                                                                                                                                                |
+| Base + ORM + MQ + KeyValDB + PI                | Base, ORM, MQ, KeyValDB, PodcastIndex              | mqOpmlImportRun                                                                                                                                                                                                                                                                                                                    |
+| Base + ORM + MQ + Parser + PI + Web + KeyValDB | Base, ORM, MQ, Parser, PodcastIndex, Web, KeyValDB | parserRSSParseFeed, scheduledJobsRunDue, devParserRSSParseArtistPublisherFeeds, devParserRSSParseMusicMediumFeeds, devParserRSSParsePodcasting20Feeds, devParserRSSParseTrendingFeeds, seedEmbedDemoShowcaseFeeds                                                                                                                  |
+| Base + ORM + MQ + Image Shrink                 | Base, ORM, MQ, ImageShrink                         | imageShrinkRunConsumer, imageShrinkBackfill                                                                                                                                                                                                                                                                                        |
+| Base + ORM + Image Shrink                      | Base, ORM, ImageShrink                             | imageShrinkCleanupOrphans, imageShrinkResetShrunken, imageShrinkResetShrunkenDryRun, imageShrinkSourcePrune                                                                                                                                                                                                                        |
+| Full stack                                     | Base, ORM, MQ, Parser, PodcastIndex, Web, KeyValDB | mqRSSRunParser                                                                                                                                                                                                                                                                                                                     |
+| Full stack                                     | Base, ORM, MQ, Parser, PodcastIndex, Web           | mqRSSRunLiveItemListener                                                                                                                                                                                                                                                                                                           |
 
 Within each category, vars are required or optional as listed in the sections below. Only the categories for your command are validated.
 
@@ -40,8 +41,8 @@ Within each category, vars are required or optional as listed in the sections be
 
 `notificationsPlatformPurge` validates **Base + ORM** only, so contributors can exercise retention
 locally after database migration without MQ/Parser categories. `scheduledJobsRunDue` validates the
-full parser stack, because the `feed-force-reparse` job parses a feed in the same pass that sends
-admin notification campaigns.
+full parser stack and KeyValDB, because the `feed-force-reparse` job parses a feed in the same pass
+that sends admin notification campaigns.
 
 `NOTIFICATION_RETENTION_DAYS` (Base, optional, default 30) sets how long delivered notification rows
 are kept before `notificationsPlatformPurge` deletes them. The window applies to rows already stored,
@@ -56,19 +57,26 @@ tuning inbox retention should not silently move the debugging trail.
 rows are kept before `accountContentLogPurge` deletes them. The purge uses `updated_at`, so a row
 updated for a later takedown stays.
 
+`ACCOUNT_SESSION_RETENTION_DAYS` (Base, optional, default 30) sets how long `account_session` rows
+are kept after their idle expiry before `accountSessionPurge` deletes them. A revoked row keeps its
+idle expiry, so a device that returns within its idle limit can still be told why it was signed out.
+
 ### Retention windows
 
 Every window below is optional, falls back to a shared default in `@podverse/helpers`, and is
 validated at startup as a number of days between 1 and 3650 — a value outside that range is a unit
 mistake (seconds pasted into a field counted in days) rather than a deliberate choice.
+`STATS_TRACK_EVENT_RETENTION_DAYS` starts at 31 instead, because popularity month counts read the
+events.
 
-| Variable                                | Default | Deletes                                          |
-| --------------------------------------- | ------- | ------------------------------------------------ |
-| `NOTIFICATION_RETENTION_DAYS`           | 30      | Delivered `account_notification` rows            |
-| `ACCOUNT_CONTENT_LOG_RETENTION_DAYS`    | 30      | Removed Content log rows (`account_content_log`) |
-| `SCHEDULED_JOB_RETENTION_DAYS`          | 30      | Finished `scheduled_job` rows                    |
-| `ON_DEMAND_PARSER_EVENT_RETENTION_DAYS` | 30      | On-demand parse request records                  |
-| `STATS_TRACK_EVENT_RETENTION_DAYS`      | 30      | Raw listen track events, before aggregate update |
+| Variable                                | Default | Deletes                                                                                                          |
+| --------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `NOTIFICATION_RETENTION_DAYS`           | 30      | Delivered `account_notification` rows                                                                            |
+| `ACCOUNT_CONTENT_LOG_RETENTION_DAYS`    | 30      | Removed Content log rows (`account_content_log`)                                                                 |
+| `ACCOUNT_SESSION_RETENTION_DAYS`        | 30      | Account session rows (`account_session`), counted from idle expiry                                               |
+| `SCHEDULED_JOB_RETENTION_DAYS`          | 30      | Finished `scheduled_job` rows                                                                                    |
+| `ON_DEMAND_PARSER_EVENT_RETENTION_DAYS` | 30      | On-demand parse request records                                                                                  |
+| `STATS_TRACK_EVENT_RETENTION_DAYS`      | 90      | Raw popularity listen and open events, a whole month at a time; at least 31: popularity month counts read events |
 
 `deleteOutdatedOnDemandParserEvent` accepts a `-days` argument that overrides its variable for a
 single run, so an operator clearing a specific backlog by hand does not have to change deployment
@@ -85,7 +93,7 @@ examples if needed. For the full checklist (including index.ts and new categorie
 
 ## Add-by-RSS
 
-Add-by-RSS feed parsing (e.g. `mqAddByRSSRunParser`) receives optional HTTP Basic Auth credentials in a sealed envelope on each queue message. Credentials are opened in memory for that fetch only and are never stored.
+Add-by-RSS feed parsing (e.g. `mqAddByRSSRunParser`) receives optional HTTP Basic Auth credentials in a sealed envelope on each queue message. Credentials are opened in memory for that fetch only and are never stored. An artist feed's parse queues each album it lists as its own message on `add-by-rss-background`, re-sealing the credentials only for albums on the artist feed's own domain.
 
 - **`ADD_BY_RSS_CREDENTIALS_ENCRYPTION_KEY`** (Required) – Transit key used to open the AES-256-GCM envelope the API seals. Must be 64 hex characters (32 bytes) and match the API value. Generate with: `openssl rand -hex 32`. See [docs/features/ADD-BY-RSS.md](/docs/features/ADD-BY-RSS.md).
 - **`ADD_BY_RSS_CREDENTIALS_ENCRYPTION_KEY_OLD`** (Optional) – During key rotation only. Envelopes that fail with the current key are retried with this one. Remove once messages sealed with the old key have expired (15 minutes).
@@ -252,6 +260,11 @@ Two operator commands share fixed pagination (500 keys/rows per page); no dedica
   `is_resized` DB rows.
 
 ## KeyValDB (commands that use Redis)
+
+The cache commands (`mqAddByRSSRunParser`, `mqOpmlImportRun`) require Redis at startup. The
+commands that write notifications open a separate connection to publish account events on
+`podverse:account-events`, do not require Redis at startup, and drop events with a warning while
+it is unreachable.
 
 - **`KEYVALDB_HOST`** (Required) - Redis host
 - **`KEYVALDB_PORT`** (Required) - Redis port

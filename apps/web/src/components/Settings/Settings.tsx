@@ -10,6 +10,7 @@ import { useAccount } from '../../contexts/Account';
 import { ListHeader } from '../List/ListHeader';
 import { SettingsAccount } from './Panels/SettingsAccount/SettingsAccount';
 import { SettingsRemovedContent } from './Panels/SettingsAdvanced/SettingsRemovedContent';
+import { SettingsDeveloper } from './Panels/SettingsDeveloper/SettingsDeveloper';
 import { SettingsGeneral } from './Panels/SettingsGeneral/SettingsGeneral';
 import { SettingsKeyboard } from './Panels/SettingsKeyboard/SettingsKeyboard';
 import { SettingsNotifications } from './Panels/SettingsNotifications/SettingsNotifications';
@@ -18,12 +19,20 @@ import { SettingsProfile } from './Panels/SettingsProfile/SettingsProfile';
 import { SettingsWrapper } from './SettingsWrapper';
 
 type TabKey =
-  'account' | 'advanced' | 'general' | 'keyboard' | 'notifications' | 'opml' | 'profile';
+  | 'account'
+  | 'advanced'
+  | 'developer'
+  | 'general'
+  | 'keyboard'
+  | 'notifications'
+  | 'opml'
+  | 'profile';
 
 function tabFromQueryParam(value: string | null): TabKey | null {
   if (
     value === 'account' ||
     value === 'advanced' ||
+    value === 'developer' ||
     value === 'profile' ||
     value === 'notifications' ||
     value === 'opml'
@@ -133,6 +142,13 @@ export function Settings() {
         zIndex: z,
       });
       z -= 1;
+      rows.push({
+        key: 'developer',
+        label: tSettings('developer.developer'),
+        onClick: () => handleTabChange('developer'),
+        zIndex: z,
+      });
+      z -= 1;
     }
     rows.push({
       key: 'keyboard',
@@ -154,6 +170,7 @@ export function Settings() {
         {loggedInAccount && tab === 'notifications' && <SettingsNotifications />}
         {loggedInAccount && tab === 'opml' && <SettingsOpml />}
         {loggedInAccount && tab === 'advanced' && <SettingsRemovedContent />}
+        {loggedInAccount && tab === 'developer' && <SettingsDeveloper />}
       </SettingsWrapper>
     </div>
   );

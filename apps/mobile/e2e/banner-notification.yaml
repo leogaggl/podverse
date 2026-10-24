@@ -1,0 +1,51 @@
+appId: com.podverse.app.next
+name: Banner Notification
+---
+# The playback screen's E2E button presents one banner. A swipe up dismisses it and stays on
+# this screen. A later tap opens Notifications.
+# Mark-read for this fixture id answers 404, which the read action ignores.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+- runFlow: shared/open-e2e-playback.yaml
+
+- tapOn:
+    id: e2e-show-banner-notification
+- extendedWaitUntil:
+    visible:
+      id: banner-notification
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: banner-notification-title
+    text: "E2E Banner"
+- takeScreenshot: banner-notification-visible
+- swipe:
+    from:
+      id: banner-notification
+    direction: UP
+- extendedWaitUntil:
+    notVisible:
+      id: banner-notification
+    timeout: ${TIMEOUT_FASTEST}
+- assertVisible:
+    id: more-e2e-playback-screen
+- assertNotVisible:
+    id: notifications-inbox-screen
+- takeScreenshot: banner-notification-swiped-away
+- tapOn:
+    id: e2e-show-banner-notification
+- extendedWaitUntil:
+    visible:
+      id: banner-notification
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: banner-notification
+- extendedWaitUntil:
+    notVisible:
+      id: banner-notification
+    timeout: ${TIMEOUT_FAST}
+- extendedWaitUntil:
+    visible:
+      id: notifications-inbox-screen
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: banner-notification-opened-inbox

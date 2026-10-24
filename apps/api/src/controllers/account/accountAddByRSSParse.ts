@@ -10,6 +10,7 @@ import {
   sealAddByRssCredentialsForParse,
   shouldSkipParseAllEnqueue,
 } from '@api/lib/addByRSSCredentials.js';
+import { writeE2eAddByRSSPublisherListedFeeds } from '@api/lib/addByRSSE2ePublisherFixture.js';
 import type { AddByRSSParseCacheEntry } from '@api/lib/addByRSSParseCache.js';
 import {
   getAddByRSSParseCacheEntry,
@@ -74,6 +75,19 @@ type E2eParsedFeedFixture = {
     status: 'live' | 'pending';
     title: string;
   }[];
+  podcastGuid?: string;
+  /** The feed's podcast:publisher pointer. */
+  publisher?: { feedGuid: string; feedUrl: string; medium: string };
+  /** Channel-level podcast:remoteItem elements. */
+  remoteItems?: Array<{
+    feedGuid: string;
+    feedUrl?: string;
+    itemGuid?: string;
+    medium?: string;
+    title?: string;
+  }>;
+  /** A publisher feed has no items of its own. */
+  omitItems?: boolean;
 };
 
 const E2E_DEFAULT_PARSED_FEED: E2eParsedFeedFixture = {
@@ -118,6 +132,15 @@ const E2E_ADD_BY_RSS_SECTIONS_PARSED_FEED: E2eParsedFeedFixture = {
 };
 
 const E2E_ADD_BY_RSS_MUSIC_FEED_URL = 'https://e2e-seed-addbyrss.example/album.xml';
+const E2E_ADD_BY_RSS_ARTIST_FEED_URL = 'https://e2e-seed-addbyrss.example/artist.xml';
+const E2E_ADD_BY_RSS_ARTIST_PODCAST_GUID = 'e2e0a77a-0000-4000-8000-0000000000a1';
+const E2E_ADD_BY_RSS_MUSIC_PODCAST_GUID = 'e2e0a1b0-0000-4000-8000-0000000000b1';
+/**
+ * Sync with tools/web/seed-e2e.mjs (`E2E_MUSIC_ALBUM_PODCAST_GUID`, `E2E_MUSIC_FEED_URL`).
+ * The seeded directory album.
+ */
+const E2E_DIRECTORY_MUSIC_ALBUM_PODCAST_GUID = '11111111-2222-4333-8444-555555555501';
+const E2E_DIRECTORY_MUSIC_FEED_URL = 'https://e2e-seed-music.example/album.xml';
 
 /** A music album whose track links a transcript, for the mobile track flow. */
 const E2E_ADD_BY_RSS_MUSIC_PARSED_FEED: E2eParsedFeedFixture = {
@@ -131,7 +154,49 @@ const E2E_ADD_BY_RSS_MUSIC_PARSED_FEED: E2eParsedFeedFixture = {
   itemImageUrl: E2E_DEFAULT_PARSED_FEED.itemImageUrl,
   pubDate: E2E_DEFAULT_PARSED_FEED.pubDate,
   medium: 'music',
+  podcastGuid: E2E_ADD_BY_RSS_MUSIC_PODCAST_GUID,
+  publisher: {
+    feedGuid: E2E_ADD_BY_RSS_ARTIST_PODCAST_GUID,
+    feedUrl: E2E_ADD_BY_RSS_ARTIST_FEED_URL,
+    medium: 'publisher',
+  },
   transcriptUrl: 'http://localhost:2111/transcripts/transcript-feed-podcast-1-item-0-0.vtt',
+};
+
+/** A publisher feed that lists the Add by RSS album and the seeded directory album. */
+const E2E_ADD_BY_RSS_ARTIST_PARSED_FEED: E2eParsedFeedFixture = {
+  channelTitle: 'E2E Add-by-RSS Artist',
+  link: E2E_DEFAULT_PARSED_FEED.link,
+  channelImageUrl: E2E_DEFAULT_PARSED_FEED.channelImageUrl,
+  itemTitle: E2E_DEFAULT_PARSED_FEED.itemTitle,
+  itemGuid: E2E_DEFAULT_PARSED_FEED.itemGuid,
+  itemDurationSeconds: E2E_DEFAULT_PARSED_FEED.itemDurationSeconds,
+  enclosureUrl: E2E_DEFAULT_PARSED_FEED.enclosureUrl,
+  itemImageUrl: E2E_DEFAULT_PARSED_FEED.itemImageUrl,
+  pubDate: E2E_DEFAULT_PARSED_FEED.pubDate,
+  medium: 'publisher',
+  podcastGuid: E2E_ADD_BY_RSS_ARTIST_PODCAST_GUID,
+  omitItems: true,
+  remoteItems: [
+    {
+      feedGuid: E2E_ADD_BY_RSS_MUSIC_PODCAST_GUID,
+      feedUrl: E2E_ADD_BY_RSS_MUSIC_FEED_URL,
+      medium: 'music',
+      title: 'E2E Add-by-RSS Album',
+    },
+    {
+      feedGuid: E2E_DIRECTORY_MUSIC_ALBUM_PODCAST_GUID,
+      feedUrl: E2E_DIRECTORY_MUSIC_FEED_URL,
+      medium: 'music',
+      title: 'E2E Music Album',
+    },
+    {
+      feedGuid: E2E_ADD_BY_RSS_MUSIC_PODCAST_GUID,
+      feedUrl: E2E_ADD_BY_RSS_MUSIC_FEED_URL,
+      itemGuid: E2E_ADD_BY_RSS_MUSIC_PARSED_FEED.itemGuid,
+      medium: 'music',
+    },
+  ],
 };
 
 const E2E_ADD_BY_RSS_LIVE_FEED_URL = 'https://e2e-seed-addbyrss.example/podcast-live.xml';
@@ -167,6 +232,7 @@ const E2E_PARSED_FEEDS_BY_URL: Record<string, E2eParsedFeedFixture> = {
   [E2E_TEST_ASSETS_FEED_URL]: E2E_TEST_ASSETS_PARSED_FEED,
   [E2E_ADD_BY_RSS_SECTIONS_FEED_URL]: E2E_ADD_BY_RSS_SECTIONS_PARSED_FEED,
   [E2E_ADD_BY_RSS_MUSIC_FEED_URL]: E2E_ADD_BY_RSS_MUSIC_PARSED_FEED,
+  [E2E_ADD_BY_RSS_ARTIST_FEED_URL]: E2E_ADD_BY_RSS_ARTIST_PARSED_FEED,
   [E2E_ADD_BY_RSS_LIVE_FEED_URL]: E2E_ADD_BY_RSS_LIVE_PARSED_FEED,
 };
 
@@ -178,48 +244,49 @@ const buildE2eParsedFeedPayload = (
   feedUrl: string
 ): NonNullable<AddByRSSParseCacheEntry['payload']> => {
   const source = E2E_PARSED_FEEDS_BY_URL[feedUrl] ?? E2E_DEFAULT_PARSED_FEED;
+  const item = {
+    title: source.itemTitle,
+    guid: source.itemGuid,
+    duration: source.itemDurationSeconds,
+    explicit: false,
+    enclosure: {
+      url: source.enclosureUrl,
+      type: 'audio/mpeg',
+      length: 0,
+    },
+    image: source.itemImageUrl,
+    pubDate: source.pubDate,
+    ...(source.chaptersUrl !== undefined
+      ? {
+          podcastChapters: {
+            url: source.chaptersUrl,
+            type: 'application/json+chapters',
+          },
+        }
+      : {}),
+    ...(source.transcriptUrl !== undefined
+      ? {
+          podcastTranscripts: [
+            {
+              url: source.transcriptUrl,
+              type: 'text/vtt',
+              language: 'en',
+              rel: 'captions',
+            },
+          ],
+        }
+      : {}),
+  };
   const fixture = {
     title: source.channelTitle,
+    ...(source.podcastGuid !== undefined ? { guid: source.podcastGuid } : {}),
     ...(source.medium !== undefined ? { medium: source.medium } : {}),
+    ...(source.publisher !== undefined ? { podcastPublisher: source.publisher } : {}),
     link: source.link,
     description: 'E2E add-by-RSS fixture',
     explicit: false,
     image: { url: source.channelImageUrl },
-    items: [
-      {
-        title: source.itemTitle,
-        guid: source.itemGuid,
-        duration: source.itemDurationSeconds,
-        explicit: false,
-        enclosure: {
-          url: source.enclosureUrl,
-          type: 'audio/mpeg',
-          length: 0,
-        },
-        image: source.itemImageUrl,
-        pubDate: source.pubDate,
-        ...(source.chaptersUrl !== undefined
-          ? {
-              podcastChapters: {
-                url: source.chaptersUrl,
-                type: 'application/json+chapters',
-              },
-            }
-          : {}),
-        ...(source.transcriptUrl !== undefined
-          ? {
-              podcastTranscripts: [
-                {
-                  url: source.transcriptUrl,
-                  type: 'text/vtt',
-                  language: 'en',
-                  rel: 'captions',
-                },
-              ],
-            }
-          : {}),
-      },
-    ],
+    items: source.omitItems === true ? [] : [item],
     ...(source.liveItems !== undefined
       ? {
           podcastLiveItems: source.liveItems.map((liveItem) => ({
@@ -235,6 +302,7 @@ const buildE2eParsedFeedPayload = (
           })),
         }
       : {}),
+    ...(source.remoteItems !== undefined ? { podcastRemoteItems: source.remoteItems } : {}),
   };
   return fixture as unknown as NonNullable<AddByRSSParseCacheEntry['payload']>;
 };
@@ -242,6 +310,7 @@ const buildE2eParsedFeedPayload = (
 export const addByRssParseEnqueueRateLimit = rateLimitAuthEndpoint({
   windowMs: config.rateLimits.accountAddByRssParseEnqueue.windowMs,
   max: config.rateLimits.accountAddByRssParseEnqueue.max,
+  apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
 });
 
 class AccountAddByRSSParseController {
@@ -320,6 +389,14 @@ class AccountAddByRSSParseController {
 
               if (config.e2e.fixturesEnabled) {
                 // Mobile E2E stack has no MQ/worker — resolve parse synchronously.
+                const payload = buildE2eParsedFeedPayload(feedUrl);
+                const publisherListedFeeds = await writeE2eAddByRSSPublisherListedFeeds({
+                  accountId: account.id,
+                  requestId,
+                  feedUrl,
+                  payload,
+                  payloadForFeedUrl: buildE2eParsedFeedPayload,
+                });
                 await setAddByRSSParseCacheEntry({
                   requestId,
                   accountId: account.id,
@@ -330,7 +407,8 @@ class AccountAddByRSSParseController {
                     etag: etag || undefined,
                     lastModified: last_modified || undefined,
                   },
-                  payload: buildE2eParsedFeedPayload(feedUrl),
+                  payload,
+                  ...(publisherListedFeeds !== undefined ? { publisherListedFeeds } : {}),
                   updatedAt: new Date().toISOString(),
                 });
                 res.status(201).json({ request_id: requestId });
@@ -376,6 +454,7 @@ class AccountAddByRSSParseController {
         requiredCapability: config.e2e.fixturesEnabled
           ? undefined
           : ACCOUNT_ENTITLEMENT_CAPABILITY.maxAddByRSSFeeds,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
       }
     );
   }
@@ -463,6 +542,14 @@ class AccountAddByRSSParseController {
                 const lastModified = getRecordValue(lastModifiedByUrl, feedUrl);
 
                 if (config.e2e.fixturesEnabled) {
+                  const payload = buildE2eParsedFeedPayload(feedUrl);
+                  const publisherListedFeeds = await writeE2eAddByRSSPublisherListedFeeds({
+                    accountId: account.id,
+                    requestId,
+                    feedUrl,
+                    payload,
+                    payloadForFeedUrl: buildE2eParsedFeedPayload,
+                  });
                   await setAddByRSSParseCacheEntry({
                     requestId,
                     accountId: account.id,
@@ -473,7 +560,8 @@ class AccountAddByRSSParseController {
                       etag,
                       lastModified,
                     },
-                    payload: buildE2eParsedFeedPayload(feedUrl),
+                    payload,
+                    ...(publisherListedFeeds !== undefined ? { publisherListedFeeds } : {}),
                     updatedAt: new Date().toISOString(),
                   });
                   continue;
@@ -523,6 +611,7 @@ class AccountAddByRSSParseController {
         requiredCapability: config.e2e.fixturesEnabled
           ? undefined
           : ACCOUNT_ENTITLEMENT_CAPABILITY.maxAddByRSSFeeds,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'create' },
       }
     );
   }
@@ -561,6 +650,7 @@ class AccountAddByRSSParseController {
         requiredCapability: config.e2e.fixturesEnabled
           ? undefined
           : ACCOUNT_ENTITLEMENT_CAPABILITY.maxAddByRSSFeeds,
+        apiKeyAccess: { resource: 'add_by_rss', action: 'read' },
       }
     );
   }

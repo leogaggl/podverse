@@ -1,4 +1,5 @@
 import { Account } from '@orm/entities/account/account.js';
+import { AccountApiKey } from '@orm/entities/account/accountApiKey.js';
 import { AccountContentLog } from '@orm/entities/account/accountContentLog.js';
 import { AccountCredentials } from '@orm/entities/account/accountCredentials.js';
 import { AccountDeviceAutoDownloadChannel } from '@orm/entities/account/accountDeviceAutoDownloadChannel.js';
@@ -18,6 +19,7 @@ import { AccountNotificationPreference } from '@orm/entities/account/accountNoti
 import { AccountPendingFollowingChannel } from '@orm/entities/account/accountPendingFollowingChannel.js';
 import { AccountProfile } from '@orm/entities/account/accountProfile.js';
 import { AccountResetPassword } from '@orm/entities/account/accountResetPassword.js';
+import { AccountSession } from '@orm/entities/account/accountSession.js';
 import { AccountSetPassword } from '@orm/entities/account/accountSetPassword.js';
 import { AccountSettings } from '@orm/entities/account/accountSettings/accountSettings.js';
 import { AccountSettingsLocale } from '@orm/entities/account/accountSettings/accountSettingsLocale.js';
@@ -67,6 +69,7 @@ import { ChannelTrailer } from '@orm/entities/channel/channelTrailer.js';
 import { ChannelTxt } from '@orm/entities/channel/channelTxt.js';
 import { ChannelValue } from '@orm/entities/channel/channelValue.js';
 import { ChannelValueRecipient } from '@orm/entities/channel/channelValueRecipient.js';
+import { ChannelVerifiedPublisher } from '@orm/entities/channel/channelVerifiedPublisher.js';
 import { ItemMergeMap } from '@orm/entities/channel/itemMergeMap.js';
 import { PodcastIndexDeadFeedSync } from '@orm/entities/channel/podcastIndexDeadFeedSync.js';
 import { Clip } from '@orm/entities/clip.js';
@@ -122,17 +125,23 @@ import { ProductMembershipSettings } from '@orm/entities/productMembershipSettin
 import { Queue } from '@orm/entities/queue/queue.js';
 import { QueueResource } from '@orm/entities/queue/queueResource.js';
 import { SharableStatus } from '@orm/entities/sharableStatus.js';
-import { StatsAggregatedAccount } from '@orm/entities/stats/statsAggregatedAccount.js';
-import { StatsAggregatedChannel } from '@orm/entities/stats/statsAggregatedChannel.js';
-import { StatsAggregatedClip } from '@orm/entities/stats/statsAggregatedClip.js';
-import { StatsAggregatedItem } from '@orm/entities/stats/statsAggregatedItem.js';
-import { StatsAggregatedPlaylist } from '@orm/entities/stats/statsAggregatedPlaylist.js';
-import { StatsTrackAccountGuid } from '@orm/entities/stats/statsTrackAccountGuid.js';
-import { StatsTrackEventAccount } from '@orm/entities/stats/statsTrackEventAccount.js';
-import { StatsTrackEventChannel } from '@orm/entities/stats/statsTrackEventChannel.js';
-import { StatsTrackEventClip } from '@orm/entities/stats/statsTrackEventClip.js';
-import { StatsTrackEventItem } from '@orm/entities/stats/statsTrackEventItem.js';
-import { StatsTrackEventPlaylist } from '@orm/entities/stats/statsTrackEventPlaylist.js';
+import { StatsDailyAccount } from '@orm/entities/stats/statsDailyAccount.js';
+import { StatsDailyChannel } from '@orm/entities/stats/statsDailyChannel.js';
+import { StatsDailyClip } from '@orm/entities/stats/statsDailyClip.js';
+import { StatsDailyItem } from '@orm/entities/stats/statsDailyItem.js';
+import { StatsDailyPlaylist } from '@orm/entities/stats/statsDailyPlaylist.js';
+import { StatsFlaggedListener } from '@orm/entities/stats/statsFlaggedListener.js';
+import { StatsFlagSignal } from '@orm/entities/stats/statsFlagSignal.js';
+import { StatsListener } from '@orm/entities/stats/statsListener.js';
+import { StatsListenEvent } from '@orm/entities/stats/statsListenEvent.js';
+import { StatsOpenEvent } from '@orm/entities/stats/statsOpenEvent.js';
+import { StatsPopularityAccount } from '@orm/entities/stats/statsPopularityAccount.js';
+import { StatsPopularityChannel } from '@orm/entities/stats/statsPopularityChannel.js';
+import { StatsPopularityClip } from '@orm/entities/stats/statsPopularityClip.js';
+import { StatsPopularityItem } from '@orm/entities/stats/statsPopularityItem.js';
+import { StatsPopularityPlaylist } from '@orm/entities/stats/statsPopularityPlaylist.js';
+import { StatsTasteProfile } from '@orm/entities/stats/statsTasteProfile.js';
+import { StatsTasteProfileHidden } from '@orm/entities/stats/statsTasteProfileHidden.js';
 
 import { EmbedDemoShowcase } from '../entities/embedDemoShowcase.js';
 import { ImageShrinkSource } from '../entities/imageShrinkSource.js';
@@ -160,6 +169,8 @@ export const entities = [
   AccountNotificationPreference,
   AccountProfile,
   AccountResetPassword,
+  AccountSession,
+  AccountApiKey,
   AccountSetPassword,
   AccountSettings,
   AccountSettingsLocale,
@@ -197,6 +208,7 @@ export const entities = [
   ChannelPublisher,
   ChannelPublisherRemoteItem,
   ChannelRemoteItem,
+  ChannelVerifiedPublisher,
   ChannelSeason,
   ChannelSocialInteract,
   ChannelTrailer,
@@ -264,15 +276,21 @@ export const entities = [
   QueueResource,
   ScheduledJob,
   SharableStatus,
-  StatsAggregatedAccount,
-  StatsAggregatedChannel,
-  StatsAggregatedClip,
-  StatsAggregatedItem,
-  StatsAggregatedPlaylist,
-  StatsTrackAccountGuid,
-  StatsTrackEventAccount,
-  StatsTrackEventChannel,
-  StatsTrackEventClip,
-  StatsTrackEventItem,
-  StatsTrackEventPlaylist,
+  StatsDailyAccount,
+  StatsDailyChannel,
+  StatsDailyClip,
+  StatsDailyItem,
+  StatsDailyPlaylist,
+  StatsListener,
+  StatsListenEvent,
+  StatsOpenEvent,
+  StatsPopularityAccount,
+  StatsPopularityChannel,
+  StatsPopularityClip,
+  StatsPopularityItem,
+  StatsPopularityPlaylist,
+  StatsTasteProfile,
+  StatsTasteProfileHidden,
+  StatsFlaggedListener,
+  StatsFlagSignal,
 ];

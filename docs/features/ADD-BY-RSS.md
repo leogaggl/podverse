@@ -25,13 +25,26 @@ The Add control stays disabled until the URL is a valid http(s) feed URL. When t
 ### Parse path (transit envelope)
 
 1. The client sends `basic_auth_username` / `basic_auth_password` with `POST /account/add-by-rss/parse`, or `credentials_by_url` with `POST /account/add-by-rss/parse/all`.
-2. The API seals them into an AES-256-GCM envelope (`sealAddByRssCredentialsForParse` in `apps/api/src/lib/addByRSSCredentials.ts`, built on `packages/helpers-backend/src/addByRssCredentialsTransit.ts`). The envelope expires after **15 minutes** and its associated data binds it to `accountId | requestId | feedUrl`, so a copied envelope cannot be replayed against another request or feed. The queue message carries only the envelope; its dedupe id excludes it.
+2. The API seals them into an AES-256-GCM envelope (`sealAddByRssCredentialsForParse` in `apps/api/src/lib/addByRSSCredentials.ts`, built on `packages/helpers-backend/src/addByRssCredentialsTransit.ts`). The envelope expires after **15 minutes** and its associated data binds it to `accountId | requestId | feedUrl`, so a copied envelope cannot be replayed against another request or feed. The queue message carries only the envelope; its dedupe id excludes it. When the feed is an artist feed, the worker seals the same way for each listed album in scope (see [Artist feeds](#artist-feeds)).
 3. The worker opens the envelope in memory, checks the feed URL's scope, and fetches the feed with the Basic Auth header.
 4. The parse result records `failureReason` / `credentialsState` for the client: `credentials_required`, `credentials_rejected`, `credentials_withheld_other_domain`, `credentials_withheld_insecure`, or `credentials_envelope_invalid`.
 
 A flagged feed with no credentials in a refresh-all is not queued; it reports `credentials_required`.
 
 **Chapters and transcripts** (`POST /account/add-by-rss/chapters-transcript`): the client sends the credentials together with `feedUrl`; the API applies them only to in-scope URLs and never stores them.
+
+### Artist feeds
+
+An Add by RSS parse whose resource type is `artists` (a publisher feed listing music albums) also resolves every feed the artist lists, for that member only. Nothing it does reaches the public directory: no directory parse, no feed, channel, or follow rows, no verified publisher links.
+
+- **Directory albums** (matched by guid, then feed URL, through `ChannelAddByRSSDirectoryMatchService`) are linked to the directory channel and not fetched.
+- **Other albums** are parsed as their own Add by RSS requests. Each gets a `queued` parse entry and its own message on `add-by-rss-background` before the artist entry is written, so every request id the client reads already has an entry. These messages skip broker dedupe, because Add by RSS dedupe keys on the feed URL alone and would drop a second member's album.
+- The artist's `parsed` entry carries `publisherListedFeeds`: directory links, album request ids, or why a listed feed was skipped. Each album's entry carries `publisherRequestId`, the artist parse's id. An album message never fans out, even when the album is itself a publisher feed.
+- At most 100 listed feeds per artist (`ADD_BY_RSS_PUBLISHER_LISTED_FEEDS_MAX`); the rest are dropped and logged as a count. Feeds named only by item-level references (track credits) are not fetched; they report `item_references_only`.
+- A channel-level reference with no feed URL is looked up on Podcast Index by its guid, but only when the artist feed was fetched without credentials, so a private feed's references never leave Podverse. A failed or empty lookup reports `no_feed_url`.
+- A `not_modified` artist parse has no body to read and returns no list; the client keeps the list it stored.
+- **Credentials** go only to album URLs `resolveCredentialScope` allows from the artist feed's URL. The worker seals a new envelope for each such album, bound to that album's `accountId | requestId | feedUrl`, with the standard 15-minute lifetime. An album out of scope is fetched without credentials and its message carries `credentialsWithheld`, so its entry reports `withheld_other_domain` or `withheld_insecure`, and a private album there lands in Needs username and password.
+- A fan-out failure never fails the artist parse: the artist entry is written `parsed` without `publisherListedFeeds`, and the error is logged with the feed host only.
 
 ### `requires_credentials`
 

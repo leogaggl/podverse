@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -22,6 +22,16 @@ import { subscriptionsRepository } from '../../data/repositories/subscriptionsRe
 import { resolveSupportedLocale } from '../../i18n/locale';
 import { NOTIFICATION_TYPE_ROWS } from '../../lib/notifications/notificationTypeRows';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
+import {
+  BANNER_NOTIFICATION_KIND_LABEL_KEY,
+  BANNER_NOTIFICATION_KINDS,
+} from '../../notifications/bannerNotificationPolicy';
+import {
+  getBannerNotificationEnabled,
+  hydrateBannerNotificationPrefs,
+  setBannerNotificationEnabled,
+  subscribeBannerNotificationPrefs,
+} from '../../prefs/bannerNotificationPrefs';
 import { registerFcmDeviceForAccount } from '../../push/fcmDeviceSync';
 import {
   openSystemNotificationSettings,
@@ -97,6 +107,10 @@ export function MoreSettingsNotificationsScreen() {
   const [pendingDefault, setPendingDefault] = useState<boolean>(false);
   const [pendingType, setPendingType] = useState<SyncedNotificationType | null>(null);
   const [affectedCount, setAffectedCount] = useState(0);
+  const bannerNotificationEnabled = useSyncExternalStore(
+    subscribeBannerNotificationPrefs,
+    getBannerNotificationEnabled
+  );
 
   const selectedLocale = resolveSupportedLocale(i18n.language);
 
@@ -109,6 +123,10 @@ export function MoreSettingsNotificationsScreen() {
     }),
     [accessToken, clearSession, refreshToken, setTokens]
   );
+
+  useEffect(() => {
+    void hydrateBannerNotificationPrefs();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -600,6 +618,27 @@ export function MoreSettingsNotificationsScreen() {
               ) : null}
             </View>
           ) : null}
+        </Card>
+        <Card padded={false} testID="more-settings-banner-notifications-card">
+          <View style={styles.cardIntro}>
+            <Text style={styles.sectionHeading}>{t('settings.notifications.banner_section')}</Text>
+            <Text style={styles.sectionDescription}>
+              {t('settings.notifications.banner_section_help')}
+            </Text>
+          </View>
+          {BANNER_NOTIFICATION_KINDS.map((kind, index) => (
+            <SettingsSwitchRow
+              key={kind}
+              onValueChange={(next) => {
+                void setBannerNotificationEnabled(kind, next);
+              }}
+              showDivider={index > 0}
+              switchTestID={`more-settings-banner-notification-${kind}-switch`}
+              testID={`more-settings-banner-notification-${kind}`}
+              title={t(BANNER_NOTIFICATION_KIND_LABEL_KEY[kind])}
+              value={bannerNotificationEnabled[kind]}
+            />
+          ))}
         </Card>
       </View>
       {errorMessageKey !== null ? (

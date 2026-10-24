@@ -229,9 +229,11 @@ npm run mobile:e2e:test -- --platform ios alternate-enclosure
 npm run mobile:e2e:test -- --platform ios api-health
 npm run mobile:e2e:test -- --platform ios archived-clip
 npm run mobile:e2e:test -- --platform ios artist
+npm run mobile:e2e:test -- --platform ios auth-change-password
 npm run mobile:e2e:test -- --platform ios auth-login
 npm run mobile:e2e:test -- --platform ios auth-logout
 npm run mobile:e2e:test -- --platform ios auto-queue-advance
+npm run mobile:e2e:test -- --platform ios banner-notification
 npm run mobile:e2e:test -- --platform ios browse
 npm run mobile:e2e:test -- --platform ios deep-link
 npm run mobile:e2e:test -- --platform ios detail-sort-prefs
@@ -259,19 +261,21 @@ npm run mobile:e2e:test -- --platform ios playback-offline-reconciliation
 npm run mobile:e2e:test -- --platform ios playback-resume-on-relaunch
 npm run mobile:e2e:test -- --platform ios player-screen
 npm run mobile:e2e:test -- --platform ios podcast-episode
-npm run mobile:e2e:test -- --platform ios popularity-tracking
-npm run mobile:e2e:test -- --platform ios terms-account-access
-npm run mobile:e2e:test -- --platform ios terms-popularity
 npm run mobile:e2e:test -- --platform ios push
 npm run mobile:e2e:test -- --platform ios queue-add
 npm run mobile:e2e:test -- --platform ios queue-screen
 npm run mobile:e2e:test -- --platform ios removed-content
 npm run mobile:e2e:test -- --platform ios search
 npm run mobile:e2e:test -- --platform ios search-unparsed
+npm run mobile:e2e:test -- --platform ios settings-developer
 npm run mobile:e2e:test -- --platform ios settings-downloads
 npm run mobile:e2e:test -- --platform ios settings-select
 npm run mobile:e2e:test -- --platform ios subscriptions-anonymous
 npm run mobile:e2e:test -- --platform ios tab-switch-playback
+npm run mobile:e2e:test -- --platform ios taste-profile
+npm run mobile:e2e:test -- --platform ios taste-profile-consent
+npm run mobile:e2e:test -- --platform ios terms-account-access
+npm run mobile:e2e:test -- --platform ios terms-taste-profile-consent
 npm run mobile:e2e:test -- --platform ios track
 npm run mobile:e2e:test -- --platform ios v4v
 npm run mobile:e2e:test -- --platform ios video-transition
@@ -288,9 +292,11 @@ npm run mobile:e2e:test -- --platform android alternate-enclosure
 npm run mobile:e2e:test -- --platform android api-health
 npm run mobile:e2e:test -- --platform android archived-clip
 npm run mobile:e2e:test -- --platform android artist
+npm run mobile:e2e:test -- --platform android auth-change-password
 npm run mobile:e2e:test -- --platform android auth-login
 npm run mobile:e2e:test -- --platform android auth-logout
 npm run mobile:e2e:test -- --platform android auto-queue-advance
+npm run mobile:e2e:test -- --platform android banner-notification
 npm run mobile:e2e:test -- --platform android browse
 npm run mobile:e2e:test -- --platform android deep-link
 npm run mobile:e2e:test -- --platform android detail-sort-prefs
@@ -318,19 +324,21 @@ npm run mobile:e2e:test -- --platform android playback-offline-reconciliation
 npm run mobile:e2e:test -- --platform android playback-resume-on-relaunch
 npm run mobile:e2e:test -- --platform android player-screen
 npm run mobile:e2e:test -- --platform android podcast-episode
-npm run mobile:e2e:test -- --platform android popularity-tracking
-npm run mobile:e2e:test -- --platform android terms-account-access
-npm run mobile:e2e:test -- --platform android terms-popularity
 npm run mobile:e2e:test -- --platform android push
 npm run mobile:e2e:test -- --platform android queue-add
 npm run mobile:e2e:test -- --platform android queue-screen
 npm run mobile:e2e:test -- --platform android removed-content
 npm run mobile:e2e:test -- --platform android search
 npm run mobile:e2e:test -- --platform android search-unparsed
+npm run mobile:e2e:test -- --platform android settings-developer
 npm run mobile:e2e:test -- --platform android settings-downloads
 npm run mobile:e2e:test -- --platform android settings-select
 npm run mobile:e2e:test -- --platform android subscriptions-anonymous
 npm run mobile:e2e:test -- --platform android tab-switch-playback
+npm run mobile:e2e:test -- --platform android taste-profile
+npm run mobile:e2e:test -- --platform android taste-profile-consent
+npm run mobile:e2e:test -- --platform android terms-account-access
+npm run mobile:e2e:test -- --platform android terms-taste-profile-consent
 npm run mobile:e2e:test -- --platform android track
 npm run mobile:e2e:test -- --platform android v4v
 npm run mobile:e2e:test -- --platform android video-transition
@@ -417,7 +425,10 @@ optional for this group.
 Seeded login: `e2e-user@example.com` / `Test!1Aa`. Authenticated flows sign in through
 `shared/login-seeded-user.yaml`, which taps the E2E-only `e2e-quick-login` control
 (`__DEV__` and `EXPO_PUBLIC_MOBILE_E2E=1`) and skips the form. `auth-login` is the flow
-that still walks the form (`shared/login-seeded-user-ui.yaml`).
+that still walks the form (`shared/login-seeded-user-ui.yaml`). `auth-change-password`
+signs in through that form as its own account (`e2e-change-password-ios@example.com` on
+iOS, `e2e-change-password-android@example.com` on Android, password `Test!1Aa`), changes
+that password, and changes it back. It does not use `e2e-user@example.com`.
 
 `membership-checkout` signs in and buys through the fake billing client (`__DEV__` and
 `EXPO_PUBLIC_MOBILE_E2E=1`); a release build does not select that client.
@@ -428,8 +439,10 @@ npm run mobile:e2e:test -- album
 npm run mobile:e2e:test -- api-health
 npm run mobile:e2e:test -- archived-clip
 npm run mobile:e2e:test -- artist
+npm run mobile:e2e:test -- auth-change-password
 npm run mobile:e2e:test -- auth-login
 npm run mobile:e2e:test -- auth-logout
+npm run mobile:e2e:test -- banner-notification
 npm run mobile:e2e:test -- browse
 npm run mobile:e2e:test -- deep-link
 npm run mobile:e2e:test -- detail-sort-prefs
@@ -446,17 +459,19 @@ npm run mobile:e2e:test -- perf-scroll
 npm run mobile:e2e:test -- playback-multi-device-handoff
 npm run mobile:e2e:test -- player-screen
 npm run mobile:e2e:test -- podcast-episode
-npm run mobile:e2e:test -- popularity-tracking
-npm run mobile:e2e:test -- terms-account-access
-npm run mobile:e2e:test -- terms-popularity
 npm run mobile:e2e:test -- push
 npm run mobile:e2e:test -- queue-add
 npm run mobile:e2e:test -- queue-screen
 npm run mobile:e2e:test -- removed-content
 npm run mobile:e2e:test -- search
 npm run mobile:e2e:test -- search-unparsed
+npm run mobile:e2e:test -- settings-developer
 npm run mobile:e2e:test -- settings-downloads
 npm run mobile:e2e:test -- subscriptions-anonymous
+npm run mobile:e2e:test -- taste-profile
+npm run mobile:e2e:test -- taste-profile-consent
+npm run mobile:e2e:test -- terms-account-access
+npm run mobile:e2e:test -- terms-taste-profile-consent
 npm run mobile:e2e:test -- track
 ```
 

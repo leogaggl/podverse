@@ -1,7 +1,7 @@
 import type { Page, Route } from '@playwright/test';
 import { expect } from '@playwright/test';
 
-import type { AddByRSSParseCacheEntry } from '@podverse/helpers';
+import type { AddByRSSParseCacheEntry, AddByRSSPublisherListedFeed } from '@podverse/helpers';
 
 export const E2E_API_BASE_URL = 'http://localhost:4030/api/v2';
 
@@ -52,12 +52,14 @@ export async function unfollowFeedOnServer(page: Page, feedUrl: string): Promise
   });
 }
 
-type StubbedParseOutcome = Pick<
+export type StubbedParseOutcome = Pick<
   AddByRSSParseCacheEntry<never>,
   'status' | 'failureReason' | 'credentialsState' | 'httpStatus' | 'authChallenge'
 > & {
   /** Partytime-shaped feed a `parsed` outcome returns. Omitted, the feed keeps its stored title. */
   payload?: Record<string, unknown>;
+  /** On a parsed artist outcome: the feeds it lists, as the API returns them. */
+  publisherListedFeeds?: AddByRSSPublisherListedFeed[];
 };
 
 export type StubbedParseRequests = {
@@ -67,7 +69,7 @@ export type StubbedParseRequests = {
 
 const REQUEST_ID_PREFIX = 'e2e-credentials-';
 
-const corsHeaders = (route: Route): Record<string, string> => ({
+export const corsHeaders = (route: Route): Record<string, string> => ({
   'Access-Control-Allow-Origin': route.request().headers()['origin'] ?? 'http://localhost:4032',
   'Access-Control-Allow-Credentials': 'true',
 });

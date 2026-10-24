@@ -356,6 +356,13 @@ describe('planSyncRun', () => {
     expect(planned).toEqual([{ kind: 'add-by-rss-refresh', priority: 'user' }]);
   });
 
+  it('plans the one album-sync job for the listed-feeds trigger, and nothing signed out', () => {
+    expect(planSyncRun({ isAuthenticated: true, trigger: 'add-by-rss-listed-feeds' })).toEqual([
+      { kind: 'add-by-rss-listed-feeds', priority: 'background' },
+    ]);
+    expect(planSyncRun({ isAuthenticated: false, trigger: 'add-by-rss-listed-feeds' })).toEqual([]);
+  });
+
   it('plans only roots, leaving discovered work to the job that finds it', () => {
     const kinds = planSyncRun({ isAuthenticated: true, trigger: 'app-start' }).map(
       (planned) => planned.kind

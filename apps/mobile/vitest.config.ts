@@ -22,7 +22,18 @@ import { defineConfig } from 'vitest/config';
  * repository reads stay in `homeFeedData.ts`), the env-driven deep-link scheme / prefix helpers
  * (`src/config/deepLinkSchemes.js`), the custom API address and health verdict
  * (`src/config/customApiUrl.ts`), deep-link path mapping (`src/navigation/deepLinking.ts`), pure notification
- * payload target extraction (`src/push/notificationTarget.ts`), share URL mapping (`src/lib/share/shareUrl.ts`),
+ * payload target extraction (`src/push/notificationTarget.ts`), the path an inbox row and a banner
+ * open (`src/push/accountNotificationLink.ts`), which notifications may show a
+ * banner and the device-local kind switches (`src/notifications/bannerNotificationPolicy.ts`,
+ * `src/prefs/bannerNotificationPrefs.ts`), the account event stream's SSE parser, run condition
+ * and failure rules, in-memory notification store, and connection controller
+ * (`src/notifications/sseEventParser.ts`, `notificationStreamPolicy.ts`,
+ * `notificationStreamStore.ts`, `notificationStreamController.ts` — I/O is injected; the
+ * `expo/fetch` client and the RN runtime stay out of this suite), marking one notification read
+ * by id or by the push's item and type (`src/notifications/notificationReadActions.ts` — the
+ * repository is mocked), the session inbox page used in Offline Mode and the prepend that puts a
+ * live row first (`src/notifications/notificationsInboxCache.ts`), share URL mapping
+ * (`src/lib/share/shareUrl.ts`),
  * prefs storage guards/hydration (`src/prefs/prefsStore.ts`), Home's remembered filter, sort, and
  * view-mode selections (`src/prefs/homeListPrefs.ts` — AsyncStorage-backed and mockable in node,
  * covering per-media-type scoping, the list-not-grid default, one control's write leaving the
@@ -33,13 +44,20 @@ import { defineConfig } from 'vitest/config';
  * (`src/screens/search/podcastIndexFeedPreview.ts`), the client-version/platform header builder
  * (`src/auth/mobileClientHeaders.ts` — pure; the RN-coupled resolution stays in `mobileApi.ts`), the
  * billing client selection, account-token binding, and finish-after-confirm rule (`src/billing` —
- * the store SDK adapters stay out of this suite), the
- * forced-logout notice marker (`src/auth/forcedLogoutNotice.ts` — AsyncStorage-backed, and
- * AsyncStorage mocks cleanly in node; the RN modal that renders it stays untested here), the rule
+ * the store SDK adapters stay out of this suite), the auth refresh gate
+ * (`src/auth/authRequestWithRefresh.ts` — the API factory, offline pref, and connectivity reporter
+ * are mocked, so the gate runs in node), the
+ * forced-logout notice marker and the reason it stores (`src/auth/forcedLogoutNotice.ts` —
+ * AsyncStorage-backed, and AsyncStorage mocks cleanly in node; the RN modal that renders it stays
+ * untested here) and the reason-to-copy mapping (`src/auth/forcedLogoutNoticeCopy.ts`), the session
+ * device label sent at login and the signed-in device rows (`src/auth/mobileSessionDeviceLabel.ts`,
+ * `src/lib/device/deviceModel.ts`, `src/auth/loginWithMobileToken.ts`,
+ * `src/screens/more/accountSessionRows.ts`), the rule
  * that tells an E2E session left behind by a finished flow apart from one a relaunch should keep
- * (`src/auth/e2eSessionReset.ts`), the best-effort replay of buffered listen stats, which must
- * resolve even when the account is not entitled to them (`src/data/repositories/statsRepository.ts` —
- * its only dependency is the auth request helper, which mocks), the
+ * (`src/auth/e2eSessionReset.ts`), the listen outbox rules — merging reports of one session, the
+ * age limits, which send failures drop a report, and the request body
+ * (`src/data/repositories/statsListenOutbox.ts` — pure; the SQLite half stays in
+ * `statsRepository.ts`), the
  * membership denial mapping (`src/membership/membershipDenial.ts` — pure; note the membership-state
  * derivation now lives in `@podverse/helpers` `deriveMembershipState`, tested there, and the RN-coupled
  * `useMembership` hook is excluded), the membership checkout URL builder
@@ -100,10 +118,14 @@ export default defineConfig({
     environment: 'node',
     include: [
       'modules/podverse-media-engine/src/**/*.test.ts',
+      'src/auth/authRequestWithRefresh.test.ts',
       'src/auth/e2eSessionReset.test.ts',
       'src/auth/forcedLogoutNotice.test.ts',
+      'src/auth/forcedLogoutNoticeCopy.test.ts',
       'src/auth/localDevLoginPrefill.test.ts',
+      'src/auth/loginWithMobileToken.test.ts',
       'src/auth/mobileClientHeaders.test.ts',
+      'src/auth/mobileSessionDeviceLabel.test.ts',
       'src/billing/**/*.test.ts',
       'src/components/content/itemDetailDateLabel.test.ts',
       'src/components/form/chipRowReveal.test.ts',
@@ -118,6 +140,7 @@ export default defineConfig({
       'src/config/deepLinkSchemes.test.ts',
       'src/data/db/migrations.test.ts',
       'src/data/identityRemap.test.ts',
+      'src/data/repositories/addByRssListedFeeds.test.ts',
       'src/data/repositories/channelItemWindow.test.ts',
       'src/data/repositories/channelLiveStatus.test.ts',
       'src/data/repositories/channelSeenSync.test.ts',
@@ -127,16 +150,18 @@ export default defineConfig({
       'src/data/repositories/playbackOutbox.test.ts',
       'src/data/repositories/playbackReconcile.test.ts',
       'src/data/repositories/subscriptionsMerge.test.ts',
-      'src/data/repositories/statsRepository.test.ts',
+      'src/data/repositories/statsListenOutbox.test.ts',
       'src/data/repositories/subscriptionsSignupPlan.test.ts',
       'src/data/repositories/syncEventLog.test.ts',
       'src/data/sync/syncScheduler.test.ts',
       'src/downloads/**/*.test.ts',
       'src/feedback/actionErrorCopy.test.ts',
       'src/hooks/useReduceMotion.test.ts',
+      'src/lib/addByRss/addByRssArtistIndex.test.ts',
       'src/lib/addByRss/addByRssErrorLog.test.ts',
       'src/lib/addByRss/credentials.test.ts',
       'src/lib/addByRss/domain.test.ts',
+      'src/lib/addByRss/publisherRefs.test.ts',
       'src/lib/addByRss/storedResourceType.test.ts',
       'src/lib/addByRss/downloadIdText.test.ts',
       'src/lib/addByRss/downloadItem.test.ts',
@@ -148,14 +173,18 @@ export default defineConfig({
       'src/lib/addByRss/resourceData.test.ts',
       'src/lib/apiErrorStatus.test.ts',
       'src/lib/cachedValue.test.ts',
+      'src/lib/device/deviceModel.test.ts',
       'src/lib/home/homeFeedRefresh.test.ts',
       'src/lib/perf/frameStats.test.ts',
       'src/lib/perf/perfSpans.test.ts',
       'src/lib/playback/addByRssPlaybackIdentity.test.ts',
       'src/lib/playback/engineSourceAdoption.test.ts',
       'src/lib/playback/lastPlaybackStorage.test.ts',
+      'src/lib/playback/lineArtist.test.ts',
+      'src/lib/playback/mediaEngineSourceMeta.test.ts',
       'src/lib/playback/planDownloadCompletePlaybackHandoff.test.ts',
       'src/lib/playback/resolvePlaybackUrl.test.ts',
+      'src/lib/playback/verifiedArtists.test.ts',
       'src/lib/rows/homeRowMappers.test.ts',
       'src/lib/rows/liveItemRows.test.ts',
       'src/lib/share/shareSheetPassthrough.test.ts',
@@ -165,6 +194,13 @@ export default defineConfig({
       'src/membership/storeCheckout.test.ts',
       'src/navigation/deepLinking.test.ts',
       'src/navigation/focusedTabPop.test.ts',
+      'src/notifications/bannerNotification*.test.ts',
+      'src/notifications/notificationReadActions.test.ts',
+      'src/notifications/notificationStreamController.test.ts',
+      'src/notifications/notificationStreamPolicy.test.ts',
+      'src/notifications/notificationStreamStore.test.ts',
+      'src/notifications/notificationsInboxCache.test.ts',
+      'src/notifications/sseEventParser.test.ts',
       'src/net/connectivityMachine.test.ts',
       'src/playback/addByRssNowPlayingSectionsStore.test.ts',
       'src/playback/nowPlayingSegment.test.ts',
@@ -174,10 +210,13 @@ export default defineConfig({
       'src/playback/playbackHandoffTitle.test.ts',
       'src/playback/previousAction.test.ts',
       'src/playback/playbackTransport.test.ts',
+      'src/prefs/bannerNotificationPrefs.test.ts',
       'src/prefs/homeListPrefs.test.ts',
       'src/prefs/prefsStore.test.ts',
+      'src/push/accountNotificationLink.test.ts',
       'src/push/notificationTarget.test.ts',
       'src/screens/home/HomeFeedRow.test.ts',
+      'src/screens/home/addByRss/addByRssArtistAlbums.test.ts',
       'src/screens/home/addByRss/addByRssDetailSections.test.ts',
       'src/screens/home/addByRss/addByRssEpisodeTabs.test.ts',
       'src/screens/home/addByRss/addByRssTrackTabs.test.ts',
@@ -186,12 +225,15 @@ export default defineConfig({
       'src/screens/home/homeItemMerge.test.ts',
       'src/screens/home/homeItemRowActions.test.ts',
       'src/screens/home/addByRssHomeDetailData.test.ts',
+      'src/screens/artist/artistDetailSections.test.ts',
+      'src/screens/artist/artistUnsubscribeTargets.test.ts',
       'src/screens/episode/episodeSectionPaneLoaders.test.ts',
       'src/screens/episode/episodeTabs.test.ts',
       'src/screens/player/fullPlayerAddByRssPanes.test.ts',
       'src/screens/player/fullPlayerLayout.test.ts',
       'src/screens/player/fullPlayerContentLink.test.ts',
       'src/screens/search/podcastIndexFeedPreview.test.ts',
+      'src/screens/more/accountSessionRows.test.ts',
       'src/screens/more/errorLogDeviceContext.test.ts',
       'src/screens/more/errorLogMailto.test.ts',
       'src/shims/nodeCryptoShim.test.ts',

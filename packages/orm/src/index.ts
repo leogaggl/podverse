@@ -1,10 +1,15 @@
 export type {
+  DataSourceOptions,
+  EntityManager,
   FindManyOptions,
   FindOptionsOrder,
   FindOptionsRelations,
   FindOptionsSelect,
   FindOptionsWhere,
 } from 'typeorm';
+
+// Consumers building app-database connections use this DataSource so its type matches bindORMContext
+export { DataSource } from 'typeorm';
 
 // Config types for app-level configuration
 export * from './config/index.js';
@@ -52,6 +57,8 @@ export * from './entities/account/accountNotificationChannelType.js';
 export * from './entities/account/accountNotificationPreference.js';
 export * from './entities/account/accountProfile.js';
 export * from './entities/account/accountResetPassword.js';
+export * from './entities/account/accountSession.js';
+export * from './entities/account/accountApiKey.js';
 export * from './entities/account/accountSetPassword.js';
 export * from './entities/account/accountSettings/accountSettings.js';
 export * from './entities/account/accountSettings/accountSettingsLocale.js';
@@ -80,6 +87,7 @@ export * from './entities/channel/channelPodrollRemoteItem.js';
 export * from './entities/channel/channelPublisher.js';
 export * from './entities/channel/channelPublisherRemoteItem.js';
 export * from './entities/channel/channelRemoteItem.js';
+export * from './entities/channel/channelVerifiedPublisher.js';
 export * from './entities/channel/channelSeason.js';
 export * from './entities/channel/channelSocialInteract.js';
 export * from './entities/channel/channelTrailer.js';
@@ -164,21 +172,27 @@ export * from './entities/membershipClaimToken.js';
 export * from './entities/productMembershipSettings.js';
 export * from './entities/sharableStatus.js';
 
-export * from './entities/stats/statsAggregatedAccount.js';
-export * from './entities/stats/statsAggregatedChannel.js';
-export * from './entities/stats/statsAggregatedClip.js';
-export * from './entities/stats/statsAggregatedItem.js';
-export * from './entities/stats/statsAggregatedPlaylist.js';
-export * from './entities/stats/statsTrackAccountGuid.js';
-export * from './entities/stats/statsTrackEventAccount.js';
-export * from './entities/stats/statsTrackEventChannel.js';
-export * from './entities/stats/statsTrackEventClip.js';
-export * from './entities/stats/statsTrackEventItem.js';
-export * from './entities/stats/statsTrackEventPlaylist.js';
+export * from './entities/stats/statsDailyAccount.js';
+export * from './entities/stats/statsDailyChannel.js';
+export * from './entities/stats/statsDailyClip.js';
+export * from './entities/stats/statsDailyItem.js';
+export * from './entities/stats/statsDailyPlaylist.js';
+export * from './entities/stats/statsListenEvent.js';
+export * from './entities/stats/statsOpenEvent.js';
+export * from './entities/stats/statsPopularityAccount.js';
+export * from './entities/stats/statsPopularityChannel.js';
+export * from './entities/stats/statsPopularityClip.js';
+export * from './entities/stats/statsPopularityItem.js';
+export * from './entities/stats/statsPopularityPlaylist.js';
+export * from './entities/stats/statsTasteProfile.js';
+export * from './entities/stats/statsTasteProfileHidden.js';
+export * from './entities/stats/statsFlaggedListener.js';
+export * from './entities/stats/statsFlagSignal.js';
 
 export * from './lib/typeORMTypes.js';
 export * from './lib/nanoid.js';
 export * from './lib/billingLimits.js';
+export * from './lib/verifiedPublisherMatch.js';
 export * from './lib/feedLifecycleLimits.js';
 export * from './lib/feedTableLimits.js';
 export * from './lib/feedLifecycleState.js';
@@ -217,13 +231,17 @@ export * from './services/account/accountPendingFollowingChannel.js';
 export * from './services/account/accountMembership.js';
 export * from './services/account/accountMembershipStatus.js';
 export * from './services/account/accountMetaboost.js';
+export * from './lib/accountEventPublisher.js';
 export * from './services/account/accountNotification.js';
+export * from './services/account/accountNotificationSignal.js';
 export * from './services/account/accountTermsAcceptance.js';
 export * from './services/account/accountNotificationChannel.js';
 export * from './services/account/accountNotificationChannelType.js';
 export * from './services/account/accountNotificationPreference.js';
 export * from './services/account/accountProfile.js';
 export * from './services/account/accountResetPassword.js';
+export * from './services/account/accountSession.js';
+export * from './services/account/accountApiKey.js';
 export * from './services/account/accountSetPassword.js';
 export * from './services/account/scheduledJob.js';
 export * from './services/account/accountSettings/accountSettingsListenStats.js';
@@ -243,6 +261,7 @@ export * from './services/removedReferences.js';
 
 export * from './services/channel/channel.js';
 export * from './services/channel/channelAbout.js';
+export * from './services/channel/channelAddByRSSDirectoryMatch.js';
 export * from './services/channel/channelChat.js';
 export * from './services/channel/channelCategory.js';
 export * from './services/channel/channelDescription.js';
@@ -256,6 +275,7 @@ export * from './services/channel/channelPodrollRemoteItem.js';
 export * from './services/channel/channelPublisher.js';
 export * from './services/channel/channelPublisherRemoteItem.js';
 export * from './services/channel/channelRemoteItem.js';
+export * from './services/channel/channelVerifiedPublisher.js';
 export * from './services/channel/channelSeason.js';
 export * from './services/channel/channelSocialInteract.js';
 export * from './services/channel/channelTrailer.js';
@@ -328,14 +348,16 @@ export * from './services/queue/queue.js';
 export * from './services/queue/queueResource.js';
 export * from './services/queue/queueResourceActiveItemFilter.js';
 
-export * from './services/stats/statsAggregatedAccount.js';
-export * from './services/stats/statsAggregatedChannel.js';
-export * from './services/stats/statsAggregatedClip.js';
-export * from './services/stats/statsAggregatedItem.js';
-export * from './services/stats/statsAggregatedPlaylist.js';
-export * from './services/stats/statsTrackAccountGuid.js';
-export * from './services/stats/statsTrackEventAccount.js';
-export * from './services/stats/statsTrackEventChannel.js';
-export * from './services/stats/statsTrackEventClip.js';
-export * from './services/stats/statsTrackEventItem.js';
-export * from './services/stats/statsTrackEventPlaylist.js';
+export * from './services/stats/statsDailyDevSeed.js';
+export * from './services/stats/statsEventPartitions.js';
+export * from './services/stats/statsPopularityRefresh.js';
+export * from './services/stats/popularity/statsPopularityAccount.js';
+export * from './services/stats/popularity/statsPopularityChannel.js';
+export * from './services/stats/popularity/statsPopularityClip.js';
+export * from './services/stats/popularity/statsPopularityItem.js';
+export * from './services/stats/popularity/statsPopularityPlaylist.js';
+export * from './services/stats/listenerIdentity/listeningDataDeletion.js';
+export * from './services/stats/listenerIdentity/listeningDataExport.js';
+export * from './services/stats/listenerIdentity/tasteProfileAccount.js';
+export * from './services/stats/listenerIdentity/statsListenWrite.js';
+export * from './services/stats/listenerIdentity/statsOpenWrite.js';

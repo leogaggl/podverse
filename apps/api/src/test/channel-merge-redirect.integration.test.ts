@@ -211,6 +211,7 @@ describe('channel merge redirects', () => {
       enqueueRepointParse: async () => {
         throw new Error('absorb must not enqueue a parse');
       },
+      statsTrackEventRetentionDays: 90,
     });
 
     const http = requireApp();

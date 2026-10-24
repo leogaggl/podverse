@@ -79,7 +79,6 @@ export { playlistRepository } from './playlistRepository';
 export { sectionChromeFlagsRepository } from './sectionChromeFlagsRepository';
 export { segmentsRepository } from './segmentsRepository';
 export { statsRepository } from './statsRepository';
-export type { PlaybackStatsTargets } from './statsRepository';
 export { subscriptionsRepository } from './subscriptionsRepository';
 export type {
   SubscribedChannel,

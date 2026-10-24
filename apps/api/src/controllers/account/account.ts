@@ -5,10 +5,14 @@ import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
 import { loggerService } from '@api/factories/loggerService.js';
 import { accountToJson } from '@api/lib/accountApiSerialization.js';
 import {
+  clearAuthCookie,
   ensureAuthenticated,
+  getAuthenticatedSessionIdText,
   getAuthenticatedUser,
   optionalEnsureAuthenticated,
 } from '@api/lib/auth//index.js';
+import { endAccountSessions } from '@api/lib/auth/accountSessionStore.js';
+import { verifyPassword } from '@api/lib/auth/password.js';
 import { getFollowedAccountIds } from '@api/lib/followed.js';
 import {
   isConfiguredTermsVersion,
@@ -40,6 +44,7 @@ import Joi from 'joi';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
+  ACCOUNT_CHANGE_PASSWORD_ERROR_CODES,
   ACCOUNT_RESPONSE_CODES,
   ERROR_MESSAGES,
   getAccountSignupModeCapabilities,
@@ -53,7 +58,7 @@ import type {
   AccountFollowingAccount,
   FindManyOptions,
   FindOptionsRelations,
-  StatsAggregatedAccount,
+  StatsPopularityAccount,
 } from '@podverse/orm';
 import {
   AccountCredentialsService,
@@ -68,7 +73,7 @@ import {
   AccountVerificationService,
   findOptionsRelationsFromPaths,
   mergeFindOptionsRelations,
-  StatsAggregatedAccountService,
+  StatsPopularityAccountService,
 } from '@podverse/orm';
 
 const publicRelations: FindOptionsRelations<Account> = {
@@ -96,14 +101,14 @@ const accountPublicRelations = publicRelations;
 
 const accountFullRelations = mergeFindOptionsRelations<Account>(publicRelations, privateRelations);
 
-const trackedAccountProfileRelations = [
-  'tracked_account',
-  'tracked_account.account_profile',
-  'tracked_account.sharable_status',
+const popularityAccountProfileRelations = [
+  'account',
+  'account.account_profile',
+  'account.sharable_status',
 ] as const;
 
-const statsTrackedAccountRelations: FindOptionsRelations<StatsAggregatedAccount> =
-  findOptionsRelationsFromPaths<StatsAggregatedAccount>(trackedAccountProfileRelations);
+const statsPopularityAccountRelations: FindOptionsRelations<StatsPopularityAccount> =
+  findOptionsRelationsFromPaths<StatsPopularityAccount>(popularityAccountProfileRelations);
 
 const followingAccountListRelations: FindOptionsRelations<AccountFollowingAccount> = {
   following_account: {
@@ -135,7 +140,7 @@ export class AccountController {
   private static accountSetPasswordService = new AccountSetPasswordService();
   private static accountVerificationService = new AccountVerificationService();
   private static accountFollowingAccountService = new AccountFollowingAccountService();
-  private static statsAggregatedAccountService = new StatsAggregatedAccountService();
+  private static statsPopularityAccountService = new StatsPopularityAccountService();
   private static accountDataExportService = new AccountDataExportService();
 
   static async getByIdText(req: Request, res: Response): Promise<void> {
@@ -183,7 +188,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'account', action: 'read' },
+        }
       );
     });
   }
@@ -223,7 +231,11 @@ export class AccountController {
           handleGenericErrorResponse(res, error);
         }
       },
-      { skipMembershipStatus: true, skipTermsAcceptance: true }
+      {
+        skipMembershipStatus: true,
+        skipTermsAcceptance: true,
+        apiKeyAccess: { resource: 'account', action: 'read' },
+      }
     );
   }
 
@@ -327,9 +339,10 @@ export class AccountController {
 
             // Filter by sharable status
             const sharableStatusIds = getSharableStatusIdsForProfileType('subscribed');
-            accounts = accounts.filter((account) =>
-              sharableStatusIds.includes(account.sharable_status.id)
-            );
+            accounts = accounts.filter((account) => {
+              const sharableStatusId = resolveSharableStatusId(account);
+              return sharableStatusId !== undefined && sharableStatusIds.includes(sharableStatusId);
+            });
 
             // Remove private information from accounts before returning
             const filteredAccounts = accounts.map((account) =>
@@ -348,7 +361,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -408,9 +424,10 @@ export class AccountController {
 
             // Filter by sharable status
             const sharableStatusIds = getSharableStatusIdsForProfileType('subscribed');
-            accounts = accounts.filter((account) =>
-              sharableStatusIds.includes(account.sharable_status.id)
-            );
+            accounts = accounts.filter((account) => {
+              const sharableStatusId = resolveSharableStatusId(account);
+              return sharableStatusId !== undefined && sharableStatusIds.includes(sharableStatusId);
+            });
 
             // Remove private information from accounts before returning
             const filteredAccounts = accounts.map((account) =>
@@ -429,7 +446,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -443,19 +463,17 @@ export class AccountController {
         };
 
         const orderField = getStatsOrder(range);
-        const topConfig: FindManyOptions<StatsAggregatedAccount> = {
-          order: { [orderField]: 'DESC' },
+        const topConfig: FindManyOptions<StatsPopularityAccount> = {
+          order: { [orderField]: 'DESC', account_id: 'ASC' },
           skip: offset,
           take: limit,
-          relations: statsTrackedAccountRelations,
+          relations: statsPopularityAccountRelations,
         };
-        const statsResults = await AccountController.statsAggregatedAccountService.getMany(
+        const statsResults = await AccountController.statsPopularityAccountService.getMany(
           topConfig,
           'global'
         );
-        const accounts = statsResults
-          .map((s: { tracked_account: Account }) => s.tracked_account)
-          .filter(Boolean);
+        const accounts = statsResults.map((s: { account: Account }) => s.account).filter(Boolean);
 
         // Remove private information from accounts before returning
         const filteredAccounts = accounts.map((account) =>
@@ -496,22 +514,20 @@ export class AccountController {
 
             if (accountIds.length) {
               const orderField = getStatsOrder(range);
-              const config: FindManyOptions<StatsAggregatedAccount> = {
-                order: { [orderField]: 'DESC' },
+              const config: FindManyOptions<StatsPopularityAccount> = {
+                order: { [orderField]: 'DESC', account_id: 'ASC' },
                 skip: offset,
                 take: limit,
-                relations: statsTrackedAccountRelations,
+                relations: statsPopularityAccountRelations,
               };
               const results =
-                await AccountController.statsAggregatedAccountService.getManyByAccountsAndCount(
+                await AccountController.statsPopularityAccountService.getManyByAccountsAndCount(
                   accountIds,
                   config,
                   'subscribed'
                 );
               const statsResults = results[0];
-              accounts = statsResults
-                .map((s: { tracked_account: Account }) => s.tracked_account)
-                .filter(Boolean);
+              accounts = statsResults.map((s: { account: Account }) => s.account).filter(Boolean);
               count = results[1];
             }
 
@@ -532,7 +548,10 @@ export class AccountController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -653,7 +672,10 @@ export class AccountController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'account', action: 'update' },
+      }
     );
   }
 
@@ -865,10 +887,69 @@ export class AccountController {
     await sendResetPasswordEmail(email, account.id_text, resetToken);
   }
 
+  static async changePassword(req: Request, res: Response): Promise<void> {
+    ensureAuthenticated(
+      req,
+      res,
+      async () => {
+        const bodySchema = Joi.object({
+          current_password: Joi.string().required(),
+          new_password: Joi.string().required(),
+        });
+
+        validateBodyObject(bodySchema, req, res, async () => {
+          try {
+            const jwtUser = getAuthenticatedUser(req);
+            const { current_password, new_password } = req.body;
+
+            const account = await AccountController.accountService.get(jwtUser.id, {
+              relations: accountCredentialsRelations,
+            });
+            const passwordHash = account?.account_credentials?.password;
+            const currentPasswordMatches =
+              passwordHash !== undefined &&
+              passwordHash !== '' &&
+              (await verifyPassword(current_password, passwordHash));
+            if (!currentPasswordMatches) {
+              res.status(400).json({
+                message: 'Current password is incorrect',
+                code: ACCOUNT_CHANGE_PASSWORD_ERROR_CODES.CURRENT_PASSWORD_INCORRECT,
+              });
+              return;
+            }
+
+            const result = await AccountController.accountService.resetPassword(
+              jwtUser.id,
+              new_password
+            );
+            if (result === 'invalid_new_password') {
+              res.status(400).json({
+                message: 'New password does not meet the requirements',
+                code: ACCOUNT_CHANGE_PASSWORD_ERROR_CODES.INVALID_NEW_PASSWORD,
+              });
+              return;
+            }
+
+            const revokedCount = await endAccountSessions({
+              accountId: jwtUser.id,
+              reason: 'password_changed',
+              exceptSessionIdText: getAuthenticatedSessionIdText(req),
+            });
+
+            res.json({ message: 'Password changed', revoked_count: revokedCount });
+          } catch (error) {
+            handleGenericErrorResponse(res, error);
+          }
+        });
+      },
+      { skipMembershipStatus: true, skipTermsAcceptance: true }
+    );
+  }
+
   static async resetPassword(req: Request, res: Response): Promise<void> {
     const bodySchema = Joi.object({
       token: Joi.string().required(),
-      password: Joi.string().min(8).required(),
+      password: Joi.string().required(),
     });
 
     validateBodyObject(bodySchema, req, res, async () => {
@@ -882,10 +963,21 @@ export class AccountController {
           return;
         }
 
-        await AccountController.accountService.resetPassword(
+        const result = await AccountController.accountService.resetPassword(
           accountResetPassword.account.id,
           password
         );
+        if (result === 'invalid_new_password') {
+          res.status(400).json({ message: 'Password does not meet the requirements' });
+          return;
+        }
+
+        await endAccountSessions({
+          accountId: accountResetPassword.account.id,
+          reason: 'password_changed',
+          exceptSessionIdText: null,
+        });
+        clearAuthCookie(res);
 
         res.json({ message: 'Password reset successfully' });
       } catch (error) {
@@ -903,6 +995,7 @@ export class AccountController {
           const jwtUser = getAuthenticatedUser(req);
           const account_id = jwtUser.id;
           await AccountController.accountService.delete(account_id);
+          clearAuthCookie(res);
           res.json({ message: 'Account deleted successfully' });
         } catch (error) {
           handleGenericErrorResponse(res, error);
@@ -997,7 +1090,11 @@ export class AccountController {
         return;
       }
 
-      await AccountController.accountService.resetPassword(account.id, password);
+      const result = await AccountController.accountService.resetPassword(account.id, password);
+      if (result === 'invalid_new_password') {
+        res.status(400).json({ message: 'Password does not meet the requirements' });
+        return;
+      }
 
       if (email && account.account_credentials?.email === null) {
         const accountCredentialsService = new AccountCredentialsService();
@@ -1007,6 +1104,13 @@ export class AccountController {
       await AccountController.accountService.verifyEmail(account.id);
 
       await AccountController.accountSetPasswordService.deleteByAccountId(account.id);
+
+      await endAccountSessions({
+        accountId: account.id,
+        reason: 'password_changed',
+        exceptSessionIdText: null,
+      });
+      clearAuthCookie(res);
 
       res.json({ message: 'Password set successfully' });
     } catch (error) {

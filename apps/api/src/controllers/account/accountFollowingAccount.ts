@@ -94,7 +94,10 @@ class AccountFollowingAccountController {
           }
         });
       },
-      { skipMembershipStatus: false }
+      {
+        skipMembershipStatus: false,
+        apiKeyAccess: { resource: 'subscriptions', action: 'create' },
+      }
     );
   }
 
@@ -122,7 +125,10 @@ class AccountFollowingAccountController {
           }
         });
       },
-      { skipMembershipStatus: true }
+      {
+        skipMembershipStatus: true,
+        apiKeyAccess: { resource: 'subscriptions', action: 'delete' },
+      }
     );
   }
 }

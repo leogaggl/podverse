@@ -35,10 +35,12 @@ import {
 } from '@podverse/external-services-podcast-index';
 import {
   DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS,
+  DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS,
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   DEFAULT_ON_DEMAND_PARSER_EVENT_RETENTION_DAYS,
   DEFAULT_SCHEDULED_JOB_RETENTION_DAYS,
   DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS,
+  STATS_POPULARITY_RANGE_LOOKBACK_DAYS,
 } from '@podverse/helpers';
 import type { ValidationResult, ValidationSummary } from '@podverse/helpers-config';
 import {
@@ -129,7 +131,12 @@ const RETENTION_DAYS_MAX = 3650;
  * number of days. The category is what differs, because an operator scanning startup output looks
  * for the subsystem rather than the variable.
  */
-function validateRetentionDays(key: string, category: string, fallback: number): ValidationResult {
+function validateRetentionDays(
+  key: string,
+  category: string,
+  fallback: number,
+  min = RETENTION_DAYS_MIN
+): ValidationResult {
   const value = process.env[key] ?? '';
   if (value.trim() === '') {
     return {
@@ -141,8 +148,11 @@ function validateRetentionDays(key: string, category: string, fallback: number):
       category,
     };
   }
-  return validatePositiveNumber(key, category, false, RETENTION_DAYS_MIN, RETENTION_DAYS_MAX);
+  return validatePositiveNumber(key, category, false, min, RETENTION_DAYS_MAX);
 }
+
+/** Popularity month counts read events, so retention must keep every day of the month window. */
+const STATS_TRACK_EVENT_RETENTION_DAYS_MIN = STATS_POPULARITY_RANGE_LOOKBACK_DAYS.month + 1;
 
 /** Category: Config/Base — every command needs at least these */
 function validateBase(): ValidationResult[] {
@@ -158,7 +168,8 @@ function validateBase(): ValidationResult[] {
     validateRetentionDays(
       'STATS_TRACK_EVENT_RETENTION_DAYS',
       'Stats',
-      DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS
+      DEFAULT_STATS_TRACK_EVENT_RETENTION_DAYS,
+      STATS_TRACK_EVENT_RETENTION_DAYS_MIN
     )
   );
   results.push(
@@ -173,6 +184,13 @@ function validateBase(): ValidationResult[] {
       'ACCOUNT_CONTENT_LOG_RETENTION_DAYS',
       'Removed Content',
       DEFAULT_ACCOUNT_CONTENT_LOG_RETENTION_DAYS
+    )
+  );
+  results.push(
+    validateRetentionDays(
+      'ACCOUNT_SESSION_RETENTION_DAYS',
+      'Account sessions',
+      DEFAULT_ACCOUNT_SESSION_RETENTION_DAYS
     )
   );
   results.push(
@@ -693,7 +711,7 @@ function getValidationResultsForCommand(commandName: string): ValidationResult[]
  * Runs early in the initialization process to catch configuration errors
  * before the application attempts to start.
  *
- * @param commandName - The worker command name (e.g. statsUpdateAggregated, mqRSSRunParser)
+ * @param commandName - The worker command name (e.g. statsPopularityRefresh, mqRSSRunParser)
  * @throws Error if command is unknown or any required variable for that command is missing
  */
 export const validateStartupRequirements = (commandName: string): void => {

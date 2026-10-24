@@ -37,6 +37,7 @@ enum PodversePlaybackState: String {
 struct PodverseNowPlayingInfo {
   var title: String?
   var artist: String?
+  var albumTitle: String?
   var artwork: MPMediaItemArtwork?
   var isLive: Bool = false
 }
@@ -48,6 +49,7 @@ struct PodverseSourceMeta {
   let queueMedium: String
   let title: String
   let subtitle: String?
+  let albumTitle: String?
   let artworkUrl: String?
   let isLive: Bool
   let clipStartSeconds: Double?
@@ -64,6 +66,7 @@ struct PodverseSourceMeta {
       "isLive": isLive,
     ]
     if let subtitle = subtitle { dict["subtitle"] = subtitle }
+    if let albumTitle = albumTitle { dict["albumTitle"] = albumTitle }
     if let artworkUrl = artworkUrl { dict["artworkUrl"] = artworkUrl }
     if let clipStartSeconds = clipStartSeconds { dict["clipStartSeconds"] = clipStartSeconds }
     if let clipEndSeconds = clipEndSeconds { dict["clipEndSeconds"] = clipEndSeconds }
@@ -85,6 +88,7 @@ struct PodverseSourceMeta {
       queueMedium: queueMedium,
       title: title,
       subtitle: object["subtitle"] as? String,
+      albumTitle: object["albumTitle"] as? String,
       artworkUrl: object["artworkUrl"] as? String,
       isLive: (object["isLive"] as? Bool) ?? false,
       clipStartSeconds: object["clipStartSeconds"] as? Double,
@@ -330,6 +334,7 @@ public final class PodverseAudioEngine: NSObject {
     nowPlaying = PodverseNowPlayingInfo(
       title: meta?.title ?? parsed.lastPathComponent,
       artist: meta?.subtitle,
+      albumTitle: meta?.albumTitle,
       artwork: nil,
       isLive: meta?.isLive ?? false
     )
@@ -438,15 +443,15 @@ public final class PodverseAudioEngine: NSObject {
     }
   }
 
-  /// Override the Now Playing title/artist for the current item (lock screen + CarPlay). The CarPlay
-  /// browse scene calls this right after `loadAndStart` so the car shows the cache entry's real title
-  /// instead of the file name (`load` seeds a value from `lastPathComponent`). Metadata
-  /// only — it never creates a second `AVPlayer` or `MPRemoteCommandCenter`; the one shared command
-  /// center from `registerRemoteCommands` still drives all transport.
-  func setNowPlayingMetadata(title: String?, artist: String? = nil) {
+  /// Override the Now Playing title, artist, and album for the current item (lock screen + CarPlay).
+  /// The CarPlay browse scene calls this right after `loadAndStart` so the car shows the cache
+  /// entry's real title instead of the file name (`load` seeds a value from `lastPathComponent`).
+  /// Metadata only — it never creates a second `AVPlayer` or `MPRemoteCommandCenter`; the one
+  /// shared command center from `registerRemoteCommands` still drives all transport.
+  func setNowPlayingMetadata(title: String?, artist: String? = nil, albumTitle: String? = nil) {
     onMain { [weak self] in
       guard let self = self else { return }
-      self.nowPlaying = PodverseNowPlayingInfo(title: title, artist: artist)
+      self.nowPlaying = PodverseNowPlayingInfo(title: title, artist: artist, albumTitle: albumTitle)
       self.updateNowPlayingInfo()
     }
   }
@@ -703,11 +708,12 @@ public final class PodverseAudioEngine: NSObject {
       }
       let title = self.nowPlaying.title
       let artist = self.nowPlaying.artist
+      let albumTitle = self.nowPlaying.albumTitle
       do {
         try self.load(
           url: source.url, initialSeekSeconds: position, basicAuth: source.basicAuth,
           audioProfile: nil, metaJson: nil, playWhenPrepared: false)
-        self.setNowPlayingMetadata(title: title, artist: artist)
+        self.setNowPlayingMetadata(title: title, artist: artist, albumTitle: albumTitle)
       } catch {
         // `load` already emitted the error for JS.
       }
@@ -757,6 +763,9 @@ public final class PodverseAudioEngine: NSObject {
     info[MPMediaItemPropertyTitle] = nowPlaying.title ?? "Podverse"
     if let artist = nowPlaying.artist {
       info[MPMediaItemPropertyArtist] = artist
+    }
+    if let albumTitle = nowPlaying.albumTitle {
+      info[MPMediaItemPropertyAlbumTitle] = albumTitle
     }
     if let artwork = nowPlaying.artwork {
       info[MPMediaItemPropertyArtwork] = artwork

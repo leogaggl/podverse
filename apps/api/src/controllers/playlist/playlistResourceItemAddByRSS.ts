@@ -47,7 +47,7 @@ class PlaylistResourceItemAddByRSSController {
             });
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
       );
     });
   }
@@ -82,7 +82,7 @@ class PlaylistResourceItemAddByRSSController {
             });
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
       );
     });
   }
@@ -121,7 +121,7 @@ class PlaylistResourceItemAddByRSSController {
             });
           });
         },
-        { skipMembershipStatus: false }
+        { skipMembershipStatus: false, apiKeyAccess: { resource: 'playlists', action: 'create' } }
       );
     });
   }
@@ -152,7 +152,7 @@ class PlaylistResourceItemAddByRSSController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'playlists', action: 'delete' } }
       );
     });
   }

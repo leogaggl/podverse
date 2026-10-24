@@ -1,7 +1,6 @@
 import type {
   DTOChannel,
   DTOItem,
-  EpisodeByGuidResponse,
   PodcastBatchByFeedGuidResponse,
   RemoteItemsResponse,
 } from '@podverse/helpers';
@@ -25,7 +24,6 @@ interface ArtistPageClientProps {
   ssrChannelsAdded: DTOChannel[];
   ssrChannelsUnadded: PodcastBatchByFeedGuidResponse['feeds'];
   ssrItemsAdded: DTOItem[];
-  ssrItemsUnadded: NonNullable<EpisodeByGuidResponse['episode']>[];
   ssrPodroll: RemoteItemsResponse | null;
   directoryRemoved: boolean;
 }
@@ -37,12 +35,11 @@ export function ArtistPageClient(props: ArtistPageClientProps) {
     ssrChannelsAdded,
     ssrChannelsUnadded,
     ssrItemsAdded,
-    ssrItemsUnadded,
     ssrPodroll,
     directoryRemoved,
   } = props;
   const ssrHasAlbums = ssrChannelsAdded.length > 0 || ssrChannelsUnadded.length > 0;
-  const ssrHasTracks = ssrItemsAdded.length > 0 || ssrItemsUnadded.length > 0;
+  const ssrHasTracks = ssrItemsAdded.length > 0;
   const ssrHasDescription = !!ssrChannel.channel_description;
   const ssrHasPodroll = !!ssrPodroll;
   const { canShowBoostMessagesTab: ssrCanShowBoosts } = getBoostEligibilityForContent({
@@ -55,7 +52,7 @@ export function ArtistPageClient(props: ArtistPageClientProps) {
       <ArtistPageContextProvider initialQueryParams={initialQueryParams}>
         <MainWrapper>
           <ChannelSeenPageView channelIdText={ssrChannel.id_text} />
-          <CoreArtistHeader channel={ssrChannel} />
+          <CoreArtistHeader channel={ssrChannel} artistAlbums={ssrChannelsAdded} />
           <MainSidebarLayout>
             <ArtistPageSideContent channel={ssrChannel} podroll={ssrPodroll} />
             <MainColumnStack>
@@ -64,6 +61,7 @@ export function ArtistPageClient(props: ArtistPageClientProps) {
               ) : (
                 <>
                   <ArtistPageListHeader
+                    channel={ssrChannel}
                     ssrHasAlbums={ssrHasAlbums}
                     ssrHasTracks={ssrHasTracks}
                     ssrHasDescription={ssrHasDescription}
@@ -76,7 +74,6 @@ export function ArtistPageClient(props: ArtistPageClientProps) {
                     ssrChannelsAdded={ssrChannelsAdded}
                     ssrChannelsUnadded={ssrChannelsUnadded}
                     ssrItemsAdded={ssrItemsAdded}
-                    ssrItemsUnadded={ssrItemsUnadded}
                     podroll={ssrPodroll}
                     ssrCanShowBoosts={ssrCanShowBoosts}
                   />

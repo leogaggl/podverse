@@ -68,7 +68,6 @@ export function EditUserPageClient({ userId, initialTab }: Props) {
     useState<ResolvedProductMembership | null>(null);
 
   const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const activeTab = initialTab === 'password' ? 'password' : 'profile';
@@ -261,16 +260,11 @@ export function EditUserPageClient({ userId, initialTab }: Props) {
       setPasswordError(t('passwordMinLength'));
       return;
     }
-    if (newPassword !== confirmPassword) {
-      setPasswordError(t('passwordsDoNotMatch'));
-      return;
-    }
 
     setSaving(true);
     try {
       await setUserPassword(userId, newPassword);
       setNewPassword('');
-      setConfirmPassword('');
       setSuccess(t('passwordChanged'));
     } catch {
       setError(t('failedToUpdate'));
@@ -509,15 +503,6 @@ export function EditUserPageClient({ userId, initialTab }: Props) {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                />
-
-                <TextInput
-                  autoComplete="new-password"
-                  id="edit-user-confirm-password"
-                  eyebrow={ta('confirmPassword')}
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
                 />
 
                 <FormPrimaryActions>

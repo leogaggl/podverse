@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ErrorLogDeviceSnapshot } from './errorLogDeviceContext';
-import {
-  androidDeviceType,
-  errorLogDeviceFields,
-  iosDeviceType,
-  joinDeviceModel,
-} from './errorLogDeviceContext';
+import { androidDeviceType, errorLogDeviceFields, iosDeviceType } from './errorLogDeviceContext';
 
 const snapshot = (overrides: Partial<ErrorLogDeviceSnapshot> = {}): ErrorLogDeviceSnapshot => ({
   androidApiLevel: null,
@@ -70,7 +65,7 @@ describe('errorLogDeviceFields', () => {
   });
 });
 
-describe('device type and model', () => {
+describe('device type', () => {
   it('maps an iOS idiom onto a device type', () => {
     expect(iosDeviceType('pad')).toBe('tablet');
     expect(iosDeviceType('phone')).toBe('phone');
@@ -81,11 +76,5 @@ describe('device type and model', () => {
     expect(androidDeviceType('normal', 800, 1280)).toBe('tablet');
     expect(androidDeviceType('normal', 393, 852)).toBe('phone');
     expect(androidDeviceType('tv', 1920, 1080)).toBe('tv');
-  });
-
-  it('does not repeat the manufacturer when the model already starts with it', () => {
-    expect(joinDeviceModel('Google', 'Pixel 6 Pro')).toBe('Google Pixel 6 Pro');
-    expect(joinDeviceModel('samsung', 'samsung SM-G991B')).toBe('samsung SM-G991B');
-    expect(joinDeviceModel('', '')).toBeNull();
   });
 });

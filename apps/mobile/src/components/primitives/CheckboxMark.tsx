@@ -53,6 +53,8 @@ export function CheckboxMark({ checked }: CheckboxMarkProps) {
 }
 
 export type CheckboxRowProps = {
+  /** When set, the row's accessible name. Otherwise the visible label is the name. */
+  accessibilityLabel?: string;
   checked: boolean;
   label: string;
   onPress: () => void;
@@ -63,7 +65,14 @@ export type CheckboxRowProps = {
 /**
  * Checkbox with its label on the right. The row centers that label on the box.
  */
-export function CheckboxRow({ checked, label, onPress, style, testID }: CheckboxRowProps) {
+export function CheckboxRow({
+  accessibilityLabel,
+  checked,
+  label,
+  onPress,
+  style,
+  testID,
+}: CheckboxRowProps) {
   const { styles: themeStyles, tokens } = useTheme();
 
   const styles = useMemo(
@@ -87,6 +96,7 @@ export function CheckboxRow({ checked, label, onPress, style, testID }: Checkbox
 
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
       onPress={onPress}

@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: management-api-admin-session-purge
+spec:
+  schedule: "45 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          annotations:
+            backup.velero.io/backup-volumes-excludes: "logs-volume"
+        spec:
+          containers:
+            - name: management-api
+              image: ghcr.io/podverse/podverse/management-api
+              command:
+                - "node"
+                - "apps/management-api/dist/index.js"
+                - "adminSessionPurge"
+              securityContext:
+                runAsUser: 1000
+                runAsGroup: 1000
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"
+              envFrom:
+                - configMapRef:
+                    name: podverse-management-api-config
+                - secretRef:
+                    name: podverse-management-api-opaque
+                - secretRef:
+                    name: podverse-management-db-opaque
+                - secretRef:
+                    name: podverse-db-opaque
+                - secretRef:
+                    name: podverse-billing-paypal-opaque
+                    optional: true
+                - secretRef:
+                    name: podverse-billing-strike-opaque
+                    optional: true
+                - configMapRef:
+                    name: podverse-product-membership-config
+                - configMapRef:
+                    name: podverse-extensions-config
+              volumeMounts:
+                - name: logs-volume
+                  mountPath: /logs
+                - name: logs-volume
+                  mountPath: /opt/logs
+          volumes:
+            - name: logs-volume
+              emptyDir: {}
+          restartPolicy: Never

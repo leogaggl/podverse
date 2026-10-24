@@ -4,7 +4,12 @@ import { type Mock, vi } from 'vitest';
 
 import type { ORMContext } from '@podverse/orm';
 
-import { TEST_ADMIN_E2E_ID_TEXT, TEST_USER_ACCOUNT_ID_TEXT } from './testAccountIds.js';
+import { accountSessionStoreStub } from './accountSessionStoreStub.js';
+import {
+  TEST_ACCOUNT_SESSION_ID_TEXT,
+  TEST_ADMIN_E2E_ID_TEXT,
+  TEST_USER_ACCOUNT_ID_TEXT,
+} from './testAccountIds.js';
 
 const JWT_SECRET = process.env.AUTH_JWT_SECRET ?? '';
 
@@ -42,16 +47,56 @@ async function closeTestKeyvaldb(): Promise<void> {
   }
 }
 
-export async function startTestApp(): Promise<TestAppResult> {
+async function closeTestAccountEventStreamHub(): Promise<void> {
+  try {
+    const { closeAccountEventStreamHub } =
+      await import('../../lib/accountEventStream/accountEventStreamHub.js');
+    await closeAccountEventStreamHub();
+  } catch {
+    // The hub module may not have been loaded in this test file
+  }
+}
+
+async function unregisterTestAccountEventPublisher(): Promise<void> {
+  try {
+    const { unregisterAccountEventPublisher } = await import('@podverse/orm');
+    unregisterAccountEventPublisher();
+  } catch {
+    // @podverse/orm may be mocked without account event publisher helpers in a unit-only test file.
+  }
+}
+
+export type StartTestAppOptions = {
+  /**
+   * `'stub'` (default) replaces the session store with {@link accountSessionStoreStub}, for files
+   * whose accounts exist only in mocks. `'real'` uses the real store and real password checks, for
+   * files that create their accounts in the test database.
+   */
+  accountSessions?: 'stub' | 'real';
+};
+
+const ACCOUNT_SESSION_STORE_MODULE = '../../lib/auth/accountSessionStore.js';
+const PASSWORD_MODULE = '../../lib/auth/password.js';
+
+export async function startTestApp(options?: StartTestAppOptions): Promise<TestAppResult> {
   // Each API integration test file provides its own @podverse/orm mock.
   // Reset modules so dynamic imports below pick up the current file's mocks and a fresh app instance.
   vi.resetModules();
+
+  // Mock registrations outlive the file under `isolate: false`, so every start sets the store
+  // module one way or the other rather than inheriting the previous file's choice.
+  if ((options?.accountSessions ?? 'stub') === 'stub') {
+    vi.doMock(ACCOUNT_SESSION_STORE_MODULE, () => accountSessionStoreStub);
+  } else {
+    vi.doUnmock(ACCOUNT_SESSION_STORE_MODULE);
+    vi.doUnmock(PASSWORD_MODULE);
+  }
 
   process.env.DEFAULT_ACCOUNT_SETTINGS_LOCALE =
     process.env.DEFAULT_ACCOUNT_SETTINGS_LOCALE ?? 'en-US';
 
   const { assertConfigValid, validateORMConfig } = await import('@podverse/helpers-config');
-  const { createORMContext } = await import('@podverse/orm');
+  const { createORMContext, registerAccountEventPublisher } = await import('@podverse/orm');
   const { config: appConfig } = await import('../../config/index.js');
 
   const readRequiredTestEnv = (name: string): string => {
@@ -95,6 +140,7 @@ export async function startTestApp(): Promise<TestAppResult> {
   const ormContext = createORMContext(ormConfig);
   await ormContext.dataSourceRead.initialize();
   await ormContext.dataSourceReadWrite.initialize();
+  registerAccountEventPublisher({ publish: async () => 0 });
 
   const { initObservability } = await import('@podverse/observability');
   initObservability(appConfig.observability);
@@ -110,7 +156,9 @@ export async function stopTestApp(
   server: Server | undefined,
   ormContext: ORMContext | undefined
 ): Promise<void> {
+  await unregisterTestAccountEventPublisher();
   await closeTestKeyvaldb();
+  await closeTestAccountEventStreamHub();
 
   if (server) {
     await new Promise<void>((resolve, reject) => {
@@ -123,14 +171,28 @@ export async function stopTestApp(
   }
 }
 
-export { TEST_ADMIN_E2E_ID_TEXT, TEST_USER_ACCOUNT_ID_TEXT } from './testAccountIds.js';
+export {
+  TEST_ACCOUNT_SESSION_ID_TEXT,
+  TEST_ADMIN_E2E_ID_TEXT,
+  TEST_USER_ACCOUNT_ID_TEXT,
+} from './testAccountIds.js';
+export { accountSessionStoreStub } from './accountSessionStoreStub.js';
 
+function signTestAccessToken(userId: number, idText: string): string {
+  return jwt.sign(
+    { id: userId, id_text: idText, sid: TEST_ACCOUNT_SESSION_ID_TEXT, token_use: 'access' },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+}
+
+/** A mobile access token naming {@link TEST_ACCOUNT_SESSION_ID_TEXT}, which the stub store reports active. */
 export function authHeaders(
   userId: number = 1,
   idText: string = TEST_USER_ACCOUNT_ID_TEXT
 ): { Authorization: string } {
   return {
-    Authorization: `Bearer ${jwt.sign({ id: userId, id_text: idText }, JWT_SECRET, { expiresIn: '1h' })}`,
+    Authorization: `Bearer ${signTestAccessToken(userId, idText)}`,
   };
 }
 
@@ -140,7 +202,7 @@ export function adminAuthHeaders(
   idText: string = TEST_ADMIN_E2E_ID_TEXT
 ): { Authorization: string } {
   return {
-    Authorization: `Bearer ${jwt.sign({ id: userId, id_text: idText }, JWT_SECRET, { expiresIn: '1h' })}`,
+    Authorization: `Bearer ${signTestAccessToken(userId, idText)}`,
   };
 }
 

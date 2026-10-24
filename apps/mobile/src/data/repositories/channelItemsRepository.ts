@@ -277,6 +277,12 @@ const commitChannelWindow = async (
       const channel = await subscriptionsRepository.getByIdText(channelIdText);
       const mediumBucket = channel?.medium === 'music' ? 'music' : 'av';
       await reprojectLibraryChildrenForChannel(channelIdText, mediumBucket);
+      if (mediumBucket === 'music') {
+        const downloaded = await downloadsRepository.channelIdTextsWithCompleteDownloads();
+        if (downloaded.includes(channelIdText)) {
+          await downloadsRepository.reprojectNativeCache();
+        }
+      }
     })
     .catch(() => undefined);
 
@@ -460,6 +466,7 @@ export const channelItemsRepository = {
    *
    * Browse and search items are not inserted here — this store is for followed channels. A
    * cache-first episode screen calls this after a server copy arrives so the next open is current.
+   * A single-item copy has no channel-wide publishers, so the stored ones are kept.
    */
   updateStoredItem: async (item: DTOItem): Promise<void> => {
     const itemIdText = item.id_text.trim();
@@ -469,7 +476,10 @@ export const channelItemsRepository = {
 
     await initializeDatabase();
     const existing = await getDb()
-      .select({ channelIdText: schema.channelItem.channelIdText })
+      .select({
+        channelIdText: schema.channelItem.channelIdText,
+        payloadJson: schema.channelItem.payloadJson,
+      })
       .from(schema.channelItem)
       .where(eq(schema.channelItem.itemIdText, itemIdText))
       .limit(1);
@@ -478,7 +488,12 @@ export const channelItemsRepository = {
       return;
     }
 
-    const record = toChannelItemRecord(current.channelIdText, item);
+    const storedChannelWide = rowToItem(current)?.channel_wide_verified_publishers;
+    const next: DTOItem =
+      item.channel_wide_verified_publishers === undefined && storedChannelWide !== undefined
+        ? { ...item, channel_wide_verified_publishers: storedChannelWide }
+        : item;
+    const record = toChannelItemRecord(current.channelIdText, next);
     if (record === null) {
       return;
     }
@@ -619,12 +634,14 @@ export const channelItemsRepository = {
     await getDb()
       .delete(schema.channelItemWindow)
       .where(eq(schema.channelItemWindow.channelIdText, channelIdText));
+    await downloadsRepository.reprojectNativeCache();
   },
 
   /**
    * Keep the channels still followed and the channels holding a finished download, so unsubscribing
    * on another device — or browsing a channel and never subscribing to it — cannot leave items
-   * behind forever, while a downloaded episode keeps the stored feed data it needs offline.
+   * behind forever, while a downloaded episode keeps the stored feed data it needs offline. The
+   * car downloads index is rebuilt because its artist names depend on which channels are followed.
    */
   retainChannels: async (channelIdTexts: readonly string[]): Promise<void> => {
     await initializeDatabase();
@@ -650,6 +667,7 @@ export const channelItemsRepository = {
     if (channelIdTexts.length === 0 && downloaded.length === 0) {
       await getDb().delete(schema.channelItem);
       await getDb().delete(schema.channelItemWindow);
+      await downloadsRepository.reprojectNativeCache();
       return;
     }
 
@@ -667,6 +685,7 @@ export const channelItemsRepository = {
         .delete(schema.channelItemWindow)
         .where(inArray(schema.channelItemWindow.channelIdText, chunk));
     }
+    await downloadsRepository.reprojectNativeCache();
   },
 
   /** Drop everything, for explicit resets: E2E fixtures and account deletion. */

@@ -12,3 +12,11 @@ export const ACCOUNT_RESPONSE_CODES = {
 
 export type AccountCreateResponseCode =
   (typeof ACCOUNT_RESPONSE_CODES)[keyof typeof ACCOUNT_RESPONSE_CODES];
+
+export const ACCOUNT_CHANGE_PASSWORD_ERROR_CODES = {
+  CURRENT_PASSWORD_INCORRECT: 'current_password_incorrect',
+  INVALID_NEW_PASSWORD: 'invalid_new_password',
+} as const;
+
+export type AccountChangePasswordErrorCode =
+  (typeof ACCOUNT_CHANGE_PASSWORD_ERROR_CODES)[keyof typeof ACCOUNT_CHANGE_PASSWORD_ERROR_CODES];

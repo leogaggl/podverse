@@ -54,6 +54,13 @@ const run = async () => {
         loggerService.logError('Error closing DB connections during shutdown', err);
       }
       try {
+        const { closeAccountEventPublisher } =
+          await import('./lib/accountEvents/accountEventPublisher.js');
+        await closeAccountEventPublisher();
+      } catch (err) {
+        loggerService.logError('Error closing account event publisher during shutdown', err);
+      }
+      try {
         const { shutdownManagementApiExtensions } =
           await import('./lib/extensions/bootstrapExtensions.js');
         await shutdownManagementApiExtensions();
@@ -81,12 +88,23 @@ const run = async () => {
     await AppDataSourceReadWrite.initialize();
     loggerService.warn('Connected to the management database');
 
+    if (process.argv[2] === 'adminSessionPurge') {
+      try {
+        const { adminSessionPurge } = await import('./lib/auth/adminSessionPurge.js');
+        await adminSessionPurge();
+        process.exit(0);
+      } catch (error) {
+        loggerService.logError('adminSessionPurge failed', error);
+        process.exit(1);
+      }
+    }
+
     loggerService.warn('Connecting to the app database (database console queries)');
     await AppDbDataSourceRead.initialize();
     await AppDbDataSourceReadWrite.initialize();
     loggerService.warn('Connected to the app database');
 
-    const { bindORMContext } = await import('@podverse/orm');
+    const { bindORMContext, warnIfNoAccountEventPublisher } = await import('@podverse/orm');
     bindORMContext({
       config: {
         nodeEnv: config.nodeEnv,
@@ -116,6 +134,11 @@ const run = async () => {
       dataSourceReadWrite: AppDbDataSourceReadWrite,
       loggerService,
     });
+
+    const { startAccountEventPublisher } =
+      await import('./lib/accountEvents/accountEventPublisher.js');
+    startAccountEventPublisher();
+    warnIfNoAccountEventPublisher('management-api');
 
     const { initManagementBillingContext } = await import('./lib/billing/billingContext.js');
     initManagementBillingContext({

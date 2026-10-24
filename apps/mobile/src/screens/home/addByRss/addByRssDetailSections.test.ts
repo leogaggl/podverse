@@ -19,38 +19,78 @@ const RESOURCE_TYPES: readonly AddByRSSResourceType[] = [
   'tracks',
 ];
 
+const podcast = { isArtistFeed: false, isMusicFeed: false };
+const album = { isArtistFeed: false, isMusicFeed: true };
+const artist = { isArtistFeed: true, isMusicFeed: true };
+
 describe('add-by-RSS detail sections', () => {
   it('orders podcast chips and adds funding and people when the feed has them', () => {
-    expect(
-      resolveAddByRssSections({ hasFunding: false, hasPeople: false, isMusicFeed: false })
-    ).toEqual(['episodes', 'downloaded', 'about']);
-    expect(
-      resolveAddByRssSections({ hasFunding: true, hasPeople: false, isMusicFeed: false })
-    ).toEqual(['episodes', 'downloaded', 'about', 'funding']);
-    expect(
-      resolveAddByRssSections({ hasFunding: false, hasPeople: true, isMusicFeed: false })
-    ).toEqual(['episodes', 'downloaded', 'about', 'people']);
-    expect(
-      resolveAddByRssSections({ hasFunding: true, hasPeople: true, isMusicFeed: false })
-    ).toEqual(['episodes', 'downloaded', 'about', 'funding', 'people']);
+    expect(resolveAddByRssSections({ ...podcast, hasFunding: false, hasPeople: false })).toEqual([
+      'episodes',
+      'downloaded',
+      'about',
+    ]);
+    expect(resolveAddByRssSections({ ...podcast, hasFunding: true, hasPeople: false })).toEqual([
+      'episodes',
+      'downloaded',
+      'about',
+      'funding',
+    ]);
+    expect(resolveAddByRssSections({ ...podcast, hasFunding: false, hasPeople: true })).toEqual([
+      'episodes',
+      'downloaded',
+      'about',
+      'people',
+    ]);
+    expect(resolveAddByRssSections({ ...podcast, hasFunding: true, hasPeople: true })).toEqual([
+      'episodes',
+      'downloaded',
+      'about',
+      'funding',
+      'people',
+    ]);
   });
 
-  it('orders music chips without downloaded', () => {
-    expect(
-      resolveAddByRssSections({ hasFunding: false, hasPeople: false, isMusicFeed: true })
-    ).toEqual(['tracks', 'about']);
-    expect(
-      resolveAddByRssSections({ hasFunding: true, hasPeople: true, isMusicFeed: true })
-    ).toEqual(['tracks', 'about', 'funding', 'people']);
+  it('orders album and track chips without downloaded', () => {
+    expect(resolveAddByRssSections({ ...album, hasFunding: false, hasPeople: false })).toEqual([
+      'tracks',
+      'about',
+    ]);
+    expect(resolveAddByRssSections({ ...album, hasFunding: true, hasPeople: true })).toEqual([
+      'tracks',
+      'about',
+      'funding',
+      'people',
+    ]);
+  });
+
+  it('gives an artist albums first, then tracks and about, then funding and people', () => {
+    expect(resolveAddByRssSections({ ...artist, hasFunding: false, hasPeople: false })).toEqual([
+      'albums',
+      'tracks',
+      'about',
+    ]);
+    expect(resolveAddByRssSections({ ...artist, hasFunding: true, hasPeople: true })).toEqual([
+      'albums',
+      'tracks',
+      'about',
+      'funding',
+      'people',
+    ]);
   });
 
   it('opens a podcast on downloaded while offline and otherwise on the items chip', () => {
-    expect(resolveAddByRssInitialSection({ isMusicFeed: false, offline: true })).toBe('downloaded');
-    expect(resolveAddByRssInitialSection({ isMusicFeed: false, offline: false })).toBe('episodes');
-    expect(resolveAddByRssInitialSection({ isMusicFeed: true, offline: true })).toBe('tracks');
-    expect(resolveAddByRssInitialSection({ isMusicFeed: true, offline: false })).toBe('tracks');
+    expect(resolveAddByRssInitialSection({ ...podcast, offline: true })).toBe('downloaded');
+    expect(resolveAddByRssInitialSection({ ...podcast, offline: false })).toBe('episodes');
+    expect(resolveAddByRssInitialSection({ ...album, offline: true })).toBe('tracks');
+    expect(resolveAddByRssInitialSection({ ...album, offline: false })).toBe('tracks');
     expect(addByRssItemsTab(false)).toBe('episodes');
     expect(addByRssItemsTab(true)).toBe('tracks');
+  });
+
+  it('opens an artist on albums, offline or not', () => {
+    expect(resolveAddByRssInitialSection({ ...artist, offline: true })).toBe('albums');
+    expect(resolveAddByRssInitialSection({ ...artist, offline: false })).toBe('albums');
   });
 
   it('treats artists, albums, and tracks as music feeds', () => {
@@ -58,13 +98,15 @@ describe('add-by-RSS detail sections', () => {
     expect(music).toEqual(['albums', 'artists', 'tracks']);
   });
 
-  it('filters downloaded as well as episodes and tracks, and sorts only episodes and tracks', () => {
+  it('filters albums, downloaded, episodes, and tracks, and sorts only episodes and tracks', () => {
     expect(isAddByRssSortableSection('episodes')).toBe(true);
     expect(isAddByRssSortableSection('tracks')).toBe(true);
     expect(isAddByRssFilterableSection('episodes')).toBe(true);
     expect(isAddByRssFilterableSection('tracks')).toBe(true);
     expect(isAddByRssFilterableSection('downloaded')).toBe(true);
+    expect(isAddByRssFilterableSection('albums')).toBe(true);
     expect(isAddByRssSortableSection('downloaded')).toBe(false);
+    expect(isAddByRssSortableSection('albums')).toBe(false);
 
     for (const section of ['about', 'funding', 'people'] as const) {
       expect(isAddByRssSortableSection(section)).toBe(false);

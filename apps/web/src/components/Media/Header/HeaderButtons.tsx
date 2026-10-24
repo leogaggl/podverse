@@ -32,9 +32,15 @@ type HeaderButtonsProps = {
   channel: DTOChannel;
   shareArgs?: ShareArgs;
   kind: 'podcast' | 'artist' | 'album' | 'playlist';
+  artistAlbums?: readonly DTOChannel[];
 };
 
-export const HeaderButtons: React.FC<HeaderButtonsProps> = ({ channel, shareArgs = {}, kind }) => {
+export const HeaderButtons: React.FC<HeaderButtonsProps> = ({
+  channel,
+  shareArgs = {},
+  kind,
+  artistAlbums,
+}) => {
   const tFeatures = useTranslations('features');
   const tInfo = useTranslations('info');
   const tValue = useTranslations('value');
@@ -50,7 +56,9 @@ export const HeaderButtons: React.FC<HeaderButtonsProps> = ({ channel, shareArgs
 
   return (
     <div className={styles.buttons}>
-      {directoryRemoved ? null : <SubscribeButton entity={channel} kind={kind} />}
+      {directoryRemoved ? null : (
+        <SubscribeButton entity={channel} kind={kind} artistAlbums={artistAlbums} />
+      )}
       <NotificationIconButton channel={channel} kind={kind} />
       {channel?.feed?.url && (
         <IconButton

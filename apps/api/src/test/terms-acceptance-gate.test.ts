@@ -123,7 +123,7 @@ describe('terms acceptance gate', () => {
     expect(res.body.version).toBe(CURRENT_TERMS_VERSION);
     expect(res.body.markdown).toContain('PodverseTest will never sell');
     expect(res.body.markdown).toContain('Test Legal');
-    expect(res.body.markdown).toContain('Popularity Tracking');
+    expect(res.body.markdown).toContain('## Taste Profile');
     expect(res.body.markdown).toContain('optional');
     expect(res.body.markdown).toContain('Test Address');
     expect(res.body.markdown).not.toContain('{legal_address}');
@@ -139,7 +139,9 @@ describe('terms acceptance gate', () => {
 
   it('returns 403 on an authenticated route when terms are missing or stale', async () => {
     termsAcceptance.current = null;
-    const missing = await request(app).get(`${base}/legal/popularity-tracking`).set(authHeaders());
+    const missing = await request(app)
+      .get(`${base}/legal/taste-profile-agreement`)
+      .set(authHeaders());
     expect(missing.status).toBe(403);
     expect(missing.body.code).toBe('terms_acceptance_required');
 
@@ -147,7 +149,9 @@ describe('terms acceptance gate', () => {
       terms_version: '2025-01-01',
       accepted_at: new Date('2025-01-01T00:00:00.000Z'),
     };
-    const stale = await request(app).get(`${base}/legal/popularity-tracking`).set(authHeaders());
+    const stale = await request(app)
+      .get(`${base}/legal/taste-profile-agreement`)
+      .set(authHeaders());
     expect(stale.status).toBe(403);
     expect(stale.body.code).toBe('terms_acceptance_required');
   });
@@ -174,7 +178,7 @@ describe('terms acceptance gate', () => {
     expect(deleted.body.message).toBe('Account deleted successfully');
   });
 
-  it('allows check-session and the popularity agreement after the current terms are accepted', async () => {
+  it('allows check-session and the Taste Profile agreement after the current terms are accepted', async () => {
     termsAcceptance.current = {
       terms_version: CURRENT_TERMS_VERSION,
       accepted_at: new Date('2026-01-01T00:00:00.000Z'),
@@ -193,9 +197,9 @@ describe('terms acceptance gate', () => {
       terms_version: CURRENT_TERMS_VERSION,
       accepted_at: new Date('2026-01-01T00:00:00.000Z'),
     };
-    const popularity = await request(app)
-      .get(`${base}/legal/popularity-tracking`)
+    const tasteProfileAgreement = await request(app)
+      .get(`${base}/legal/taste-profile-agreement`)
       .set(authHeaders());
-    expect(popularity.status).toBe(200);
+    expect(tasteProfileAgreement.status).toBe(200);
   });
 });

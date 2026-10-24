@@ -20,6 +20,7 @@ import {
   followAddByRSSChannelAndQueue,
   unfollowAddByRSSChannelAndClear,
 } from '../../../../utils/addByRSS/actions';
+import { emitAddByRSSFeedChanged } from '../../../../utils/addByRSS/feedChangedEvent';
 import type { AddByRSSFeedRecord } from '../../../../utils/addByRSS/types';
 import { addByRSSChannelHeaderTriple } from '../../../../utils/image/addByRSSChannelHeaderCandidates';
 import { CommonAlbumHeader } from '../../../Common/Artist/Album/CommonAlbumHeader';
@@ -100,8 +101,10 @@ export const AddByRSSAlbumHeader: React.FC<AddByRSSAlbumHeaderProps> = ({ feed }
           resourceType: 'albums',
           title: title ?? null,
           imageUrl: imageUrl ?? null,
+          seedRecord: feed,
         });
         setLoggedInAccount(nextAccount);
+        emitAddByRSSFeedChanged(feedUrl);
       }
     } catch (error) {
       console.error(error);

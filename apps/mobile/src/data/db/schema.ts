@@ -1,4 +1,4 @@
-import { integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Generic key/value metadata for the sync layer (per-domain watermarks, last-synced-at, and small
@@ -92,6 +92,21 @@ export const playbackLocalState = sqliteTable(
 export type PlaybackLocalStateRow = typeof playbackLocalState.$inferSelect;
 export type PlaybackLocalStateInsert = typeof playbackLocalState.$inferInsert;
 
+/** Listen reports waiting for `POST /stats/listen`, one row per listen session. */
+export const statsListenOutbox = sqliteTable('stats_listen_outbox', {
+  clientListenId: text('client_listen_id').primaryKey(),
+  accountIdText: text('account_id_text').notNull(),
+  targetKind: text('target_kind').notNull(),
+  targetIdText: text('target_id_text').notNull(),
+  secondsHeard: integer('seconds_heard').notNull(),
+  completed: integer('completed').notNull().default(0),
+  firstReport: integer('first_report').notNull().default(1),
+  countedAt: integer('counted_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export type StatsListenOutboxRow = typeof statsListenOutbox.$inferSelect;
+
 /**
  * Add-by-RSS feeds the account follows, keyed by `feed_url`. This is the source of truth for the
  * mobile RSS list and add-by-RSS playback (retiring the slim AsyncStorage store). `mapped_feed_json`
@@ -119,10 +134,59 @@ export const addByRssFeed = sqliteTable('add_by_rss_feed', {
   requiresCredentials: integer('requires_credentials').notNull().default(0),
   lastAuthFailure: text('last_auth_failure'),
   mayHaveLivestreams: integer('may_have_livestreams').notNull().default(0),
+  /**
+   * 0 when this row is held only because an Add by RSS artist on this device lists it. Such a
+   * row is not a follow: Library, Home, and refresh-all skip it.
+   */
+  followed: integer('followed').notNull().default(1),
+  podcastGuid: text('podcast_guid'),
+  /** JSON array of the feed's `podcast:publisher` guids, lowercased, in feed order. */
+  publisherGuidsJson: text('publisher_guids_json'),
+  /**
+   * JSON array of the directory channels those guids resolved to. Null means never looked up;
+   * an empty array means looked up and nothing matched.
+   */
+  publisherDirectoryJson: text('publisher_directory_json'),
 });
 
 export type AddByRssFeedRow = typeof addByRssFeed.$inferSelect;
 export type AddByRssFeedInsert = typeof addByRssFeed.$inferInsert;
+
+/**
+ * What each Add by RSS artist on this device lists, keyed by the artist's feed URL and the listed
+ * feed's lowercased guid. Replaced whole on every parse of that artist. `kind` is `directory`
+ * (a Podverse channel, nothing fetched), `add_by_rss` (parsed for this member; a stored row holds
+ * it once the parse lands), or `unresolved`. A listed-only `add_by_rss_feed` row stays only while
+ * some row here names it.
+ */
+export const addByRssListedFeed = sqliteTable(
+  'add_by_rss_listed_feed',
+  {
+    publisherFeedUrl: text('publisher_feed_url').notNull(),
+    feedGuid: text('feed_guid').notNull(),
+    position: integer('position').notNull(),
+    kind: text('kind').notNull(),
+    feedUrl: text('feed_url'),
+    title: text('title'),
+    listedAtChannelLevel: integer('listed_at_channel_level').notNull(),
+    itemGuidsJson: text('item_guids_json').notNull(),
+    channelIdText: text('channel_id_text'),
+    channelTitle: text('channel_title'),
+    mediumId: integer('medium_id'),
+    imageUrl: text('image_url'),
+    artworkChecked: integer('artwork_checked').notNull().default(0),
+    pendingRequestId: text('pending_request_id'),
+    unresolvedReason: text('unresolved_reason'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.publisherFeedUrl, table.feedGuid] }),
+    feedGuidIdx: index('idx_add_by_rss_listed_feed_guid').on(table.feedGuid),
+    channelIdx: index('idx_add_by_rss_listed_feed_channel').on(table.channelIdText),
+  })
+);
+
+export type AddByRssListedFeedRow = typeof addByRssListedFeed.$inferSelect;
+export type AddByRssListedFeedInsert = typeof addByRssListedFeed.$inferInsert;
 
 /**
  * Which add-by-RSS feeds hold device-local Basic Auth credentials, per account. The secrets live in

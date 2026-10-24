@@ -17,6 +17,7 @@ import type { ChannelSocialInteract } from '@orm/entities/channel/channelSocialI
 import type { ChannelTrailer } from '@orm/entities/channel/channelTrailer.js';
 import type { ChannelTxt } from '@orm/entities/channel/channelTxt.js';
 import type { ChannelValue } from '@orm/entities/channel/channelValue.js';
+import type { ChannelVerifiedPublisher } from '@orm/entities/channel/channelVerifiedPublisher.js';
 import type { Feed } from '@orm/entities/feed/feed.js';
 import type { Medium } from '@orm/entities/medium.js';
 import { generateRandomIdText, NANO_ID_V2_MAX_LENGTH } from '@orm/lib/nanoid.js';
@@ -34,7 +35,7 @@ import {
   Unique,
 } from 'typeorm';
 
-import type { MediumEnum } from '@podverse/helpers';
+import type { DTOVerifiedPublisher, MediumEnum } from '@podverse/helpers';
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
 import type { Item } from '../item/item.js';
@@ -159,6 +160,15 @@ export class Channel {
     (channel_remote_item: ChannelRemoteItem) => channel_remote_item.channel
   )
   channel_remote_items!: ChannelRemoteItem[];
+
+  @OneToMany('ChannelVerifiedPublisher', (link: ChannelVerifiedPublisher) => link.channel)
+  channel_verified_publishers!: ChannelVerifiedPublisher[];
+
+  /**
+   * Filled by API reads from channel_verified_publisher; not a column. Channel-wide publishers,
+   * primary first.
+   */
+  verified_publishers?: DTOVerifiedPublisher[];
 
   @OneToMany('ChannelSeason', (channel_season: ChannelSeason) => channel_season.channel)
   channel_seasons!: ChannelSeason[];

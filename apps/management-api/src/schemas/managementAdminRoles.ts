@@ -1,6 +1,8 @@
 import Joi from 'joi';
 
-const crudSchema = Joi.number().integer().min(0).max(15);
+import { CRUD_MASK_ALL, CRUD_MASK_NONE } from '@podverse/helpers';
+
+const crudSchema = Joi.number().integer().min(CRUD_MASK_NONE).max(CRUD_MASK_ALL);
 
 export const createManagementAdminRoleSchema = Joi.object({
   name: Joi.string().trim().min(1).max(50).required(),

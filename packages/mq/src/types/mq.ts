@@ -1,3 +1,4 @@
+import type { CredentialScopeDecision } from '@podverse/helpers';
 import type { ParseRSSFeedAndSaveToDatabaseOptions } from '@podverse/parser';
 
 export type MQTraceContext = {
@@ -28,6 +29,16 @@ export type MQAddByRSSMessage = {
    * queue; this field is excluded from the dedupe id.
    */
   credentialsEnvelope?: string;
+  /**
+   * Set when a publisher (artist) feed's parse queued this feed: that parse's request id. A
+   * message with it set never fans out to the feeds its own feed lists.
+   */
+  publisherRequestId?: string;
+  /**
+   * The publisher feed had credentials, but scope kept them from this feed's URL. The parse
+   * records it as its credentials state.
+   */
+  credentialsWithheld?: Exclude<CredentialScopeDecision, 'send'>;
 } & MQTraceEnvelopeFields;
 
 export type MQOpmlImportFeed = {

@@ -444,9 +444,10 @@ test.describe('Media player marquee', () => {
 
     const mobileStripTitle = stripTitle(page, 'mobile');
     await expect(mobileStripTitle).toContainText(E2E_PODCAST_ITEM_MARQUEE_CHAPTER_TITLE);
+    // The narrow bar's title line is narrower than the 27-character episode title.
     await expectShownMarquee(
       barTitle(page, 'mobile'),
-      'fit',
+      'scroll',
       E2E_PODCAST_ITEM_MARQUEE_CHAPTER_EPISODE_TITLE
     );
     await expectVisibleBarButtonTitle(

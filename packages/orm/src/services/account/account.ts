@@ -33,6 +33,7 @@ import { BillingPriceCatalogService } from '../billingPriceCatalog.js';
 import { AccountCredentialsService } from './accountCredentials.js';
 import { AccountMembershipStatusService } from './accountMembershipStatus.js';
 import { AccountNotificationPreferenceService } from './accountNotificationPreference.js';
+import { publishAccountNotificationReadAll } from './accountNotificationSignal.js';
 import { AccountProfileService } from './accountProfile.js';
 import { AccountResetPasswordService } from './accountResetPassword.js';
 import { AccountTermsAcceptanceService } from './accountTermsAcceptance.js';
@@ -344,7 +345,18 @@ export class AccountService {
     await accountVerificationService.deleteByAccountId(id);
   }
 
-  async resetPassword(accountId: number, newPassword: string): Promise<void> {
+  /**
+   * Sets a new password when it meets the sign-up password rule. Pending reset-password links for
+   * the account stop working. An invalid password writes nothing.
+   */
+  async resetPassword(
+    accountId: number,
+    newPassword: string
+  ): Promise<'changed' | 'invalid_new_password'> {
+    if (!validatePassword(newPassword)) {
+      return 'invalid_new_password';
+    }
+
     const account = await this.repositoryReadWrite.findOne({ where: { id: accountId } });
 
     if (!account) {
@@ -360,6 +372,8 @@ export class AccountService {
 
     const accountResetPasswordService = new AccountResetPasswordService();
     await accountResetPasswordService.deleteByAccountId(account.id);
+
+    return 'changed';
   }
 
   async delete(accountId: number): Promise<void> {
@@ -383,6 +397,7 @@ export class AccountService {
 
     account.notifications_last_read_at = readAt;
     await this.repositoryReadWrite.save(account);
+    await publishAccountNotificationReadAll(account_id, readAt);
 
     return readAt;
   }
@@ -406,6 +421,7 @@ export class AccountService {
       accountSettings.listen_stats_accepted = null;
       accountSettings.listen_stats_agreement_version = null;
       accountSettings.listen_stats_decided_at = null;
+      accountSettings.listen_stats_opted_out_at = null;
       const savedAccountSettings = await accountSettingsRepo.save(accountSettings);
 
       // Then create and save the locale with the proper foreign key

@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACCOUNT_NOTIFICATION_WRITER_COMMANDS,
   CATEGORY_BASE,
   CATEGORY_BILLING,
+  CATEGORY_KEYVALDB,
   CATEGORY_MQ,
   CATEGORY_ORM,
   CATEGORY_PARSER,
   CATEGORY_PODCAST_INDEX,
   CATEGORY_WEB_NOTIFICATIONS,
   getCategoriesForCommand,
+  usesKeyvaldbCache,
 } from './categoriesForCommand.js';
 
 function sortCategories(set: ReadonlySet<string>): string[] {
@@ -26,6 +29,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -39,6 +43,12 @@ describe('getCategoriesForCommand', () => {
 
   it('maps ormArchivedSlimReport to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('ormArchivedSlimReport'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps ormVerifiedPublisherLinksBackfill to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('ormVerifiedPublisherLinksBackfill'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });
@@ -79,14 +89,32 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps accountSessionPurge to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('accountSessionPurge'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps statsEventPartitionsMaintain to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('statsEventPartitionsMaintain'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
+  it('maps statsPopularityRefresh to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('statsPopularityRefresh'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
   it('maps archiveAll to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('archiveAll'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });
 
-  it('maps devStatsSeedSimulatedAggregated to Base and ORM', () => {
-    expect(sortCategories(getCategoriesForCommand('devStatsSeedSimulatedAggregated'))).toEqual(
+  it('maps devStatsSeedSimulatedPopularity to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('devStatsSeedSimulatedPopularity'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
     );
   });
@@ -113,6 +141,22 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
+        ])
+      )
+    );
+  });
+
+  it('maps mqAddByRSSRunParser to Base, ORM, MQ, Parser, KeyValDB, and Podcast Index', () => {
+    expect(sortCategories(getCategoriesForCommand('mqAddByRSSRunParser'))).toEqual(
+      sortCategories(
+        new Set([
+          CATEGORY_BASE,
+          CATEGORY_ORM,
+          CATEGORY_MQ,
+          CATEGORY_PARSER,
+          CATEGORY_KEYVALDB,
+          CATEGORY_PODCAST_INDEX,
         ])
       )
     );
@@ -128,6 +172,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -143,6 +188,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -160,6 +206,7 @@ describe('getCategoriesForCommand', () => {
           CATEGORY_PARSER,
           CATEGORY_PODCAST_INDEX,
           CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
         ])
       )
     );
@@ -169,5 +216,33 @@ describe('getCategoriesForCommand', () => {
     expect(sortCategories(getCategoriesForCommand('devDiscoverArtistPublisherFeeds'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_PODCAST_INDEX]))
     );
+  });
+
+  it('maps every notification-writing command to ORM and KeyValDB', () => {
+    for (const commandName of ACCOUNT_NOTIFICATION_WRITER_COMMANDS) {
+      const categories = getCategoriesForCommand(commandName);
+      expect({
+        commandName,
+        hasOrm: categories.has(CATEGORY_ORM),
+        hasKeyValDb: categories.has(CATEGORY_KEYVALDB),
+      }).toEqual({
+        commandName,
+        hasOrm: true,
+        hasKeyValDb: true,
+      });
+    }
+  });
+
+  it('keeps KeyValDB off queue-only full stack commands', () => {
+    expect(getCategoriesForCommand('mqRSSRunLiveItemListener').has(CATEGORY_KEYVALDB)).toBe(false);
+    expect(
+      getCategoriesForCommand('mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex').has(CATEGORY_KEYVALDB)
+    ).toBe(false);
+  });
+
+  it('requires a reachable KeyValDB cache only for the cache commands', () => {
+    expect(usesKeyvaldbCache('mqAddByRSSRunParser')).toBe(true);
+    expect(usesKeyvaldbCache('mqOpmlImportRun')).toBe(true);
+    expect(usesKeyvaldbCache('mqRSSRunParser')).toBe(false);
   });
 });

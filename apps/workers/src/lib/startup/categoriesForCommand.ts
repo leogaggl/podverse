@@ -32,15 +32,17 @@ const BASE_ORM_COMMANDS = [
   'billingProcessorProductAdd',
   'notificationsPlatformPurge',
   'accountContentLogPurge',
+  'accountSessionPurge',
   'archiveAll',
   'devSeedLocalUserContent',
-  'devStatsSeedSimulatedAggregated',
-  'statsUpdateAggregated',
-  'statsUpdateAggregatedRolling',
+  'devStatsSeedSimulatedPopularity',
+  'statsEventPartitionsMaintain',
+  'statsPopularityRefresh',
   'generateOnDemandParserEventReports',
   'deleteOutdatedOnDemandParserEvent',
   'ormDescriptionsBackfill',
   'ormArchivedSlimReport',
+  'ormVerifiedPublisherLinksBackfill',
 ] as const;
 
 const BASE_ORM_BILLING_COMMANDS = ['billingReconcile', 'billingStrikeEnsureWebhook'] as const;
@@ -91,16 +93,41 @@ const FULL_STACK_COMMANDS = [
   'mqRSSAddRecentlyUpdatedFeedsFromPodcastIndex',
 ] as const;
 
-const BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS = ['mqAddByRSSRunParser'] as const;
+/** `mqAddByRSSRunParser` looks up feed URLs an Add by RSS artist feed lists without one. */
+const BASE_ORM_MQ_PARSER_KEYVALDB_PODCAST_INDEX_COMMANDS = ['mqAddByRSSRunParser'] as const;
 
 const BASE_ORM_MQ_KEYVALDB_PODCAST_INDEX_COMMANDS = ['mqOpmlImportRun'] as const;
 
-/**
- * Returns the set of config categories required for the given command.
- * Used by validation (to validate only those env vars) and index (to build
- * only those configs and create only those contexts).
- */
-export function getCategoriesForCommand(commandName: string): Set<ConfigCategory> {
+/** Commands that write account notifications and so publish account events through Redis. */
+export const ACCOUNT_NOTIFICATION_WRITER_COMMANDS = [
+  'mqRSSRunParser',
+  'parserRSSParseFeed',
+  'scheduledJobsRunDue',
+  'devParserRSSParseArtistPublisherFeeds',
+  'devParserRSSParseMusicMediumFeeds',
+  'devParserRSSParsePodcasting20Feeds',
+  'devParserRSSParseTrendingFeeds',
+  'seedEmbedDemoShowcaseFeeds',
+] as const;
+
+/** Commands that read and write the KeyValDB cache and need it reachable at startup. */
+export const KEYVALDB_CACHE_COMMANDS = ['mqAddByRSSRunParser', 'mqOpmlImportRun'] as const;
+
+const accountNotificationWriterCommands: ReadonlySet<string> = new Set<string>(
+  ACCOUNT_NOTIFICATION_WRITER_COMMANDS
+);
+
+const keyvaldbCacheCommands: ReadonlySet<string> = new Set<string>(KEYVALDB_CACHE_COMMANDS);
+
+export function writesAccountNotifications(commandName: string): boolean {
+  return accountNotificationWriterCommands.has(commandName);
+}
+
+export function usesKeyvaldbCache(commandName: string): boolean {
+  return keyvaldbCacheCommands.has(commandName);
+}
+
+function getBaseCategoriesForCommand(commandName: string): Set<ConfigCategory> {
   const categories = new Set<ConfigCategory>();
   categories.add(CATEGORY_BASE);
 
@@ -202,14 +229,15 @@ export function getCategoriesForCommand(commandName: string): Set<ConfigCategory
   }
 
   if (
-    BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS.includes(
-      commandName as (typeof BASE_ORM_MQ_PARSER_KEYVALDB_COMMANDS)[number]
+    BASE_ORM_MQ_PARSER_KEYVALDB_PODCAST_INDEX_COMMANDS.includes(
+      commandName as (typeof BASE_ORM_MQ_PARSER_KEYVALDB_PODCAST_INDEX_COMMANDS)[number]
     )
   ) {
     categories.add(CATEGORY_ORM);
     categories.add(CATEGORY_MQ);
     categories.add(CATEGORY_PARSER);
     categories.add(CATEGORY_KEYVALDB);
+    categories.add(CATEGORY_PODCAST_INDEX);
     return categories;
   }
 
@@ -225,5 +253,18 @@ export function getCategoriesForCommand(commandName: string): Set<ConfigCategory
     return categories;
   }
 
+  return categories;
+}
+
+/**
+ * Returns the set of config categories required for the given command.
+ * Used by validation (to validate only those env vars) and index (to build
+ * only those configs and create only those contexts).
+ */
+export function getCategoriesForCommand(commandName: string): Set<ConfigCategory> {
+  const categories = getBaseCategoriesForCommand(commandName);
+  if (writesAccountNotifications(commandName)) {
+    categories.add(CATEGORY_KEYVALDB);
+  }
   return categories;
 }

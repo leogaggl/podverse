@@ -1,30 +1,62 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAddByRSSFeedByUrlMock, getAddByRSSParseStatusMock, upsertAddByRSSFeedMock } = vi.hoisted(
-  () => ({
-    getAddByRSSFeedByUrlMock: vi.fn(),
-    getAddByRSSParseStatusMock: vi.fn(),
-    upsertAddByRSSFeedMock: vi.fn(),
-  })
-);
+const {
+  deleteCredentialsMock,
+  getAddByRSSFeedByUrlMock,
+  getAddByRSSParseStatusMock,
+  pruneAddByRSSPublisherDataMock,
+  removeAddByRSSFeedMock,
+  unfollowAddByRSSFeedsBulkMock,
+  upsertAddByRSSFeedMock,
+} = vi.hoisted(() => ({
+  deleteCredentialsMock: vi.fn(),
+  getAddByRSSFeedByUrlMock: vi.fn(),
+  getAddByRSSParseStatusMock: vi.fn(),
+  pruneAddByRSSPublisherDataMock: vi.fn(),
+  removeAddByRSSFeedMock: vi.fn(),
+  unfollowAddByRSSFeedsBulkMock: vi.fn(),
+  upsertAddByRSSFeedMock: vi.fn(),
+}));
 
 vi.mock('./api', () => ({
   enqueueAddByRSSParse: vi.fn(),
   followAddByRSSChannel: vi.fn(),
   getAddByRSSParseStatus: getAddByRSSParseStatusMock,
   unfollowAddByRSSChannel: vi.fn(),
+  unfollowAddByRSSFeedsBulk: unfollowAddByRSSFeedsBulkMock,
 }));
 
 vi.mock('./storage', () => ({
   getAddByRSSFeedByUrl: getAddByRSSFeedByUrlMock,
+  removeAddByRSSFeed: removeAddByRSSFeedMock,
   upsertAddByRSSFeed: upsertAddByRSSFeedMock,
 }));
+
+vi.mock('./credentialStore', async () => {
+  const actual = await vi.importActual<typeof import('./credentialStore')>('./credentialStore');
+  return {
+    ...actual,
+    deleteCredentials: deleteCredentialsMock,
+  };
+});
+
+vi.mock('./listedFeeds', async () => {
+  const actual = await vi.importActual<typeof import('./listedFeeds')>('./listedFeeds');
+  return {
+    ...actual,
+    pruneAddByRSSPublisherData: pruneAddByRSSPublisherDataMock,
+  };
+});
 
 import { FeedType, Phase5Blocked } from 'podverse-partytime';
 import { Phase4LiveStatus } from 'podverse-partytime/dist/parser/phase/phase-4.js';
 
 import { getBackgroundActivitySnapshot } from '../backgroundActivity/backgroundActivityStore';
-import { applyAddByRSSParseStatus, pollAddByRSSParseStatus } from './actions';
+import {
+  applyAddByRSSParseStatus,
+  pollAddByRSSParseStatus,
+  unfollowAddByRSSArtistAndAlbums,
+} from './actions';
 import type { AddByRSSFeedRecord, AddByRSSParsedFeed } from './types';
 
 const parsedFeed = (withLiveItem: boolean): AddByRSSParsedFeed => ({
@@ -285,5 +317,92 @@ describe('pollAddByRSSParseStatus', () => {
       })
     ).rejects.toThrow('status failed');
     expect(getBackgroundActivitySnapshot()).toEqual([]);
+  });
+});
+
+describe('unfollowAddByRSSArtistAndAlbums', () => {
+  const account = { id_text: 'acct' };
+  const albums = {
+    addByRSSFeeds: [
+      { feedUrl: 'https://album-a.example/feed.xml', idText: 'album-a' },
+      { feedUrl: 'https://album-b.example/feed.xml', idText: 'album-b' },
+    ],
+    directoryChannelIdTexts: ['dir-album'],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    unfollowAddByRSSFeedsBulkMock.mockResolvedValue(account);
+    removeAddByRSSFeedMock.mockResolvedValue(undefined);
+    deleteCredentialsMock.mockResolvedValue(undefined);
+    pruneAddByRSSPublisherDataMock.mockResolvedValue([]);
+  });
+
+  it('unfollows the artist first, then each album, and prunes once', async () => {
+    const result = await unfollowAddByRSSArtistAndAlbums({
+      accountId: 'acct',
+      artist: { feedUrl: 'https://artist.example/feed.xml', idText: 'artist-id' },
+      albums,
+    });
+
+    expect(unfollowAddByRSSFeedsBulkMock).toHaveBeenCalledWith({
+      feedUrls: [
+        'https://artist.example/feed.xml',
+        'https://album-a.example/feed.xml',
+        'https://album-b.example/feed.xml',
+      ],
+      channelIdTexts: ['dir-album'],
+    });
+    expect(removeAddByRSSFeedMock).toHaveBeenNthCalledWith(1, 'artist-id');
+    expect(removeAddByRSSFeedMock).toHaveBeenNthCalledWith(2, 'album-a');
+    expect(removeAddByRSSFeedMock).toHaveBeenNthCalledWith(3, 'album-b');
+    expect(deleteCredentialsMock).toHaveBeenNthCalledWith(
+      1,
+      'acct',
+      'https://artist.example/feed.xml'
+    );
+    expect(deleteCredentialsMock).toHaveBeenNthCalledWith(
+      2,
+      'acct',
+      'https://album-a.example/feed.xml'
+    );
+    expect(deleteCredentialsMock).toHaveBeenNthCalledWith(
+      3,
+      'acct',
+      'https://album-b.example/feed.xml'
+    );
+    expect(pruneAddByRSSPublisherDataMock).toHaveBeenCalledTimes(1);
+    expect(result).toBe(account);
+
+    const bulkOrder = unfollowAddByRSSFeedsBulkMock.mock.invocationCallOrder[0];
+    const firstRemoveOrder = removeAddByRSSFeedMock.mock.invocationCallOrder[0];
+    const lastRemoveOrder = removeAddByRSSFeedMock.mock.invocationCallOrder[2];
+    const pruneOrder = pruneAddByRSSPublisherDataMock.mock.invocationCallOrder[0];
+    if (
+      bulkOrder === undefined ||
+      firstRemoveOrder === undefined ||
+      lastRemoveOrder === undefined ||
+      pruneOrder === undefined
+    ) {
+      throw new Error('Unfollow call order was missing.');
+    }
+    expect(bulkOrder).toBeLessThan(firstRemoveOrder);
+    expect(lastRemoveOrder).toBeLessThan(pruneOrder);
+  });
+
+  it('removes nothing and propagates when the bulk unfollow rejects', async () => {
+    const error = new Error('bulk failed');
+    unfollowAddByRSSFeedsBulkMock.mockRejectedValue(error);
+
+    await expect(
+      unfollowAddByRSSArtistAndAlbums({
+        accountId: 'acct',
+        artist: { feedUrl: 'https://artist.example/feed.xml', idText: 'artist-id' },
+        albums,
+      })
+    ).rejects.toBe(error);
+    expect(removeAddByRSSFeedMock).not.toHaveBeenCalled();
+    expect(deleteCredentialsMock).not.toHaveBeenCalled();
+    expect(pruneAddByRSSPublisherDataMock).not.toHaveBeenCalled();
   });
 });

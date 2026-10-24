@@ -8,6 +8,7 @@ import { channelLiveStatusRepository } from '../data/repositories/channelLiveSta
 import { playbackOutboxRepository } from '../data/repositories/playbackOutboxRepository';
 import { readCachedQueueIds } from '../data/repositories/queueProjectionHelpers';
 import { queueRepository } from '../data/repositories/queueRepository';
+import { statsRepository } from '../data/repositories/statsRepository';
 import type { MobileAuthRequestContext } from '../data/repositories/types';
 import { isEffectivelyOffline } from '../net/connectivity';
 import { drainPlaybackJournal } from '../playback/drainPlaybackJournal';
@@ -79,6 +80,7 @@ const refreshForCar = async (
   const accountIdText = identity.accountIdText;
   const steps: Array<[string, () => Promise<unknown>]> = [
     ['outbox', () => playbackOutboxRepository.drain(context, accountIdText)],
+    ['listens', () => statsRepository.drainListens(context, accountIdText)],
     ['live', () => channelLiveStatusRepository.refreshFromAccount(context)],
   ];
   for (const queueIdText of [identity.avQueueIdText, identity.musicQueueIdText]) {

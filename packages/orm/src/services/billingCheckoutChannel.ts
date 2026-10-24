@@ -1,23 +1,12 @@
 import { getDataSourceRead, getDataSourceReadWrite } from '@orm/context.js';
 import { BillingCheckoutChannel } from '@orm/entities/billingCheckoutChannel.js';
+import { readQueryResultRows } from '@orm/lib/queryResultRows.js';
 import type { DataSource } from 'typeorm';
 
 import type { BillingPlatform } from '@podverse/helpers';
 
-function queryRows(value: unknown): unknown[] | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  const first: unknown = value[0];
-  // Postgres UPDATE and DELETE results from TypeORM are [rows, affectedCount].
-  if (Array.isArray(first)) {
-    return first;
-  }
-  return value;
-}
-
 function readUpdatedId(value: unknown): number | null {
-  const rows = queryRows(value);
+  const rows = readQueryResultRows(value);
   if (rows === null || rows.length === 0) {
     return null;
   }

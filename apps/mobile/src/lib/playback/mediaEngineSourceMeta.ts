@@ -4,6 +4,7 @@ import type { PlaybackTarget } from '@podverse/playback-core';
 import type { MediaEngineSourceMeta } from '../../../modules/podverse-media-engine';
 import { addByRssPlaybackMediaId } from '../addByRss/resourceData';
 import { resolveEngineAudioProfile } from './engineAudioProfile';
+import { nowPlayingArtistFields, playbackTargetArtists } from './verifiedArtists';
 
 const queueMediumFromTarget = (target: PlaybackTarget): 'av' | 'music' => {
   return resolveEngineAudioProfile(target) === 'music' ? 'music' : 'av';
@@ -155,7 +156,12 @@ export const mediaEngineSourceMetaFromTarget = (
     return null;
   }
   const bounds = clipBoundsFromTarget(target);
+  const artistFields = nowPlayingArtistFields(
+    playbackTargetArtists(target),
+    subtitleFromTarget(target)
+  );
   return {
+    albumTitle: artistFields.albumTitle,
     artworkUrl: artworkFromTarget(target),
     clipEndSeconds: bounds.end,
     clipStartSeconds: bounds.start,
@@ -164,7 +170,7 @@ export const mediaEngineSourceMetaFromTarget = (
     kind: metaKindFromTarget(target),
     origin,
     queueMedium: queueMediumFromTarget(target),
-    subtitle: subtitleFromTarget(target),
+    subtitle: artistFields.artist,
     title: titleFromTarget(target),
   };
 };

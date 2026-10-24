@@ -1,0 +1,41 @@
+---
+description: Every authenticated API route declares the API key permission it needs or stays closed to keys on purpose
+globs:
+  - "apps/api/src/controllers/**"
+  - "apps/api/src/routes/**"
+  - "apps/api/src/lib/rateLimiter.ts"
+  - "apps/api/src/middleware/**"
+alwaysApply: false
+---
+
+# API key route access
+
+Keys are default-deny. A route accepts a key only when `ensureAuthenticated` or
+`optionalEnsureAuthenticated` carries `apiKeyAccess: { resource, action }`. A
+`rateLimitAuthEndpoint` wrapper that authenticates first carries the same requirement.
+
+The resource is the account data the route reads or changes (`API_KEY_RESOURCES`). A path under one
+prefix can belong to another resource: followed-playlist lists are `subscriptions`, and subscribed
+lists under `/channel`, `/item`, `/live-item`, `/clip`, and `/account` are `subscriptions`.
+
+The action follows HTTP intent. `GET`, and a `POST` that only reads, are `read`. A `POST` that adds
+a row is `create` (follow, add to a playlist or any queue zone including history, enqueue a feed
+parse). `PATCH`, `PUT`, and a `POST` that changes existing state (mark read, mark seen, toggle,
+reorder, promote, replay, bulk enable or disable, hide or unhide) are `update`. `DELETE`, and a
+`POST` that removes rows (unfollow), are `delete`. Settings writes are all `update`; the settings
+row always exists. Routes sharing one rate-limit wrapper share one requirement.
+
+Never add `apiKeyAccess` to API key management, sessions, password, email change, account deletion,
+the data export, terms acceptance, the listen-stats consent and its agreement text, listen and open
+reports (`POST /stats/listen`, `POST /stats/open`), billing, membership claim tokens, or minting
+MetaBoost app assertions.
+
+The action must be one `apiKeyResourceSupportsAction` allows. A route for an action the list omits
+adds that action to `API_KEY_SUPPORTED_ACTIONS` in the same change.
+
+With a new or changed authenticated route, in the same change: set or deliberately omit
+`apiKeyAccess`; add or update `x-api-key-permission` and the `apiKeyAuth` security entry in
+`apps/api/openapi.yml` (or keep both off for a closed route); add the route to the matching
+`apps/api/src/test/api-key-routes-*.integration.test.ts` table.
+
+Related: **openapi-sync**, **api-testing**.

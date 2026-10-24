@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
 import { ChannelHeader } from '../../components/channel';
-import { DescriptionText, PeoplePane } from '../../components/content';
+import { ArtistChooserSheet, DescriptionText, PeoplePane } from '../../components/content';
 import type { SectionChipItem } from '../../components/form';
 import { SectionChipRow } from '../../components/form';
 import { FillList } from '../../components/primitives';
@@ -16,10 +16,16 @@ import { CallToActionSection } from '../../components/state/CallToActionSection'
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
+import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
 import { useAddByRssArtworkHeaders } from '../../hooks/useAddByRssArtworkHeaders';
 import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
+import { addByRssAlbumArtists } from '../../lib/addByRss/addByRssArtistIndex';
 import { addByRssItemSectionUrls } from '../../lib/addByRss/itemSections';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import type { LineArtist } from '../../lib/playback/lineArtist';
+import { joinLineArtistTitles } from '../../lib/playback/lineArtist';
+import type { ChannelBrowseStackParamList } from '../../navigation';
+import { buildArtistDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { listHeaderStackGap, screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -36,7 +42,7 @@ import { addByRssFeedHeaderArtwork, toAddByRssAboutPeople } from './addByRssHome
 import type { QueueActionPosition } from './useHomeRowPlayback';
 
 type AddByRssTrackDetailScreenProps = NativeStackScreenProps<
-  AddByRssDetailStackParamList,
+  AddByRssDetailStackParamList & ChannelBrowseStackParamList,
   'AddByRssTrackDetail'
 >;
 
@@ -217,6 +223,42 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
     navigation.navigate('AddByRssPodcastDetail', { feedIdText: route.params.feedIdText });
   }, [navigation, route.params.feedIdText]);
 
+  const artistIndexVersion = useAddByRssArtistIndexVersion();
+  const albumArtists = useMemo(
+    () => (feed === null ? [] : addByRssAlbumArtists(feed.feedUrl)),
+    [artistIndexVersion, feed]
+  );
+  const artistByline = joinLineArtistTitles(albumArtists);
+  const [isArtistChooserOpen, setIsArtistChooserOpen] = useState(false);
+
+  const openArtist = useCallback(
+    (artist: LineArtist) => {
+      if (artist.kind === 'add-by-rss') {
+        navigation.navigate('AddByRssPodcastDetail', { feedIdText: artist.feedIdText });
+        return;
+      }
+      navigation.navigate(
+        CHANNEL_BROWSE_STACK_ROUTES.ArtistDetail,
+        buildArtistDetailParams({
+          artistId: artist.publisher.id_text,
+          previewTitle: artist.publisher.title,
+        })
+      );
+    },
+    [navigation]
+  );
+
+  const onArtistBylinePress = useCallback(() => {
+    const [only] = albumArtists;
+    if (albumArtists.length === 1 && only !== undefined) {
+      openArtist(only);
+      return;
+    }
+    if (albumArtists.length > 1) {
+      setIsArtistChooserOpen(true);
+    }
+  }, [albumArtists, openArtist]);
+
   const handleTabPress = useCallback((nextTab: AddByRssTrackTab) => {
     setTab(nextTab);
   }, []);
@@ -322,7 +364,25 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
                 artworkHeaders={headerArtworkHeaders}
                 artworkUri={headerArtwork.listUrl}
                 onTitlePress={openFeed}
-                subtitle={mappedFeed.channel.about?.author ?? null}
+                subtitle={
+                  artistByline.length > 0
+                    ? artistByline
+                    : (mappedFeed.channel.about?.author ?? null)
+                }
+                subtitleLink={
+                  artistByline.length > 0
+                    ? {
+                        accessibilityLabel: t('media_player.open_named_screen', {
+                          name: artistByline,
+                          screen: t(
+                            albumArtists.length > 1 ? 'media.music.artists' : 'media.music.artist'
+                          ),
+                        }),
+                        onPress: onArtistBylinePress,
+                        testID: 'add-by-rss-track-detail-artist-link',
+                      }
+                    : undefined
+                }
                 testID="add-by-rss-track-detail-album-header"
                 title={albumTitle}
               />
@@ -360,6 +420,18 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
         />
       ) : null}
       {addToPlaylistSheet}
+      <ArtistChooserSheet
+        artists={albumArtists}
+        onCancel={() => {
+          setIsArtistChooserOpen(false);
+        }}
+        onSelect={(artist) => {
+          setIsArtistChooserOpen(false);
+          openArtist(artist);
+        }}
+        testID="add-by-rss-track-detail-artist-chooser"
+        visible={isArtistChooserOpen}
+      />
     </View>
   );
 }

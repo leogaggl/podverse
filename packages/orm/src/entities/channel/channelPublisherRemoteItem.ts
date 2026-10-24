@@ -1,6 +1,7 @@
 import type { ChannelPublisher } from '@orm/entities/channel/channelPublisher.js';
+import type { Item } from '@orm/entities/item/item.js';
 import type { Relation } from 'typeorm';
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 import { DATABASE_CONSTANTS } from '@podverse/helpers';
 
@@ -9,7 +10,7 @@ export class ChannelPublisherRemoteItem {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @OneToOne('ChannelPublisher', (channelPublisher: ChannelPublisher) => channelPublisher.id, {
+  @ManyToOne('ChannelPublisher', (channelPublisher: ChannelPublisher) => channelPublisher.id, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'channel_publisher_id' })
@@ -44,4 +45,12 @@ export class ChannelPublisherRemoteItem {
 
   @Column({ type: 'int', name: 'medium_id', nullable: true })
   medium_id!: number | null;
+
+  /** The item whose own podcast:publisher made this claim. Null for a channel-level claim. */
+  @Column({ type: 'int', name: 'item_id', nullable: true })
+  item_id!: number | null;
+
+  @ManyToOne('Item', { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'item_id' })
+  item!: Relation<Item> | null;
 }

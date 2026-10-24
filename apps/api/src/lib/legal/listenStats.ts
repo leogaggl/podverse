@@ -13,7 +13,7 @@ export async function assertListenStatsAllowed(accountId: number): Promise<void>
   const service = new AccountSettingsListenStatsService();
   const allowListenStats = await service.isListenStatsAllowed(
     accountId,
-    config.popularityTracking.version
+    config.tasteProfileAgreement.version
   );
 
   if (!allowListenStats) {

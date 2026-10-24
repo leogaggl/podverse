@@ -1,9 +1,12 @@
-import { config } from '@api/config/index.js';
 import { handleReturnDataOrNotFound } from '@api/controllers/helpers/data.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import { sendMergedInto } from '@api/controllers/helpers/mergedInto.js';
 import { getPaginationParams } from '@api/controllers/helpers/pagination.js';
-import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
+import {
+  ensureAuthenticated,
+  getActiveSessionAccountId,
+  getAuthenticatedUser,
+} from '@api/lib/auth/index.js';
 import { assignChapterEndTimes } from '@api/lib/chapters.js';
 import { getFollowedChannelIds } from '@api/lib/followed.js';
 import { getParamRequired } from '@api/lib/params.js';
@@ -20,19 +23,21 @@ import {
   validateParamsObject,
   validateQueryObject,
 } from '@api/lib/validation/index.js';
+import {
+  attachChannelListVerifiedPublishers,
+  attachVerifiedPublishers,
+} from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
-import jwt from 'jsonwebtoken';
 
 import type {
   CategoryMappingKeys,
   DTOChannelGone,
   DTOItemDescriptionDetail,
   QueryParamsMedium,
-  StatsAggregatedRangeCountField,
+  StatsPopularityCountField,
 } from '@podverse/helpers';
 import {
-  AuthCookieName,
   CHANNEL_GONE_ARCHIVED_MESSAGE,
   fillTopPage,
   getCategoryEnumValue,
@@ -51,7 +56,7 @@ import type {
   FindOptionsOrder,
   Item,
   ItemChapter,
-  StatsAggregatedItem,
+  StatsPopularityItem,
 } from '@podverse/orm';
 import {
   archivedShowFeedUrlForFollower,
@@ -64,51 +69,11 @@ import {
   itemGetManyRelationsWithChannel,
   itemGetOneRelations,
   ItemService,
-  StatsAggregatedItemService,
+  StatsPopularityItemService,
   subItemGetManyRelations,
   subItemGetManyRelationsWithChannel,
 } from '@podverse/orm';
 import { parseChapters } from '@podverse/parser';
-
-function bearerOrCookieToken(req: Request): string {
-  const cookies: unknown = req.cookies;
-  if (typeof cookies === 'object' && cookies !== null) {
-    const cookieToken: unknown = Reflect.get(cookies, AuthCookieName);
-    if (typeof cookieToken === 'string' && cookieToken !== '') {
-      return cookieToken;
-    }
-  }
-  const header = req.headers.authorization;
-  if (typeof header !== 'string') {
-    return '';
-  }
-  const prefix = 'Bearer ';
-  if (!header.startsWith(prefix) || header.length <= prefix.length) {
-    return '';
-  }
-  return header.slice(prefix.length);
-}
-
-function accountIdFromRequest(req: Request): number | null {
-  const token = bearerOrCookieToken(req);
-  if (token === '') {
-    return null;
-  }
-  let decoded: unknown;
-  try {
-    decoded = jwt.verify(token, config.auth.jwtSecret);
-  } catch {
-    return null;
-  }
-  if (typeof decoded !== 'object' || decoded === null) {
-    return null;
-  }
-  const id = Reflect.get(decoded, 'id');
-  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
-    return null;
-  }
-  return id;
-}
 
 const getRecentOrder = (itemType: 'normal' | 'live-item'): FindOptionsOrder<Item> => {
   if (itemType === 'live-item') {
@@ -122,8 +87,8 @@ export class ItemController {
   private static itemChapterService: ItemChapterService = new ItemChapterService();
   private static channelService: ChannelService = new ChannelService();
   private static mergeRedirects = new ChannelMergeRedirectService();
-  private static statsAggregatedItemService: StatsAggregatedItemService =
-    new StatsAggregatedItemService();
+  private static statsPopularityItemService: StatsPopularityItemService =
+    new StatsPopularityItemService();
 
   private static isParsedReadyChannel(channel: { channel_about?: unknown } | null): boolean {
     return Boolean(channel?.channel_about);
@@ -163,7 +128,7 @@ export class ItemController {
       return null;
     }
     if (stateKey === FeedLifecycleStateKeyEnum.Archived) {
-      const accountId = accountIdFromRequest(req);
+      const accountId = await getActiveSessionAccountId(req);
       const rawFeedUrl = channel.feed?.url ?? '';
       const addByRssFeedUrl =
         accountId === null || rawFeedUrl === ''
@@ -196,7 +161,7 @@ export class ItemController {
     liveItemType: 'pending' | 'live' | 'ended' | null;
     medium: QueryParamsMedium | null;
     offset: number;
-    orderField: StatsAggregatedRangeCountField;
+    orderField: StatsPopularityCountField;
     recentByChannel?: Channel;
   }): Promise<Item[]> {
     const {
@@ -213,7 +178,7 @@ export class ItemController {
 
     return fillTopPage({
       countRanked: () =>
-        ItemController.statsAggregatedItemService.countRanked(
+        ItemController.statsPopularityItemService.countRanked(
           medium,
           category_id,
           itemType,
@@ -223,7 +188,7 @@ export class ItemController {
         ),
       limit,
       loadRankedIds: () =>
-        ItemController.statsAggregatedItemService.getRankedItemIds(
+        ItemController.statsPopularityItemService.getRankedItemIds(
           medium,
           category_id,
           itemType,
@@ -263,13 +228,13 @@ export class ItemController {
         );
       },
       loadStatsPage: async () => {
-        const config: FindManyOptions<StatsAggregatedItem> = {
-          order: { [orderField]: 'DESC' },
+        const config: FindManyOptions<StatsPopularityItem> = {
+          order: { [orderField]: 'DESC', item_id: 'ASC' },
           skip: offset,
           take: limit,
           relations: recentByChannel ? subItemGetManyRelations : subItemGetManyRelationsWithChannel,
         };
-        const statsResults = await ItemController.statsAggregatedItemService.getMany(
+        const statsResults = await ItemController.statsPopularityItemService.getMany(
           config,
           medium,
           category_id,
@@ -304,6 +269,7 @@ export class ItemController {
           String(data.channel_id)
         );
         if (!channelMerged) {
+          await attachVerifiedPublishers({ items: [data] });
           handleReturnDataOrNotFound(res, data, 'Item');
           return;
         }
@@ -311,7 +277,13 @@ export class ItemController {
           String(data.channel_id),
           channelGetOneRelations
         );
-        handleReturnDataOrNotFound(res, channel ? { ...data, channel } : data, 'Item');
+        if (channel) {
+          await attachVerifiedPublishers({ channels: [channel], items: [data] });
+          handleReturnDataOrNotFound(res, { ...data, channel }, 'Item');
+          return;
+        }
+        await attachVerifiedPublishers({ items: [data] });
+        handleReturnDataOrNotFound(res, data, 'Item');
       } catch (error) {
         handleGenericErrorResponse(res, error);
       }
@@ -391,9 +363,11 @@ export class ItemController {
           itemType,
           liveItemType
         );
+        const data = items.filter(Boolean);
+        await attachVerifiedPublishers({ items: data });
 
         const response: ApiListResponse<Item> = {
-          data: items.filter(Boolean),
+          data,
           meta: { page, count: null, limit },
         };
         res.json(response);
@@ -436,6 +410,7 @@ export class ItemController {
           offset,
           orderField: getStatsOrder(range),
         });
+        await attachVerifiedPublishers({ items });
         const response: ApiListResponse<Item> = {
           data: items,
           meta: { page, count: null, limit },
@@ -486,6 +461,7 @@ export class ItemController {
           liveItemType
         );
         const items = recentResults.filter(Boolean);
+        await attachVerifiedPublishers({ items });
 
         const response: ApiListResponse<Item> = {
           data: items,
@@ -533,6 +509,7 @@ export class ItemController {
           offset,
           orderField: getStatsOrder(range),
         });
+        await attachVerifiedPublishers({ items });
         const response: ApiListResponse<Item> = {
           data: items,
           meta: { page, count: null, limit },
@@ -588,6 +565,7 @@ export class ItemController {
               liveItemType,
               config
             );
+            await attachVerifiedPublishers({ items });
 
             const response: ApiListResponse<Item> = {
               data: items,
@@ -598,7 +576,10 @@ export class ItemController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -649,6 +630,7 @@ export class ItemController {
               offset,
               orderField: getStatsOrder(range),
             });
+            await attachVerifiedPublishers({ items });
 
             const response: ApiListResponse<Item> = {
               data: items,
@@ -659,7 +641,10 @@ export class ItemController {
             handleGenericErrorResponse(res, error);
           }
         },
-        { skipMembershipStatus: true }
+        {
+          skipMembershipStatus: true,
+          apiKeyAccess: { resource: 'subscriptions', action: 'read' },
+        }
       );
     });
   }
@@ -687,6 +672,7 @@ export class ItemController {
             order: { pub_date: 'DESC' },
           };
           const items = await ItemController.itemService.getManyByChannel(channel, config);
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -722,6 +708,7 @@ export class ItemController {
             order: { pub_date: 'ASC' },
           };
           const items = await ItemController.itemService.getManyByChannel(channel, config);
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -769,6 +756,7 @@ export class ItemController {
             orderField: getStatsOrder(range),
             recentByChannel: channel,
           });
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -806,6 +794,7 @@ export class ItemController {
             'forward',
             config
           );
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -843,6 +832,7 @@ export class ItemController {
             'backward',
             config
           );
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -885,6 +875,7 @@ export class ItemController {
             shuffleHash,
             config
           );
+          await attachChannelListVerifiedPublishers({ channel, items });
 
           res.json({
             data: items,
@@ -916,6 +907,7 @@ export class ItemController {
             getParamRequired(req, 'idText'),
             direction
           );
+          await attachVerifiedPublishers({ items });
 
           res.json(items);
         } catch (error) {
@@ -944,6 +936,7 @@ export class ItemController {
             getParamRequired(req, 'idText'),
             direction
           );
+          await attachVerifiedPublishers({ items });
           res.json(items);
         } catch (error) {
           handleGenericErrorResponse(res, error);

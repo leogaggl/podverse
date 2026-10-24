@@ -8,7 +8,11 @@ function resolveOpenApiPath(): string {
   const currentFile = fileURLToPath(import.meta.url);
   const currentDir = path.dirname(currentFile);
   const fallbackPath = path.resolve(process.cwd(), 'apps/api/openapi.yml');
-  const candidates = [path.resolve(currentDir, '../../openapi.yml'), fallbackPath];
+  const candidates = [
+    path.resolve(currentDir, '../../../openapi.yml'),
+    path.resolve(process.cwd(), 'openapi.yml'),
+    fallbackPath,
+  ];
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {

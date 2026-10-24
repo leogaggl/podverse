@@ -72,6 +72,41 @@ export const reqNotificationsMarkRead = async (
   return response.data;
 };
 
+export type ReqNotificationsMarkReadOneResponse = {
+  /** Rows this request moved from unread to read; empty when they were already read. */
+  marked_ids: number[];
+  unread_count: number;
+};
+
+export const reqNotificationsMarkReadOne = async (
+  api: ApiRequestService,
+  notification_id: number
+): Promise<ReqNotificationsMarkReadOneResponse> => {
+  const response = await api.apiRequest<{ data: ReqNotificationsMarkReadOneResponse }>({
+    path: `/account/notifications/${notification_id}/mark-read`,
+    method: 'POST',
+    config: {
+      withCredentials: true,
+    },
+  });
+  return response.data;
+};
+
+export const reqNotificationsMarkReadByItem = async (
+  api: ApiRequestService,
+  params: { item_id_text: string; type: string }
+): Promise<ReqNotificationsMarkReadOneResponse> => {
+  const response = await api.apiRequest<{ data: ReqNotificationsMarkReadOneResponse }>({
+    path: '/account/notifications/mark-read-by-item',
+    method: 'POST',
+    data: params,
+    config: {
+      withCredentials: true,
+    },
+  });
+  return response.data;
+};
+
 export const reqNotificationPreferencesGet = async (
   api: ApiRequestService
 ): Promise<DTOAccountNotificationPreference[]> => {

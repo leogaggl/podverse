@@ -1,4 +1,4 @@
-import type { QueueExtraParams } from '@podverse/helpers';
+import type { AccountApiKeyCreateBody, QueueExtraParams } from '@podverse/helpers';
 import type { BetweenParams } from '@podverse/helpers';
 import type { AddByRssSeenMarkEntry, ChannelSeenMarkEntry } from '@podverse/helpers';
 import type { MediaTypePreference } from '@podverse/helpers';
@@ -26,6 +26,7 @@ import type { QueryParamsGetManyProfiles } from './account/account.js';
 import {
   reqAccountAcceptTerms,
   reqAccountChangeEmailAddress,
+  reqAccountChangePassword,
   reqAccountCreate,
   reqAccountDelete,
   reqAccountDownloadData,
@@ -76,6 +77,7 @@ import {
   reqAccountUnfollowChannel,
 } from './account/follow/channel.js';
 import { reqAccountFollowPlaylist, reqAccountUnfollowPlaylist } from './account/follow/playlist.js';
+import { reqAccountUnfollowBulk } from './account/follow/unfollowBulk.js';
 import {
   reqAccountNotificationChannelCreate,
   reqAccountNotificationChannelDelete,
@@ -90,15 +92,26 @@ import {
   reqAccountNotificationChannelTypeCreate,
   reqAccountNotificationChannelTypeDelete,
 } from './account/notification/channelType.js';
+import type {
+  ReqNotificationPreferenceUpdateInput,
+  ReqNotificationsListResponse,
+  ReqNotificationsMarkReadOneResponse,
+} from './account/notification/notifications.js';
 import {
   reqNotificationPreferencesGet,
   reqNotificationPreferencesUpdate,
-  type ReqNotificationPreferenceUpdateInput,
   reqNotificationsList,
-  type ReqNotificationsListResponse,
   reqNotificationsMarkRead,
+  reqNotificationsMarkReadByItem,
+  reqNotificationsMarkReadOne,
   reqNotificationsUnreadCount,
 } from './account/notification/notifications.js';
+import {
+  reqAccountTasteProfile,
+  reqAccountTasteProfileHidden,
+  reqAccountTasteProfileHide,
+  reqAccountTasteProfileUnhide,
+} from './account/tasteProfile.js';
 import {
   reqAccountUPDeviceCreate,
   reqAccountUPDeviceDelete,
@@ -121,6 +134,8 @@ import {
   reqAccountSettingsNotificationUpdate,
   reqAccountSettingsPlaybackUpdate,
 } from './accountSettings/accountSettings.js';
+import { reqAuthApiKeyCreate, reqAuthApiKeyRevoke, reqAuthApiKeys } from './auth/apiKeys.js';
+import type { ReqAuthMobileTokenParams } from './auth/auth.js';
 import {
   reqAuthCheckSession,
   reqAuthLogin,
@@ -130,6 +145,11 @@ import {
   reqAuthMobileRevoke,
   reqAuthMobileToken,
 } from './auth/auth.js';
+import {
+  reqAuthSessionRevoke,
+  reqAuthSessions,
+  reqAuthSessionsRevokeOthers,
+} from './auth/sessions.js';
 import type {
   ReqBillingAppleTransactionParams,
   ReqBillingCheckoutOptionsParams,
@@ -155,6 +175,7 @@ import { reqCategoryGetAll } from './category/category.js';
 import {
   reqChannelGetByIdOrIdText,
   reqChannelGetByPodcastIndexId,
+  reqChannelGetDirectoryMatch,
   reqChannelGetMany,
 } from './channel/channel.js';
 import type { ReqClipCreateParams } from './clip/clip.js';
@@ -193,7 +214,7 @@ import {
   reqItemSoundbiteGetManyByItemIdText,
 } from './itemSoundbite/itemSoundbite.js';
 import { reqItemTranscriptGet } from './itemTranscript/itemTranscript.js';
-import { reqLegalPopularityTracking } from './legal/popularityTracking.js';
+import { reqLegalTasteProfileAgreement } from './legal/tasteProfileAgreement.js';
 import { reqLegalTerms } from './legal/terms.js';
 import type { QueryParamsLiveItemUpcoming } from './liveItem/liveItem.js';
 import {
@@ -322,13 +343,8 @@ import {
   reqQueueResourceItemSoundbiteDelete,
 } from './queue/queueResource/queueResourceItemSoundbite.js';
 import { shouldSkipApiRequestErrorLog } from './shouldSkipApiRequestErrorLog.js';
-import {
-  reqStatsTrackAccount,
-  reqStatsTrackChannel,
-  reqStatsTrackClip,
-  reqStatsTrackItem,
-  reqStatsTrackPlaylist,
-} from './stats/stats.js';
+import type { StatsListenRequestBody, StatsOpenRequestBody } from './stats/stats.js';
+import { reqStatsListen, reqStatsOpen } from './stats/stats.js';
 
 export type {
   AddByRSSChapterResponse,
@@ -351,6 +367,7 @@ export class ApiRequestService {
   private apiBase: string;
   private authContext?: AuthContext;
   private defaultHeaders?: Record<string, string>;
+  private onRequestError?: (error: unknown) => void;
 
   constructor(params: {
     protocol: string;
@@ -365,13 +382,37 @@ export class ApiRequestService {
      * Per-request `config.headers` and auth headers take precedence over these.
      */
     defaultHeaders?: Record<string, string>;
+    /**
+     * Called with every error a request from this service throws, before it reaches the caller.
+     * The caller still receives the original error; a listener that throws is ignored.
+     */
+    onRequestError?: (error: unknown) => void;
   }) {
-    const { protocol, host, port, prefix, version, jwt, authContext, defaultHeaders } = params;
+    const {
+      protocol,
+      host,
+      port,
+      prefix,
+      version,
+      jwt,
+      authContext,
+      defaultHeaders,
+      onRequestError,
+    } = params;
     const portPart = port ? `:${port}` : '';
     this.apiBase = `${protocol}://${host}${portPart}${prefix.replace(/\/$/, '')}${version}`;
     this.authContext =
       authContext ?? (jwt ? { mode: 'cookie', cookieName: 'jwt', token: jwt } : undefined);
     this.defaultHeaders = defaultHeaders;
+    this.onRequestError = onRequestError;
+  }
+
+  private reportRequestError(error: unknown): void {
+    try {
+      this.onRequestError?.(error);
+    } catch {
+      // The caller still receives the original request error.
+    }
   }
 
   async apiRequest<T>({
@@ -474,6 +515,7 @@ export class ApiRequestService {
         });
       }
 
+      this.reportRequestError(error);
       throw error;
     }
   }
@@ -503,7 +545,12 @@ export class ApiRequestService {
       const options =
         method === 'GET' ? { method, ...mergedConfig } : { method, data, ...mergedConfig };
 
-      return requestWithHeaders<T>(`${this.apiBase}${path}`, options, abort);
+      return requestWithHeaders<T>(`${this.apiBase}${path}`, options, abort).catch(
+        (error: unknown) => {
+          this.reportRequestError(error);
+          throw error;
+        }
+      );
     } catch (error: unknown) {
       // Extract useful debugging information from the error
       const errorInfo: {
@@ -577,6 +624,7 @@ export class ApiRequestService {
         });
       }
 
+      this.reportRequestError(error);
       throw error;
     }
   }
@@ -618,6 +666,10 @@ export class ApiRequestService {
 
   reqAccountResetPassword(params: { token: string; password: string }) {
     return reqAccountResetPassword(this, params);
+  }
+
+  reqAccountChangePassword(params: { current_password: string; new_password: string }) {
+    return reqAccountChangePassword(this, params);
   }
 
   reqAccountSendChangeEmailAddressEmail(params: { new_email: string }) {
@@ -741,6 +793,10 @@ export class ApiRequestService {
     return reqAccountUnfollowChannel(this, params);
   }
 
+  reqAccountUnfollowBulk(params: { channel_id_texts?: string[]; add_by_rss_feed_urls?: string[] }) {
+    return reqAccountUnfollowBulk(this, params);
+  }
+
   /* ACCOUNT > CHANNEL SEEN */
 
   reqAccountChannelSeenList(params?: { page?: number }) {
@@ -812,6 +868,24 @@ export class ApiRequestService {
     return reqAccountContentLog(this, params);
   }
 
+  /* ACCOUNT > TASTE PROFILE */
+
+  reqAccountTasteProfile(params: { page?: number; limit?: number }) {
+    return reqAccountTasteProfile(this, params);
+  }
+
+  reqAccountTasteProfileHidden(params: { page?: number; limit?: number }) {
+    return reqAccountTasteProfileHidden(this, params);
+  }
+
+  reqAccountTasteProfileHide(params: { channel_id_text: string }) {
+    return reqAccountTasteProfileHide(this, params);
+  }
+
+  reqAccountTasteProfileUnhide(params: { channel_id_text: string; add_to_taste_profile: boolean }) {
+    return reqAccountTasteProfileUnhide(this, params);
+  }
+
   /* ACCOUNT > NOTIFICATION > CHANNEL */
 
   reqAccountNotificationChannelCreate(params: { channel_id_text: string }) {
@@ -863,6 +937,19 @@ export class ApiRequestService {
     return reqNotificationsMarkRead(this);
   }
 
+  reqNotificationsMarkReadOne(
+    notification_id: number
+  ): Promise<ReqNotificationsMarkReadOneResponse> {
+    return reqNotificationsMarkReadOne(this, notification_id);
+  }
+
+  reqNotificationsMarkReadByItem(params: {
+    item_id_text: string;
+    type: string;
+  }): Promise<ReqNotificationsMarkReadOneResponse> {
+    return reqNotificationsMarkReadByItem(this, params);
+  }
+
   reqNotificationPreferencesGet() {
     return reqNotificationPreferencesGet(this);
   }
@@ -883,8 +970,8 @@ export class ApiRequestService {
     return reqAccountSettingsListenStatsUpdate(this, params);
   }
 
-  reqLegalPopularityTracking() {
-    return reqLegalPopularityTracking(this);
+  reqLegalTasteProfileAgreement() {
+    return reqLegalTasteProfileAgreement(this);
   }
 
   reqLegalTerms(options?: { locale?: string }) {
@@ -931,7 +1018,7 @@ export class ApiRequestService {
     return reqAuthCheckSession(this);
   }
 
-  reqAuthMobileToken(params: { email: string; password: string }) {
+  reqAuthMobileToken(params: ReqAuthMobileTokenParams) {
     return reqAuthMobileToken(this, params);
   }
 
@@ -941,6 +1028,30 @@ export class ApiRequestService {
 
   reqAuthMobileRevoke(refresh_token: string) {
     return reqAuthMobileRevoke(this, refresh_token);
+  }
+
+  reqAuthSessions() {
+    return reqAuthSessions(this);
+  }
+
+  reqAuthSessionRevoke(sessionIdText: string) {
+    return reqAuthSessionRevoke(this, sessionIdText);
+  }
+
+  reqAuthSessionsRevokeOthers() {
+    return reqAuthSessionsRevokeOthers(this);
+  }
+
+  reqAuthApiKeys() {
+    return reqAuthApiKeys(this);
+  }
+
+  reqAuthApiKeyCreate(body: AccountApiKeyCreateBody) {
+    return reqAuthApiKeyCreate(this, body);
+  }
+
+  reqAuthApiKeyRevoke(apiKeyIdText: string) {
+    return reqAuthApiKeyRevoke(this, apiKeyIdText);
   }
 
   /* CATEGORY */
@@ -957,6 +1068,10 @@ export class ApiRequestService {
 
   reqChannelGetByPodcastIndexId(podcast_index_id: number | string) {
     return reqChannelGetByPodcastIndexId(this, podcast_index_id);
+  }
+
+  reqChannelGetDirectoryMatch(params: { feed_guid: string; feed_url?: string | null }) {
+    return reqChannelGetDirectoryMatch(this, params);
   }
 
   reqChannelGetMany(params: QueryParamsGetMany) {
@@ -1561,26 +1676,14 @@ export class ApiRequestService {
     return reqQueueResourceItemSoundbiteDelete(this, queue_id_text, item_soundbite_id_text);
   }
 
-  /* STATS TRACK */
+  /* STATS */
 
-  reqStatsTrackAccount(account_id_text: string) {
-    return reqStatsTrackAccount(this, account_id_text);
+  reqStatsListen(body: StatsListenRequestBody) {
+    return reqStatsListen(this, body);
   }
 
-  reqStatsTrackChannel(channel_id_text: string) {
-    return reqStatsTrackChannel(this, channel_id_text);
-  }
-
-  reqStatsTrackClip(clip_id_text: string) {
-    return reqStatsTrackClip(this, clip_id_text);
-  }
-
-  reqStatsTrackItem(item_id_text: string) {
-    return reqStatsTrackItem(this, item_id_text);
-  }
-
-  reqStatsTrackPlaylist(playlist_id_text: string) {
-    return reqStatsTrackPlaylist(this, playlist_id_text);
+  reqStatsOpen(body: StatsOpenRequestBody) {
+    return reqStatsOpen(this, body);
   }
 
   /* PROFILE CONTENT */

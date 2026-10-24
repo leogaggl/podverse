@@ -1,4 +1,4 @@
-import type { DTOChannel } from '@podverse/helpers';
+import type { DTOChannel, DTOChannelDirectoryMatch } from '@podverse/helpers';
 
 import type { ApiRequestService } from '../_request.js';
 import type { ApiListResponse } from '../_response.js';
@@ -32,6 +32,23 @@ export async function reqChannelGetByPodcastIndexId(
   return api.apiRequest<DTOChannel | null>({
     path: `/channel/podcast-index/${podcast_index_id}`,
     method: 'GET',
+  });
+}
+
+export async function reqChannelGetDirectoryMatch(
+  api: ApiRequestService,
+  params: { feed_guid: string; feed_url?: string | null }
+) {
+  // API returns the match or `null` when the guid is not a directory channel.
+  return api.apiRequest<DTOChannelDirectoryMatch | null>({
+    path: '/channel/directory-match',
+    method: 'GET',
+    config: {
+      params: {
+        feed_guid: params.feed_guid,
+        ...(params.feed_url ? { feed_url: params.feed_url } : {}),
+      },
+    },
   });
 }
 

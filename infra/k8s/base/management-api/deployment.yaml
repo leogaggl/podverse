@@ -84,6 +84,8 @@ spec:
             - secretRef:
                 name: podverse-db-opaque
             - secretRef:
+                name: podverse-keyvaldb-opaque
+            - secretRef:
                 name: podverse-billing-paypal-opaque
                 optional: true
             - secretRef:

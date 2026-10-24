@@ -9,6 +9,7 @@ import {
   validateBodyObject,
   validateParamsObject,
 } from '@api/lib/validation/index.js';
+import { attachVerifiedPublishers, itemsOfMediaResources } from '@api/lib/verifiedPublishers.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
@@ -43,7 +44,7 @@ class QueueResourceController {
           handleGenericErrorResponse(res, err);
         }
       },
-      { skipMembershipStatus: true }
+      { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
     );
   }
 
@@ -61,13 +62,16 @@ class QueueResourceController {
                 await QueueResourceController.queueResourceService.getNowPlayingByQueueIdText(
                   queue_id_text
                 );
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources([queueResources]),
+              });
               res.status(200).json(queueResources);
             } catch (err) {
               handleGenericErrorResponse(res, err);
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
       );
     });
   }
@@ -86,13 +90,16 @@ class QueueResourceController {
                 await QueueResourceController.queueResourceService.promoteFirstUpcomingToNowPlaying(
                   queue_id_text
                 );
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources([queueResource]),
+              });
               res.status(200).json(queueResource);
             } catch (err) {
               handleGenericErrorResponse(res, err);
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'update' } }
       );
     });
   }
@@ -111,13 +118,16 @@ class QueueResourceController {
                 await QueueResourceController.queueResourceService.getAllUpcomingByQueueIdText(
                   queue_id_text
                 );
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources(queueResources),
+              });
               res.status(200).json(queueResources);
             } catch (err) {
               handleGenericErrorResponse(res, err);
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
       );
     });
   }
@@ -142,6 +152,10 @@ class QueueResourceController {
                   }
                 );
 
+              await attachVerifiedPublishers({
+                items: itemsOfMediaResources(queueResources[0]),
+              });
+
               const response: ApiListResponse<QueueResource> = {
                 data: queueResources[0],
                 meta: { page, count: queueResources[1], limit },
@@ -153,7 +167,7 @@ class QueueResourceController {
             }
           });
         },
-        { skipMembershipStatus: true }
+        { skipMembershipStatus: true, apiKeyAccess: { resource: 'queue', action: 'read' } }
       );
     });
   }
@@ -192,13 +206,16 @@ class QueueResourceController {
                     queue_id_text,
                     replayRows
                   );
+                await attachVerifiedPublishers({
+                  items: itemsOfMediaResources(queueResources),
+                });
                 res.status(200).json({ data: queueResources });
               } catch (err) {
                 handleGenericErrorResponse(res, err);
               }
             });
           },
-          { skipMembershipStatus: false }
+          { skipMembershipStatus: false, apiKeyAccess: { resource: 'queue', action: 'update' } }
         );
       });
     });

@@ -17,12 +17,10 @@ test.describe('Sign-up legal consent', () => {
 
     const emailInput = page.locator('input[name="email"]');
     const passwordInput = page.locator('input[name="password1"]');
-    const confirmPasswordInput = page.locator('input[name="password2"]');
     const submitButton = page.getByRole('button', { name: 'Submit' });
 
     await emailInput.fill('e2e-signup-blocked@example.com');
     await passwordInput.fill(E2E_SIGNUP_TEST_PASSWORD);
-    await confirmPasswordInput.fill(E2E_SIGNUP_TEST_PASSWORD);
 
     await expect(submitButton).toBeDisabled();
 
@@ -52,7 +50,6 @@ test.describe('Sign-up legal consent', () => {
     });
     await page.locator('input[name="email"]').fill(signupEmail);
     await page.locator('input[name="password1"]').fill(E2E_SIGNUP_TEST_PASSWORD);
-    await page.locator('input[name="password2"]').fill(E2E_SIGNUP_TEST_PASSWORD);
     await termsCheckbox.check();
 
     await actionAndCapture(
@@ -106,7 +103,6 @@ test.describe('Sign-up legal consent', () => {
     await page.goto('/sign-up');
     await page.locator('input[name="email"]').fill(signupEmail);
     await page.locator('input[name="password1"]').fill(E2E_SIGNUP_TEST_PASSWORD);
-    await page.locator('input[name="password2"]').fill(E2E_SIGNUP_TEST_PASSWORD);
     await page.getByRole('checkbox', { name: /I have read and agree to the terms/i }).check();
 
     const dialog = page.getByRole('dialog', { name: 'Verification Email Not Sent' });

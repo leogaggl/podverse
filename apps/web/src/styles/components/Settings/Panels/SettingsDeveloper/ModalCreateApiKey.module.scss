@@ -1,0 +1,46 @@
+.resources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.resource {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-width: 0;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.help {
+  margin: 0;
+  color: var(--text-color-secondary);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+.unsupported {
+  display: flex;
+  align-items: center;
+  color: var(--text-color-secondary);
+}
+
+.tokenRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.tokenInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}

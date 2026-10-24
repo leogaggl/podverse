@@ -1,4 +1,7 @@
-/** Routes the Add by RSS screens navigate between; registered on the Home and Library stacks. */
+/**
+ * Routes the Add by RSS screens navigate between. Registered on the Home, Library, Browse, and
+ * Search stacks.
+ */
 export type AddByRssDetailStackParamList = {
   AddByRssCredentials: { feedIdText: string };
   AddByRssEpisodeDetail: { feedIdText: string; itemKey: string };

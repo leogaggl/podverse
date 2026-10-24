@@ -8,7 +8,7 @@ import {
   buildProfilePath,
 } from '@podverse/helpers';
 
-import { extractNotificationTargetPath } from './notificationTarget';
+import { extractNotificationReadTarget, extractNotificationTargetPath } from './notificationTarget';
 
 describe('extractNotificationTargetPath', () => {
   it('prefers url when present', () => {
@@ -91,5 +91,33 @@ describe('extractNotificationTargetPath', () => {
     expect(extractNotificationTargetPath({ id_text: 123, type: 'podcast' })).toBeNull();
     expect(extractNotificationTargetPath({ id_text: 'pod123', type: 123 })).toBeNull();
     expect(extractNotificationTargetPath({ url: 123 })).toBeNull();
+  });
+});
+
+describe('extractNotificationReadTarget', () => {
+  it('returns the item and type, trimming surrounding spaces', () => {
+    expect(
+      extractNotificationReadTarget({
+        itemIdText: 'abcdefghi1',
+        type: 'livestream-started',
+      })
+    ).toEqual({ itemIdText: 'abcdefghi1', type: 'livestream-started' });
+    expect(
+      extractNotificationReadTarget({
+        itemIdText: '  abcdefghi1  ',
+        type: '  livestream-started  ',
+      })
+    ).toEqual({ itemIdText: 'abcdefghi1', type: 'livestream-started' });
+  });
+
+  it('returns null for a missing type, a numeric item id, an empty string, or null data', () => {
+    expect(extractNotificationReadTarget({ itemIdText: 'abcdefghi1' })).toBeNull();
+    expect(
+      extractNotificationReadTarget({ itemIdText: 123, type: 'livestream-started' })
+    ).toBeNull();
+    expect(
+      extractNotificationReadTarget({ itemIdText: '', type: 'livestream-started' })
+    ).toBeNull();
+    expect(extractNotificationReadTarget(null)).toBeNull();
   });
 });

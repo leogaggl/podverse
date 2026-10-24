@@ -16,8 +16,9 @@ type AddByRSSNeedsCredentialsSectionProps = {
 };
 
 /**
- * Followed feeds this browser cannot read yet. Rows open the credentials page rather than the
- * feed detail, since there is nothing to show until the feed parses with credentials.
+ * Feeds this browser cannot read yet: followed feeds, or albums an Add by RSS artist lists. Rows
+ * open the credentials page rather than the feed detail, since there is nothing to show until the
+ * feed parses with credentials.
  */
 export const AddByRSSNeedsCredentialsSection: React.FC<AddByRSSNeedsCredentialsSectionProps> = ({
   feeds,

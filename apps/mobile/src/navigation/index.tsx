@@ -44,6 +44,7 @@ import { useNotificationsUnreadCount } from '../hooks/useNotificationsUnreadCoun
 import { isMobileE2eHarnessEnabled } from '../lib/e2e/e2eHarness';
 import { PerfE2eReport } from '../lib/perf/PerfE2eReport';
 import { useMembership } from '../membership/useMembership';
+import { NotificationStreamE2eStatus } from '../notifications/NotificationStreamE2eStatus';
 import { PlaybackE2eStatus } from '../playback/PlaybackE2eStatus';
 import type { ContentTabId } from '../prefs/tabLayout';
 import { isContentTabId, TAB_TEST_ID_SLUG, tabLabelKey } from '../prefs/tabLayout';
@@ -69,6 +70,7 @@ import { LibraryPlaylistsScreen } from '../screens/library/LibraryPlaylistsScree
 import { LibraryQueueScreen } from '../screens/library/LibraryQueueScreen';
 import { PlaylistDetailScreen } from '../screens/library/PlaylistDetailScreen';
 import { PlaylistFormScreen } from '../screens/library/PlaylistFormScreen';
+import type { ApiKeyExpirationChoice } from '../screens/more/accountApiKeyRows';
 import { MoreAboutScreen } from '../screens/more/MoreAboutScreen';
 import { MoreAdvancedScreen } from '../screens/more/MoreAdvancedScreen';
 import { MoreCustomApiScreen } from '../screens/more/MoreCustomApiScreen';
@@ -83,14 +85,19 @@ import { MoreOpmlScreen } from '../screens/more/MoreOpmlScreen';
 import { MoreRemovedContentScreen } from '../screens/more/MoreRemovedContentScreen';
 import { MoreSettingsAppearanceScreen } from '../screens/more/MoreSettingsAppearanceScreen';
 import { MoreSettingsAutoDownloadCatchUpScreen } from '../screens/more/MoreSettingsAutoDownloadCatchUpScreen';
+import { MoreSettingsChangePasswordScreen } from '../screens/more/MoreSettingsChangePasswordScreen';
+import { MoreSettingsDeveloperCreateScreen } from '../screens/more/MoreSettingsDeveloperCreateScreen';
+import { MoreSettingsDeveloperExpirationScreen } from '../screens/more/MoreSettingsDeveloperExpirationScreen';
+import { MoreSettingsDeveloperScreen } from '../screens/more/MoreSettingsDeveloperScreen';
 import { MoreSettingsDownloadLimitScreen } from '../screens/more/MoreSettingsDownloadLimitScreen';
 import { MoreSettingsDownloadsScreen } from '../screens/more/MoreSettingsDownloadsScreen';
 import { MoreSettingsLocaleScreen } from '../screens/more/MoreSettingsLocaleScreen';
 import { MoreSettingsNotificationsScreen } from '../screens/more/MoreSettingsNotificationsScreen';
 import { MoreSettingsPlaybackScreen } from '../screens/more/MoreSettingsPlaybackScreen';
-import { MoreSettingsPopularityTrackingScreen } from '../screens/more/MoreSettingsPopularityTrackingScreen';
 import { MoreSettingsScreen } from '../screens/more/MoreSettingsScreen';
+import { MoreSettingsSessionsScreen } from '../screens/more/MoreSettingsSessionsScreen';
 import { MoreSettingsTabBarScreen } from '../screens/more/MoreSettingsTabBarScreen';
+import { MoreSettingsTasteProfileScreen } from '../screens/more/MoreSettingsTasteProfileScreen';
 import { MoreSettingsThemeScreen } from '../screens/more/MoreSettingsThemeScreen';
 import { MoreTermsOfServiceScreen } from '../screens/more/MoreTermsOfServiceScreen';
 import { NotificationsInboxScreen } from '../screens/notifications/NotificationsInboxScreen';
@@ -183,6 +190,11 @@ export const CHANNEL_BROWSE_STACK_ROUTES = {
 
 export const SEARCH_STACK_ROUTES = {
   ...CHANNEL_BROWSE_STACK_ROUTES,
+  AddByRssCredentials: 'AddByRssCredentials',
+  AddByRssEpisodeDetail: 'AddByRssEpisodeDetail',
+  AddByRssLivestreamDetail: 'AddByRssLivestreamDetail',
+  AddByRssPodcastDetail: 'AddByRssPodcastDetail',
+  AddByRssTrackDetail: 'AddByRssTrackDetail',
   SearchRoot: 'SearchRoot',
 } as const;
 
@@ -214,6 +226,11 @@ export const LIBRARY_STACK_ROUTES = {
 
 export const BROWSE_STACK_ROUTES = {
   ...CHANNEL_BROWSE_STACK_ROUTES,
+  AddByRssCredentials: 'AddByRssCredentials',
+  AddByRssEpisodeDetail: 'AddByRssEpisodeDetail',
+  AddByRssLivestreamDetail: 'AddByRssLivestreamDetail',
+  AddByRssPodcastDetail: 'AddByRssPodcastDetail',
+  AddByRssTrackDetail: 'AddByRssTrackDetail',
   BrowseRoot: 'BrowseRoot',
   PlaylistDetail: 'PlaylistDetail',
   Profile: 'Profile',
@@ -244,12 +261,17 @@ export const MORE_STACK_ROUTES = {
   MoreSettings: 'MoreSettings',
   MoreSettingsAppearance: 'MoreSettingsAppearance',
   MoreSettingsAutoDownloadCatchUp: 'MoreSettingsAutoDownloadCatchUp',
+  MoreSettingsChangePassword: 'MoreSettingsChangePassword',
   MoreSettingsDownloadLimit: 'MoreSettingsDownloadLimit',
   MoreSettingsDownloads: 'MoreSettingsDownloads',
   MoreSettingsLocale: 'MoreSettingsLocale',
   MoreSettingsNotifications: 'MoreSettingsNotifications',
   MoreSettingsPlayback: 'MoreSettingsPlayback',
-  MoreSettingsPopularityTracking: 'MoreSettingsPopularityTracking',
+  MoreSettingsTasteProfile: 'MoreSettingsTasteProfile',
+  MoreSettingsSessions: 'MoreSettingsSessions',
+  MoreSettingsDeveloper: 'MoreSettingsDeveloper',
+  MoreSettingsDeveloperCreate: 'MoreSettingsDeveloperCreate',
+  MoreSettingsDeveloperExpiration: 'MoreSettingsDeveloperExpiration',
   MoreTermsOfService: 'MoreTermsOfService',
   MoreSettingsTabBar: 'MoreSettingsTabBar',
   MoreSettingsTheme: 'MoreSettingsTheme',
@@ -320,11 +342,14 @@ const moreTabLinkScreens = {
   MoreSettings: `more${APP_ROUTES.SETTINGS}`,
   MoreSettingsAppearance: `more${APP_ROUTES.SETTINGS}/appearance`,
   MoreSettingsAutoDownloadCatchUp: `more${APP_ROUTES.SETTINGS}/downloads/catch-up`,
+  MoreSettingsChangePassword: `more${APP_ROUTES.SETTINGS}/change-password`,
   MoreSettingsDownloadLimit: `more${APP_ROUTES.SETTINGS}/downloads/limit`,
   MoreSettingsDownloads: `more${APP_ROUTES.SETTINGS}/downloads`,
   MoreSettingsLocale: `more${APP_ROUTES.SETTINGS}/locale`,
   MoreSettingsNotifications: `more${APP_ROUTES.SETTINGS}/notifications`,
   MoreSettingsPlayback: `more${APP_ROUTES.SETTINGS}/playback`,
+  MoreSettingsSessions: `more${APP_ROUTES.SETTINGS}/sessions`,
+  MoreSettingsDeveloper: `more${APP_ROUTES.SETTINGS}/developer`,
   MoreSettingsTabBar: `more${APP_ROUTES.SETTINGS}/tab-bar`,
   MoreSettingsTheme: `more${APP_ROUTES.SETTINGS}/theme`,
   MoreSmoke: 'more/e2e/smoke',
@@ -356,6 +381,11 @@ const libraryTabLinkScreens = {
 } as const;
 
 const browseTabLinkScreens = {
+  AddByRssCredentials: 'browse/add-by-rss/credentials/:feedIdText',
+  AddByRssEpisodeDetail: 'browse/add-by-rss/:feedIdText/item/:itemKey',
+  AddByRssLivestreamDetail: 'browse/add-by-rss/:feedIdText/livestream/:liveItemKey',
+  AddByRssPodcastDetail: 'browse/add-by-rss/:feedIdText',
+  AddByRssTrackDetail: 'browse/add-by-rss/:feedIdText/track/:itemKey',
   AlbumDetail: `browse${APP_ROUTES.ALBUM}/:albumId`,
   ArtistDetail: `browse${APP_ROUTES.ARTIST}/:artistId`,
   BrowseRoot: 'browse',
@@ -372,6 +402,11 @@ const notificationsTabLinkScreens = {
 } as const;
 
 const searchTabLinkScreens = {
+  AddByRssCredentials: 'search/add-by-rss/credentials/:feedIdText',
+  AddByRssEpisodeDetail: 'search/add-by-rss/:feedIdText/item/:itemKey',
+  AddByRssLivestreamDetail: 'search/add-by-rss/:feedIdText/livestream/:liveItemKey',
+  AddByRssPodcastDetail: 'search/add-by-rss/:feedIdText',
+  AddByRssTrackDetail: 'search/add-by-rss/:feedIdText/track/:itemKey',
   AlbumDetail: `search${APP_ROUTES.ALBUM}/:albumId`,
   ArtistDetail: `search${APP_ROUTES.ARTIST}/:artistId`,
   ClipDetail: `search${APP_ROUTES.CLIP}/:clipId`,
@@ -496,15 +531,16 @@ export type HomeStackParamList = ChannelBrowseStackParamList &
     HomeRoot: undefined;
   };
 
-export type SearchStackParamList = ChannelBrowseStackParamList & {
-  /**
-   * `autoFocus` is a request from another tab (Home's empty state) to start a fresh search: the
-   * field is cleared and focused so the user can type straight away. Tapping the Search tab
-   * directly omits it and keeps whatever was already there.
-   * `medium` optionally selects the All / Music chip (and persists it) before the field focuses.
-   */
-  SearchRoot: { autoFocus?: boolean; medium?: 'all' | 'music' } | undefined;
-};
+export type SearchStackParamList = ChannelBrowseStackParamList &
+  AddByRssDetailStackParamList & {
+    /**
+     * `autoFocus` is a request from another tab (Home's empty state) to start a fresh search: the
+     * field is cleared and focused so the user can type straight away. Tapping the Search tab
+     * directly omits it and keeps whatever was already there.
+     * `medium` optionally selects the All / Music chip (and persists it) before the field focuses.
+     */
+    SearchRoot: { autoFocus?: boolean; medium?: 'all' | 'music' } | undefined;
+  };
 
 export type LibraryStackParamList = AddByRssDetailStackParamList & {
   AddByRssAdd: undefined;
@@ -527,16 +563,17 @@ export type LibraryStackParamList = AddByRssDetailStackParamList & {
   TrackDetail: TrackDetailRouteParams;
 };
 
-export type BrowseStackParamList = ChannelBrowseStackParamList & {
-  /**
-   * `mediaType` is a request from another tab (Home's empty state) to open Browse on a specific
-   * chip. Applied once on focus, persisted, then cleared so a later tab return keeps the user's
-   * last Browse choice.
-   */
-  BrowseRoot: { mediaType?: BrowseMediaType } | undefined;
-  PlaylistDetail: { playlistId: string };
-  Profile: { accountIdText: string };
-};
+export type BrowseStackParamList = ChannelBrowseStackParamList &
+  AddByRssDetailStackParamList & {
+    /**
+     * `mediaType` is a request from another tab (Home's empty state) to open Browse on a specific
+     * chip. Applied once on focus, persisted, then cleared so a later tab return keeps the user's
+     * last Browse choice.
+     */
+    BrowseRoot: { mediaType?: BrowseMediaType } | undefined;
+    PlaylistDetail: { playlistId: string };
+    Profile: { accountIdText: string };
+  };
 
 export type NotificationsStackParamList = {
   NotificationsInbox: undefined;
@@ -563,12 +600,17 @@ export type MoreStackParamList = {
   MoreSettings: undefined;
   MoreSettingsAppearance: undefined;
   MoreSettingsAutoDownloadCatchUp: undefined;
+  MoreSettingsChangePassword: undefined;
   MoreSettingsDownloadLimit: undefined;
   MoreSettingsDownloads: undefined;
   MoreSettingsLocale: undefined;
   MoreSettingsNotifications: undefined;
   MoreSettingsPlayback: undefined;
-  MoreSettingsPopularityTracking: undefined;
+  MoreSettingsTasteProfile: undefined;
+  MoreSettingsSessions: undefined;
+  MoreSettingsDeveloper: undefined;
+  MoreSettingsDeveloperCreate: { expiresIn?: ApiKeyExpirationChoice } | undefined;
+  MoreSettingsDeveloperExpiration: { expiresIn: ApiKeyExpirationChoice };
   MoreTermsOfService: undefined;
   MoreSettingsTabBar: undefined;
   MoreSettingsTheme: undefined;
@@ -1140,6 +1182,31 @@ function SearchStackNavigator() {
         options={{ title: t('media.music.album') }}
       />
       <SearchStack.Screen
+        component={AddByRssHomeDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssPodcastDetail}
+        options={{ title: t('media.podcast.podcast') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssEpisodeDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssEpisodeDetail}
+        options={{ title: t('media.podcast.episode') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssLivestreamDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssLivestreamDetail}
+        options={{ title: t('media.livestream.livestream') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssTrackDetailScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssTrackDetail}
+        options={{ title: t('media.music.track') }}
+      />
+      <SearchStack.Screen
+        component={AddByRssCredentialsScreen}
+        name={SEARCH_STACK_ROUTES.AddByRssCredentials}
+        options={{ title: t('features.add_by_rss.credentials_page_title') }}
+      />
+      <SearchStack.Screen
         component={TrackDetailScreen}
         name={SEARCH_STACK_ROUTES.TrackDetail}
         options={{ title: t('media.music.track') }}
@@ -1315,6 +1382,31 @@ function BrowseStackNavigator() {
         options={{ title: t('media.music.album') }}
       />
       <BrowseStack.Screen
+        component={AddByRssHomeDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssPodcastDetail}
+        options={{ title: t('media.podcast.podcast') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssEpisodeDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssEpisodeDetail}
+        options={{ title: t('media.podcast.episode') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssLivestreamDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssLivestreamDetail}
+        options={{ title: t('media.livestream.livestream') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssTrackDetailScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssTrackDetail}
+        options={{ title: t('media.music.track') }}
+      />
+      <BrowseStack.Screen
+        component={AddByRssCredentialsScreen}
+        name={BROWSE_STACK_ROUTES.AddByRssCredentials}
+        options={{ title: t('features.add_by_rss.credentials_page_title') }}
+      />
+      <BrowseStack.Screen
         component={PodcastIndexFeedPreviewScreen}
         name={BROWSE_STACK_ROUTES.SearchResultDetail}
         options={{ title: t('nav.stack.search_result') }}
@@ -1450,9 +1542,34 @@ function MoreStackNavigator({
         options={{ title: t('settings.groups.playback') }}
       />
       <MoreStack.Screen
-        component={MoreSettingsPopularityTrackingScreen}
-        name={MORE_STACK_ROUTES.MoreSettingsPopularityTracking}
-        options={{ title: t('popularity_tracking.title') }}
+        component={MoreSettingsTasteProfileScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsTasteProfile}
+        options={{ title: t('taste_profile.title') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsChangePasswordScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsChangePassword}
+        options={{ title: t('settings.account.change_password.heading') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsSessionsScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsSessions}
+        options={{ title: t('settings.account.sessions.heading') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsDeveloperScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsDeveloper}
+        options={{ title: t('settings.developer.heading') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsDeveloperCreateScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsDeveloperCreate}
+        options={{ title: t('settings.developer.create') }}
+      />
+      <MoreStack.Screen
+        component={MoreSettingsDeveloperExpirationScreen}
+        name={MORE_STACK_ROUTES.MoreSettingsDeveloperExpiration}
+        options={{ title: t('settings.developer.expiration') }}
       />
       <MoreStack.Screen
         component={MoreTermsOfServiceScreen}
@@ -1658,6 +1775,7 @@ function MoreRootScreen({
   const { status } = useAuth();
   const membership = useMembership();
   const { overflowTabIds } = useTabLayout();
+  const notificationsUnreadCount = useNotificationsUnreadCount();
   const isAuthenticated = status === 'authenticated';
 
   const openOverflowTab = (tabId: ContentTabId): void => {
@@ -1681,6 +1799,7 @@ function MoreRootScreen({
   };
 
   const overflowItems: MenuListItem[] = overflowTabIds.map((tabId) => ({
+    badgeCount: tabId === 'Notifications' ? notificationsUnreadCount : undefined,
     onPress: () => {
       openOverflowTab(tabId);
     },
@@ -1859,7 +1978,8 @@ function TabScaffold({
   const overlayHeight = useBottomChromeOverlayInsetSource();
   const { visibleTabIds } = useTabLayout();
   const visibleTabSet = useMemo(() => new Set(visibleTabIds), [visibleTabIds]);
-  const notificationsUnreadCount = useNotificationsUnreadCount({ enabled: true });
+  const notificationsUnreadCount = useNotificationsUnreadCount();
+  const moreTabBadgeCount = visibleTabSet.has('Notifications') ? 0 : notificationsUnreadCount;
   const inProgressDownloadCount = useInProgressDownloadCount();
   const libraryTabBadgeCount = sumBadgeCounts([inProgressDownloadCount]);
   const insets = useSafeAreaInsets();
@@ -1964,11 +2084,12 @@ function TabScaffold({
             ]}
           >
             <PlaybackE2eStatus />
+            <NotificationStreamE2eStatus />
             <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
-              clip/chapter → mini player. Playback and perf markers are absolute and are not part
-              of that height. Sync sits at the top of the stack because it comes and
+              clip/chapter → mini player. Playback, notification stream, and perf markers are
+              absolute and are not part of that height. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
               the scene above the tab bar does not resize when a bar appears. The stack overlaps
@@ -2039,6 +2160,7 @@ function TabScaffold({
       <Tab.Screen
         name="More"
         options={{
+          tabBarBadge: moreTabBadgeCount > 0 ? moreTabBadgeCount : undefined,
           tabBarButton: tabBarButtonFor('More'),
           tabBarButtonTestID: 'tab-more',
           tabBarIcon: tabBarIcon('more'),
@@ -2059,9 +2181,10 @@ function TabScaffold({
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // sync → Offline Mode → current clip/chapter → mini player. Playback and perf markers are
-  // absolute and are not part of that height. The negative top margin is the variable strips
-  // only, so the safe-area padding stays reserved and the scene does not resize when a bar appears.
+  // sync → Offline Mode → current clip/chapter → mini player. Playback, notification stream, and
+  // perf markers are absolute and are not part of that height. The negative top margin is the
+  // variable strips only, so the safe-area padding stays reserved and the scene does not resize
+  // when a bar appears.
   const scaffold = !isTabletLayout ? (
     navigator
   ) : (
@@ -2079,6 +2202,7 @@ function TabScaffold({
         ]}
       >
         <PlaybackE2eStatus />
+        <NotificationStreamE2eStatus />
         <PerfE2eReport />
         <GlobalActivityBar />
         <OfflineModeBanner />

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +14,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
-    setupFiles: [path.resolve(__dirname, 'vitest.setup.ts')],
+    exclude: [...configDefaults.exclude, 'src/**/*.real.integration.test.ts'],
+    setupFiles: [
+      path.resolve(__dirname, 'vitest.setup.ts'),
+      path.resolve(__dirname, 'vitest.setup.stub-sessions.ts'),
+    ],
   },
 });

@@ -1,22 +1,19 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import type {
   DTOChannel,
   DTOItem,
-  EpisodeByGuidResponse,
   PodcastBatchByFeedGuidResponse,
   RemoteItemsResponse,
-  UnaddedTrackParentAlbum,
 } from '@podverse/helpers';
 import {
   podcastIndexFeedListImageUrl,
   primaryChannelLightboxArtworkUrl,
   primaryChannelListArtworkUrl,
   primaryListArtworkUrl,
-  resolveUnaddedTrackParentAlbum,
   unparsedPodcastIndexFeedTarget,
 } from '@podverse/helpers';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
@@ -31,11 +28,13 @@ import {
   PeoplePane,
   toAboutPersonFromChannel,
 } from '../../components/content';
+import { HelperNote } from '../../components/feedback/HelperNote';
 import type { SectionChipItem } from '../../components/form';
 import { CoverImage, FillList, ListRow } from '../../components/primitives';
 import { Button } from '../../components/primitives/Button';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
 import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
+import { SectionHeading } from '../../components/section/SectionHeading';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
@@ -67,11 +66,22 @@ import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from '../home/homeFeedData';
-import { mapItemToHomeFeedRow } from '../home/homeFeedData';
+import { mapTrackToHomeFeedRow } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { channelHasFunding, channelHasPeople, channelHasPodroll } from '../podcast/podcastSections';
+import type { ArtistAlbumSectionRow, ArtistDetailSectionRow } from './artistDetailSections';
+import { buildArtistAlbumSectionRows, buildArtistTrackSectionRows } from './artistDetailSections';
+import {
+  ArtistYourAddByRssAlbumsSection,
+  useArtistYourAddByRssAlbums,
+} from './ArtistYourAddByRssAlbumsSection';
+import {
+  ArtistYourAddByRssTracksSection,
+  useArtistYourAddByRssTracks,
+} from './ArtistYourAddByRssTracksSection';
+import { useArtistUnsubscribe } from './useArtistUnsubscribe';
 
 /** Artwork sizing only, so it does not depend on the theme. */
 const albumCoverStyles = StyleSheet.create({
@@ -91,34 +101,7 @@ const createContentListRowStyles = ({ styles: themeStyles }: ThemedStylesTheme) 
 
 type ArtistDetailScreenProps = NativeStackScreenProps<ChannelBrowseStackParamList, 'ArtistDetail'>;
 
-type ArtistTrackUnadded = NonNullable<EpisodeByGuidResponse['episode']>;
 type ArtistAlbumUnadded = PodcastBatchByFeedGuidResponse['feeds'][number];
-
-type ArtistTracksRow =
-  | {
-      kind: 'added';
-      key: string;
-      row: HomeFeedRowData;
-      item: DTOItem;
-    }
-  | {
-      kind: 'unadded';
-      key: string;
-      row: ArtistTrackUnadded;
-      target: UnaddedTrackParentAlbum;
-    };
-
-type ArtistAlbumsRow =
-  | {
-      kind: 'added';
-      key: string;
-      row: DTOChannel;
-    }
-  | {
-      kind: 'unadded';
-      key: string;
-      row: ArtistAlbumUnadded;
-    };
 
 type PodrollEntry = {
   id: string;
@@ -137,8 +120,10 @@ const SECTION_LABEL_KEYS: Record<ArtistTab, string> = {
   tracks: 'media.music.tracks',
 };
 
-const artistTracksKeyExtractor = (row: ArtistTracksRow): string => row.key;
-const artistAlbumsKeyExtractor = (row: ArtistAlbumsRow): string => row.key;
+const artistTracksKeyExtractor = (row: ArtistDetailSectionRow<DTOItem>): string => row.key;
+const artistAlbumsKeyExtractor = (
+  row: ArtistAlbumSectionRow<DTOChannel, ArtistAlbumUnadded>
+): string => row.key;
 const artistPodrollKeyExtractor = (row: PodrollEntry): string => row.id;
 
 function ArtistAddedTrackRow({
@@ -170,32 +155,8 @@ function ArtistAddedTrackRow({
       onQueuePress={onQueue}
       row={row}
       showChannelContext={false}
+      showContextLine
       testID={`artist-track-row-${index}`}
-    />
-  );
-}
-
-function ArtistUnaddedTrackRow({
-  index,
-  onPress,
-  row,
-  target,
-}: {
-  index: number;
-  onPress: (row: ArtistTrackUnadded, target: UnaddedTrackParentAlbum) => void;
-  row: ArtistTrackUnadded;
-  target: UnaddedTrackParentAlbum;
-}) {
-  const handlePress = useCallback(() => {
-    onPress(row, target);
-  }, [onPress, row, target]);
-
-  return (
-    <ListRow
-      onPress={handlePress}
-      subtitle={row.feedTitle ?? row.authorName ?? row.author ?? undefined}
-      testID={`artist-track-unadded-row-${index}`}
-      title={row.title ?? row.guid}
     />
   );
 }
@@ -340,10 +301,13 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     previewNotificationsEnabled,
     previewTitle,
   } = route.params;
+  const addByRssAlbums = useArtistYourAddByRssAlbums(artistId);
+  const addByRssTracks = useArtistYourAddByRssTracks(artistId);
   const { evaluateFeature, isTierKnown } = useAccessTier();
   const { handleGateError, openGate } = useMembershipGate();
   const { playbackNoticeKey, runPlayAction, runQueueAction } = useHomeRowPlayback();
   const { boostSheet, openBoost } = useBoostSheet();
+  const { artistUnsubscribeDialog, unsubscribeArtist } = useArtistUnsubscribe();
   const cachedChrome = getCachedChannelSectionFlags(artistId);
   const [channel, setChannel] = useState<DTOChannel | null>(null);
   const [isChannelLoading, setIsChannelLoading] = useState<boolean>(true);
@@ -373,7 +337,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   const [section, setSection] = useState<ArtistTab>(DEFAULT_ARTIST_TAB);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [tracksAdded, setTracksAdded] = useState<DTOItem[]>([]);
-  const [tracksUnadded, setTracksUnadded] = useState<ArtistTrackUnadded[]>([]);
   const [albumsAdded, setAlbumsAdded] = useState<DTOChannel[]>([]);
   const [albumsUnadded, setAlbumsUnadded] = useState<ArtistAlbumUnadded[]>([]);
   const [isRowsLoading, setIsRowsLoading] = useState<boolean>(true);
@@ -383,8 +346,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   const [podrollErrorKey, setPodrollErrorKey] = useState<string | null>(null);
   const [isPodrollLoading, setIsPodrollLoading] = useState<boolean>(false);
   const [isPodrollRefreshing, setIsPodrollRefreshing] = useState<boolean>(false);
-  const titleRef = useRef<string | null>(null);
-  titleRef.current = channel?.title ?? titleRef.current;
 
   const authContext = useMemo(
     () => ({ accessToken, clearSession, refreshToken, setTokens }),
@@ -414,6 +375,13 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
           paddingHorizontal: tokens.spacing.lg,
           paddingTop: tokens.spacing.md,
         },
+        notYetAddedHeading: {
+          marginTop: tokens.spacing.lg,
+        },
+        notYetAddedNote: {
+          marginBottom: tokens.spacing.base,
+          marginTop: tokens.spacing.base,
+        },
       }),
     [themeStyles, tokens]
   );
@@ -435,7 +403,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     setPreviewHasFunding(nextChrome?.hasFunding === true);
     setPreviewHasPeople(nextChrome?.hasPeople === true);
     setTracksAdded([]);
-    setTracksUnadded([]);
     setAlbumsAdded([]);
     setAlbumsUnadded([]);
     setIsRowsLoading(true);
@@ -493,7 +460,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
           setArtistTitle(local?.title ?? null);
           setArtistArtwork(local?.imageUrl ?? null);
           setTracksAdded(storedTracks);
-          setTracksUnadded([]);
           setAlbumsAdded([]);
           setAlbumsUnadded([]);
           return;
@@ -507,7 +473,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         setArtistTitle(response.channel.title);
         setArtistArtwork(primaryChannelListArtworkUrl(response.channel.channel_images));
         setTracksAdded(response.itemsAdded);
-        setTracksUnadded(response.itemsUnadded);
         setAlbumsAdded(response.channelsAdded);
         setAlbumsUnadded(response.channelsUnadded);
         const hasPodroll = channelHasPodroll(response.channel);
@@ -620,6 +585,9 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     setSettingsOpen((open) => !open);
   }, []);
 
+  const slotAllowed = !isRowsLoading && rowsErrorKey === null;
+  const showDirectoryAlbums = slotAllowed && !offlineModeEnabled;
+
   const handleSubscriptionToggle = useCallback(async () => {
     if (isSavingSubscription) {
       return;
@@ -629,11 +597,20 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     setSubscriptionNoticeKey(null);
     try {
       if (isSubscribed) {
-        const result = await subscriptionsRepository.unsubscribe({
-          accountSync: isSignedIn ? authContext : undefined,
+        const result = await unsubscribeArtist({
           idText: artistId,
           source: 'directory',
+          title:
+            artistTitle !== null && artistTitle.length > 0 ? artistTitle : (channel?.title ?? ''),
+          verifiedAlbumIdTexts: showDirectoryAlbums
+            ? albumsAdded
+                .filter((album) => album.id_text.trim().length > 0)
+                .map((album) => album.id_text)
+            : undefined,
         });
+        if (result.status === 'cancelled') {
+          return;
+        }
         setIsSubscribed(false);
         homeFeedRefresh.notify();
         if (result.serverError) {
@@ -682,7 +659,9 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
       setIsSavingSubscription(false);
     }
   }, [
+    albumsAdded,
     artistId,
+    artistTitle,
     authContext,
     channel,
     evaluateFeature,
@@ -692,6 +671,8 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     isSubscribed,
     isTierKnown,
     openGate,
+    showDirectoryAlbums,
+    unsubscribeArtist,
   ]);
 
   const handleShare = useCallback(() => {
@@ -835,24 +816,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     [navigation]
   );
 
-  const handleOpenUnaddedTrack = useCallback(
-    (_row: ArtistTrackUnadded, target: UnaddedTrackParentAlbum) => {
-      if (target.kind === 'album') {
-        navigation.navigate(
-          CHANNEL_BROWSE_STACK_ROUTES.AlbumDetail,
-          buildAlbumDetailParams({
-            albumId: target.albumIdText,
-          })
-        );
-        return;
-      }
-      navigation.navigate(CHANNEL_BROWSE_STACK_ROUTES.SearchResultDetail, {
-        resultId: target.podcastIndexId,
-      });
-    },
-    [navigation]
-  );
-
   const handleOpenUnaddedAlbum = useCallback(
     (row: ArtistAlbumUnadded) => {
       const target = unparsedPodcastIndexFeedTarget(row);
@@ -928,61 +891,29 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     />
   );
 
-  const tracksRows = useMemo<ArtistTracksRow[]>(() => {
-    const addedRows: ArtistTracksRow[] = [];
-    for (const item of tracksAdded) {
-      const compact = mapItemToHomeFeedRow(item, { compact: true });
-      const row = {
-        ...compact,
-        channelId: compact.channelId ?? artistId,
-        channelKind: compact.channelKind ?? 'artists',
-        subtitle: titleRef.current,
-      };
-      if (row.id.length === 0) {
-        continue;
-      }
-      addedRows.push({
-        item,
-        key: `added-${row.id}`,
-        kind: 'added',
-        row,
-      });
-    }
+  const trackSectionRows = useMemo(
+    () =>
+      buildArtistTrackSectionRows({
+        includeAddByRssSlot: slotAllowed && !addByRssTracks.isEmpty,
+        trackKey: (item) => `track-${item.id_text}`,
+        tracks: slotAllowed ? tracksAdded.filter((item) => item.id_text.trim().length > 0) : [],
+      }),
+    [addByRssTracks.isEmpty, slotAllowed, tracksAdded]
+  );
 
-    const unaddedRows: ArtistTracksRow[] = [];
-    for (const row of tracksUnadded) {
-      const target = resolveUnaddedTrackParentAlbum({
-        albums: albumsAdded,
-        feedGuid: row.feedGuid,
-        feedId: row.feedId,
-      });
-      if (target === null) {
-        continue;
-      }
-      unaddedRows.push({
-        key: `unadded-${row.feedGuid ?? ''}-${row.guid}`,
-        kind: 'unadded',
-        row,
-        target,
-      });
-    }
-
-    return [...addedRows, ...unaddedRows];
-  }, [albumsAdded, artistId, tracksAdded, tracksUnadded]);
-
-  const albumsRows = useMemo<ArtistAlbumsRow[]>(() => {
-    const addedRows = albumsAdded.map((row) => ({
-      key: `added-${row.id_text}`,
-      kind: 'added' as const,
-      row,
-    }));
-    const unaddedRows = albumsUnadded.map((row) => ({
-      key: `unadded-${row.id}`,
-      kind: 'unadded' as const,
-      row,
-    }));
-    return [...addedRows, ...unaddedRows];
-  }, [albumsAdded, albumsUnadded]);
+  const albumSectionRows = useMemo(
+    () =>
+      buildArtistAlbumSectionRows({
+        includeAddByRssSlot: slotAllowed && !addByRssAlbums.isEmpty,
+        notYetAdded: showDirectoryAlbums ? albumsUnadded : [],
+        notYetAddedKey: (row) => `not-yet-added-${row.id}`,
+        verified: showDirectoryAlbums
+          ? albumsAdded.filter((row) => row.id_text.trim().length > 0)
+          : [],
+        verifiedKey: (row) => `verified-${row.id_text}`,
+      }),
+    [addByRssAlbums.isEmpty, albumsAdded, albumsUnadded, showDirectoryAlbums, slotAllowed]
+  );
 
   const tracksEmpty = useMemo(
     () =>
@@ -1018,31 +949,26 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   );
 
   const renderTracksItem = useCallback(
-    ({ index, item }: { index: number; item: ArtistTracksRow }) => {
-      if (item.kind === 'added') {
+    ({ item }: { index: number; item: ArtistDetailSectionRow<DTOItem> }) => {
+      if (item.kind === 'track') {
         return (
           <ArtistAddedTrackRow
-            index={index}
-            item={item.item}
+            index={item.sectionIndex}
+            item={item.row}
             onGoToChannel={handleGoToChannel}
             onGoToTrack={handleGoToTrack}
             onPlay={handlePlayTrack}
             onQueue={handleQueueTrack}
-            row={item.row}
+            row={mapTrackToHomeFeedRow(item.row)}
           />
         );
       }
-
-      return (
-        <ArtistUnaddedTrackRow
-          index={index}
-          onPress={handleOpenUnaddedTrack}
-          row={item.row}
-          target={item.target}
-        />
-      );
+      if (item.kind === 'add-by-rss-tracks-slot') {
+        return <ArtistYourAddByRssTracksSection artistId={artistId} />;
+      }
+      return null;
     },
-    [handleGoToChannel, handleGoToTrack, handleOpenUnaddedTrack, handlePlayTrack, handleQueueTrack]
+    [artistId, handleGoToChannel, handleGoToTrack, handlePlayTrack, handleQueueTrack]
   );
 
   const albumsEmpty = useMemo(
@@ -1067,16 +993,63 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
   );
 
   const renderAlbumsItem = useCallback(
-    ({ index, item }: { index: number; item: ArtistAlbumsRow }) => {
-      if (item.kind === 'added') {
-        return <ArtistAddedAlbumRow index={index} onPress={handleOpenAddedAlbum} row={item.row} />;
+    ({ item }: { index: number; item: ArtistAlbumSectionRow<DTOChannel, ArtistAlbumUnadded> }) => {
+      if (item.kind === 'verified-heading') {
+        return (
+          <SectionHeading testID="artist-albums-verified-heading">
+            {t('media.music.verified_albums')}
+          </SectionHeading>
+        );
       }
-
+      if (item.kind === 'verified') {
+        return (
+          <ArtistAddedAlbumRow
+            index={item.sectionIndex}
+            onPress={handleOpenAddedAlbum}
+            row={item.row}
+          />
+        );
+      }
+      if (item.kind === 'add-by-rss-slot') {
+        return <ArtistYourAddByRssAlbumsSection artistId={artistId} />;
+      }
+      if (item.kind === 'not-yet-added-heading') {
+        return (
+          <SectionHeading
+            style={styles.notYetAddedHeading}
+            testID="artist-albums-not-yet-added-heading"
+          >
+            {t('media.music.not_yet_added')}
+          </SectionHeading>
+        );
+      }
+      if (item.kind === 'not-yet-added-note') {
+        return (
+          <View style={styles.notYetAddedNote}>
+            <HelperNote
+              message={t('media.music.not_yet_added_albums_note')}
+              scale="reading"
+              testID="artist-albums-not-yet-added-note"
+            />
+          </View>
+        );
+      }
       return (
-        <ArtistUnaddedAlbumRow index={index} onPress={handleOpenUnaddedAlbum} row={item.row} />
+        <ArtistUnaddedAlbumRow
+          index={item.sectionIndex}
+          onPress={handleOpenUnaddedAlbum}
+          row={item.row}
+        />
       );
     },
-    [handleOpenAddedAlbum, handleOpenUnaddedAlbum]
+    [
+      artistId,
+      handleOpenAddedAlbum,
+      handleOpenUnaddedAlbum,
+      styles.notYetAddedHeading,
+      styles.notYetAddedNote,
+      t,
+    ]
   );
 
   const podrollEmpty = useMemo(
@@ -1118,7 +1091,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
       ListEmptyComponent={tracksEmpty}
       ListFooterComponent={tracksFooter}
       contentContainerStyle={styles.listContent}
-      data={tracksRows}
+      data={trackSectionRows}
       keyExtractor={artistTracksKeyExtractor}
       refreshControl={rowsRefreshControl}
       renderItem={renderTracksItem}
@@ -1131,7 +1104,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
     <FillList
       ListEmptyComponent={albumsEmpty}
       contentContainerStyle={styles.listContent}
-      data={albumsRows}
+      data={albumSectionRows}
       keyExtractor={artistAlbumsKeyExtractor}
       refreshControl={rowsRefreshControl}
       renderItem={renderAlbumsItem}
@@ -1218,6 +1191,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         testID="artist-detail-screen"
       />
       {boostSheet}
+      {artistUnsubscribeDialog}
     </>
   );
 }

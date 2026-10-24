@@ -19,6 +19,8 @@ export type AuthenticatedAdmin = {
     billing_account_crud?: number;
     billing_webhook_events_crud?: number;
   } | null;
+  /** The `admin_session` row the request's token names. */
+  session_id_text: string;
 };
 
 declare global {

@@ -6,6 +6,8 @@ import {
   parseMediumId,
 } from '@podverse/helpers';
 
+import { compatChannelDto } from '../compat/partytime/channel.js';
+import type { FeedObject } from '../types/partytime.js';
 import type { AddByRSSMappedFeed } from './types.js';
 
 /** Every Add by RSS resource type. Livestreams are a per-feed flag, not a type. */
@@ -24,10 +26,10 @@ export const isAddByRSSResourceType = (value: string): value is AddByRSSResource
 export const toAddByRSSResourceType = (value: string): AddByRSSResourceType =>
   isAddByRSSResourceType(value) ? value : 'podcasts';
 
-export const getAddByRSSResourceTypeFromMappedFeed = (
-  mappedFeed: AddByRSSMappedFeed | null | undefined
+/** Artist, then album, then podcast. Every other medium, including a missing one, is podcasts. */
+export const getAddByRSSResourceTypeFromMediumId = (
+  mediumId: number | null
 ): AddByRSSResourceType => {
-  const mediumId = parseMediumId(mappedFeed?.channel?.channel?.medium_id);
   if (isArtistMediumId(mediumId)) {
     return 'artists';
   }
@@ -39,6 +41,21 @@ export const getAddByRSSResourceTypeFromMappedFeed = (
   }
   return 'podcasts';
 };
+
+export const getAddByRSSResourceTypeFromMappedFeed = (
+  mappedFeed: AddByRSSMappedFeed | null | undefined
+): AddByRSSResourceType =>
+  getAddByRSSResourceTypeFromMediumId(parseMediumId(mappedFeed?.channel?.channel?.medium_id));
+
+/** Same classification as `getAddByRSSResourceTypeFromMappedFeed`, read from the parsed feed. */
+export const getAddByRSSResourceTypeFromParsedFeed = (
+  parsedFeed: FeedObject
+): AddByRSSResourceType =>
+  getAddByRSSResourceTypeFromMediumId(compatChannelDto(parsedFeed).medium_id);
+
+/** Resource types whose feeds list other feeds the server resolves for the member (artists). */
+export const addByRSSResourceTypeListsFeeds = (resourceType: AddByRSSResourceType): boolean =>
+  resourceType === 'artists';
 
 export const getAddByRSSDetailRouteSegment = (resourceType: AddByRSSResourceType): string => {
   switch (resourceType) {

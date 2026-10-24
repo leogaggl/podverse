@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 
-import type { DTOAccount } from '@podverse/helpers';
+import type { AuthSessionEndedNotice, DTOAccount } from '@podverse/helpers';
 import { AuthCookieName } from '@podverse/helpers';
+import { parseAuthSessionEndedError } from '@podverse/helpers-requests';
 
 import { getConfig } from '../../config';
 import { getSSRApiRequestService } from '../../factories/apiRequestService';
@@ -13,19 +14,31 @@ export async function getSSRJwtFromCookies(): Promise<string | undefined> {
   return jwt;
 }
 
-export async function getSSRLoggedInAccount(): Promise<DTOAccount | null> {
+export type SSRAuthState = {
+  account: DTOAccount | null;
+  /** Set when `/auth/me` answered 401 because the session was ended elsewhere. */
+  sessionEndedNotice: AuthSessionEndedNotice | null;
+};
+
+export async function getSSRAuthState(): Promise<SSRAuthState> {
   const jwt = await getSSRJwtFromCookies();
   if (!jwt) {
-    return null;
+    return { account: null, sessionEndedNotice: null };
   }
 
   const ssrApiRequestService = getSSRApiRequestService(jwt);
 
   try {
-    return await ssrApiRequestService.reqAuthMe();
-  } catch {
-    return null;
+    const account = await ssrApiRequestService.reqAuthMe();
+    return { account, sessionEndedNotice: null };
+  } catch (error: unknown) {
+    return { account: null, sessionEndedNotice: parseAuthSessionEndedError(error) };
   }
+}
+
+export async function getSSRLoggedInAccount(): Promise<DTOAccount | null> {
+  const { account } = await getSSRAuthState();
+  return account;
 }
 
 export async function getSSRAuthService(): Promise<{
