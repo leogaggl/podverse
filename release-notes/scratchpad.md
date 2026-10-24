@@ -2774,3 +2774,13 @@ family revoked`.
   screens. A transcript's autoscroll button stays put.
 - Who notices: web listeners on those pages
 - Operator steps: none
+
+## Recommendations chip uses the shared list preference
+
+- Surfaces: mobile
+- Change: The Podcasts, Albums, and Artists chip on Recommendations is stored as `mediaType` on
+  the list scope `recommendations`, the same token the website uses. Choosing Podcasts clears
+  that token. A chip saved by an earlier build of this screen is not read, so that install opens
+  on Podcasts until the chip is chosen again.
+- Who notices: a phone that already chose Albums or Artists on Recommendations in this build
+- Operator steps: none
