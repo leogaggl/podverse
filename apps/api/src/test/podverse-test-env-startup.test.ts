@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { loggerService } from '@api/factories/loggerService.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS } from '@podverse/helpers';
 import {
