@@ -61,7 +61,7 @@ filters) that wraps **that same player** in the one `MediaLibrarySession`.
 - **Browse tree from cache (12.12 / 12.14):** `onGetChildren` projects the durable native cache into
   the tree via `PodverseNativeCacheModel` (`org.json`, tolerant — unknown keys ignored, schema
   mismatch / corrupt payload → empty list, never throws). Root → **Library** (from
-  `library-browse-index.json`) + **Downloads** (playable offline items from `downloads-index.json`);
+  `library-index.json`) + **Downloads** (playable offline items from `downloads-index.json`);
   a node is omitted when its payload is empty. mediaIds are stable + decodable for play:
   `library/<kind>/<idText>` (browsable) and `download/<idText>` (playable). Paging honors Media3
   `page`/`pageSize`. JS never owns the tree; SQLite is never read here (JS-dead contract). Play
@@ -163,8 +163,9 @@ Documented honestly — **kill-survival is not required for GO** as long as back
 
 **Important distinction:** "audio continuity after kill" is separate from **seamless CarPlay / Android
 Auto browse when JS is dead / the app is force-stopped**. The latter is proven in **Track 12**
-(12.5–12.6, 12.17–12.18) and relies on the **native cache** (`writeQueueSnapshot` /
-`writeDownloadsIndex` / `writeLibraryBrowseIndex`, durable storage 12.2–12.3) — **not** on keeping the
+(12.5–12.6, 12.17–12.18) and relies on the **native cache** (`writeQueueSnapshotAv` /
+`writeQueueSnapshotMusic` / `writeDownloadsIndex` /
+`writeLibraryBrowseIndex`, durable storage 12.2–12.3) — **not** on keeping the
 JS runtime or the Activity alive.
 
 ## JS surface
@@ -280,13 +281,14 @@ durable storage lands (12.2–12.3) and the JS write path is wired (12.4).
 **Authoritative schema:** master step **12.1** —
 [380-native-cache-schema](/docs/proposals/mobile/_master-plan_/phase-1/details/380-native-cache-schema.md).
 TypeScript source of truth: `apps/mobile/src/data/nativeCache/projection.ts` (envelope +
-`NATIVE_CACHE_SCHEMA_VERSION`, currently `1`). Do not invent a competing schema here.
+`NATIVE_CACHE_SCHEMA_VERSION`, currently `2`). Do not invent a competing schema here.
 
-| Method (JS → native)      | Payload (schema owned by 12.1 / detail 380)     | Reader                        |
-| ------------------------- | ----------------------------------------------- | ----------------------------- |
-| `writeQueueSnapshot`      | now-playing + upcoming item ids / titles / urls | car skip/advance, now-playing |
-| `writeDownloadsIndex`     | local `file://` paths + metadata                | offline car browse            |
-| `writeLibraryBrowseIndex` | podcast / playlist list for templates           | car browse roots              |
+| Method (JS → native)      | Payload (schema owned by 12.1 / detail 380)                       | Reader                        |
+| ------------------------- | ----------------------------------------------------------------- | ----------------------------- |
+| `writeQueueSnapshotAv`    | podcast and video now-playing + upcoming item ids / titles / urls | car skip/advance, now-playing |
+| `writeQueueSnapshotMusic` | music now-playing + upcoming                                      | same reader                   |
+| `writeDownloadsIndex`     | local `file://` paths + metadata                                  | offline car browse            |
+| `writeLibraryBrowseIndex` | podcast / playlist list for templates                             | car browse roots              |
 
 Each takes a single JSON-string payload and returns `Promise<void>`. Every payload carries a
 `schemaVersion` + `updatedAtMs` envelope (see `build*Payload` in `projection.ts`). Native stores an
@@ -300,13 +302,14 @@ car surfaces (CarPlay scene 12.7+, Android Auto `MediaLibraryService` 12.11+) an
 (12.5–12.6) load these files **with the JS runtime not running**. Writes are atomic (temp + rename)
 and best-effort — a failed write never rolls back the phone-side mutation.
 
-| Platform | Module (read/write API)                                               | Location                                                                  | Filenames                                                                  |
-| -------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| iOS      | `PodverseNativeCache.write(_:json:)` / `read(_:)`                     | Application Support `/native-cache/` (App Group when provisioned — 12.16) | `queue-snapshot.json`, `downloads-index.json`, `library-browse-index.json` |
-| Android  | `PodverseNativeCache.write(context,kind,json)` / `read(context,kind)` | `context.filesDir/native-cache/`                                          | same three filenames                                                       |
+| Platform | Module (read/write API)                                               | Location                                                                                                                         | Filenames                                                                                           |
+| -------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| iOS      | `PodverseNativeCache.write(_:json:)` / `read(_:)`                     | App Group container for `group.com.podverse.app.next` when that container resolves, otherwise Application Support `native-cache` | `queue-snapshot-av.json`, `queue-snapshot-music.json`, `downloads-index.json`, `library-index.json` |
+| Android  | `PodverseNativeCache.write(context,kind,json)` / `read(context,kind)` | `context.filesDir/native-cache/`                                                                                                 | same filenames                                                                                      |
 
-- iOS uses the app container now; `PodverseNativeCache.appGroupIdentifier` is reserved (`nil`) until
-  the CarPlay entitlement + App Group land (12.16) — setting it migrates storage transparently.
+- `PodverseNativeCache.appGroupIdentifier` is `group.com.podverse.app.next`, and `baseDirectory()`
+  prefers that container, falling back to Application Support `native-cache` when the group
+  container is unavailable.
 - Android uses app-private `filesDir`, readable by the media-library service process (same app UID);
   no Google Play Services dependency.
 - Missing / corrupt payloads read back as `nil`/`null`; callers render an empty tree, never crash.

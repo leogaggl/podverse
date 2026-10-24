@@ -1,9 +1,10 @@
 # Content Lifecycle 1: Show Notes That Keep Their Shape
 
-- **Version:** 2026-10-19T00:13-05:00
+- **Version:** 2026-10-23T21:34-05:00
 - **Episode ID:** content-lifecycle-show-notes
-- **Changed:** List responses now carry only the preview, so the rollout section and the
-  opening changed. Previous title: "Show Notes That Keep Their Shape". Regenerate the audio.
+- **Changed:** Sources no longer cite `0016_description_length_tiers.sql`, and the script no
+  longer tells operators to run the description backfill or to deploy a column-widening
+  migration in a quiet window. Regenerate the audio.
 - **Description:** How Podverse cleans show notes when a feed is parsed, sets a length limit
   per feed, tells listeners when notes were cut, and keeps full notes on the phone for the
   player and for offline listening.
@@ -12,14 +13,12 @@
 - **Sources:** `.llm/plans/completed/feed-description-tiers/`;
   `packages/helpers/src/lib/descriptionIngest.ts`,
   `packages/helpers/src/lib/descriptionLimits.ts`, `packages/helpers/src/lib/descriptionPreview.ts`,
-  `infra/k8s/base/ops/source/database/linear-migrations/app/0016_description_length_tiers.sql`,
-  `apps/workers/src/commands/orm/descriptions/`,
   `apps/management-web/src/app/(management)/feeds/flag-status/`,
   `apps/api/src/controllers/item.ts`,
   `apps/web/src/components/Content/Description/DescriptionTruncationNotice.tsx`,
   `apps/mobile/src/lib/content/`, `apps/mobile/src/hooks/useItemDescription.ts`,
   `apps/mobile/src/data/repositories/itemDescriptionCacheRepository.ts`
-- **Length:** about 9 minutes (1,304 words)
+- **Length:** about 8 minutes (1,222 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -124,14 +123,6 @@ CLAIRE: Right. A list row carries the preview and no full description. The episo
 TOM: What about rows a phone saved before that change?
 
 CLAIRE: Those still have full notes and no preview, so the app computes a preview from the stored text. Every new field is optional, so an old row never breaks a screen.
-
-TOM: And existing data with the old cut?
-
-CLAIRE: A backfill re-cleans stored descriptions and fills in previews. Any description exactly twenty-five hundred characters long, the signature of the old cut, is marked as cut. Then it schedules reparses for those feeds, up to two hundred per run, one minute apart. It's a suspended job an operator runs by hand after deploy.
-
-TOM: Anything for operators to watch?
-
-CLAIRE: The migration widens the description columns, which may rewrite those tables. Deploy it in a quiet window.
 
 TOM: Anything left open on purpose?
 

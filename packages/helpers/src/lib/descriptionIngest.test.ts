@@ -34,11 +34,11 @@ describe('prepareDescriptionForStorage', () => {
     expect(readDescriptionDocument(prepared?.value).rich).not.toBeNull();
   });
 
-  it('repairs old raw truncation that lands inside href markup', () => {
+  it('keeps a readable document when a cut lands inside an href', () => {
     const source = `<p>Start</p><a href="https://example.com/${'x'.repeat(2900)}">Read</a>`;
-    const legacyTruncated = source.slice(0, 2500);
+    const cutInsideHref = source.slice(0, 2500);
     const prepared = prepareDescriptionForStorage(
-      legacyTruncated,
+      cutInsideHref,
       DescriptionLengthTierEnum.Standard
     );
 

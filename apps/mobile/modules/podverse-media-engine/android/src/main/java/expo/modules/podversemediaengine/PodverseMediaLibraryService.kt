@@ -448,19 +448,10 @@ class PodverseMediaLibraryService : MediaLibraryService() {
   private fun resolveDownloadFileUri(stored: String): String? {
     if (stored.startsWith("content://")) return stored
     val fileName =
-      when {
-        stored.startsWith("file://") || stored.startsWith("/") ->
-          stored.substringAfterLast('/').substringBefore('?')
-        stored.startsWith("downloads/") -> stored.removePrefix("downloads/")
-        else -> stored
-      }
+      if (stored.startsWith("downloads/")) stored.removePrefix("downloads/") else stored
     if (fileName.isBlank()) return null
     val file = java.io.File(filesDir, "downloads/$fileName")
     if (file.exists()) return Uri.fromFile(file).toString()
-    if (stored.startsWith("file://")) {
-      val legacy = java.io.File(Uri.parse(stored).path ?: return null)
-      if (legacy.exists()) return stored
-    }
     return null
   }
 

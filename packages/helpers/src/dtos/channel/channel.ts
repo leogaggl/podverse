@@ -55,7 +55,7 @@ export interface DTOChannel {
   channel_values?: DTOChannelValue[];
   /**
    * Publishers verified on the whole channel, primary first. Empty when there are none. Absent
-   * when the response did not include it, including channels stored before the field existed.
+   * when the response did not include it.
    */
   verified_publishers?: DTOVerifiedPublisher[];
 }

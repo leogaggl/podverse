@@ -43,7 +43,7 @@ describe('local-settings sidebar accordion (sba)', () => {
     expect(getParsedLocalSettings().sba).toEqual(allClosed);
   });
 
-  it('keeps a saved Library close from an older cookie and leaves other settings', () => {
+  it('keeps a saved Library close when the accordion object has other keys', () => {
     writeLocalSettings({
       ...baseSettings,
       sba: { podcasts: true, music: false, addByRSS: true, library: false },

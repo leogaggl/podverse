@@ -32,7 +32,7 @@ export function PrimitivesDebugPanel() {
   return (
     <View style={styles.wrapper} testID="primitives-debug-panel">
       <ScreenHeader
-        subtitle="Track 9b.6 shared visual primitives scaffold"
+        subtitle="Shared visual primitives"
         testID="primitives-debug-header"
         title="Primitives"
       />

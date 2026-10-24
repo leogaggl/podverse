@@ -484,8 +484,9 @@ export class QueueResourceService extends BaseManyService<QueueResource, 'queue'
   }
 
   /**
-   * The queue row for an Add by RSS payload: the row with `hashId`, else a row written before feed
-   * identity under the payload's legacy hash. Callers save the returned row under `hashId`.
+   * The queue row for an Add by RSS payload: the row whose `add_by_rss_hash_id` is `hashId`,
+   * otherwise a row stored under the payload's hash with `feed_url` left out. Callers save the
+   * returned row under `hashId`.
    */
   private async findAddByRssQueueResource(
     manager: EntityManager,

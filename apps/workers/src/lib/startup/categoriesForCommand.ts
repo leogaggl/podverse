@@ -40,7 +40,6 @@ const BASE_ORM_COMMANDS = [
   'statsPopularityRefresh',
   'generateOnDemandParserEventReports',
   'deleteOutdatedOnDemandParserEvent',
-  'ormDescriptionsBackfill',
   'ormArchivedSlimReport',
   'ormVerifiedPublisherLinksBackfill',
 ] as const;

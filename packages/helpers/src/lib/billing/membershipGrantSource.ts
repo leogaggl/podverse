@@ -7,7 +7,7 @@
  * - `admin` — granted by an operator.
  * - `trial` — the free trial.
  * - `legacy_import` — membership carried over from the previous Podverse app.
- * - `migration_baseline` — the membership an account already had when grants were introduced.
+ * - `migration_baseline` — cached membership time that no grant covered, written on the next ledger update.
  */
 export const MEMBERSHIP_GRANT_SOURCES = [
   'one_time_purchase',

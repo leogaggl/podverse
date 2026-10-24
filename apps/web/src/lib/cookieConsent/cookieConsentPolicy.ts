@@ -5,29 +5,13 @@ import type {
 
 export const COOKIE_CONSENT_MODEL_VERSION = 2 as const;
 
-type LegacyCookieConsentChoice = 'all' | 'features' | 'essential';
-
-function isLegacyCookieConsentChoice(choice: unknown): choice is LegacyCookieConsentChoice {
-  return choice === 'all' || choice === 'features' || choice === 'essential';
-}
-
 function isCurrentCookieConsentChoice(choice: unknown): choice is CookieConsentChoice {
   return choice === 'all' || choice === 'essential' || choice === 'none';
 }
 
-export function normalizeCookieConsentChoice(choice: unknown): CookieConsentChoice | undefined {
-  if (isCurrentCookieConsentChoice(choice)) {
-    return choice;
-  }
-  if (choice === 'features') {
-    return 'essential';
-  }
-  return undefined;
-}
-
 export function normalizeCookieConsentState(cc: {
   choice: unknown;
-  at: string;
+  at: unknown;
   v?: unknown;
 }): CookieConsentState | undefined {
   if (typeof cc.at !== 'string' || cc.at.length === 0) {
@@ -36,16 +20,6 @@ export function normalizeCookieConsentState(cc: {
 
   if (cc.v === COOKIE_CONSENT_MODEL_VERSION && isCurrentCookieConsentChoice(cc.choice)) {
     return { choice: cc.choice, at: cc.at, v: COOKIE_CONSENT_MODEL_VERSION };
-  }
-
-  if (isLegacyCookieConsentChoice(cc.choice)) {
-    if (cc.choice === 'all') {
-      return { choice: 'all', at: cc.at, v: COOKIE_CONSENT_MODEL_VERSION };
-    }
-    if (cc.choice === 'features') {
-      return { choice: 'essential', at: cc.at, v: COOKIE_CONSENT_MODEL_VERSION };
-    }
-    return { choice: 'none', at: cc.at, v: COOKIE_CONSENT_MODEL_VERSION };
   }
 
   return undefined;

@@ -1,8 +1,11 @@
 /**
  * Billing-related VARCHAR/CHAR lengths.
  *
- * Keep in sync with linear migrations (e.g. `0028_billing_pricing_catalog.sql`,
- * `0029_billing_events_and_retry_metadata.sql`). Migrations remain the DDL source of truth.
+ * Keep in sync with
+ * `infra/k8s/base/ops/source/database/linear-migrations/app/0001_app_schema.sql`:
+ * `billing_price.currency_code` is `character(3)`, and `billing_domain_event.idempotency_key`
+ * and `account_membership_status.last_extension_idempotency_key` are `character varying(128)`.
+ * That file is the DDL source of truth.
  */
 export const BILLING_IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 

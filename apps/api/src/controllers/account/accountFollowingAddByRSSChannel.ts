@@ -67,8 +67,8 @@ class AccountFollowingAddByRSSChannelController {
       req,
       res,
       async () => {
-        // Credentials are never stored server-side. Any `basic_auth_*` keys a client still sends
-        // are unknown to this schema and dropped by stripUnknown before the handler runs.
+        // Credentials are never stored on this route. `basic_auth_*` is not a field on this body;
+        // stripUnknown drops those keys before the handler runs.
         const bodySchema = Joi.object({
           feed_url: joiFeedUrl(),
           title: Joi.string().allow(null, ''),

@@ -262,7 +262,6 @@ export { Tabs } from './components/navigation/Tabs/Tabs';
 export type { TabData, TabsData, TabsProps } from './components/navigation/Tabs/Tabs';
 export { TableOfContents } from './components/navigation/TableOfContents/index';
 export type {
-  TableOfContentsItem,
   TableOfContentsLinkItem,
   TableOfContentsProps,
   TableOfContentsSection,
@@ -302,14 +301,8 @@ export { CompactNumericInput } from './components/form/CompactNumericInput/Compa
 export type { CompactNumericInputProps } from './components/form/CompactNumericInput/CompactNumericInput';
 export { CompactTextInput } from './components/form/CompactTextInput/CompactTextInput';
 export type { CompactTextInputProps } from './components/form/CompactTextInput/CompactTextInput';
-export {
-  CompactFieldRow,
-  CompactNumericInputRow,
-} from './components/form/CompactFieldRow/CompactFieldRow';
-export type {
-  CompactFieldRowProps,
-  CompactNumericInputRowProps,
-} from './components/form/CompactFieldRow/CompactFieldRow';
+export { CompactFieldRow } from './components/form/CompactFieldRow/CompactFieldRow';
+export type { CompactFieldRowProps } from './components/form/CompactFieldRow/CompactFieldRow';
 export { CodeBlock } from './components/form/CodeBlock/CodeBlock';
 export type { CodeBlockCopyPlacement, CodeBlockProps } from './components/form/CodeBlock/CodeBlock';
 export { FieldError } from './components/form/fieldPrimitives/FieldError';

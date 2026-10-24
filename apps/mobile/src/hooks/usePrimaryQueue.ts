@@ -6,12 +6,7 @@ import { getQueueListMediumFromActiveQueues } from '@podverse/helpers/medium';
 import { getQueueForMedium } from '@podverse/helpers/queue';
 
 import { useAuth } from '../auth/AuthProvider';
-import { queueRepository, selectPrimaryQueue } from '../data';
-
-/** Re-exported for backward compatibility; selection now lives in the queue repository. */
-export function getPrimaryQueue(queues: DTOQueue[]): DTOQueue | null {
-  return selectPrimaryQueue(queues);
-}
+import { queueRepository } from '../data';
 
 export function usePrimaryQueue() {
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();

@@ -10,7 +10,7 @@ import type { AddByRSSItemIndexItem } from '../utils/addByRSS/types';
 
 type RowEntry = { hashId: string; indexItem: AddByRSSItemIndexItem };
 
-/** A like stored under any of the item's hashes (feed form or legacy form) counts. */
+/** A like stored under any hash `getAddByRSSHashIds` returns for the item counts. */
 export function useLikesAddByRssBatch(rows: RowEntry[]) {
   const { loggedInAccount } = useAccount();
   const [likedSet, setLikedSet] = useState<Set<string>>(new Set());

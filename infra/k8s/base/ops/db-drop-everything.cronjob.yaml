@@ -1,6 +1,7 @@
 # Version: 4
 # Pattern: Suspended CronJob (Manual Trigger Only)
-# DANGER: Drops public schema on both app and management logical databases. Only runs when explicitly triggered.
+# DANGER: Drops every schema the linear chains create (app: listener_identity and public; management: public). Only runs when explicitly triggered.
+# A migration that creates a new schema must add a DROP SCHEMA for it here, in local_db_reset, and in alpha_db_reset.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -30,7 +31,7 @@ spec:
                   export PGPORT="${DB_PORT:-5432}"
                   export PGPASSWORD="${DB_APP_OWNER_PASSWORD}"
                   psql -v ON_ERROR_STOP=1 -U "${DB_APP_OWNER_USER}" -d "${DB_APP_NAME}" \
-                    -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+                    -c 'DROP SCHEMA IF EXISTS listener_identity CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
                   export PGPASSWORD="${DB_MANAGEMENT_OWNER_PASSWORD}"
                   psql -v ON_ERROR_STOP=1 -U "${DB_MANAGEMENT_OWNER_USER}" -d "${DB_MANAGEMENT_NAME}" \
                     -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'

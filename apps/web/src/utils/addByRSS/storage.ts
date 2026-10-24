@@ -12,7 +12,10 @@ import type {
 } from './types';
 
 const DB_NAME = 'add-by-rss';
-/** Bump when object stores change; prior local cache may be reset on upgrade. */
+/**
+ * IndexedDB version of the add-by-rss cache. Opening it creates any object store that is
+ * missing.
+ */
 const DB_VERSION = 8;
 const FEEDS_STORE = 'feeds';
 const ITEMS_STORE = 'items';
@@ -61,7 +64,7 @@ const openAddByRSSDb = (): Promise<IDBDatabase> =>
         db.createObjectStore(ITEMS_META_STORE, { keyPath: 'key' });
       }
 
-      // Create live items store if it doesn't exist (v6)
+      // Create live items store if it doesn't exist
       if (!db.objectStoreNames.contains(LIVE_ITEMS_STORE)) {
         const store = db.createObjectStore(LIVE_ITEMS_STORE, { keyPath: 'id' });
         store.createIndex('itemGuid', 'itemGuid', { unique: false });

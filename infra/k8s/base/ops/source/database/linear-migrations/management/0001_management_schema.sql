@@ -45,6 +45,11 @@ SET row_security = off;
 
 
 
+--
+-- Name: set_updated_at_field(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+
 
 SET default_tablespace = '';
 
@@ -134,10 +139,20 @@ CREATE TABLE public.admin_account_permissions (
     billing_prices_crud integer DEFAULT 0 NOT NULL,
     bucket_crud integer DEFAULT 0 NOT NULL,
     embed_demo_crud integer DEFAULT 0 NOT NULL,
+    notifications_crud integer DEFAULT 0 NOT NULL,
+    billing_channels_crud integer DEFAULT 0 NOT NULL,
+    billing_processor_products_crud integer DEFAULT 0 CONSTRAINT admin_account_permissions_billing_processor_products_c_not_null NOT NULL,
+    billing_account_crud integer DEFAULT 0 NOT NULL,
+    billing_webhook_events_crud integer DEFAULT 0 NOT NULL,
     CONSTRAINT admin_account_permissions_admins_crud_check CHECK (((admins_crud >= 0) AND (admins_crud <= 15))),
+    CONSTRAINT admin_account_permissions_billing_account_crud_check CHECK (((billing_account_crud >= 0) AND (billing_account_crud <= 15))),
+    CONSTRAINT admin_account_permissions_billing_channels_crud_check CHECK (((billing_channels_crud >= 0) AND (billing_channels_crud <= 15))),
+    CONSTRAINT admin_account_permissions_billing_processor_products_crud_check CHECK (((billing_processor_products_crud >= 0) AND (billing_processor_products_crud <= 15))),
+    CONSTRAINT admin_account_permissions_billing_webhook_events_crud_check CHECK (((billing_webhook_events_crud >= 0) AND (billing_webhook_events_crud <= 15))),
     CONSTRAINT admin_account_permissions_bucket_crud_check CHECK (((bucket_crud >= 0) AND (bucket_crud <= 15))),
     CONSTRAINT admin_account_permissions_feed_takedown_reasons_crud_check CHECK (((feed_takedown_reasons_crud >= 0) AND (feed_takedown_reasons_crud <= 15))),
     CONSTRAINT admin_account_permissions_feeds_crud_check CHECK (((feeds_crud >= 0) AND (feeds_crud <= 15))),
+    CONSTRAINT admin_account_permissions_notifications_crud_check CHECK (((notifications_crud >= 0) AND (notifications_crud <= 15))),
     CONSTRAINT admin_account_permissions_stats_crud_check CHECK (((stats_crud >= 0) AND (stats_crud <= 15)))
 );
 
@@ -171,7 +186,7 @@ CREATE TABLE public.admin_account_role (
     role character varying(20) NOT NULL,
     created_at public.server_time_with_default,
     updated_at public.server_time_with_default,
-    CONSTRAINT admin_account_role_role_check CHECK (((role)::text = ANY ((ARRAY['superuser'::character varying, 'admin'::character varying])::text[])))
+    CONSTRAINT admin_account_role_role_check CHECK (((role)::text = ANY (ARRAY[('superuser'::character varying)::text, ('admin'::character varying)::text])))
 );
 
 
@@ -228,6 +243,44 @@ ALTER SEQUENCE public.admin_account_set_password_id_seq OWNED BY public.admin_ac
 
 
 --
+-- Name: admin_session; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admin_session (
+    id bigint NOT NULL,
+    id_text public.nano_id_v2 NOT NULL,
+    admin_account_id integer NOT NULL,
+    client_type character varying(16) NOT NULL,
+    device_label character varying(255),
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    idle_expires_at timestamp with time zone NOT NULL,
+    refresh_token_hash character varying(64),
+    previous_refresh_token_hash character varying(64),
+    revoked_at timestamp with time zone,
+    revoked_reason character varying(32),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT admin_session_client_type_check CHECK (((client_type)::text = ANY (ARRAY[('web'::character varying)::text, ('mobile'::character varying)::text]))),
+    CONSTRAINT admin_session_revoked_pair_check CHECK (((revoked_at IS NULL) = (revoked_reason IS NULL))),
+    CONSTRAINT admin_session_revoked_reason_check CHECK (((revoked_reason IS NULL) OR ((revoked_reason)::text = ANY (ARRAY[('signed_out'::character varying)::text, ('signed_out_elsewhere'::character varying)::text, ('password_changed'::character varying)::text, ('admin_password_set'::character varying)::text, ('admin_force_logout'::character varying)::text, ('refresh_reuse'::character varying)::text]))))
+);
+
+
+--
+-- Name: admin_session_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.admin_session ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.admin_session_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: database_audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -241,7 +294,7 @@ CREATE TABLE public.database_audit_log (
     after_snapshot jsonb,
     request_id character varying(64),
     created_at public.server_time_with_default,
-    CONSTRAINT database_audit_log_operation_check CHECK (((operation)::text = ANY ((ARRAY['create'::character varying, 'update'::character varying, 'delete'::character varying])::text[])))
+    CONSTRAINT database_audit_log_operation_check CHECK (((operation)::text = ANY (ARRAY[('create'::character varying)::text, ('update'::character varying)::text, ('delete'::character varying)::text])))
 );
 
 
@@ -280,12 +333,22 @@ CREATE TABLE public.management_admin_role (
     bucket_crud integer NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     embed_demo_crud integer DEFAULT 0 NOT NULL,
+    notifications_crud integer DEFAULT 0 NOT NULL,
+    billing_channels_crud integer DEFAULT 0 NOT NULL,
+    billing_processor_products_crud integer DEFAULT 0 NOT NULL,
+    billing_account_crud integer DEFAULT 0 NOT NULL,
+    billing_webhook_events_crud integer DEFAULT 0 NOT NULL,
     CONSTRAINT management_admin_role_admins_crud_check CHECK (((admins_crud >= 0) AND (admins_crud <= 15))),
+    CONSTRAINT management_admin_role_billing_account_crud_check CHECK (((billing_account_crud >= 0) AND (billing_account_crud <= 15))),
+    CONSTRAINT management_admin_role_billing_channels_crud_check CHECK (((billing_channels_crud >= 0) AND (billing_channels_crud <= 15))),
     CONSTRAINT management_admin_role_billing_prices_crud_check CHECK (((billing_prices_crud >= 0) AND (billing_prices_crud <= 15))),
+    CONSTRAINT management_admin_role_billing_processor_products_crud_check CHECK (((billing_processor_products_crud >= 0) AND (billing_processor_products_crud <= 15))),
+    CONSTRAINT management_admin_role_billing_webhook_events_crud_check CHECK (((billing_webhook_events_crud >= 0) AND (billing_webhook_events_crud <= 15))),
     CONSTRAINT management_admin_role_bucket_crud_check CHECK (((bucket_crud >= 0) AND (bucket_crud <= 15))),
     CONSTRAINT management_admin_role_embed_demo_crud_check CHECK (((embed_demo_crud >= 0) AND (embed_demo_crud <= 15))),
     CONSTRAINT management_admin_role_feed_takedown_reasons_crud_check CHECK (((feed_takedown_reasons_crud >= 0) AND (feed_takedown_reasons_crud <= 15))),
     CONSTRAINT management_admin_role_feeds_crud_check CHECK (((feeds_crud >= 0) AND (feeds_crud <= 15))),
+    CONSTRAINT management_admin_role_notifications_crud_check CHECK (((notifications_crud >= 0) AND (notifications_crud <= 15))),
     CONSTRAINT management_admin_role_stats_crud_check CHECK (((stats_crud >= 0) AND (stats_crud <= 15)))
 );
 
@@ -352,7 +415,7 @@ COPY public.admin_account_credentials (id, admin_account_id, email, password, us
 -- Data for Name: admin_account_permissions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.admin_account_permissions (id, admin_account_id, feeds_crud, admins_crud, stats_crud, created_at, updated_at, feed_takedown_reasons_crud, billing_prices_crud, bucket_crud, embed_demo_crud) FROM stdin;
+COPY public.admin_account_permissions (id, admin_account_id, feeds_crud, admins_crud, stats_crud, created_at, updated_at, feed_takedown_reasons_crud, billing_prices_crud, bucket_crud, embed_demo_crud, notifications_crud, billing_channels_crud, billing_processor_products_crud, billing_account_crud, billing_webhook_events_crud) FROM stdin;
 \.
 
 
@@ -375,6 +438,14 @@ COPY public.admin_account_set_password (id, admin_account_id, set_password_token
 
 
 --
+-- Data for Name: admin_session; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.admin_session (id, id_text, admin_account_id, client_type, device_label, last_seen_at, idle_expires_at, refresh_token_hash, previous_refresh_token_hash, revoked_at, revoked_reason, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: database_audit_log; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -386,7 +457,7 @@ COPY public.database_audit_log (id, admin_account_id, operation, table_name, row
 -- Data for Name: management_admin_role; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.management_admin_role (id, name, feeds_crud, feed_takedown_reasons_crud, admins_crud, stats_crud, billing_prices_crud, bucket_crud, created_at, embed_demo_crud) FROM stdin;
+COPY public.management_admin_role (id, name, feeds_crud, feed_takedown_reasons_crud, admins_crud, stats_crud, billing_prices_crud, bucket_crud, created_at, embed_demo_crud, notifications_crud, billing_channels_crud, billing_processor_products_crud, billing_account_crud, billing_webhook_events_crud) FROM stdin;
 \.
 
 
@@ -426,11 +497,17 @@ SELECT pg_catalog.setval('public.admin_account_set_password_id_seq', 1, false);
 
 
 --
+-- Name: admin_session_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.admin_session_id_seq', 1, false);
+
+
+--
 -- Name: database_audit_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.database_audit_log_id_seq', 1, false);
-
 
 
 --
@@ -514,6 +591,22 @@ ALTER TABLE ONLY public.admin_account_set_password
 
 
 --
+-- Name: admin_session admin_session_id_text_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_session
+    ADD CONSTRAINT admin_session_id_text_key UNIQUE (id_text);
+
+
+--
+-- Name: admin_session admin_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_session
+    ADD CONSTRAINT admin_session_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: database_audit_log database_audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -535,6 +628,20 @@ ALTER TABLE ONLY public.management_admin_role
 
 ALTER TABLE ONLY public.management_admin_role
     ADD CONSTRAINT management_admin_role_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: admin_session_admin_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX admin_session_admin_active_idx ON public.admin_session USING btree (admin_account_id, last_seen_at DESC) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: admin_session_idle_expires_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX admin_session_idle_expires_at_idx ON public.admin_session USING btree (idle_expires_at);
 
 
 --
@@ -654,6 +761,14 @@ ALTER TABLE ONLY public.admin_account_set_password
 
 
 --
+-- Name: admin_session admin_session_admin_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_session
+    ADD CONSTRAINT admin_session_admin_account_id_fkey FOREIGN KEY (admin_account_id) REFERENCES public.admin_account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: database_audit_log database_audit_log_admin_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -751,6 +866,22 @@ GRANT SELECT ON SEQUENCE public.admin_account_set_password_id_seq TO podverse_ma
 
 
 --
+-- Name: TABLE admin_session; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.admin_session TO podverse_management_read_write;
+GRANT SELECT ON TABLE public.admin_session TO podverse_management_read;
+
+
+--
+-- Name: SEQUENCE admin_session_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.admin_session_id_seq TO podverse_management_read_write;
+GRANT SELECT ON SEQUENCE public.admin_session_id_seq TO podverse_management_read;
+
+
+--
 -- Name: TABLE database_audit_log; Type: ACL; Schema: public; Owner: -
 --
 
@@ -765,6 +896,13 @@ GRANT SELECT ON TABLE public.database_audit_log TO podverse_management_read;
 GRANT ALL ON SEQUENCE public.database_audit_log_id_seq TO podverse_management_read_write;
 GRANT SELECT ON SEQUENCE public.database_audit_log_id_seq TO podverse_management_read;
 
+
+--
+-- Name: SEQUENCE linear_migration_history_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.linear_migration_history_id_seq TO podverse_management_read_write;
+GRANT SELECT ON SEQUENCE public.linear_migration_history_id_seq TO podverse_management_read;
 
 
 --

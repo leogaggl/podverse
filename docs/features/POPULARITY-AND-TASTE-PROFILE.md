@@ -128,19 +128,10 @@ half-lives; readers fade a stored score to "now" with the same formula before co
 - Tracking that stops without the listener choosing it (membership lapse, a new explanation
   version waiting) deletes nothing; the write path stops writing.
 
-### The Migrator Creates the Schema
+### Schema Ownership
 
-The migration that creates `listener_identity` runs as the app migrator role, which needs
-`CREATE` on the app database. DB bootstrap grants it. A database created before that grant gets it
-by running the `ops-db-rebootstrap-roles` job once, before `ops-db-migrate-app` applies the
-migration:
-
-```bash
-kubectl -n <namespace> create job --from=cronjob/ops-db-rebootstrap-roles ops-db-rebootstrap-roles-manual
-kubectl -n <namespace> create job --from=cronjob/ops-db-migrate-app ops-db-migrate-app-manual
-```
-
-Wait for the first job to finish before starting the second.
+`listener_identity` is created with the app schema. The app migrator role applies that schema
+and needs `CREATE` on the app database. DB bootstrap grants it.
 
 ## Daily Totals Are Filled at Write Time
 
@@ -653,8 +644,8 @@ any, so a failed drop never leaves a coming month without a partition.
   the run on or after `2026-10-30`, when `now − 90 days` reaches August and the cutoff becomes
   `2026-08-01`.
 - **Schedule:** the CronJob `worker-stats-event-partitions` in `infra/k8s/base/cron` runs it daily
-  at 03:30. After the migration first runs on a deployment, start it once by hand so dated
-  partitions exist before the first listens arrive.
+  at 03:30. On a new deployment, start it once by hand before the first listens arrive so dated
+  partitions exist. After that, the daily run keeps the current month and the next two.
 - **Manual run:** `npm run stats_event_partitions_maintain -w apps/workers` after
   `npm run build -w apps/workers`.
 - **Local development:** nothing runs on a schedule locally, so events stay in the default

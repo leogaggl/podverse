@@ -1,4 +1,4 @@
-// Re-export podcastIndexService from context for backwards compatibility
+// Proxy so callers read the podcast index service from the current context.
 import { getPodcastIndexService } from '../context.js';
 
 // Export a proxy object that delegates to the context's podcast index service

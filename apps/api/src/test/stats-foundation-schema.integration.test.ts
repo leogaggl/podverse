@@ -333,7 +333,7 @@ describe('Popularity tracking foundation schema (real database)', () => {
   });
 
   it('has no per-entity event, guid mapping, or rolling aggregate stats tables', async () => {
-    const legacyTables = [
+    const absentStatsTables = [
       'stats_track_event_account',
       'stats_track_event_channel',
       'stats_track_event_clip',
@@ -346,7 +346,7 @@ describe('Popularity tracking foundation schema (real database)', () => {
       'stats_aggregated_item',
       'stats_aggregated_playlist',
     ];
-    for (const tableName of legacyTables) {
+    for (const tableName of absentStatsTables) {
       expect(await relationExists(tableName), tableName).toBe(false);
     }
   });

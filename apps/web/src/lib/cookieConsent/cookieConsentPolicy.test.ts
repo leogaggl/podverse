@@ -4,53 +4,29 @@ import {
   COOKIE_CONSENT_MODEL_VERSION,
   cookieConsentAllowsAnonymousFeatureStorage,
   cookieConsentAllowsWebAnalytics,
-  normalizeCookieConsentChoice,
   normalizeCookieConsentState,
 } from './cookieConsentPolicy';
-
-describe('normalizeCookieConsentChoice', () => {
-  it('passes through current choices', () => {
-    expect(normalizeCookieConsentChoice('all')).toBe('all');
-    expect(normalizeCookieConsentChoice('essential')).toBe('essential');
-    expect(normalizeCookieConsentChoice('none')).toBe('none');
-  });
-
-  it('maps legacy features to essential', () => {
-    expect(normalizeCookieConsentChoice('features')).toBe('essential');
-  });
-});
 
 describe('normalizeCookieConsentState', () => {
   const at = '2026-01-01T00:00:00.000Z';
 
-  it('keeps v2 states unchanged', () => {
+  it('keeps a v2 state unchanged', () => {
+    expect(
+      normalizeCookieConsentState({ choice: 'all', at, v: COOKIE_CONSENT_MODEL_VERSION })
+    ).toEqual({ choice: 'all', at, v: COOKIE_CONSENT_MODEL_VERSION });
     expect(
       normalizeCookieConsentState({ choice: 'essential', at, v: COOKIE_CONSENT_MODEL_VERSION })
     ).toEqual({ choice: 'essential', at, v: COOKIE_CONSENT_MODEL_VERSION });
+    expect(
+      normalizeCookieConsentState({ choice: 'none', at, v: COOKIE_CONSENT_MODEL_VERSION })
+    ).toEqual({ choice: 'none', at, v: COOKIE_CONSENT_MODEL_VERSION });
   });
 
-  it('migrates legacy features to essential', () => {
-    expect(normalizeCookieConsentState({ choice: 'features', at })).toEqual({
-      choice: 'essential',
-      at,
-      v: COOKIE_CONSENT_MODEL_VERSION,
-    });
-  });
-
-  it('migrates legacy essential to none', () => {
-    expect(normalizeCookieConsentState({ choice: 'essential', at })).toEqual({
-      choice: 'none',
-      at,
-      v: COOKIE_CONSENT_MODEL_VERSION,
-    });
-  });
-
-  it('migrates legacy all to all', () => {
-    expect(normalizeCookieConsentState({ choice: 'all', at })).toEqual({
-      choice: 'all',
-      at,
-      v: COOKIE_CONSENT_MODEL_VERSION,
-    });
+  it('returns undefined for older consent shapes', () => {
+    expect(normalizeCookieConsentState({ choice: 'features', at })).toBeUndefined();
+    expect(normalizeCookieConsentState({ choice: 'essential', at })).toBeUndefined();
+    expect(normalizeCookieConsentState({ choice: 'all', at })).toBeUndefined();
+    expect(normalizeCookieConsentState({ choice: 'essential', at, v: 1 })).toBeUndefined();
   });
 });
 

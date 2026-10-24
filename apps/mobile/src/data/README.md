@@ -17,12 +17,12 @@ Pick the store by what the data _is_ — do not mix responsibilities:
 
 **SQLite is phone-UI-only.** CarPlay, Android Auto, and watch surfaces read a separate native
 cache because the JS runtime may be suspended; repositories that own queue / downloads / library
-index project their state to that native cache on mutation (stubs until Track 12) — see
+index project their state to that native cache on mutation — see
 [DOCS-MOBILE-DATA-LAYER-OFFLINE.md §7.1](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-DATA-LAYER-OFFLINE.md).
 
 Never write auth tokens to SQLite or AsyncStorage.
 
-## Prefs store notes (Track 16.1)
+## Prefs store notes
 
 - Unified prefs store lives in `src/prefs/prefsStore.ts` and exposes typed `getPref`, `setPref`,
   and `hydratePrefs`.
@@ -33,16 +33,12 @@ Never write auth tokens to SQLite or AsyncStorage.
 ## `db/` — SQLite + Drizzle
 
 - `client.ts` — lazily opens `expo-sqlite` and exposes the Drizzle client (`getDb()`).
-- `schema.ts` — Drizzle table definitions (`kv_meta`, `account_snapshot`, `queue_cache`,
-  `playback_outbox`, `playback_local_state`, `add_by_rss_feed`, `download`,
-  `subscribed_channel`, `channel_item`, `channel_item_window`, `channel_seen`,
-  `channel_live_status`, `sync_event_log`). Domain tables arrive as forward-only migrations.
-- `migrations.ts` — forward-only migration list (append-only; strictly increasing integer
-  `version`).
-- Migration `16` adds `playback_outbox` and `playback_local_state` for offline playback replay and
-  reconnect reconciliation.
+- `schema.ts` — Drizzle table definitions, one per table `migrations.ts` creates. Maintained
+  by hand beside the migrations.
+- `migrations.ts` — forward-only migration list. Version 1 creates the whole schema; each later
+  change appends the next integer version and never edits a shipped one.
 - `runMigrations.ts` — applies pending migrations in a transaction, tracked via
-  `PRAGMA user_version`.
+  `PRAGMA user_version`, and refuses a database whose version is above the latest migration.
 - `index.ts` — `initializeDatabase()` (idempotent; called from `App.tsx` bootstrap, awaited by
   repositories).
 
@@ -72,7 +68,7 @@ Screen / hook  →  repository  →  SQLite (source of truth for phone UI)
   subscription browses and plays with no connection — not only the episodes downloaded as media
   files; each channel keeps a bounded window tracked in `channel_item_window`, with the depth,
   staleness, and reconciliation rules in the pure sibling `channelItemWindow.ts`).
-  `downloadsRepository` (Phase F offline downloads index in `download`; source of truth for the
+  `downloadsRepository` (offline downloads index in `download`; source of truth for the
   Downloads library + local-file playback — **progressive only**, eligibility gated by
   `isItemDownloadable` in `src/downloads/` before insert; projects the completed set to the native
   cache on every mutation). `channelSeenRepository` (one `last_seen_at` per subscription in
@@ -99,9 +95,9 @@ Screen / hook  →  repository  →  SQLite (source of truth for phone UI)
   (`readSyncWatermark`, `writeSyncWatermark`, `isWatermarkStale`) and playback clock-offset
   metadata (`readPlaybackClockOffsetMs`, `writePlaybackClockOffsetMs`).
 - `nativeCache/` — `projectQueueSnapshotToNativeCache`, `projectDownloadsIndexToNativeCache`,
-  `projectLibraryBrowseIndexToNativeCache`. Each stamps the versioned envelope (schema 12.1 /
-  `380`) and forwards to the media-engine bridge, which persists durably on device (iOS/Android
-  `PodverseNativeCache`, 12.2–12.3) so car/watch read it with JS dead. Repositories that own
+  `projectLibraryBrowseIndexToNativeCache`. Each stamps the versioned envelope and forwards to
+  the media-engine bridge, which persists durably on device (iOS/Android `PodverseNativeCache`)
+  so car/watch read it while JS is not running. Repositories that own
   queue / downloads / library-index state **must** call the matching projection helper on every
   successful mutation and after sync reconcile — car/watch cannot read SQLite (see §7.1 of the
   decision doc). Bridge writes are best-effort (soft-fail) and never roll back the SQLite mutation.

@@ -6,8 +6,6 @@ import {
   parsePersistedChannelActionChrome,
 } from '../../lib/channelActionChrome';
 import { hydrateSectionChromeFlagsMemory } from '../../lib/sectionChromeFlags';
-import { applyAddByRssPublisherRefs } from './applyAddByRssPublisherRefs';
-import { applyAddByRssResourceTypes } from './applyAddByRssResourceTypes';
 import { getDb, getSqlite } from './client';
 import { reloadAddByRssArtistIndex } from './readAddByRssArtistIndex';
 import { runMigrations } from './runMigrations';
@@ -21,8 +19,6 @@ const initialize = async (): Promise<void> => {
   // WAL improves concurrent read/write behavior for the background sync layer.
   await sqlite.execAsync('PRAGMA journal_mode = WAL;');
   await runMigrations(sqlite);
-  await applyAddByRssResourceTypes();
-  await applyAddByRssPublisherRefs();
   await reloadAddByRssArtistIndex();
   const chromeRows = await getDb()
     .select({

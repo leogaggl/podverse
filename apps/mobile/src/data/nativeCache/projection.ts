@@ -53,7 +53,7 @@ export type NativeCacheDownloadEntry = {
   title: string;
   /**
    * Download file name (or `downloads/<name>`), resolved by native against the current app
-   * documents directory. Legacy absolute `file://` paths may still appear from older builds.
+   * documents directory.
    */
   filePath: string;
   artworkUrl?: string | null;
@@ -204,7 +204,6 @@ export const buildAccountContextPayload = (
 ): AccountContextCachePayload => withEnvelope(context, updatedAtMs);
 
 type NativeCacheWriteMethod =
-  | 'writeQueueSnapshot'
   | 'writeQueueSnapshotAv'
   | 'writeQueueSnapshotMusic'
   | 'writeDownloadsIndex'
@@ -236,8 +235,6 @@ export const projectQueueSnapshotToNativeCache = async (
 ): Promise<void> => {
   const bucket = snapshot.mediumBucket ?? 'av';
   const payload = buildQueueSnapshotPayload({ ...snapshot, mediumBucket: bucket });
-  // Legacy single-file write keeps older readers warm during the dual-queue transition.
-  await writeToNativeCache('writeQueueSnapshot', payload);
   if (bucket === 'music') {
     await writeToNativeCache('writeQueueSnapshotMusic', payload);
   } else {
@@ -250,7 +247,6 @@ export const projectQueueSnapshotAvToNativeCache = async (
 ): Promise<void> => {
   const payload = buildQueueSnapshotPayload({ ...snapshot, mediumBucket: 'av' });
   await writeToNativeCache('writeQueueSnapshotAv', payload);
-  await writeToNativeCache('writeQueueSnapshot', payload);
 };
 
 export const projectQueueSnapshotMusicToNativeCache = async (

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# One-time (or repeat) squash helper: materialize 0001_*_schema.sql from the current
-# multi-file linear chain without concatenating evolutionary migrations.
+# Squash helper: materialize 0001_*_schema.sql from the current multi-file linear chain without
+# concatenating evolutionary migrations. A squash changes 0001's checksum, so every database built
+# from the previous chain must be dropped and recreated.
 #
 # Algorithm per database:
 #   1. Bootstrap roles (0001/0002 shell scripts)
@@ -221,6 +222,13 @@ content = re.sub(
 )
 content = re.sub(
     r'--\n-- Name: linear_migration_history_id_seq; Type: SEQUENCE;[\s\S]*?CACHE 1;\n\n',
+    '',
+    content,
+    count=1,
+)
+content = re.sub(
+    r"--\n-- Name: linear_migration_history_id_seq; Type: SEQUENCE SET;[^\n]*\n--\n\n"
+    r"SELECT pg_catalog\.setval\('public\.linear_migration_history_id_seq', \d+, (?:true|false)\);\n\n\n",
     '',
     content,
     count=1,

@@ -77,7 +77,7 @@ rows is past the point where a `ScrollView` and `.map()` is acceptable.
 
 ### Storage
 
-`sync_event_log` (migration 7) in the mobile SQLite database, with an autoincrement `id` that also
+`sync_event_log` in the mobile SQLite database, with an autoincrement `id` that also
 serves as the tiebreaker for two entries sharing a millisecond — both newest-first display and
 oldest-first eviction need a total order.
 

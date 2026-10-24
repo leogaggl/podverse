@@ -308,11 +308,10 @@ to keep the tool aligned with infra changes.
 - The reset step runs `/docker-entrypoint-initdb.d/0001_create_app_db_users.sh` to ensure
   app roles from `tools/web-perf/lighthouse/docker/env/db.env` exist (`POSTGRES_READ_USER` /
   `POSTGRES_READ_WRITE_USER`, e.g. `podverse_app_read` and `podverse_app_read_write`) with
-  the Lighthouse DB passwords. If you previously had generic `read` / `read_write` roles
-  in this dev database, run `docker compose -f tools/web-perf/lighthouse/docker/docker-compose.yml down -v` once, then bring services back up so the init script can create the prefixed roles.
+  the Lighthouse DB passwords.
 - Check Postgres readiness and logs:
   `docker logs podverse_lighthouse_test_db`
-- If schema creation fails, Lighthouse now verifies `category` exists after reset.
+- If schema creation fails, Lighthouse verifies `category` exists after reset.
   A failure usually means linear migrations did not apply.
 - If automatic setup fails, manually run the migration step, then ensure `.env.api` has
   DB\_\* set and run `npm run generate_and_parse -w podverse-test-assets` from the repo

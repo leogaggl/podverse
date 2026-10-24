@@ -34,8 +34,6 @@ Turning auto download on while lapsed opens the renewal gate.
 
 ## Device data
 
-SQLite migration 18:
-
 - `channel_auto_download` — one row per podcast: `channel_id_text`, `source` (`directory` or
   `add_by_rss`), `enabled`, `allow_cellular`, `enabled_at`.
 - `auto_download_candidate` — one row per item: `pending`, `enqueued`, `skipped_ineligible`,
@@ -169,13 +167,13 @@ ineligible cases the manual download path rejects) is stored as `skipped_ineligi
 
 ## Server pieces
 
-| Piece                                     | Role                                                                                                           |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `account_device_auto_download_channel`    | `(account_id, installation_id, channel_id)`. Linear migration `0011_account_device_auto_download_channel.sql`. |
-| `PUT /account/auto-download/channels`     | Idempotent replace for one installation. Membership required.                                                  |
-| `AccountDeviceAutoDownloadChannelService` | Replace, and the two “who to wake” queries (FCM by installation, UnifiedPush by account).                      |
-| `handleNewItemAutoDownloadPushes`         | Parser hook. Failures are logged; they do not fail the parse.                                                  |
-| `dataOnlyPushOrchestrator`                | FCM iOS, FCM Android, or UnifiedPush. No inbox row, no banner.                                                 |
+| Piece                                     | Role                                                                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `account_device_auto_download_channel`    | `(account_id, installation_id, channel_id)`. `0001_app_schema.sql`.                       |
+| `PUT /account/auto-download/channels`     | Idempotent replace for one installation. Membership required.                             |
+| `AccountDeviceAutoDownloadChannelService` | Replace, and the two “who to wake” queries (FCM by installation, UnifiedPush by account). |
+| `handleNewItemAutoDownloadPushes`         | Parser hook. Failures are logged; they do not fail the parse.                             |
+| `dataOnlyPushOrchestrator`                | FCM iOS, FCM Android, or UnifiedPush. No inbox row, no banner.                            |
 
 ## iOS and Android
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers for ~/.config/podverse/local-env-overrides/local-secrets.env
-# Sourced by setup.sh and persist/migrate scripts (not executed directly).
+# Sourced by setup.sh, persist-local-secrets.sh, and export-local-secrets-to-home.sh (not executed directly).
 
 local_secrets_home_overrides_dir() {
 	if [ -n "${PODVERSE_HOME_OVERRIDES_DIR:-}" ]; then

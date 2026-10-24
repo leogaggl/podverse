@@ -1,4 +1,4 @@
-import { MIGRATIONS } from './migrations';
+import { LATEST_MIGRATION_VERSION, MIGRATIONS } from './migrations';
 
 type UserVersionRow = {
   user_version: number;
@@ -21,9 +21,21 @@ const readUserVersion = async (sqlite: MigrationDatabase): Promise<number> => {
  * single transaction; `PRAGMA user_version` records the highest applied version so cold starts
  * only run what is new. Versions come from `MIGRATIONS` (authored integers), so interpolating them
  * into the PRAGMA statement is safe — never pass external input here.
+ *
+ * A database whose `user_version` is above `LATEST_MIGRATION_VERSION` was written by a schema
+ * chain this build cannot read, so this rejects before running anything and the app must be
+ * reinstalled.
  */
 export const runMigrations = async (sqlite: MigrationDatabase): Promise<void> => {
   const currentVersion = await readUserVersion(sqlite);
+
+  if (currentVersion > LATEST_MIGRATION_VERSION) {
+    throw new Error(
+      `SQLite user_version ${currentVersion} is newer than this build's latest migration ` +
+        `${LATEST_MIGRATION_VERSION}; the database was written by a different schema chain. ` +
+        'Reinstall the app.'
+    );
+  }
 
   const pending = MIGRATIONS.filter((migration) => migration.version > currentVersion).sort(
     (a, b) => a.version - b.version

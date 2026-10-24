@@ -46,7 +46,7 @@ import {
 import type { DownloadPatch, DownloadRecord } from './downloadTypes';
 import { DOWNLOAD_MAX_CONCURRENCY } from './downloadTypes';
 
-/** Absolute `file://` for a stored relative (or legacy absolute) download path. */
+/** Absolute file:// for a stored download file name. */
 const absoluteDownloadPath = (storedPath: string): string | null => {
   const baseDirectory = FileSystem.documentDirectory;
   if (baseDirectory === null) {
@@ -640,8 +640,6 @@ export const downloadManager = {
               await applyChange(record.itemIdText, {
                 byteSize: info.size ?? record.byteSize,
                 bytesDownloaded: info.size ?? record.bytesDownloaded,
-                // Normalize legacy absolute rows to a relative file name.
-                filePath: toStoredDownloadFileName(record.filePath),
                 status: 'complete',
               });
               pinShowNotesForDownload(record.itemIdText);

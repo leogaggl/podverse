@@ -9,7 +9,6 @@ import Foundation
 
 /// One persisted payload kind. `rawValue` is only for logging; on-disk name is `fileName`.
 enum PodverseNativeCacheKind: String, CaseIterable {
-  case queue
   case queueAv
   case queueMusic
   case downloads
@@ -21,7 +20,6 @@ enum PodverseNativeCacheKind: String, CaseIterable {
 
   var fileName: String {
     switch self {
-    case .queue: return "queue-snapshot.json"
     case .queueAv: return "queue-snapshot-av.json"
     case .queueMusic: return "queue-snapshot-music.json"
     case .downloads: return "downloads-index.json"
@@ -129,20 +127,6 @@ enum PodverseNativeCache {
   /// Returns `nil` when missing or unreadable; callers render an empty tree and never crash.
   static func read(_ kind: PodverseNativeCacheKind) -> String? {
     guard let url = fileURL(for: kind) else { return nil }
-    // Prefer v2 library-index; fall back to the legacy browse filename when present.
-    if kind == .libraryBrowse {
-      if let primary = readFile(url) { return primary }
-      if let directory = baseDirectory() {
-        let legacy = directory.appendingPathComponent(
-          "library-browse-index.json", isDirectory: false)
-        return readFile(legacy)
-      }
-      return nil
-    }
-    if kind == .queueAv {
-      if let primary = readFile(url) { return primary }
-      return read(.queue)
-    }
     return readFile(url)
   }
 
@@ -251,7 +235,7 @@ enum PodverseNativeCache {
   /// Clear account-scoped car cache files on logout (queues, history, library, live, journal).
   static func clearAccountScopedFiles() {
     let kinds: [PodverseNativeCacheKind] = [
-      .queue, .queueAv, .queueMusic, .history, .live, .libraryBrowse, .playbackJournal,
+      .queueAv, .queueMusic, .history, .live, .libraryBrowse, .playbackJournal,
       .accountContext,
     ]
     for kind in kinds {

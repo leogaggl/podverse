@@ -16,7 +16,6 @@ import org.json.JSONObject
 
 /** One persisted payload kind; [fileName] is the on-disk name under the cache directory. */
 enum class PodverseNativeCacheKind(val fileName: String) {
-  QUEUE("queue-snapshot.json"),
   QUEUE_AV("queue-snapshot-av.json"),
   QUEUE_MUSIC("queue-snapshot-music.json"),
   DOWNLOADS("downloads-index.json"),
@@ -85,29 +84,8 @@ object PodverseNativeCache {
    */
   fun read(context: Context, kind: PodverseNativeCacheKind): String? {
     return try {
-      when (kind) {
-        PodverseNativeCacheKind.LIBRARY_BROWSE -> {
-          val primary = file(context, kind)
-          if (primary.exists()) {
-            primary.readText(Charsets.UTF_8)
-          } else {
-            val legacy = File(directory(context), "library-browse-index.json")
-            if (legacy.exists()) legacy.readText(Charsets.UTF_8) else null
-          }
-        }
-        PodverseNativeCacheKind.QUEUE_AV -> {
-          val primary = file(context, kind)
-          if (primary.exists()) {
-            primary.readText(Charsets.UTF_8)
-          } else {
-            read(context, PodverseNativeCacheKind.QUEUE)
-          }
-        }
-        else -> {
-          val target = file(context, kind)
-          if (target.exists()) target.readText(Charsets.UTF_8) else null
-        }
-      }
+      val target = file(context, kind)
+      if (target.exists()) target.readText(Charsets.UTF_8) else null
     } catch (error: Exception) {
       Log.w(TAG, "read failed for ${kind.name}: ${error.message}")
       null
@@ -226,7 +204,6 @@ object PodverseNativeCache {
   fun clearAccountScopedFiles(context: Context) {
     val kinds =
       listOf(
-        PodverseNativeCacheKind.QUEUE,
         PodverseNativeCacheKind.QUEUE_AV,
         PodverseNativeCacheKind.QUEUE_MUSIC,
         PodverseNativeCacheKind.HISTORY,

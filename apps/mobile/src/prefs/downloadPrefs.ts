@@ -9,8 +9,8 @@ import { DEFAULT_DOWNLOAD_QUOTA_BYTES } from '../downloads/downloadQuota';
 import { DEFAULT_DOWNLOAD_AUTO_DELETE, getPref, setPref } from './prefsStore';
 
 /**
- * Download storage prefs (device-local AsyncStorage). The limit-reached auto-delete toggle reuses
- * the historical `downloads.auto_delete` key so existing installs keep their choice.
+ * Download storage prefs (device-local AsyncStorage). The limit-reached auto-delete toggle is the
+ * AsyncStorage key `downloads.auto_delete`.
  */
 
 const DOWNLOAD_AUTO_DELETE_DEVICE_LOW_KEY = 'downloads.auto_delete_device_low';
@@ -52,12 +52,6 @@ export const writeDownloadAutoDeleteOnLimitEnabled = async (enabled: boolean): P
   await setPref('downloads.auto_delete', enabled);
 };
 
-/** @deprecated Use readDownloadAutoDeleteOnLimitEnabled — same storage key. */
-export const readDownloadAutoDeleteEnabled = readDownloadAutoDeleteOnLimitEnabled;
-
-/** @deprecated Use writeDownloadAutoDeleteOnLimitEnabled — same storage key. */
-export const writeDownloadAutoDeleteEnabled = writeDownloadAutoDeleteOnLimitEnabled;
-
 export const readDownloadAutoDeleteOnDeviceLowEnabled = async (): Promise<boolean> => {
   const stored = await AsyncStorage.getItem(DOWNLOAD_AUTO_DELETE_DEVICE_LOW_KEY);
   if (stored === 'true') {
@@ -76,9 +70,8 @@ export const writeDownloadAutoDeleteOnDeviceLowEnabled = async (
 };
 
 /**
- * User download cap in bytes, or `DOWNLOAD_QUOTA_UNLIMITED` (0). Defaults to 10 GiB when unset.
- * Legacy installs that never set a quota still get the new 10 GiB default (not the old 3 GiB
- * hardcode).
+ * User download cap in bytes, or `DOWNLOAD_QUOTA_UNLIMITED` (0). An unset value returns
+ * `DEFAULT_DOWNLOAD_QUOTA_BYTES`. The stored `'unlimited'` sentinel is an uncapped library.
  */
 export const readDownloadQuotaBytes = async (): Promise<number> => {
   const stored = await AsyncStorage.getItem(DOWNLOAD_QUOTA_BYTES_KEY);

@@ -176,7 +176,7 @@ describe('resolveNotificationDestinationFromPayload', () => {
     });
   });
 
-  it('maps legacy { type, id_text } resource payloads', () => {
+  it('maps a { type, id_text } resource payload', () => {
     expect(
       resolveNotificationDestinationFromPayload({
         id_text: 'pod123',

@@ -22,8 +22,3 @@ export function CompactFieldRow({ children, className, help }: CompactFieldRowPr
     </div>
   );
 }
-
-/** @deprecated Prefer {@link CompactFieldRow}. */
-export const CompactNumericInputRow = CompactFieldRow;
-
-export type CompactNumericInputRowProps = CompactFieldRowProps;

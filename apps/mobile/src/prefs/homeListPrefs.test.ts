@@ -47,7 +47,7 @@ describe('homeListPrefs', () => {
     });
   });
 
-  it('opens on the list, not the grid the previous generation defaulted to', () => {
+  it('defaults the view mode to list', () => {
     expect(DEFAULT_HOME_VIEW_MODE).toBe('list');
   });
 
@@ -72,21 +72,6 @@ describe('homeListPrefs', () => {
     });
   });
 
-  it('uses a stored home-layout grid when the media type has no viewMode of its own', async () => {
-    inMemoryStore.set('sort.home-layout', JSON.stringify({ viewMode: 'grid' }));
-
-    await expect(readHomeListPrefs('podcasts')).resolves.toMatchObject({ viewMode: 'grid' });
-    await expect(readHomeListPrefs('artists')).resolves.toMatchObject({ viewMode: 'grid' });
-  });
-
-  it('lets a per-type viewMode override home-layout', async () => {
-    inMemoryStore.set('sort.home-layout', JSON.stringify({ viewMode: 'grid' }));
-    await writeHomeViewMode('artists', 'list');
-
-    await expect(readHomeListPrefs('artists')).resolves.toMatchObject({ viewMode: 'list' });
-    await expect(readHomeListPrefs('podcasts')).resolves.toMatchObject({ viewMode: 'grid' });
-  });
-
   it('leaves the sort alone when the view changes, and the view alone when the sort does', async () => {
     await writeHomeSort('podcasts', 'recent');
     await writeHomeViewMode('podcasts', 'grid');
@@ -98,14 +83,14 @@ describe('homeListPrefs', () => {
   });
 
   it('ignores a stored view mode it does not recognise', async () => {
-    inMemoryStore.set('sort.home-layout', JSON.stringify({ viewMode: 'carousel' }));
+    inMemoryStore.set('sort.podcasts', JSON.stringify({ viewMode: 'carousel' }));
 
     await expect(readHomeListPrefs('podcasts')).resolves.toMatchObject({
       viewMode: DEFAULT_HOME_VIEW_MODE,
     });
   });
 
-  it('keeps a legacy podcasts-scoped grid after layout becomes Home-wide', async () => {
+  it('uses the podcasts view mode for a channel type that has none of its own', async () => {
     inMemoryStore.set('sort.podcasts', JSON.stringify({ viewMode: 'grid' }));
 
     await expect(readHomeListPrefs('albums')).resolves.toMatchObject({ viewMode: 'grid' });
@@ -117,16 +102,6 @@ describe('homeListPrefs', () => {
     await expect(readHomeListPrefs('podcasts')).resolves.toMatchObject({ sort: 'recent' });
     await expect(readHomeListPrefs('episodes')).resolves.toMatchObject({
       sort: DEFAULT_HOME_SORT,
-    });
-  });
-
-  it('ignores a legacy Home source-filter preference', async () => {
-    inMemoryStore.set('home.subscriptionFilter', 'addByRss');
-
-    await expect(readHomeListPrefs('podcasts')).resolves.toEqual({
-      range: DEFAULT_HOME_RANGE,
-      sort: DEFAULT_HOME_SORT,
-      viewMode: DEFAULT_HOME_VIEW_MODE,
     });
   });
 
@@ -195,16 +170,6 @@ describe('homeListPrefs', () => {
     unsubscribe();
     await writeHomeSort('podcasts', 'alphabetical');
     expect(listener).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not react to a source-filter preference change', async () => {
-    const listener = vi.fn();
-    const unsubscribe = subscribeHomeListPrefs('episodes', listener);
-
-    inMemoryStore.set('home.subscriptionFilter', 'addByRss');
-    expect(listener).not.toHaveBeenCalled();
-
-    unsubscribe();
   });
 
   it('offers the same three orders on every Home list except Livestreams', () => {

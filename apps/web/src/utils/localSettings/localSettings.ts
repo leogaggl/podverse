@@ -202,27 +202,19 @@ export function handleLocalSettingsUpdate(newState: LocalSettingsState) {
   writeCookie('local-settings', serialized);
 }
 
-function isStoredCookieConsentChoice(choice: unknown): boolean {
-  return choice === 'all' || choice === 'essential' || choice === 'none' || choice === 'features';
-}
-
-function isValidCookieConsentState(cc: unknown): cc is CookieConsentState {
-  if (typeof cc !== 'object' || cc === null) {
-    return false;
-  }
-  if (!('choice' in cc) || !('at' in cc)) {
-    return false;
-  }
-  const record = cc as { choice: unknown; at: unknown; v?: unknown };
-  return isStoredCookieConsentChoice(record.choice) && typeof record.at === 'string';
+function isCookieConsentObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function parseCookieConsentState(cc: unknown): CookieConsentState | undefined {
-  if (!isValidCookieConsentState(cc)) {
+  if (!isCookieConsentObject(cc)) {
     return undefined;
   }
-  const record = cc as { choice: unknown; at: string; v?: unknown };
-  return normalizeCookieConsentState(record);
+  return normalizeCookieConsentState({
+    choice: cc.choice,
+    at: cc.at,
+    v: cc.v,
+  });
 }
 
 function getDefaultLocalSettings(): LocalSettingsState {
@@ -269,7 +261,7 @@ function isValidLocalSettings(settings: unknown): settings is LocalSettingsState
     (s.fd === undefined || (typeof s.fd === 'object' && s.fd !== null)) &&
     (s.metd === undefined || typeof s.metd === 'string') &&
     (s.bfd === undefined || (typeof s.bfd === 'object' && s.bfd !== null)) &&
-    (s.cc === undefined || isValidCookieConsentState(s.cc)) &&
+    (s.cc === undefined || isCookieConsentObject(s.cc)) &&
     (s.pmt === undefined || isValidMediaTypePreference(s.pmt)) &&
     (s.bae === undefined || typeof s.bae === 'boolean')
   );

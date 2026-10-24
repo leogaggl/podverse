@@ -32,7 +32,7 @@ export {
   getORMConfig,
 } from './context.js';
 
-// DB exports (proxies to context for backwards compatibility)
+// DB connection exports.
 export * from './db/index.js';
 
 export * from './entities/account/account.js';

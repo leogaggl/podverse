@@ -45,7 +45,7 @@ describe('groupUnsubscribedDownloadChannels', () => {
     expect(grouped).toEqual([]);
   });
 
-  it('resolves a missing channel id from the channel_item hint so older rows still appear', () => {
+  it('resolves a missing channel id from the channel_item hint', () => {
     const grouped = groupUnsubscribedDownloadChannels(
       [row('ep-1', null, { artworkUrl: 'ep-art' })],
       new Set(),

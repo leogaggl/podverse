@@ -32,9 +32,9 @@ local_db_down:
 	docker compose $(COMPOSE_LOCAL_DB_ENV) -f infra/docker/local/db/docker-compose.yml down --remove-orphans
 
 local_db_reset:
-	@echo "Dropping and recreating public schema..."
+	@echo "Dropping listener_identity and recreating public schema..."
 	@set -a; . infra/config/local/db.env; set +a; \
-	docker exec -i podverse_local_db psql -U "$$DB_APP_OWNER_USER" -d "$${DB_APP_NAME:-podverse_app}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO \"$$DB_APP_OWNER_USER\"; GRANT ALL ON SCHEMA public TO public;"
+	docker exec -i podverse_local_db psql -U "$$DB_APP_OWNER_USER" -d "$${DB_APP_NAME:-podverse_app}" -c "DROP SCHEMA IF EXISTS listener_identity CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO \"$$DB_APP_OWNER_USER\"; GRANT ALL ON SCHEMA public TO public;"
 
 local_db_init: infra/config/local/db.env
 	@echo "Waiting for database to be ready..."

@@ -8,60 +8,6 @@ export const EMBED_BUILDER_PLAYER_SIZES = ['compact', 'responsive'] as const;
 
 export type EmbedBuilderPlayerSize = (typeof EMBED_BUILDER_PLAYER_SIZES)[number];
 
-/** @deprecated Combined builder types; use {@link EmbedBuilderPlayerSize} + listEnabled. Kept for legacy URL parsing. */
-export const EMBED_BUILDER_TYPES = [
-  'compact',
-  'responsive',
-  'compact-list',
-  'responsive-list',
-] as const;
-
-/** @deprecated Use {@link EmbedBuilderPlayerSize} + listEnabled instead. */
-export type EmbedBuilderType = (typeof EMBED_BUILDER_TYPES)[number];
-
-/** Legacy builder `type` query values accepted for backwards compatibility. */
-export const EMBED_BUILDER_TYPE_LEGACY_ALIASES: Record<string, EmbedBuilderType> = {
-  audio: 'compact',
-  video: 'responsive',
-  'audio-list': 'compact-list',
-  'video-list': 'responsive-list',
-};
-
-export function normalizeEmbedBuilderType(value: string): EmbedBuilderType | undefined {
-  if ((EMBED_BUILDER_TYPES as readonly string[]).includes(value)) {
-    return value as EmbedBuilderType;
-  }
-
-  return EMBED_BUILDER_TYPE_LEGACY_ALIASES[value];
-}
-
-export function decomposeEmbedBuilderType(type: EmbedBuilderType): {
-  playerSize: EmbedBuilderPlayerSize;
-  listEnabled: boolean;
-} {
-  switch (type) {
-    case 'compact':
-      return { playerSize: 'compact', listEnabled: false };
-    case 'responsive':
-      return { playerSize: 'responsive', listEnabled: false };
-    case 'compact-list':
-      return { playerSize: 'compact', listEnabled: true };
-    case 'responsive-list':
-      return { playerSize: 'responsive', listEnabled: true };
-  }
-}
-
-export function composeEmbedBuilderType(
-  playerSize: EmbedBuilderPlayerSize,
-  listEnabled: boolean
-): EmbedBuilderType {
-  if (!listEnabled) {
-    return playerSize;
-  }
-
-  return playerSize === 'responsive' ? 'responsive-list' : 'compact-list';
-}
-
 export const EMBED_BUILDER_LIST_CONTENT_TYPES = [
   'episodes',
   'clips',

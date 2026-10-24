@@ -24,7 +24,6 @@
     "billing_strike_ensure_webhook": "node ./dist/index.js billingStrikeEnsureWebhook",
     "scheduled_jobs_run_due": "node ./dist/index.js scheduledJobsRunDue",
     "orm_archived_slim_report": "node ./dist/index.js ormArchivedSlimReport",
-    "orm_descriptions_backfill": "node ./dist/index.js ormDescriptionsBackfill",
     "orm_verified_publisher_links_backfill": "node ./dist/index.js ormVerifiedPublisherLinksBackfill",
     "notifications_platform_purge": "node ./dist/index.js notificationsPlatformPurge",
     "account_content_log_purge": "node ./dist/index.js accountContentLogPurge",

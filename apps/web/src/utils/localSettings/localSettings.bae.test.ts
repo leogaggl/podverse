@@ -15,14 +15,14 @@ describe('local-settings background activity expanded (bae)', () => {
     expect(getParsedLocalSettings().bae).toBe(false);
   });
 
-  it('inherits the default bae for cookies that predate the field', () => {
-    const legacy = {
+  it('uses the default when the cookie omits bae', () => {
+    const withoutBae = {
       uit: 'light',
       vs: 'grid',
       seda: false,
       aqc: { rp: false, rd: false },
     };
-    document.cookie = `local-settings=${encodeURIComponent(JSON.stringify(legacy))}; path=/`;
+    document.cookie = `local-settings=${encodeURIComponent(JSON.stringify(withoutBae))}; path=/`;
 
     expect(getParsedLocalSettings().bae).toBe(false);
   });

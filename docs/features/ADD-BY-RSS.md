@@ -53,8 +53,6 @@ An Add by RSS parse whose resource type is `artists` (a publisher feed listing m
 - The worker clears it when a parse without credentials succeeds.
 - The worker leaves it set when credentials were sent and rejected (`401` / `403`).
 
-Linear migration `0012_add_by_rss_client_credentials.sql` dropped the encrypted columns and set the flag on every row that had them, so those users enter credentials again on each device.
-
 ### Scope rules
 
 Every surface uses `resolveCredentialScope` from `@podverse/helpers`:

@@ -24,9 +24,9 @@ alpha_db_down:
 	docker compose $(COMPOSE_ALPHA_DB_ENV) -f infra/docker/alpha/db/docker-compose.yml down --remove-orphans --rmi all
 
 alpha_db_reset:
-	@echo "Dropping and recreating public schema..."
+	@echo "Dropping listener_identity and recreating public schema..."
 	@set -a; . infra/config/alpha/db.env; set +a; \
-	docker exec -i podverse_alpha_db psql -U "$$DB_APP_OWNER_USER" -d "$${DB_APP_NAME:-podverse_app}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO \"$$DB_APP_OWNER_USER\"; GRANT ALL ON SCHEMA public TO public;"
+	docker exec -i podverse_alpha_db psql -U "$$DB_APP_OWNER_USER" -d "$${DB_APP_NAME:-podverse_app}" -c "DROP SCHEMA IF EXISTS listener_identity CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO \"$$DB_APP_OWNER_USER\"; GRANT ALL ON SCHEMA public TO public;"
 
 alpha_db_init: infra/config/alpha/db.env
 	@echo "Waiting for database to be ready..."

@@ -200,8 +200,9 @@ npm run notifications_platform_purge -w apps/workers
    `infra/k8s/base/cron/kustomization.yaml`.
 2. Keep overlays pointing at base cron resources (no duplicate CronJob YAML in overlays).
 3. After image/ref bump + Argo sync, confirm both CronJobs exist and at least one Job run succeeds.
-4. Existing clusters apply the latest linear migration with ops migrate jobs; fresh PVC bootstrap
-   uses regenerated `0004_app_linear_baseline.sql.gz`.
+4. A fresh database is created from the regenerated baselines
+   `0004_app_linear_baseline.sql.gz` and `0005_management_linear_baseline.sql.gz`.
+   Readiness is `0001_app_schema.sql` and `0001_management_schema.sql`.
 
 ## Environment configuration
 

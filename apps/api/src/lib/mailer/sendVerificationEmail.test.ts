@@ -37,7 +37,7 @@ describe('sendVerificationEmail', () => {
 
   it('returns failed when sendMail rejects and the log omits the password', async () => {
     vi.spyOn(transporterModule, 'createTransporter').mockImplementation(fakeTransporter);
-    const logErrorSpy = vi.spyOn(loggerService, 'logError');
+    const logErrorSpy = vi.spyOn(loggerService, 'logError').mockImplementation(() => undefined);
     sendMailMock.mockRejectedValueOnce(
       Object.assign(new Error(`535 Authentication failed ${MAIL_PASSWORD}`), {
         code: 'EAUTH',
@@ -65,6 +65,7 @@ describe('sendVerificationEmail', () => {
         code: 'ECONNECTION',
       });
     });
+    const logErrorSpy = vi.spyOn(loggerService, 'logError').mockImplementation(() => undefined);
     sendMailMock.mockClear();
 
     const { sendVerificationEmail } = await vi.importActual<
@@ -75,5 +76,8 @@ describe('sendVerificationEmail', () => {
 
     expect(result).toBe('failed');
     expect(sendMailMock).not.toHaveBeenCalled();
+    const logged = loggedText(logErrorSpy);
+    expect(logged).not.toContain(MAIL_PASSWORD);
+    expect(logged).toContain('ECONNECTION');
   });
 });

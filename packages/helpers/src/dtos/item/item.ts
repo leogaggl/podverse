@@ -55,8 +55,7 @@ export interface DTOItem {
   verified_publishers?: DTOVerifiedPublisher[];
   /**
    * Publishers verified on this item's whole channel, primary first. Set only by by-channel item
-   * lists, whose items carry no embedded `channel`; absent elsewhere and on items stored before
-   * the field existed.
+   * lists, whose items carry no embedded `channel`. Absent on other responses.
    */
   channel_wide_verified_publishers?: DTOVerifiedPublisher[];
 }

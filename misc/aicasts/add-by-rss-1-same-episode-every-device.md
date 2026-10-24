@@ -1,8 +1,10 @@
 # Add by RSS 1: The Same Episode on Every Device
 
-- **Version:** 2026-10-20T09:36-05:00
+- **Version:** 2026-10-23T21:34-05:00
 - **Episode ID:** add-by-rss-same-episode-every-device
-- **Changed:** First version.
+- **Changed:** Sources no longer cite `0020_add_by_rss_feed_identity.sql`, and the script no
+  longer says migration twenty rehashed stored rows or moved the readiness marker. Regenerate
+  the audio.
 - **Description:** How an Add by RSS episode gets one id on every device, how the phone records
   its playback, and how the website picks up that episode at the phone's position without ever
   swapping out what it is already playing.
@@ -10,14 +12,13 @@
 - **Group:** Add by RSS, part 1
 - **Sources:** `.llm/plans/completed/add-by-rss-cross-device/`;
   `packages/helpers/src/lib/addByRSSHash.ts`,
-  `infra/k8s/base/ops/source/database/linear-migrations/app/0020_add_by_rss_feed_identity.sql`,
   `apps/mobile/src/playback/playbackEventSource.ts`,
   `apps/web/src/hooks/useMediaPlayerControllerQueueHeadLoading.ts`,
   `apps/web/src/utils/addByRSS/playFromQueueResource.ts`,
   `apps/web/src/hooks/useAddByRSSMetadataUpgrade.ts`,
   `apps/web/src/utils/addByRSS/backgroundRefresh.ts`,
   `apps/workers/src/lib/addByRSS/applyAddByRSSFollowMetadata.ts`
-- **Length:** about 10 minutes (1,494 words)
+- **Length:** about 9 minutes (1,380 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -69,13 +70,9 @@ TOM: Any traps in that?
 
 CLAIRE: Two. When a feed has no guid for an item, the device makes one up from its own channel id and the item's position. That guid differs per device too, so the new form treats it as no guid and falls back to the audio URL. And the hash is taken over JSON text, so the order of the keys is part of the contract.
 
-TOM: What about rows stored before this?
+TOM: What if a stored payload has no feed URL?
 
-CLAIRE: A payload without a feed URL keeps the old form, and the website matches both forms for its own feeds. Migration twenty rehashes every stored queue and playlist row that does carry a feed URL. It adds a SQL function that reproduces the JavaScript hash byte for byte, and a database test proves they match.
-
-TOM: Rehashing could make two rows the same.
-
-CLAIRE: So it removes duplicates first. In a queue, it keeps the row closest to now playing, then the one with the furthest playback position, then the newest. In a playlist, it keeps the entry nearest the top and lowers the playlist's item count. The API also recomputes the id from the resource data on every write, so the value a client sends is only advisory. An older website build talking to a newer API still works.
+CLAIRE: It keeps the older hash form, and the website matches both forms for its own feeds. The database has SQL functions that reproduce the JavaScript hash byte for byte, and an API test proves they match. The API recomputes the id from the resource data on every write, so the value a client sends is only advisory.
 
 (pause)
 
@@ -131,10 +128,6 @@ CLAIRE: The start time is saved before the work begins, so the second tab sees i
 
 (pause)
 
-TOM: Rollout?
-
-CLAIRE: Migration twenty runs with the API, and the readiness markers move to it. Ship the website and the API together. The phone records Add by RSS playback only after the next store build.
-
-TOM: To remember. One: an Add by RSS episode's id is the feed URL plus the guid, or plus the audio URL, the same on every device. Two: the server recomputes that id, and migration twenty rehashed stored rows and dropped duplicates. Three: the phone records Add by RSS playback through its outbox, on the podcast queue when there's no medium. Four: the website never loads a different item over one it holds. Five: the website plays a phone's episode from the row's data, then fills it in when its own parse lands.
+TOM: To remember. One: an Add by RSS episode's id is the feed URL plus the guid, or plus the audio URL, the same on every device. Two: the server recomputes that id from the resource data on every write. Three: the phone records Add by RSS playback through its outbox, on the podcast queue when there's no medium. Four: the website never loads a different item over one it holds. Five: the website plays a phone's episode from the row's data, then fills it in when its own parse lands.
 
 CLAIRE: One episode, one id, and nothing swapped out from under the listener. Next part: what the website does when a host won't let it play.

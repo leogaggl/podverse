@@ -7,7 +7,6 @@ import {
   addByRssPublisherRefsFromMappedFeed,
   parseStoredPublisherDirectoryMatches,
   parseStoredPublisherGuids,
-  publisherRefUpdatesFromStoredRows,
 } from './publisherRefs';
 
 const FEED_URL = 'https://example.com/album.xml';
@@ -96,22 +95,5 @@ describe('stored publisher parsers', () => {
         ])
       )
     ).toEqual([valid]);
-  });
-});
-
-describe('publisherRefUpdatesFromStoredRows', () => {
-  it('writes guid columns for bundles that parse and skips the rest', () => {
-    const mapped = mappedBundle({
-      guid: 'Album',
-      podcastPublisher: { feedGuid: 'Artist', feedUrl: ARTIST_URL },
-    });
-
-    expect(
-      publisherRefUpdatesFromStoredRows([
-        { feedUrl: FEED_URL, mappedFeedJson: JSON.stringify(mapped) },
-        { feedUrl: 'https://example.com/broken.xml', mappedFeedJson: '{' },
-        { feedUrl: 'https://example.com/empty.xml', mappedFeedJson: null },
-      ])
-    ).toEqual([{ feedUrl: FEED_URL, podcastGuid: 'album', publisherGuidsJson: '["artist"]' }]);
   });
 });

@@ -1,4 +1,4 @@
-// Re-export logger from context for backwards compatibility
+// Re-export logger from context
 // Apps should use createORMContext() and access loggerService from the returned context
 import { getLoggerService } from '@orm/context.js';
 

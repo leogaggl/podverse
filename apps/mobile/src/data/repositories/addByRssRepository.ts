@@ -796,8 +796,7 @@ export const addByRssRepository = {
    * at the same moment and for the same reason — reading it when the list is drawn would mean
    * deserializing a whole feed per row. The livestreams flag is derived at the same moment and is
    * never cleared. The resource type is derived from that same bundle with
-   * `getAddByRSSResourceTypeFromMappedFeed`, the helper web uses after a parse. Opening the
-   * database uses that helper once to set `resource_type` from bundles already stored. The feed's
+   * `getAddByRSSResourceTypeFromMappedFeed`, the helper web uses after a parse. The feed's
    * `podcast:guid` and publisher guids come from the same bundle.
    *
    * `followed` is written only when the record sets it: an update without it keeps the stored

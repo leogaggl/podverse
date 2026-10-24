@@ -2,7 +2,7 @@
 
 **Master step:** P2.1.6
 **Model (author + implement):** Codex 5.3
-**Status:** planned
+**Status:** done
 
 ## Scope
 
@@ -16,9 +16,10 @@ Introduce a `playlistRepository` and SQLite cache so playlist screens stop calli
 [`useAddToPlaylist`](apps/mobile/src/screens/library/useAddToPlaylist.tsx) all hit the API from the
 screen. There is no playlist table; Offline Mode shows the generic unavailable message.
 
-### Schema (migration 17)
+### Schema
 
-Add forward-only migration **17** after the current latest (`16` in
+`playlist` and `playlist_resource` are in the mobile SQLite schema
+(`apps/mobile/src/data/db/schema.ts`, applied by the first migration in
 [`migrations.ts`](apps/mobile/src/data/db/migrations.ts)):
 
 | Table               | Purpose                                                                |
@@ -67,7 +68,7 @@ queue step 01 widens `queueResourceToHomeRow`: dispatch on resource type, render
 
 ## Acceptance criteria
 
-- Migration 17 creates `playlist` and `playlist_resource`; `LATEST_MIGRATION_VERSION` is 17.
+- `playlist` and `playlist_resource` are in the mobile SQLite schema.
 - Screens and `useAddToPlaylist` read and write through `playlistRepository` only.
 - Followed-playlist car browse hydration uses the repository.
 - Offline Mode can list cached playlists; a write while Offline Mode is on surfaces the unavailable

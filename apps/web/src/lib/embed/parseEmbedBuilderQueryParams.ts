@@ -4,14 +4,12 @@ import { QUERY_PARAMS_STATS_RANGE_VALUES } from '@podverse/helpers-requests';
 
 import { parsePlaybackSeconds } from '../playback';
 import { DEFAULT_EMBED_BORDER_COLOR, sanitizeEmbedBorderColor } from './embedBorderColor';
-import type { EmbedBuilderQueryParams } from './embedBuilderTypes';
+import type { EmbedBuilderPlayerSize, EmbedBuilderQueryParams } from './embedBuilderTypes';
 import {
-  decomposeEmbedBuilderType,
   EMBED_BUILDER_LIST_CONTENT_TYPES,
   EMBED_BUILDER_LIST_SORT_VALUES,
   EMBED_BUILDER_PLAYER_SIZES,
   normalizeEmbedBuilderParamsForSource,
-  normalizeEmbedBuilderType,
 } from './embedBuilderTypes';
 import { normalizeEmbedSearchParams } from './normalizeEmbedSearchParams';
 import { parseEmbedAspectRatio } from './parseEmbedAspectRatio';
@@ -20,28 +18,12 @@ import { parseEmbedListEnabled } from './parseEmbedListEnabled';
 import { EMBED_LIST_VISIBLE_ROWS_DEFAULT, parseEmbedListRows } from './parseEmbedListRows';
 import { resolveDefaultMediaPreferenceForPlayerSize } from './resolveEmbedBuilderPresentation';
 
-function parsePlayerSizeValue(value: unknown): (typeof EMBED_BUILDER_PLAYER_SIZES)[number] {
-  if (typeof value === 'string') {
-    const normalized = normalizeEmbedBuilderType(value);
-    if (normalized !== undefined) {
-      return decomposeEmbedBuilderType(normalized).playerSize;
-    }
+function parsePlayerSizeValue(value: unknown): EmbedBuilderPlayerSize {
+  if (value === 'compact' || value === 'responsive') {
+    return value;
   }
 
   return 'compact';
-}
-
-function parseListEnabledFromTypeValue(value: unknown): boolean | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = normalizeEmbedBuilderType(value);
-  if (normalized === undefined) {
-    return undefined;
-  }
-
-  return decomposeEmbedBuilderType(normalized).listEnabled;
 }
 
 const builderQuerySchema = z.object({
@@ -113,9 +95,7 @@ export function parseEmbedBuilderQueryParams(
 ): EmbedBuilderQueryParams {
   const normalized = normalizeEmbedSearchParams(raw);
   const parsed = parseSchemaWithDefaults(raw);
-  const listFromParam = parseEmbedListEnabled(normalized.list);
-  const listFromType = parseListEnabledFromTypeValue(normalized.type);
-  const listEnabled = listFromParam ?? listFromType ?? false;
+  const listEnabled = parseEmbedListEnabled(normalized.list) ?? false;
   const playerSize = parsed.type;
   const mediaPreference = parsed.prefer ?? resolveDefaultMediaPreferenceForPlayerSize(playerSize);
   const params: EmbedBuilderQueryParams = {

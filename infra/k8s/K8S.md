@@ -202,7 +202,7 @@ change k8s YAML (CI `validate` also enforces lint).
 
 ### Important
 
-- **Do not** add `infra/k8s/` back to `.prettierignore` (it was previously ignored but now uses overrides)
+- **Do not** add `infra/k8s/` to `.prettierignore`. K8s files use the k8s Prettier overrides.
 - K8s files are intentionally included in normal Prettier runs with their own overrides
 - See `.cursor/skills/k8s/SKILL.md` and `.cursor/rules/infra-k8s.mdc` for full patterns
 

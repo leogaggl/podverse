@@ -14,7 +14,7 @@ This spike proves **cache readability only**. The full Android Auto browse tree 
 - `android/.../PodverseNativeCache.kt`
   - `read(context, kind)` — file read of each payload; returns `null` (never throws) when absent.
   - `debugDump(context)` — reads all three kinds and `Log.i(TAG, …)`s a one-line summary
-    (`debugDump queue=present(bytes:…,schemaVersion:1) downloads=… library_browse=…`).
+    (`debugDump queue=present(bytes:…,schemaVersion:2) downloads=… library_browse=…`).
 - `android/.../PodverseMediaLibraryService.kt`
   - `onCreate()` now calls `PodverseNativeCache.debugDump(this)`. Android Auto / DHU starts **this
     service** (a `MediaLibraryService`), **not** the Activity — so this log fires with the Activity
@@ -28,9 +28,10 @@ App-private internal storage (survives force-stop, removed on uninstall / clear-
 
 ```
 <filesDir>/native-cache/
-  queue-snapshot.json
+  queue-snapshot-av.json
+  queue-snapshot-music.json
   downloads-index.json
-  library-browse-index.json
+  library-index.json
 ```
 
 No Google Play Services dependency.
@@ -58,7 +59,7 @@ adb logcat -s PodverseNativeCache:I
 
 4. Launch the DHU and connect Android Auto. The head unit binds to
    `PodverseMediaLibraryService`, whose `onCreate` runs `debugDump` before any JS.
-5. Confirm the `debugDump queue=present(…schemaVersion:1) downloads=… library_browse=…` line
+5. Confirm the `debugDump queue=present(…schemaVersion:2) downloads=… library_browse=…` line
    appears in logcat with non-zero byte counts — read by native code with the app force-stopped.
 
 ### Alternate proof (no DHU) — force-stop + service start via logcat
@@ -81,11 +82,11 @@ media controller that binds the service. Minimal repeatable variant:
 
 ```bash
 adb shell run-as com.podverse.app.next ls -la files/native-cache
-adb shell run-as com.podverse.app.next cat files/native-cache/queue-snapshot.json | head -c 400; echo
+adb shell run-as com.podverse.app.next cat files/native-cache/queue-snapshot-av.json | head -c 400; echo
 ```
 
 Confirm each file exists and its JSON starts with the versioned envelope
-(`{"schemaVersion":1,"updatedAtMs":…,"payload":…}`, detail 380).
+(`{"schemaVersion":2,"updatedAtMs":…,"payload":…}`, detail 380).
 
 ## Evidence
 

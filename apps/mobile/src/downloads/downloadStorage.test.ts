@@ -56,7 +56,7 @@ describe('toStoredDownloadFileName', () => {
     expect(toStoredDownloadFileName('itemABC.mp3')).toBe('itemABC.mp3');
   });
 
-  it('strips a legacy absolute file URI to the file name', () => {
+  it('strips an absolute file URI down to the file name', () => {
     expect(
       toStoredDownloadFileName(
         'file:///var/mobile/Containers/Data/Application/UUID/Documents/downloads/itemABC.mp3'
@@ -72,12 +72,9 @@ describe('resolveStoredDownloadFilePath', () => {
     );
   });
 
-  it('rebases a legacy absolute path onto the current document directory', () => {
-    expect(
-      resolveStoredDownloadFilePath(
-        'file:///old/Containers/UUID/Documents/downloads/itemABC.mp3',
-        'file:///docs/'
-      )
-    ).toBe(`file:///docs/${DOWNLOADS_SUBDIRECTORY}/itemABC.mp3`);
+  it('joins downloads/itemABC.mp3 and itemABC.mp3 to the same path', () => {
+    expect(resolveStoredDownloadFilePath('downloads/itemABC.mp3', 'file:///docs/')).toBe(
+      resolveStoredDownloadFilePath('itemABC.mp3', 'file:///docs/')
+    );
   });
 });

@@ -213,19 +213,27 @@ describe('Add by RSS feed identity (real database)', () => {
     );
   });
 
-  it('moves a row written before feed identity instead of adding a second one', async () => {
-    const account = await seedAccount('legacy-row', runId);
-    const legacyData = { channel_id_text: 'legacyChan1', guid: 'legacy-episode', title: 'Legacy' };
+  it('updates one queue row when the stored hash has no feed_url and the same episode is added with one', async () => {
+    const account = await seedAccount('no-feed-url', runId);
+    const storedWithoutFeedUrl = {
+      channel_id_text: 'legacyChan1',
+      guid: 'legacy-episode',
+      title: 'Legacy',
+    };
     await query(
       `INSERT INTO public.queue_resource (queue_id, list_position, add_by_rss_resource_data, add_by_rss_hash_id)
        VALUES ($1, 1, $2::jsonb, $3)`,
-      [account.queueId, JSON.stringify(legacyData), getAddByRSSHashId(legacyData)]
+      [
+        account.queueId,
+        JSON.stringify(storedWithoutFeedUrl),
+        getAddByRSSHashId(storedWithoutFeedUrl),
+      ]
     );
 
     const res = await request(app)
       .post(`${queueBase}/${account.queueIdText}/item-add-by-rss/last`)
       .set(authHeaders(account.accountId, account.accountIdText))
-      .send({ add_by_rss_resource_data: { ...legacyData, feed_url: FEED_URL } });
+      .send({ add_by_rss_resource_data: { ...storedWithoutFeedUrl, feed_url: FEED_URL } });
     expect(res.status).toBe(201);
 
     const rows = await queueAddByRSSRows(account.queueId);

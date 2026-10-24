@@ -1,5 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { loggerService } from '@api/factories/loggerService.js';
+
+import { POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS } from '@podverse/helpers';
 import {
   applyPodverseTestEnv,
   buildPodverseApiTestEnv,
@@ -22,6 +25,29 @@ const restoreProcessEnv = (snapshot: Record<string, string | undefined>): void =
     } else {
       process.env[key] = value;
     }
+  }
+};
+
+const startupFailureMessage =
+  'FATAL: 1 environment variable(s) failed validation. Please check the validation output above for details.';
+
+/** Assert the rejection and keep its report off the test reporter. */
+const expectStartupToRejectRecountWindow = (recountDays: number, retentionDays: number): void => {
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  const loggerError = vi.spyOn(loggerService, 'error').mockImplementation(() => undefined);
+  try {
+    expect(() => validateStartupRequirements()).toThrow(startupFailureMessage);
+    const printed = consoleError.mock.calls
+      .map((call) => call.map((part) => String(part)).join(' '))
+      .join('\n');
+    const detail =
+      `STATS_ALL_TIME_RECOUNT_DAYS (${recountDays}) is greater than ` +
+      `STATS_TRACK_EVENT_RETENTION_DAYS (${retentionDays})`;
+    expect(printed).toContain(detail);
+    expect(loggerError).toHaveBeenCalledWith(startupFailureMessage);
+  } finally {
+    consoleError.mockRestore();
+    loggerError.mockRestore();
   }
 };
 
@@ -51,14 +77,14 @@ describe('podverse test env startup validation', () => {
     applyPodverseTestEnv(buildPodverseApiTestEnv({ profile: 'apiVitest' }));
     process.env.STATS_TRACK_EVENT_RETENTION_DAYS = '60';
     process.env.STATS_ALL_TIME_RECOUNT_DAYS = '61';
-    expect(() => validateStartupRequirements()).toThrow();
+    expectStartupToRejectRecountWindow(61, 60);
   });
 
   it('fails startup when only the retention is lowered below the default recount period', () => {
     applyPodverseTestEnv(buildPodverseApiTestEnv({ profile: 'apiVitest' }));
     process.env.STATS_TRACK_EVENT_RETENTION_DAYS = '60';
     delete process.env.STATS_ALL_TIME_RECOUNT_DAYS;
-    expect(() => validateStartupRequirements()).toThrow();
+    expectStartupToRejectRecountWindow(POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS, 60);
   });
 
   it('passes startup when STATS_ALL_TIME_RECOUNT_DAYS equals STATS_TRACK_EVENT_RETENTION_DAYS', () => {

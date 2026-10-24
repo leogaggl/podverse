@@ -63,15 +63,11 @@ export const HOME_VIEW_MODES = ['list', 'grid'] as const;
 export type HomeViewMode = (typeof HOME_VIEW_MODES)[number];
 
 /**
- * List, deliberately — the previous-generation app opened on grid.
- *
- * A grid tile is artwork alone, which only identifies a show to someone who already recognises its
- * cover. Rows name every subscription, so the list is what a new install can actually read.
+ * List is the default. A grid tile is artwork alone, which only identifies a show to someone who
+ * already recognises its cover. Rows name every subscription, so the list is what a new install
+ * can actually read.
  */
 export const DEFAULT_HOME_VIEW_MODE: HomeViewMode = 'list';
-
-/** Screen-wide list/grid value used when a media type has no viewMode of its own. */
-const HOME_VIEW_MODE_SCOPE: SortPrefScope = { kind: 'list', name: 'home-layout' };
 
 /** Every Home list except Livestreams offers the same three orders. */
 export const isHomeSortableMediaType = (mediaType: HomeMediaType): boolean => {
@@ -117,8 +113,8 @@ export type HomeListPrefs = {
 /**
  * List vs grid for one Home media type.
  *
- * Read order: this type's stored `viewMode`, then `home-layout`, then the podcasts-scoped
- * `viewMode`, then the default list.
+ * Read order: this type's stored `viewMode`, then the podcasts `viewMode` when this type has
+ * none, then the default list.
  */
 export const readHomeViewMode = async (mediaType: HomeMediaType): Promise<HomeViewMode> => {
   if (isChannelListViewModeType(mediaType)) {
@@ -126,11 +122,6 @@ export const readHomeViewMode = async (mediaType: HomeMediaType): Promise<HomeVi
     if (stored?.viewMode !== undefined && isHomeViewMode(stored.viewMode)) {
       return stored.viewMode;
     }
-  }
-
-  const homeLayout = await readSortPref(HOME_VIEW_MODE_SCOPE);
-  if (homeLayout?.viewMode !== undefined && isHomeViewMode(homeLayout.viewMode)) {
-    return homeLayout.viewMode;
   }
 
   const podcasts = await readSortPref(directoryListViewModeScope('podcasts'));
@@ -187,8 +178,7 @@ export const writeHomeViewMode = async (
  * Watch this media type's preferences.
  *
  * The sort screen writes the preference and Home reads it back, so neither has to hand the other a
- * value and the two cannot disagree about what is selected. `home-layout` is a read-only fallback
- * for types without their own viewMode.
+ * value and the two cannot disagree about what is selected.
  */
 export const subscribeHomeListPrefs = (
   mediaType: HomeMediaType,

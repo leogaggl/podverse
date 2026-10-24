@@ -12,7 +12,7 @@ describe('buildEmbedIframeCode', () => {
     expect(EMBED_IFRAME_ALLOW).toBe('autoplay');
   });
 
-  it('emits allow from EMBED_IFRAME_ALLOW and omits legacy encrypted-media', () => {
+  it('emits allow from EMBED_IFRAME_ALLOW', () => {
     const code = buildEmbedIframeCode('https://example.test/embed/episode/demo-item');
 
     expect(code).toContain(`allow="${EMBED_IFRAME_ALLOW}"`);

@@ -5,7 +5,7 @@ import { ScheduledJobService } from '@orm/services/account/scheduledJob.js';
 
 export const FEED_FORCE_REPARSE_JOB_TYPE = 'feed-force-reparse';
 
-export type FeedForceReparseReason = 'description_tier_change' | 'description_backfill';
+export type FeedForceReparseReason = 'description_tier_change';
 
 export type FeedForceReparsePayload = {
   feedId: number;
@@ -14,7 +14,6 @@ export type FeedForceReparsePayload = {
 
 const FEED_FORCE_REPARSE_REASONS: ReadonlySet<string> = new Set<FeedForceReparseReason>([
   'description_tier_change',
-  'description_backfill',
 ]);
 
 const isFeedForceReparseReason = (value: unknown): value is FeedForceReparseReason =>

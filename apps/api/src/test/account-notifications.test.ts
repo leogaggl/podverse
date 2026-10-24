@@ -472,7 +472,7 @@ describe('account notifications routes', () => {
     expect(response.body.code).toBe('feature_not_available_for_account_type');
   });
 
-  it('POST /account-settings/notification-type still supports legacy notification-type route', async () => {
+  it('POST /account-settings/notification-type creates the account notification type', async () => {
     const response = await request(app)
       .post(`${accountSettingsBase}/notification-type`)
       .set(authHeaders(TEST_USER_ID))

@@ -75,8 +75,9 @@ export const toStoredDownloadFileName = (absoluteOrRelativePath: string): string
 };
 
 /**
- * Resolve a stored download path (file name, `downloads/<name>`, or legacy absolute `file://`)
- * against the current document directory. Returns an absolute `file://` URI when possible.
+ * Resolve a stored download path (a file name or `downloads/<name>`) against the current document
+ * directory. An empty value stays empty. A `downloads/` prefix is dropped, then the file name
+ * joins through `buildDownloadFilePath`.
  */
 export const resolveStoredDownloadFilePath = (
   storedPath: string,
@@ -86,17 +87,7 @@ export const resolveStoredDownloadFilePath = (
   if (trimmed === '') {
     return trimmed;
   }
-  if (trimmed.startsWith('file://') || trimmed.startsWith('content://')) {
-    // Legacy absolute rows: rebase by file name onto the current container.
-    const fileName = toStoredDownloadFileName(trimmed);
-    return buildDownloadFilePath(documentDirectory, fileName);
-  }
-  if (trimmed.startsWith('/')) {
-    const fileName = toStoredDownloadFileName(trimmed);
-    return buildDownloadFilePath(documentDirectory, fileName);
-  }
-  const relative = trimmed.startsWith(`${DOWNLOADS_SUBDIRECTORY}/`)
-    ? trimmed.slice(DOWNLOADS_SUBDIRECTORY.length + 1)
-    : trimmed;
-  return buildDownloadFilePath(documentDirectory, relative);
+  const prefix = `${DOWNLOADS_SUBDIRECTORY}/`;
+  const fileName = trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed;
+  return buildDownloadFilePath(documentDirectory, fileName);
 };

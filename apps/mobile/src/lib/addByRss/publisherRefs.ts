@@ -2,9 +2,6 @@ import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
 import { safeJsonParse } from '../../data/db/serialization';
 
-/** `kv_meta` key set after stored Add by RSS feeds take their guid columns from the saved bundle. */
-export const ADD_BY_RSS_PUBLISHER_REFS_PASS_KEY = 'add_by_rss_publisher_refs_v1';
-
 export type AddByRssPublisherPointer = { feedGuid: string; feedUrl: string | null };
 
 export type AddByRssPublisherRefs = {
@@ -38,8 +35,8 @@ const normalizeUrl = (value: string | null | undefined): string | null => {
 };
 
 /**
- * The feed's own `podcast:guid` and its publisher pointers. Reads stored bundles defensively: a
- * bundle written before publisher pointers were mapped has no list and yields none.
+ * The feed's own `podcast:guid` and its publisher pointers. A bundle with no publisher list yields
+ * none.
  */
 export const addByRssPublisherRefsFromMappedFeed = (
   mappedFeed: AddByRSSMappedFeed
@@ -107,33 +104,4 @@ export const publisherRefColumnsFromMappedFeed = (
     podcastGuid: refs.podcastGuid,
     publisherGuidsJson: JSON.stringify(refs.publisherPointers.map((pointer) => pointer.feedGuid)),
   };
-};
-
-export type StoredAddByRssPublisherRefsRow = {
-  feedUrl: string;
-  mappedFeedJson: string | null;
-};
-
-export type AddByRssPublisherRefsUpdate = {
-  feedUrl: string;
-  podcastGuid: string | null;
-  publisherGuidsJson: string;
-};
-
-/** Guid columns for every stored bundle that parses. A missing or unreadable bundle is skipped. */
-export const publisherRefUpdatesFromStoredRows = (
-  rows: readonly StoredAddByRssPublisherRefsRow[]
-): AddByRssPublisherRefsUpdate[] => {
-  const updates: AddByRssPublisherRefsUpdate[] = [];
-  for (const row of rows) {
-    if (row.mappedFeedJson === null) {
-      continue;
-    }
-    const mappedFeed = safeJsonParse<AddByRSSMappedFeed>(row.mappedFeedJson);
-    if (mappedFeed === null || typeof mappedFeed !== 'object') {
-      continue;
-    }
-    updates.push({ feedUrl: row.feedUrl, ...publisherRefColumnsFromMappedFeed(mappedFeed) });
-  }
-  return updates;
 };
