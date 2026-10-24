@@ -191,7 +191,8 @@ describe('account CRUD and email routes', () => {
 
   describe('POST /account (create)', () => {
     beforeEach(() => {
-      createMock.mockClear();
+      createMock.mockReset();
+      createMock.mockResolvedValue({});
       sendVerificationEmailMock.mockReset();
       sendVerificationEmailMock.mockResolvedValue('sent');
       probeVerificationMailerMock.mockReset();
@@ -341,8 +342,6 @@ describe('account CRUD and email routes', () => {
     });
 
     it('returns 429 when rate limit is exceeded', async () => {
-      createMock.mockRejectedValue(new Error('Rate limited test'));
-
       let limitedResponse: request.Response | null = null;
 
       for (let i = 0; i < 120; i++) {
@@ -357,6 +356,8 @@ describe('account CRUD and email routes', () => {
           limitedResponse = res;
           break;
         }
+
+        expect(res.status).toBe(200);
       }
 
       expect(limitedResponse?.status).toBe(429);
