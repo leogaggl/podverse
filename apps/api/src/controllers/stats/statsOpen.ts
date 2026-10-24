@@ -4,14 +4,21 @@ import {
   STATS_TARGET_NOT_FOUND_BODY,
   TASTE_PROFILE_CONSENT_REQUIRED_BODY,
 } from '@api/controllers/stats/statsListen.js';
-import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
+import {
+  ensureAuthenticated,
+  getAuthenticatedUser,
+  sendCapabilityMissing,
+} from '@api/lib/auth/index.js';
 import { assertListenStatsAllowed, ListenStatsOptedOutError } from '@api/lib/legal/listenStats.js';
 import { validateBodyObject } from '@api/lib/validation/index.js';
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
 import type { PopularityOpenResult } from '@podverse/helpers';
-import { ACCOUNT_ENTITLEMENT_CAPABILITY } from '@podverse/helpers';
+import {
+  ACCOUNT_ENTITLEMENT_CAPABILITY,
+  membershipCountsTowardPopularity,
+} from '@podverse/helpers';
 import type { StatsOpenTarget } from '@podverse/orm';
 import { StatsOpenWriteService } from '@podverse/orm';
 
@@ -58,6 +65,17 @@ export class StatsOpenController {
         validateBodyObject(bodySchema, req, res, async () => {
           const jwtUser = getAuthenticatedUser(req);
           const body: StatsOpenBody = req.body;
+          const membershipId = jwtUser.account_membership_id;
+          const countsTowardPopularity =
+            membershipId !== undefined &&
+            membershipCountsTowardPopularity(
+              membershipId,
+              jwtUser.entitlements?.trackStats === true
+            );
+          if (!countsTowardPopularity) {
+            sendCapabilityMissing(res);
+            return;
+          }
 
           try {
             await assertListenStatsAllowed(jwtUser.id);

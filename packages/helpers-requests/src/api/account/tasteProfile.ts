@@ -1,7 +1,9 @@
 import type {
+  DTOAccountRecommendation,
   DTOAccountTasteProfileHiddenList,
   DTOAccountTasteProfileList,
   DTOAccountTasteProfileShowState,
+  RecommendationChip,
 } from '@podverse/helpers';
 
 import type { ApiRequestService } from '../_request.js';
@@ -71,6 +73,39 @@ export const reqAccountTasteProfileUnhide = (
   return api
     .apiRequest<{ data: DTOAccountTasteProfileShowState }>({
       path: '/account/taste-profile/unhide',
+      method: 'POST',
+      data: params,
+      config: {
+        withCredentials: true,
+      },
+    })
+    .then((response) => response.data);
+};
+
+export const reqAccountRecommendations = (
+  api: ApiRequestService,
+  params: { chip: RecommendationChip }
+): Promise<DTOAccountRecommendation[]> => {
+  const query = new URLSearchParams();
+  query.set('chip', params.chip);
+  return api
+    .apiRequest<{ data: { items: DTOAccountRecommendation[] } }>({
+      path: `/account/recommendations?${query.toString()}`,
+      method: 'GET',
+      config: {
+        withCredentials: true,
+      },
+    })
+    .then((response) => response.data.items);
+};
+
+export const reqAccountTasteProfileSetWeight = (
+  api: ApiRequestService,
+  params: { channel_id_text: string; weight: number }
+): Promise<{ channel_id_text: string; weight: number }> => {
+  return api
+    .apiRequest<{ data: { channel_id_text: string; weight: number } }>({
+      path: '/account/taste-profile/weight',
       method: 'POST',
       data: params,
       config: {

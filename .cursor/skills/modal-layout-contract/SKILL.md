@@ -18,9 +18,12 @@ inside modals in **apps/web**, **apps/management-web**, or **`packages/ui`** she
   **`min-width: 0`** so children cannot widen the panel.
 - **`Modal.Actions`** — **the** standard footer for cancel/submit (and similar) inside **`Modal`**:
   **`justify-content: flex-end`**, **`flex-wrap: wrap`**, **`gap: var(--spacing-2xl)`**. Use in **both** web and
-  management-web so confirm dialogs match the web baseline (right-aligned group).
-- **`stack`** on **`Modal.Actions`** switches that footer to a full-width column (same gap, DOM order
-  top to bottom). Use it when a row of actions is the wrong shape for that dialog. The default stays the row.
+  management-web so confirm dialogs match the web baseline (right-aligned group). The same rules live in
+  **`formButtonsWrapper`**, which **`FormPrimaryActions`** uses for page forms.
+- **Narrow viewports** (the `mobile` mixin, max-width 767px) stack that footer into a full-width column.
+  Secondary stays above primary, matching DOM order. Wider viewports keep the horizontal row.
+- **`stack`** on **`Modal.Actions`** forces that full-width column at every width. Use it when a row of
+  actions is the wrong shape for that dialog. Omit it for the responsive row.
 - **Do not** use **`formButtonsWrapper`** / ad hoc **`display: flex; justify-content: flex-end`** rows for modal
   footers — use **`Modal.Actions`** (or **`DeleteConfirmModalShell`** / **`GoToPageModal`** which already compose it).
 - **Do not** add **`overflow-x: hidden`** on the modal to mask overflow — fix the child (`min-width: 0` on flex

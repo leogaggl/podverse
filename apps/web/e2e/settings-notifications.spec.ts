@@ -73,6 +73,15 @@ test.describe('Settings: notification subscribe defaults', () => {
       await expect(newItem).toBeVisible();
       await expect(livestreamScheduled).toBeVisible();
       await expect(livestreamStarted).toBeVisible();
+      await expect(page.getByRole('switch', { name: 'Unified Push' })).toHaveCount(0);
+      const pushPreferences = page.getByRole('checkbox', { name: 'Push' });
+      await expect(pushPreferences.first()).toBeVisible();
+      const pushCount = await pushPreferences.count();
+      expect(pushCount).toBeGreaterThan(0);
+      for (let index = 0; index < pushCount; index += 1) {
+        await expect(pushPreferences.nth(index)).toBeDisabled();
+      }
+      await expect(page.getByText('Enable Web Push or Unified Push first.')).toBeVisible();
 
       await capturePageLoad(
         page,

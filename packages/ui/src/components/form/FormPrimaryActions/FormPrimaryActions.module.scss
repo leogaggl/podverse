@@ -1,9 +1,5 @@
-@use '../../../styles/variables' as *;
+@use '../../../styles/mixins/form' as *;
 
 .actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: $spacing-lg;
+  @include formButtonsWrapper;
 }

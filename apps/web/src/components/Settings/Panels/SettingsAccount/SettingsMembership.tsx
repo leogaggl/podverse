@@ -10,7 +10,7 @@ import {
   membershipPurchaseAction,
   membershipPurchaseMessageKey,
 } from '@podverse/helpers';
-import { ActionLink, Alert } from '@podverse/ui';
+import { ActionLink, Alert, Button } from '@podverse/ui';
 
 import { ROUTES } from '../../../../constants/routes';
 import { getApiRequestService } from '../../../../factories/apiRequestService';
@@ -87,13 +87,13 @@ export function SettingsMembership({ showCheckoutActions = true }: SettingsMembe
             </dl>
             {showCheckoutActions ? (
               <div className={styles.actions}>
-                <ActionLink href={ROUTES.CHECKOUT} LinkComponent={Link}>
+                <Button href={ROUTES.CHECKOUT} variant="success">
                   {tMembership(
                     membershipPurchaseMessageKey(
                       membershipPurchaseAction({ isLoggedIn: true, tier: status.tier })
                     )
                   )}
-                </ActionLink>
+                </Button>
                 <ActionLink href={ROUTES.MEMBERSHIP} LinkComponent={Link}>
                   {t('compare_plans')}
                 </ActionLink>

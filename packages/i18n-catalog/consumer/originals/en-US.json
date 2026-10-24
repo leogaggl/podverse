@@ -132,6 +132,16 @@
       "browse": "Browse",
       "users": "Users"
     },
+    "recommendations": {
+      "title": "Recommendations",
+      "empty": "No recommendations yet.",
+      "need_taste_profile": "Recommendations use your Taste Profile. Turn it on to start building them.",
+      "enable": "Taste Profile Settings",
+      "check_back": "Recommendations appear after you listen, on the next nightly update.",
+      "paused": "Taste Profile is off, so these recommendations will not update. Turn it on to keep them current.",
+      "strength": "Recommendation weight {level} of 5",
+      "load_error": "Could not load recommendations. Please try again."
+    },
     "my_library": "My Library",
     "queue": {
       "queue": "Queue",
@@ -484,7 +494,8 @@
       "off": "Off",
       "minutes_15": "15 min",
       "minutes_30": "30 min",
-      "minutes_60": "60 min"
+      "minutes_60": "60 min",
+      "sleep_timer_with_value": "Sleep Timer: {value}"
     },
     "repeat": {
       "toggle_repeat": "Toggle Repeat",
@@ -719,6 +730,13 @@
     "load_error": "Could not load your Taste Profile. Please try again.",
     "hidden_load_error": "Could not load your hidden shows. Please try again.",
     "load_more_error": "Could not load more shows. Please try again.",
+    "affects_title": "Shows That Affect Recommendations",
+    "affects_description": "Shows your listening has added. A higher weight gives that show more say in your recommendations.",
+    "weight_label": "Weight",
+    "weight_apply": "Apply Weight",
+    "weight_apply_accessible": "Apply Weight for {title}",
+    "weight_automatic": "Automatic from your listens",
+    "weight_accessible": "Weight {level} for {title}",
     "action_error": "Could not update your Taste Profile. Please try again."
   },
   "misc": {
@@ -988,6 +1006,7 @@
     "pricing_save_percent": "Save {percent}%",
     "pricing_percent_off": "{percent}% off",
     "contact_mode_text_before": "To get a membership, please contact us at",
+    "contact_questions_text_before": "If you have questions, please contact us at",
     "cta_sign_up_text": "Sign Up to Start Trial Status",
     "cta_upgrade_text": "Upgrade to Premium",
     "buy_membership": "Buy Membership",
@@ -1004,6 +1023,8 @@
     "coming_soon": "Coming Soon",
     "mobile_only": "Mobile Only",
     "mobile_only_legend": "Feature is only available in the mobile app",
+    "free_on_mobile_legend": "Free tier is available on the mobile app only. Premium includes the website.",
+    "available_on_mobile_app": "Available on the mobile app",
     "comparison_name_mobile_only": "{name}*",
     "comparison": {
       "subscribe": "Subscribe to Podcasts",
@@ -1021,11 +1042,15 @@
       "sleep_timer": "Sleep Timer",
       "screen_reader": "Screen-Reader Accessibility",
       "sync": "Sync Across Devices",
+      "playback_handoff": "Playback Handoff",
+      "queue": "Queue and History",
       "notifications": "Notifications",
       "clips": "Create and Share Clips",
       "playlists": "Create and Share Playlists",
       "mark_played": "Mark Episodes as Played",
       "profiles": "Subscribe to Listener Profiles",
+      "recommendations": "Recommendations",
+      "api_keys": "Developer API Keys",
       "support_foss": "Support Open Source Software"
     },
     "membership_expiring_warning": "Your {type} expires on {date}. Extend now to continue using Premium features.",
@@ -1048,9 +1073,9 @@
     "trial_limitations_show_more": "Show More",
     "trial_limitations_title": "Trial Limitations",
     "trial_limitations_directory_add_by_rss": "Adding feeds to the public directory from search is blocked for Trial status.",
-    "trial_limitations_add_by_rss_feed_limit": "Add by RSS library size uses a lower Trial limit than Premium.",
-    "trial_limitations_manual_refresh_limit": "Manual refresh actions use tighter hourly limits while on Trial.",
-    "trial_limitations_stats_tracking": "Listen stats are not available on Trial. Contributing to trending requires Premium.",
+    "trial_limitations_add_by_rss_feed_limit": "Add by RSS holds up to {trial_feeds} feeds on Trial and {premium_feeds} on Premium.",
+    "trial_limitations_manual_refresh_limit": "Manual refresh is limited to {trial_refreshes} times an hour on Trial and {premium_refreshes} on Premium.",
+    "trial_limitations_stats_tracking": "Listens during Trial are saved for Recommendations. They do not count toward trending. Profile and playlist opens count toward trending on Premium.",
     "gate": {
       "cancel": "Cancel",
       "sign_up": "Sign Up",
@@ -1219,6 +1244,9 @@
       "load_failed": "Membership billing could not be loaded.",
       "buy_more_time": "Extend Membership"
     },
+    "recommendations": {
+      "recommendations": "Recommendations"
+    },
     "profile": {
       "profile": "Profile",
       "display_name": "Display Name",
@@ -1253,7 +1281,7 @@
       "preference_section_help": "Choose which notification categories should appear in-app and which can send push notifications.",
       "preference_in_app": "In-App",
       "preference_push": "Push",
-      "preference_push_disabled": "Push (Enable Web Push or Unified Push First)",
+      "preference_push_requirement": "Enable Web Push or Unified Push first.",
       "category_new_content": "New Content",
       "category_new_content_description": "Alerts for new episodes, tracks, albums, and videos from followed creators.",
       "category_livestream": "Livestream",
@@ -1318,7 +1346,8 @@
     "advanced": {
       "advanced": "Advanced",
       "removed_content": "Removed Content",
-      "empty": "Nothing in your library was removed in the last 30 days.",
+      "explanation": "This lists shows removed on the server. Unsubscribing, or deleting your own clips and playlists, does not appear here.",
+      "empty": "Nothing has been removed in the last 30 days.",
       "load_error": "Could not load removed content.",
       "left_directory": "{title} is no longer in the directory.",
       "taken_down": "{title} was taken down.",

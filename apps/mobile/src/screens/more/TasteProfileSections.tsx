@@ -8,7 +8,7 @@ import { formatDateAbbrev, primaryChannelListArtworkUrl } from '@podverse/helper
 
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { Button, CoverImage, ListRow } from '../../components/primitives';
-import { SectionHeading } from '../../components/section/SectionHeading';
+import { Accordion } from '../../components/primitives/Accordion';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { RetryableError } from '../../components/state/RetryableError';
 import type { TasteProfileListState } from '../../hooks/useTasteProfileLists';
@@ -54,6 +54,16 @@ const createSectionStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme)
     status: {
       ...typography.body,
       color: themeStyles.textSecondary.color,
+    },
+    weight: {
+      gap: settingsCardInnerGap(tokens.spacing),
+      paddingHorizontal: tokens.spacing.lg,
+      paddingBottom: tokens.spacing.lg,
+    },
+    weightLevels: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: tokens.spacing.sm,
     },
   });
 
@@ -141,6 +151,9 @@ function TasteProfileListBody<Row extends { channel: { id_text: string } }>({
   const { t } = useTranslation();
   const styles = useThemedStyles(createSectionStyles);
 
+  if (state.status === 'idle') {
+    return null;
+  }
   if (state.status === 'loading') {
     return <LoadingSection testID={`${prefix}-loading`} />;
   }
@@ -187,6 +200,85 @@ function TasteProfileListBody<Row extends { channel: { id_text: string } }>({
 
 type UnhideTarget = { idText: string; title: string };
 
+const WEIGHT_LEVELS = ['1', '2', '3', '4', '5'] as const;
+
+type WeightLevel = (typeof WEIGHT_LEVELS)[number];
+
+function toWeightLevel(weight: number): WeightLevel {
+  if (weight === 2) {
+    return '2';
+  }
+  if (weight === 3) {
+    return '3';
+  }
+  if (weight === 4) {
+    return '4';
+  }
+  if (weight === 5) {
+    return '5';
+  }
+  return '1';
+}
+
+function WeightControl({
+  channelIdText,
+  disabled,
+  onApply,
+  title,
+  weight,
+  weightOverride,
+}: {
+  channelIdText: string;
+  disabled: boolean;
+  onApply: (channelIdText: string, weight: number) => Promise<void>;
+  title: string;
+  weight: number;
+  weightOverride: number | null;
+}) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createSectionStyles);
+  const [selected, setSelected] = useState<WeightLevel>(toWeightLevel(weight));
+
+  return (
+    <View style={styles.weight}>
+      <Text style={styles.description}>{t('taste_profile.weight_label')}</Text>
+      <View style={styles.weightLevels}>
+        {WEIGHT_LEVELS.map((level) => {
+          const chosen = selected === level;
+          return (
+            <Button
+              accessibilityLabel={t('taste_profile.weight_accessible', { level, title })}
+              disabled={disabled}
+              key={level}
+              label={level}
+              onPress={() => {
+                setSelected(level);
+              }}
+              size="sm"
+              testID={`taste-profile-weight-${channelIdText}-${level}`}
+              variant={chosen ? 'primary' : 'secondary'}
+            />
+          );
+        })}
+      </View>
+      {weightOverride === null ? (
+        <Text style={styles.status}>{t('taste_profile.weight_automatic')}</Text>
+      ) : null}
+      <Button
+        accessibilityLabel={t('taste_profile.weight_apply_accessible', { title })}
+        disabled={disabled}
+        label={t('taste_profile.weight_apply')}
+        onPress={() => {
+          void onApply(channelIdText, Number(selected));
+        }}
+        size="sm"
+        testID={`taste-profile-weight-apply-${channelIdText}`}
+        variant="secondary"
+      />
+    </View>
+  );
+}
+
 /**
  * Taste Profile and Hidden From Taste Profile for the signed-in listener. Rows are not links; the
  * listener manages each list here.
@@ -194,6 +286,8 @@ type UnhideTarget = { idText: string; title: string };
 export function TasteProfileSections() {
   const { i18n, t } = useTranslation();
   const styles = useThemedStyles(createSectionStyles);
+  const [profileActive, setProfileActive] = useState(false);
+  const [hiddenActive, setHiddenActive] = useState(false);
   const {
     actionFailed,
     hidden,
@@ -204,7 +298,8 @@ export function TasteProfileSections() {
     profile,
     retry,
     unhideShow,
-  } = useTasteProfileLists();
+    applyWeight,
+  } = useTasteProfileLists({ hiddenActive, profileActive });
   const [unhideTarget, setUnhideTarget] = useState<UnhideTarget | null>(null);
   const [unhideVisible, setUnhideVisible] = useState(false);
 
@@ -238,27 +333,38 @@ export function TasteProfileSections() {
       const idText = row.channel.id_text;
       const title = showTitle(row.channel.title);
       return (
-        <TasteProfileShowRow
-          actionAccessibilityLabel={t('taste_profile.remove_accessible', { title })}
-          actionLabel={t('taste_profile.remove')}
-          actionTestID={`taste-profile-remove-${idText}`}
-          idText={idText}
-          imageUrl={primaryChannelListArtworkUrl(row.channel.channel_images)}
-          onAction={handleRemove}
-          pending={pendingChannelIds.has(idText)}
-          subtitle={
-            row.last_listened_at === null
-              ? t('taste_profile.added_back')
-              : t('taste_profile.last_listened', {
-                  date: formatDateAbbrev(row.last_listened_at, i18n.language),
-                })
-          }
-          testID={`taste-profile-row-${idText}`}
-          title={title}
-        />
+        <View>
+          <TasteProfileShowRow
+            actionAccessibilityLabel={t('taste_profile.remove_accessible', { title })}
+            actionLabel={t('taste_profile.remove')}
+            actionTestID={`taste-profile-remove-${idText}`}
+            idText={idText}
+            imageUrl={primaryChannelListArtworkUrl(row.channel.channel_images)}
+            onAction={handleRemove}
+            pending={pendingChannelIds.has(idText)}
+            subtitle={
+              row.last_listened_at === null
+                ? t('taste_profile.added_back')
+                : t('taste_profile.last_listened', {
+                    date: formatDateAbbrev(row.last_listened_at, i18n.language),
+                  })
+            }
+            testID={`taste-profile-row-${idText}`}
+            title={title}
+          />
+          <WeightControl
+            key={`${idText}-${row.recommendation_weight}-${row.recommendation_weight_override ?? 'auto'}`}
+            channelIdText={idText}
+            disabled={pendingChannelIds.has(idText)}
+            onApply={applyWeight}
+            title={title}
+            weight={row.recommendation_weight}
+            weightOverride={row.recommendation_weight_override}
+          />
+        </View>
       );
     },
-    [handleRemove, i18n.language, pendingChannelIds, showTitle, t]
+    [applyWeight, handleRemove, i18n.language, pendingChannelIds, showTitle, t]
   );
 
   const renderHiddenRow = useCallback(
@@ -287,16 +393,25 @@ export function TasteProfileSections() {
 
   return (
     <View>
-      <View style={styles.section} testID="taste-profile-section">
-        {actionFailed ? (
-          <Text
-            accessibilityLiveRegion="polite"
-            style={styles.status}
-            testID="taste-profile-action-error"
-          >
-            {t('taste_profile.action_error')}
-          </Text>
-        ) : null}
+      {actionFailed ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={styles.status}
+          testID="taste-profile-action-error"
+        >
+          {t('taste_profile.action_error')}
+        </Text>
+      ) : null}
+      <Accordion
+        onToggle={(open) => {
+          if (open) {
+            setProfileActive(true);
+          }
+        }}
+        testID="taste-profile-section"
+        title={t('taste_profile.affects_title')}
+      >
+        <Text style={styles.description}>{t('taste_profile.affects_description')}</Text>
         <TasteProfileListBody
           emptyKey="taste_profile.empty"
           errorKey="taste_profile.load_error"
@@ -306,19 +421,28 @@ export function TasteProfileSections() {
           renderRow={renderProfileRow}
           state={profile}
         />
-      </View>
-      <View style={styles.section} testID="taste-profile-hidden-section">
-        <SectionHeading>{t('taste_profile.hidden_title')}</SectionHeading>
-        <Text style={styles.description}>{t('taste_profile.hidden_description')}</Text>
-        <TasteProfileListBody
-          emptyKey="taste_profile.hidden_empty"
-          errorKey="taste_profile.hidden_load_error"
-          onLoadMore={loadMoreHidden}
-          onRetry={retry}
-          prefix="taste-profile-hidden"
-          renderRow={renderHiddenRow}
-          state={hidden}
-        />
+      </Accordion>
+      <View style={styles.section}>
+        <Accordion
+          onToggle={(open) => {
+            if (open) {
+              setHiddenActive(true);
+            }
+          }}
+          testID="taste-profile-hidden-section"
+          title={t('taste_profile.hidden_title')}
+        >
+          <Text style={styles.description}>{t('taste_profile.hidden_description')}</Text>
+          <TasteProfileListBody
+            emptyKey="taste_profile.hidden_empty"
+            errorKey="taste_profile.hidden_load_error"
+            onLoadMore={loadMoreHidden}
+            onRetry={retry}
+            prefix="taste-profile-hidden"
+            renderRow={renderHiddenRow}
+            state={hidden}
+          />
+        </Accordion>
       </View>
       <ConfirmDialog
         body={t('taste_profile.unhide_dialog_body', { title: unhideTarget?.title ?? '' })}

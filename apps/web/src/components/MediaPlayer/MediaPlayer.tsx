@@ -22,6 +22,7 @@ import { MediaPlayerMobile } from './Mobile/MediaPlayerMobile';
 import { MediaPlayerModal } from './Modal/MediaPlayerModal';
 import { PlaybackErrorAnnouncer, PlaybackErrorModal } from './Modal/PlaybackErrorModal';
 import { useMediaPlayerSegmentStripVisible } from './SegmentStrip/mediaPlayerSegmentStripPresence';
+import { SleepTimer } from './SleepTimer';
 
 import styles from '../../styles/components/MediaPlayer/MediaPlayer.module.scss';
 
@@ -45,6 +46,7 @@ export const MediaPlayer = () => {
 
   return (
     <aside id="media-player" className={styles.player}>
+      <SleepTimer />
       <MediaPlayerDesktop />
       <MediaPlayerMobile />
       <MediaPlayerModal />

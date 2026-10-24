@@ -7,7 +7,10 @@ import type { Request, Response } from 'express';
 import Joi from 'joi';
 
 import type { PopularityListenResult } from '@podverse/helpers';
-import { ACCOUNT_ENTITLEMENT_CAPABILITY } from '@podverse/helpers';
+import {
+  ACCOUNT_ENTITLEMENT_CAPABILITY,
+  membershipCountsTowardPopularity,
+} from '@podverse/helpers';
 import type { StatsListenTarget } from '@podverse/orm';
 import { CLIP_SOURCE_REMOVED_MESSAGE, StatsListenWriteService } from '@podverse/orm';
 
@@ -87,11 +90,19 @@ export class StatsListenController {
         validateBodyObject(bodySchema, req, res, async () => {
           const jwtUser = getAuthenticatedUser(req);
           const body: StatsListenBody = req.body;
+          const membershipId = jwtUser.account_membership_id;
+          const countsTowardPopularity =
+            membershipId !== undefined &&
+            membershipCountsTowardPopularity(
+              membershipId,
+              jwtUser.entitlements?.trackStats === true
+            );
 
           try {
             await assertListenStatsAllowed(jwtUser.id);
             const result = await StatsListenController.statsListenWriteService.recordListen({
               account_id: jwtUser.id,
+              counts_toward_popularity: countsTowardPopularity,
               agreement_version: config.tasteProfileAgreement.version,
               stored_daily_cap: config.popularityTracking.dailyListenStoredCap,
               popularity_daily_cap: config.popularityTracking.dailyListenPopularityCap,
@@ -115,7 +126,11 @@ export class StatsListenController {
           }
         });
       },
-      { skipMembershipStatus: false, requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.trackStats }
+      {
+        skipMembershipStatus: false,
+        requiredCapability: ACCOUNT_ENTITLEMENT_CAPABILITY.trackStats,
+        allowTrialWithoutCapability: true,
+      }
     );
   }
 }

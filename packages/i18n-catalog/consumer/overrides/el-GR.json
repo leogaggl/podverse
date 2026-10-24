@@ -132,6 +132,16 @@
       "browse": "",
       "users": ""
     },
+    "recommendations": {
+      "title": "",
+      "empty": "",
+      "need_taste_profile": "",
+      "enable": "",
+      "check_back": "",
+      "paused": "",
+      "strength": "",
+      "load_error": ""
+    },
     "my_library": "",
     "queue": {
       "queue": "",
@@ -484,7 +494,8 @@
       "off": "",
       "minutes_15": "",
       "minutes_30": "",
-      "minutes_60": ""
+      "minutes_60": "",
+      "sleep_timer_with_value": ""
     },
     "repeat": {
       "toggle_repeat": "",
@@ -719,6 +730,13 @@
     "load_error": "",
     "hidden_load_error": "",
     "load_more_error": "",
+    "affects_title": "",
+    "affects_description": "",
+    "weight_label": "",
+    "weight_apply": "",
+    "weight_apply_accessible": "",
+    "weight_automatic": "",
+    "weight_accessible": "",
     "action_error": ""
   },
   "misc": {
@@ -988,6 +1006,7 @@
     "pricing_save_percent": "",
     "pricing_percent_off": "",
     "contact_mode_text_before": "",
+    "contact_questions_text_before": "",
     "cta_sign_up_text": "",
     "cta_upgrade_text": "",
     "buy_membership": "",
@@ -1004,6 +1023,8 @@
     "coming_soon": "",
     "mobile_only": "",
     "mobile_only_legend": "",
+    "free_on_mobile_legend": "",
+    "available_on_mobile_app": "",
     "comparison_name_mobile_only": "",
     "comparison": {
       "subscribe": "",
@@ -1021,11 +1042,15 @@
       "sleep_timer": "",
       "screen_reader": "",
       "sync": "",
+      "playback_handoff": "",
+      "queue": "",
       "notifications": "",
       "clips": "",
       "playlists": "",
       "mark_played": "",
       "profiles": "",
+      "recommendations": "",
+      "api_keys": "",
       "support_foss": ""
     },
     "membership_expiring_warning": "",
@@ -1207,6 +1232,9 @@
         "error": ""
       }
     },
+    "recommendations": {
+      "recommendations": ""
+    },
     "profile": {
       "profile": "",
       "display_name": "",
@@ -1241,7 +1269,7 @@
       "preference_section_help": "",
       "preference_in_app": "",
       "preference_push": "",
-      "preference_push_disabled": "",
+      "preference_push_requirement": "",
       "category_new_content": "",
       "category_new_content_description": "",
       "category_livestream": "",
@@ -1306,6 +1334,7 @@
     "advanced": {
       "advanced": "",
       "removed_content": "",
+      "explanation": "",
       "empty": "",
       "load_error": "",
       "left_directory": "",

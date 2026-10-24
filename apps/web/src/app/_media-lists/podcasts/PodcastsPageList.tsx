@@ -26,6 +26,7 @@ import {
   toEpochMsOrNull,
 } from '../../../utils/subscribed/mergeSubscribedChannels';
 import { selectFilteredSubscribedPage } from './podcastsFilter';
+import { PodcastsFilterInput } from './PodcastsFilterInput';
 import { usePodcastsPageContext } from './PodcastsPageContext';
 import { podcastsListViewModeScope } from './PodcastsPageDropdownConfig';
 
@@ -40,6 +41,7 @@ export const PodcastsPageList: React.FC = () => {
     filterParams,
     setFilterParams,
     filterTerm,
+    setFilterTerm,
     channels,
     scope,
     totalPages,
@@ -140,6 +142,13 @@ export const PodcastsPageList: React.FC = () => {
 
   return (
     <>
+      {/* The subscribed list is already in memory, so the field narrows it locally. Global and
+          category lists are paged directory queries, where search is the right tool. */}
+      {type === 'subscribed' ? (
+        <div className={styles.filterField}>
+          <PodcastsFilterInput value={filterTerm} onChange={setFilterTerm} />
+        </div>
+      ) : null}
       {isSubscribedScope && (
         <HowToStartInfo
           rows={showMergedList ? merged : isMerged ? addByRSS.feeds : channels}

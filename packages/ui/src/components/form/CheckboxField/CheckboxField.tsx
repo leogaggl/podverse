@@ -16,6 +16,10 @@ export type CheckboxFieldProps = {
   name?: string;
   /** With `wrapInDiv`, applied to the outer wrapper; otherwise merged onto the `<label>`. */
   className?: string;
+  /** Id of the note that explains this checkbox. Omitted when there is nothing to explain. */
+  describedBy?: string;
+  /** Visual mark after the label, hidden from the accessible name. */
+  marker?: string;
   /**
    * When true, wraps the label in a layout `<div>` using the former LabeledCheckbox spacing
    * (flex column, bottom margin).
@@ -31,6 +35,8 @@ export function CheckboxField({
   id: idProp,
   name,
   className,
+  describedBy,
+  marker,
   wrapInDiv = false,
 }: CheckboxFieldProps) {
   const generatedId = useId();
@@ -44,10 +50,18 @@ export function CheckboxField({
         type="checkbox"
         checked={checked}
         disabled={disabled}
+        aria-describedby={describedBy}
         onChange={(e) => onChange(e.target.checked)}
         className={wrapInDiv ? styles.wrapInput : styles.input}
       />
-      <span className={wrapInDiv ? styles.wrapLabelText : styles.labelText}>{label}</span>
+      <span className={wrapInDiv ? styles.wrapLabelText : styles.labelText}>
+        {label}
+        {marker !== undefined && marker !== '' ? (
+          <span aria-hidden="true" className={styles.marker}>
+            {marker}
+          </span>
+        ) : null}
+      </span>
     </>
   );
 

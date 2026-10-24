@@ -113,6 +113,7 @@ import { PodcastDetailScreen } from '../screens/podcast/PodcastDetailScreen';
 import { MyProfileEditScreen } from '../screens/profile/MyProfileEditScreen';
 import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { RecommendationsScreen } from '../screens/recommendations/RecommendationsScreen';
 import { AddByRssAddScreen } from '../screens/rss/AddByRssAddScreen';
 import { AddByRssCredentialsScreen } from '../screens/rss/AddByRssCredentialsScreen';
 import { AddByRssRootScreen } from '../screens/rss/AddByRssRootScreen';
@@ -252,6 +253,7 @@ export const MORE_STACK_ROUTES = {
   MoreOverflowHome: 'MoreOverflowHome',
   MoreOverflowLibrary: 'MoreOverflowLibrary',
   MoreOverflowNotifications: 'MoreOverflowNotifications',
+  MoreOverflowRecommendations: 'MoreOverflowRecommendations',
   MoreOverflowSearch: 'MoreOverflowSearch',
   MorePublicProfile: 'MorePublicProfile',
   MoreProfile: 'MoreProfile',
@@ -397,6 +399,23 @@ const browseTabLinkScreens = {
   TrackDetail: `browse${APP_ROUTES.TRACK}/:trackId`,
 } as const;
 
+const recommendationsTabLinkScreens = {
+  AddByRssCredentials: 'recommendations/add-by-rss/credentials/:feedIdText',
+  AddByRssEpisodeDetail: 'recommendations/add-by-rss/:feedIdText/item/:itemKey',
+  AddByRssLivestreamDetail: 'recommendations/add-by-rss/:feedIdText/livestream/:liveItemKey',
+  AddByRssPodcastDetail: 'recommendations/add-by-rss/:feedIdText',
+  AddByRssTrackDetail: 'recommendations/add-by-rss/:feedIdText/track/:itemKey',
+  AlbumDetail: `recommendations${APP_ROUTES.ALBUM}/:albumId`,
+  ArtistDetail: `recommendations${APP_ROUTES.ARTIST}/:artistId`,
+  BrowseRoot: 'recommendations',
+  ClipDetail: `recommendations${APP_ROUTES.CLIP}/:clipId`,
+  EpisodeDetail: `recommendations${APP_ROUTES.EPISODE}/:episodeId`,
+  PlaylistDetail: `recommendations${APP_ROUTES.PLAYLIST}/:playlistId`,
+  PodcastDetail: `recommendations${APP_ROUTES.PODCAST}/:podcastId`,
+  Profile: `recommendations${APP_ROUTES.PROFILE}/:accountIdText`,
+  TrackDetail: `recommendations${APP_ROUTES.TRACK}/:trackId`,
+} as const;
+
 const notificationsTabLinkScreens = {
   NotificationsInbox: 'notifications',
 } as const;
@@ -446,6 +465,9 @@ const mobileNavigationScreens = {
           MoreOverflowNotifications: {
             screens: prefixScreenPaths(notificationsTabLinkScreens, OVERFLOW_LINK_PREFIX),
           },
+          MoreOverflowRecommendations: {
+            screens: prefixScreenPaths(recommendationsTabLinkScreens, OVERFLOW_LINK_PREFIX),
+          },
           MoreOverflowSearch: {
             screens: prefixScreenPaths(searchTabLinkScreens, OVERFLOW_LINK_PREFIX),
           },
@@ -459,6 +481,9 @@ const mobileNavigationScreens = {
       },
       Notifications: {
         screens: notificationsTabLinkScreens,
+      },
+      Recommendations: {
+        screens: recommendationsTabLinkScreens,
       },
       Search: {
         screens: searchTabLinkScreens,
@@ -591,6 +616,7 @@ export type MoreStackParamList = {
   MoreOverflowHome: NavigatorScreenParams<HomeStackParamList> | undefined;
   MoreOverflowLibrary: NavigatorScreenParams<LibraryStackParamList> | undefined;
   MoreOverflowNotifications: NavigatorScreenParams<NotificationsStackParamList> | undefined;
+  MoreOverflowRecommendations: NavigatorScreenParams<BrowseStackParamList> | undefined;
   MoreOverflowSearch: NavigatorScreenParams<SearchStackParamList> | undefined;
   MorePublicProfile: { accountIdText: string };
   MoreProfile: undefined;
@@ -645,6 +671,7 @@ export type MobileTabParamList = {
   Search: NavigatorScreenParams<SearchStackParamList> | undefined;
   Browse: NavigatorScreenParams<BrowseStackParamList> | undefined;
   Notifications: undefined;
+  Recommendations: NavigatorScreenParams<BrowseStackParamList> | undefined;
   'My Library': NavigatorScreenParams<LibraryStackParamList> | undefined;
   More: NavigatorScreenParams<MoreStackParamList> | undefined;
 };
@@ -1345,16 +1372,18 @@ function LibraryStackNavigator() {
   );
 }
 
-function BrowseStackNavigator() {
+function BrowseStackNavigator({ root = 'browse' }: { root?: 'browse' | 'recommendations' }) {
   const { t } = useTranslation();
   const screenOptions = useThemedNativeStackScreenOptions();
+  const rootScreen = root === 'recommendations' ? RecommendationsScreen : BrowseScreen;
+  const rootTitle = root === 'recommendations' ? t('nav.tab.recommendations') : t('nav.tab.browse');
 
   return (
     <BrowseStack.Navigator screenOptions={screenOptions}>
       <BrowseStack.Screen
-        component={BrowseScreen}
+        component={rootScreen}
         name={BROWSE_STACK_ROUTES.BrowseRoot}
-        options={{ title: t('nav.tab.browse') }}
+        options={{ title: rootTitle }}
       />
       <BrowseStack.Screen
         component={PodcastDetailScreen}
@@ -1435,6 +1464,14 @@ function BrowseStackNavigator() {
   );
 }
 
+function BrowseTabStackNavigator() {
+  return <BrowseStackNavigator root="browse" />;
+}
+
+function RecommendationsStackNavigator() {
+  return <BrowseStackNavigator root="recommendations" />;
+}
+
 function NotificationsStackNavigator() {
   const { t } = useTranslation();
   const screenOptions = useThemedNativeStackScreenOptions();
@@ -1497,13 +1534,18 @@ function MoreStackNavigator({
         options={moreOverflowScreenOptions}
       />
       <MoreStack.Screen
-        component={BrowseStackNavigator}
+        component={BrowseTabStackNavigator}
         name={MORE_STACK_ROUTES.MoreOverflowBrowse}
         options={moreOverflowScreenOptions}
       />
       <MoreStack.Screen
         component={NotificationsStackNavigator}
         name={MORE_STACK_ROUTES.MoreOverflowNotifications}
+        options={moreOverflowScreenOptions}
+      />
+      <MoreStack.Screen
+        component={RecommendationsStackNavigator}
+        name={MORE_STACK_ROUTES.MoreOverflowRecommendations}
         options={moreOverflowScreenOptions}
       />
       <MoreStack.Screen
@@ -1544,7 +1586,7 @@ function MoreStackNavigator({
       <MoreStack.Screen
         component={MoreSettingsTasteProfileScreen}
         name={MORE_STACK_ROUTES.MoreSettingsTasteProfile}
-        options={{ title: t('taste_profile.title') }}
+        options={{ title: t('settings.recommendations.recommendations') }}
       />
       <MoreStack.Screen
         component={MoreSettingsChangePasswordScreen}
@@ -1791,6 +1833,9 @@ function MoreRootScreen({
         return;
       case 'Notifications':
         navigation.navigate(MORE_STACK_ROUTES.MoreOverflowNotifications);
+        return;
+      case 'Recommendations':
+        navigation.navigate(MORE_STACK_ROUTES.MoreOverflowRecommendations);
         return;
       case 'Search':
         navigation.navigate(MORE_STACK_ROUTES.MoreOverflowSearch);
@@ -2137,7 +2182,7 @@ function TabScaffold({
         }}
       />
       <Tab.Screen
-        component={BrowseStackNavigator}
+        component={BrowseTabStackNavigator}
         name="Browse"
         options={{
           tabBarButton: tabBarButtonFor('Browse'),
@@ -2155,6 +2200,18 @@ function TabScaffold({
           tabBarButtonTestID: visibleTabSet.has('Notifications') ? 'tab-notifications' : undefined,
           tabBarIcon: tabBarIcon('notifications'),
           tabBarLabel: t('nav.tab.notifications'),
+        }}
+      />
+      <Tab.Screen
+        component={RecommendationsStackNavigator}
+        name="Recommendations"
+        options={{
+          tabBarButton: tabBarButtonFor('Recommendations'),
+          tabBarButtonTestID: visibleTabSet.has('Recommendations')
+            ? 'tab-recommendations'
+            : undefined,
+          tabBarIcon: tabBarIcon('recommendations'),
+          tabBarLabel: t('nav.tab.recommendations'),
         }}
       />
       <Tab.Screen

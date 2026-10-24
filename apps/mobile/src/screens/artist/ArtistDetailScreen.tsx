@@ -45,6 +45,7 @@ import { subscriptionsRepository } from '../../data/repositories/subscriptionsRe
 import { useChannelNotifications } from '../../hooks/useChannelNotifications';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
+import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
@@ -486,15 +487,30 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
           hasPeople,
           hasPodroll,
         });
-      } catch {
-        setRowsErrorKey('errors.generic');
+      } catch (error) {
+        const replaced = await replaceScreenIfMerged({
+          currentIdText: artistId,
+          error,
+          loadChannel: (idText) =>
+            requestWithMobileAuthRefresh(authContext, async (api) =>
+              api.reqChannelGetByIdOrIdText(idText)
+            ),
+          loadItem: (idText) =>
+            requestWithMobileAuthRefresh(authContext, async (api) =>
+              api.reqItemGetByIdOrIdText(idText)
+            ),
+          navigation,
+        });
+        if (!replaced) {
+          setRowsErrorKey('errors.generic');
+        }
       } finally {
         setIsRowsLoading(false);
         setIsRowsRefreshing(false);
         setIsChannelLoading(false);
       }
     },
-    [artistId, authContext, offlineModeEnabled]
+    [artistId, authContext, navigation, offlineModeEnabled]
   );
 
   useEffect(() => {

@@ -21,6 +21,10 @@
   @include flexItemAllowShrink;
 }
 
+.marker {
+  margin-left: 0.2em;
+}
+
 .wrapRoot {
   flex: 1;
   margin-bottom: var(--spacing-2xl);

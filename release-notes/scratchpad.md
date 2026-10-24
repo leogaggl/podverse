@@ -2416,3 +2416,263 @@ family revoked`.
 - Change: `feed-force-reparse` accepts only reason `description_tier_change`. A payload whose reason is `description_backfill` fails as an invalid payload. Nothing writes that reason after `ormDescriptionsBackfill` is removed.
 - Who notices: operators who still had a queued force-reparse from that command
 - Operator steps: none
+
+## Subscribed podcasts filter sits under the chips
+
+- Surfaces: web
+- Change: On Subscribed and Browse, the podcast title filter is in the main column under the
+  media-type chips, above the list. The page title row keeps sort and the view control. The field
+  still narrows only the subscribed podcast list.
+- Who notices: anyone filtering subscribed podcasts
+- Operator steps: none
+
+## Accordion caret sits further from the header
+
+- Surfaces: web
+- Change: The shared accordion leaves a larger gap between the disclosure caret and the header
+  (About, People, Podroll, Trial Limitations, agreement copy, and embed advanced options). The
+  sidebar My Library accordion keeps the tight caret gap.
+- Who notices: anyone expanding those sections on web
+- Operator steps: none
+
+## Form buttons use one footer and stack on a phone
+
+- Surfaces: web, management-web
+- Change: Form footers and modal action rows share `formButtonsWrapper`. The gap between buttons
+  is `--spacing-2xl`. At 767px and below the buttons stack full width, secondary above primary.
+  The Terms of Service accept row uses `FormPrimaryActions` instead of its own tight row.
+- Who notices: anyone using Reject / Accept, a form save row, or a modal's buttons on a phone
+- Operator steps: none
+
+## Taste Profile lives under Recommendations
+
+- Surfaces: web, mobile
+- Change: Taste Profile is no longer a section of Account settings. Web Settings has a
+  Recommendations tab, and mobile Settings has a Recommendations screen. The switch, the show
+  list, and Hidden From Taste Profile stay named Taste Profile. After the agreement, web returns
+  to `/settings?tab=recommendations`.
+- Who notices: anyone opening Taste Profile from Settings
+- Operator steps: none
+
+## Terms and Taste Profile sit in the middle of the page
+
+- Surfaces: web, packages/ui
+- Change: Terms of Service and Taste Profile use the shared center frame. The form sits in the
+  middle of the page. When the form is taller than the window, that frame scrolls and the top of
+  the form is the start of the scroll, so the rest can be reached by scrolling down. Management
+  sign-in uses the same frame, so a tall sign-in form scrolls the same way.
+- Who notices: anyone asked to accept terms or turn on Taste Profile, and management sign-in on a
+  short window
+- Operator steps: none
+
+## API key presets hide the permission grid
+
+- Surfaces: web, mobile
+- Change: Create API Key starts on Read Only. Read Only and Full Access hide the resource
+  checkboxes. Custom shows those sections, starting from the permissions of the preset that was
+  selected before Custom. Choosing a preset again replaces the permissions and hides the grid.
+- Who notices: anyone creating an API key on web or mobile
+- Operator steps: none
+
+## Trial listens build a Taste Profile and stay out of popularity
+
+- Surfaces: api
+- Change: A valid free trial that accepts the Taste Profile agreement stores listens and builds a
+  personal Taste Profile. Those listens do not count in popularity rankings. Playlist and profile
+  opens stay limited to paid Premium. After the account pays for Premium, later listens can count.
+  Listens stored during the trial stay out of the rankings.
+- Who notices: free-trial listeners who turn Taste Profile on; popularity rankings, which ignore
+  trial listens
+- Operator steps: none
+
+## Developer settings copy is spaced
+
+- Surfaces: web, mobile
+- Change: Settings → Developer puts the API Keys heading, descriptions, doc links, create
+  button, and key list in one column gap. API Reference and OpenAPI Spec are each a bordered
+  card: the link and the sentence that describes it sit close together, on a different
+  background from the page. Mobile uses the same card around each docs row.
+- Who notices: anyone opening Settings → Developer
+- Operator steps: none
+
+## Taste Profile switch drops its repeated label
+
+- Surfaces: web
+- Change: Settings → Recommendations shows one Taste Profile heading. The switch under it no
+  longer repeats that name. The switch is still named Taste Profile for assistive technology.
+- Who notices: anyone opening Settings → Recommendations
+- Operator steps: none
+
+## Unified Push moves to Advanced
+
+- Surfaces: web, mobile
+- Change: Unified Push is in Settings → Advanced, in a Notifications section, with Removed Content
+  below it. Each Push preference shows an asterisk until a push method is available, explained once
+  in small type under the section. On web the note is "Enable Web Push or Unified Push first" and
+  the Push checkboxes stay off until Web Push or Unified Push is on. On mobile the note is "Allow
+  notifications on this device, or enable Unified Push, first" for store builds, and "Enable
+  Unified Push first" for other builds. The asterisk and the note hide once notifications are
+  allowed or Unified Push is registered. Turning Unified Push on asks for an HTTPS endpoint and
+  optional access token, stores them on the device, and uses that endpoint instead of the build's
+  push provider. Turning a Push category on after that returns a store build to its usual push
+  registration. Signing out removes that device choice.
+- Who notices: anyone using notification preferences or Unified Push on web or mobile
+- Operator steps: none
+
+## Developer settings separates the docs from Create API Key
+
+- Surfaces: web
+- Change: Settings → Developer draws a horizontal line between the API Keys description and doc
+  links and the Create API Key button. The space above that line matches the space below it.
+- Who notices: anyone opening Settings → Developer
+- Operator steps: none
+
+## Signed-in device rows use form spacing
+
+- Surfaces: web
+- Change: Settings → Account spaces each signed-in device, and Sign Out of All Other Devices,
+  with the same gap used between form fields.
+- Who notices: anyone with more than one signed-in device on Settings → Account
+- Operator steps: none
+
+## Keyboard settings spaces each shortcut as its own section
+
+- Surfaces: web
+- Change: Settings → Keyboard gives Play or Pause, Seek, and Volume each their own section.
+  The intro and those sections sit in the shared form stack, so the gap between them matches
+  other settings forms.
+- Who notices: anyone opening Settings → Keyboard
+- Operator steps: none
+
+## Advanced settings draws a line between Notifications and Removed Content
+
+- Surfaces: web
+- Change: Settings → Advanced draws a horizontal line between the Notifications section and
+  Removed Content. The space above that line matches the space below it.
+- Who notices: anyone opening Settings → Advanced
+- Operator steps: none
+
+## Settings forms stay a readable width while tabs use the column
+
+- Surfaces: web
+- Change: Settings no longer reserves an empty column on the right, so the tab labels use the
+  full width beside the left navigation and scroll only when the labels run past that width. The
+  panel under the tabs uses the shared form max width, so fields and paragraphs wrap on that
+  width. The Keyboard intro no longer has a separate narrower width.
+- Who notices: anyone opening Settings on a wide window
+- Operator steps: none
+
+## Extend Membership is a green button on Account
+
+- Surfaces: web
+- Change: Settings → Account shows Extend Membership (and Buy Membership, for an account that is
+  not Premium) as the green success button. Compare Plans stays a text link. The green is the
+  default theme's success button, separate from the blue account actions.
+- Who notices: anyone opening Settings → Account while signed in
+- Operator steps: none
+
+## Removed Content explains it is a server removal
+
+- Surfaces: web, mobile
+- Change: Settings → Advanced → Removed Content, and the mobile Removed Content screen, lead
+  with a sentence that these are shows the server removed. Unsubscribing, or deleting your own
+  clips and playlists, is not listed. When nothing was removed, the next line says nothing has
+  been removed in the last 30 days.
+- Who notices: anyone opening Removed Content
+- Operator steps: none
+
+## A merged duplicate opens the surviving show
+
+- Surfaces: mobile, api
+- Change: A link to a show or episode that was absorbed into another show opens the surviving
+  show, album, artist, episode, or track on mobile. The artist page returns the same 410 the
+  other channel pages already return, naming the survivor. Merged duplicates stay off Removed
+  Content. The absorbed rows stay in full so a mistaken merge can be undone.
+- Who notices: anyone opening an old link to a show or episode that was merged
+- Operator steps: none
+
+## Membership page purchase line follows whether the site can sell
+
+- Surfaces: web
+- Change: Membership puts a centered green Extend Membership (or Buy Membership, or Sign Up)
+  under the Premium expiry card when checkout can take a payment. The line under that button
+  says to email with questions. A deployment with nothing to buy keeps the line that says to
+  email in order to get a membership, and does not show the purchase button. Public signup
+  being off does not hide the button from someone who is already signed in when a web payment
+  method is available.
+- Who notices: anyone opening Membership, especially a Premium member on a site that sells
+  memberships
+- Operator steps: none
+
+## Web player sleep timer
+
+- Surfaces: web
+- Change: The player settings menu (the gear) includes a sleep timer. Off, 15, 30, and 60
+  minutes. It pauses playback once when the time is up, and it is forgotten when the page closes.
+  The membership comparison lists Sleep Timer for Free and Premium on the website and the mobile app.
+- Who notices: anyone listening in the browser
+- Operator steps: none
+
+## Membership comparison marks and rows
+
+- Surfaces: web, mobile
+- Change: The Free versus Premium table uses two marks. † on a Free check means that tier is the
+  mobile app and Premium includes the website (Subscribe to Podcasts). * on a feature name still
+  means the whole feature is mobile-app only; no current row uses it. Download Episodes, CarPlay,
+  Android Auto, Sleep Timer, and Notifications no longer carry a mobile-only mark. Add Custom RSS
+  Feeds is Premium only. New Premium rows: Playback Handoff, Queue and History, Recommendations,
+  and Developer API Keys.
+- Who notices: anyone comparing plans on the website or in the mobile membership screen
+- Operator steps: none
+
+## Recommendations page and nightly job
+
+- Surfaces: web, mobile, api, workers, k8s
+- Change: Recommendations lists discovery shows for Podcasts, Albums, and Artists, in the order
+  the nightly job scored them, with a display-only 1–5 mark. Web adds it to the sidebar after
+  Browse. Mobile adds it as a tab-bar choice that starts on More until the listener moves it up.
+  Settings → Recommendations keeps the Taste Profile switch, and adds two sections that start
+  collapsed: shows that affect recommendations (with a 1–5 weight the listener can apply) and
+  Hidden From Taste Profile. The weight comes from how many listens that show has (five listens
+  per step, capped at 5) unless the listener applies a weight, which then stays put. A daily job
+  at 02:15 UTC and a weekly full job on Sunday at 03:15 UTC fill the list. Subscribed shows are
+  left off the list. Signed-out visitors are asked to log in. Signed-in visitors without Taste
+  Profile on, and with nothing computed yet, are sent to those settings or asked to check back.
+- Who notices: signed-in listeners on web and mobile, and operators of a cluster that runs the
+  new CronJobs. The tables are part of `0001_app_schema.sql`.
+- Operator steps: recreate any local database that was built before this schema change, deploy the
+  API and workers, and let the CronJobs sync. Nothing runs on a schedule locally;
+  `npm run stats_recommendations_refresh -w apps/workers` fills a local database after the workers
+  build
+
+## Trial limitations match what Trial can do
+
+- Surfaces: web, mobile
+- Change: The Trial Limitations list states the product caps (10 Add by RSS feeds and 5 manual
+  refreshes an hour, versus 100 and 20 on Premium). Trial listens are saved for Recommendations
+  and do not count toward trending. Profile and playlist opens count toward trending on Premium.
+  Adding a feed to the public directory stays blocked on Trial.
+- Who notices: anyone expanding Trial Limitations on Membership or About, or in the mobile app
+- Operator steps: none
+
+## Membership comparison comes from the API
+
+- Surfaces: api, web, mobile
+- Change: `GET /product/membership/comparison` returns the Free versus Premium rows and the Trial
+  limitations already translated for Accept-Language (en-US, es, fr, el-GR). Trial sentences use
+  the live product caps, and a sentence is left out when Trial and Premium allow the same thing.
+  Web and mobile render that document. If the request fails, they fall back to the copy bundled
+  in the app.
+- Who notices: anyone opening Membership or About, including an older app build once it includes
+  this client
+- Operator steps: none
+
+## Membership comparison mark and order
+
+- Surfaces: api, web, mobile
+- Change: Subscribe to Podcasts ends with * after the name. The legend says the Free tier is the
+  mobile app only and Premium includes the website. Checks no longer carry a mark. Rows on both
+  Free and Premium come first, with Boostagrams after Transcripts and Add Custom RSS Feeds after
+  Screen-Reader Accessibility. Support Open Source Software stays last.
+- Who notices: anyone comparing plans on Membership or About
+- Operator steps: none

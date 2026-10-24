@@ -6,6 +6,7 @@
       "more": "Más",
       "my_library": "Mi biblioteca",
       "notifications": "Notificaciones",
+      "recommendations": "Recomendaciones",
       "rss": "RSS",
       "downloads": "Descargas"
     },
@@ -154,6 +155,9 @@
       "login_required_message": "Inicia sesión para usar esta función.",
       "open_system_settings": "Abrir los ajustes del sistema",
       "permission_required": "Se necesita permiso de notificaciones para activar este ajuste.",
+      "preference_push_requirement_device": "Permite las notificaciones en este dispositivo, o activa Unified Push, primero.",
+      "preference_push_requirement_unified_push": "Activa primero Unified Push.",
+      "up_endpoint_invalid": "Introduce una URL de endpoint HTTPS.",
       "banner_section": "Notificaciones de banner",
       "banner_section_help": "Con la aplicación abierta, un banner baja desde arriba por cada tipo que actives.",
       "banner_dismiss": "Descartar",
@@ -216,7 +220,8 @@
   "removed_content": {
     "title": "Contenido eliminado",
     "menu_subtitle": "Programas y elementos eliminados de tu biblioteca",
-    "empty": "No se eliminó nada de tu biblioteca en los últimos 30 días.",
+    "explanation": "Esta lista muestra programas eliminados en el servidor. Darte de baja, o eliminar tus propios clips y listas de reproducción, no aparece aquí.",
+    "empty": "No se ha eliminado nada en los últimos 30 días.",
     "load_error": "No se pudo cargar el contenido eliminado.",
     "left_directory": "{title} ya no está en el directorio.",
     "taken_down": "{title} fue retirado.",

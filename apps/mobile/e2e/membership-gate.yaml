@@ -155,7 +155,7 @@ name: Membership Gate
 - assertVisible:
     text: "Some features are unavailable during Trial to help reduce spam and abuse."
 - assertVisible:
-    text: "• Listen stats are not available on Trial. Contributing to trending requires Premium."
+    text: "• Listens during Trial are saved for Recommendations. They do not count toward trending. Profile and playlist opens count toward trending on Premium."
 - assertVisible:
     id: trial-limitations-missing-content
 - takeScreenshot: membership-gate-trial-limitations-sheet

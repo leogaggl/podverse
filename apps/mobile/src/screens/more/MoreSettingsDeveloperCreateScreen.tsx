@@ -12,7 +12,6 @@ import {
   apiKeyPermissionsForPreset,
   apiKeyPermissionsGrantSupported,
   CRUD_ACTIONS,
-  findApiKeyPresetId,
   membershipPurchaseAction,
   membershipPurchaseMessageKey,
 } from '@podverse/helpers';
@@ -79,10 +78,6 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       flex: 1,
       includeFontPadding: false,
       textAlignVertical: 'center',
-    },
-    customPreset: {
-      ...typography.body,
-      color: themeStyles.textSecondary.color,
     },
     dash: {
       ...typography.body,
@@ -217,6 +212,7 @@ export function MoreSettingsDeveloperCreateScreen({ navigation, route }: Props) 
   const expiresIn = route.params?.expiresIn ?? '90';
   const [name, setName] = useState('');
   const [permissions, setPermissions] = useState(() => apiKeyPermissionsForPreset('read_only'));
+  const [presetChoice, setPresetChoice] = useState<PresetChoice>('read_only');
   /** The secret for this visit. Leaving the screen unmounts it. It is not stored on the device. */
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -412,8 +408,6 @@ export function MoreSettingsDeveloperCreateScreen({ navigation, route }: Props) 
     );
   }
 
-  const presetId = findApiKeyPresetId(permissions);
-  const presetValue: PresetChoice = presetId ?? 'custom';
   const presetOptions: readonly OptionChipOption<PresetChoice>[] = [
     {
       label: t('settings.developer.preset_read_only'),
@@ -425,11 +419,17 @@ export function MoreSettingsDeveloperCreateScreen({ navigation, route }: Props) 
       testID: 'more-settings-developer-preset-full-access',
       value: 'full_access',
     },
+    {
+      label: t('settings.developer.preset_custom'),
+      testID: 'more-settings-developer-preset-custom',
+      value: 'custom',
+    },
   ];
   const grantSupported = apiKeyPermissionsGrantSupported(permissions);
   const copyLabel = copied ? t('features.copied') : t('features.copy');
 
   const onPresetChange = (value: PresetChoice) => {
+    setPresetChoice(value);
     switch (value) {
       case 'read_only':
       case 'full_access':
@@ -474,62 +474,59 @@ export function MoreSettingsDeveloperCreateScreen({ navigation, route }: Props) 
               onChange={onPresetChange}
               options={presetOptions}
               testID="more-settings-developer-presets"
-              value={presetValue}
+              value={presetChoice}
             />
-            {presetId === null ? (
-              <Text style={styles.customPreset} testID="more-settings-developer-preset-custom">
-                {t('settings.developer.preset_custom')}
-              </Text>
-            ) : null}
           </FormField>
           <HelperNote
             message={t('settings.developer.key_cannot')}
             testID="more-settings-developer-preset-help"
           />
-          <View>
-            {API_KEY_RESOURCES.map((resource, index) => {
-              const label = resourceLabel(resource);
-              return (
-                <SettingsGroup
-                  key={resource}
-                  spaced={index > 0}
-                  testID={`more-settings-developer-resource-${resource}`}
-                  title={label}
-                >
-                  <View style={styles.resourceBody}>
-                    <Text
-                      style={styles.help}
-                      testID={`more-settings-developer-resource-help-${resource}`}
-                    >
-                      {resourceHelp(resource)}
-                    </Text>
-                    {CRUD_ACTIONS.map((action) => {
-                      const labelForAction = actionLabel(action);
-                      return (
-                        <ApiKeyPermissionCell
-                          key={action}
-                          action={action}
-                          actionLabel={labelForAction}
-                          checked={apiKeyPermissionChecked(permissions, resource, action)}
-                          onToggle={() => {
-                            setPermissions((current) =>
-                              toggleApiKeyPermission(current, resource, action)
-                            );
-                          }}
-                          resource={resource}
-                          resourceLabel={label}
-                          unavailableLabel={t('settings.developer.action_unavailable', {
-                            action: labelForAction,
-                            resource: label,
-                          })}
-                        />
-                      );
-                    })}
-                  </View>
-                </SettingsGroup>
-              );
-            })}
-          </View>
+          {presetChoice === 'custom' ? (
+            <View>
+              {API_KEY_RESOURCES.map((resource, index) => {
+                const label = resourceLabel(resource);
+                return (
+                  <SettingsGroup
+                    key={resource}
+                    spaced={index > 0}
+                    testID={`more-settings-developer-resource-${resource}`}
+                    title={label}
+                  >
+                    <View style={styles.resourceBody}>
+                      <Text
+                        style={styles.help}
+                        testID={`more-settings-developer-resource-help-${resource}`}
+                      >
+                        {resourceHelp(resource)}
+                      </Text>
+                      {CRUD_ACTIONS.map((action) => {
+                        const labelForAction = actionLabel(action);
+                        return (
+                          <ApiKeyPermissionCell
+                            key={action}
+                            action={action}
+                            actionLabel={labelForAction}
+                            checked={apiKeyPermissionChecked(permissions, resource, action)}
+                            onToggle={() => {
+                              setPermissions((current) =>
+                                toggleApiKeyPermission(current, resource, action)
+                              );
+                            }}
+                            resource={resource}
+                            resourceLabel={label}
+                            unavailableLabel={t('settings.developer.action_unavailable', {
+                              action: labelForAction,
+                              resource: label,
+                            })}
+                          />
+                        );
+                      })}
+                    </View>
+                  </SettingsGroup>
+                );
+              })}
+            </View>
+          ) : null}
           <SettingsOptionNavRow
             description={t('settings.developer.expiration_help')}
             onPress={() => {
@@ -541,7 +538,7 @@ export function MoreSettingsDeveloperCreateScreen({ navigation, route }: Props) 
             title={t('settings.developer.expiration')}
             valueLabel={expirationChoiceLabel(expiresIn, t)}
           />
-          {!grantSupported ? (
+          {presetChoice === 'custom' && !grantSupported ? (
             <Text style={styles.error} testID="more-settings-developer-permissions-empty">
               {t('settings.developer.permissions_empty')}
             </Text>

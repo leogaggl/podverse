@@ -143,6 +143,13 @@ const historyRoutes: RouteCase[] = [
     requirement: historyUpdate,
     body: UNHIDE_BODY,
   },
+  { method: 'get', path: '/account/recommendations', requirement: historyRead },
+  {
+    method: 'post',
+    path: '/account/taste-profile/weight',
+    requirement: historyUpdate,
+    body: { channel_id_text: CHANNEL_ID, weight: 3 },
+  },
 ];
 
 const notificationRoutes: RouteCase[] = [

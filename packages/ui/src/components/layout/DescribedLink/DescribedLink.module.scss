@@ -1,0 +1,51 @@
+@use '../../../styles/mixins/focus';
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-width: 0;
+  padding: var(--spacing-lg);
+  border: 1px solid var(--border-color-opaque);
+  border-radius: var(--border-radius);
+  background-color: var(--background-color-tertiary);
+}
+
+.card:hover {
+  background-color: var(--background-color-quaternary);
+}
+
+.card:focus-within {
+  @include focus.focus-ring;
+}
+
+.title {
+  color: var(--text-color-link);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+
+.title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.title:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
+.card:hover .title {
+  color: var(--text-color-link-hover);
+}
+
+.description {
+  margin: 0;
+  color: var(--text-color-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--text-line-height);
+  pointer-events: none;
+}

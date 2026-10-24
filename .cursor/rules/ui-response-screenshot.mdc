@@ -1,0 +1,17 @@
+---
+description: When a UI change was checked in the browser, include one finished screenshot in the response.
+alwaysApply: true
+---
+
+# One screenshot of the finished screen
+
+When a change is visible and you checked it in the browser, include a screenshot in the response so
+the operator can see the result without opening the tool log.
+
+- **One screenshot** of the finished screen. That is the default.
+- When the change spans more than one page or component, **one screenshot per page or component**.
+- Use the finished state. Leave out blank loads, failed clicks, and intermediate shots.
+- Skip this when nothing on screen changed, or when you could not open the page.
+
+These chat screenshots are separate from the E2E screenshot report the operator runs
+(**end-with-targeted-make-report-verify**).

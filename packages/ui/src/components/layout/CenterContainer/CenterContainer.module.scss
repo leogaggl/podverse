@@ -1,7 +1,39 @@
+@use '../../../styles/mixins/flexShrink' as *;
+
 .centerContainer {
-  min-height: 100vh;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: auto;
+  width: 100%;
+
+  // Equal spacers center the content. They collapse when the content is taller
+  // than the frame, so the scroll position starts at the top of the content.
+  &::before,
+  &::after {
+    content: '';
+    flex-basis: 0;
+    flex-grow: 1;
+    flex-shrink: 0;
+  }
+}
+
+.surfacePrimary {
+  background-color: var(--background-color-primary);
+}
+
+.surfaceTertiary {
   background-color: var(--background-color-tertiary);
+}
+
+.content {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  width: 100%;
+  @include flexItemClampToParent;
 }

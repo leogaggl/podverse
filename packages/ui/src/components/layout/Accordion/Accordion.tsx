@@ -14,6 +14,11 @@ export type AccordionProps = {
   contentClassName?: string;
   color?: 'primary' | 'secondary' | 'link';
   size?: 'small' | 'large';
+  /**
+   * Space between the disclosure caret and the header.
+   * `nav` is the tight gap for the sidebar. Every other accordion uses `standard`.
+   */
+  caretSpacing?: 'standard' | 'nav';
   /** Initial open state when uncontrolled. */
   defaultOpen?: boolean;
   /** When set, the accordion is controlled. */
@@ -29,6 +34,7 @@ export function Accordion({
   contentClassName,
   color = 'primary',
   size = 'large',
+  caretSpacing = 'standard',
   defaultOpen = false,
   open,
   onToggle,
@@ -44,7 +50,13 @@ export function Accordion({
 
   return (
     <details
-      className={classNames(styles.accordion, styles[color], styles[size], className)}
+      className={classNames(
+        styles.accordion,
+        styles[color],
+        styles[size],
+        caretSpacing === 'nav' && styles.caretNav,
+        className
+      )}
       {...(controlled
         ? {
             open,

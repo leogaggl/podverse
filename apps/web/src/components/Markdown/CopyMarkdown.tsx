@@ -8,16 +8,11 @@ import type {
   CopyMarkdownImageKey,
   CopyMarkdownInlineSpan,
 } from '@podverse/helpers';
-import {
-  getSafeLinkHref,
-  MEMBERSHIP_COMPARISON_FEATURES,
-  parseCopyMarkdown,
-} from '@podverse/helpers';
+import { getSafeLinkHref, parseCopyMarkdown } from '@podverse/helpers';
 import { Image } from '@podverse/ui';
 
-import { TrialLimitationsCollapsible } from '../../app/membership/TrialLimitationsCollapsible';
+import { MembershipComparison } from '../../app/membership/MembershipComparison';
 import { IMAGES } from '../../constants/images';
-import { FeatureComparison } from '../FeatureComparison/FeatureComparison';
 import { Link } from '../Link/Link';
 
 import aboutStyles from '../../styles/app/about/About.module.scss';
@@ -58,8 +53,7 @@ function defaultRenderComponent(key: CopyMarkdownComponentKey): ReactNode {
   if (key === 'feature_comparison') {
     return (
       <section className={aboutStyles.featuresSection}>
-        <FeatureComparison features={MEMBERSHIP_COMPARISON_FEATURES} />
-        <TrialLimitationsCollapsible />
+        <MembershipComparison initial={null} />
       </section>
     );
   }

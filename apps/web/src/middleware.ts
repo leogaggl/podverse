@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { AuthCookieName, ONE_YEAR_SECONDS } from '@podverse/helpers';
+import { AuthCookieName } from '@podverse/helpers/auth';
+import { ONE_YEAR_SECONDS } from '@podverse/helpers/timeConstants';
 
 import type { WebSessionRenewal } from './lib/auth/webSessionRenewal';
 import {

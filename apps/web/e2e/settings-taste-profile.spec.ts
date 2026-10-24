@@ -10,8 +10,8 @@ import {
 import { actionAndCapture, capturePageLoad } from './helpers/stepScreenshots';
 
 const API_LOGIN_URL = 'http://localhost:4030/api/v2/auth/login';
-const SETTINGS_ACCOUNT_URL = '/settings?tab=account';
-const SETTINGS_ACCOUNT_URL_PATTERN = /\/settings\?tab=account/;
+const SETTINGS_RECOMMENDATIONS_URL = '/settings?tab=recommendations';
+const SETTINGS_RECOMMENDATIONS_URL_PATTERN = /\/settings\?tab=recommendations/;
 const PROFILE_EMPTY_TEXT =
   'No shows yet. Shows appear here after you listen with Taste Profile on.';
 const HIDDEN_EMPTY_TEXT = 'No hidden shows.';
@@ -23,9 +23,14 @@ async function loginViaApi(page: Page): Promise<void> {
   expect(loginResponse.ok(), await loginResponse.text()).toBeTruthy();
 }
 
-async function openAccountSettings(page: Page): Promise<void> {
-  await page.goto(SETTINGS_ACCOUNT_URL);
-  await expect(page).toHaveURL(SETTINGS_ACCOUNT_URL_PATTERN);
+async function openRecommendationsSettings(page: Page, openSections = true): Promise<void> {
+  await page.goto(SETTINGS_RECOMMENDATIONS_URL);
+  await expect(page).toHaveURL(SETTINGS_RECOMMENDATIONS_URL_PATTERN);
+  await expect(page.getByRole('button', { name: 'Recommendations', exact: true })).toBeVisible();
+  if (openSections) {
+    await page.getByRole('button', { name: 'Shows That Affect Recommendations' }).click();
+    await page.getByRole('button', { name: 'Hidden From Taste Profile' }).click();
+  }
 }
 
 function profileRegion(page: Page) {
@@ -39,6 +44,19 @@ function hiddenRegion(page: Page) {
 test.describe('Settings Taste Profile sections', () => {
   test.describe.configure({ mode: 'serial' });
 
+  test('The Taste Profile lists start collapsed.', async ({ page }) => {
+    await loginViaApi(page);
+    await openRecommendationsSettings(page, false);
+
+    await expect(
+      page.getByRole('button', { name: 'Shows That Affect Recommendations' })
+    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: 'Hidden From Taste Profile' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+  });
+
   test('When the Taste Profile request fails, the section shows an error and Try Again reloads it.', async ({
     page,
   }, testInfo) => {
@@ -48,7 +66,7 @@ test.describe('Settings Taste Profile sections', () => {
       (route) => route.abort(),
       { times: 1 }
     );
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const loadError = profile.getByRole('alert');
@@ -78,7 +96,7 @@ test.describe('Settings Taste Profile sections', () => {
     page,
   }, testInfo) => {
     await loginViaApi(page);
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const hidden = hiddenRegion(page);
@@ -110,7 +128,7 @@ test.describe('Settings Taste Profile sections', () => {
     page,
   }, testInfo) => {
     await loginViaApi(page);
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const tasteProfileSwitch = profile.getByRole('switch', { name: 'Taste Profile' });
@@ -131,7 +149,7 @@ test.describe('Settings Taste Profile sections', () => {
 
   test('Removing a show moves it to Hidden From Taste Profile.', async ({ page }, testInfo) => {
     await loginViaApi(page);
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const hidden = hiddenRegion(page);
@@ -158,7 +176,7 @@ test.describe('Settings Taste Profile sections', () => {
     page,
   }, testInfo) => {
     await loginViaApi(page);
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const hidden = hiddenRegion(page);
@@ -202,7 +220,7 @@ test.describe('Settings Taste Profile sections', () => {
     page,
   }, testInfo) => {
     await loginViaApi(page);
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const hidden = hiddenRegion(page);
@@ -230,7 +248,7 @@ test.describe('Settings Taste Profile sections', () => {
     page,
   }, testInfo) => {
     await loginViaApi(page);
-    await openAccountSettings(page);
+    await openRecommendationsSettings(page);
 
     const profile = profileRegion(page);
     const hidden = hiddenRegion(page);

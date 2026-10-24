@@ -3,10 +3,10 @@ import {
   buildArtistPath,
   buildEpisodePath,
   buildPodcastPath,
-  buildSortPrefScopeKey,
   buildTrackPath,
-  getChannelRouteKind,
-} from '@podverse/helpers';
+} from '@podverse/helpers/appRoutes';
+import { getChannelRouteKind } from '@podverse/helpers/medium';
+import { buildSortPrefScopeKey } from '@podverse/helpers/sortPrefs';
 
 import { carrySortPrefStore, parseSortPrefStore } from '../localSettings/sortPrefs';
 

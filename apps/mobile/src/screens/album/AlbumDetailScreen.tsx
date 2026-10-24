@@ -37,6 +37,7 @@ import { subscriptionsRepository } from '../../data/repositories/subscriptionsRe
 import { useChannelNotifications } from '../../hooks/useChannelNotifications';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
+import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { toChannelLiveRow } from '../../lib/rows/liveItemRows';
 import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
@@ -428,13 +429,28 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
           hasPeople,
           hasPodroll,
         });
-      } catch {
-        // Channel and list panes surface their own states.
+      } catch (error) {
+        const replaced = await replaceScreenIfMerged({
+          currentIdText: albumId,
+          error,
+          loadChannel: (idText) =>
+            requestWithMobileAuthRefresh(authContext, async (api) =>
+              api.reqChannelGetByIdOrIdText(idText)
+            ),
+          loadItem: (idText) =>
+            requestWithMobileAuthRefresh(authContext, async (api) =>
+              api.reqItemGetByIdOrIdText(idText)
+            ),
+          navigation,
+        });
+        if (replaced) {
+          return;
+        }
       }
     } finally {
       setIsChannelLoading(false);
     }
-  }, [albumId, authContext, offlineModeEnabled]);
+  }, [albumId, authContext, navigation, offlineModeEnabled]);
 
   useEffect(() => {
     void loadChannel();

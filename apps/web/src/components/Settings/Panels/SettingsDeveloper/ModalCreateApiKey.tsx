@@ -19,13 +19,11 @@ import {
   API_KEY_EXPIRATION_DAYS_OPTIONS,
   API_KEY_MAX_PER_ACCOUNT,
   API_KEY_NAME_MAX_LENGTH,
-  API_KEY_PRESET_IDS,
   API_KEY_RESOURCES,
   apiKeyPermissionsForPreset,
   apiKeyPermissionsGrantSupported,
   CRUD_ACTIONS,
   crudMaskHas,
-  findApiKeyPresetId,
   getErrorResponseBodyCode,
   getErrorResponseStatus,
 } from '@podverse/helpers';
@@ -119,13 +117,10 @@ function apiKeyResourceHelpKey(resource: ApiKeyResource): ApiKeyResourceHelpKey 
   }
 }
 
-function isListedPreset(value: string): value is ApiKeyPresetId {
-  for (const presetId of API_KEY_PRESET_IDS) {
-    if (presetId === value) {
-      return true;
-    }
-  }
-  return false;
+type ApiKeyPresetChoice = ApiKeyPresetId | 'custom';
+
+function isPresetChoice(value: string): value is ApiKeyPresetChoice {
+  return value === 'read_only' || value === 'full_access' || value === 'custom';
 }
 
 function initialPermissions(): ApiKeyPermissions {
@@ -145,6 +140,7 @@ export function ModalCreateApiKey({
   const { tryHandleMembershipGateError } = useMembershipGate();
   const [name, setName] = useState('');
   const [permissions, setPermissions] = useState<ApiKeyPermissions>(initialPermissions);
+  const [presetChoice, setPresetChoice] = useState<ApiKeyPresetChoice>('read_only');
   const [expiresInDays, setExpiresInDays] = useState<ApiKeyExpirationDays>(
     API_KEY_DEFAULT_EXPIRATION_DAYS
   );
@@ -157,6 +153,7 @@ export function ModalCreateApiKey({
   const resetAndClose = () => {
     setName('');
     setPermissions(initialPermissions());
+    setPresetChoice('read_only');
     setExpiresInDays(API_KEY_DEFAULT_EXPIRATION_DAYS);
     setNameError(undefined);
     setFormError(undefined);
@@ -183,7 +180,11 @@ export function ModalCreateApiKey({
   };
 
   const onPresetChange = (value: string) => {
-    if (isListedPreset(value)) {
+    if (!isPresetChoice(value)) {
+      return;
+    }
+    setPresetChoice(value);
+    if (value !== 'custom') {
       setPermissions(apiKeyPermissionsForPreset(value));
     }
     setFormError(undefined);
@@ -262,7 +263,6 @@ export function ModalCreateApiKey({
   };
 
   const title = created === null ? t('create') : t('created_title');
-  const selectedPreset = findApiKeyPresetId(permissions) ?? 'custom';
 
   return (
     <Modal
@@ -302,7 +302,7 @@ export function ModalCreateApiKey({
             <RadioButton
               name="api-key-preset"
               eyebrow={t('presets')}
-              selectedValue={selectedPreset}
+              selectedValue={presetChoice}
               onChange={onPresetChange}
               options={[
                 { value: 'read_only', label: t('preset_read_only') },
@@ -310,51 +310,53 @@ export function ModalCreateApiKey({
                 { value: 'custom', label: t('preset_custom') },
               ]}
             />
-            <div className={styles.resources}>
-              {API_KEY_RESOURCES.map((resource) => {
-                const helpId = `api-key-help-${resource}`;
-                const resourceLabel = t(apiKeyResourceLabelKey(resource));
-                return (
-                  <fieldset key={resource} className={styles.resource} aria-describedby={helpId}>
-                    <legend>{resourceLabel}</legend>
-                    <p id={helpId} className={styles.help}>
-                      {t(apiKeyResourceHelpKey(resource))}
-                    </p>
-                    <div className={styles.actions}>
-                      {CRUD_ACTIONS.map((action) => {
-                        const actionLabel = t(apiKeyActionLabelKey(action));
-                        if (apiKeyPermissionCellKind(resource, action) === 'unsupported') {
-                          const unavailableLabel = t('action_unavailable', {
-                            resource: resourceLabel,
-                            action: actionLabel,
-                          });
+            {presetChoice === 'custom' ? (
+              <div className={styles.resources}>
+                {API_KEY_RESOURCES.map((resource) => {
+                  const helpId = `api-key-help-${resource}`;
+                  const resourceLabel = t(apiKeyResourceLabelKey(resource));
+                  return (
+                    <fieldset key={resource} className={styles.resource} aria-describedby={helpId}>
+                      <legend>{resourceLabel}</legend>
+                      <p id={helpId} className={styles.help}>
+                        {t(apiKeyResourceHelpKey(resource))}
+                      </p>
+                      <div className={styles.actions}>
+                        {CRUD_ACTIONS.map((action) => {
+                          const actionLabel = t(apiKeyActionLabelKey(action));
+                          if (apiKeyPermissionCellKind(resource, action) === 'unsupported') {
+                            const unavailableLabel = t('action_unavailable', {
+                              resource: resourceLabel,
+                              action: actionLabel,
+                            });
+                            return (
+                              <span
+                                key={action}
+                                className={styles.unsupported}
+                                role="img"
+                                aria-label={unavailableLabel}
+                              >
+                                <span aria-hidden="true">—</span>
+                              </span>
+                            );
+                          }
                           return (
-                            <span
+                            <CheckboxField
                               key={action}
-                              className={styles.unsupported}
-                              role="img"
-                              aria-label={unavailableLabel}
-                            >
-                              <span aria-hidden="true">—</span>
-                            </span>
+                              label={actionLabel}
+                              checked={crudMaskHas(permissions[resource], action)}
+                              name={`api-key-${resource}-${action}`}
+                              onChange={(enabled) => onPermissionChange(resource, action, enabled)}
+                            />
                           );
-                        }
-                        return (
-                          <CheckboxField
-                            key={action}
-                            label={actionLabel}
-                            checked={crudMaskHas(permissions[resource], action)}
-                            name={`api-key-${resource}-${action}`}
-                            onChange={(enabled) => onPermissionChange(resource, action, enabled)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </fieldset>
-                );
-              })}
-            </div>
-            {!apiKeyPermissionsGrantSupported(permissions) ? (
+                        })}
+                      </div>
+                    </fieldset>
+                  );
+                })}
+              </div>
+            ) : null}
+            {presetChoice === 'custom' && !apiKeyPermissionsGrantSupported(permissions) ? (
               <p role="alert">{t('permissions_empty')}</p>
             ) : null}
             {formError !== undefined ? <p role="alert">{formError}</p> : null}

@@ -10,6 +10,11 @@ import styles from './SwitchButton.module.scss';
 type SwitchButtonBaseProps = {
   id?: string;
   label: string;
+  /**
+   * The label stays the switch's accessible name and is not shown. Use this when a heading
+   * already names the same control.
+   */
+  hideLabel?: boolean;
   checked: boolean;
   onChange: (next: boolean) => void;
   loading?: boolean;
@@ -28,6 +33,7 @@ export function SwitchButton(props: SwitchButtonProps) {
   const {
     id,
     label,
+    hideLabel,
     checked,
     onChange,
     loading,
@@ -40,6 +46,11 @@ export function SwitchButton(props: SwitchButtonProps) {
   const helpText = 'helpText' in props && props.helpText !== undefined ? props.helpText : undefined;
   const helpAriaLabel =
     'helpAriaLabel' in props && props.helpAriaLabel !== undefined ? props.helpAriaLabel : undefined;
+  const help =
+    helpText !== undefined && helpAriaLabel !== undefined
+      ? { ariaLabel: helpAriaLabel, body: helpText }
+      : null;
+  const labelIsHidden = hideLabel === true;
 
   const handleToggle = () => {
     if (loading === true) {
@@ -50,16 +61,16 @@ export function SwitchButton(props: SwitchButtonProps) {
 
   return (
     <div className={classNames(styles.wrapper, className)}>
-      <div className={styles.headerRow}>
-        <div className={styles.labelWrapper}>
-          <label htmlFor={id} className={styles.label}>
-            {label}
-          </label>
-          {helpText !== undefined && helpAriaLabel !== undefined ? (
-            <PopoverIcon ariaLabel={helpAriaLabel} body={helpText} />
-          ) : null}
+      {labelIsHidden ? null : (
+        <div className={styles.headerRow}>
+          <div className={styles.labelWrapper}>
+            <label htmlFor={id} className={styles.label}>
+              {label}
+            </label>
+            {help !== null ? <PopoverIcon ariaLabel={help.ariaLabel} body={help.body} /> : null}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={styles.controlRow}>
         <button
@@ -68,6 +79,7 @@ export function SwitchButton(props: SwitchButtonProps) {
           role="switch"
           aria-checked={checked}
           aria-describedby={ariaDescribedBy}
+          aria-label={labelIsHidden ? label : undefined}
           className={classNames(
             styles.switch,
             checked ? styles.on : styles.off,
@@ -84,6 +96,10 @@ export function SwitchButton(props: SwitchButtonProps) {
         <div className={styles.stateLabel} aria-hidden>
           {checked ? stateOnLabel : stateOffLabel}
         </div>
+
+        {labelIsHidden && help !== null ? (
+          <PopoverIcon ariaLabel={help.ariaLabel} body={help.body} />
+        ) : null}
 
         {loading === true ? (
           <div className={styles.loadingWrapper} aria-hidden>

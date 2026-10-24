@@ -107,9 +107,11 @@ import {
   reqNotificationsUnreadCount,
 } from './account/notification/notifications.js';
 import {
+  reqAccountRecommendations,
   reqAccountTasteProfile,
   reqAccountTasteProfileHidden,
   reqAccountTasteProfileHide,
+  reqAccountTasteProfileSetWeight,
   reqAccountTasteProfileUnhide,
 } from './account/tasteProfile.js';
 import {
@@ -223,7 +225,11 @@ import {
   reqLiveItemGetManyUpcoming,
 } from './liveItem/liveItem.js';
 import { reqManagedCopyGet } from './managedCopy/managedCopy.js';
-import { reqMembershipGetPricing, reqProductMembershipGet } from './membership/membership.js';
+import {
+  reqMembershipComparisonGet,
+  reqMembershipGetPricing,
+  reqProductMembershipGet,
+} from './membership/membership.js';
 import {
   reqMetaboostMbrssV1MintAppAssertion,
   type ReqMetaboostMbrssV1MintAppAssertionParams,
@@ -886,6 +892,14 @@ export class ApiRequestService {
     return reqAccountTasteProfileUnhide(this, params);
   }
 
+  reqAccountRecommendations(params: { chip: 'podcasts' | 'albums' | 'artists' }) {
+    return reqAccountRecommendations(this, params);
+  }
+
+  reqAccountTasteProfileSetWeight(params: { channel_id_text: string; weight: number }) {
+    return reqAccountTasteProfileSetWeight(this, params);
+  }
+
   /* ACCOUNT > NOTIFICATION > CHANNEL */
 
   reqAccountNotificationChannelCreate(params: { channel_id_text: string }) {
@@ -1231,6 +1245,10 @@ export class ApiRequestService {
 
   reqProductMembershipGet() {
     return reqProductMembershipGet(this);
+  }
+
+  reqMembershipComparisonGet(options?: { locale?: string }) {
+    return reqMembershipComparisonGet(this, options);
   }
 
   reqBillingGetCheckoutOptions(params?: ReqBillingCheckoutOptionsParams) {

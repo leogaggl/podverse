@@ -1,9 +1,9 @@
-import type { SortPrefScope, SortPrefValue } from '@podverse/helpers';
+import type { SortPrefScope, SortPrefValue } from '@podverse/helpers/sortPrefs';
 import {
   buildSortPrefScopeKey,
   mergeSortPrefValue,
   sanitizeSortPrefValue,
-} from '@podverse/helpers';
+} from '@podverse/helpers/sortPrefs';
 
 /**
  * Per-instance list preferences, held in the `local-settings` cookie under `sp`.

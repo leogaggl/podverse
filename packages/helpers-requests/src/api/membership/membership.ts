@@ -1,3 +1,5 @@
+import type { DTOMembershipComparison } from '@podverse/helpers';
+
 import type { ApiRequestService } from '../_request.js';
 
 type MembershipPricingData = {
@@ -27,5 +29,26 @@ export async function reqProductMembershipGet(api: ApiRequestService) {
   return api.apiRequest<{ data: ProductMembershipCatalog }>({
     path: '/product/membership',
     method: 'GET',
+  });
+}
+
+/** Localized feature table and Trial limitations for the caller's Accept-Language. */
+export async function reqMembershipComparisonGet(
+  api: ApiRequestService,
+  options?: { locale?: string }
+) {
+  const locale = options?.locale?.trim() ?? '';
+  return api.apiRequest<{ data: DTOMembershipComparison }>({
+    path: '/product/membership/comparison',
+    method: 'GET',
+    ...(locale !== ''
+      ? {
+          config: {
+            headers: {
+              'Accept-Language': locale,
+            },
+          },
+        }
+      : {}),
   });
 }

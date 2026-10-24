@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 import { capturePageLoad } from './helpers/stepScreenshots';
 
 /**
- * Membership page shows a Free vs Premium feature table (short rows, mobile-only * on labels)
- * and a Trial limitations accordion. Renew page is linked when membership expires.
+ * Membership page shows a Free vs Premium feature table. A dagger on the Free check means that
+ * tier is the mobile app; Premium includes the website. Trial caps stay in the accordion.
  */
 test.describe('Web membership page trial limitations and renew route', () => {
   test('When a visitor opens Membership, they see the Free versus Premium table and can expand Trial limitations.', async ({
@@ -13,19 +13,37 @@ test.describe('Web membership page trial limitations and renew route', () => {
     await page.goto('/membership');
     await expect(page).toHaveURL(/\/membership\/?$/);
 
+    await expect(page.getByTestId('membership-contact')).toContainText(
+      'To get a membership, please contact us at'
+    );
+    await expect(page.getByRole('link', { name: 'contact-e2e@example.com' })).toBeVisible();
+    await expect(page.getByText('If you have questions, please contact us at')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Extend Membership' })).toHaveCount(0);
+
     await expect(page.getByRole('columnheader', { name: 'Free' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'Premium' })).toBeVisible();
 
     const videoPlayback = page.getByText('Video Playback', { exact: true });
     await expect(videoPlayback).toBeVisible();
-    await expect(page.getByText('CarPlay*', { exact: true })).toBeVisible();
-    await expect(page.getByText('Android Auto*', { exact: true })).toBeVisible();
+    await expect(page.getByText('Subscribe to Podcasts *', { exact: true })).toBeVisible();
+    await expect(page.getByText('Download Episodes', { exact: true })).toBeVisible();
+    await expect(page.getByText('CarPlay', { exact: true })).toBeVisible();
+    await expect(page.getByText('Android Auto', { exact: true })).toBeVisible();
     await expect(page.getByText('Streaming (Value for Value)', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Sleep Timer*', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sleep Timer', { exact: true })).toBeVisible();
+    await expect(page.getByText('Notifications', { exact: true })).toBeVisible();
+    await expect(page.getByText('Playback Handoff', { exact: true })).toBeVisible();
+    await expect(page.getByText('Queue and History', { exact: true })).toBeVisible();
+    await expect(page.getByText('Recommendations', { exact: true })).toBeVisible();
+    await expect(page.getByText('Developer API Keys', { exact: true })).toBeVisible();
     await expect(page.getByText('Coming Soon')).toHaveCount(0);
     await expect(
-      page.getByText('* Feature is only available in the mobile app', { exact: true })
+      page.getByText(
+        '* Free tier is available on the mobile app only. Premium includes the website.',
+        { exact: true }
+      )
     ).toBeVisible();
+    await expect(page.getByText('* Feature is only available in the mobile app')).toHaveCount(0);
 
     const trialLimitations = page.getByText('Trial Limitations', { exact: true });
     await expect(trialLimitations).toBeVisible();
@@ -38,12 +56,22 @@ test.describe('Web membership page trial limitations and renew route', () => {
       'Adding feeds to the public directory from search is blocked for Trial status.',
       { exact: true }
     );
+    const feedLimitBullet = page.getByText(
+      'Add by RSS holds up to 10 feeds on Trial and 100 on Premium.',
+      { exact: true }
+    );
+    const refreshBullet = page.getByText(
+      'Manual refresh is limited to 5 times an hour on Trial and 20 on Premium.',
+      { exact: true }
+    );
     const statsBullet = page.getByText(
-      'Listen stats are not available on Trial. Contributing to trending requires Premium.',
+      'Listens during Trial are saved for Recommendations. They do not count toward trending. Profile and playlist opens count toward trending on Premium.',
       { exact: true }
     );
     await expect(trialSummary).not.toBeVisible();
     await expect(directoryBullet).not.toBeVisible();
+    await expect(feedLimitBullet).not.toBeVisible();
+    await expect(refreshBullet).not.toBeVisible();
     await expect(statsBullet).not.toBeVisible();
 
     await capturePageLoad(
@@ -57,6 +85,8 @@ test.describe('Web membership page trial limitations and renew route', () => {
 
     await expect(trialSummary).toBeVisible();
     await expect(directoryBullet).toBeVisible();
+    await expect(feedLimitBullet).toBeVisible();
+    await expect(refreshBullet).toBeVisible();
     await expect(statsBullet).toBeVisible();
 
     await capturePageLoad(

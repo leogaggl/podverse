@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
+import { expectCenteredOrScrollsFromTop } from './helpers/centeredScrollFrame';
 import {
   E2E_CONFIGURED_TERMS_VERSION,
   E2E_STALE_TERMS_EMAIL,
@@ -38,6 +39,7 @@ test.describe('Terms version acceptance', () => {
       await expect(termsScreen).toBeVisible();
       await expect(termsScreen.getByText(TERMS_DATE)).toBeVisible();
       await expect(termsScreen.getByRole('button', { name: 'Accept' })).toBeDisabled();
+      await expectCenteredOrScrollsFromTop(page, termsScreen);
       const disclosure = termsScreen.getByText('View Terms of Service');
       const accept = termsScreen.getByRole('button', { name: 'Accept' });
       const disclosureBox = await disclosure.boundingBox();

@@ -13,6 +13,11 @@
   display: flex;
   align-items: center;
   font-size: var(--font-size-xs);
+  margin-right: var(--spacing-lg);
+}
+
+// The sidebar nav uses a tight caret gap. Other accordions use the standard gap.
+.caretNav .headerIcon {
   margin-right: var(--spacing-xs);
 }
 

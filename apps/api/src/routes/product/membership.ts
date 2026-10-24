@@ -5,4 +5,5 @@ import { Router } from 'express';
 export const membershipRouter = Router();
 
 membershipRouter.get('/pricing', asyncHandler(MembershipController.getPricing));
+membershipRouter.get('/comparison', asyncHandler(MembershipController.getComparison));
 membershipRouter.get('/', asyncHandler(MembershipController.getResolvedProductMembership));

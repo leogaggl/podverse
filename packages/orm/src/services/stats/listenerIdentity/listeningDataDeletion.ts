@@ -12,6 +12,8 @@ const LISTENING_DATA_TABLES = [
   'stats_open_event',
   'stats_taste_profile',
   'stats_taste_profile_hidden',
+  'stats_recommendation',
+  'stats_recommendation_state',
 ] as const;
 
 const TODAY_STORED_LISTENS_SQL = `SELECT count(*)::int AS stored_count, min(created_at) AS first_stored_at
@@ -30,7 +32,8 @@ function earlierOf(a: Date | null, b: Date | null): Date | null {
 
 /**
  * Deletes an account's stored listening data when the listener turns off Taste Profile consent:
- * listen events, open events, Taste Profile rows, and Hidden From Taste Profile rows. It keeps the
+ * listen events, open events, Taste Profile rows, Hidden From Taste Profile rows, and
+ * recommendation rows. It keeps the
  * listener row, and writes onto it how many listens the deletion removed from the current UTC
  * day, so write limits and flags kept by listener id do not restart when the listener turns Taste
  * Profile on again. Daily and range totals have no listener column and stay. See

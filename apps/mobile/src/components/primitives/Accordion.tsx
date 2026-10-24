@@ -13,6 +13,7 @@ export type AccordionProps = {
   children: ReactNode;
   testID: string;
   defaultOpen?: boolean;
+  onToggle?: (open: boolean) => void;
 };
 
 /**
@@ -26,6 +27,7 @@ export function Accordion({
   children,
   testID,
   defaultOpen = false,
+  onToggle,
 }: AccordionProps) {
   const { styles: themeStyles, tokens } = useTheme();
   const [open, setOpen] = useState(defaultOpen);
@@ -77,7 +79,11 @@ export function Accordion({
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => {
-          setOpen((value) => !value);
+          setOpen((value) => {
+            const next = !value;
+            onToggle?.(next);
+            return next;
+          });
         }}
         style={styles.header}
         testID={`${testID}-toggle`}

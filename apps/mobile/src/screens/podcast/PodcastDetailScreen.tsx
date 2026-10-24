@@ -33,6 +33,7 @@ import { subscriptionsRepository } from '../../data/repositories/subscriptionsRe
 import { useChannelNotifications } from '../../hooks/useChannelNotifications';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
+import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
 import {
   isPodcastSectionUnavailableOffline,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
@@ -267,7 +268,23 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
           channelTitle: response.title ?? null,
         });
         chromeConfirmedRef.current = true;
-      } catch {
+      } catch (error) {
+        const replaced = await replaceScreenIfMerged({
+          currentIdText: podcastId,
+          error,
+          loadChannel: (idText) =>
+            requestWithMobileAuthRefresh(authContext, async (api) =>
+              api.reqChannelGetByIdOrIdText(idText)
+            ),
+          loadItem: (idText) =>
+            requestWithMobileAuthRefresh(authContext, async (api) =>
+              api.reqItemGetByIdOrIdText(idText)
+            ),
+          navigation,
+        });
+        if (replaced) {
+          return;
+        }
         void sectionChromeFlagsRepository.mergeChannel(podcastId, {
           hasOfficialClips: soundbites,
         });
@@ -276,7 +293,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
     } finally {
       setIsChannelLoading(false);
     }
-  }, [authContext, offlineModeEnabled, podcastId]);
+  }, [authContext, navigation, offlineModeEnabled, podcastId]);
 
   useEffect(() => {
     void loadChannel();

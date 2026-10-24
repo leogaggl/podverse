@@ -43,27 +43,30 @@ export function SettingsRemovedContent() {
 
   return (
     <SettingsSection>
-      <h3 className={styles.heading}>{t('removed_content')}</h3>
-      {state.status === 'loading' ? (
-        <LoadingSpinner ariaLabel={tMisc('loading')} size="medium" />
-      ) : null}
-      {state.status === 'error' ? (
-        <p className={styles.status} role="alert">
-          {t('load_error')}
-        </p>
-      ) : null}
-      {state.status === 'ready' && state.rows.length === 0 ? (
-        <p className={styles.status}>{t('empty')}</p>
-      ) : null}
-      {state.status === 'ready' && state.rows.length > 0 ? (
-        <ul className={styles.rows}>
-          {state.rows.map((row) => (
-            <li key={row.id}>
-              <p className={styles.row}>{removedContentSentences(row, t).join(' ')}</p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <div className={styles.stack}>
+        <h3 className={styles.heading}>{t('removed_content')}</h3>
+        <p className={styles.copy}>{t('explanation')}</p>
+        {state.status === 'loading' ? (
+          <LoadingSpinner ariaLabel={tMisc('loading')} size="medium" />
+        ) : null}
+        {state.status === 'error' ? (
+          <p className={styles.copy} role="alert">
+            {t('load_error')}
+          </p>
+        ) : null}
+        {state.status === 'ready' && state.rows.length === 0 ? (
+          <p className={styles.copy}>{t('empty')}</p>
+        ) : null}
+        {state.status === 'ready' && state.rows.length > 0 ? (
+          <ul className={styles.rows}>
+            {state.rows.map((row) => (
+              <li key={row.id}>
+                <p className={styles.copy}>{removedContentSentences(row, t).join(' ')}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </SettingsSection>
   );
 }

@@ -79,3 +79,21 @@ export const resolveAccountEntitlements = (
     allowNotifications: overrides?.allow_notifications ?? defaults.allowNotifications,
   };
 };
+
+/**
+ * A valid trial stores listens for the Taste Profile. A premium account stores them only while
+ * `trackStats` is on.
+ */
+export const membershipStoresListens = (
+  membershipId: AccountMembershipEnum,
+  trackStats: boolean
+): boolean => membershipId === AccountMembershipEnum.Trial || trackStats;
+
+/**
+ * Popularity rankings count a listen or an open only for a premium account with `trackStats` on.
+ * A trial never counts, including when `trackStats` is forced on.
+ */
+export const membershipCountsTowardPopularity = (
+  membershipId: AccountMembershipEnum,
+  trackStats: boolean
+): boolean => membershipId === AccountMembershipEnum.Premium && trackStats;

@@ -2,6 +2,7 @@ import { deriveMembershipState, evaluateFeatureAccess } from '@podverse/helpers'
 import { getErrorResponseBody, getErrorResponseStatus } from '@podverse/helpers/error';
 
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
+import { readMergedInto } from '../../lib/mergeRedirect';
 import { requestAddByRssRefresh } from '../../sync/requestAddByRssRefresh';
 import { accountRepository } from './accountRepository';
 import type { ChannelWindowSyncResult } from './channelItemsRepository';
@@ -40,25 +41,8 @@ export type DirectoryChannelSyncOutcome =
   | { kind: 'synced'; result: ChannelWindowSyncResult };
 
 const mergedChannelIdText = (error: unknown): string | null => {
-  const body = getErrorResponseBody(error);
-  if (body === undefined) {
-    return null;
-  }
-  const merged = body.merged_into;
-  if (merged === null || typeof merged !== 'object' || Array.isArray(merged)) {
-    return null;
-  }
-  if (!('kind' in merged) || !('id_text' in merged)) {
-    return null;
-  }
-  if (
-    merged.kind !== 'channel' ||
-    typeof merged.id_text !== 'string' ||
-    merged.id_text.length === 0
-  ) {
-    return null;
-  }
-  return merged.id_text;
+  const merged = readMergedInto(error);
+  return merged !== null && merged.kind === 'channel' ? merged.idText : null;
 };
 
 /**

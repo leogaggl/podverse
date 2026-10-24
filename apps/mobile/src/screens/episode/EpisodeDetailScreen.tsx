@@ -38,6 +38,7 @@ import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChr
 import { useItemDescription } from '../../hooks/useItemDescription';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
 import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
+import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
 import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
@@ -324,7 +325,35 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
       }
 
       applyEpisode(fresh, nextChannel, nextChannel?.title ?? null);
-    } catch {
+    } catch (error) {
+      const replaced = await replaceScreenIfMerged({
+        currentIdText: episodeId,
+        error,
+        loadChannel: (idText) =>
+          requestWithMobileAuthRefresh(
+            {
+              accessToken,
+              clearSession,
+              refreshToken,
+              setTokens,
+            },
+            async (api) => api.reqChannelGetByIdOrIdText(idText)
+          ),
+        loadItem: (idText) =>
+          requestWithMobileAuthRefresh(
+            {
+              accessToken,
+              clearSession,
+              refreshToken,
+              setTokens,
+            },
+            async (api) => api.reqItemGetByIdOrIdText(idText)
+          ),
+        navigation,
+      });
+      if (replaced) {
+        return;
+      }
       if (stored === null) {
         setErrorKey('errors.generic');
         setEpisode(null);
@@ -339,6 +368,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     applyEpisode,
     clearSession,
     episodeId,
+    navigation,
     offlineModeEnabled,
     refreshToken,
     setTokens,

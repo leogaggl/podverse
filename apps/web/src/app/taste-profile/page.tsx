@@ -11,7 +11,7 @@ export default function TasteProfileAgreementPage() {
   return (
     <TasteProfileAgreementGate
       onDecided={() => {
-        router.push(`${ROUTES.SETTINGS}?tab=account`);
+        router.push(`${ROUTES.SETTINGS}?tab=recommendations`);
       }}
     />
   );

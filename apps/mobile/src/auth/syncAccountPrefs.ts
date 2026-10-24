@@ -10,6 +10,8 @@ import {
   syncFcmDeviceLocaleIfRegistered,
 } from '../push/fcmDeviceSync';
 import {
+  isUnifiedPushRegisteredOnDevice,
+  readUnifiedPushMode,
   registerUnifiedPushDeviceForAccount,
   syncUnifiedPushDeviceLocaleIfRegistered,
 } from '../push/unifiedPushDeviceSync';
@@ -65,8 +67,16 @@ export const registerPushDeviceForAccount = async ({
   }
 
   const locale = resolveSupportedLocale(account.account_settings?.account_settings_locale?.locale);
-  const pushProvider = getMobileConfig().pushProvider;
+  const unifiedPushMode = await readUnifiedPushMode();
+  if (unifiedPushMode === 'user') {
+    await registerUnifiedPushDeviceForAccount({ auth, locale });
+    return;
+  }
+  if (unifiedPushMode === 'off') {
+    return;
+  }
 
+  const pushProvider = getMobileConfig().pushProvider;
   if (pushProvider === 'fcm') {
     await registerFcmDeviceForAccount({ auth, locale });
   } else if (pushProvider === 'unifiedpush') {
@@ -118,7 +128,8 @@ export const syncLocaleToAccountSettings = async ({
     const pushProvider = getMobileConfig().pushProvider;
     if (pushProvider === 'fcm') {
       await syncFcmDeviceLocaleIfRegistered({ auth, locale });
-    } else if (pushProvider === 'unifiedpush') {
+    }
+    if (pushProvider === 'unifiedpush' || (await isUnifiedPushRegisteredOnDevice())) {
       await syncUnifiedPushDeviceLocaleIfRegistered({ auth, locale });
     }
   } catch (error) {

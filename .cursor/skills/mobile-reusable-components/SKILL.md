@@ -64,8 +64,9 @@ agreement checkbox and the action column.
 dialog, checkout, and other page or section call-to-action decisions share one height. A raw
 `Button` that is that decision passes `size="form"` and `fullWidth` too. Header, row, banner, and
 identity-block actions stay `sm` or `md`. Do not share one
-`gap` across prose and CTAs, and do not repeat the stack title as an in-body heading. See
-**mobile-screen-layout**.
+`gap` across prose and CTAs, and do not repeat the stack title as an in-body heading. The prose
+column's gap is `settingsCardInnerGap`. A `Text` in that column does not add its own vertical
+margin. See **even-content-spacing** and **mobile-screen-layout**.
 
 **Text fields:** `TextField` is the only painted input (tertiary fill, focus ring — never a
 stroked `TextInput`). Pass **`eyebrow` + `placeholder`** for forms (login, sign-up, playlist,

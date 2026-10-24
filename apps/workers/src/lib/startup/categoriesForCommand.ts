@@ -38,6 +38,7 @@ const BASE_ORM_COMMANDS = [
   'devStatsSeedSimulatedPopularity',
   'statsEventPartitionsMaintain',
   'statsPopularityRefresh',
+  'statsRecommendationsRefresh',
   'generateOnDemandParserEventReports',
   'deleteOutdatedOnDemandParserEvent',
   'ormArchivedSlimReport',

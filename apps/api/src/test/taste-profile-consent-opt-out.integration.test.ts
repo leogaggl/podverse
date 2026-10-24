@@ -33,6 +33,8 @@ type ListeningRowCounts = {
   hidden: number;
   listens: number;
   opens: number;
+  recommendations: number;
+  recommendationState: number;
 };
 
 type OptOutDayCarryRow = {
@@ -158,6 +160,15 @@ describe('Taste Profile consent opt-out deletes listening data (real database)',
       listenerId,
       owner.id,
     ]);
+    await query(
+      `INSERT INTO stats_recommendation (listener_id, channel_id, score, strength, computed_at)
+       VALUES ($1::uuid, $2, 1, 1, now())`,
+      [listenerId, channelId]
+    );
+    await query(
+      `INSERT INTO stats_recommendation_state (listener_id, computed_at) VALUES ($1::uuid, now())`,
+      [listenerId]
+    );
     return listenerId;
   };
 
@@ -193,6 +204,18 @@ describe('Taste Profile consent opt-out deletes listening data (real database)',
         WHERE l.account_id = $1`,
       accountId
     ),
+    recommendations: await countFor(
+      `SELECT count(*)::int AS total FROM stats_recommendation r
+         JOIN listener_identity.stats_listener l ON l.listener_id = r.listener_id
+        WHERE l.account_id = $1`,
+      accountId
+    ),
+    recommendationState: await countFor(
+      `SELECT count(*)::int AS total FROM stats_recommendation_state s
+         JOIN listener_identity.stats_listener l ON l.listener_id = s.listener_id
+        WHERE l.account_id = $1`,
+      accountId
+    ),
   });
 
   const rowsForListenerId = async (listenerId: string): Promise<number> =>
@@ -202,7 +225,9 @@ describe('Taste Profile consent opt-out deletes listening data (real database)',
           `SELECT ((SELECT count(*) FROM stats_taste_profile WHERE listener_id = $1::uuid)
                 + (SELECT count(*) FROM stats_taste_profile_hidden WHERE listener_id = $1::uuid)
                 + (SELECT count(*) FROM stats_listen_event WHERE listener_id = $1::uuid)
-                + (SELECT count(*) FROM stats_open_event WHERE listener_id = $1::uuid))::int AS total`,
+                + (SELECT count(*) FROM stats_open_event WHERE listener_id = $1::uuid)
+                + (SELECT count(*) FROM stats_recommendation WHERE listener_id = $1::uuid)
+                + (SELECT count(*) FROM stats_recommendation_state WHERE listener_id = $1::uuid))::int AS total`,
           [listenerId]
         )
       ).total
@@ -362,10 +387,20 @@ describe('Taste Profile consent opt-out deletes listening data (real database)',
       hidden: 0,
       listens: 0,
       opens: 0,
+      recommendations: 0,
+      recommendationState: 0,
     });
     expect(await optedOutAt(listenerA.id)).not.toBeNull();
     expect(await listeningRowCounts(listenerB.id)).toEqual(countsBBefore);
-    expect(countsBBefore).toEqual({ listener: 1, taste: 1, hidden: 1, listens: 1, opens: 1 });
+    expect(countsBBefore).toEqual({
+      listener: 1,
+      taste: 1,
+      hidden: 1,
+      listens: 1,
+      opens: 1,
+      recommendations: 1,
+      recommendationState: 1,
+    });
     expect(await dailyListenerCounts()).toEqual({
       channel: DAILY_LISTENER_COUNT,
       item: DAILY_LISTENER_COUNT,
@@ -390,6 +425,8 @@ describe('Taste Profile consent opt-out deletes listening data (real database)',
       hidden: 0,
       listens: 0,
       opens: 0,
+      recommendations: 0,
+      recommendationState: 0,
     });
     expect(await optedOutAt(newcomer.id)).toBeNull();
     expect(await dailyListenerCounts()).toEqual(dailyBefore);

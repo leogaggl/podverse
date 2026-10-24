@@ -4,6 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PopularityListenResult, PopularityOpenResult } from '@podverse/helpers';
+import { AccountMembershipEnum } from '@podverse/helpers';
 import type { ORMContext, StatsListenReport, StatsOpenReport } from '@podverse/orm';
 
 import {
@@ -128,7 +129,7 @@ describe('stats listen and open POST routes', () => {
       expect(recordOpenMock).not.toHaveBeenCalled();
     });
 
-    it('returns 403 feature_not_available_for_account_type when the account lacks trackStats', async () => {
+    it('returns 403 feature_not_available_for_account_type when a premium account lacks trackStats', async () => {
       accountGetMock.mockImplementation(async (id) => {
         const account = await defaultAccountGet(id);
         return account === null
@@ -147,6 +148,51 @@ describe('stats listen and open POST routes', () => {
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('feature_not_available_for_account_type');
       expect(recordListenMock).not.toHaveBeenCalled();
+    });
+
+    it('records a trial listen with counts_toward_popularity false', async () => {
+      accountGetMock.mockImplementation(async (id) => {
+        const account = await defaultAccountGet(id);
+        return account === null
+          ? null
+          : {
+              ...account,
+              account_membership_status: {
+                ...account.account_membership_status,
+                account_membership: { id: AccountMembershipEnum.Trial },
+              },
+            };
+      });
+
+      const res = await postListen(listenBody);
+
+      expect(res.status).toBe(201);
+      expect(recordListenMock).toHaveBeenCalledTimes(1);
+      expect(recordListenMock.mock.calls[0]?.[0]).toMatchObject({
+        counts_toward_popularity: false,
+      });
+    });
+
+    it('returns 403 feature_not_available_for_account_type for a trial open even when trackStats is on', async () => {
+      accountGetMock.mockImplementation(async (id) => {
+        const account = await defaultAccountGet(id);
+        return account === null
+          ? null
+          : {
+              ...account,
+              account_membership_status: {
+                ...account.account_membership_status,
+                track_stats: true,
+                account_membership: { id: AccountMembershipEnum.Trial },
+              },
+            };
+      });
+
+      const res = await postOpen({ playlist_id_text: 'playlist-id-text' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('feature_not_available_for_account_type');
+      expect(recordOpenMock).not.toHaveBeenCalled();
     });
 
     it('returns 403 taste_profile_consent_required when consent is not current, without calling the service', async () => {
@@ -184,6 +230,7 @@ describe('stats listen and open POST routes', () => {
         all_time_recount_days: config.popularityTracking.allTimeRecountDays,
         flag_too_soon_minutes: config.popularityTracking.flagTooSoonMinutes,
         flag_stored_cap_within_hours: config.popularityTracking.flagStoredCapWithinHours,
+        counts_toward_popularity: true,
         target: { kind: 'clip', id_text: 'clip-id-text' },
         client_listen_id: CLIENT_LISTEN_ID,
         seconds_heard: 75,

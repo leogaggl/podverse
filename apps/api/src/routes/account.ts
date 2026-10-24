@@ -246,6 +246,8 @@ router.get('/taste-profile', asyncHandler(AccountTasteProfileController.list));
 router.get('/taste-profile/hidden', asyncHandler(AccountTasteProfileController.listHidden));
 router.post('/taste-profile/hide', asyncHandler(AccountTasteProfileController.hide));
 router.post('/taste-profile/unhide', asyncHandler(AccountTasteProfileController.unhide));
+router.get('/recommendations', asyncHandler(AccountTasteProfileController.listRecommendations));
+router.post('/taste-profile/weight', asyncHandler(AccountTasteProfileController.setWeight));
 router.get('/notifications', asyncHandler(AccountNotificationController.getNotifications));
 router.get(
   '/notifications/unread-count',

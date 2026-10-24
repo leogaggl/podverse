@@ -8,11 +8,15 @@ export type FeatureComparisonTier = {
   name: string;
 };
 
+export type FeatureComparisonLegend = {
+  mark: string;
+  text: string;
+};
+
 export type FeatureComparisonRow = {
   name: string;
   available: Record<string, boolean>;
   comingSoon?: boolean;
-  mobileOnly?: boolean;
 };
 
 export type FeatureComparisonProps = {
@@ -22,16 +26,12 @@ export type FeatureComparisonProps = {
     feature: string;
     available: string;
     comingSoon: string;
-    mobileOnlyLegend: string;
+    legends: FeatureComparisonLegend[];
   };
   className?: string;
 };
 
 export function FeatureComparison({ tiers, features, labels, className }: FeatureComparisonProps) {
-  const showMobileLegend = features.some(
-    (feature) => feature.comingSoon !== true && feature.mobileOnly === true
-  );
-
   return (
     <div className={classNames(styles.comparison, className)}>
       <table className={styles.table}>
@@ -76,7 +76,15 @@ export function FeatureComparison({ tiers, features, labels, className }: Featur
           ))}
         </tbody>
       </table>
-      {showMobileLegend ? <p className={styles.legend}>* {labels.mobileOnlyLegend}</p> : null}
+      {labels.legends.length > 0 ? (
+        <div className={styles.legends}>
+          {labels.legends.map((legend) => (
+            <p key={legend.mark} className={styles.legend}>
+              {legend.mark} {legend.text}
+            </p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

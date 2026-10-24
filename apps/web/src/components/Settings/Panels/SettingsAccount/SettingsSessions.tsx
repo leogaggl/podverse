@@ -207,43 +207,50 @@ export function SettingsSessions() {
       ) : null}
       {state.status === 'ready' ? (
         <>
-          <ul className={styles.rows} aria-labelledby="settings-sessions-heading">
-            {state.rows.map((row) => {
-              const name = sessionDeviceName(row, (clientType) =>
-                t(clientTypeLabelKey(clientType))
-              );
-              const ending = endingIds.has(row.id_text);
-              return (
-                <li key={row.id_text} className={styles.row}>
-                  <div className={styles.rowText}>
-                    <span className={styles.name}>{name}</span>
-                    <span className={styles.meta}>
-                      {row.is_current
-                        ? t('this_device')
-                        : t('last_used', { date: formatDateAbbrev(row.last_seen_at, locale) })}
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    aria-label={t('sign_out_device_aria', { device: name })}
-                    isLoading={ending}
-                    disabled={ending}
-                    onClick={() => {
-                      void handleSignOut(row);
-                    }}
-                  >
-                    {t('sign_out')}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-          {hasOtherDevice ? (
-            <Button type="button" variant="secondary" onClick={() => setIsSignOutOthersOpen(true)}>
-              {t('sign_out_all_other')}
-            </Button>
-          ) : null}
+          <div className={styles.actions}>
+            <ul className={styles.rows} aria-labelledby="settings-sessions-heading">
+              {state.rows.map((row) => {
+                const name = sessionDeviceName(row, (clientType) =>
+                  t(clientTypeLabelKey(clientType))
+                );
+                const ending = endingIds.has(row.id_text);
+                return (
+                  <li key={row.id_text} className={styles.row}>
+                    <div className={styles.rowText}>
+                      <span className={styles.name}>{name}</span>
+                      <span className={styles.meta}>
+                        {row.is_current
+                          ? t('this_device')
+                          : t('last_used', { date: formatDateAbbrev(row.last_seen_at, locale) })}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      aria-label={t('sign_out_device_aria', { device: name })}
+                      isLoading={ending}
+                      disabled={ending}
+                      onClick={() => {
+                        void handleSignOut(row);
+                      }}
+                    >
+                      {t('sign_out')}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+            {hasOtherDevice ? (
+              <Button
+                className={styles.signOutOthers}
+                type="button"
+                variant="secondary"
+                onClick={() => setIsSignOutOthersOpen(true)}
+              >
+                {t('sign_out_all_other')}
+              </Button>
+            ) : null}
+          </div>
           <ModalSignOutOtherDevices
             isOpen={isSignOutOthersOpen}
             isSubmitting={isRevokingOthers}

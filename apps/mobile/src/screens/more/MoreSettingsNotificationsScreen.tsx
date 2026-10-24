@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -34,10 +35,16 @@ import {
 } from '../../prefs/bannerNotificationPrefs';
 import { registerFcmDeviceForAccount } from '../../push/fcmDeviceSync';
 import {
+  getFcmPermissionStatus,
   openSystemNotificationSettings,
   requestFcmPermissionAfterUserAction,
 } from '../../push/fcmTransport';
-import { registerUnifiedPushDeviceForAccount } from '../../push/unifiedPushDeviceSync';
+import {
+  isUnifiedPushRegisteredOnDevice,
+  readUnifiedPushMode,
+  registerUnifiedPushDeviceForAccount,
+  releaseUnifiedPushForPushProvider,
+} from '../../push/unifiedPushDeviceSync';
 import { settingsCardGap, settingsCardInnerGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
@@ -103,6 +110,8 @@ export function MoreSettingsNotificationsScreen() {
     useState<boolean>(false);
   const [showNotificationPermissionHint, setShowNotificationPermissionHint] =
     useState<boolean>(false);
+  /** Null until this device's push permission or Unified Push registration has been read. */
+  const [pushDeliveryReady, setPushDeliveryReady] = useState<boolean | null>(null);
   const [applyDialog, setApplyDialog] = useState<null | 'auto_enable' | 'type_default'>(null);
   const [pendingDefault, setPendingDefault] = useState<boolean>(false);
   const [pendingType, setPendingType] = useState<SyncedNotificationType | null>(null);
@@ -113,6 +122,12 @@ export function MoreSettingsNotificationsScreen() {
   );
 
   const selectedLocale = resolveSupportedLocale(i18n.language);
+  const pushProvider = getMobileConfig().pushProvider;
+  const showPushRequirement = pushDeliveryReady === false;
+  const pushRequirementKey =
+    pushProvider === 'fcm'
+      ? 'settings.notifications.preference_push_requirement_device'
+      : 'settings.notifications.preference_push_requirement_unified_push';
 
   const requestContext = useMemo(
     () => ({
@@ -122,6 +137,26 @@ export function MoreSettingsNotificationsScreen() {
       setTokens,
     }),
     [accessToken, clearSession, refreshToken, setTokens]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void (async () => {
+        const unifiedPushReady = await isUnifiedPushRegisteredOnDevice();
+        let fcmReady = false;
+        if (pushProvider === 'fcm') {
+          const permission = await getFcmPermissionStatus();
+          fcmReady = permission.granted;
+        }
+        if (!cancelled) {
+          setPushDeliveryReady(unifiedPushReady || fcmReady);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [pushProvider])
   );
 
   useEffect(() => {
@@ -314,7 +349,6 @@ export function MoreSettingsNotificationsScreen() {
       const nextPushEnabled = params.channel === 'push' ? params.enabled : existing.push_enabled;
 
       if (params.channel === 'push' && params.enabled) {
-        const pushProvider = getMobileConfig().pushProvider;
         if (pushProvider === 'fcm') {
           const permissionResult = await requestFcmPermissionAfterUserAction();
           if (!permissionResult.granted) {
@@ -325,18 +359,25 @@ export function MoreSettingsNotificationsScreen() {
           }
 
           setShowNotificationPermissionHint(false);
+          setPushDeliveryReady(true);
           try {
+            const releaseUnifiedPush =
+              (await readUnifiedPushMode()) === 'user' || (await isUnifiedPushRegisteredOnDevice());
+            if (releaseUnifiedPush) {
+              await releaseUnifiedPushForPushProvider({ auth: requestContext });
+            }
             await registerFcmDeviceForAccount({ auth: requestContext, locale: selectedLocale });
           } catch (error) {
             console.warn('Failed to register FCM device after permission grant', error);
           }
-        } else if (pushProvider === 'unifiedpush') {
+        } else if (pushProvider === 'unifiedpush' || pushProvider === 'none') {
           setShowNotificationPermissionHint(false);
           try {
             await registerUnifiedPushDeviceForAccount({
               auth: requestContext,
               locale: selectedLocale,
             });
+            setPushDeliveryReady(await isUnifiedPushRegisteredOnDevice());
           } catch (error) {
             console.warn('Failed to register UnifiedPush device after notification enable', error);
           }
@@ -378,6 +419,7 @@ export function MoreSettingsNotificationsScreen() {
       handleGateError,
       isAuthenticated,
       notificationPreferences,
+      pushProvider,
       requestContext,
       selectedLocale,
       showNotificationLoginAlert,
@@ -403,6 +445,13 @@ export function MoreSettingsNotificationsScreen() {
           paddingBottom: tokens.spacing.lg,
           paddingHorizontal: tokens.spacing.lg,
           paddingTop: tokens.spacing.lg,
+        },
+        pushRequirement: {
+          ...typography.caption,
+          color: themeStyles.textSecondary.color,
+          paddingBottom: tokens.spacing.lg,
+          paddingHorizontal: tokens.spacing.lg,
+          paddingTop: tokens.spacing.md,
         },
         preferenceDescription: {
           ...typography.body,
@@ -542,7 +591,7 @@ export function MoreSettingsNotificationsScreen() {
               ? true
               : (preference?.in_app_enabled ?? true);
             const pushEnabled = preference?.push_enabled ?? false;
-            const canTogglePush = isAuthenticated;
+            const pushDeliveryBlocksToggle = pushProvider !== 'fcm' && pushDeliveryReady !== true;
             const isFirst = index === 0;
             const isLast = index === NOTIFICATION_PREFERENCE_ROWS.length - 1;
 
@@ -551,7 +600,9 @@ export function MoreSettingsNotificationsScreen() {
                 key={row.category}
                 style={[
                   isFirst ? styles.preferenceGroupFirst : styles.preferenceGroupRest,
-                  isLast && !showNotificationPermissionHint ? styles.preferenceGroupLast : null,
+                  isLast && !showNotificationPermissionHint && !showPushRequirement
+                    ? styles.preferenceGroupLast
+                    : null,
                 ]}
               >
                 <Text style={styles.preferenceDescription}>{t(row.descriptionKey)}</Text>
@@ -570,7 +621,8 @@ export function MoreSettingsNotificationsScreen() {
                   value={inAppEnabled}
                 />
                 <SettingsSwitchRow
-                  disabled={!canTogglePush}
+                  accessibilityHint={showPushRequirement ? t(pushRequirementKey) : undefined}
+                  disabled={!isAuthenticated || pushDeliveryBlocksToggle}
                   onValueChange={(nextValue) => {
                     void handleNotificationPreferenceToggle({
                       category: row.category,
@@ -580,11 +632,8 @@ export function MoreSettingsNotificationsScreen() {
                     });
                   }}
                   testID={`more-settings-notification-${row.category}-push`}
-                  title={
-                    canTogglePush
-                      ? t('settings.notifications.preference_push')
-                      : t('settings.notifications.preference_push_disabled')
-                  }
+                  title={t('settings.notifications.preference_push')}
+                  titleMarker={showPushRequirement ? '*' : undefined}
                   value={pushEnabled}
                 />
                 {row.category === NotificationCategoryEnum.ProductUpdate ? (
@@ -595,6 +644,14 @@ export function MoreSettingsNotificationsScreen() {
               </View>
             );
           })}
+          {showPushRequirement ? (
+            <Text
+              style={styles.pushRequirement}
+              testID="more-settings-notification-push-requirement"
+            >
+              {`* ${t(pushRequirementKey)}`}
+            </Text>
+          ) : null}
           {showNotificationPermissionHint ? (
             <View style={styles.permissionHint}>
               <Text style={styles.warningText} testID="more-settings-notification-permission-hint">

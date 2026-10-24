@@ -192,6 +192,8 @@ const operationTemplates: Record<
     ['get', '/account/taste-profile/hidden', 'read'],
     ['post', '/account/taste-profile/hide', 'update'],
     ['post', '/account/taste-profile/unhide', 'update'],
+    ['get', '/account/recommendations', 'read'],
+    ['post', '/account/taste-profile/weight', 'update'],
   ],
   clips: [
     ['get', '/clip/private', 'read'],

@@ -345,6 +345,26 @@ describe('external services, feed, medium-value, membership, claim, metaboost, m
     });
   });
 
+  describe('Membership comparison', () => {
+    it('GET /comparison returns localized rows and Trial sentences', async () => {
+      const res = await request(app)
+        .get(`${productMembershipBase}/comparison`)
+        .set('Accept-Language', 'es');
+      expect(res.status).toBe(200);
+      expect(res.body.data.locale).toBe('es');
+      const features = res.body.data.features;
+      expect(Array.isArray(features)).toBe(true);
+      const subscribe = features.find((row: { id?: string }) => row.id === 'subscribe');
+      expect(subscribe).toMatchObject({
+        name: 'Suscribirse a podcasts *',
+        free: true,
+        premium: true,
+      });
+      expect(res.body.data.trialLimitations.title).toBe('Limitaciones de la prueba');
+      expect(Array.isArray(res.body.data.trialLimitations.items)).toBe(true);
+    });
+  });
+
   describe('Membership pricing', () => {
     it('GET /pricing returns data when user_signup_email is enabled, 400 when disabled (see MembershipController.getPricing)', async () => {
       const res = await request(app).get(`${productMembershipBase}/pricing`);

@@ -959,6 +959,8 @@ components:
                   - completion_count
                   - first_listened_at
                   - last_listened_at
+                  - recommendation_weight
+                  - recommendation_weight_override
                 properties:
                   channel:
                     type: object
@@ -1018,6 +1020,19 @@ components:
                     format: date-time
                     nullable: true
                     example: "2026-03-03T00:00:00.000Z"
+                  recommendation_weight:
+                    type: integer
+                    minimum: 1
+                    maximum: 5
+                    description: Weight the recommendation job uses. An override when one is set, otherwise the listen level.
+                    example: 2
+                  recommendation_weight_override:
+                    type: integer
+                    nullable: true
+                    minimum: 1
+                    maximum: 5
+                    description: The listener's applied weight, or null while the listen level is in effect.
+                    example: null
             pagination:
               type: object
               required:
@@ -1143,6 +1158,110 @@ components:
       example:
         channel_id_text: kM7T2xYqLp
         add_to_taste_profile: true
+    ApiPostAccountTasteProfileWeightRequest:
+      type: object
+      required:
+        - channel_id_text
+        - weight
+      properties:
+        channel_id_text:
+          type: string
+          description: Public id of the Taste Profile show whose weight to apply.
+          example: kM7T2xYqLp
+        weight:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Weight to use for this show until the listener applies another one.
+          example: 3
+      example:
+        channel_id_text: kM7T2xYqLp
+        weight: 3
+    ApiPostAccountTasteProfileWeightResponse200:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - channel_id_text
+            - weight
+          properties:
+            channel_id_text:
+              type: string
+              example: kM7T2xYqLp
+            weight:
+              type: integer
+              minimum: 1
+              maximum: 5
+              example: 3
+    ApiGetAccountRecommendationsResponse200:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - items
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required:
+                  - channel
+                  - strength
+                properties:
+                  channel:
+                    type: object
+                    required:
+                      - id_text
+                      - slug
+                      - title
+                      - medium_id
+                      - channel_images
+                    properties:
+                      id_text:
+                        type: string
+                        example: kM7T2xYqLp
+                      slug:
+                        type: string
+                        nullable: true
+                        example: example-show
+                      title:
+                        type: string
+                        nullable: true
+                        example: Example Show
+                      medium_id:
+                        type: integer
+                        example: 2
+                      channel_images:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - url
+                            - image_width_size
+                            - is_resized
+                          properties:
+                            url:
+                              type: string
+                              example: https://example.com/artwork.jpg
+                            image_width_size:
+                              type: integer
+                              nullable: true
+                              example: 600
+                            is_resized:
+                              type: boolean
+                              example: false
+                  strength:
+                    type: integer
+                    minimum: 1
+                    maximum: 5
+                    description: Display mark for this chip. The top score is 5.
+                    example: 5
     ApiPostAccountTasteProfileShowStateResponse200:
       type: object
       required:
@@ -4784,6 +4903,69 @@ components:
         received:
           type: boolean
           example: true
+    MembershipComparisonResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            locale:
+              type: string
+              example: en-US
+            featureColumnLabel:
+              type: string
+              example: Feature
+            availableLabel:
+              type: string
+              example: Available
+            comingSoonLabel:
+              type: string
+              example: Coming Soon
+            tiers:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    enum: [free, premium]
+                  label:
+                    type: string
+            features:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  free:
+                    type: boolean
+                  premium:
+                    type: boolean
+                  comingSoon:
+                    type: boolean
+            legends:
+              type: array
+              items:
+                type: object
+                properties:
+                  mark:
+                    type: string
+                  text:
+                    type: string
+            trialLimitations:
+              type: object
+              properties:
+                title:
+                  type: string
+                summary:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: string
     ProductMembershipResponse:
       type: object
       properties:
@@ -7903,6 +8085,107 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiPostAccountTasteProfileShowStateResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/recommendations:
+    get:
+      operationId: apiGetAccountRecommendations
+      tags:
+        - account
+      summary: GET /account/recommendations
+      description: Returns the signed-in account's recommendations for one chip, highest score first. Shows the account subscribes to are omitted. An API key needs history read.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: read
+      parameters:
+        - name: chip
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - podcasts
+              - albums
+              - artists
+            default: podcasts
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiGetAccountRecommendationsResponse200"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+  /account/taste-profile/weight:
+    post:
+      operationId: apiPostAccountTasteProfileWeight
+      tags:
+        - account
+      summary: POST /account/taste-profile/weight
+      description: Applies a 1–5 weight to a show already in the Taste Profile. Later listens do not move it. An API key needs history update.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      x-api-key-permission:
+        resource: history
+        action: update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountTasteProfileWeightRequest"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountTasteProfileWeightResponse200"
         "400":
           description: Bad request
           content:
@@ -18267,6 +18550,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
+  /product/membership/comparison:
+    get:
+      operationId: apiGetProductMembershipComparison
+      tags:
+        - product
+      summary: GET /product/membership/comparison
+      description: >-
+        Localized Free versus Premium feature rows and Trial limitations. Accept-Language
+        selects en-US, es, fr, or el-GR. Caps in the Trial sentences come from the resolved
+        product settings.
+      security: []
+      parameters:
+        - in: header
+          name: Accept-Language
+          required: false
+          schema:
+            type: string
+          example: en-US
+      responses:
+        "200":
+          description: Localized membership comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipComparisonResponse"
+              example:
+                data:
+                  locale: en-US
+                  featureColumnLabel: Feature
+                  availableLabel: Available
+                  comingSoonLabel: Coming Soon
+                  tiers:
+                    - id: free
+                      label: Free
+                    - id: premium
+                      label: Premium
+                  features:
+                    - id: subscribe
+                      name: Subscribe to Podcasts *
+                      free: true
+                      premium: true
+                      comingSoon: false
+                  legends:
+                    - mark: "*"
+                      text: Free tier is available on the mobile app only. Premium includes the website.
+                  trialLimitations:
+                    title: Trial Limitations
+                    summary: Some features are unavailable during Trial to help reduce spam and abuse.
+                    items:
+                      - Adding feeds to the public directory from search is blocked for Trial status.
+                      - Add by RSS holds up to 10 feeds on Trial and 100 on Premium.
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
   /product/membership/pricing:
     get:
       operationId: apiGetProductMembershipPricing
@@ -18707,7 +19047,7 @@ paths:
       tags:
         - publisher-feed
       summary: GET /publisher-feed/channel/{id_or_id_text}
-      description: Public endpoint. Returns the publisher channel, its verified albums, albums its feed lists that Podverse has not parsed (Podcast Index data), and tracks on the verified albums.
+      description: Public endpoint. Returns the publisher channel, its verified albums, albums its feed lists that Podverse has not parsed (Podcast Index data), and tracks on the verified albums. An applied merge returns 410 with MergedIntoResponse.
       security: []
       parameters:
         - in: path
@@ -18746,6 +19086,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotFoundErrorResponse"
+        "410":
+          description: The channel was absorbed into a surviving show
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergedIntoResponse"
+              examples:
+                mergedChannel:
+                  summary: Channel id now belongs to the survivor
+                  value:
+                    merged_into:
+                      kind: channel
+                      id_text: surviving-artist
         "500":
           description: Internal server error
           content:
@@ -20838,9 +21191,10 @@ paths:
         - stats
       summary: POST /stats/listen
       description: >-
-        Records one report of a listening session for the Taste Profile and public popularity
-        counts. Requires a Premium membership with the trackStats capability and current Taste
-        Profile consent, and is rate limited per account (one budget shared with POST /stats/open).
+        Records one report of a listening session for the Taste Profile and, for paid premium,
+        public popularity counts. A valid trial with current Taste Profile consent stores the
+        listen for the Taste Profile only. Popularity counts require paid premium with the
+        trackStats capability. Rate limited per account (one budget shared with POST /stats/open).
         The first report of a session stores one listen event, up to the listener's daily cap.
         Only the first listens of a day, up to a lower cap, count toward popularity; the rest feed
         only the Taste Profile. Later reports with the same client_listen_id keep the larger seconds_heard and a sticky completed and
@@ -20892,9 +21246,9 @@ paths:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
         "403":
           description: >-
-            Terms not accepted, membership expired, no trackStats capability
-            (feature_not_available_for_account_type), or Taste Profile consent not current
-            (taste_profile_consent_required)
+            Terms not accepted, membership expired, a premium account without the trackStats
+            capability (feature_not_available_for_account_type), or Taste Profile consent not
+            current (taste_profile_consent_required)
           content:
             application/json:
               schema:
@@ -20933,9 +21287,10 @@ paths:
         Records a profile or playlist open for public popularity counts. Counts once per opener,
         profile or playlist, and UTC day, never for the opener's own profile or playlist, and at
         most a daily number of counted opens per opener, profiles and playlists together, and
-        never feeds the Taste Profile. Requires a Premium membership with the trackStats
-        capability and current Taste Profile consent, and is rate limited per account (one budget
-        shared with POST /stats/listen). For a server-set number of days after the account turns
+        never feeds the Taste Profile. Requires paid premium with the trackStats capability and
+        current Taste Profile consent. A trial is rejected even when trackStats is on. Rate
+        limited per account (one budget shared with POST /stats/listen). For a server-set number
+        of days after the account turns
         Taste Profile off, opens are not recorded and still answer counted. Authenticated endpoint
         (cookieAuth or bearerAuth).
       security:
@@ -20978,9 +21333,9 @@ paths:
                 $ref: "#/components/schemas/AuthenticationErrorResponse"
         "403":
           description: >-
-            Terms not accepted, membership expired, no trackStats capability
-            (feature_not_available_for_account_type), or Taste Profile consent not current
-            (taste_profile_consent_required)
+            Terms not accepted, membership expired, no paid premium with the trackStats
+            capability (feature_not_available_for_account_type), or Taste Profile consent not
+            current (taste_profile_consent_required)
           content:
             application/json:
               schema:

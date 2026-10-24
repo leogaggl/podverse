@@ -7,7 +7,7 @@ const labels = {
   available: 'Available',
   comingSoon: 'Coming Soon',
   feature: 'Feature',
-  mobileOnlyLegend: 'Feature is only available in the mobile app',
+  legends: [] as { mark: string; text: string }[],
 };
 
 afterEach(() => {
@@ -79,7 +79,7 @@ describe('FeatureComparison', () => {
     expect(screen.queryByLabelText('Available')).toBeNull();
   });
 
-  it('keeps mobile-only on the feature name and shows the legend', () => {
+  it('keeps a name mark in the feature cell and lists each legend once', () => {
     render(
       <FeatureComparison
         tiers={[
@@ -88,17 +88,33 @@ describe('FeatureComparison', () => {
         ]}
         features={[
           {
-            name: 'Sleep timer*',
+            name: 'Subscribe to Podcasts *',
             available: { free: true, premium: true },
-            mobileOnly: true,
+          },
+          {
+            name: 'CarPlay',
+            available: { free: true, premium: true },
           },
         ]}
-        labels={labels}
+        labels={{
+          ...labels,
+          legends: [
+            {
+              mark: '*',
+              text: 'Free tier is available on the mobile app only. Premium includes the website.',
+            },
+          ],
+        }}
       />
     );
 
-    expect(screen.getByRole('cell', { name: 'Sleep timer*' })).toBeTruthy();
-    expect(screen.getAllByLabelText('Available')).toHaveLength(2);
-    expect(screen.getByText('* Feature is only available in the mobile app')).toBeTruthy();
+    expect(screen.getByRole('cell', { name: 'Subscribe to Podcasts *' })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: 'CarPlay' })).toBeTruthy();
+    expect(screen.getAllByLabelText('Available')).toHaveLength(4);
+    expect(
+      screen.getByText(
+        '* Free tier is available on the mobile app only. Premium includes the website.'
+      )
+    ).toBeTruthy();
   });
 });

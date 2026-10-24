@@ -226,6 +226,15 @@ describe('channel merge redirects', () => {
     expect(oldChannelById.status).toBe(410);
     expect(mergedInto(oldChannelById.body)?.id_text).toBe(survivor.channelIdText);
 
+    const publisherFeed = await request(http).get(
+      `${base}/publisher-feed/channel/${oldShow.channelIdText}`
+    );
+    expect(publisherFeed.status).toBe(410);
+    expect(mergedInto(publisherFeed.body)).toEqual({
+      kind: 'channel',
+      id_text: survivor.channelIdText,
+    });
+
     const matchedItem = await request(http).get(`${base}/item/${matched.idText}`);
     expect(matchedItem.status).toBe(410);
     expect(mergedInto(matchedItem.body)).toEqual({

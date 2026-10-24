@@ -12,6 +12,8 @@ resources:
   - worker-stats-event-partitions.cronjob.yaml
   - worker-stats-popularity-refresh.cronjob.yaml
   - worker-stats-popularity-refresh-full.cronjob.yaml
+  - worker-stats-recommendations-refresh.cronjob.yaml
+  - worker-stats-recommendations-refresh-full.cronjob.yaml
   - worker-recent-feeds.cronjob.yaml
   - worker-archive-all.cronjob.yaml
   - worker-generate-reports.cronjob.yaml

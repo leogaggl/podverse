@@ -44,12 +44,16 @@ export const SideBar: React.FC = () => {
         <SideBarDivider noMarginTop />
         <SideBarLink href={ROUTES.HOME}>{tSubscriptions('subscribed')}</SideBarLink>
         <SideBarLink href={ROUTES.BROWSE}>{tFeatures('browse.browse')}</SideBarLink>
+        <SideBarLink href={ROUTES.RECOMMENDATIONS}>
+          {tFeatures('recommendations.title')}
+        </SideBarLink>
         <SideBarDivider />
         <Accordion
           header={<SideBarHeader>{tFeatures('my_library')}</SideBarHeader>}
           headerClassName={styles.accordianHeader}
           open={accordionState.library}
           onToggle={handleAccordionToggle('library')}
+          caretSpacing="nav"
           color="link"
           size="small"
         >

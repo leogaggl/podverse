@@ -3,7 +3,7 @@
  * issues the re-signed `jwt` cookie. Server components cannot set cookies, so during a page visit
  * the middleware asks the API and forwards the API's `Set-Cookie` values to the browser unchanged.
  */
-import { ACCOUNT_SESSION_RENEW_INTERVAL_MS, AuthCookieName } from '@podverse/helpers';
+import { ACCOUNT_SESSION_RENEW_INTERVAL_MS, AuthCookieName } from '@podverse/helpers/auth';
 
 import { decodeJwtPayloadUnverified } from './jwtPayload';
 

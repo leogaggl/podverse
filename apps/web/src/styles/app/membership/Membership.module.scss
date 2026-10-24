@@ -11,8 +11,15 @@
   margin: var(--spacing-none);
 }
 
-.expiryBanner {
+.lead {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-2xl);
   margin-bottom: var(--spacing-4xl);
+}
+
+.expiryBanner {
   padding: var(--spacing-2xl);
   border: 1px solid var(--border-color-opaque);
   border-radius: var(--border-radius);
@@ -39,16 +46,6 @@
   font-weight: var(--font-weight-light);
   color: var(--text-color-primary);
   margin: var(--spacing-sm) var(--spacing-none) var(--spacing-none);
-}
-
-.intro {
-  margin-bottom: var(--spacing-4xl);
-  text-align: center;
-}
-
-.intro p {
-  font-size: var(--font-size-lg);
-  color: var(--text-color-primary);
 }
 
 .pricingSection {
@@ -107,7 +104,14 @@
 }
 
 .ctaSection {
-  margin-bottom: 3rem; // Keep specific value for CTA section spacing
+  margin: var(--spacing-none);
+}
+
+.contactLine {
+  margin: var(--spacing-none);
+  text-align: center;
+  font-size: var(--font-size-lg);
+  color: var(--text-color-primary);
 }
 
 .cta {

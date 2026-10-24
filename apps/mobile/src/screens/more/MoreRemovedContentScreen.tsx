@@ -7,10 +7,9 @@ import type { DTOAccountContentLog } from '@podverse/helpers';
 import { useAuth } from '../../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
 import { FillList } from '../../components/primitives/FillList';
-import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
-import { screenBodyInsets } from '../../theme/screenLayout';
+import { screenBodyInsets, settingsCardInnerGap } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 
@@ -107,6 +106,10 @@ export function MoreRemovedContentScreen() {
           ...screenBodyInsets(tokens.spacing),
           paddingBottom: tokens.spacing.lg,
         },
+        header: {
+          gap: settingsCardInnerGap(tokens.spacing),
+          marginBottom: rows.length > 0 ? settingsCardInnerGap(tokens.spacing) : 0,
+        },
         row: {
           gap: tokens.spacing.sm,
         },
@@ -122,7 +125,7 @@ export function MoreRemovedContentScreen() {
           height: tokens.spacing.base,
         },
       }),
-    [themeStyles, tokens]
+    [rows.length, themeStyles, tokens]
   );
 
   const renderSeparator = useCallback(() => <View style={styles.separator} />, [styles.separator]);
@@ -158,8 +161,19 @@ export function MoreRemovedContentScreen() {
       }}
       testID="removed-content-error"
     />
-  ) : (
-    <ListEmpty messageKey="removed_content.empty" testID="removed-content-empty" />
+  ) : null;
+
+  const listHeader = (
+    <View style={styles.header}>
+      <Text style={styles.sentence} testID="removed-content-explanation">
+        {t('removed_content.explanation')}
+      </Text>
+      {!isLoading && !loadFailed && rows.length === 0 ? (
+        <Text style={styles.sentence} testID="removed-content-empty">
+          {t('removed_content.empty')}
+        </Text>
+      ) : null}
+    </View>
   );
 
   return (
@@ -167,6 +181,7 @@ export function MoreRemovedContentScreen() {
       <FillList
         ItemSeparatorComponent={renderSeparator}
         ListEmptyComponent={listEmpty}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={styles.content}
         data={rows}
         keyExtractor={(item) => item.id}

@@ -77,6 +77,8 @@ function toTasteProfileRow(row: StatsTasteProfile): DTOAccountDataExportTastePro
     recent_score: row.recent_score,
     long_term_score: row.long_term_score,
     scores_updated_at: row.scores_updated_at.toISOString(),
+    weight_override: row.weight_override,
+    weight_override_at: row.weight_override_at?.toISOString() ?? null,
   };
 }
 

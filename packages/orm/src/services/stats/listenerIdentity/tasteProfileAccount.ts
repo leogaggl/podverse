@@ -1,14 +1,18 @@
 import { AppDataSourceReadWrite } from '@orm/db/index.js';
 import { Channel } from '@orm/entities/channel/channel.js';
+import { StatsRecommendation } from '@orm/entities/stats/statsRecommendation.js';
 import { StatsTasteProfile } from '@orm/entities/stats/statsTasteProfile.js';
 import { StatsTasteProfileHidden } from '@orm/entities/stats/statsTasteProfileHidden.js';
 import type { EntityManager } from 'typeorm';
 
 import type {
+  DTOAccountRecommendation,
   DTOAccountTasteProfileChannel,
   DTOAccountTasteProfileHiddenRow,
   DTOAccountTasteProfileRow,
+  RecommendationChip,
 } from '@podverse/helpers';
+import { RECOMMENDATION_MEDIUM_IDS, recommendationWeightFromListenCount } from '@podverse/helpers';
 
 import { StatsListenerService } from './statsListener.js';
 import { lockListener, runListenerWrite } from './statsWriteGuard.js';
@@ -38,6 +42,11 @@ export type TasteProfileHideResult =
 export type TasteProfileUnhideResult =
   { status: 'ok'; hidden: boolean; in_taste_profile: boolean } | { status: 'channel_not_found' };
 
+export type TasteProfileWeightResult =
+  | { status: 'updated'; weight: number }
+  | { status: 'channel_not_found' }
+  | { status: 'not_in_taste_profile' };
+
 function toChannelDto(channel: ChannelFields): DTOAccountTasteProfileChannel {
   return {
     id_text: channel.id_text,
@@ -60,6 +69,11 @@ function toTasteRow(row: StatsTasteProfile): DTOAccountTasteProfileRow {
     completion_count: row.completion_count,
     first_listened_at: addedBack ? null : row.first_listened_at.toISOString(),
     last_listened_at: addedBack ? null : row.last_listened_at.toISOString(),
+    recommendation_weight: recommendationWeightFromListenCount(
+      row.listen_count,
+      row.weight_override
+    ),
+    recommendation_weight_override: row.weight_override,
   };
 }
 
@@ -144,6 +158,73 @@ export class TasteProfileAccountService {
     return runListenerWrite((manager) =>
       this.unhideLocked(account_id, channel_id, add_to_taste_profile, manager)
     );
+  }
+
+  async listRecommendationsForAccount(
+    account_id: number,
+    chip: RecommendationChip
+  ): Promise<DTOAccountRecommendation[]> {
+    return runListenerWrite(async (manager) => {
+      const listener_id = await this.listeners.findListenerId(account_id, manager);
+      if (listener_id === null) {
+        return [];
+      }
+
+      const mediumIds = [...RECOMMENDATION_MEDIUM_IDS[chip]];
+      const rows = await manager
+        .getRepository(StatsRecommendation)
+        .createQueryBuilder('recommendation')
+        .innerJoinAndSelect('recommendation.channel', 'channel')
+        .leftJoinAndSelect('channel.channel_images', 'channel_images')
+        .where('recommendation.listener_id = :listener_id', { listener_id })
+        .andWhere('channel.medium_id IN (:...mediumIds)', { mediumIds })
+        .andWhere(
+          `NOT EXISTS (
+             SELECT 1 FROM account_following_channel follow
+             WHERE follow.account_id = :account_id
+               AND follow.channel_id = recommendation.channel_id
+           )`,
+          { account_id }
+        )
+        .orderBy('recommendation.score', 'DESC')
+        .addOrderBy('recommendation.channel_id', 'ASC')
+        .getMany();
+
+      return rows.map((row) => ({
+        channel: toChannelDto(row.channel),
+        strength: row.strength,
+      }));
+    });
+  }
+
+  async setWeightForAccount(
+    account_id: number,
+    channel_id_text: string,
+    weight: number
+  ): Promise<TasteProfileWeightResult> {
+    const channel_id = await this.findChannelId(channel_id_text);
+    if (channel_id === null) {
+      return { status: 'channel_not_found' };
+    }
+
+    return runListenerWrite(async (manager) => {
+      const listener_id = await this.listeners.findListenerId(account_id, manager);
+      if (listener_id === null) {
+        return { status: 'not_in_taste_profile' };
+      }
+
+      await lockListener(manager, listener_id);
+      const updated = await manager
+        .getRepository(StatsTasteProfile)
+        .update(
+          { listener_id, channel_id },
+          { weight_override: weight, weight_override_at: new Date() }
+        );
+      if ((updated.affected ?? 0) === 0) {
+        return { status: 'not_in_taste_profile' };
+      }
+      return { status: 'updated', weight };
+    });
   }
 
   private async findChannelId(channel_id_text: string): Promise<number | null> {

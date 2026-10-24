@@ -4,12 +4,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
-import { Tabs } from '@podverse/ui';
+import { FormMaxWidth, Tabs } from '@podverse/ui';
 
 import { useAccount } from '../../contexts/Account';
 import { ListHeader } from '../List/ListHeader';
 import { SettingsAccount } from './Panels/SettingsAccount/SettingsAccount';
-import { SettingsRemovedContent } from './Panels/SettingsAdvanced/SettingsRemovedContent';
+import { SettingsTasteProfile } from './Panels/SettingsAccount/SettingsTasteProfile';
+import { SettingsAdvanced } from './Panels/SettingsAdvanced/SettingsAdvanced';
 import { SettingsDeveloper } from './Panels/SettingsDeveloper/SettingsDeveloper';
 import { SettingsGeneral } from './Panels/SettingsGeneral/SettingsGeneral';
 import { SettingsKeyboard } from './Panels/SettingsKeyboard/SettingsKeyboard';
@@ -26,7 +27,8 @@ type TabKey =
   | 'keyboard'
   | 'notifications'
   | 'opml'
-  | 'profile';
+  | 'profile'
+  | 'recommendations';
 
 function tabFromQueryParam(value: string | null): TabKey | null {
   if (
@@ -35,7 +37,8 @@ function tabFromQueryParam(value: string | null): TabKey | null {
     value === 'developer' ||
     value === 'profile' ||
     value === 'notifications' ||
-    value === 'opml'
+    value === 'opml' ||
+    value === 'recommendations'
   ) {
     return value;
   }
@@ -115,6 +118,13 @@ export function Settings() {
       });
       z -= 1;
       rows.push({
+        key: 'recommendations',
+        label: tSettings('recommendations.recommendations'),
+        onClick: () => handleTabChange('recommendations'),
+        zIndex: z,
+      });
+      z -= 1;
+      rows.push({
         key: 'profile',
         label: tSettings('profile.profile'),
         onClick: () => handleTabChange('profile'),
@@ -163,14 +173,17 @@ export function Settings() {
     <div>
       <ListHeader tabs={<Tabs tabData={tabData} selectedKey={tab} />} />
       <SettingsWrapper>
-        {tab === 'general' && <SettingsGeneral />}
-        {tab === 'keyboard' ? <SettingsKeyboard /> : null}
-        {loggedInAccount && tab === 'account' && <SettingsAccount />}
-        {loggedInAccount && tab === 'profile' && <SettingsProfile />}
-        {loggedInAccount && tab === 'notifications' && <SettingsNotifications />}
-        {loggedInAccount && tab === 'opml' && <SettingsOpml />}
-        {loggedInAccount && tab === 'advanced' && <SettingsRemovedContent />}
-        {loggedInAccount && tab === 'developer' && <SettingsDeveloper />}
+        <FormMaxWidth>
+          {tab === 'general' && <SettingsGeneral />}
+          {tab === 'keyboard' ? <SettingsKeyboard /> : null}
+          {loggedInAccount && tab === 'account' && <SettingsAccount />}
+          {loggedInAccount && tab === 'recommendations' && <SettingsTasteProfile />}
+          {loggedInAccount && tab === 'profile' && <SettingsProfile />}
+          {loggedInAccount && tab === 'notifications' && <SettingsNotifications />}
+          {loggedInAccount && tab === 'opml' && <SettingsOpml />}
+          {loggedInAccount && tab === 'advanced' && <SettingsAdvanced />}
+          {loggedInAccount && tab === 'developer' && <SettingsDeveloper />}
+        </FormMaxWidth>
       </SettingsWrapper>
     </div>
   );

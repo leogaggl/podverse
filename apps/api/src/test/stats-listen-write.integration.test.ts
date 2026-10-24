@@ -52,6 +52,7 @@ type ListenInput = {
   allTimeRecountDays?: number;
   flagTooSoonMinutes?: number;
   flagStoredCapWithinHours?: number;
+  countsTowardPopularity?: boolean;
 };
 
 const AGREEMENT_VERSION = 'stats-listen-write-test';
@@ -250,6 +251,7 @@ describe('Popularity listen and open write services (real database)', () => {
       all_time_recount_days: input.allTimeRecountDays ?? ALL_TIME_RECOUNT_DAYS,
       flag_too_soon_minutes: input.flagTooSoonMinutes ?? 0,
       flag_stored_cap_within_hours: input.flagStoredCapWithinHours ?? 0,
+      counts_toward_popularity: input.countsTowardPopularity ?? true,
       target: input.target,
       client_listen_id: input.clientListenId,
       seconds_heard: input.secondsHeard,
@@ -682,6 +684,29 @@ describe('Popularity listen and open write services (real database)', () => {
     expect(await listen(report(randomUUID()))).toBe('daily_cap_reached');
     expect(await listen(report(firstSession, true))).toBe('updated');
     expect(await listenEvents(capped.id)).toHaveLength(2);
+  });
+
+  it('stores a listen that does not count toward popularity for taste only', async () => {
+    const tasteOnly = await seedAccount('taste-only', true);
+    const freshItem = await seedItem(podcastChannelId, 'taste-only', ITEM_DURATION_SECONDS);
+    const channelDailyBefore = await dailyCounts('channel', podcastChannelId, todayUtc());
+
+    expect(
+      await listen({
+        accountId: tasteOnly.id,
+        target: itemTarget(freshItem),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+        countsTowardPopularity: false,
+      })
+    ).toBe('counted');
+
+    const events = await listenEvents(tasteOnly.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.popularity_counted).toBe(false);
+    expect(await dailyCounts('item', freshItem.id, todayUtc())).toBeNull();
+    expect(await dailyCounts('channel', podcastChannelId, todayUtc())).toEqual(channelDailyBefore);
+    expect((await requireTasteRow(tasteOnly.id, podcastChannelId)).listen_count).toBe(1);
   });
 
   it('stores listens past the popularity cap for taste only and counts none of them daily', async () => {

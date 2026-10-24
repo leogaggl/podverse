@@ -6,6 +6,7 @@
       "more": "Plus",
       "my_library": "Ma bibliothèque",
       "notifications": "Notifications",
+      "recommendations": "Recommandations",
       "rss": "RSS",
       "downloads": "Téléchargements"
     },
@@ -154,6 +155,9 @@
       "login_required_message": "Connectez-vous pour utiliser cette fonctionnalité.",
       "open_system_settings": "Ouvrir les paramètres du système",
       "permission_required": "L'autorisation de notification est requise pour activer ce paramètre.",
+      "preference_push_requirement_device": "Autorisez les notifications sur cet appareil, ou activez Unified Push, d'abord.",
+      "preference_push_requirement_unified_push": "Activez d'abord Unified Push.",
+      "up_endpoint_invalid": "Saisissez une URL de point de terminaison HTTPS.",
       "banner_section": "Notifications de bannière",
       "banner_section_help": "Quand l'application est ouverte, une bannière descend depuis le haut pour chaque type que vous activez.",
       "banner_dismiss": "Fermer",
@@ -216,7 +220,8 @@
   "removed_content": {
     "title": "Contenu supprimé",
     "menu_subtitle": "Programmes et éléments retirés de votre bibliothèque",
-    "empty": "Rien n'a été supprimé de votre bibliothèque au cours des 30 derniers jours.",
+    "explanation": "Cette liste indique les programmes retirés sur le serveur. Se désabonner, ou supprimer vos propres clips et playlists, n'apparaît pas ici.",
+    "empty": "Rien n'a été supprimé au cours des 30 derniers jours.",
     "load_error": "Impossible de charger le contenu supprimé.",
     "left_directory": "{title} n'est plus dans le répertoire.",
     "taken_down": "{title} a été retiré.",

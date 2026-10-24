@@ -71,6 +71,7 @@ Prefer feature files importing that wrapper over repeating identical JSX at many
 - New page-specific SCSS utility classes that duplicate existing `@podverse/ui` behavior.
 - Creating a new component in app code when a `@podverse/ui` primitive can compose the same UI **without** repeated identical configuration.
 - Raw `<details>` / custom flex stacks with tight `gap` for collapsible **form** sections — use **`Accordion`** plus nested **`FormStack`** (`gap: var(--spacing-3xl)`) and `contentClassName` with `margin-top: var(--spacing-3xl)` on the accordion content panel so spacing matches sibling fields.
+- Stacked headings, paragraphs, buttons, and other block tags with no parent gap. Those tags have `margin: 0`. Wrap the siblings in **`FormStack`** (a `<form>` uses **`StackForm`**; **`Modal.Body`** already has the same gap). A label and the sentence that describes it are one **`DescribedLink`**, not two stack siblings. See **even-content-spacing**.
 
 ## Collapsible form sections
 

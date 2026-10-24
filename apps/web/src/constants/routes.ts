@@ -7,6 +7,7 @@ export const ROUTES = {
   ADD_BY_RSS_ADD: '/add-by-rss/add',
   ADD_BY_RSS_CREDENTIALS: '/add-by-rss/credentials',
   BROWSE: '/browse',
+  RECOMMENDATIONS: '/recommendations',
   CHANNELS: '/channels',
   CHAPTER: '/chapter',
   CHECKOUT: '/checkout',

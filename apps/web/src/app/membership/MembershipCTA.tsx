@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
+import type { MembershipState } from '@podverse/helpers';
 import { membershipPurchaseAction, membershipPurchaseMessageKey } from '@podverse/helpers';
 import { Button } from '@podverse/ui';
 
@@ -11,62 +11,30 @@ import { ROUTES } from '../../constants/routes';
 import styles from '../../styles/app/membership/Membership.module.scss';
 
 type MembershipCTAProps = {
-  ssrLoggedInAccount: boolean;
-  isMembershipExpired: boolean;
-  isFreeTrial: boolean;
-  isPaidPremium: boolean;
-  membershipExpiresAt: Date | string | null | undefined;
+  loggedIn: boolean;
+  tier: MembershipState['tier'];
 };
 
-export function MembershipCTA({
-  ssrLoggedInAccount,
-  isMembershipExpired,
-  isFreeTrial,
-  isPaidPremium,
-  membershipExpiresAt,
-}: MembershipCTAProps) {
+export function MembershipCTA({ loggedIn, tier }: MembershipCTAProps) {
   const t = useTranslations('membership');
   const tAuth = useTranslations('authentication');
-  const router = useRouter();
-  const loggedInPurchaseLabel = t(
-    membershipPurchaseMessageKey(
-      membershipPurchaseAction({
-        isLoggedIn: true,
-        tier: isPaidPremium ? 'premium' : isFreeTrial ? 'trial' : null,
-      })
-    )
+  const purchaseLabel = t(
+    membershipPurchaseMessageKey(membershipPurchaseAction({ isLoggedIn: loggedIn, tier }))
   );
 
   return (
     <section className={styles.ctaSection}>
-      {!ssrLoggedInAccount && (
-        <div className={styles.cta}>
-          <Button variant="primary" onClick={() => router.push(ROUTES.SIGN_UP)}>
+      <div className={styles.cta}>
+        {loggedIn ? (
+          <Button href={ROUTES.CHECKOUT} variant="success">
+            {purchaseLabel}
+          </Button>
+        ) : (
+          <Button href={ROUTES.SIGN_UP} variant="primary">
             {tAuth('sign_up')}
           </Button>
-        </div>
-      )}
-      {ssrLoggedInAccount && isMembershipExpired && (
-        <div className={styles.cta}>
-          <Button variant="primary" onClick={() => router.push(ROUTES.CHECKOUT)}>
-            {loggedInPurchaseLabel}
-          </Button>
-        </div>
-      )}
-      {ssrLoggedInAccount && !isMembershipExpired && isFreeTrial && (
-        <div className={styles.cta}>
-          <Button variant="primary" onClick={() => router.push(ROUTES.CHECKOUT)}>
-            {loggedInPurchaseLabel}
-          </Button>
-        </div>
-      )}
-      {ssrLoggedInAccount && !isMembershipExpired && isPaidPremium && membershipExpiresAt && (
-        <div className={styles.cta}>
-          <Button variant="primary" onClick={() => router.push(ROUTES.CHECKOUT)}>
-            {loggedInPurchaseLabel}
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }

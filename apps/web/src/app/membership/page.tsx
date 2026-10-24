@@ -1,24 +1,23 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import React from 'react';
 
-import type { DTOAccount } from '@podverse/helpers';
+import type { DTOAccount, DTOMembershipComparison } from '@podverse/helpers';
 import {
   calculateTimeRemaining,
   deriveMembershipState,
   formatDateAbbrev,
-  MEMBERSHIP_COMPARISON_FEATURES,
+  getAccountSignupModeCapabilities,
 } from '@podverse/helpers';
 import { MainColumnStack, MainHeader, MainSidebarLayout, SideContent } from '@podverse/ui';
 
-import { FeatureComparison } from '../../components/FeatureComparison/FeatureComparison';
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { getConfig } from '../../config';
 import { getSSRApiRequestService } from '../../factories/apiRequestService';
 import { buildNoindexMetadata } from '../../lib/seo/buildNoindexMetadata';
 import { getSSRLoggedInAccount } from '../../utils/auth/ssrAuth';
 import { hasWebPurchasableProcessor } from '../checkout/purchaseAvailability';
+import { MembershipComparison } from './MembershipComparison';
 import { MembershipCTA } from './MembershipCTA';
-import { TrialLimitationsCollapsible } from './TrialLimitationsCollapsible';
 
 import styles from '../../styles/app/membership/Membership.module.scss';
 
@@ -33,8 +32,7 @@ type MembershipPricingData = {
 
 type RenderIntroTextParams = {
   t: (key: string, values?: Record<string, string | number>) => string;
-  isContactOnlyMode: boolean;
-  contactEmail?: string;
+  canPublicSignup: boolean;
   ssrLoggedInAccount: DTOAccount | null;
   isMembershipExpired: boolean;
   isTrialStatus: boolean;
@@ -44,7 +42,8 @@ type RenderIntroTextParams = {
   isPremiumStatus: boolean;
   membershipExpiresAt: Date | string | null | undefined;
   pricingData: MembershipPricingData | null;
-  contactLinkClassName: string;
+  /** The expiry card already shows the date, so the intro does not repeat it. */
+  suppressExpiryIntro: boolean;
 };
 
 export const dynamic = 'force-dynamic';
@@ -75,13 +74,29 @@ export default async function MembershipPage() {
   const tSettingsMembership = await getTranslations('settings.membership');
   const ssrLoggedInAccount = await getSSRLoggedInAccount();
   const ssrApiRequestService = getSSRApiRequestService();
-  const signupMode = config.public.account.signupMode;
   const contactEmail = config.public.account.contactEmail;
-  const isContactOnlyMode = signupMode !== 'user_signup_email';
+  const canPublicSignup = getAccountSignupModeCapabilities(
+    config.public.account.signupMode
+  ).canPublicSignup;
+
+  let webCanPurchase = false;
+  try {
+    const checkoutOptions = await ssrApiRequestService.reqBillingGetCheckoutOptions({
+      platform: 'web',
+    });
+    webCanPurchase = hasWebPurchasableProcessor({
+      paypalClientId: config.public.paypal.clientId,
+      processorIds: checkoutOptions.processors.map((processor) => processor.processor_id),
+    });
+  } catch {
+    // Checkout options are optional. Purchase actions stay hidden.
+  }
+
+  const showPurchaseActions = webCanPurchase && (ssrLoggedInAccount !== null || canPublicSignup);
 
   let pricingData: MembershipPricingData | null = null;
   let errorMessage: string | null = null;
-  if (!isContactOnlyMode) {
+  if (showPurchaseActions) {
     try {
       const response = await ssrApiRequestService.reqMembershipGetPricing();
       if ('data' in response && response.data) {
@@ -90,26 +105,9 @@ export default async function MembershipPage() {
         errorMessage = response.message;
       }
     } catch {
-      // Handle error - pricing data is optional
+      // Pricing copy is optional. The purchase button still opens checkout.
     }
   }
-
-  let nothingToBuy = false;
-  if (!isContactOnlyMode && ssrLoggedInAccount !== null) {
-    try {
-      const checkoutOptions = await ssrApiRequestService.reqBillingGetCheckoutOptions({
-        platform: 'web',
-      });
-      nothingToBuy = !hasWebPurchasableProcessor({
-        paypalClientId: config.public.paypal.clientId,
-        processorIds: checkoutOptions.processors.map((processor) => processor.processor_id),
-      });
-    } catch {
-      nothingToBuy = true;
-    }
-  }
-
-  const showPurchaseOffers = !isContactOnlyMode && !nothingToBuy;
 
   // Determine user status (shared derivation — tolerant of both the DTO `account_membership_id` and a
   // populated `account_membership.id`).
@@ -118,6 +116,14 @@ export default async function MembershipPage() {
   const isPremiumStatus = membership.tier === 'premium';
   const membershipExpiresAt = membership.expiresAt;
   const isMembershipExpired = membership.isExpired;
+  let comparison: DTOMembershipComparison | null = null;
+  try {
+    const comparisonResponse = await ssrApiRequestService.reqMembershipComparisonGet({ locale });
+    comparison = comparisonResponse.data;
+  } catch {
+    // The comparison table fetches its own document when this request fails.
+  }
+
   const showPremiumExpiry =
     ssrLoggedInAccount !== null &&
     isPremiumStatus &&
@@ -130,6 +136,34 @@ export default async function MembershipPage() {
       ? calculateTimeRemaining(membershipExpiresAt)
       : { daysLeft: null, hoursLeft: null, minutesLeft: null };
 
+  const contactBefore = showPurchaseActions
+    ? t('contact_questions_text_before')
+    : t('contact_mode_text_before');
+  const contactLine =
+    contactEmail !== '' ? (
+      <>
+        {contactBefore}{' '}
+        <MembershipContactMailto className={styles.contactLink ?? ''} contactEmail={contactEmail} />
+      </>
+    ) : !showPurchaseActions ? (
+      tCheckout('purchase_unavailable')
+    ) : null;
+
+  const intro = renderIntroText({
+    t,
+    canPublicSignup,
+    ssrLoggedInAccount,
+    isMembershipExpired,
+    isTrialStatus,
+    minutesLeft,
+    hoursLeft,
+    daysLeft,
+    isPremiumStatus,
+    membershipExpiresAt,
+    pricingData,
+    suppressExpiryIntro: showPremiumExpiry,
+  });
+
   return (
     <>
       <MainHeader title={t('membership')} />
@@ -137,59 +171,37 @@ export default async function MembershipPage() {
         <MainSidebarLayout>
           <SideContent />
           <MainColumnStack>
-            {showPremiumExpiry && membershipExpiresAt !== null ? (
-              <section className={styles.expiryBanner} data-testid="membership-expiry">
-                <p className={styles.expiryTier}>{t('premium')}</p>
-                <p className={styles.expiryLabel}>{tSettingsMembership('expires_on')}</p>
-                <p className={styles.expiryDate}>{formatDateAbbrev(membershipExpiresAt, locale)}</p>
-              </section>
-            ) : null}
+            <div className={styles.lead}>
+              {showPremiumExpiry && membershipExpiresAt !== null ? (
+                <section className={styles.expiryBanner} data-testid="membership-expiry">
+                  <p className={styles.expiryTier}>{t('premium')}</p>
+                  <p className={styles.expiryLabel}>{tSettingsMembership('expires_on')}</p>
+                  <p className={styles.expiryDate}>
+                    {formatDateAbbrev(membershipExpiresAt, locale)}
+                  </p>
+                </section>
+              ) : null}
 
-            {showPurchaseOffers && errorMessage && (
+              {intro !== '' ? <p className={styles.contactLine}>{intro}</p> : null}
+
+              {showPurchaseActions ? (
+                <MembershipCTA loggedIn={ssrLoggedInAccount !== null} tier={membership.tier} />
+              ) : null}
+
+              {contactLine !== null ? (
+                <p className={styles.contactLine} data-testid="membership-contact">
+                  {contactLine}
+                </p>
+              ) : null}
+            </div>
+
+            {showPurchaseActions && errorMessage && (
               <section className={styles.errorSection}>
                 <p>{errorMessage}</p>
               </section>
             )}
 
-            <section className={styles.intro}>
-              <p>
-                {renderIntroText({
-                  t,
-                  isContactOnlyMode,
-                  contactEmail,
-                  ssrLoggedInAccount,
-                  isMembershipExpired,
-                  isTrialStatus,
-                  minutesLeft,
-                  hoursLeft,
-                  daysLeft,
-                  isPremiumStatus,
-                  membershipExpiresAt,
-                  pricingData,
-                  contactLinkClassName: styles.contactLink ?? '',
-                })}
-              </p>
-            </section>
-
-            {nothingToBuy ? (
-              <section className={styles.intro} data-testid="membership-contact">
-                <p>
-                  {contactEmail !== '' ? (
-                    <>
-                      {t('contact_mode_text_before')}{' '}
-                      <MembershipContactMailto
-                        className={styles.contactLink ?? ''}
-                        contactEmail={contactEmail}
-                      />
-                    </>
-                  ) : (
-                    tCheckout('purchase_unavailable')
-                  )}
-                </p>
-              </section>
-            ) : null}
-
-            {showPurchaseOffers && pricingData && (
+            {showPurchaseActions && pricingData && (
               <section className={styles.pricingSection}>
                 <div className={styles.pricingPlan}>
                   <h3 className={styles.planTitle}>{t('pricing_monthly')}</h3>
@@ -215,22 +227,7 @@ export default async function MembershipPage() {
               </section>
             )}
 
-            {showPurchaseOffers && (
-              <MembershipCTA
-                ssrLoggedInAccount={!!ssrLoggedInAccount}
-                isMembershipExpired={isMembershipExpired}
-                isFreeTrial={isTrialStatus}
-                isPaidPremium={isPremiumStatus}
-                membershipExpiresAt={membershipExpiresAt}
-              />
-            )}
-
-            <section>
-              <h2 className={styles.comparisonTitle}>{t('features')}</h2>
-              <FeatureComparison features={MEMBERSHIP_COMPARISON_FEATURES} />
-            </section>
-
-            <TrialLimitationsCollapsible />
+            <MembershipComparison initial={comparison} showHeading />
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>
@@ -240,8 +237,7 @@ export default async function MembershipPage() {
 
 function renderIntroText({
   t,
-  isContactOnlyMode,
-  contactEmail,
+  canPublicSignup,
   ssrLoggedInAccount,
   isMembershipExpired,
   isTrialStatus,
@@ -251,19 +247,14 @@ function renderIntroText({
   isPremiumStatus,
   membershipExpiresAt,
   pricingData,
-  contactLinkClassName,
+  suppressExpiryIntro,
 }: RenderIntroTextParams): string | React.ReactElement {
-  if (isContactOnlyMode && contactEmail !== undefined && contactEmail !== '') {
-    return (
-      <>
-        {t('contact_mode_text_before')}{' '}
-        <MembershipContactMailto className={contactLinkClassName} contactEmail={contactEmail} />
-      </>
-    );
+  if (!ssrLoggedInAccount) {
+    return canPublicSignup ? t('cta_sign_up_text') : '';
   }
 
-  if (!ssrLoggedInAccount) {
-    return t('cta_sign_up_text');
+  if (suppressExpiryIntro) {
+    return '';
   }
 
   if (isMembershipExpired) {

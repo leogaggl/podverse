@@ -147,6 +147,8 @@ export interface DTOAccountDataExportTasteProfileRow {
   recent_score: number;
   long_term_score: number;
   scores_updated_at: string;
+  weight_override: number | null;
+  weight_override_at: string | null;
 }
 
 export interface DTOAccountDataExportHiddenFromTasteProfileRow {

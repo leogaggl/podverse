@@ -1,33 +1,27 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-
+import type { DTOMembershipComparison } from '@podverse/helpers';
 import { Accordion } from '@podverse/ui';
 
 import styles from '../../styles/app/membership/Membership.module.scss';
 
-const TRIAL_LIMITATION_KEYS = [
-  'trial_limitations_directory_add_by_rss',
-  'trial_limitations_add_by_rss_feed_limit',
-  'trial_limitations_manual_refresh_limit',
-  'trial_limitations_stats_tracking',
-] as const;
+type TrialLimitationsCollapsibleProps = {
+  limitations: DTOMembershipComparison['trialLimitations'];
+};
 
-export function TrialLimitationsCollapsible() {
-  const t = useTranslations('membership');
-
+export function TrialLimitationsCollapsible({ limitations }: TrialLimitationsCollapsibleProps) {
   return (
     <section className={styles.trialLimitationsAccordion}>
       <Accordion
         className={styles.trialLimitationsShell}
         contentClassName={styles.trialLimitationsContent}
-        header={t('trial_limitations_title')}
+        header={limitations.title}
         headerClassName={styles.trialLimitationsHeader}
       >
-        <p className={styles.trialLimitationsIntro}>{t('trial_limitations_summary')}</p>
+        <p className={styles.trialLimitationsIntro}>{limitations.summary}</p>
         <ul className={styles.trialLimitationsList}>
-          {TRIAL_LIMITATION_KEYS.map((key) => (
-            <li key={key}>{t(key)}</li>
+          {limitations.items.map((item) => (
+            <li key={item}>{item}</li>
           ))}
         </ul>
       </Accordion>

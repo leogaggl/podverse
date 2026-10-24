@@ -49,6 +49,7 @@ name: Taste Profile Consent Gate
     id: more-settings-taste-profile
 - assertVisible:
     id: more-settings-taste-profile-screen
+- assertVisible: "Recommendations"
 - takeScreenshot: taste-profile-consent-settings
 
 - tapOn:

@@ -40,6 +40,10 @@ name: Developer API Keys
     visible:
       id: more-settings-developer-create-screen
     timeout: ${TIMEOUT_FAST}
+- assertNotVisible:
+    id: more-settings-developer-resource-account
+- tapOn:
+    id: more-settings-developer-preset-custom
 - extendedWaitUntil:
     visible:
       id: more-settings-developer-permission-account-create
@@ -48,6 +52,10 @@ name: Developer API Keys
     text: "Account Create is not available."
 - assertVisible:
     id: more-settings-developer-permission-account-read
+- tapOn:
+    id: more-settings-developer-preset-read-only
+- assertNotVisible:
+    id: more-settings-developer-resource-account
 
 - runFlow:
     when:

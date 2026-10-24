@@ -132,6 +132,16 @@
       "browse": "Parcourir",
       "users": "Utilisateurs"
     },
+    "recommendations": {
+      "title": "Recommandations",
+      "empty": "Pas encore de recommandations.",
+      "need_taste_profile": "Les recommandations utilisent votre profil de goûts. Activez-le pour commencer à les créer.",
+      "enable": "Réglages du profil de goûts",
+      "check_back": "Les recommandations apparaissent après votre écoute, lors de la prochaine mise à jour nocturne.",
+      "paused": "Le profil de goûts est désactivé, donc ces recommandations ne seront pas mises à jour. Activez-le pour les garder à jour.",
+      "strength": "Poids de la recommandation {level} sur 5",
+      "load_error": "Impossible de charger les recommandations. Veuillez réessayer."
+    },
     "my_library": "Ma bibliothèque",
     "queue": {
       "queue": "File d'attente",
@@ -484,7 +494,8 @@
       "off": "Éteint",
       "minutes_15": "15 min",
       "minutes_30": "30 min",
-      "minutes_60": "60 min"
+      "minutes_60": "60 min",
+      "sleep_timer_with_value": "Minuteur de sommeil : {value}"
     },
     "repeat": {
       "toggle_repeat": "Basculer la répétition",
@@ -719,6 +730,13 @@
     "load_error": "Impossible de charger votre profil de goûts. Veuillez réessayer.",
     "hidden_load_error": "Impossible de charger vos émissions masquées. Veuillez réessayer.",
     "load_more_error": "Impossible de charger plus d'émissions. Veuillez réessayer.",
+    "affects_title": "Émissions qui influencent les recommandations",
+    "affects_description": "Émissions ajoutées par votre écoute. Un poids plus élevé donne à cette émission plus d'influence sur vos recommandations.",
+    "weight_label": "Poids",
+    "weight_apply": "Appliquer le poids",
+    "weight_apply_accessible": "Appliquer le poids pour {title}",
+    "weight_automatic": "Automatique, d'après vos écoutes",
+    "weight_accessible": "Poids {level} pour {title}",
     "action_error": "Impossible de mettre à jour votre profil de goûts. Veuillez réessayer."
   },
   "misc": {
@@ -988,6 +1006,7 @@
     "pricing_save_percent": "Économisez {percent}%",
     "pricing_percent_off": "{percent} % de réduction",
     "contact_mode_text_before": "Pour obtenir un abonnement, veuillez nous contacter à",
+    "contact_questions_text_before": "Si vous avez des questions, veuillez nous contacter à",
     "cta_sign_up_text": "Inscrivez-vous pour commencer votre essai gratuit",
     "cta_upgrade_text": "Passer à Premium",
     "buy_membership": "Acheter un abonnement",
@@ -1004,6 +1023,8 @@
     "coming_soon": "Bientôt disponible",
     "mobile_only": "Mobile uniquement",
     "mobile_only_legend": "Fonctionnalité disponible uniquement dans l'application mobile",
+    "free_on_mobile_legend": "Le niveau gratuit est disponible uniquement dans l'application mobile. Premium l'inclut sur le site web.",
+    "available_on_mobile_app": "Disponible dans l'application mobile",
     "comparison_name_mobile_only": "{name}*",
     "comparison": {
       "subscribe": "S'abonner à des podcasts",
@@ -1021,11 +1042,15 @@
       "sleep_timer": "Minuteur de sommeil",
       "screen_reader": "Accessibilité lecteur d'écran",
       "sync": "Synchroniser entre appareils",
+      "playback_handoff": "Transfert de lecture",
+      "queue": "File d'attente et historique",
       "notifications": "Notifications",
       "clips": "Créer et partager des extraits",
       "playlists": "Créer et partager des playlists",
       "mark_played": "Marquer les épisodes comme lus",
       "profiles": "S'abonner aux profils d'auditeurs",
+      "recommendations": "Recommandations",
+      "api_keys": "Clés d'API pour les développeurs",
       "support_foss": "Soutenir le logiciel libre"
     },
     "membership_expiring_warning": "Votre {type} expire le {date}. Prolongez maintenant pour continuer à utiliser les fonctionnalités Premium.",
@@ -1048,9 +1073,9 @@
     "trial_limitations_show_more": "Afficher plus",
     "trial_limitations_title": "Limitations de l'essai",
     "trial_limitations_directory_add_by_rss": "L'ajout de flux au répertoire public à partir de la recherche est bloqué pour le statut d'essai.",
-    "trial_limitations_add_by_rss_feed_limit": "La taille de la bibliothèque d'ajout par RSS utilise une limite d'essai inférieure à celle de Premium.",
-    "trial_limitations_manual_refresh_limit": "Les actions de rafraîchissement manuel utilisent des limites horaires plus strictes pendant l'essai.",
-    "trial_limitations_stats_tracking": "Les statistiques d'écoute ne sont pas disponibles pendant l'essai. Contribuer aux tendances nécessite Premium.",
+    "trial_limitations_add_by_rss_feed_limit": "Ajouter par RSS accepte jusqu'à {trial_feeds} flux pendant l'essai et {premium_feeds} avec Premium.",
+    "trial_limitations_manual_refresh_limit": "L'actualisation manuelle est limitée à {trial_refreshes} fois par heure pendant l'essai et {premium_refreshes} avec Premium.",
+    "trial_limitations_stats_tracking": "Les écoutes pendant l'essai sont enregistrées pour les recommandations. Elles ne comptent pas dans les tendances. Les ouvertures de profils et de playlists comptent dans les tendances avec Premium.",
     "gate": {
       "cancel": "Annuler",
       "sign_up": "S'inscrire",
@@ -1207,6 +1232,9 @@
         "error": "Impossible de changer votre mot de passe. Veuillez réessayer."
       }
     },
+    "recommendations": {
+      "recommendations": "Recommandations"
+    },
     "profile": {
       "profile": "Profil",
       "display_name": "Nom d'affichage",
@@ -1241,7 +1269,7 @@
       "preference_section_help": "Choisissez les catégories de notifications qui apparaissent dans l'application et celles qui peuvent envoyer des notifications push.",
       "preference_in_app": "Dans l'application",
       "preference_push": "Push",
-      "preference_push_disabled": "Push (activez d'abord Web Push ou Unified Push)",
+      "preference_push_requirement": "Activez d'abord Web Push ou Unified Push.",
       "category_new_content": "Nouveau contenu",
       "category_new_content_description": "Alertes pour les nouveaux épisodes, morceaux, albums et vidéos des créateurs que vous suivez.",
       "category_livestream": "Diffusion en direct",
@@ -1306,7 +1334,8 @@
     "advanced": {
       "advanced": "Avancé",
       "removed_content": "Contenu supprimé",
-      "empty": "Rien n'a été supprimé de votre bibliothèque au cours des 30 derniers jours.",
+      "explanation": "Cette liste indique les programmes retirés sur le serveur. Se désabonner, ou supprimer vos propres clips et playlists, n'apparaît pas ici.",
+      "empty": "Rien n'a été supprimé au cours des 30 derniers jours.",
       "load_error": "Impossible de charger le contenu supprimé.",
       "left_directory": "{title} n'est plus dans le répertoire.",
       "taken_down": "{title} a été retiré.",

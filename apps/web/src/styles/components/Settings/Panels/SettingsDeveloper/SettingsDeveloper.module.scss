@@ -1,6 +1,15 @@
+/* Outranks the settings wrapper's h3 margin so the stack gap is the space under the heading. */
+.heading.heading {
+  margin-bottom: 0;
+}
+
+.action {
+  align-self: flex-start;
+}
+
 .rows {
   list-style: none;
-  margin: var(--spacing-lg) 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;

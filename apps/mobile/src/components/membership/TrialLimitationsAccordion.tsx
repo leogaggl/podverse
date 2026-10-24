@@ -1,17 +1,16 @@
-import { useTranslation } from 'react-i18next';
-
 import { Accordion } from '../primitives';
 import { TrialLimitationsContent } from './TrialLimitationsContent';
+import { useMembershipComparisonDocument } from './useMembershipComparisonDocument';
 
 type TrialLimitationsAccordionProps = {
   testID: string;
 };
 
 export function TrialLimitationsAccordion({ testID }: TrialLimitationsAccordionProps) {
-  const { t } = useTranslation();
+  const document = useMembershipComparisonDocument();
 
   return (
-    <Accordion testID={testID} title={t('membership.trial_limitations_title')}>
+    <Accordion testID={testID} title={document.trialLimitations.title}>
       <TrialLimitationsContent />
     </Accordion>
   );

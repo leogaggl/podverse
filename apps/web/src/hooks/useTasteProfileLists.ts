@@ -19,6 +19,7 @@ import { useAccount } from '../contexts/Account';
 import { getApiRequestService } from '../factories/apiRequestService';
 
 export type TasteProfileListState<Row> =
+  | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error' }
   | { status: 'ready'; data: TasteProfileRows<Row>; loadingMore: boolean; loadMoreFailed: boolean };
@@ -26,7 +27,7 @@ export type TasteProfileListState<Row> =
 export type UseTasteProfileListsResult = {
   profile: TasteProfileListState<DTOAccountTasteProfileRow>;
   hidden: TasteProfileListState<DTOAccountTasteProfileHiddenRow>;
-  /** `channel.id_text` values with a hide or unhide in flight. */
+  /** `channel.id_text` values with a hide, unhide, or weight apply in flight. */
   pendingChannelIds: ReadonlySet<string>;
   actionFailed: boolean;
   retry: () => void;
@@ -34,6 +35,7 @@ export type UseTasteProfileListsResult = {
   loadMoreHidden: () => void;
   hideShow: (channelIdText: string) => Promise<void>;
   unhideShow: (channelIdText: string, addToTasteProfile: boolean) => Promise<void>;
+  applyWeight: (channelIdText: string, weight: number) => Promise<void>;
 };
 
 type KeyedRow = { channel: { id_text: string } };
@@ -55,7 +57,7 @@ function useTasteProfileList<Row extends KeyedRow>(
   fetchPage: (page: number) => Promise<TasteProfilePage<Row>>,
   generationRef: MutableRefObject<number>
 ) {
-  const [state, setState] = useState<TasteProfileListState<Row>>({ status: 'loading' });
+  const [state, setState] = useState<TasteProfileListState<Row>>({ status: 'idle' });
   const stateRef = useRef<TasteProfileListState<Row>>(state);
   const requestSeqRef = useRef(0);
 
@@ -92,6 +94,11 @@ function useTasteProfileList<Row extends KeyedRow>(
   const reset = useCallback(() => {
     requestSeqRef.current += 1;
     applyState({ status: 'loading' });
+  }, [applyState]);
+
+  const idle = useCallback(() => {
+    requestSeqRef.current += 1;
+    applyState({ status: 'idle' });
   }, [applyState]);
 
   const reload = useCallback(() => {
@@ -135,22 +142,29 @@ function useTasteProfileList<Row extends KeyedRow>(
     })();
   }, [applyState, fetchPage, startRequest]);
 
-  return { state, reset, reload, refetch, loadMore };
+  return { state, reset, idle, reload, refetch, loadMore };
 }
 
-export function useTasteProfileLists(): UseTasteProfileListsResult {
+export function useTasteProfileLists(options: {
+  hiddenActive: boolean;
+  profileActive: boolean;
+}): UseTasteProfileListsResult {
   const { loggedInAccount } = useAccount();
   const generationRef = useRef(0);
+  const profileActiveRef = useRef(options.profileActive);
+  const hiddenActiveRef = useRef(options.hiddenActive);
+  profileActiveRef.current = options.profileActive;
+  hiddenActiveRef.current = options.hiddenActive;
   const {
     state: profile,
-    reset: resetProfile,
+    idle: idleProfile,
     reload: reloadProfile,
     refetch: refetchProfile,
     loadMore: loadMoreProfile,
   } = useTasteProfileList(fetchProfilePage, generationRef);
   const {
     state: hidden,
-    reset: resetHidden,
+    idle: idleHidden,
     reload: reloadHidden,
     refetch: refetchHidden,
     loadMore: loadMoreHidden,
@@ -181,22 +195,32 @@ export function useTasteProfileLists(): UseTasteProfileListsResult {
     updatePending(() => new Set<string>());
     setActionFailed(false);
     if (reloadKey === null) {
-      resetProfile();
-      resetHidden();
+      idleProfile();
+      idleHidden();
     } else {
-      reloadProfile();
-      reloadHidden();
+      if (options.profileActive) {
+        reloadProfile();
+      } else {
+        idleProfile();
+      }
+      if (options.hiddenActive) {
+        reloadHidden();
+      } else {
+        idleHidden();
+      }
     }
     return () => {
       generationRef.current += 1;
     };
   }, [
-    reloadKey,
-    retryCount,
+    idleHidden,
+    idleProfile,
+    options.hiddenActive,
+    options.profileActive,
     reloadHidden,
+    reloadKey,
     reloadProfile,
-    resetHidden,
-    resetProfile,
+    retryCount,
     updatePending,
   ]);
 
@@ -226,8 +250,12 @@ export function useTasteProfileLists(): UseTasteProfileListsResult {
             next.delete(channelIdText);
             return next;
           });
-          refetchProfile();
-          refetchHidden();
+          if (profileActiveRef.current) {
+            refetchProfile();
+          }
+          if (hiddenActiveRef.current) {
+            refetchHidden();
+          }
         }
       }
     },
@@ -253,6 +281,17 @@ export function useTasteProfileLists(): UseTasteProfileListsResult {
     [runAction]
   );
 
+  const applyWeight = useCallback(
+    (channelIdText: string, weight: number) =>
+      runAction(channelIdText, () =>
+        getApiRequestService().reqAccountTasteProfileSetWeight({
+          channel_id_text: channelIdText,
+          weight,
+        })
+      ),
+    [runAction]
+  );
+
   return {
     profile,
     hidden,
@@ -263,5 +302,6 @@ export function useTasteProfileLists(): UseTasteProfileListsResult {
     loadMoreHidden,
     hideShow,
     unhideShow,
+    applyWeight,
   };
 }

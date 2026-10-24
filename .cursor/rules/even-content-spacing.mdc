@@ -1,5 +1,5 @@
 ---
-description: When content has spacing, matching gaps on that axis are equal. Leave a flush edge flush.
+description: Stacked headings, paragraphs, and other blocks share one parent gap. A divider has the same space above and below. FormStack on web, settingsCardInnerGap on mobile. Matching gaps stay equal. Leave a flush edge flush.
 globs:
   - "**/*.scss"
   - "apps/web/src/**"
@@ -35,6 +35,38 @@ kind of margin.
 
 Aligning a label's ink with a neighboring control (a switch, a glyph) is alignment. It is not a
 reason to pad one side of the row more than the other.
+
+## Stacked blocks
+
+`h1`–`h6` and `p` have `margin: 0`. A column of those tags, plus buttons, lists, and other
+blocks, gets its space from the parent. Put that gap on every screen that stacks them.
+
+- **Web and management-web:** wrap the siblings in `FormStack` from `@podverse/ui`. A `<form>`
+  uses `StackForm`. `Modal.Body` already has the same gap (`--form-gap`). A second `FormStack`
+  inside `Modal.Body` is for a nested group.
+- **Mobile:** the column is a `View` with `gap: settingsCardInnerGap(tokens.spacing)`.
+  `FormActions` keeps `formActionsTopGap` above it when the screen separates the reading from
+  the decision (**mobile-screen-layout**).
+
+One block alone does not need a stack. A child of the stack does not add its own vertical
+margin. The gap is the space, and a margin stays behind when a sibling is absent. Clear an
+ancestor rule that puts margin on those tags, such as a settings heading, or it stacks on
+the gap.
+
+A label and the sentence that describes it are one unit, not two stack siblings. On web that
+unit is `DescribedLink`: a bordered surface, a different background, and a tight gap between
+the label and the sentence. On mobile it is a `Card` around a `ListRow` title and subtitle.
+The unit is one child of the column stack.
+
+## Dividers
+
+A divider has the same space above the line as below it. That is the default on web,
+management-web, and mobile. Use a different rhythm only when the operator asks for one.
+
+Use one spacing token for both sides. On web settings, `<Divider withSpacing />` between
+`SettingsSection` blocks gets its upper space from the section's `--spacing-2xl` bottom margin
+and its lower space from the divider's own `--spacing-2xl` bottom margin. A divider between
+list rows stays in the row rhythm and leaves `withSpacing` off.
 
 ## Related
 

@@ -9,6 +9,8 @@ const LOGIN_EMAIL = 'e2e-user@example.com';
 const LOGIN_PASSWORD = 'Test!1Aa';
 const LEFT_DIRECTORY = `${E2E_CONTENT_LOG_CHANNEL_TITLE} is no longer in the directory.`;
 const FOLLOW_ENDED = 'Your follow ended.';
+const EXPLANATION =
+  'This lists shows removed on the server. Unsubscribing, or deleting your own clips and playlists, does not appear here.';
 
 async function loginSeedUser(page: Page): Promise<void> {
   const loginResponse = await page.request.post(API_LOGIN_URL, {
@@ -63,6 +65,36 @@ test.describe('Settings Advanced', () => {
         await advanced.click();
         await expect(page).toHaveURL(/\/settings\?tab=advanced/);
         await expect(page.getByRole('heading', { name: 'Removed Content' })).toBeVisible();
+        await expect(page.getByText(EXPLANATION)).toBeVisible();
+        const notificationsHeading = page.getByRole('heading', {
+          name: 'Notifications',
+          exact: true,
+        });
+        const unifiedPush = page.getByRole('switch', { name: 'Unified Push' });
+        await expect(notificationsHeading).toBeVisible();
+        await expect(unifiedPush).toBeVisible();
+        const notificationsSection = notificationsHeading.locator('..');
+        const separator = notificationsSection.locator('xpath=following-sibling::hr[1]');
+        const notificationsBox = await notificationsHeading.boundingBox();
+        const unifiedPushBox = await unifiedPush.boundingBox();
+        const sectionBox = await notificationsSection.boundingBox();
+        const separatorBox = await separator.boundingBox();
+        const removedBox = await page
+          .getByRole('heading', { name: 'Removed Content' })
+          .boundingBox();
+        expect(notificationsBox).not.toBeNull();
+        expect(unifiedPushBox).not.toBeNull();
+        expect(sectionBox).not.toBeNull();
+        expect(separatorBox).not.toBeNull();
+        expect(removedBox).not.toBeNull();
+        expect(notificationsBox?.y ?? 0).toBeLessThan(unifiedPushBox?.y ?? 0);
+        expect(unifiedPushBox?.y ?? 0).toBeLessThan(separatorBox?.y ?? 0);
+        expect(separatorBox?.y ?? 0).toBeLessThan(removedBox?.y ?? 0);
+        const spaceAbove =
+          (separatorBox?.y ?? 0) - ((sectionBox?.y ?? 0) + (sectionBox?.height ?? 0));
+        const spaceBelow =
+          (removedBox?.y ?? 0) - ((separatorBox?.y ?? 0) + (separatorBox?.height ?? 0));
+        expect(Math.abs(spaceAbove - spaceBelow)).toBeLessThan(2);
         await expect(leftDirectory).toBeVisible();
         await expect(page.getByText(FOLLOW_ENDED)).toBeVisible();
         await expect(removedContentRow).toBeVisible();

@@ -35,6 +35,14 @@ export class StatsTasteProfile {
   @Column({ type: 'double precision', default: 0 })
   long_term_score!: number;
 
+  /** Listener-applied 1–5 weight. Null until the first apply; later listens do not move it. */
+  @Column({ type: 'smallint', nullable: true })
+  weight_override!: number | null;
+
+  /** When `weight_override` was last applied. Null while the override is null. */
+  @Column({ type: 'timestamptz', nullable: true })
+  weight_override_at!: Date | null;
+
   @ManyToOne('Channel', (channel: Channel) => channel.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'channel_id' })
   channel!: Relation<Channel>;

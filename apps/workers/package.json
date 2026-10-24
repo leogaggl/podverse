@@ -59,7 +59,8 @@
     "podcast_index_trending_podcasts_get": "node ./dist/index.js podcastIndexTrendingPodcastsGet",
     "podcast_index_value_update_all": "node ./dist/index.js podcastIndexValueUpdateAll",
     "stats_event_partitions_maintain": "node ./dist/index.js statsEventPartitionsMaintain",
-    "stats_popularity_refresh": "node ./dist/index.js statsPopularityRefresh"
+    "stats_popularity_refresh": "node ./dist/index.js statsPopularityRefresh",
+    "stats_recommendations_refresh": "node ./dist/index.js statsRecommendationsRefresh"
   },
   "license": "AGPL-3.0",
   "dependencies": {

@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import type { DTOAccountTasteProfileChannel } from '@podverse/helpers';
 import { buildDTOChannelImageLoadCandidates, formatDateAbbrev } from '@podverse/helpers';
-import { Button, LoadingSpinner, SkeletonFlashImage } from '@podverse/ui';
+import { Accordion, Button, LoadingSpinner, SkeletonFlashImage } from '@podverse/ui';
 
 import { IMAGES } from '../../../../constants/images';
 import { useConfig } from '../../../../contexts/Config';
@@ -28,6 +28,11 @@ export function SettingsTasteProfile() {
   const tConsent = useTranslations('taste_profile_consent');
   const config = useConfig();
   const locale = useLocale();
+  const [unhideTarget, setUnhideTarget] = useState<UnhideTarget | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [profileActive, setProfileActive] = useState(false);
+  const [hiddenActive, setHiddenActive] = useState(false);
   const {
     profile,
     hidden,
@@ -38,8 +43,8 @@ export function SettingsTasteProfile() {
     loadMoreHidden,
     hideShow,
     unhideShow,
-  } = useTasteProfileLists();
-  const [unhideTarget, setUnhideTarget] = useState<UnhideTarget | null>(null);
+    applyWeight,
+  } = useTasteProfileLists({ hiddenActive, profileActive });
 
   const titleFor = (channel: DTOAccountTasteProfileChannel): string => {
     const trimmed = channel.title?.trim() ?? '';
@@ -71,77 +76,119 @@ export function SettingsTasteProfile() {
               {t('action_error')}
             </p>
           ) : null}
-          <TasteProfileListBody
-            state={profile}
-            loadingLabel={tMisc('loading')}
-            loadErrorText={t('load_error')}
-            emptyText={t('empty')}
-            loadMoreErrorText={t('load_more_error')}
-            loadMoreLabel={t('load_more')}
-            retryLabel={tConsent('retry')}
-            onRetry={retry}
-            onLoadMore={loadMoreProfile}
-            renderRow={(row) => {
-              const idText = row.channel.id_text;
-              const title = titleFor(row.channel);
-              return (
-                <TasteProfileShowRow
-                  key={idText}
-                  channel={row.channel}
-                  title={title}
-                  subtitle={
-                    row.last_listened_at === null
-                      ? t('added_back')
-                      : t('last_listened', { date: formatDateAbbrev(row.last_listened_at, locale) })
-                  }
-                  actionLabel={t('remove')}
-                  actionAccessibleLabel={t('remove_accessible', { title })}
-                  disabled={pendingChannelIds.has(idText)}
-                  onAction={() => {
-                    void hideShow(idText);
-                  }}
-                />
-              );
+          <Accordion
+            header={
+              <h4 className={styles.subheading} id="settings-taste-profile-affects-heading">
+                {t('affects_title')}
+              </h4>
+            }
+            open={profileOpen}
+            onToggle={(open) => {
+              setProfileOpen(open);
+              if (open) {
+                setProfileActive(true);
+              }
             }}
-          />
+          >
+            <section aria-labelledby="settings-taste-profile-affects-heading">
+              <p className={styles.description}>{t('affects_description')}</p>
+              <TasteProfileListBody
+                state={profile}
+                loadingLabel={tMisc('loading')}
+                loadErrorText={t('load_error')}
+                emptyText={t('empty')}
+                loadMoreErrorText={t('load_more_error')}
+                loadMoreLabel={t('load_more')}
+                retryLabel={tConsent('retry')}
+                onRetry={retry}
+                onLoadMore={loadMoreProfile}
+                renderRow={(row) => {
+                  const idText = row.channel.id_text;
+                  const title = titleFor(row.channel);
+                  return (
+                    <TasteProfileShowRow
+                      key={`${idText}-${row.recommendation_weight}-${row.recommendation_weight_override ?? 'auto'}`}
+                      channel={row.channel}
+                      title={title}
+                      subtitle={
+                        row.last_listened_at === null
+                          ? t('added_back')
+                          : t('last_listened', {
+                              date: formatDateAbbrev(row.last_listened_at, locale),
+                            })
+                      }
+                      actionLabel={t('remove')}
+                      actionAccessibleLabel={t('remove_accessible', { title })}
+                      disabled={pendingChannelIds.has(idText)}
+                      onAction={() => {
+                        void hideShow(idText);
+                      }}
+                      extra={
+                        <WeightControl
+                          channelIdText={idText}
+                          disabled={pendingChannelIds.has(idText)}
+                          title={title}
+                          weight={row.recommendation_weight}
+                          weightOverride={row.recommendation_weight_override}
+                          onApply={applyWeight}
+                        />
+                      }
+                    />
+                  );
+                }}
+              />
+            </section>
+          </Accordion>
         </section>
         <section
           aria-labelledby="settings-taste-profile-hidden-heading"
           className={styles.hiddenSection}
         >
-          <h4 className={styles.subheading} id="settings-taste-profile-hidden-heading">
-            {t('hidden_title')}
-          </h4>
-          <p className={styles.description}>{t('hidden_description')}</p>
-          <TasteProfileListBody
-            state={hidden}
-            loadingLabel={tMisc('loading')}
-            loadErrorText={t('hidden_load_error')}
-            emptyText={t('hidden_empty')}
-            loadMoreErrorText={t('load_more_error')}
-            loadMoreLabel={t('load_more')}
-            retryLabel={tConsent('retry')}
-            onRetry={retry}
-            onLoadMore={loadMoreHidden}
-            renderRow={(row) => {
-              const idText = row.channel.id_text;
-              const title = titleFor(row.channel);
-              return (
-                <TasteProfileShowRow
-                  key={idText}
-                  channel={row.channel}
-                  title={title}
-                  subtitle={t('hidden_on', { date: formatDateAbbrev(row.hidden_at, locale) })}
-                  actionLabel={t('unhide')}
-                  actionAccessibleLabel={t('unhide_accessible', { title })}
-                  disabled={pendingChannelIds.has(idText)}
-                  onAction={() => {
-                    setUnhideTarget({ idText, title });
-                  }}
-                />
-              );
+          <Accordion
+            header={
+              <h4 className={styles.subheading} id="settings-taste-profile-hidden-heading">
+                {t('hidden_title')}
+              </h4>
+            }
+            open={hiddenOpen}
+            onToggle={(open) => {
+              setHiddenOpen(open);
+              if (open) {
+                setHiddenActive(true);
+              }
             }}
-          />
+          >
+            <p className={styles.description}>{t('hidden_description')}</p>
+            <TasteProfileListBody
+              state={hidden}
+              loadingLabel={tMisc('loading')}
+              loadErrorText={t('hidden_load_error')}
+              emptyText={t('hidden_empty')}
+              loadMoreErrorText={t('load_more_error')}
+              loadMoreLabel={t('load_more')}
+              retryLabel={tConsent('retry')}
+              onRetry={retry}
+              onLoadMore={loadMoreHidden}
+              renderRow={(row) => {
+                const idText = row.channel.id_text;
+                const title = titleFor(row.channel);
+                return (
+                  <TasteProfileShowRow
+                    key={idText}
+                    channel={row.channel}
+                    title={title}
+                    subtitle={t('hidden_on', { date: formatDateAbbrev(row.hidden_at, locale) })}
+                    actionLabel={t('unhide')}
+                    actionAccessibleLabel={t('unhide_accessible', { title })}
+                    disabled={pendingChannelIds.has(idText)}
+                    onAction={() => {
+                      setUnhideTarget({ idText, title });
+                    }}
+                  />
+                );
+              }}
+            />
+          </Accordion>
         </section>
       </SettingsSection>
       <ModalTasteProfileUnhide
@@ -185,6 +232,9 @@ function TasteProfileListBody<Row extends ShowRow>({
   onLoadMore,
   renderRow,
 }: TasteProfileListBodyProps<Row>) {
+  if (state.status === 'idle') {
+    return null;
+  }
   if (state.status === 'loading') {
     return <LoadingSpinner ariaLabel={loadingLabel} size="medium" />;
   }
@@ -233,6 +283,7 @@ type TasteProfileShowRowProps = {
   actionAccessibleLabel: string;
   disabled: boolean;
   onAction: () => void;
+  extra?: ReactNode;
 };
 
 function TasteProfileShowRow({
@@ -243,6 +294,7 @@ function TasteProfileShowRow({
   actionAccessibleLabel,
   disabled,
   onAction,
+  extra,
 }: TasteProfileShowRowProps) {
   const imageCandidates = buildDTOChannelImageLoadCandidates(
     channel.channel_images,
@@ -262,6 +314,7 @@ function TasteProfileShowRow({
       <div className={styles.text}>
         <div className={styles.title}>{title}</div>
         <div className={styles.subtitle}>{subtitle}</div>
+        {extra}
       </div>
       <Button
         type="button"
@@ -273,5 +326,62 @@ function TasteProfileShowRow({
         {actionLabel}
       </Button>
     </li>
+  );
+}
+
+const WEIGHT_LEVELS = [1, 2, 3, 4, 5] as const;
+
+function WeightControl({
+  channelIdText,
+  disabled,
+  onApply,
+  title,
+  weight,
+  weightOverride,
+}: {
+  channelIdText: string;
+  disabled: boolean;
+  onApply: (channelIdText: string, weight: number) => Promise<void>;
+  title: string;
+  weight: number;
+  weightOverride: number | null;
+}) {
+  const t = useTranslations('taste_profile');
+  const [selected, setSelected] = useState(weight);
+
+  return (
+    <div className={styles.weight}>
+      <label className={styles.weightLabel}>
+        {t('weight_label')}
+        <select
+          aria-label={t('weight_accessible', { level: selected, title })}
+          disabled={disabled}
+          value={selected}
+          onChange={(event) => {
+            setSelected(Number(event.target.value));
+          }}
+        >
+          {WEIGHT_LEVELS.map((level) => (
+            <option key={level} value={level}>
+              {level}
+            </option>
+          ))}
+        </select>
+      </label>
+      {weightOverride === null ? (
+        <span className={styles.subtitle}>{t('weight_automatic')}</span>
+      ) : null}
+      <Button
+        type="button"
+        variant="secondary"
+        aria-label={t('weight_apply_accessible', { title })}
+        disabled={disabled}
+        onClick={() => {
+          void onApply(channelIdText, selected);
+        }}
+      >
+        {t('weight_apply')}
+      </Button>
+    </div>
   );
 }

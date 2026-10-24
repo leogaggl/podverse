@@ -5,6 +5,7 @@ import { validateBodyObject, validateQueryObject } from '@api/lib/validation/ind
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 
+import { isRecommendationChip } from '@podverse/helpers';
 import { TasteProfileAccountService } from '@podverse/orm';
 
 const TASTE_PROFILE_DEFAULT_LIMIT = 20;
@@ -38,6 +39,15 @@ const unhideBodySchema = Joi.object({
   add_to_taste_profile: Joi.boolean().required(),
 });
 
+const recommendationsQuerySchema = Joi.object({
+  chip: Joi.string().valid('podcasts', 'albums', 'artists').default('podcasts'),
+});
+
+const weightBodySchema = Joi.object({
+  channel_id_text: Joi.string().required(),
+  weight: Joi.number().integer().min(1).max(5).required(),
+});
+
 type TasteProfilePage = { page: number; limit: number };
 
 type HideShowBody = { channel_id_text: string };
@@ -64,6 +74,36 @@ function readTasteProfilePage(value: unknown): TasteProfilePage | null {
     return null;
   }
   return { page, limit };
+}
+
+type WeightBody = { channel_id_text: string; weight: number };
+
+function readRecommendationChip(value: unknown): 'podcasts' | 'albums' | 'artists' | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const chip = Reflect.get(value, 'chip');
+  if (chip === undefined) {
+    return 'podcasts';
+  }
+  if (typeof chip !== 'string' || !isRecommendationChip(chip)) {
+    return null;
+  }
+  return chip;
+}
+
+function isWeightBody(value: unknown): value is WeightBody {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const weight = Reflect.get(value, 'weight');
+  return (
+    typeof Reflect.get(value, 'channel_id_text') === 'string' &&
+    typeof weight === 'number' &&
+    Number.isInteger(weight) &&
+    weight >= 1 &&
+    weight <= 5
+  );
 }
 
 function isHideShowBody(value: unknown): value is HideShowBody {
@@ -233,6 +273,76 @@ export class AccountTasteProfileController {
                 channel_id_text: body.channel_id_text,
                 hidden: result.hidden,
                 in_taste_profile: result.in_taste_profile,
+              },
+            });
+          } catch (error) {
+            handleGenericErrorResponse(res, error);
+          }
+        },
+        tasteProfileUpdateAuthOptions
+      );
+    });
+  }
+
+  static async listRecommendations(req: Request, res: Response): Promise<void> {
+    validateQueryObject(recommendationsQuerySchema, req, res, async () => {
+      ensureAuthenticated(
+        req,
+        res,
+        async () => {
+          try {
+            const chip = readRecommendationChip(req.query);
+            if (chip === null) {
+              res.status(400).json({ message: 'Validation error' });
+              return;
+            }
+            const jwtUser = getAuthenticatedUser(req);
+            const items =
+              await AccountTasteProfileController.tasteProfileAccountService.listRecommendationsForAccount(
+                jwtUser.id,
+                chip
+              );
+            res.json({ data: { items } });
+          } catch (error) {
+            handleGenericErrorResponse(res, error);
+          }
+        },
+        tasteProfileReadAuthOptions
+      );
+    });
+  }
+
+  static async setWeight(req: Request, res: Response): Promise<void> {
+    validateBodyObject(weightBodySchema, req, res, async () => {
+      ensureAuthenticated(
+        req,
+        res,
+        async () => {
+          try {
+            const body: unknown = req.body;
+            if (!isWeightBody(body)) {
+              res.status(400).json({ message: 'Validation error' });
+              return;
+            }
+            const jwtUser = getAuthenticatedUser(req);
+            const result =
+              await AccountTasteProfileController.tasteProfileAccountService.setWeightForAccount(
+                jwtUser.id,
+                body.channel_id_text,
+                body.weight
+              );
+            if (result.status === 'channel_not_found') {
+              res.status(404).json({ message: 'Channel not found' });
+              return;
+            }
+            if (result.status === 'not_in_taste_profile') {
+              res.status(404).json({ message: 'Show is not in the Taste Profile' });
+              return;
+            }
+            res.json({
+              data: {
+                channel_id_text: body.channel_id_text,
+                weight: result.weight,
               },
             });
           } catch (error) {

@@ -2,7 +2,13 @@
 
 import type { ReactNode } from 'react';
 
-import { Accordion, Button, TextCheckboxes } from '@podverse/ui';
+import {
+  Accordion,
+  Button,
+  CenterContainer,
+  FormPrimaryActions,
+  TextCheckboxes,
+} from '@podverse/ui';
 
 import { WebLoadingSpinnerOverlay } from '../LoadingSpinner/WebLoadingSpinnerOverlay';
 import { CopyMarkdown } from '../Markdown/CopyMarkdown';
@@ -78,7 +84,13 @@ export function AgreementScreen({
   }
 
   return (
-    <main aria-label={title} className={styles.screen} data-testid={testId}>
+    <CenterContainer
+      aria-label={title}
+      as="main"
+      className={styles.screen}
+      data-testid={testId}
+      surface="primary"
+    >
       <div className={styles.panel}>
         <h1 className={styles.title}>{title}</h1>
         {showCopy && introMarkdown !== null ? (
@@ -101,7 +113,7 @@ export function AgreementScreen({
         ) : null}
         {!showAccordion && dateLabel !== null ? <p className={styles.date}>{dateLabel}</p> : null}
         {checkbox}
-        <div className={styles.actions}>
+        <FormPrimaryActions>
           <Button disabled={pending} onClick={onReject} type="button" variant="secondary">
             {rejectLabel}
           </Button>
@@ -113,9 +125,9 @@ export function AgreementScreen({
           >
             {acceptLabel}
           </Button>
-        </div>
+        </FormPrimaryActions>
         <WebLoadingSpinnerOverlay isLoading={isLoading} />
       </div>
-    </main>
+    </CenterContainer>
   );
 }

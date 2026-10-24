@@ -34,6 +34,11 @@ export type StatsListenReport = {
   account_id: number;
   /** The agreement version the account must have accepted for this report to count. */
   agreement_version: string;
+  /**
+   * When false, the listen is stored for the Taste Profile and `popularity_counted` stays false.
+   * The caller sets this from the account's membership; this module does not look the account up.
+   */
+  counts_toward_popularity: boolean;
   /** Stored listens allowed per listener per UTC day. */
   stored_daily_cap: number;
   /**
@@ -678,7 +683,8 @@ async function updateSessionEvent(
  * to an entity's all-time total when it starts a new `all_time_recount_days` period for the
  * listener. For `all_time_recount_days` after an opt-out, the listener's new listens feed taste
  * rows only, and the answer does not say so. A flagged listener's listens are stored and feed
- * taste rows but count toward no daily total, and the answer never says so either. Contracts:
+ * taste rows but count toward no daily total, and the answer never says so either. A report with
+ * `counts_toward_popularity` false is stored the same way. Contracts:
  * docs/features/POPULARITY-AND-TASTE-PROFILE.md.
  */
 export class StatsListenWriteService {
@@ -763,7 +769,10 @@ export class StatsListenWriteService {
         return 'daily_cap_reached';
       }
       const popularityCounted =
-        !flagged && !coolingDown && listenerDay.popularityCount < report.popularity_daily_cap;
+        report.counts_toward_popularity &&
+        !flagged &&
+        !coolingDown &&
+        listenerDay.popularityCount < report.popularity_daily_cap;
 
       // Read before the insert so the period check never sees the new event.
       const allTime: EntityFlags = { item: false, channel: false, clip: false };

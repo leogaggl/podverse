@@ -101,6 +101,12 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
+  it('maps statsRecommendationsRefresh to Base and ORM', () => {
+    expect(sortCategories(getCategoriesForCommand('statsRecommendationsRefresh'))).toEqual(
+      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+    );
+  });
+
   it('maps archiveAll to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('archiveAll'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))

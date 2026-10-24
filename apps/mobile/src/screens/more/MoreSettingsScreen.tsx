@@ -105,7 +105,7 @@ export function MoreSettingsScreen() {
         },
         subtitle: tasteProfileAllowed ? t('misc.on') : t('misc.off'),
         testID: 'more-settings-taste-profile',
-        title: t('taste_profile.title'),
+        title: t('settings.recommendations.recommendations'),
       },
     ],
     [navigation, tasteProfileAllowed, t, termsSubtitle]

@@ -164,7 +164,11 @@ describe('Account Taste Profile routes (real database)', () => {
     return { id: account.id, idText: account.id_text };
   };
 
-  const seedChannel = async (label: string, index: number): Promise<SeededChannel> => {
+  const seedChannel = async (
+    label: string,
+    index: number,
+    mediumId: number = MediumEnum.Podcast
+  ): Promise<SeededChannel> => {
     const { Channel, Feed } = await import('@podverse/orm');
     const feedRepo = manager.getRepository(Feed);
     const feed = await feedRepo.save(
@@ -179,7 +183,7 @@ describe('Account Taste Profile routes (real database)', () => {
     const channel = await channelRepo.save(
       channelRepo.create({
         feed_id: feed.id,
-        medium_id: MediumEnum.Podcast,
+        medium_id: mediumId,
         title,
       })
     );
@@ -403,6 +407,8 @@ describe('Account Taste Profile routes (real database)', () => {
       completion_count: TASTE.c1.completion,
       first_listened_at: TASTE.c1.first,
       last_listened_at: TASTE.c1.last,
+      recommendation_weight: 1,
+      recommendation_weight_override: null,
     });
     for (const [row, channel] of [
       [items[0], channels.c1],
@@ -631,5 +637,64 @@ describe('Account Taste Profile routes (real database)', () => {
     });
     expect(await tasteCounts(expiredAccount.id, channels.c5.id)).toBeNull();
     expect(await hiddenCount(expiredAccount.id, channels.c5.id)).toBe(1);
+  });
+
+  it('lists recommendations for the chip and leaves out subscribed shows', async () => {
+    const album = await seedChannel('album', 20, MediumEnum.Music);
+    await query(
+      `INSERT INTO stats_recommendation (listener_id, channel_id, score, strength, computed_at)
+       VALUES ($1::uuid, $2, 9, 5, now()), ($1::uuid, $3, 4, 2, now()), ($1::uuid, $4, 8, 4, now())`,
+      [ownerListenerId, channels.c1.id, channels.c2.id, album.id]
+    );
+    await query(`INSERT INTO account_following_channel (account_id, channel_id) VALUES ($1, $2)`, [
+      owner.id,
+      channels.c2.id,
+    ]);
+
+    const podcasts = await request(app)
+      .get(`${accountBase}/recommendations?chip=podcasts`)
+      .set(authed(owner));
+    const albums = await request(app)
+      .get(`${accountBase}/recommendations?chip=albums`)
+      .set(authed(owner));
+
+    expect(podcasts.status).toBe(200);
+    expect(podcasts.text).not.toContain(ownerListenerId);
+    expect(podcasts.text).not.toContain('listener_id');
+    expect(listItems(podcasts.body).map(channelIdText)).toEqual([channels.c1.idText]);
+    expect(listItems(podcasts.body)[0]).toMatchObject({ strength: 5 });
+    expect(albums.status).toBe(200);
+    expect(listItems(albums.body).map(channelIdText)).toEqual([album.idText]);
+    expect(listItems(albums.body)[0]).toMatchObject({ strength: 4 });
+  });
+
+  it('applies a recommendation weight and rejects a show that is not in the Taste Profile', async () => {
+    const applied = await request(app)
+      .post(`${accountBase}/taste-profile/weight`)
+      .set(authed(owner))
+      .send({ channel_id_text: channels.c1.idText, weight: 4 });
+
+    expect(applied.status).toBe(200);
+    expect(applied.body).toEqual({
+      data: { channel_id_text: channels.c1.idText, weight: 4 },
+    });
+
+    const list = await request(app).get(`${accountBase}/taste-profile`).set(authed(owner));
+    expect(listItems(list.body)[0]).toMatchObject({
+      recommendation_weight: 4,
+      recommendation_weight_override: 4,
+    });
+
+    const missing = await request(app)
+      .post(`${accountBase}/taste-profile/weight`)
+      .set(authed(owner))
+      .send({ channel_id_text: UNKNOWN_CHANNEL_ID_TEXT, weight: 2 });
+    expect(missing.status).toBe(404);
+
+    const hidden = await request(app)
+      .post(`${accountBase}/taste-profile/weight`)
+      .set(authed(owner))
+      .send({ channel_id_text: channels.c4.idText, weight: 2 });
+    expect(hidden.status).toBe(404);
   });
 });

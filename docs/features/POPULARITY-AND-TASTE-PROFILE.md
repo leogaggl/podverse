@@ -30,8 +30,8 @@ rules every writer and reader follows. Code comments point here.
   at about 35,000 active entities a day and roughly 80 bytes per row with its index, that is about
   1 GB a year. Folding old days into monthly rows is an option for later.
 - **Ship before launch?** Yes. Nothing is imported from v4.
-- **Not built yet:** the nightly "also listened" job and the "Listeners Also Like" and "For You"
-  surfaces.
+- **Not built yet:** "Listeners Also Like" on a show page. The similarity table that page would
+  read is filled by the recommendations job below. Recommendations itself is the For You list.
 
 ## Stores and Lifetimes
 
@@ -39,6 +39,8 @@ rules every writer and reader follows. Code comments point here.
 | ---------------------- | ---------------------------------- | ------------------------------------ | ---------------------------------- |
 | Listen and open events | Yes, by a pseudonymous listener id | The retention setting                | Time; old data dropped by month    |
 | Taste profile          | Yes                                | Until opt-out or account deletion    | Listeners × shows they played      |
+| Recommendations        | Yes                                | Until opt-out or account deletion    | Listeners × discovered shows       |
+| Show similarity        | No                                 | Rebuilt by the recommendations job   | Shows × their nearest neighbors    |
 | Daily totals           | No                                 | Forever                              | Active entities × days             |
 | Range totals           | No                                 | Rebuilt from events and daily totals | Entities with any counted activity |
 
@@ -59,9 +61,10 @@ All time columns are `timestamp with time zone`. Every table is in `public` exce
 - **`stats_listen_event`** has one row per stored listen: `id`, `created_at`, `listener_id`,
   `channel_id` (the item's channel), `item_id` (for a clip, the clip's item), `clip_id` (clip
   listens only), `client_listen_id` (device-generated, so a retry or a later completion report
-  finds the same row), `seconds_heard`, `completed`, `popularity_counted` (false for a listen
-  past the listener's daily popularity cap, which feeds taste rows and adds nothing to daily or
-  range totals), and `item_all_time_counted`, `channel_all_time_counted`, and
+  finds the same row), `seconds_heard`, `completed`, `popularity_counted` (false for a trial
+  listen, a listen past the daily popularity cap, a flagged listener, or the opt-out cooldown;
+  those still feed taste rows and add nothing to daily or range totals), and
+  `item_all_time_counted`, `channel_all_time_counted`, and
   `clip_all_time_counted` (true when this listen started the listener's all-time period for that
   entity; see [Daily Totals Are Filled at Write Time](#daily-totals-are-filled-at-write-time)).
   The primary key is `(created_at, id)`.
@@ -83,9 +86,21 @@ All time columns are `timestamp with time zone`. Every table is in `public` exce
   listen answered `too_soon`), and `last_too_soon_minute` (the run's last minute).
 - **`stats_taste_profile`** has one row per listener and show: `listen_count`,
   `completion_count`, `first_listened_at`, `last_listened_at`, `recent_score`,
-  `long_term_score`, and `scores_updated_at` (the time both scores were last faded to).
+  `long_term_score`, `scores_updated_at` (the time both scores were last faded to),
+  `weight_override` (a manual recommendation weight from 1 to 5, null until the listener applies
+  one), and `weight_override_at` (set together with the override).
 - **`stats_taste_profile_hidden`** is Hidden From Taste Profile: `listener_id`, `channel_id`,
   `hidden_at`.
+- **`stats_show_similarity`** is global, not listener-linked: `channel_id`, `other_channel_id`,
+  `score` (0 to 1), `computed_at`. One row per ordered neighbor pair, at most 50 neighbors per
+  show.
+- **`stats_show_similarity_state`** stamps `computed_at` per show, including a show with no
+  neighbors, so the nightly job does not rebuild it until its taste weights change.
+- **`stats_recommendation`** is one discovered show per listener: `listener_id`, `channel_id`,
+  `score`, `strength` (1 to 5), `computed_at`. Shows already in that listener's Taste Profile or
+  Hidden From Taste Profile are not stored. Subscriptions are left out when the list is read.
+- **`stats_recommendation_state`** stamps `computed_at` per listener, including a listener with
+  no discoveries, so the nightly job skips them until their taste rows change.
 - **`stats_daily_{channel,item,clip,playlist,account}`** hold anonymous daily totals:
   `<type>_id`, `day` (UTC date of the counted events' `created_at`), `listener_count`,
   `all_time_listener_count` (listeners who added to the all-time total that day; never above
@@ -172,8 +187,8 @@ and needs `CREATE` on the app database. DB bootstrap grants it.
   row. A mark starts an N-day period in which the listener adds nothing more to that entity's
   all-time total; the first popularity-counted listen after it ends counts again. The read runs
   even when the entity was already listened to today, since an earlier listen today may have been
-  inside the period that just ended. Listens past the popularity cap, a flagged listener's
-  listens, and listens stored during the
+  inside the period that just ended. Trial listens, listens past the popularity cap, a flagged
+  listener's listens, and listens stored during the
   [opt-out cooldown](#popularity-cooldown-after-an-opt-out) are not popularity-counted, so they
   are never marked. A completion never adds to an all-time total.
 - **Opens:** same lock, a first-of-day check on `stats_open_event`, and `listener_count + 1` on
@@ -199,9 +214,10 @@ and needs `CREATE` on the app database. DB bootstrap grants it.
   `stats_listen_event` for channels, items, and clips, and distinct openers in
   `stats_open_event` for playlists and profiles. A listener who returns on three days counts once
   in the week.
-- A window counts an event only when it is `popularity_counted` (which leaves out listens past
-  the popularity cap, everything stored while the listener was flagged, and listens stored during
-  the [opt-out cooldown](#popularity-cooldown-after-an-opt-out)) and its listener has no
+- A window counts an event only when it is `popularity_counted` (which leaves out trial listens,
+  listens past the popularity cap, everything stored while the listener was flagged, and listens
+  stored during the [opt-out cooldown](#popularity-cooldown-after-an-opt-out)) and its listener
+  has no
   `stats_flagged_listener` row with `cleared_at` null (which leaves out the listener's events from
   before the flag too, for as long as the flag stands).
 - `all_time_count` is the sum of `all_time_listener_count` over every daily row, so each listener
@@ -570,6 +586,50 @@ rows. The channel merge takes its locks in the same order.
   accepted, so taste rows stay as they are. The next counted listen fades each score across the
   whole gap before adding to it.
 
+### Recommendation Weight
+
+The 1–5 weight a show has in recommendations is separate from `recent_score` and
+`long_term_score`. Those two decay. The recommendation weight does not.
+
+- **From listens:** `LEAST(5, 1 + listen_count / 5)` using integer division. 0–4 listens is 1,
+  5–9 is 2, 10–14 is 3, 15–19 is 4, and 20 or more is 5. A show added back with no listens since
+  is 1. Distinct episodes are not counted; each counted listen, including a replay, increments
+  `listen_count`.
+- **Manual apply:** `POST /account/taste-profile/weight` writes `weight_override` (1–5) and
+  `weight_override_at`. After that, later listens do not move the weight. Another apply replaces
+  it. The job and Settings use the override when it is set, otherwise the listen-count level.
+- **On the Recommendations page:** the mark is display-only. That listener's top score for the
+  selected medium is 5, and the rest scale down in even steps with a floor of 1. The raw score
+  is not in the public API.
+
+### Recommendations Job
+
+`refreshRecommendations` in `@podverse/orm` builds show similarity, then each listener's
+discoveries. It never reads the account-to-listener mapping. It works from the listener ids
+already on taste rows.
+
+- **Similarity:** cosine of the 1–5 weights. A missing show for a listener counts as 0. The dot
+  product uses listeners who have both shows. A pair needs at least 3 shared listeners. Each
+  show keeps its top 50 neighbors. The score is clamped at 1.
+- **Discoveries:** for each other show, sum the seed show's 1–5 weight times that neighbor's
+  similarity. Drop shows already in the Taste Profile or Hidden From Taste Profile. Keep the top
+  50 per medium: podcasts (podcast and podcast live), albums (music and music live), and artists
+  (music publishers).
+- **Incremental:** daily CronJob `worker-stats-recommendations-refresh` at 02:15 UTC. A show is
+  dirty when `GREATEST(scores_updated_at, weight_override_at)` is newer than its similarity
+  stamp. A listener is dirty when a taste row changed after their recommendation stamp.
+  Incremental refreshes a dirty show's outgoing neighbors only. Reverse edges, and shows that
+  only lost listeners, wait for the weekly run.
+- **Full:** weekly CronJob `worker-stats-recommendations-refresh-full` on Sunday at 03:15 UTC
+  (`-full`). It also deletes similarity, recommendations, and their stamps for shows or listeners
+  that no longer have taste rows.
+- **Lock:** session advisory lock `814220261`. A run that cannot take it logs a skip and exits 0.
+  `concurrencyPolicy: Forbid`, `backoffLimit: 0`, `activeDeadlineSeconds: 10800`.
+- **Manual run:** `npm run stats_recommendations_refresh -w apps/workers` (append `-- -full`)
+  after `npm run build -w apps/workers`. Nothing is scheduled locally.
+- **Reading the list:** `GET /account/recommendations?chip=podcasts|albums|artists` drops shows
+  the account subscribes to. Signed-in, no membership gate.
+
 ### Opens
 
 - A profile or playlist open counts once per opener, entity, and UTC day. The first stores an
@@ -713,16 +773,18 @@ carry. After an opt-out the `listening_data` section is empty.
 - `getTasteProfileConsentChoice` in `@podverse/helpers` names the four states: undecided, allowed
   (Yes on the current explanation version), opted out (No), and stale acceptance (Yes on an older
   version).
-- Writes need a Yes on the current version and the `trackStats` capability. The listener id is
-  created at the first counted listen or open, not at the Yes.
+- Writes need a Yes on the current version. A valid trial may store listens for the Taste
+  Profile. Popularity counts and opens need paid premium with the `trackStats` capability. The
+  listener id is created at the first stored listen or open, not at the Yes.
 
 ### Opting Out Deletes Listening Data
 
 - `PATCH /account-settings/listen-stats` with `accepted: false` records the No. A No that follows
   a Yes also records `listen_stats_opted_out_at`, which starts the popularity cooldown.
 - In the same transaction, `ListeningDataDeletionService` deletes that listener's listen events,
-  open events, Taste Profile rows, and Hidden From Taste Profile rows right away, table by table,
-  and keeps the `listener_identity.stats_listener` row.
+  open events, Taste Profile rows, Hidden From Taste Profile rows, recommendation rows, and the
+  recommendation stamp right away, table by table, and keeps the `listener_identity.stats_listener`
+  row. Show similarity is global and stays.
 - Before deleting, it writes how many listens were stored that UTC day, and when the first was,
   onto the listener row (the opt-out-day carry), adding to a carry from an earlier opt-out that
   day.
@@ -745,6 +807,18 @@ carry. After an opt-out the `listening_data` section is empty.
   score across the gap. A Yes never deletes.
 - The Taste Profile endpoints keep working while tracking is paused, so a listener can still
   review and hide shows.
+
+### Trial membership
+
+- A valid trial with a current Yes stores listens. Each is stored with `popularity_counted`
+  false, updates taste rows, and adds nothing to daily or range totals. The answer is `counted`.
+- A session keeps the flag it was stored with. Paying for premium does not move that session into
+  rankings. A later session can count.
+- Opens stay unavailable until the membership is premium and `trackStats` is on, including when a
+  trial's `trackStats` override is on.
+- A premium account with `trackStats` off still stores nothing.
+- Forcing `MEMBERSHIP_TRIAL_TRACK_STATS` or a per-account `track_stats` override does not put a
+  trial listen or open into rankings.
 
 ### Consent and the Write Path Under Locks
 

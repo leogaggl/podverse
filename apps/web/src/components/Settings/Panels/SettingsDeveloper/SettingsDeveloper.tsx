@@ -14,7 +14,7 @@ import {
   membershipPurchaseAction,
   membershipPurchaseMessageKey,
 } from '@podverse/helpers';
-import { Button, LoadingSpinner } from '@podverse/ui';
+import { Button, DescribedLink, Divider, FormStack, LoadingSpinner } from '@podverse/ui';
 
 import { useAccount } from '../../../../contexts/Account';
 import { useModals } from '../../../../contexts/Modals';
@@ -215,88 +215,99 @@ export function SettingsDeveloper() {
 
   return (
     <SettingsSection>
-      <h3 id="settings-api-keys-heading">{t('heading')}</h3>
-      <p>{t('description')}</p>
-      <p>{t('key_cannot')}</p>
-      <p>
-        <a href={apiDocsUrl(apiBaseUrl)} target="_blank" rel="noopener noreferrer">
-          {t('api_reference')}
-        </a>
-      </p>
-      <p className={styles.meta}>{t('api_reference_hint')}</p>
-      <p>
-        <a href={apiDocsYamlUrl(apiBaseUrl)} target="_blank" rel="noopener noreferrer">
-          {t('api_spec')}
-        </a>
-      </p>
-      <p className={styles.meta}>{t('api_spec_hint')}</p>
-      <Button type="button" variant="primary" onClick={openCreate}>
-        {t('create')}
-      </Button>
-      {state.status === 'loading' ? (
-        <LoadingSpinner ariaLabel={tMisc('loading')} size="medium" />
-      ) : null}
-      {state.status === 'error' ? (
-        <>
-          <p role="alert">{t('load_error')}</p>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setReloadToken((token) => token + 1)}
-          >
-            {tMisc('try_again')}
-          </Button>
-        </>
-      ) : null}
-      {state.status === 'ready' && state.rows.length === 0 ? <p>{t('empty')}</p> : null}
-      {state.status === 'ready' && state.rows.length > 0 ? (
-        <ul className={styles.rows} aria-labelledby="settings-api-keys-heading">
-          {state.rows.map((row) => {
-            const revoking = revokingIds.has(row.id_text);
-            const expired = isApiKeyExpired(row.expires_at, new Date());
-            return (
-              <li key={row.id_text} className={styles.row}>
-                <div className={styles.rowText}>
-                  <span className={styles.name}>{row.name}</span>
-                  <span className={styles.meta}>{formatApiKeyTokenHint(row.token_hint)}</span>
-                  <span className={styles.meta}>
-                    {permissionSummaryText(summarizeApiKeyPermissions(row.permissions), translate)}
-                  </span>
-                  <span className={styles.meta}>
-                    {t('created', { date: formatDateTimeAbbrev(row.created_at, locale) })}
-                  </span>
-                  <span className={styles.meta}>
-                    {row.expires_at === null
-                      ? t('no_expiration')
-                      : t('expires', { date: formatDateTimeAbbrev(row.expires_at, locale) })}
-                  </span>
-                  {expired ? <span className={styles.meta}>{t('expired')}</span> : null}
-                  <span className={styles.meta}>
-                    {row.last_used_at === null
-                      ? t('never_used')
-                      : t('last_used', { date: formatDateTimeAbbrev(row.last_used_at, locale) })}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  aria-label={t('revoke_aria', { name: row.name })}
-                  isLoading={revoking}
-                  disabled={revoking}
-                  onClick={() => {
-                    if (revokingIdsRef.current.size > 0) {
-                      return;
-                    }
-                    setRevokeTarget({ idText: row.id_text, name: row.name });
-                  }}
-                >
-                  {t('revoke')}
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      <FormStack>
+        <h3 className={styles.heading} id="settings-api-keys-heading">
+          {t('heading')}
+        </h3>
+        <p>{t('description')}</p>
+        <p>{t('key_cannot')}</p>
+        <DescribedLink
+          description={t('api_reference_hint')}
+          href={apiDocsUrl(apiBaseUrl)}
+          rel="noopener noreferrer"
+          target="_blank"
+          title={t('api_reference')}
+        />
+        <DescribedLink
+          description={t('api_spec_hint')}
+          href={apiDocsYamlUrl(apiBaseUrl)}
+          rel="noopener noreferrer"
+          target="_blank"
+          title={t('api_spec')}
+        />
+        <Divider />
+        <Button className={styles.action} type="button" variant="primary" onClick={openCreate}>
+          {t('create')}
+        </Button>
+        {state.status === 'loading' ? (
+          <LoadingSpinner ariaLabel={tMisc('loading')} size="medium" />
+        ) : null}
+        {state.status === 'error' ? (
+          <>
+            <p role="alert">{t('load_error')}</p>
+            <Button
+              className={styles.action}
+              type="button"
+              variant="secondary"
+              onClick={() => setReloadToken((token) => token + 1)}
+            >
+              {tMisc('try_again')}
+            </Button>
+          </>
+        ) : null}
+        {state.status === 'ready' && state.rows.length === 0 ? <p>{t('empty')}</p> : null}
+        {state.status === 'ready' && state.rows.length > 0 ? (
+          <ul className={styles.rows} aria-labelledby="settings-api-keys-heading">
+            {state.rows.map((row) => {
+              const revoking = revokingIds.has(row.id_text);
+              const expired = isApiKeyExpired(row.expires_at, new Date());
+              return (
+                <li key={row.id_text} className={styles.row}>
+                  <div className={styles.rowText}>
+                    <span className={styles.name}>{row.name}</span>
+                    <span className={styles.meta}>{formatApiKeyTokenHint(row.token_hint)}</span>
+                    <span className={styles.meta}>
+                      {permissionSummaryText(
+                        summarizeApiKeyPermissions(row.permissions),
+                        translate
+                      )}
+                    </span>
+                    <span className={styles.meta}>
+                      {t('created', { date: formatDateTimeAbbrev(row.created_at, locale) })}
+                    </span>
+                    <span className={styles.meta}>
+                      {row.expires_at === null
+                        ? t('no_expiration')
+                        : t('expires', { date: formatDateTimeAbbrev(row.expires_at, locale) })}
+                    </span>
+                    {expired ? <span className={styles.meta}>{t('expired')}</span> : null}
+                    <span className={styles.meta}>
+                      {row.last_used_at === null
+                        ? t('never_used')
+                        : t('last_used', { date: formatDateTimeAbbrev(row.last_used_at, locale) })}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    aria-label={t('revoke_aria', { name: row.name })}
+                    isLoading={revoking}
+                    disabled={revoking}
+                    onClick={() => {
+                      if (revokingIdsRef.current.size > 0) {
+                        return;
+                      }
+                      setRevokeTarget({ idText: row.id_text, name: row.name });
+                    }}
+                  >
+                    {t('revoke')}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </FormStack>
       <ModalCreateApiKey
         isOpen={createOpen}
         existingKeyCount={state.status === 'ready' ? state.rows.length : null}

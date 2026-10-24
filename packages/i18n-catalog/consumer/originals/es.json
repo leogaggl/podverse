@@ -132,6 +132,16 @@
       "browse": "Explorar",
       "users": "Usuarios"
     },
+    "recommendations": {
+      "title": "Recomendaciones",
+      "empty": "Aún no hay recomendaciones.",
+      "need_taste_profile": "Las recomendaciones usan tu perfil de gustos. Actívalo para empezar a crearlas.",
+      "enable": "Ajustes del perfil de gustos",
+      "check_back": "Las recomendaciones aparecen después de que escuches, en la próxima actualización nocturna.",
+      "paused": "El perfil de gustos está desactivado, así que estas recomendaciones no se actualizarán. Actívalo para mantenerlas al día.",
+      "strength": "Peso de la recomendación {level} de 5",
+      "load_error": "No se pudieron cargar las recomendaciones. Inténtalo de nuevo."
+    },
     "my_library": "Mi biblioteca",
     "queue": {
       "queue": "Cola",
@@ -484,7 +494,8 @@
       "off": "Apagar",
       "minutes_15": "15 min",
       "minutes_30": "30 min",
-      "minutes_60": "60 min"
+      "minutes_60": "60 min",
+      "sleep_timer_with_value": "Temporizador de sueño: {value}"
     },
     "repeat": {
       "toggle_repeat": "Alternar repetición",
@@ -719,6 +730,13 @@
     "load_error": "No se pudo cargar tu perfil de gustos. Inténtalo de nuevo.",
     "hidden_load_error": "No se pudieron cargar tus programas ocultos. Inténtalo de nuevo.",
     "load_more_error": "No se pudieron cargar más programas. Inténtalo de nuevo.",
+    "affects_title": "Programas que influyen en las recomendaciones",
+    "affects_description": "Programas que añadió tu escucha. Un peso mayor le da a ese programa más influencia en tus recomendaciones.",
+    "weight_label": "Peso",
+    "weight_apply": "Aplicar peso",
+    "weight_apply_accessible": "Aplicar peso para {title}",
+    "weight_automatic": "Automático, según tus escuchas",
+    "weight_accessible": "Peso {level} para {title}",
     "action_error": "No se pudo actualizar tu perfil de gustos. Inténtalo de nuevo."
   },
   "misc": {
@@ -988,6 +1006,7 @@
     "pricing_save_percent": "Ahorra {percent}%",
     "pricing_percent_off": "{percent}% de descuento",
     "contact_mode_text_before": "Para obtener una membresía, por favor contáctanos en",
+    "contact_questions_text_before": "Si tienes preguntas, contáctanos en",
     "cta_sign_up_text": "Regístrate para comenzar tu prueba gratuita",
     "cta_upgrade_text": "Mejorar a Premium",
     "buy_membership": "Comprar membresía",
@@ -1004,6 +1023,8 @@
     "coming_soon": "Próximamente",
     "mobile_only": "Solo móvil",
     "mobile_only_legend": "Función disponible solo en la app móvil",
+    "free_on_mobile_legend": "El nivel gratuito solo está disponible en la app móvil. Premium lo incluye en el sitio web.",
+    "available_on_mobile_app": "Disponible en la app móvil",
     "comparison_name_mobile_only": "{name}*",
     "comparison": {
       "subscribe": "Suscribirse a podcasts",
@@ -1021,11 +1042,15 @@
       "sleep_timer": "Temporizador de sueño",
       "screen_reader": "Accesibilidad con lector de pantalla",
       "sync": "Sincronizar entre dispositivos",
+      "playback_handoff": "Traspaso de reproducción",
+      "queue": "Cola e historial",
       "notifications": "Notificaciones",
       "clips": "Crear y compartir clips",
       "playlists": "Crear y compartir listas",
       "mark_played": "Marcar episodios como reproducidos",
       "profiles": "Suscribirse a perfiles de oyentes",
+      "recommendations": "Recomendaciones",
+      "api_keys": "Claves de API para desarrolladores",
       "support_foss": "Apoyar el software de código abierto"
     },
     "membership_expiring_warning": "Tu {type} expira el {date}. Extiende ahora para seguir usando las funciones Premium.",
@@ -1048,9 +1073,9 @@
     "trial_limitations_show_more": "Mostrar más",
     "trial_limitations_title": "Limitaciones de la prueba",
     "trial_limitations_directory_add_by_rss": "Agregar feeds al directorio público desde la búsqueda está bloqueado para el estado de prueba.",
-    "trial_limitations_add_by_rss_feed_limit": "El tamaño de la biblioteca de agregar por RSS utiliza un límite inferior en prueba que en Premium.",
-    "trial_limitations_manual_refresh_limit": "Las acciones de actualización manual utilizan límites horarios más restrictivos mientras estás en prueba.",
-    "trial_limitations_stats_tracking": "Las estadísticas de escucha no están disponibles en la prueba. Contribuir a las tendencias requiere Premium.",
+    "trial_limitations_add_by_rss_feed_limit": "Añadir por RSS admite hasta {trial_feeds} feeds en la prueba y {premium_feeds} en Premium.",
+    "trial_limitations_manual_refresh_limit": "La actualización manual está limitada a {trial_refreshes} veces por hora en la prueba y {premium_refreshes} en Premium.",
+    "trial_limitations_stats_tracking": "Las escuchas durante la prueba se guardan para las recomendaciones. No cuentan para las tendencias. Las aperturas de perfiles y listas de reproducción cuentan para las tendencias en Premium.",
     "gate": {
       "cancel": "Cancelar",
       "sign_up": "Registrarse",
@@ -1207,6 +1232,9 @@
         "error": "No se pudo cambiar tu contraseña. Inténtalo de nuevo."
       }
     },
+    "recommendations": {
+      "recommendations": "Recomendaciones"
+    },
     "profile": {
       "profile": "Perfil",
       "display_name": "Nombre de usuario",
@@ -1241,7 +1269,7 @@
       "preference_section_help": "Elige qué categorías de notificaciones aparecen en la aplicación y cuáles pueden enviar notificaciones push.",
       "preference_in_app": "En la aplicación",
       "preference_push": "Push",
-      "preference_push_disabled": "Push (activa primero Web Push o Unified Push)",
+      "preference_push_requirement": "Activa primero Web Push o Unified Push.",
       "category_new_content": "Contenido nuevo",
       "category_new_content_description": "Avisos de nuevos episodios, pistas, álbumes y vídeos de los creadores que sigues.",
       "category_livestream": "Transmisión en vivo",
@@ -1306,7 +1334,8 @@
     "advanced": {
       "advanced": "Avanzado",
       "removed_content": "Contenido eliminado",
-      "empty": "No se eliminó nada de tu biblioteca en los últimos 30 días.",
+      "explanation": "Esta lista muestra programas eliminados en el servidor. Darte de baja, o eliminar tus propios clips y listas de reproducción, no aparece aquí.",
+      "empty": "No se ha eliminado nada en los últimos 30 días.",
       "load_error": "No se pudo cargar el contenido eliminado.",
       "left_directory": "{title} ya no está en el directorio.",
       "taken_down": "{title} fue retirado.",

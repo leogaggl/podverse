@@ -40,6 +40,7 @@ name: Taste Profile
     id: more-settings-taste-profile
 - assertVisible:
     id: more-settings-taste-profile-screen
+- assertVisible: "Recommendations"
 # The consent switch heads the screen, and the profile list follows it.
 - assertVisible:
     id: more-settings-taste-profile-consent-switch
@@ -47,6 +48,8 @@ name: Taste Profile
     id: taste-profile-section
     below:
       id: more-settings-taste-profile-consent-switch
+- tapOn:
+    id: taste-profile-section-toggle
 - scrollUntilVisible:
     element:
       id: taste-profile-row-e2ePodChnl001
@@ -56,6 +59,8 @@ name: Taste Profile
     id: taste-profile-row-e2eVideoChnl01
 - takeScreenshot: taste-profile-list
 
+- tapOn:
+    id: taste-profile-hidden-section-toggle
 - scrollUntilVisible:
     element:
       id: taste-profile-hidden-row-e2eArtPub01

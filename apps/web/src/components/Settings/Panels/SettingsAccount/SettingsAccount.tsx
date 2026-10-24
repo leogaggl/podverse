@@ -17,7 +17,6 @@ import { ModalChangePassword } from './ModalChangePassword';
 import { ModalDeleteAccount } from './ModalDeleteAccount';
 import { SettingsMembership } from './SettingsMembership';
 import { SettingsSessions } from './SettingsSessions';
-import { SettingsTasteProfile } from './SettingsTasteProfile';
 import { SettingsTerms } from './SettingsTerms';
 
 export function SettingsAccount() {
@@ -79,8 +78,6 @@ export function SettingsAccount() {
       <SettingsMembership />
       <Divider withSpacing />
       <SettingsTerms />
-      <Divider withSpacing />
-      <SettingsTasteProfile />
       <Divider withSpacing />
       {capabilities.canUseEmailVerificationFlows && (
         <>

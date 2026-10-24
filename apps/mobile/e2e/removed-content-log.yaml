@@ -23,6 +23,13 @@ name: Removed Content
     id: more-advanced-screen
 - scrollUntilVisible:
     element:
+      id: more-advanced-unified-push
+    direction: DOWN
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: more-advanced-unified-push
+- scrollUntilVisible:
+    element:
       id: more-advanced-removed-content
     direction: DOWN
     timeout: ${TIMEOUT_FAST}
@@ -31,6 +38,9 @@ name: Removed Content
     id: more-advanced-removed-content
 - assertVisible:
     id: removed-content-screen
+- assertVisible:
+    id: removed-content-explanation
+    text: "This lists shows removed on the server. Unsubscribing, or deleting your own clips and playlists, does not appear here."
 - extendedWaitUntil:
     visible:
       id: removed-content-row

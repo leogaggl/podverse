@@ -4982,6 +4982,55 @@ CREATE TABLE public.stats_popularity_playlist (
 
 
 --
+-- Name: stats_recommendation; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_recommendation (
+    listener_id uuid NOT NULL,
+    channel_id integer NOT NULL,
+    score double precision NOT NULL,
+    strength smallint NOT NULL,
+    computed_at timestamp with time zone NOT NULL,
+    CONSTRAINT stats_recommendation_score_check CHECK ((score >= (0)::double precision)),
+    CONSTRAINT stats_recommendation_strength_check CHECK (((strength >= 1) AND (strength <= 5)))
+);
+
+
+--
+-- Name: stats_recommendation_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_recommendation_state (
+    listener_id uuid NOT NULL,
+    computed_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: stats_show_similarity; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_show_similarity (
+    channel_id integer NOT NULL,
+    other_channel_id integer NOT NULL,
+    score double precision NOT NULL,
+    computed_at timestamp with time zone NOT NULL,
+    CONSTRAINT stats_show_similarity_distinct_check CHECK ((channel_id <> other_channel_id)),
+    CONSTRAINT stats_show_similarity_score_check CHECK (((score >= (0)::double precision) AND (score <= (1)::double precision)))
+);
+
+
+--
+-- Name: stats_show_similarity_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_show_similarity_state (
+    channel_id integer NOT NULL,
+    computed_at timestamp with time zone NOT NULL
+);
+
+
+--
 -- Name: stats_taste_profile; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4995,9 +5044,13 @@ CREATE TABLE public.stats_taste_profile (
     recent_score double precision DEFAULT 0 NOT NULL,
     long_term_score double precision DEFAULT 0 NOT NULL,
     scores_updated_at timestamp with time zone NOT NULL,
+    weight_override smallint,
+    weight_override_at timestamp with time zone,
     CONSTRAINT stats_taste_profile_counts_check CHECK (((listen_count >= 0) AND (completion_count >= 0))),
     CONSTRAINT stats_taste_profile_listened_order_check CHECK ((first_listened_at <= last_listened_at)),
-    CONSTRAINT stats_taste_profile_scores_check CHECK (((recent_score >= (0)::double precision) AND (long_term_score >= (0)::double precision)))
+    CONSTRAINT stats_taste_profile_scores_check CHECK (((recent_score >= (0)::double precision) AND (long_term_score >= (0)::double precision))),
+    CONSTRAINT stats_taste_profile_weight_override_check CHECK (((weight_override IS NULL) OR ((weight_override >= 1) AND (weight_override <= 5)))),
+    CONSTRAINT stats_taste_profile_weight_override_pair_check CHECK (((weight_override IS NULL) = (weight_override_at IS NULL)))
 );
 
 
@@ -7078,10 +7131,42 @@ COPY public.stats_popularity_playlist (playlist_id, day_count, week_count, month
 
 
 --
+-- Data for Name: stats_recommendation; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_recommendation (listener_id, channel_id, score, strength, computed_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_recommendation_state; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_recommendation_state (listener_id, computed_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_show_similarity; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_show_similarity (channel_id, other_channel_id, score, computed_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_show_similarity_state; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_show_similarity_state (channel_id, computed_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: stats_taste_profile; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_taste_profile (listener_id, channel_id, listen_count, completion_count, first_listened_at, last_listened_at, recent_score, long_term_score, scores_updated_at) FROM stdin;
+COPY public.stats_taste_profile (listener_id, channel_id, listen_count, completion_count, first_listened_at, last_listened_at, recent_score, long_term_score, scores_updated_at, weight_override, weight_override_at) FROM stdin;
 \.
 
 
@@ -9981,6 +10066,38 @@ ALTER TABLE ONLY public.stats_popularity_playlist
 
 
 --
+-- Name: stats_recommendation stats_recommendation_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_recommendation
+    ADD CONSTRAINT stats_recommendation_pkey PRIMARY KEY (listener_id, channel_id);
+
+
+--
+-- Name: stats_recommendation_state stats_recommendation_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_recommendation_state
+    ADD CONSTRAINT stats_recommendation_state_pkey PRIMARY KEY (listener_id);
+
+
+--
+-- Name: stats_show_similarity stats_show_similarity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_show_similarity
+    ADD CONSTRAINT stats_show_similarity_pkey PRIMARY KEY (channel_id, other_channel_id);
+
+
+--
+-- Name: stats_show_similarity_state stats_show_similarity_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_show_similarity_state
+    ADD CONSTRAINT stats_show_similarity_state_pkey PRIMARY KEY (channel_id);
+
+
+--
 -- Name: stats_taste_profile_hidden stats_taste_profile_hidden_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11534,6 +11651,20 @@ CREATE INDEX stats_popularity_playlist_month_count_idx ON public.stats_popularit
 --
 
 CREATE INDEX stats_popularity_playlist_week_count_idx ON public.stats_popularity_playlist USING btree (week_count DESC, playlist_id);
+
+
+--
+-- Name: stats_recommendation_channel_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX stats_recommendation_channel_id_idx ON public.stats_recommendation USING btree (channel_id);
+
+
+--
+-- Name: stats_show_similarity_other_channel_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX stats_show_similarity_other_channel_id_idx ON public.stats_show_similarity USING btree (other_channel_id);
 
 
 --
@@ -13227,6 +13358,54 @@ ALTER TABLE ONLY public.stats_popularity_item
 
 ALTER TABLE ONLY public.stats_popularity_playlist
     ADD CONSTRAINT stats_popularity_playlist_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlist(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_recommendation stats_recommendation_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_recommendation
+    ADD CONSTRAINT stats_recommendation_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_recommendation stats_recommendation_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_recommendation
+    ADD CONSTRAINT stats_recommendation_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_recommendation_state stats_recommendation_state_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_recommendation_state
+    ADD CONSTRAINT stats_recommendation_state_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_show_similarity stats_show_similarity_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_show_similarity
+    ADD CONSTRAINT stats_show_similarity_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_show_similarity stats_show_similarity_other_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_show_similarity
+    ADD CONSTRAINT stats_show_similarity_other_channel_id_fkey FOREIGN KEY (other_channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_show_similarity_state stats_show_similarity_state_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_show_similarity_state
+    ADD CONSTRAINT stats_show_similarity_state_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
 
 
 --
@@ -15434,6 +15613,38 @@ GRANT SELECT ON TABLE public.stats_popularity_item TO podverse_app_read;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_popularity_playlist TO podverse_app_read_write;
 GRANT SELECT ON TABLE public.stats_popularity_playlist TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_recommendation; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_recommendation TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_recommendation TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_recommendation_state; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_recommendation_state TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_recommendation_state TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_show_similarity; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_show_similarity TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_show_similarity TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_show_similarity_state; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_show_similarity_state TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_show_similarity_state TO podverse_app_read;
 
 
 --

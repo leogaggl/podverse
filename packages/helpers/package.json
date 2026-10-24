@@ -11,6 +11,14 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./appRoutes": {
+      "types": "./dist/lib/appRoutes.d.ts",
+      "default": "./dist/lib/appRoutes.js"
+    },
+    "./auth": {
+      "types": "./dist/lib/auth.d.ts",
+      "default": "./dist/lib/auth.js"
+    },
     "./authSessionNotice": {
       "types": "./dist/lib/authSessionNotice.d.ts",
       "default": "./dist/lib/authSessionNotice.js"
@@ -106,6 +114,14 @@
     "./item/mediaSourceClassification": {
       "types": "./dist/lib/item/mediaSourceClassification.d.ts",
       "default": "./dist/lib/item/mediaSourceClassification.js"
+    },
+    "./sortPrefs": {
+      "types": "./dist/lib/sortPrefs.d.ts",
+      "default": "./dist/lib/sortPrefs.js"
+    },
+    "./timeConstants": {
+      "types": "./dist/lib/timeConstants.d.ts",
+      "default": "./dist/lib/timeConstants.js"
     }
   },
   "files": [

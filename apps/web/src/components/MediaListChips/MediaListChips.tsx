@@ -22,7 +22,7 @@ type MediaListChipsProps = {
   urlChip: MediaListChip | null;
 };
 
-/** Chip row for Subscribed, Browse, and Add by RSS. */
+/** Chip row for Subscribed, Browse, Add by RSS, and Recommendations. */
 export function MediaListChips({ page, chips, selected, urlChip }: MediaListChipsProps) {
   const t = useTranslations();
   const router = useRouter();

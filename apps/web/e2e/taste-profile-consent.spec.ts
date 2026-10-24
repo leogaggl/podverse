@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
+import { expectCenteredOrScrollsFromTop } from './helpers/centeredScrollFrame';
 import {
   E2E_CONSENT_ORDER_EMAIL,
   E2E_CONSENT_ORDER_PASSWORD,
@@ -43,6 +44,26 @@ function optOutDialog(page: Page) {
 
 test.describe('Taste Profile consent', () => {
   test.describe.configure({ mode: 'serial' });
+
+  test('When the Taste Profile screen is shorter than the page, it sits in the center, and when it is taller, it scrolls from the top.', async ({
+    page,
+  }, testInfo) => {
+    await loginViaApi(page, E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL);
+    await page.goto('/');
+    await expect(page).toHaveURL('/');
+
+    const screen = page.getByRole('main', { name: TASTE_PROFILE_SCREEN_NAME });
+    await expect(screen).toBeVisible();
+    await expect(screen.getByText('Taste Profile is optional')).toBeVisible();
+    await expectCenteredOrScrollsFromTop(page, screen);
+
+    await capturePageLoad(
+      page,
+      testInfo,
+      'The Taste Profile screen is centered on the page.',
+      screen
+    );
+  });
 
   test('When the Taste Profile agreement is loading, the screen shows a loading spinner before content.', async ({
     page,
@@ -152,15 +173,15 @@ test.describe('Taste Profile consent', () => {
     page,
   }, testInfo) => {
     await loginViaApi(page, DECIDED_EMAIL);
-    await page.goto('/settings?tab=account');
-    await expect(page).toHaveURL(/\/settings\?tab=account/);
+    await page.goto('/settings?tab=recommendations');
+    await expect(page).toHaveURL(/\/settings\?tab=recommendations/);
     await expect(page.getByRole('main', { name: TASTE_PROFILE_SCREEN_NAME })).toHaveCount(0);
     await expect(tasteProfileSwitch(page)).toBeChecked();
 
     await capturePageLoad(
       page,
       testInfo,
-      'Account settings show Taste Profile as a switch.',
+      'Recommendations settings show Taste Profile as a switch.',
       tasteProfileSwitch(page)
     );
 
@@ -207,7 +228,7 @@ test.describe('Taste Profile consent', () => {
         expect(await listenStatsAccepted(page)).toBe(false);
         await screen.getByRole('button', { name: 'No Thanks' }).click();
         await expect(optOutDialog(page)).toHaveCount(0);
-        await expect(page).toHaveURL(/\/settings\?tab=account/);
+        await expect(page).toHaveURL(/\/settings\?tab=recommendations/);
         await expect(tasteProfileSwitch(page)).not.toBeChecked();
         expect(await listenStatsAccepted(page)).toBe(false);
       },
@@ -222,7 +243,7 @@ test.describe('Taste Profile consent', () => {
         await tasteProfileSwitch(page).click();
         await expect(page).toHaveURL('/taste-profile');
         await page.getByRole('button', { name: 'Yes, Build My Taste Profile' }).click();
-        await expect(page).toHaveURL(/\/settings\?tab=account/);
+        await expect(page).toHaveURL(/\/settings\?tab=recommendations/);
         await expect(tasteProfileSwitch(page)).toBeChecked();
         expect(await listenStatsAccepted(page)).toBe(true);
       },

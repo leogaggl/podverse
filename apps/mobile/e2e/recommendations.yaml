@@ -1,0 +1,46 @@
+appId: com.podverse.app.next
+name: Recommendations
+---
+# Seeded e2e-taste-profile account has Taste Profile on and no recommendation rows until the job runs.
+
+- runFlow: shared/launch-and-connect.yaml
+
+- tapOn:
+    id: tab-more
+- assertVisible:
+    id: more-screen
+- tapOn:
+    id: anonymous-login-cta
+- assertVisible:
+    id: login-screen
+- tapOn:
+    id: login-email
+- inputText: e2e-taste-profile@example.com
+- tapOn:
+    id: login-password
+- inputText: "Test!1Aa"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: login-submit
+- extendedWaitUntil:
+    visible:
+      id: tab-home
+    timeout: ${TIMEOUT_SLOW}
+
+- tapOn:
+    id: tab-more
+- scrollUntilVisible:
+    element:
+      id: more-nav-recommendations
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- tapOn:
+    id: more-nav-recommendations
+- assertVisible:
+    id: recommendations-screen
+- assertVisible: "Recommendations appear after you listen, on the next nightly update."
+- takeScreenshot: recommendations-check-back

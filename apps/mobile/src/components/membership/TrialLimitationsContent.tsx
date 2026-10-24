@@ -6,13 +6,7 @@ import { Linking, StyleSheet, Text, View } from 'react-native';
 import { getMobileConfig } from '../../config';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
-
-const TRIAL_LIMITATION_KEYS = [
-  'membership.trial_limitations_directory_add_by_rss',
-  'membership.trial_limitations_add_by_rss_feed_limit',
-  'membership.trial_limitations_manual_refresh_limit',
-  'membership.trial_limitations_stats_tracking',
-] as const;
+import { useMembershipComparisonDocument } from './useMembershipComparisonDocument';
 
 type MissingContentBulletProps = {
   emailLinkStyle: TextStyle;
@@ -58,7 +52,7 @@ function MissingContentBullet({ emailLinkStyle, textStyle }: MissingContentBulle
  * both render this list.
  */
 export function TrialLimitationsContent() {
-  const { t } = useTranslation();
+  const document = useMembershipComparisonDocument();
   const { styles: themeStyles, tokens } = useTheme();
 
   const styles = useMemo(
@@ -88,11 +82,11 @@ export function TrialLimitationsContent() {
 
   return (
     <View style={styles.limitationPanel}>
-      <Text style={styles.limitationIntro}>{t('membership.trial_limitations_summary')}</Text>
+      <Text style={styles.limitationIntro}>{document.trialLimitations.summary}</Text>
       <View style={styles.limitationList}>
-        {TRIAL_LIMITATION_KEYS.map((key) => (
-          <Text key={key} style={styles.bullet}>
-            {`• ${t(key)}`}
+        {document.trialLimitations.items.map((item) => (
+          <Text key={item} style={styles.bullet}>
+            {`• ${item}`}
           </Text>
         ))}
         <MissingContentBullet emailLinkStyle={styles.emailLink} textStyle={styles.bullet} />

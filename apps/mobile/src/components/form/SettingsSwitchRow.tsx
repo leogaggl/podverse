@@ -12,9 +12,13 @@ import { SettingsDependentContext } from './SettingsDependentGroup';
 export type SettingsSwitchRowProps = {
   title: string;
   accessibilityLabel?: string;
+  /** Spoken with the switch when the title alone does not explain the row. */
+  accessibilityHint?: string;
   disabled?: boolean;
   /** When set, a hairline sits above this row (every row after the first in a group). */
   showDivider?: boolean;
+  /** Visual mark after the title. The accessible name stays the title. */
+  titleMarker?: string;
   testID: string;
   /**
    * Trailing switch id. Defaults to `${testID}-toggle`. Pass this when a flow already
@@ -97,6 +101,7 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
  * switch names the parent setting.
  */
 export function SettingsSwitchRow({
+  accessibilityHint,
   accessibilityLabel,
   children,
   disabled = false,
@@ -107,6 +112,7 @@ export function SettingsSwitchRow({
   switchTestID,
   testID,
   title,
+  titleMarker,
   value,
 }: SettingsSwitchRowProps) {
   const styles = useThemedStyles(createStyles);
@@ -126,12 +132,22 @@ export function SettingsSwitchRow({
   const body = (
     <>
       <View style={styles.titleColumn}>
-        <Text style={[styles.title, alignTitleToSwitch ? styles.titleNudge : null]}>{title}</Text>
+        <Text
+          accessibilityLabel={titleMarker !== undefined && titleMarker !== '' ? title : undefined}
+          style={[styles.title, alignTitleToSwitch ? styles.titleNudge : null]}
+        >
+          {title}
+          {titleMarker !== undefined && titleMarker !== '' ? (
+            <Text accessibilityElementsHidden importantForAccessibility="no">
+              {` ${titleMarker}`}
+            </Text>
+          ) : null}
+        </Text>
         {children !== undefined ? <View style={styles.children}>{children}</View> : null}
       </View>
       {isSwitch ? (
         <ToggleSwitch
-          accessibilityHint={dependent?.accessibilityHint}
+          accessibilityHint={accessibilityHint ?? dependent?.accessibilityHint}
           accessibilityLabel={label}
           accessibilityRole="switch"
           accessibilityState={{ checked: value, disabled }}

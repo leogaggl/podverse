@@ -140,6 +140,10 @@ import { StatsPopularityChannel } from '@orm/entities/stats/statsPopularityChann
 import { StatsPopularityClip } from '@orm/entities/stats/statsPopularityClip.js';
 import { StatsPopularityItem } from '@orm/entities/stats/statsPopularityItem.js';
 import { StatsPopularityPlaylist } from '@orm/entities/stats/statsPopularityPlaylist.js';
+import { StatsRecommendation } from '@orm/entities/stats/statsRecommendation.js';
+import { StatsRecommendationState } from '@orm/entities/stats/statsRecommendationState.js';
+import { StatsShowSimilarity } from '@orm/entities/stats/statsShowSimilarity.js';
+import { StatsShowSimilarityState } from '@orm/entities/stats/statsShowSimilarityState.js';
 import { StatsTasteProfile } from '@orm/entities/stats/statsTasteProfile.js';
 import { StatsTasteProfileHidden } from '@orm/entities/stats/statsTasteProfileHidden.js';
 
@@ -289,6 +293,10 @@ export const entities = [
   StatsPopularityClip,
   StatsPopularityItem,
   StatsPopularityPlaylist,
+  StatsRecommendation,
+  StatsRecommendationState,
+  StatsShowSimilarity,
+  StatsShowSimilarityState,
   StatsTasteProfile,
   StatsTasteProfileHidden,
   StatsFlaggedListener,

@@ -29,6 +29,9 @@ export const ADD_BY_RSS_CHIPS = [
   'livestreams',
 ] as const;
 
+/** Recommendations chips. Taste Profile scores shows only. */
+export const RECOMMENDATION_CHIPS = ['podcasts', 'albums', 'artists'] as const;
+
 /** One chip Subscribed can show. */
 export type SubscribedChip = (typeof SUBSCRIBED_CHIPS)[number];
 
@@ -42,7 +45,7 @@ export type AddByRSSChip = (typeof ADD_BY_RSS_CHIPS)[number];
 export type MediaListChip = SubscribedChip | BrowseChip | AddByRSSChip;
 
 /** Which chips page is on screen. */
-export type MediaListChipsPage = 'subscribed' | 'browse' | 'add-by-rss';
+export type MediaListChipsPage = 'subscribed' | 'browse' | 'add-by-rss' | 'recommendations';
 
 /** Subscribed lists the account. Browse lists the directory. */
 export type MediaListScope = 'subscribed' | 'browse';
@@ -71,6 +74,7 @@ export const MEDIA_LIST_CHIP_SCOPES: Record<MediaListChipsPage, SortPrefScope> =
   subscribed: { kind: 'list', name: 'home' },
   browse: { kind: 'list', name: 'browse' },
   'add-by-rss': { kind: 'list', name: 'add-by-rss' },
+  recommendations: { kind: 'list', name: 'recommendations' },
 };
 
 /** Base path for each chips page. */
@@ -78,6 +82,7 @@ export const MEDIA_LIST_CHIP_BASE_PATHS: Record<MediaListChipsPage, string> = {
   subscribed: ROUTES.HOME,
   browse: ROUTES.BROWSE,
   'add-by-rss': ROUTES.ADD_BY_RSS,
+  recommendations: ROUTES.RECOMMENDATIONS,
 };
 
 /** URL for a chip. The default chip is the base path with no query. */

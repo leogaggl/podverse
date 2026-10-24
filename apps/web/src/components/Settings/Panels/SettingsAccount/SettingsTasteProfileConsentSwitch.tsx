@@ -60,6 +60,7 @@ export function SettingsTasteProfileConsentSwitch({
   const switchProps = {
     'aria-describedby': describedById,
     checked: allowed,
+    hideLabel: true,
     id: 'taste-profile-consent',
     label: tTasteProfile('title'),
     loading: isSaving,

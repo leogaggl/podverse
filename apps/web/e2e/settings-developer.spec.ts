@@ -320,7 +320,7 @@ test.describe('Developer settings', () => {
     }
   });
 
-  test('When a member opens Create API Key, the form starts on Read Only and 90 days, unsupported cells are dashes, and Cancel leaves the empty list.', async ({
+  test('When a member opens Create API Key, the form starts on Read Only and 90 days with the permission grid hidden, Custom shows the dashes, and Cancel leaves the empty list.', async ({
     page,
   }, testInfo) => {
     await login(page, E2E_API_KEYS_EMAIL);
@@ -334,7 +334,16 @@ test.describe('Developer settings', () => {
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('button', { name: 'Expiration 90 Days' })).toBeVisible();
       await expect(dialog.getByRole('radio', { name: 'Read Only' })).toBeChecked();
+      await expect(dialog.getByRole('group', { name: 'Account' })).toHaveCount(0);
 
+      await capturePageLoad(
+        page,
+        testInfo,
+        'The create API key dialog opens on Read Only and 90 days, without the permission grid.',
+        dialog
+      );
+
+      await dialog.getByRole('radio', { name: 'Custom' }).click();
       const account = dialog.getByRole('group', { name: 'Account' });
       await expect(account.getByRole('checkbox', { name: 'Read' })).toBeChecked();
       await expect(account.getByRole('checkbox', { name: 'Create' })).toHaveCount(0);
@@ -348,13 +357,6 @@ test.describe('Developer settings', () => {
         settings.getByRole('img', { name: 'Settings Read is not available.' })
       ).toBeVisible();
 
-      await capturePageLoad(
-        page,
-        testInfo,
-        'The create API key dialog opens on Read Only, 90 days, and dashes for unsupported cells.',
-        dialog
-      );
-
       await dialog.getByRole('button', { name: 'Cancel' }).click();
       await expect(dialog).toHaveCount(0);
       await expect(page.getByText('You have no API keys.')).toBeVisible();
@@ -363,7 +365,7 @@ test.describe('Developer settings', () => {
     }
   });
 
-  test('When a member submits an empty name or clears every Read checkbox, the form stays open, and a preset fills the checkboxes again.', async ({
+  test('When a member submits an empty name or clears every Read checkbox on Custom, the form stays open, and a preset hides the grid until Custom is selected again.', async ({
     page,
   }, testInfo) => {
     await login(page, E2E_API_KEYS_EMAIL);
@@ -381,6 +383,7 @@ test.describe('Developer settings', () => {
       await expect(dialog.getByText('Enter a name.')).toBeVisible();
 
       await dialog.getByRole('textbox', { name: 'Name' }).fill('Agent Key');
+      await dialog.getByRole('radio', { name: 'Custom' }).click();
       const readCheckboxes = dialog.getByRole('checkbox', { name: 'Read' });
       const readCount = await readCheckboxes.count();
       for (let index = 0; index < readCount; index += 1) {
@@ -390,18 +393,25 @@ test.describe('Developer settings', () => {
       await expect(dialog.getByText('Grant at least one permission.')).toBeVisible();
 
       await dialog.getByRole('radio', { name: 'Full Access' }).click();
+      await expect(dialog.getByRole('group', { name: 'Account' })).toHaveCount(0);
+      await expect(dialog.getByText('Grant at least one permission.')).toHaveCount(0);
+
+      await dialog.getByRole('radio', { name: 'Custom' }).click();
       const account = dialog.getByRole('group', { name: 'Account' });
       await expect(account.getByRole('checkbox', { name: 'Update' })).toBeChecked();
       await expect(account.getByRole('checkbox', { name: 'Create' })).toHaveCount(0);
 
       await dialog.getByRole('radio', { name: 'Read Only' }).click();
+      await expect(dialog.getByRole('group', { name: 'Account' })).toHaveCount(0);
+
+      await dialog.getByRole('radio', { name: 'Custom' }).click();
       await expect(account.getByRole('checkbox', { name: 'Read' })).toBeChecked();
       await expect(account.getByRole('checkbox', { name: 'Update' })).not.toBeChecked();
 
       await capturePageLoad(
         page,
         testInfo,
-        'Choosing Read Only checks Account Read and leaves Account Update unchecked.',
+        'Choosing Custom after Read Only checks Account Read and leaves Account Update unchecked.',
         dialog
       );
     } finally {

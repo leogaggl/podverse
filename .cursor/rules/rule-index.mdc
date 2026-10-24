@@ -29,3 +29,4 @@ file of theirs is in context.
   `popularity-listener-id-separation`
 - Adding or changing an authenticated API route, or a rate-limit wrapper that authenticates →
   `api-key-route-access`
+- Stacked headings, paragraphs, buttons, dividers, or other block copy → `even-content-spacing`

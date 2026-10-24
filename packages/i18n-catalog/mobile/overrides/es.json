@@ -6,6 +6,7 @@
       "more": "",
       "my_library": "",
       "notifications": "",
+      "recommendations": "",
       "rss": "",
       "downloads": ""
     },
@@ -154,6 +155,9 @@
       "login_required_message": "",
       "open_system_settings": "",
       "permission_required": "",
+      "preference_push_requirement_device": "",
+      "preference_push_requirement_unified_push": "",
+      "up_endpoint_invalid": "",
       "banner_section": "",
       "banner_section_help": "",
       "banner_dismiss": "",
@@ -216,6 +220,7 @@
   "removed_content": {
     "title": "",
     "menu_subtitle": "",
+    "explanation": "",
     "empty": "",
     "load_error": "",
     "left_directory": "",

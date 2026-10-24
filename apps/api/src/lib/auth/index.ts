@@ -9,6 +9,7 @@ import type {
   AuthSessionEndedNotice,
 } from '@podverse/helpers';
 import {
+  AccountMembershipEnum,
   API_KEY_ERROR_CODES,
   apiKeyPermissionsAllow,
   APP_ROUTES,
@@ -17,6 +18,7 @@ import {
   BILLING_CLIENT_PLATFORM_HEADER,
   ERROR_MESSAGES,
   hasValidMembership,
+  membershipStoresListens,
   MS_PER_SECOND,
 } from '@podverse/helpers';
 import type { AccountSessionRow, FindOptionsRelations } from '@podverse/orm';
@@ -75,6 +77,12 @@ export type AuthenticatedRequestOptions = {
   skipMembershipStatus: boolean;
   skipTermsAcceptance?: boolean;
   requiredCapability?: AccountEntitlementCapability;
+  /**
+   * A trial membership passes when `requiredCapability` is missing. Premium without that
+   * capability still receives `feature_not_available_for_account_type`. Used by listen reports,
+   * which a trial stores for the Taste Profile only.
+   */
+  allowTrialWithoutCapability?: boolean;
   /**
    * The permission a key needs on this route. Omitted: the route never accepts a key.
    *
@@ -381,7 +389,7 @@ function sendMembershipExpired(res: Response): void {
   });
 }
 
-function sendCapabilityMissing(res: Response): void {
+export function sendCapabilityMissing(res: Response): void {
   res.status(403).json({
     message: 'Your account does not currently have access to this feature.',
     code: 'feature_not_available_for_account_type',
@@ -392,7 +400,8 @@ function sendCapabilityMissing(res: Response): void {
 
 /**
  * Terms, then membership, then capability, in that order and with the same bodies for sessions
- * and keys. Sets `user.entitlements` when membership is checked. False once a 403 has been sent.
+ * and keys. Sets `user.entitlements` and `user.account_membership_id` when membership is checked.
+ * False once a 403 has been sent.
  */
 async function passesAccountGates(
   res: Response,
@@ -402,6 +411,7 @@ async function passesAccountGates(
     enforceTerms: boolean;
     enforceMembership: boolean;
     requiredCapability: AccountEntitlementCapability | undefined;
+    allowTrialWithoutCapability: boolean;
   }
 ): Promise<boolean> {
   if (gates.enforceTerms && accountNeedsCurrentTerms(account, config.terms.version)) {
@@ -423,13 +433,33 @@ async function passesAccountGates(
   const capDefaults = await getBillingPriceCatalogService().resolveProductMembershipCapDefaults();
   const entitlements = getAccountEntitlements(membershipStatus, capDefaults);
   user.entitlements = entitlements;
+  const membershipId = knownMembershipId(membershipStatus.account_membership?.id);
+  if (membershipId !== undefined) {
+    user.account_membership_id = membershipId;
+  }
 
   if (gates.requiredCapability && !accountHasCapability(entitlements, gates.requiredCapability)) {
-    sendCapabilityMissing(res);
-    return false;
+    const trialMayContinue =
+      gates.allowTrialWithoutCapability &&
+      membershipId !== undefined &&
+      membershipStoresListens(membershipId, entitlements.trackStats);
+    if (!trialMayContinue) {
+      sendCapabilityMissing(res);
+      return false;
+    }
   }
 
   return true;
+}
+
+function knownMembershipId(id: number | null | undefined): AccountMembershipEnum | undefined {
+  if (id === AccountMembershipEnum.Trial) {
+    return AccountMembershipEnum.Trial;
+  }
+  if (id === AccountMembershipEnum.Premium) {
+    return AccountMembershipEnum.Premium;
+  }
+  return undefined;
 }
 
 function sendApiKeyRejected(
@@ -511,6 +541,7 @@ async function verifyApiKeyAndMembership(
     enforceTerms,
     enforceMembership: true,
     requiredCapability: options.requiredCapability,
+    allowTrialWithoutCapability: options.allowTrialWithoutCapability === true,
   });
   if (!passed) {
     return;
@@ -601,6 +632,7 @@ const verifyTokenAndMembership = async (
     enforceTerms,
     enforceMembership: !options.skipMembershipStatus,
     requiredCapability: options.requiredCapability,
+    allowTrialWithoutCapability: options.allowTrialWithoutCapability === true,
   });
   if (!passed) {
     return;

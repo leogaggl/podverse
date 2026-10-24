@@ -37,7 +37,7 @@ describe('tabLayout', () => {
   });
 
   it('treats tabs not on the bar as More overflow', () => {
-    expect(overflowTabs([...DEFAULT_VISIBLE_TABS])).toEqual(['Notifications']);
+    expect(overflowTabs([...DEFAULT_VISIBLE_TABS])).toEqual(['Notifications', 'Recommendations']);
   });
 
   it('reorders, adds (replacing the last when full), and refuses to empty the bar', () => {

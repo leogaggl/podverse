@@ -8,6 +8,7 @@ import { useTheme } from '../../theme/useTheme';
 import { AppOverlay, OverlayPanel, OverlayScrim } from '../overlay';
 import { HeaderBarAction } from '../screen/HeaderBarAction';
 import { TrialLimitationsContent } from './TrialLimitationsContent';
+import { useMembershipComparisonDocument } from './useMembershipComparisonDocument';
 
 type TrialLimitationsSheetProps = {
   onClose: () => void;
@@ -19,6 +20,7 @@ type TrialLimitationsSheetProps = {
  */
 export function TrialLimitationsSheet({ onClose, visible }: TrialLimitationsSheetProps) {
   const { t } = useTranslation();
+  const document = useMembershipComparisonDocument();
   const { styles: themeStyles, tokens } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -78,7 +80,7 @@ export function TrialLimitationsSheet({ onClose, visible }: TrialLimitationsShee
           >
             <View style={styles.header}>
               <Text accessibilityRole="header" style={styles.title}>
-                {t('membership.trial_limitations_title')}
+                {document.trialLimitations.title}
               </Text>
               <HeaderBarAction
                 accessibilityLabel={t('misc.close')}

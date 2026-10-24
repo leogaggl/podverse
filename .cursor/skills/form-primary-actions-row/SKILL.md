@@ -10,11 +10,13 @@ version: 1.0.0
 
 ## Pattern
 
-- Use **`FormPrimaryActions`** from `@podverse/ui` (or **`FormActions`** in Metaboost): `display: flex`;
-  **`justify-content: flex-end`**; gap from design tokens.
+- Use **`FormPrimaryActions`** from `@podverse/ui` (or **`FormActions`** in Metaboost). It uses
+  **`formButtonsWrapper`**: right-aligned, **`gap: var(--spacing-2xl)`**.
 - **DOM order:** put the secondary action (**Cancel**) **first**, then the primary (**Submit** /
-  **Create**). Visually: Cancel on the left, primary on the **right**, both grouped at the **right**
-  edge of the form.
+  **Create**). On a wide viewport: Cancel on the left, primary on the **right**, both grouped at the
+  **right** edge of the form.
+- **Narrow viewports** (max-width 767px) stack the buttons full width, secondary above primary. Do not
+  add a one-off row that stays horizontal on a phone.
 
 ## Why
 

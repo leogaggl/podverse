@@ -7,7 +7,14 @@ import { moveItem } from '../lib/reorder/moveItem';
  * registered in the navigator so deep links still resolve, and they appear as rows on More.
  * Opening a row pushes that tab's stack on the More navigator.
  */
-export const CONTENT_TAB_IDS = ['Home', 'Browse', 'Search', 'My Library', 'Notifications'] as const;
+export const CONTENT_TAB_IDS = [
+  'Home',
+  'Browse',
+  'Search',
+  'My Library',
+  'Notifications',
+  'Recommendations',
+] as const;
 
 export type ContentTabId = (typeof CONTENT_TAB_IDS)[number];
 
@@ -37,6 +44,7 @@ export const TAB_TEST_ID_SLUG: Record<ContentTabId, string> = {
   Home: 'home',
   'My Library': 'my-library',
   Notifications: 'notifications',
+  Recommendations: 'recommendations',
   Search: 'search',
 };
 
@@ -59,6 +67,9 @@ export const tabLabelKey = (tabId: ContentTabId | 'More'): string => {
   }
   if (tabId === 'Notifications') {
     return 'nav.tab.notifications';
+  }
+  if (tabId === 'Recommendations') {
+    return 'nav.tab.recommendations';
   }
   return 'nav.tab.more';
 };

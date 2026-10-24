@@ -18,7 +18,7 @@ import { fetchAccountApiKeys, revokeAccountApiKey } from '../../auth/accountApiK
 import { useAuth } from '../../auth/AuthProvider';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { FormActions } from '../../components/form';
-import { Button, ListRow } from '../../components/primitives';
+import { Button, Card, ListRow } from '../../components/primitives';
 import { MobileScreenContainer } from '../../components/screen/MobileScreenContainer';
 import { AuthAwareLoadState } from '../../components/state/AuthAwareLoadState';
 import { ListEmpty } from '../../components/state/ListEmpty';
@@ -114,6 +114,9 @@ export function MoreSettingsDeveloperScreen() {
         actionError: {
           ...typography.body,
           color: tokens.text.danger,
+        },
+        docsCard: {
+          paddingHorizontal: tokens.spacing.lg,
         },
         prose: {
           ...typography.prose,
@@ -373,24 +376,28 @@ export function MoreSettingsDeveloperScreen() {
         <Text style={styles.prose}>{t('settings.developer.description')}</Text>
         <Text style={styles.prose}>{t('settings.developer.key_cannot')}</Text>
         {docsUrl !== null && yamlUrl !== null ? (
-          <View>
-            <ListRow
-              onPress={() => {
-                openApiReference(docsUrl);
-              }}
-              subtitle={t('settings.developer.api_reference_hint')}
-              testID="more-settings-developer-docs"
-              title={t('settings.developer.api_reference')}
-            />
-            <ListRow
-              onPress={() => {
-                copyYamlUrl(yamlUrl);
-              }}
-              subtitle={t('settings.developer.spec_copy_hint')}
-              testID="more-settings-developer-docs-yaml"
-              title={t('settings.developer.api_spec')}
-            />
-          </View>
+          <>
+            <Card padded={false} style={styles.docsCard}>
+              <ListRow
+                onPress={() => {
+                  openApiReference(docsUrl);
+                }}
+                subtitle={t('settings.developer.api_reference_hint')}
+                testID="more-settings-developer-docs"
+                title={t('settings.developer.api_reference')}
+              />
+            </Card>
+            <Card padded={false} style={styles.docsCard}>
+              <ListRow
+                onPress={() => {
+                  copyYamlUrl(yamlUrl);
+                }}
+                subtitle={t('settings.developer.spec_copy_hint')}
+                testID="more-settings-developer-docs-yaml"
+                title={t('settings.developer.api_spec')}
+              />
+            </Card>
+          </>
         ) : (
           <Text style={styles.prose} testID="more-settings-developer-docs-unavailable">
             {t('settings.developer.docs_unavailable')}

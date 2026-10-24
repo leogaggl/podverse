@@ -39,6 +39,7 @@ import { useItemDescription } from '../../hooks/useItemDescription';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
 import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLabel';
+import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { directoryLineArtist } from '../../lib/playback/lineArtist';
 import { resolveVerifiedArtists } from '../../lib/playback/verifiedArtists';
@@ -358,7 +359,23 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         }
       }
       applyTrack(fresh, nextChannel, nextChannel?.title ?? null);
-    } catch {
+    } catch (error) {
+      const replaced = await replaceScreenIfMerged({
+        currentIdText: trackId,
+        error,
+        loadChannel: (idText) =>
+          requestWithMobileAuthRefresh(authContext, async (api) =>
+            api.reqChannelGetByIdOrIdText(idText)
+          ),
+        loadItem: (idText) =>
+          requestWithMobileAuthRefresh(authContext, async (api) =>
+            api.reqItemGetByIdOrIdText(idText)
+          ),
+        navigation,
+      });
+      if (replaced) {
+        return;
+      }
       if (stored === null) {
         setErrorKey('errors.generic');
         setTrack(null);
@@ -368,7 +385,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     } finally {
       setIsLoading(false);
     }
-  }, [applyTrack, authContext, offlineModeEnabled, trackId]);
+  }, [applyTrack, authContext, navigation, offlineModeEnabled, trackId]);
 
   useEffect(() => {
     void loadTrack();

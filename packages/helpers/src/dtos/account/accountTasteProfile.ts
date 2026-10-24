@@ -20,6 +20,16 @@ export type DTOAccountTasteProfileRow = {
   completion_count: number;
   first_listened_at: string | null;
   last_listened_at: string | null;
+  /** 1–5 weight the recommendation job uses. An override when one is set, otherwise the listen level. */
+  recommendation_weight: number;
+  /** The listener's applied weight, or null while the listen level is in effect. */
+  recommendation_weight_override: number | null;
+};
+
+/** One recommended show. `strength` is the 1–5 mark for that chip. */
+export type DTOAccountRecommendation = {
+  channel: DTOAccountTasteProfileChannel;
+  strength: number;
 };
 
 /** One show on the signed-in listener's Hidden From Taste Profile list. */

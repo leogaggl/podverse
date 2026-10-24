@@ -9,7 +9,8 @@ type TabBarIconProps = {
   size: number;
 };
 
-type TabIconKey = 'browse' | 'home' | 'library' | 'more' | 'notifications' | 'search';
+type TabIconKey =
+  'browse' | 'home' | 'library' | 'more' | 'notifications' | 'recommendations' | 'search';
 
 const TAB_ICON_NAMES: Record<TabIconKey, { outline: IoniconName; filled: IoniconName }> = {
   browse: { filled: 'compass', outline: 'compass-outline' },
@@ -17,6 +18,7 @@ const TAB_ICON_NAMES: Record<TabIconKey, { outline: IoniconName; filled: Ionicon
   library: { filled: 'albums', outline: 'albums-outline' },
   more: { filled: 'ellipsis-horizontal', outline: 'ellipsis-horizontal' },
   notifications: { filled: 'notifications', outline: 'notifications-outline' },
+  recommendations: { filled: 'sparkles', outline: 'sparkles-outline' },
   search: { filled: 'search', outline: 'search-outline' },
 };
 

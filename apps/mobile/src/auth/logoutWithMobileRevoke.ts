@@ -1,7 +1,11 @@
 import { getMobileConfig } from '../config';
 import { clearAutoDownloadRegistrationOnSignOut } from '../downloads/autoDownloadRegistrationSync';
 import { unregisterFcmDeviceForAccount } from '../push/fcmDeviceSync';
-import { unregisterUnifiedPushDeviceForAccount } from '../push/unifiedPushDeviceSync';
+import {
+  isUnifiedPushRegisteredOnDevice,
+  readUnifiedPushMode,
+  unregisterUnifiedPushDeviceForAccount,
+} from '../push/unifiedPushDeviceSync';
 import type { ClearSession } from './forcedLogoutNotice';
 import { createMobileApiRequestService } from './mobileApi';
 
@@ -27,8 +31,13 @@ export const logoutWithMobileRevoke = async ({
       const pushProvider = getMobileConfig().pushProvider;
       if (pushProvider === 'fcm') {
         await unregisterFcmDeviceForAccount({ accessToken });
-      } else if (pushProvider === 'unifiedpush') {
-        await unregisterUnifiedPushDeviceForAccount({ accessToken });
+      }
+      const clearUnifiedPush =
+        pushProvider === 'unifiedpush' ||
+        (await readUnifiedPushMode()) !== null ||
+        (await isUnifiedPushRegisteredOnDevice());
+      if (clearUnifiedPush) {
+        await unregisterUnifiedPushDeviceForAccount({ accessToken, clearMode: true });
       }
     } catch (error) {
       console.warn('Failed to deregister push device during logout', error);

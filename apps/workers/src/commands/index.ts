@@ -21,6 +21,7 @@ import { podcastIndexValueUpdateAll } from '@workers/commands/podcastIndex/value
 import { devStatsSeedSimulatedPopularity } from '@workers/commands/stats/devStatsSeedSimulatedPopularity.js';
 import { statsEventPartitionsMaintain } from '@workers/commands/stats/statsEventPartitionsMaintain.js';
 import { statsPopularityRefresh } from '@workers/commands/stats/statsPopularityRefresh.js';
+import { statsRecommendationsRefresh } from '@workers/commands/stats/statsRecommendationsRefresh.js';
 
 import { billingCheckoutChannelEnable } from './billing/checkoutChannelEnable.js';
 import { billingStrikeEnsureWebhook } from './billing/ensureStrikeWebhook.js';
@@ -74,6 +75,7 @@ export default {
   devStatsSeedSimulatedPopularity,
   statsEventPartitionsMaintain,
   statsPopularityRefresh,
+  statsRecommendationsRefresh,
   billingCheckoutChannelEnable,
   billingImportLegacyMembershipExpiry,
   billingProcessorProductAdd,

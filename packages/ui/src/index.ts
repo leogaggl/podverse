@@ -45,6 +45,8 @@ export type {
 } from './components/layout/DescriptionList/DescriptionList';
 export { DescriptionRenderer } from './components/layout/Description/DescriptionRenderer';
 export type { DescriptionRendererProps } from './components/layout/Description/DescriptionRenderer';
+export { DescribedLink } from './components/layout/DescribedLink/DescribedLink';
+export type { DescribedLinkProps } from './components/layout/DescribedLink/DescribedLink';
 /**
  * Notice / message family. Pick one:
  * - `Banner`: page-top dismissible info bar (membership expiry, system notices).
@@ -71,6 +73,7 @@ export { Callout } from './components/layout/Callout/index';
 export type { CalloutProps } from './components/layout/Callout/index';
 export { CallToActionMessage } from './components/layout/CallToActionMessage/index';
 export type { CallToActionMessageProps } from './components/layout/CallToActionMessage/index';
+/** Full-page frame that centers its content, and scrolls from the top when the content is taller. */
 export { CenterContainer } from './components/layout/CenterContainer/CenterContainer';
 export type { CenterContainerProps } from './components/layout/CenterContainer/CenterContainer';
 export { Divider } from './components/layout/Divider/Divider';
@@ -481,6 +484,7 @@ export type {
 } from './components/layout/ErrorBoundaryShell/ErrorBoundaryShell';
 export { FeatureComparison } from './components/layout/FeatureComparison/index';
 export type {
+  FeatureComparisonLegend,
   FeatureComparisonProps,
   FeatureComparisonRow,
   FeatureComparisonTier,

@@ -1,6 +1,10 @@
 import "express"; // Import express types
 
-import type { AccountTrustEntitlements, ApiKeyPermissions } from "@podverse/helpers";
+import type {
+  AccountMembershipEnum,
+  AccountTrustEntitlements,
+  ApiKeyPermissions,
+} from "@podverse/helpers";
 
 declare global {
   namespace Express {
@@ -13,6 +17,8 @@ declare global {
       /** The API key that authenticated the request; null for a session. */
       api_key: { id_text: string; permissions: ApiKeyPermissions } | null;
       entitlements?: AccountTrustEntitlements;
+      /** Set when membership is checked. Trial and premium are the only stored values. */
+      account_membership_id?: AccountMembershipEnum;
       /** The credential's expiry in epoch seconds: the JWT `exp`, or a key's `expires_at`. */
       token_expires_at?: number;
     }

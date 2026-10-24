@@ -1,7 +1,12 @@
 import { config } from '@api/config/index.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
+import {
+  loadMembershipComparisonMessages,
+  resolveMembershipComparisonLocale,
+} from '@api/lib/membership/membershipComparisonCatalog.js';
 import type { Request, Response } from 'express';
 
+import { buildMembershipComparisonDocument } from '@podverse/helpers';
 import { BillingPriceCatalogService } from '@podverse/orm';
 
 const billingPriceCatalogService = new BillingPriceCatalogService();
@@ -31,6 +36,36 @@ export class MembershipController {
           monthlyEquivalentAnnually,
         },
       });
+    } catch (error) {
+      handleGenericErrorResponse(res, error);
+    }
+  }
+
+  /**
+   * Localized Free versus Premium rows and Trial limitations. Accept-Language picks the catalog
+   * locale. Caps come from the resolved product settings, so a client renders the current list
+   * without shipping a new build.
+   */
+  static async getComparison(req: Request, res: Response): Promise<void> {
+    try {
+      const acceptLanguage = req.headers['accept-language'];
+      const requested =
+        typeof acceptLanguage === 'string' ? (acceptLanguage.split(',')[0] ?? '') : '';
+      const locale = resolveMembershipComparisonLocale(requested.trim());
+      const flat = await billingPriceCatalogService.resolveProductMembership();
+      const document = buildMembershipComparisonDocument(
+        locale,
+        {
+          premiumAllowDirectoryAddByRSS: flat.premiumAllowDirectoryAddByRSS,
+          premiumMaxAddByRSSFeeds: flat.premiumMaxAddByRSSFeeds,
+          premiumMaxManualRefreshesPerHour: flat.premiumMaxManualRefreshesPerHour,
+          trialAllowDirectoryAddByRSS: flat.trialAllowDirectoryAddByRSS,
+          trialMaxAddByRSSFeeds: flat.trialMaxAddByRSSFeeds,
+          trialMaxManualRefreshesPerHour: flat.trialMaxManualRefreshesPerHour,
+        },
+        loadMembershipComparisonMessages(locale)
+      );
+      res.json({ data: document });
     } catch (error) {
       handleGenericErrorResponse(res, error);
     }
