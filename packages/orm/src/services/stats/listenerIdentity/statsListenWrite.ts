@@ -1,9 +1,15 @@
 import { StatsListenerService } from '@orm/services/stats/listenerIdentity/statsListener.js';
+import {
+  isListenerFlagged,
+  recordStoredCapReached,
+  recordTooSoonMinute,
+} from '@orm/services/stats/listenerIdentity/statsListenerFlags.js';
 import type { UtcDayBounds } from '@orm/services/stats/listenerIdentity/statsWriteGuard.js';
 import {
-  isTrackingAllowedForUpdate,
+  isInOptOutCooldown,
   lockListener,
   queryRows,
+  readTrackingConsentForUpdate,
   readTransactionNow,
   runListenerWrite,
   utcDayBounds,
@@ -12,6 +18,7 @@ import type { EntityManager } from 'typeorm';
 
 import type { PopularityListenResult } from '@podverse/helpers';
 import {
+  countsTowardTooSoonSignal,
   isCountedListen,
   MediumEnum,
   POPULARITY_TASTE_COMPLETION_WEIGHT,
@@ -28,7 +35,30 @@ export type StatsListenReport = {
   /** The agreement version the account must have accepted for this report to count. */
   agreement_version: string;
   /** Stored listens allowed per listener per UTC day. */
-  daily_cap: number;
+  stored_daily_cap: number;
+  /**
+   * Stored listens per listener per UTC day that count toward popularity; later ones feed taste
+   * rows only.
+   */
+  popularity_daily_cap: number;
+  /**
+   * Server seconds a new listen must wait after the listener's last stored listen; 0 turns the
+   * check off.
+   */
+  min_interval_seconds: number;
+  /**
+   * Days after an opt-out during which the listener's new listens count toward no popularity
+   * total. Also the number of days in which one listener adds to an entity's all-time total at
+   * most once.
+   */
+  all_time_recount_days: number;
+  /** Too-soon minutes in one unbroken run that flag the listener; 0 turns the signal off. */
+  flag_too_soon_minutes: number;
+  /**
+   * Hours from the day's first stored listen within which reaching the stored cap flags the
+   * listener; 0 turns the signal off.
+   */
+  flag_stored_cap_within_hours: number;
   target: StatsListenTarget;
   /** Device-generated id shared by every report of one listening session. */
   client_listen_id: string;
@@ -64,10 +94,14 @@ type SessionEvent = ListenEntities & {
   id: string;
   secondsHeard: number;
   completed: boolean;
+  popularityCounted: boolean;
 };
 
 type ListenerDay = {
-  listenCount: number;
+  storedCount: number;
+  /** When the day's first stored listen was stored, or null when none was. */
+  firstStoredAt: Date | null;
+  popularityCount: number;
   listened: EntityFlags;
   completed: EntityFlags;
 };
@@ -93,27 +127,47 @@ const CLIP_TARGET_SQL = `SELECT id, item_id, source_removed_at, start_time, end_
   FROM clip
   WHERE id_text = $1`;
 
-const SESSION_EVENT_SQL = `SELECT created_at, id, seconds_heard, completed, item_id, channel_id, clip_id
+const SESSION_EVENT_SQL = `SELECT created_at, id, seconds_heard, completed, popularity_counted,
+    item_id, channel_id, clip_id
   FROM stats_listen_event
   WHERE listener_id = $1 AND client_listen_id = $2 AND created_at >= $3
   LIMIT 1
   FOR UPDATE`;
 
+/**
+ * Any stored listen of the listener after `$2`. No upper bound: a transaction that waited on the
+ * listener lock can read a `now()` earlier than the event the lock holder just stored.
+ */
+const RECENT_LISTEN_SQL = `SELECT 1 AS recent
+  FROM stats_listen_event
+  WHERE listener_id = $1 AND created_at > $2
+  LIMIT 1`;
+
 const LISTENER_DAY_SQL = `SELECT
-    count(*)::int AS listen_count,
-    COALESCE(bool_or(item_id = $4), false) AS item_listened,
-    COALESCE(bool_or(channel_id = $5), false) AS channel_listened,
-    COALESCE(bool_or(clip_id = $6), false) AS clip_listened,
-    COALESCE(bool_or(completed AND item_id = $4), false) AS item_completed,
-    COALESCE(bool_or(completed AND channel_id = $5), false) AS channel_completed,
-    COALESCE(bool_or(completed AND clip_id = $6), false) AS clip_completed
+    count(*)::int AS stored_count,
+    min(created_at) AS first_stored_at,
+    (count(*) FILTER (WHERE popularity_counted))::int AS popularity_count,
+    COALESCE(bool_or(popularity_counted AND item_id = $4), false) AS item_listened,
+    COALESCE(bool_or(popularity_counted AND channel_id = $5), false) AS channel_listened,
+    COALESCE(bool_or(popularity_counted AND clip_id = $6), false) AS clip_listened,
+    COALESCE(bool_or(popularity_counted AND completed AND item_id = $4), false) AS item_completed,
+    COALESCE(bool_or(popularity_counted AND completed AND channel_id = $5), false) AS channel_completed,
+    COALESCE(bool_or(popularity_counted AND completed AND clip_id = $6), false) AS clip_completed
   FROM stats_listen_event
   WHERE listener_id = $1 AND created_at >= $2 AND created_at < $3
     AND ($7::bigint IS NULL OR id <> $7::bigint)`;
 
+const ALL_TIME_PERIOD_SQL = `SELECT
+    COALESCE(bool_or(item_all_time_counted AND item_id = $3), false) AS item_counted,
+    COALESCE(bool_or(channel_all_time_counted AND channel_id = $4), false) AS channel_counted,
+    COALESCE(bool_or(clip_all_time_counted AND clip_id = $5), false) AS clip_counted
+  FROM stats_listen_event
+  WHERE listener_id = $1 AND created_at >= $2`;
+
 const INSERT_LISTEN_EVENT_SQL = `INSERT INTO stats_listen_event
-    (created_at, listener_id, channel_id, item_id, clip_id, client_listen_id, seconds_heard, completed)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+    (created_at, listener_id, channel_id, item_id, clip_id, client_listen_id, seconds_heard, completed,
+     popularity_counted, item_all_time_counted, channel_all_time_counted, clip_all_time_counted)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
 
 const UPDATE_LISTEN_EVENT_SQL = `UPDATE stats_listen_event
   SET seconds_heard = $3, completed = $4
@@ -187,6 +241,17 @@ function finiteNumber(value: unknown): number | null {
 
 function positiveOrNull(value: number | null): number | null {
   return value !== null && value > 0 ? value : null;
+}
+
+/** The earlier of the non-null values, or null when both are null. */
+function earliestDate(a: Date | null, b: Date | null): Date | null {
+  if (a === null) {
+    return b;
+  }
+  if (b === null) {
+    return a;
+  }
+  return a.getTime() <= b.getTime() ? a : b;
 }
 
 /** Whole media seconds to store: never negative and at most the rounded-up listened duration. */
@@ -290,12 +355,22 @@ async function findSessionEvent(
   if (row === undefined) {
     return null;
   }
-  const { created_at, id, seconds_heard, completed, item_id, channel_id, clip_id } = row;
+  const {
+    created_at,
+    id,
+    seconds_heard,
+    completed,
+    popularity_counted,
+    item_id,
+    channel_id,
+    clip_id,
+  } = row;
   if (
     !(created_at instanceof Date) ||
     (typeof id !== 'string' && typeof id !== 'number') ||
     typeof seconds_heard !== 'number' ||
     typeof completed !== 'boolean' ||
+    typeof popularity_counted !== 'boolean' ||
     typeof item_id !== 'number' ||
     typeof channel_id !== 'number' ||
     (clip_id !== null && typeof clip_id !== 'number')
@@ -307,6 +382,7 @@ async function findSessionEvent(
     id: String(id),
     secondsHeard: seconds_heard,
     completed,
+    popularityCounted: popularity_counted,
     itemId: item_id,
     channelId: channel_id,
     clipId: clip_id,
@@ -314,8 +390,27 @@ async function findSessionEvent(
 }
 
 /**
- * The listener's listens in one UTC day: how many, and whether any (or any completed one) was of
- * each of `entities`. `excludeEventId` leaves one event out of every answer.
+ * True when the listener has a stored listen event within `minIntervalSeconds` before `now`.
+ * Counts every stored event, whatever it fed. A value of 0 or less never finds one.
+ */
+async function hasRecentListen(
+  manager: EntityManager,
+  listenerId: string,
+  now: Date,
+  minIntervalSeconds: number
+): Promise<boolean> {
+  if (minIntervalSeconds <= 0) {
+    return false;
+  }
+  const floorStart = new Date(now.getTime() - minIntervalSeconds * 1000);
+  const rows = await queryRows(manager, RECENT_LISTEN_SQL, [listenerId, floorStart]);
+  return rows.length > 0;
+}
+
+/**
+ * The listener's listens in one UTC day: how many were stored and when the first of them was, how
+ * many count toward popularity, and whether any popularity-counted listen (or completed one) was
+ * of each of `entities`. `excludeEventId` leaves one event out of every answer.
  */
 async function readListenerDay(
   manager: EntityManager,
@@ -333,9 +428,13 @@ async function readListenerDay(
     entities.clipId,
     excludeEventId,
   ]);
-  const listenCount = row?.listen_count;
+  const storedCount = row?.stored_count;
+  const firstStoredAt = row?.first_stored_at;
+  const popularityCount = row?.popularity_count;
   return {
-    listenCount: typeof listenCount === 'number' ? listenCount : 0,
+    storedCount: typeof storedCount === 'number' ? storedCount : 0,
+    firstStoredAt: firstStoredAt instanceof Date ? firstStoredAt : null,
+    popularityCount: typeof popularityCount === 'number' ? popularityCount : 0,
     listened: {
       item: row?.item_listened === true,
       channel: row?.channel_listened === true,
@@ -346,6 +445,30 @@ async function readListenerDay(
       channel: row?.channel_completed === true,
       clip: row?.clip_completed === true,
     },
+  };
+}
+
+/**
+ * Per entity, whether the listener has a listen marked as counted toward all-time since `since`.
+ * A listen of an entity without one starts a new all-time period for it.
+ */
+async function readAllTimePeriods(
+  manager: EntityManager,
+  listenerId: string,
+  since: Date,
+  entities: ListenEntities
+): Promise<EntityFlags> {
+  const [row] = await queryRows(manager, ALL_TIME_PERIOD_SQL, [
+    listenerId,
+    since,
+    entities.itemId,
+    entities.channelId,
+    entities.clipId,
+  ]);
+  return {
+    item: row?.item_counted === true,
+    channel: row?.channel_counted === true,
+    clip: row?.clip_counted === true,
   };
 }
 
@@ -361,31 +484,41 @@ function entityIds(entities: ListenEntities): Array<[ListenEntity, number]> {
   return ids;
 }
 
+type DailyRowAdd = { listeners: number; completions: number; allTimeListeners: number };
+
+/**
+ * With no new listener, only an existing row is updated: the listener's earlier
+ * popularity-counted listen of the entity that day wrote it.
+ */
 async function addToDailyRow(
   manager: EntityManager,
   entity: ListenEntity,
   entityId: number,
   day: string,
-  listeners: number,
-  completions: number
+  { listeners, completions, allTimeListeners }: DailyRowAdd
 ): Promise<void> {
-  if (listeners === 0 && completions === 0) {
-    return;
-  }
-  if (listeners === 0) {
-    for (let added = 0; added < completions; added += 1) {
-      await addCompletionToDailyRow(manager, entity, entityId, day);
-    }
+  if (listeners === 0 && completions === 0 && allTimeListeners === 0) {
     return;
   }
   const { table, column } = DAILY_LISTEN_TABLES[entity];
+  if (listeners === 0) {
+    await manager.query(
+      `UPDATE ${table} SET
+         completion_count = completion_count + $3,
+         all_time_listener_count = all_time_listener_count + $4
+       WHERE ${column} = $1 AND day = $2::date`,
+      [entityId, day, completions, allTimeListeners]
+    );
+    return;
+  }
   await manager.query(
-    `INSERT INTO ${table} (${column}, day, listener_count, completion_count)
-     VALUES ($1, $2::date, $3, $4)
+    `INSERT INTO ${table} (${column}, day, listener_count, completion_count, all_time_listener_count)
+     VALUES ($1, $2::date, $3, $4, $5)
      ON CONFLICT (${column}, day) DO UPDATE SET
        listener_count = ${table}.listener_count + EXCLUDED.listener_count,
-       completion_count = ${table}.completion_count + EXCLUDED.completion_count`,
-    [entityId, day, listeners, completions]
+       completion_count = ${table}.completion_count + EXCLUDED.completion_count,
+       all_time_listener_count = ${table}.all_time_listener_count + EXCLUDED.all_time_listener_count`,
+    [entityId, day, listeners, completions, allTimeListeners]
   );
 }
 
@@ -470,19 +603,23 @@ async function addListenToTaste(
 }
 
 /**
- * Counts a stored listen's completion on the event's own UTC day and in the taste rows that still
- * exist for its shows. Listen counts and listen times stay as they are.
+ * Counts a stored listen's completion in the taste rows that still exist for its shows and, when
+ * the listen counts toward popularity and the listener is not flagged, on the event's own UTC day.
+ * Listen counts and listen times stay as they are.
  */
 async function addCompletionOfStoredListen(
   manager: EntityManager,
   listenerId: string,
-  event: SessionEvent
+  event: SessionEvent,
+  flagged: boolean
 ): Promise<void> {
-  const eventDay = utcDayBounds(event.createdAt);
-  const otherListens = await readListenerDay(manager, listenerId, eventDay, event, event.id);
-  for (const [entity, entityId] of entityIds(event)) {
-    if (!otherListens.completed[entity]) {
-      await addCompletionToDailyRow(manager, entity, entityId, eventDay.day);
+  if (event.popularityCounted && !flagged) {
+    const eventDay = utcDayBounds(event.createdAt);
+    const otherListens = await readListenerDay(manager, listenerId, eventDay, event, event.id);
+    for (const [entity, entityId] of entityIds(event)) {
+      if (!otherListens.completed[entity]) {
+        await addCompletionToDailyRow(manager, entity, entityId, eventDay.day);
+      }
     }
   }
 
@@ -503,14 +640,17 @@ async function addCompletionOfStoredListen(
 
 /**
  * A later report for a stored session only raises seconds heard and marks it finished. The
- * counted-listen rule and the daily cap do not apply; the session was already counted.
+ * counted-listen rule, the minimum interval, and the daily caps do not apply; the session was
+ * already stored, and whether it counts toward popularity was settled then. While the listener is
+ * `flagged`, a completion feeds taste rows only.
  */
 async function updateSessionEvent(
   manager: EntityManager,
   listenerId: string,
   event: SessionEvent,
   secondsHeard: number,
-  completed: boolean
+  completed: boolean,
+  flagged: boolean
 ): Promise<PopularityListenResult> {
   const nextSecondsHeard = Math.max(event.secondsHeard, secondsHeard);
   const nextCompleted = event.completed || completed;
@@ -524,7 +664,7 @@ async function updateSessionEvent(
     nextCompleted,
   ]);
   if (nextCompleted && !event.completed) {
-    await addCompletionOfStoredListen(manager, listenerId, event);
+    await addCompletionOfStoredListen(manager, listenerId, event, flagged);
   }
   return 'updated';
 }
@@ -533,21 +673,34 @@ async function updateSessionEvent(
  * Records listen reports in the listener identity zone. Callers pass an `account_id` and get back
  * a `PopularityListenResult`; the listener id never leaves this module. The write order (event,
  * item daily row, channel daily row, clip daily row, taste rows) is the lock order the channel
- * merge relies on. Contracts: docs/features/POPULARITY-TRACKING.md.
+ * merge relies on. A listen past the daily popularity cap is stored and feeds taste rows but no
+ * daily row, and answers `counted` like any other stored listen. A popularity-counted listen adds
+ * to an entity's all-time total when it starts a new `all_time_recount_days` period for the
+ * listener. For `all_time_recount_days` after an opt-out, the listener's new listens feed taste
+ * rows only, and the answer does not say so. A flagged listener's listens are stored and feed
+ * taste rows but count toward no daily total, and the answer never says so either. Contracts:
+ * docs/features/POPULARITY-AND-TASTE-PROFILE.md.
  */
 export class StatsListenWriteService {
   private readonly listenerService = new StatsListenerService();
 
   async recordListen(report: StatsListenReport): Promise<PopularityListenResult> {
     return runListenerWrite(async (manager) => {
-      const allowed = await isTrackingAllowedForUpdate(
+      const consent = await readTrackingConsentForUpdate(
         manager,
         report.account_id,
         report.agreement_version
       );
-      if (!allowed) {
+      if (!consent.allowed) {
         return 'not_allowed';
       }
+      const now = await readTransactionNow(manager);
+      const coolingDown = isInOptOutCooldown(consent.optedOutAt, now, report.all_time_recount_days);
+      // The opt-out time counts as a stored listen for the minimum interval.
+      const optOutTooSoon =
+        report.min_interval_seconds > 0 &&
+        consent.optedOutAt !== null &&
+        consent.optedOutAt.getTime() > now.getTime() - report.min_interval_seconds * 1000;
 
       const target = await resolveListenTarget(manager, report.target);
       if (typeof target === 'string') {
@@ -562,11 +715,14 @@ export class StatsListenWriteService {
         if (!meetsRule) {
           return 'below_threshold';
         }
+        if (optOutTooSoon) {
+          return 'too_soon';
+        }
         listenerId = await this.listenerService.getOrCreateListenerId(report.account_id, manager);
       }
 
       await lockListener(manager, listenerId);
-      const now = await readTransactionNow(manager);
+      const flagged = await isListenerFlagged(manager, listenerId);
 
       const session = await findSessionEvent(
         manager,
@@ -575,16 +731,52 @@ export class StatsListenWriteService {
         subtractDays(now, LISTEN_REPORT_LOOKBACK_DAYS)
       );
       if (session !== null) {
-        return updateSessionEvent(manager, listenerId, session, secondsHeard, report.completed);
+        return updateSessionEvent(
+          manager,
+          listenerId,
+          session,
+          secondsHeard,
+          report.completed,
+          flagged
+        );
       }
       if (!meetsRule) {
         return 'below_threshold';
       }
 
+      // A too-soon session stores nothing, so a later report of it is a new listen again.
+      const tooSoon =
+        optOutTooSoon ||
+        (await hasRecentListen(manager, listenerId, now, report.min_interval_seconds));
+      if (tooSoon) {
+        if (countsTowardTooSoonSignal(target.durationSeconds)) {
+          await recordTooSoonMinute(manager, listenerId, now, report.flag_too_soon_minutes);
+        }
+        return 'too_soon';
+      }
+
       const today = utcDayBounds(now);
       const listenerDay = await readListenerDay(manager, listenerId, today, target, null);
-      if (listenerDay.listenCount >= report.daily_cap) {
+      const carried = await this.listenerService.readOptOutDayCarry(listenerId, today.day, manager);
+      const storedBefore = listenerDay.storedCount + carried.storedCount;
+      if (storedBefore >= report.stored_daily_cap) {
         return 'daily_cap_reached';
+      }
+      const popularityCounted =
+        !flagged && !coolingDown && listenerDay.popularityCount < report.popularity_daily_cap;
+
+      // Read before the insert so the period check never sees the new event.
+      const allTime: EntityFlags = { item: false, channel: false, clip: false };
+      if (popularityCounted) {
+        const periods = await readAllTimePeriods(
+          manager,
+          listenerId,
+          subtractDays(now, report.all_time_recount_days),
+          target
+        );
+        for (const [entity] of entityIds(target)) {
+          allTime[entity] = !periods[entity];
+        }
       }
 
       await manager.query(INSERT_LISTEN_EVENT_SQL, [
@@ -596,18 +788,31 @@ export class StatsListenWriteService {
         report.client_listen_id,
         secondsHeard,
         report.completed,
+        popularityCounted,
+        allTime.item,
+        allTime.channel,
+        allTime.clip,
       ]);
-      for (const [entity, entityId] of entityIds(target)) {
-        await addToDailyRow(
-          manager,
-          entity,
-          entityId,
-          today.day,
-          listenerDay.listened[entity] ? 0 : 1,
-          report.completed && !listenerDay.completed[entity] ? 1 : 0
-        );
+      if (popularityCounted) {
+        for (const [entity, entityId] of entityIds(target)) {
+          await addToDailyRow(manager, entity, entityId, today.day, {
+            listeners: listenerDay.listened[entity] ? 0 : 1,
+            completions: report.completed && !listenerDay.completed[entity] ? 1 : 0,
+            allTimeListeners: allTime[entity] ? 1 : 0,
+          });
+        }
       }
       await addListenToTaste(manager, listenerId, target, report.completed, now);
+      if (storedBefore + 1 >= report.stored_daily_cap) {
+        await recordStoredCapReached(
+          manager,
+          listenerId,
+          earliestDate(listenerDay.firstStoredAt, carried.firstStoredAt) ?? now,
+          now,
+          report.flag_stored_cap_within_hours
+        );
+      }
+      // A client must not learn when its listens stop counting toward popularity.
       return 'counted';
     });
   }

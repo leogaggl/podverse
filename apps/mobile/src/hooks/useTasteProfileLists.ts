@@ -131,7 +131,7 @@ function useTasteProfileList<Row extends KeyedRow>(
 
 /**
  * The signed-in listener's Taste Profile and Hidden From Taste Profile lists. State lives only in
- * this hook and reloads whenever the account or its Popularity Tracking consent changes, so a
+ * this hook and reloads whenever the account or its Taste Profile consent changes, so a
  * sign-out or account switch never shows the previous account's rows. A token refresh does not
  * reload: requests read the latest auth values through a ref.
  */

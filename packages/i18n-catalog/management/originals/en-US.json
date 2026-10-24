@@ -282,6 +282,7 @@
     "loadingDetail": "Loading detail...",
     "loadingChart": "Loading chart...",
     "close": "Close",
+    "flaggedListenersLink": "Flagged Listeners",
     "idValue": "ID {id}",
     "searchPlaceholder": "Search {entity} by title...",
     "topChartHeading": "Top 10 {entity} ({range})",
@@ -308,6 +309,32 @@
     "detail": {
       "dailyBreakdown": "Daily Breakdown"
     }
+  },
+  "statsFlaggedListeners": {
+    "pageTitle": "Flagged Listeners",
+    "intro": "Listeners whose listening looked scripted. While flagged, their listening still updates their Taste Profile but does not count toward public lists.",
+    "filterStatus": "Status",
+    "statusActive": "Active",
+    "statusCleared": "Cleared",
+    "statusAll": "All Statuses",
+    "columnListener": "Listener",
+    "columnReason": "Reason",
+    "columnFlagged": "Flagged",
+    "columnTimesFlagged": "Times Flagged",
+    "columnListens": "Listens (7 Days)",
+    "columnOpens": "Opens (7 Days)",
+    "columnStatus": "Status",
+    "reasonStoredCapReached": "Daily Listen Limit Reached Quickly",
+    "reasonTooSoonMinutes": "Sustained Too-Soon Listens",
+    "clearedOn": "Cleared {date}",
+    "clear": "Clear Flag",
+    "clearNamed": "Clear Flag for {listener}",
+    "clearConfirmTitle": "Clear Flag",
+    "clearConfirmBody": "This listener's new listening, and listening from before the flag, counts toward public lists again. Listening recorded while flagged stays out. A new signal on a later day flags it again.",
+    "loadError": "Could not load flagged listeners.",
+    "actionError": "Could not clear this flag.",
+    "empty": "No flagged listeners match this status.",
+    "emptyValue": "—"
   },
   "products": {
     "pageTitle": "Products",

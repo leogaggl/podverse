@@ -161,6 +161,8 @@ describe('tablePolicy', () => {
         'stats_taste_profile',
         'stats_taste_profile_hidden',
         'stats_listener',
+        'stats_flagged_listener',
+        'stats_flag_signal',
       ]) {
         expect(isTableAllowlisted(tableName)).toBe(false);
       }

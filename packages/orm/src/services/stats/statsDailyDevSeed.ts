@@ -1,5 +1,7 @@
 import { AppDataSourceReadWrite } from '@orm/db/index.js';
 
+import { STATS_POPULARITY_RANGE_LOOKBACK_DAYS } from '@podverse/helpers';
+
 import type { StatsEntityType } from './statsEntityTables.js';
 import { STATS_ENTITY_TABLES } from './statsEntityTables.js';
 
@@ -47,16 +49,19 @@ function rowsToSend(rows: StatsDailyDevSeedRow[]): PreparedRow[] {
 function upsertSql(daily: string, key: string, hasCompletions: boolean): string {
   if (hasCompletions) {
     return (
-      `INSERT INTO ${daily} (${key}, day, listener_count, completion_count) ` +
-      'SELECT * FROM unnest($1::int[], $2::date[], $3::int[], $4::int[]) ' +
+      `INSERT INTO ${daily} (${key}, day, listener_count, completion_count, ` +
+      'all_time_listener_count) ' +
+      'SELECT * FROM unnest($1::int[], $2::date[], $3::int[], $4::int[], $5::int[]) ' +
       `ON CONFLICT (${key}, day) DO UPDATE SET ` +
-      'listener_count = EXCLUDED.listener_count, completion_count = EXCLUDED.completion_count'
+      'listener_count = EXCLUDED.listener_count, completion_count = EXCLUDED.completion_count, ' +
+      'all_time_listener_count = EXCLUDED.all_time_listener_count'
     );
   }
   return (
-    `INSERT INTO ${daily} (${key}, day, listener_count) ` +
-    'SELECT * FROM unnest($1::int[], $2::date[], $3::int[]) ' +
-    `ON CONFLICT (${key}, day) DO UPDATE SET listener_count = EXCLUDED.listener_count`
+    `INSERT INTO ${daily} (${key}, day, listener_count, all_time_listener_count) ` +
+    'SELECT * FROM unnest($1::int[], $2::date[], $3::int[], $4::int[]) ' +
+    `ON CONFLICT (${key}, day) DO UPDATE SET listener_count = EXCLUDED.listener_count, ` +
+    'all_time_listener_count = EXCLUDED.all_time_listener_count'
   );
 }
 
@@ -87,10 +92,58 @@ export async function devUpsertStatsDailyRows(
         days,
         listenerCounts,
         completionCounts,
+        listenerCounts,
       ]);
     } else {
-      await AppDataSourceReadWrite.manager.query(sql, [ids, days, listenerCounts]);
+      await AppDataSourceReadWrite.manager.query(sql, [ids, days, listenerCounts, listenerCounts]);
     }
   }
   return pending.length;
+}
+
+function updatedRowCount(result: unknown): number {
+  if (Array.isArray(result)) {
+    const count = result[1];
+    if (typeof count === 'number' && Number.isFinite(count)) {
+      return count;
+    }
+  }
+  if (typeof result === 'object' && result !== null) {
+    const rowCount = Reflect.get(result, 'rowCount');
+    if (typeof rowCount === 'number' && Number.isFinite(rowCount)) {
+      return rowCount;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Dev seeding only. Sets the day, week, and month counts of existing range rows to sums of the
+ * seeded daily rows, since dev seeding writes no events. A later refresh replaces them with event
+ * counts. Only `devStatsSeedSimulatedPopularity` calls this.
+ */
+export async function devWriteStatsPopularityWindowsFromDailyRows(
+  entityType: StatsEntityType,
+  today: string
+): Promise<number> {
+  const { key, daily, popularity } = STATS_ENTITY_TABLES[entityType];
+  const { day, week, month } = STATS_POPULARITY_RANGE_LOOKBACK_DAYS;
+  const result: unknown = await AppDataSourceReadWrite.manager.query(
+    `UPDATE ${popularity} AS p
+        SET day_count = w.day_count, week_count = w.week_count, month_count = w.month_count
+       FROM (
+         SELECT d.${key} AS entity_id,
+                (COALESCE(SUM(d.listener_count) FILTER (WHERE d.day >= $1::date - $2::int), 0))::int
+                  AS day_count,
+                (COALESCE(SUM(d.listener_count) FILTER (WHERE d.day >= $1::date - $3::int), 0))::int
+                  AS week_count,
+                SUM(d.listener_count)::int AS month_count
+           FROM ${daily} d
+          WHERE d.day >= $1::date - $4::int AND d.day <= $1::date
+          GROUP BY d.${key}
+       ) w
+      WHERE p.${key} = w.entity_id`,
+    [today, day, week, month]
+  );
+  return updatedRowCount(result);
 }

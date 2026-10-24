@@ -5,6 +5,17 @@
   margin-bottom: var(--spacing-base);
 }
 
+.subheading {
+  margin-top: 0;
+  margin-bottom: var(--spacing-base);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-light);
+}
+
+.hiddenSection {
+  margin-top: var(--spacing-3xl);
+}
+
 .description {
   color: var(--text-color-secondary);
   margin: 0 0 var(--spacing-base);

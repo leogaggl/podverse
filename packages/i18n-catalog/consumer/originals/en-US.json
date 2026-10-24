@@ -682,34 +682,27 @@
     "takedown_policy": "Takedown Policy",
     "takedown_policy_explanation": "This content has been removed in response to a takedown request by the copyright holder."
   },
-  "popularity_tracking": {
-    "title": "Popularity Tracking",
-    "summary": "Help surface the shows people listen to most. Your listens can count toward those rankings without your name attached.",
-    "yes": "Yes, Track Me",
+  "taste_profile_consent": {
+    "summary": "{brand_name} tracks your listens to build your Taste Profile. Those listens also count toward public popularity rankings, without your name.",
+    "yes": "Yes, Build My Taste Profile",
     "no": "No Thanks",
-    "learn_more": "Learn More",
     "how_it_works": "How It Works",
     "retry": "Try Again",
     "already_agreed": "You already turned this on for the current explanation.",
-    "agreement_date": "Agreement Date: {agreement_date}",
-    "error": "Could not save your popularity tracking choice. Please try again.",
-    "back_to_choice": "Back",
-    "change": "Change Popularity Tracking",
-    "dismiss_note": "Closing this window does not change your choice. You can update it later in Settings.",
-    "load_error": "Could not load how Popularity Tracking works. Please try again.",
-    "status_opted_out": "Popularity tracking is off.",
-    "status_stale": "How Popularity Tracking works has changed. It stays off until you turn it on again.",
-    "status_undecided": "You have not chosen whether to allow popularity tracking.",
-    "opt_out_confirm_title": "Turn Off Popularity Tracking?",
-    "opt_out_confirm_body": "Your Taste Profile, your Hidden From Taste Profile list, and your stored listening history will be deleted right away. If you turn Popularity Tracking on again later, your recommendations will start from scratch. Public listen totals that already include your listens stay as they are.",
+    "error": "Could not save your Taste Profile choice. Please try again.",
+    "load_error": "Could not load how Taste Profile works. Please try again.",
+    "status_opted_out": "Taste Profile is off.",
+    "status_stale": "How Taste Profile works has changed. It stays off until you turn it on again.",
+    "status_undecided": "You have not chosen whether to turn on Taste Profile.",
+    "opt_out_confirm_title": "Turn Off Taste Profile?",
+    "opt_out_confirm_body": "Your Taste Profile, your Hidden From Taste Profile list, and your stored listening history will be deleted right away. If you turn Taste Profile on again later, your recommendations will start from scratch. Public listen totals that already include your listens stay as they are.",
     "opt_out_confirm_action": "Turn Off and Delete"
   },
   "taste_profile": {
     "title": "Taste Profile",
-    "description": "Shows your listening has added while Popularity Tracking is on. Future recommendations will use this list. Removing a show deletes its listening data here and moves it to Hidden From Taste Profile.",
-    "empty": "No shows yet. Shows appear here after you listen with Popularity Tracking on.",
+    "empty": "No shows yet. Shows appear here after you listen with Taste Profile on.",
     "hidden_title": "Hidden From Taste Profile",
-    "hidden_description": "Shows you removed. Listening to them does not add them back. Unhide a show to add it back now or to let your next listen add it.",
+    "hidden_description": "Shows you removed. Removing a show deletes its listening data, and listening to it does not add it back. Unhide a show to add it back now or to let your next listen add it.",
     "hidden_empty": "No hidden shows.",
     "remove": "Remove",
     "remove_accessible": "Remove {title} From Taste Profile",
@@ -941,8 +934,6 @@
     "set_password_other_session_banner": "You are signed in as {sessionLabel}. This invitation link finishes setup for a different account.",
     "set_password_sign_out_to_continue": "Sign Out and Continue",
     "set_password_continue_without_signing_out": "Continue Without Signing Out",
-    "listen_stats_opt_in": "Help Improve Trending Content with Listen Statistics",
-    "listen_stats_opt_in_help": "We record pseudonymous listen events to show popularity. Data is kept for {retention_days} days. You can change this anytime in account settings.",
     "terms_version_invalid": "The terms of service version is out of date. Please refresh the page and try again."
   },
   "terms_acceptance": {
@@ -1214,11 +1205,7 @@
         "current_incorrect": "Current password is incorrect.",
         "missing_field": "Enter your current password and a new password.",
         "error": "Could not change your password. Please try again."
-      },
-      "listen_stats_toggle": "Popularity Tracking",
-      "listen_stats_toggle_help": "Allow unique-listener rankings that help people find popular shows. You can change this anytime.",
-      "listen_stats_toggle_error": "Could not update listen statistics preference. Please try again.",
-      "listen_stats_terms_link": "Learn more in our <termsLink>Terms of Service</termsLink>."
+      }
     },
     "membership": {
       "heading": "Membership",

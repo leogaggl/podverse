@@ -26,7 +26,7 @@ export class AccountSettingsListenStatsController {
             const updated = await service.update({
               account_id,
               accepted,
-              agreement_version: config.popularityTracking.version,
+              agreement_version: config.tasteProfileAgreement.version,
             });
             res.json({
               data: {

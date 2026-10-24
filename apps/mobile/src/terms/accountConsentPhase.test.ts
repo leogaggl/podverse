@@ -10,10 +10,10 @@ const ready: AccountConsentPhaseInput = {
     listen_stats_accepted: null,
     listen_stats_agreement_version: null,
   },
-  popularityLoadFailed: false,
-  popularityVersion: '',
   presentedConsent: false,
   showAccountAccess: false,
+  tasteProfileAgreementLoadFailed: false,
+  tasteProfileAgreementVersion: '',
   termsOutstanding: false,
   termsStatusKnown: true,
 };
@@ -25,7 +25,7 @@ describe('resolveAccountConsentPhase', () => {
     expect(resolveAccountConsentPhase({ ...ready, termsStatusKnown: false })).toBe('none');
   });
 
-  it('shows terms before popularity, and account access only from that gate', () => {
+  it('shows terms before Taste Profile consent, and account access only from that gate', () => {
     expect(resolveAccountConsentPhase({ ...ready, termsOutstanding: true })).toBe('terms');
     expect(
       resolveAccountConsentPhase({
@@ -34,12 +34,14 @@ describe('resolveAccountConsentPhase', () => {
         termsOutstanding: true,
       })
     ).toBe('account-access');
-    expect(resolveAccountConsentPhase({ ...ready, showAccountAccess: true })).toBe('popularity');
+    expect(resolveAccountConsentPhase({ ...ready, showAccountAccess: true })).toBe(
+      'taste-profile-consent'
+    );
   });
 
-  it('asks popularity as soon as terms are clear and the listener has not decided', () => {
-    expect(resolveAccountConsentPhase(ready)).toBe('popularity');
-    expect(resolveAccountConsentPhase({ ...ready, decision: null })).toBe('popularity');
+  it('asks for Taste Profile consent as soon as terms are clear and the listener has not decided', () => {
+    expect(resolveAccountConsentPhase(ready)).toBe('taste-profile-consent');
+    expect(resolveAccountConsentPhase({ ...ready, decision: null })).toBe('taste-profile-consent');
     expect(
       resolveAccountConsentPhase({
         ...ready,
@@ -47,9 +49,9 @@ describe('resolveAccountConsentPhase', () => {
           listen_stats_accepted: null,
           listen_stats_agreement_version: null,
         },
-        popularityVersion: '2026-10-15',
+        tasteProfileAgreementVersion: '2026-10-15',
       })
-    ).toBe('popularity');
+    ).toBe('taste-profile-consent');
   });
 
   it('does not ask again after a No, even before the agreement version loads', () => {
@@ -69,7 +71,7 @@ describe('resolveAccountConsentPhase', () => {
           listen_stats_accepted: false,
           listen_stats_agreement_version: '2025-01-01',
         },
-        popularityVersion: '2026-10-15',
+        tasteProfileAgreementVersion: '2026-10-15',
       })
     ).toBe('none');
   });
@@ -84,15 +86,15 @@ describe('resolveAccountConsentPhase', () => {
       presentedConsent: true,
     };
     expect(resolveAccountConsentPhase(priorYes)).toBe('resolving');
-    expect(resolveAccountConsentPhase({ ...priorYes, popularityLoadFailed: true })).toBe(
-      'popularity'
+    expect(resolveAccountConsentPhase({ ...priorYes, tasteProfileAgreementLoadFailed: true })).toBe(
+      'taste-profile-consent'
     );
     expect(
       resolveAccountConsentPhase({
         ...priorYes,
-        popularityVersion: '2026-10-15',
+        tasteProfileAgreementVersion: '2026-10-15',
       })
-    ).toBe('popularity');
+    ).toBe('taste-profile-consent');
     expect(
       resolveAccountConsentPhase({
         ...priorYes,
@@ -100,7 +102,7 @@ describe('resolveAccountConsentPhase', () => {
           listen_stats_accepted: true,
           listen_stats_agreement_version: '2026-10-15',
         },
-        popularityVersion: '2026-10-15',
+        tasteProfileAgreementVersion: '2026-10-15',
       })
     ).toBe('none');
   });
@@ -123,9 +125,9 @@ describe('resolveAccountConsentPhase', () => {
           listen_stats_accepted: true,
           listen_stats_agreement_version: '2025-01-01',
         },
-        popularityVersion: '2026-10-15',
+        tasteProfileAgreementVersion: '2026-10-15',
         presentedConsent: false,
       })
-    ).toBe('popularity');
+    ).toBe('taste-profile-consent');
   });
 });

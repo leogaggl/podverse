@@ -282,6 +282,7 @@
     "loadingDetail": "",
     "loadingChart": "",
     "close": "",
+    "flaggedListenersLink": "",
     "idValue": "",
     "searchPlaceholder": "",
     "topChartHeading": "",
@@ -308,6 +309,32 @@
     "detail": {
       "dailyBreakdown": ""
     }
+  },
+  "statsFlaggedListeners": {
+    "pageTitle": "",
+    "intro": "",
+    "filterStatus": "",
+    "statusActive": "",
+    "statusCleared": "",
+    "statusAll": "",
+    "columnListener": "",
+    "columnReason": "",
+    "columnFlagged": "",
+    "columnTimesFlagged": "",
+    "columnListens": "",
+    "columnOpens": "",
+    "columnStatus": "",
+    "reasonStoredCapReached": "",
+    "reasonTooSoonMinutes": "",
+    "clearedOn": "",
+    "clear": "",
+    "clearNamed": "",
+    "clearConfirmTitle": "",
+    "clearConfirmBody": "",
+    "loadError": "",
+    "actionError": "",
+    "empty": "",
+    "emptyValue": ""
   },
   "products": {
     "pageTitle": "",

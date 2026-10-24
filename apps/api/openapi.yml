@@ -512,7 +512,7 @@ components:
         listen_stats_accepted:
           type: boolean
           nullable: true
-          description: Whether the account accepted popularity tracking. Null means the account has never decided.
+          description: Whether the account turned on Taste Profile. Null means the account has never decided.
           example: true
         listen_stats_agreement_version:
           type: string
@@ -524,7 +524,12 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: When the account last accepted or declined popularity tracking.
+          description: When the account last turned Taste Profile on or off.
+        listen_stats_opted_out_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the account last turned Taste Profile off after a Yes. New listens count toward no popularity total for a server-set number of days after it.
         account_settings_locale:
           type: object
           properties:
@@ -1039,7 +1044,7 @@ components:
           example: "2026-10-15"
         markdown:
           type: string
-    ApiGetLegalPopularityTrackingResponse200:
+    ApiGetLegalTasteProfileAgreementResponse200:
       type: object
       required:
         - version
@@ -4067,6 +4072,7 @@ components:
             - updated
             - unchanged
             - daily_cap_reached
+            - too_soon
             - below_threshold
             - not_allowed
             - not_found
@@ -4099,6 +4105,7 @@ components:
             - counted
             - unchanged
             - own_content
+            - daily_cap_reached
       example:
         result: counted
     AccountFollowingAddByRSSChannel:
@@ -4780,7 +4787,7 @@ paths:
       tags:
         - account-settings
       summary: PATCH /account-settings/listen-stats
-      description: Record a Yes or No decision for the current popularity-tracking agreement version. A No also deletes the account's pseudonymous listener id in the same request, which removes its listen records, Taste Profile, and Hidden From Taste Profile list. Anonymous public totals stay.
+      description: Record a Yes or No Taste Profile decision for the current Taste Profile agreement version. A No also deletes the account's listen records, open records, Taste Profile, and Hidden From Taste Profile list in the same request, and keeps the account's pseudonymous listener id. A No that follows a Yes records listen_stats_opted_out_at. Anonymous public totals stay.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -4854,13 +4861,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InternalServerErrorResponse"
-  /legal/popularity-tracking:
+  /legal/taste-profile-agreement:
     get:
-      operationId: apiGetLegalPopularityTracking
+      operationId: apiGetLegalTasteProfileAgreement
       tags:
         - legal
-      summary: GET /legal/popularity-tracking
-      description: Localized popularity-tracking agreement Markdown for the authenticated account. Returns 403 terms_acceptance_required when the account has not accepted the current terms of service.
+      summary: GET /legal/taste-profile-agreement
+      description: Localized Taste Profile agreement Markdown for the authenticated account. Returns 403 terms_acceptance_required when the account has not accepted the current terms of service.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -4870,7 +4877,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiGetLegalPopularityTrackingResponse200"
+                $ref: "#/components/schemas/ApiGetLegalTasteProfileAgreementResponse200"
         "401":
           description: Unauthorized
           content:
@@ -19334,13 +19341,18 @@ paths:
         - stats
       summary: POST /stats/listen
       description: >-
-        Records one report of a listening session for Popularity Tracking. Requires a Premium
-        membership with the trackStats capability and current Popularity Tracking consent, and is
-        rate limited per account (one budget shared with POST /stats/open). The first report of a
-        session stores one listen event, which counts toward the listener's daily cap; later reports
-        with the same client_listen_id keep the larger seconds_heard and a sticky completed and
-        never count the session twice. The server's receive time dates the listen for daily totals
-        and Taste Profile score decay. Authenticated endpoint (cookieAuth or bearerAuth).
+        Records one report of a listening session for the Taste Profile and public popularity
+        counts. Requires a Premium membership with the trackStats capability and current Taste
+        Profile consent, and is rate limited per account (one budget shared with POST /stats/open).
+        The first report of a session stores one listen event, up to the listener's daily cap.
+        Only the first listens of a day, up to a lower cap, count toward popularity; the rest feed
+        only the Taste Profile. Later reports with the same client_listen_id keep the larger seconds_heard and a sticky completed and
+        never count the session twice. A new session that arrives within the server's minimum
+        interval of the listener's last stored listen is not stored and answers too_soon. For a
+        server-set number of days after the account turns Taste Profile off, new listens are
+        stored for the Taste Profile only and still answer counted. The server's receive time
+        dates the listen for daily totals and Taste Profile score decay. Authenticated endpoint
+        (cookieAuth or bearerAuth).
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -19359,8 +19371,8 @@ paths:
                 $ref: "#/components/schemas/StatsListenResponse"
         "200":
           description: >-
-            The report was accepted without storing a new session: updated, unchanged, or
-            daily_cap_reached
+            The report was accepted without storing a new session: updated, unchanged,
+            daily_cap_reached, or too_soon
           content:
             application/json:
               schema:
@@ -19384,8 +19396,8 @@ paths:
         "403":
           description: >-
             Terms not accepted, membership expired, no trackStats capability
-            (feature_not_available_for_account_type), or Popularity Tracking consent not current
-            (popularity_tracking_not_allowed)
+            (feature_not_available_for_account_type), or Taste Profile consent not current
+            (taste_profile_consent_required)
           content:
             application/json:
               schema:
@@ -19421,11 +19433,14 @@ paths:
         - stats
       summary: POST /stats/open
       description: >-
-        Records a profile or playlist open for Popularity Tracking. Counts once per opener, profile
-        or playlist, and UTC day, never for the opener's own profile or playlist, and never feeds
-        the Taste Profile. Requires a Premium membership with the trackStats capability and current
-        Popularity Tracking consent, and is rate limited per account (one budget shared with POST
-        /stats/listen). Authenticated endpoint (cookieAuth or bearerAuth).
+        Records a profile or playlist open for public popularity counts. Counts once per opener,
+        profile or playlist, and UTC day, never for the opener's own profile or playlist, and at
+        most a daily number of counted opens per opener, profiles and playlists together, and
+        never feeds the Taste Profile. Requires a Premium membership with the trackStats
+        capability and current Taste Profile consent, and is rate limited per account (one budget
+        shared with POST /stats/listen). For a server-set number of days after the account turns
+        Taste Profile off, opens are not recorded and still answer counted. Authenticated endpoint
+        (cookieAuth or bearerAuth).
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -19443,7 +19458,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/StatsOpenResponse"
         "200":
-          description: Already opened today (unchanged), or the opener's own profile or playlist (own_content)
+          description: >-
+            Already opened today (unchanged), the opener's own profile or playlist
+            (own_content), or the opener's daily cap reached (daily_cap_reached)
           content:
             application/json:
               schema:
@@ -19465,8 +19482,8 @@ paths:
         "403":
           description: >-
             Terms not accepted, membership expired, no trackStats capability
-            (feature_not_available_for_account_type), or Popularity Tracking consent not current
-            (popularity_tracking_not_allowed)
+            (feature_not_available_for_account_type), or Taste Profile consent not current
+            (taste_profile_consent_required)
           content:
             application/json:
               schema:

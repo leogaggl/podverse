@@ -282,6 +282,7 @@
     "loadingDetail": "Chargement du détail...",
     "loadingChart": "Chargement du graphique...",
     "close": "Fermer",
+    "flaggedListenersLink": "Auditeurs signalés",
     "idValue": "ID {id}",
     "searchPlaceholder": "Rechercher {entity} par titre...",
     "topChartHeading": "Top 10 {entity} ({range})",
@@ -308,6 +309,32 @@
     "detail": {
       "dailyBreakdown": "Répartition quotidienne"
     }
+  },
+  "statsFlaggedListeners": {
+    "pageTitle": "Auditeurs signalés",
+    "intro": "Auditeurs dont l'écoute semblait automatisée. Tant qu'ils sont signalés, leur écoute met toujours à jour leur Profil de goûts, mais ne compte pas pour les listes publiques.",
+    "filterStatus": "Statut",
+    "statusActive": "Actif",
+    "statusCleared": "Levé",
+    "statusAll": "Tous les statuts",
+    "columnListener": "Auditeur",
+    "columnReason": "Motif",
+    "columnFlagged": "Signalé",
+    "columnTimesFlagged": "Nombre de signalements",
+    "columnListens": "Écoutes (7 jours)",
+    "columnOpens": "Ouvertures (7 jours)",
+    "columnStatus": "Statut",
+    "reasonStoredCapReached": "Limite quotidienne d'écoutes atteinte rapidement",
+    "reasonTooSoonMinutes": "Écoutes trop rapprochées en continu",
+    "clearedOn": "Levé le {date}",
+    "clear": "Lever le signalement",
+    "clearNamed": "Lever le signalement de {listener}",
+    "clearConfirmTitle": "Lever le signalement",
+    "clearConfirmBody": "La nouvelle écoute de cet auditeur, et celle d'avant le signalement, compte de nouveau pour les listes publiques. L'écoute enregistrée pendant le signalement reste exclue. Un nouveau signal un jour suivant le signale de nouveau.",
+    "loadError": "Impossible de charger les auditeurs signalés.",
+    "actionError": "Impossible de lever ce signalement.",
+    "empty": "Aucun auditeur signalé ne correspond à ce statut.",
+    "emptyValue": "—"
   },
   "products": {
     "pageTitle": "Produits",

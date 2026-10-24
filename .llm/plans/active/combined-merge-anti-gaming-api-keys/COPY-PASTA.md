@@ -18,7 +18,7 @@ Shared rules: `00-SUMMARY.md` § Merge step rules. Deferred items:
 
 ## Phase 1 — Popularity anti-gaming
 
-- [ ] **01 — Merge feature/popularity-anti-gaming**
+- [x] **01 — Merge feature/popularity-anti-gaming**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

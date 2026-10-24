@@ -5,6 +5,100 @@ export const POPULARITY_COUNTED_LISTEN_MIN_SECONDS = 60;
 export const POPULARITY_COUNTED_LISTEN_MIN_FRACTION = 0.25;
 
 /**
+ * Server seconds between one listener's new stored listens unless
+ * `STATS_LISTEN_MIN_INTERVAL_SECONDS` sets another value.
+ */
+export const POPULARITY_DEFAULT_LISTEN_MIN_INTERVAL_SECONDS = 20;
+
+/**
+ * Stored listens per listener per UTC day unless `STATS_LISTEN_DAILY_STORED_CAP` sets another
+ * value.
+ */
+export const POPULARITY_DEFAULT_DAILY_LISTEN_STORED_CAP = 300;
+
+/**
+ * Stored listens per listener per UTC day that count toward popularity unless
+ * `STATS_LISTEN_DAILY_POPULARITY_CAP` sets another value.
+ */
+export const POPULARITY_DEFAULT_DAILY_LISTEN_POPULARITY_CAP = 100;
+
+/**
+ * Counted profile and playlist opens per listener per UTC day unless `STATS_OPEN_DAILY_CAP` sets
+ * another value.
+ */
+export const POPULARITY_DEFAULT_DAILY_OPEN_CAP = 10;
+
+/**
+ * Days in which one listener adds to an entity's all-time total at most once, and the length of
+ * the popularity cooldown after an opt-out, unless `STATS_ALL_TIME_RECOUNT_DAYS` sets another
+ * value. The API refuses to start when it is above the event retention.
+ */
+export const POPULARITY_DEFAULT_ALL_TIME_RECOUNT_DAYS = 90;
+
+/** Why a listener was left out of popularity. */
+export const POPULARITY_FLAG_REASONS = ['stored_cap_reached', 'too_soon_minutes'] as const;
+
+export type PopularityFlagReason = (typeof POPULARITY_FLAG_REASONS)[number];
+
+/**
+ * Too-soon minutes in one unbroken run that flag a listener unless `STATS_FLAG_TOO_SOON_MINUTES`
+ * sets another value; 0 turns the signal off.
+ */
+export const POPULARITY_DEFAULT_FLAG_TOO_SOON_MINUTES = 30;
+
+/** A too-soon minute more than this many minutes after the run's last one starts a new run. */
+export const POPULARITY_FLAG_TOO_SOON_RUN_GAP_MINUTES = 2;
+
+/**
+ * Hours from a listener's first stored listen of a UTC day within which reaching the stored daily
+ * cap flags the listener, unless `STATS_FLAG_STORED_CAP_WITHIN_HOURS` sets another value; 0 turns
+ * the signal off.
+ */
+export const POPULARITY_DEFAULT_FLAG_STORED_CAP_WITHIN_HOURS = 3;
+
+const MS_PER_HOUR = 3_600_000;
+
+/** Whether `value` is one of `POPULARITY_FLAG_REASONS`. */
+export function isPopularityFlagReason(value: unknown): value is PopularityFlagReason {
+  for (const reason of POPULARITY_FLAG_REASONS) {
+    if (value === reason) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether a `too_soon` answer for an item or clip of `durationSeconds` counts toward the too-soon
+ * signal. Items and clips under 60 seconds count at 25% of their length, so honest listening
+ * meets the floor; an unknown duration counts.
+ */
+export function countsTowardTooSoonSignal(durationSeconds: number | null): boolean {
+  return !(
+    durationSeconds !== null &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds < POPULARITY_COUNTED_LISTEN_MIN_SECONDS
+  );
+}
+
+/**
+ * True when the stored daily cap was reached within `withinHours` of the day's first stored
+ * listen. A window of 0 or less is never reached.
+ */
+export function isStoredCapReachedFast(input: {
+  firstStoredAt: Date;
+  reachedAt: Date;
+  withinHours: number;
+}): boolean {
+  if (input.withinHours <= 0) {
+    return false;
+  }
+  return (
+    input.reachedAt.getTime() - input.firstStoredAt.getTime() <= input.withinHours * MS_PER_HOUR
+  );
+}
+
+/**
  * Seconds of media a listener must hear before a listen counts: 60 seconds or 25% of the item,
  * whichever is smaller. An unknown, zero, negative, or non-finite duration uses the 60-second rule.
  */
@@ -75,6 +169,7 @@ export type PopularityListenResult =
   | 'updated'
   | 'unchanged'
   | 'daily_cap_reached'
+  | 'too_soon'
   | 'below_threshold'
   | 'not_allowed'
   | 'not_found'
@@ -82,4 +177,4 @@ export type PopularityListenResult =
 
 /** What the open write path did with one profile or playlist open. */
 export type PopularityOpenResult =
-  'counted' | 'unchanged' | 'own_content' | 'not_allowed' | 'not_found';
+  'counted' | 'unchanged' | 'own_content' | 'daily_cap_reached' | 'not_allowed' | 'not_found';

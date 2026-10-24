@@ -2,7 +2,7 @@ import type { Account } from '@orm/entities/account/account.js';
 import type { Relation } from 'typeorm';
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
-import { POPULARITY_TRACKING_AGREEMENT_VERSION_MAX_LENGTH } from '@podverse/helpers';
+import { TASTE_PROFILE_AGREEMENT_VERSION_MAX_LENGTH } from '@podverse/helpers';
 
 import type { AccountSettingsLocale } from './accountSettingsLocale.js';
 import type { AccountSettingsNotification } from './accountSettingsNotification.js';
@@ -24,7 +24,7 @@ export class AccountSettings {
 
   @Column({
     type: 'varchar',
-    length: POPULARITY_TRACKING_AGREEMENT_VERSION_MAX_LENGTH,
+    length: TASTE_PROFILE_AGREEMENT_VERSION_MAX_LENGTH,
     name: 'listen_stats_agreement_version',
     nullable: true,
   })
@@ -32,6 +32,10 @@ export class AccountSettings {
 
   @Column({ type: 'timestamptz', name: 'listen_stats_decided_at', nullable: true })
   listen_stats_decided_at!: Date | null;
+
+  /** When the account last turned Taste Profile off after a Yes; starts the popularity cooldown. */
+  @Column({ type: 'timestamptz', name: 'listen_stats_opted_out_at', nullable: true })
+  listen_stats_opted_out_at!: Date | null;
 
   @OneToOne('Account', (account: Account) => account.account_settings, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'account_id' })

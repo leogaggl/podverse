@@ -421,6 +421,7 @@ export class AccountService {
       accountSettings.listen_stats_accepted = null;
       accountSettings.listen_stats_agreement_version = null;
       accountSettings.listen_stats_decided_at = null;
+      accountSettings.listen_stats_opted_out_at = null;
       const savedAccountSettings = await accountSettingsRepo.save(accountSettings);
 
       // Then create and save the locale with the proper foreign key

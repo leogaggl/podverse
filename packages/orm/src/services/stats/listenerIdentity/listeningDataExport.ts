@@ -7,8 +7,8 @@ import { StatsTasteProfileHidden } from '@orm/entities/stats/statsTasteProfileHi
 import type {
   DTOAccountDataExportHiddenFromTasteProfileRow,
   DTOAccountDataExportListenEvent,
+  DTOAccountDataExportListeningData,
   DTOAccountDataExportOpenEvent,
-  DTOAccountDataExportPopularityTracking,
   DTOAccountDataExportTasteProfileRow,
 } from '@podverse/helpers';
 
@@ -20,10 +20,10 @@ import { StatsListenerService } from './statsListener.js';
 export class ListeningDataExportService {
   private readonly listeners = new StatsListenerService();
 
-  async getForAccount(account_id: number): Promise<DTOAccountDataExportPopularityTracking> {
+  async getForAccount(account_id: number): Promise<DTOAccountDataExportListeningData> {
     const listener_id = await this.listeners.findListenerId(account_id);
     if (listener_id === null) {
-      return emptyPopularityTracking();
+      return emptyListeningData();
     }
 
     const manager = AppDataSourceReadWrite.manager;
@@ -57,7 +57,7 @@ export class ListeningDataExportService {
   }
 }
 
-function emptyPopularityTracking(): DTOAccountDataExportPopularityTracking {
+function emptyListeningData(): DTOAccountDataExportListeningData {
   return {
     taste_profile: [],
     hidden_from_taste_profile: [],

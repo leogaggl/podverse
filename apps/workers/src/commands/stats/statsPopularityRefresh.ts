@@ -6,8 +6,9 @@ import { getUtcDateString } from '@workers/lib/stats/statsUtcDates.js';
 import { refreshStatsPopularity } from '@podverse/orm';
 
 /**
- * Rebuilds popularity range totals from daily totals. Hourly runs cover entities active in the
- * month window; `-full` recomputes every entity. See `docs/features/POPULARITY-TRACKING.md`.
+ * Rebuilds popularity range totals: day, week, and month from counted events, all-time from daily
+ * totals. Hourly runs cover entities active in the month window; `-full` recomputes every entity.
+ * See `docs/features/POPULARITY-AND-TASTE-PROFILE.md`.
  */
 export const statsPopularityRefresh = async (args: CommandLineArgs) => {
   const logger = getLogger();

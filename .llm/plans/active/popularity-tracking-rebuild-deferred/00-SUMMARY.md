@@ -6,7 +6,7 @@ data foundation: a permanent pseudonymous listener id in its own schema, monthly
 and open events kept 90 days, anonymous daily and range totals, per-show Taste Profile rows with a
 Hidden From Taste Profile list, opt-out deletion with a warning, and the Taste Profile settings on
 web and mobile. The old stats tables and code are gone. Contracts and lifetimes are in
-`docs/features/POPULARITY-TRACKING.md`.
+`docs/features/POPULARITY-AND-TASTE-PROFILE.md`.
 
 ## "Also listened" scores and recommendation surfaces (R30)
 
@@ -32,6 +32,22 @@ without a schema change to the taste rows.
 id and the rolling counts. `misc/aicasts/content-lifecycle-4-duplicate-feed-merge.md` says stats
 are added together on a merge; the merge now removes same-day listener overlap inside retention,
 merges taste rows, and a revert does not move listener data back.
+
+The `popularity-anti-gaming` set (`.llm/plans/completed/popularity-anti-gaming/`) changed more of
+what the privacy episode must describe:
+
+- The opt-in is named Taste Profile, not Popularity Tracking.
+- A 20-second minimum interval between new listens, and two daily listen caps: 300 stored, of
+  which the first 100 count toward popularity. There is also a daily cap of 10 counted profile and
+  playlist opens.
+- Opting out keeps the listener id and starts a 90-day popularity cooldown. Opting out and back in
+  resets no limits.
+- Listening that looks automated flags the listener out of popularity, and an admin can clear the
+  flag.
+- Day, week, and month counts are distinct listeners from events. All-time counts a listener once
+  per entity per 90 days.
+
+The merge episode must also say that every old-channel event moves to the survivor channel.
 
 **Why it waits.** The episodes should describe shipped behavior, so they are rewritten with an
 **abcaicast** run after this set ships.

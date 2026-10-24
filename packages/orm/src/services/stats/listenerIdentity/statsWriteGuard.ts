@@ -2,11 +2,11 @@ import { AppDataSourceReadWrite } from '@orm/db/index.js';
 import type { EntityManager } from 'typeorm';
 import { QueryFailedError } from 'typeorm';
 
-import { isPopularityTrackingAllowed, ONE_DAY_MS } from '@podverse/helpers';
+import { isTasteProfileTrackingAllowed, ONE_DAY_MS, subtractDays } from '@podverse/helpers';
 
 /*
  * Steps the listen and open write paths share inside the listener identity zone. This module is
- * not exported from `@podverse/orm`. Contracts: docs/features/POPULARITY-TRACKING.md.
+ * not exported from `@podverse/orm`. Contracts: docs/features/POPULARITY-AND-TASTE-PROFILE.md.
  */
 
 export type UtcDayBounds = {
@@ -54,37 +54,59 @@ export async function runListenerWrite<T>(
   }
 }
 
+export type TrackingConsent = {
+  allowed: boolean;
+  /** The last opt-out that followed a Yes, or null. */
+  optedOutAt: Date | null;
+};
+
 /**
- * Reads the account's Popularity Tracking decision `FOR SHARE` and checks it against
- * `agreementVersion`. Opting out updates this row and deletes the listener row in one transaction,
- * so a report holding the share lock cannot recreate a listener id that an opt-out removed. A
- * missing settings row does not allow tracking.
+ * Reads the account's Taste Profile consent decision and last opt-out time `FOR SHARE` and checks
+ * the decision against `agreementVersion`. Opting out updates this row and deletes the listener's
+ * listening data in one transaction, so a report holding the share lock cannot keep data that an
+ * opt-out removed. A missing settings row does not allow tracking.
  */
-export async function isTrackingAllowedForUpdate(
+export async function readTrackingConsentForUpdate(
   manager: EntityManager,
   accountId: number,
   agreementVersion: string
-): Promise<boolean> {
+): Promise<TrackingConsent> {
   const [row] = await queryRows(
     manager,
-    `SELECT listen_stats_accepted, listen_stats_agreement_version
+    `SELECT listen_stats_accepted, listen_stats_agreement_version, listen_stats_opted_out_at
        FROM account_settings
       WHERE account_id = $1
         FOR SHARE`,
     [accountId]
   );
   if (row === undefined) {
-    return false;
+    return { allowed: false, optedOutAt: null };
   }
   const accepted = row.listen_stats_accepted;
   const version = row.listen_stats_agreement_version;
-  return isPopularityTrackingAllowed(
-    {
-      listen_stats_accepted: typeof accepted === 'boolean' ? accepted : null,
-      listen_stats_agreement_version: typeof version === 'string' ? version : null,
-    },
-    agreementVersion
-  );
+  const optedOutAt = row.listen_stats_opted_out_at;
+  return {
+    allowed: isTasteProfileTrackingAllowed(
+      {
+        listen_stats_accepted: typeof accepted === 'boolean' ? accepted : null,
+        listen_stats_agreement_version: typeof version === 'string' ? version : null,
+      },
+      agreementVersion
+    ),
+    optedOutAt: optedOutAt instanceof Date ? optedOutAt : null,
+  };
+}
+
+/**
+ * Whether `now` falls inside the popularity cooldown that follows an opt-out: listens still
+ * feed the Taste Profile, and nothing counts toward popularity.
+ */
+export function isInOptOutCooldown(
+  optedOutAt: Date | null,
+  now: Date,
+  cooldownDays: number
+): boolean {
+  return optedOutAt !== null && optedOutAt.getTime() > subtractDays(now, cooldownDays).getTime();
 }
 
 /**

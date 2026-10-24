@@ -66,15 +66,17 @@ idle expiry, so a device that returns within its idle limit can still be told wh
 Every window below is optional, falls back to a shared default in `@podverse/helpers`, and is
 validated at startup as a number of days between 1 and 3650 — a value outside that range is a unit
 mistake (seconds pasted into a field counted in days) rather than a deliberate choice.
+`STATS_TRACK_EVENT_RETENTION_DAYS` starts at 31 instead, because popularity month counts read the
+events.
 
-| Variable                                | Default | Deletes                                                            |
-| --------------------------------------- | ------- | ------------------------------------------------------------------ |
-| `NOTIFICATION_RETENTION_DAYS`           | 30      | Delivered `account_notification` rows                              |
-| `ACCOUNT_CONTENT_LOG_RETENTION_DAYS`    | 30      | Removed Content log rows (`account_content_log`)                   |
-| `ACCOUNT_SESSION_RETENTION_DAYS`        | 30      | Account session rows (`account_session`), counted from idle expiry |
-| `SCHEDULED_JOB_RETENTION_DAYS`          | 30      | Finished `scheduled_job` rows                                      |
-| `ON_DEMAND_PARSER_EVENT_RETENTION_DAYS` | 30      | On-demand parse request records                                    |
-| `STATS_TRACK_EVENT_RETENTION_DAYS`      | 90      | Raw popularity listen and open events, a whole month at a time     |
+| Variable                                | Default | Deletes                                                                                                          |
+| --------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `NOTIFICATION_RETENTION_DAYS`           | 30      | Delivered `account_notification` rows                                                                            |
+| `ACCOUNT_CONTENT_LOG_RETENTION_DAYS`    | 30      | Removed Content log rows (`account_content_log`)                                                                 |
+| `ACCOUNT_SESSION_RETENTION_DAYS`        | 30      | Account session rows (`account_session`), counted from idle expiry                                               |
+| `SCHEDULED_JOB_RETENTION_DAYS`          | 30      | Finished `scheduled_job` rows                                                                                    |
+| `ON_DEMAND_PARSER_EVENT_RETENTION_DAYS` | 30      | On-demand parse request records                                                                                  |
+| `STATS_TRACK_EVENT_RETENTION_DAYS`      | 90      | Raw popularity listen and open events, a whole month at a time; at least 31: popularity month counts read events |
 
 `deleteOutdatedOnDemandParserEvent` accepts a `-days` argument that overrides its variable for a
 single run, so an operator clearing a specific backlog by hand does not have to change deployment

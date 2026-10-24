@@ -46,11 +46,19 @@ type ListenInput = {
   clientListenId: string;
   secondsHeard: number;
   completed?: boolean;
-  dailyCap?: number;
+  storedDailyCap?: number;
+  popularityDailyCap?: number;
+  minIntervalSeconds?: number;
+  allTimeRecountDays?: number;
+  flagTooSoonMinutes?: number;
+  flagStoredCapWithinHours?: number;
 };
 
 const AGREEMENT_VERSION = 'stats-listen-write-test';
-const DAILY_CAP = 300;
+const STORED_DAILY_CAP = 300;
+const POPULARITY_DAILY_CAP = 100;
+const OPEN_DAILY_CAP = 10;
+const ALL_TIME_RECOUNT_DAYS = 90;
 const ITEM_DURATION_SECONDS = 200;
 const DAY_MS = 86_400_000;
 
@@ -64,6 +72,8 @@ const OPEN_DAILY_TABLES = {
   account: { table: 'stats_daily_account', column: 'account_id' },
   playlist: { table: 'stats_daily_playlist', column: 'playlist_id' },
 } as const;
+
+const ALL_TIME_DAILY_TABLES = { ...DAILY_TABLES, ...OPEN_DAILY_TABLES } as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -129,6 +139,7 @@ describe('Popularity listen and open write services (real database)', () => {
   let podcastItem: SeededEntity;
   let hiddenShowItem: SeededEntity;
   let concurrencyItem: SeededEntity;
+  let minIntervalItem: SeededEntity;
   let albumChannelId: number;
   let artistChannelId: number;
   let track: SeededEntity;
@@ -233,7 +244,12 @@ describe('Popularity listen and open write services (real database)', () => {
     return new StatsListenWriteService().recordListen({
       account_id: input.accountId,
       agreement_version: AGREEMENT_VERSION,
-      daily_cap: input.dailyCap ?? DAILY_CAP,
+      stored_daily_cap: input.storedDailyCap ?? STORED_DAILY_CAP,
+      popularity_daily_cap: input.popularityDailyCap ?? POPULARITY_DAILY_CAP,
+      min_interval_seconds: input.minIntervalSeconds ?? 0,
+      all_time_recount_days: input.allTimeRecountDays ?? ALL_TIME_RECOUNT_DAYS,
+      flag_too_soon_minutes: input.flagTooSoonMinutes ?? 0,
+      flag_stored_cap_within_hours: input.flagStoredCapWithinHours ?? 0,
       target: input.target,
       client_listen_id: input.clientListenId,
       seconds_heard: input.secondsHeard,
@@ -243,14 +259,25 @@ describe('Popularity listen and open write services (real database)', () => {
 
   const open = async (
     accountId: number,
-    target: StatsOpenTarget
+    target: StatsOpenTarget,
+    dailyCap = OPEN_DAILY_CAP
   ): Promise<PopularityOpenResult> => {
     const { StatsOpenWriteService } = await import('@podverse/orm');
     return new StatsOpenWriteService().recordOpen({
       account_id: accountId,
       agreement_version: AGREEMENT_VERSION,
+      daily_cap: dailyCap,
+      all_time_recount_days: ALL_TIME_RECOUNT_DAYS,
       target,
     });
+  };
+
+  const setOptedOutAt = async (accountId: number, sqlInterval: string): Promise<void> => {
+    await query(
+      `UPDATE account_settings SET listen_stats_opted_out_at = now() - $2::interval
+        WHERE account_id = $1`,
+      [accountId, sqlInterval]
+    );
   };
 
   const listenerRowCount = async (accountId: number): Promise<number> =>
@@ -273,11 +300,52 @@ describe('Popularity listen and open write services (real database)', () => {
       ).listener_id
     );
 
+  const flagRow = async (listenerId: string): Promise<Record<string, unknown> | null> =>
+    rowsOf(
+      await query(
+        `SELECT reason, times_flagged, cleared_at, cleared_by_admin_id
+           FROM stats_flagged_listener
+          WHERE listener_id = $1::uuid`,
+        [listenerId]
+      )
+    )[0] ?? null;
+
+  const signalRow = async (listenerId: string): Promise<Record<string, unknown> | null> =>
+    rowsOf(
+      await query(
+        `SELECT too_soon_minutes, last_too_soon_minute
+           FROM stats_flag_signal
+          WHERE listener_id = $1::uuid`,
+        [listenerId]
+      )
+    )[0] ?? null;
+
+  const moveRunBack = async (listenerId: string, minutes: number): Promise<void> => {
+    await query(
+      `UPDATE stats_flag_signal
+          SET last_too_soon_minute = last_too_soon_minute - make_interval(mins => $2)
+        WHERE listener_id = $1::uuid`,
+      [listenerId, minutes]
+    );
+  };
+
+  // The too-soon run is keyed by the database clock's UTC minute, so a test that expects several
+  // calls in one minute starts only when at least 10 seconds of the current minute remain.
+  const waitForFreshMinute = async (): Promise<void> => {
+    const secondsIntoMinute = asNumber(
+      firstRow(await query(`SELECT extract(second FROM now())::float8 AS seconds`)).seconds
+    );
+    if (secondsIntoMinute > 50) {
+      await new Promise((resolve) => setTimeout(resolve, (60 - secondsIntoMinute) * 1000 + 100));
+    }
+  };
+
   const listenEvents = async (accountId: number): Promise<Record<string, unknown>[]> =>
     rowsOf(
       await query(
         `SELECT e.id::text AS id, e.item_id, e.channel_id, e.clip_id, e.seconds_heard, e.completed,
-                e.client_listen_id::text AS client_listen_id
+                e.popularity_counted, e.item_all_time_counted, e.channel_all_time_counted,
+                e.clip_all_time_counted, e.client_listen_id::text AS client_listen_id
            FROM stats_listen_event e
            JOIN listener_identity.stats_listener l ON l.listener_id = e.listener_id
           WHERE l.account_id = $1
@@ -304,6 +372,41 @@ describe('Popularity listen and open write services (real database)', () => {
           listener_count: asNumber(row.listener_count),
           completion_count: asNumber(row.completion_count),
         };
+  };
+
+  const allTimeDailyCount = async (
+    entity: keyof typeof ALL_TIME_DAILY_TABLES,
+    entityId: number,
+    day: string
+  ): Promise<number> => {
+    const { table, column } = ALL_TIME_DAILY_TABLES[entity];
+    const row = rowsOf(
+      await query(
+        `SELECT all_time_listener_count FROM ${table} WHERE ${column} = $1 AND day = $2::date`,
+        [entityId, day]
+      )
+    )[0];
+    return row === undefined ? 0 : asNumber(row.all_time_listener_count);
+  };
+
+  const backdateListens = async (
+    listenerId: string,
+    hours: number,
+    clientListenId: string | null = null
+  ): Promise<void> => {
+    await query(
+      `UPDATE stats_listen_event SET created_at = created_at - make_interval(hours => $2)
+        WHERE listener_id = $1::uuid AND ($3::uuid IS NULL OR client_listen_id = $3::uuid)`,
+      [listenerId, hours, clientListenId]
+    );
+  };
+
+  const backdateOpens = async (listenerId: string, hours: number): Promise<void> => {
+    await query(
+      `UPDATE stats_open_event SET created_at = created_at - make_interval(hours => $2)
+        WHERE listener_id = $1::uuid`,
+      [listenerId, hours]
+    );
   };
 
   const dailyOpenCount = async (
@@ -403,6 +506,7 @@ describe('Popularity listen and open write services (real database)', () => {
     podcastItem = await seedItem(podcastChannelId, 'episode', ITEM_DURATION_SECONDS);
     hiddenShowItem = await seedItem(podcastChannelId, 'hidden-show', ITEM_DURATION_SECONDS);
     concurrencyItem = await seedItem(podcastChannelId, 'concurrency', ITEM_DURATION_SECONDS);
+    minIntervalItem = await seedItem(podcastChannelId, 'min-interval', ITEM_DURATION_SECONDS);
     clip = await seedClip(`swcl${suffix}`, false);
     removedClip = await seedClip(`swrm${suffix}`, true);
 
@@ -546,7 +650,7 @@ describe('Popularity listen and open write services (real database)', () => {
     expect(await listenEvents(listener.id)).toHaveLength(eventsBefore.length);
   });
 
-  it('writes nothing for an account that turned Popularity Tracking off', async () => {
+  it('writes nothing for an account that turned Taste Profile off', async () => {
     const declined = await seedAccount('declined', false);
     expect(
       await listen({
@@ -569,7 +673,8 @@ describe('Popularity listen and open write services (real database)', () => {
       clientListenId,
       secondsHeard: 70,
       completed,
-      dailyCap: 2,
+      storedDailyCap: 2,
+      popularityDailyCap: 2,
     });
 
     expect(await listen(report(firstSession))).toBe('counted');
@@ -577,6 +682,207 @@ describe('Popularity listen and open write services (real database)', () => {
     expect(await listen(report(randomUUID()))).toBe('daily_cap_reached');
     expect(await listen(report(firstSession, true))).toBe('updated');
     expect(await listenEvents(capped.id)).toHaveLength(2);
+  });
+
+  it('stores listens past the popularity cap for taste only and counts none of them daily', async () => {
+    const heavy = await seedAccount('popularity-cap', true);
+    const freshItem = await seedItem(podcastChannelId, 'popularity-cap', ITEM_DURATION_SECONDS);
+    const channelDailyBefore = await dailyCounts('channel', podcastChannelId, todayUtc());
+    const report = (
+      item: SeededEntity,
+      clientListenId: string,
+      completed = false
+    ): ListenInput => ({
+      accountId: heavy.id,
+      target: itemTarget(item),
+      clientListenId,
+      secondsHeard: 75,
+      completed,
+      storedDailyCap: 3,
+      popularityDailyCap: 1,
+    });
+
+    expect(await listen(report(podcastItem, randomUUID()))).toBe('counted');
+    const channelDailyAfterFirst = await dailyCounts('channel', podcastChannelId, todayUtc());
+    expect(channelDailyAfterFirst?.listener_count).toBe(
+      (channelDailyBefore?.listener_count ?? 0) + 1
+    );
+
+    const overCapSession = randomUUID();
+    expect(await listen(report(freshItem, overCapSession))).toBe('counted');
+    const events = await listenEvents(heavy.id);
+    expect(events.map((event) => event.popularity_counted)).toEqual([true, false]);
+    expect(await dailyCounts('item', freshItem.id, todayUtc())).toBeNull();
+    expect(await dailyCounts('channel', podcastChannelId, todayUtc())).toEqual(
+      channelDailyAfterFirst
+    );
+    const tasteBefore = await requireTasteRow(heavy.id, podcastChannelId);
+    expect(tasteBefore.listen_count).toBe(2);
+
+    expect(await listen(report(freshItem, overCapSession, true))).toBe('updated');
+    expect(await dailyCounts('item', freshItem.id, todayUtc())).toBeNull();
+    expect(await dailyCounts('channel', podcastChannelId, todayUtc())).toEqual(
+      channelDailyAfterFirst
+    );
+    expect((await requireTasteRow(heavy.id, podcastChannelId)).completion_count).toBe(
+      tasteBefore.completion_count + 1
+    );
+
+    expect(await listen(report(freshItem, randomUUID()))).toBe('counted');
+    expect((await listenEvents(heavy.id)).map((event) => event.popularity_counted)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect(await listen(report(freshItem, randomUUID()))).toBe('daily_cap_reached');
+  });
+
+  it('answers too_soon for a new session inside the minimum interval and still updates the stored session', async () => {
+    const quick = await seedAccount('min-interval', true);
+    const sessionA: ListenInput = {
+      accountId: quick.id,
+      target: itemTarget(podcastItem),
+      clientListenId: randomUUID(),
+      secondsHeard: 75,
+      minIntervalSeconds: 20,
+    };
+    const sessionB: ListenInput = {
+      accountId: quick.id,
+      target: itemTarget(minIntervalItem),
+      clientListenId: randomUUID(),
+      secondsHeard: 75,
+      minIntervalSeconds: 20,
+    };
+
+    expect(await listen(sessionA)).toBe('counted');
+    const channelDailyBefore = await dailyCounts('channel', podcastChannelId, todayUtc());
+
+    expect(await listen(sessionB)).toBe('too_soon');
+    expect(await listenEvents(quick.id)).toHaveLength(1);
+    expect(await dailyCounts('item', minIntervalItem.id, todayUtc())).toBeNull();
+    expect(await dailyCounts('channel', podcastChannelId, todayUtc())).toEqual(channelDailyBefore);
+    expect(await tasteRow(quick.id, podcastChannelId)).toMatchObject({ listen_count: 1 });
+
+    expect(await listen({ ...sessionA, completed: true })).toBe('updated');
+
+    await query(
+      `UPDATE stats_listen_event SET created_at = created_at - interval '21 seconds'
+        WHERE listener_id = $1::uuid`,
+      [await listenerIdOf(quick.id)]
+    );
+    expect(await listen(sessionB)).toBe('counted');
+    expect(await listenEvents(quick.id)).toHaveLength(2);
+    expect(await dailyCounts('item', minIntervalItem.id, todayUtc())).toMatchObject({
+      listener_count: 1,
+    });
+  });
+
+  it('stores listens in the opt-out cooldown for the Taste Profile only and answers counted', async () => {
+    const returning = await seedAccount('cooldown', true);
+    const coolingItem = await seedItem(podcastChannelId, 'cooldown-a', ITEM_DURATION_SECONDS);
+    const recountedItem = await seedItem(podcastChannelId, 'cooldown-b', ITEM_DURATION_SECONDS);
+
+    await setOptedOutAt(returning.id, '1 day');
+    expect(
+      await listen({
+        accountId: returning.id,
+        target: itemTarget(coolingItem),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+      })
+    ).toBe('counted');
+    expect((await listenEvents(returning.id)).map((event) => event.popularity_counted)).toEqual([
+      false,
+    ]);
+    expect(await dailyCounts('item', coolingItem.id, todayUtc())).toBeNull();
+    expect(await tasteRow(returning.id, podcastChannelId)).toMatchObject({ listen_count: 1 });
+
+    await setOptedOutAt(returning.id, '91 days');
+    expect(
+      await listen({
+        accountId: returning.id,
+        target: itemTarget(recountedItem),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+      })
+    ).toBe('counted');
+    expect((await listenEvents(returning.id)).map((event) => event.popularity_counted)).toEqual([
+      false,
+      true,
+    ]);
+    expect(await dailyCounts('item', recountedItem.id, todayUtc())).toMatchObject({
+      listener_count: 1,
+    });
+  });
+
+  it('answers too_soon for a new listen inside the minimum interval after an opt-out, without creating a listener id', async () => {
+    const returning = await seedAccount('opt-out-too-soon', true);
+    const session: ListenInput = {
+      accountId: returning.id,
+      target: itemTarget(podcastItem),
+      clientListenId: randomUUID(),
+      secondsHeard: 75,
+      minIntervalSeconds: 20,
+    };
+
+    await setOptedOutAt(returning.id, '5 seconds');
+    expect(await listen(session)).toBe('too_soon');
+    expect(await listenerRowCount(returning.id)).toBe(0);
+
+    await setOptedOutAt(returning.id, '21 seconds');
+    expect(await listen(session)).toBe('counted');
+  });
+
+  it("keeps today's stored listens against the stored cap after an opt-out and a new Yes", async () => {
+    const returning = await seedAccount('opt-out-stored-cap', true);
+    const report = (): ListenInput => ({
+      accountId: returning.id,
+      target: itemTarget(podcastItem),
+      clientListenId: randomUUID(),
+      secondsHeard: 75,
+      storedDailyCap: 3,
+    });
+
+    expect(await listen(report())).toBe('counted');
+    expect(await listen(report())).toBe('counted');
+    const listenerId = await listenerIdOf(returning.id);
+
+    const { AccountSettingsListenStatsService } = await import('@podverse/orm');
+    const settingsService = new AccountSettingsListenStatsService();
+    await settingsService.update({
+      account_id: returning.id,
+      accepted: false,
+      agreement_version: AGREEMENT_VERSION,
+    });
+    await settingsService.update({
+      account_id: returning.id,
+      accepted: true,
+      agreement_version: AGREEMENT_VERSION,
+    });
+    expect(await listenerIdOf(returning.id)).toBe(listenerId);
+
+    expect(await listen(report())).toBe('counted');
+    expect((await listenEvents(returning.id)).map((event) => event.popularity_counted)).toEqual([
+      false,
+    ]);
+    expect(await listen(report())).toBe('daily_cap_reached');
+
+    await query(
+      `UPDATE listener_identity.stats_listener
+          SET opt_out_day = opt_out_day - 1,
+              opt_out_day_first_stored_at = opt_out_day_first_stored_at - interval '1 day'
+        WHERE listener_id = $1::uuid`,
+      [listenerId]
+    );
+    expect(await listen(report())).toBe('counted');
+    expect(
+      firstRow(
+        await query(
+          'SELECT opt_out_day FROM listener_identity.stats_listener WHERE listener_id = $1::uuid',
+          [listenerId]
+        )
+      ).opt_out_day
+    ).toBeNull();
   });
 
   it('leaves the taste row of a hidden show alone and still counts the listen daily', async () => {
@@ -794,6 +1100,59 @@ describe('Popularity listen and open write services (real database)', () => {
     expect(await tasteRowCount(listener.id)).toBe(tasteRowsBefore);
   });
 
+  it('stops counting opens at the daily cap, profiles and playlists together, without counting own or repeat opens', async () => {
+    const opener = await seedAccount('open-cap-opener', true);
+    const ownerA = await seedAccount('open-cap-a', true);
+    const ownerB = await seedAccount('open-cap-b', true);
+    const { PlaylistService } = await import('@podverse/orm');
+    const playlistA = await new PlaylistService().getOrCreateDefaultLikesPlaylist(
+      ownerA.id,
+      MediumEnum.AV
+    );
+    await new PlaylistService().getOrCreateDefaultLikesPlaylist(ownerB.id, MediumEnum.AV);
+
+    expect(await open(opener.id, { kind: 'account', id_text: ownerA.idText }, 2)).toBe('counted');
+    expect(await open(opener.id, { kind: 'account', id_text: ownerA.idText }, 2)).toBe('unchanged');
+    expect(await open(opener.id, { kind: 'account', id_text: opener.idText }, 2)).toBe(
+      'own_content'
+    );
+    expect(await open(opener.id, { kind: 'playlist', id_text: playlistA.id_text }, 2)).toBe(
+      'counted'
+    );
+    expect(await open(opener.id, { kind: 'account', id_text: ownerB.idText }, 2)).toBe(
+      'daily_cap_reached'
+    );
+    expect(await dailyOpenCount('account', ownerB.id, todayUtc())).toBe(0);
+    expect(await open(opener.id, { kind: 'account', id_text: ownerA.idText }, 2)).toBe('unchanged');
+  });
+
+  it('does not record opens in the opt-out cooldown', async () => {
+    const opener = await seedAccount('cooldown-opener', true);
+    const profileOwner = await seedAccount('cooldown-owner', true);
+    const profile: StatsOpenTarget = { kind: 'account', id_text: profileOwner.idText };
+    const openEventCount = async (): Promise<number> =>
+      asNumber(
+        firstRow(
+          await query(
+            `SELECT count(*)::int AS total FROM stats_open_event o
+               JOIN listener_identity.stats_listener l ON l.listener_id = o.listener_id
+              WHERE l.account_id = $1`,
+            [opener.id]
+          )
+        ).total
+      );
+
+    await setOptedOutAt(opener.id, '1 day');
+    expect(await open(opener.id, profile)).toBe('counted');
+    expect(await listenerRowCount(opener.id)).toBe(0);
+    expect(await openEventCount()).toBe(0);
+    expect(await dailyOpenCount('account', profileOwner.id, todayUtc())).toBe(0);
+
+    await setOptedOutAt(opener.id, '91 days');
+    expect(await open(opener.id, profile)).toBe('counted');
+    expect(await openEventCount()).toBe(1);
+  });
+
   it('keeps one listener id and one daily listener when five sessions arrive at once', async () => {
     const racer = await seedAccount('concurrency', true);
     const results = await Promise.all(
@@ -813,6 +1172,557 @@ describe('Popularity listen and open write services (real database)', () => {
     expect(await dailyCounts('item', concurrencyItem.id, todayUtc())).toEqual({
       listener_count: 1,
       completion_count: 0,
+    });
+  });
+
+  it('stores one event when five new sessions arrive at once inside the minimum interval', async () => {
+    const burst = await seedAccount('min-interval-burst', true);
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        listen({
+          accountId: burst.id,
+          target: itemTarget(concurrencyItem),
+          clientListenId: randomUUID(),
+          secondsHeard: 75,
+          minIntervalSeconds: 20,
+        })
+      )
+    );
+
+    expect([...results].sort()).toEqual([
+      'counted',
+      'too_soon',
+      'too_soon',
+      'too_soon',
+      'too_soon',
+    ]);
+    expect(await listenEvents(burst.id)).toHaveLength(1);
+  });
+
+  describe('all-time recount period', () => {
+    const lastEvent = async (accountId: number): Promise<Record<string, unknown>> => {
+      const event = (await listenEvents(accountId)).at(-1);
+      if (event === undefined) {
+        throw new Error('expected a listen event');
+      }
+      return event;
+    };
+
+    const noMarks = {
+      item_all_time_counted: false,
+      channel_all_time_counted: false,
+      clip_all_time_counted: false,
+    };
+
+    it('adds a listener to all-time totals once per recount period and again after it', async () => {
+      const regular = await seedAccount('recount-period', true);
+      const item = await seedItem(podcastChannelId, 'recount-period', ITEM_DURATION_SECONDS);
+      const channelAllTimeBefore = await allTimeDailyCount('channel', podcastChannelId, todayUtc());
+      const session = (allTimeRecountDays?: number): ListenInput => ({
+        accountId: regular.id,
+        target: itemTarget(item),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+        allTimeRecountDays,
+      });
+
+      expect(await listen(session())).toBe('counted');
+      expect(await dailyCounts('item', item.id, todayUtc())).toEqual({
+        listener_count: 1,
+        completion_count: 0,
+      });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(1);
+      expect(await allTimeDailyCount('channel', podcastChannelId, todayUtc())).toBe(
+        channelAllTimeBefore + 1
+      );
+      expect(await lastEvent(regular.id)).toMatchObject({
+        item_all_time_counted: true,
+        channel_all_time_counted: true,
+        clip_all_time_counted: false,
+      });
+      const listenerId = await listenerIdOf(regular.id);
+
+      await backdateListens(listenerId, 48);
+      expect(await listen(session())).toBe('counted');
+      expect(await dailyCounts('item', item.id, todayUtc())).toEqual({
+        listener_count: 2,
+        completion_count: 0,
+      });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(1);
+      expect(await lastEvent(regular.id)).toMatchObject(noMarks);
+
+      await backdateListens(listenerId, 48);
+      expect(await listen(session(3))).toBe('counted');
+      expect(await dailyCounts('item', item.id, todayUtc())).toEqual({
+        listener_count: 3,
+        completion_count: 0,
+      });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(2);
+      expect(await lastEvent(regular.id)).toMatchObject({ item_all_time_counted: true });
+    });
+
+    it('adds a listener already counted today once the period ends later that day', async () => {
+      const returning = await seedAccount('recount-same-day', true);
+      const item = await seedItem(podcastChannelId, 'recount-same-day', ITEM_DURATION_SECONDS);
+      const session = (clientListenId: string): ListenInput => ({
+        accountId: returning.id,
+        target: itemTarget(item),
+        clientListenId,
+        secondsHeard: 75,
+        allTimeRecountDays: 3,
+      });
+      const firstSession = randomUUID();
+
+      expect(await listen(session(firstSession))).toBe('counted');
+      expect(await dailyCounts('item', item.id, todayUtc())).toMatchObject({ listener_count: 1 });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(1);
+      const listenerId = await listenerIdOf(returning.id);
+
+      await backdateListens(listenerId, 71);
+      expect(await listen(session(randomUUID()))).toBe('counted');
+      expect(await dailyCounts('item', item.id, todayUtc())).toMatchObject({ listener_count: 2 });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(1);
+
+      await backdateListens(listenerId, 2, firstSession);
+      expect(await listen(session(randomUUID()))).toBe('counted');
+      expect(await dailyCounts('item', item.id, todayUtc())).toMatchObject({ listener_count: 2 });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(2);
+      expect(await lastEvent(returning.id)).toMatchObject({ item_all_time_counted: true });
+    });
+
+    it('does not mark listens past the popularity cap, from a flagged listener, or in the opt-out cooldown', async () => {
+      const heavy = await seedAccount('recount-cap', true);
+      const overCapItem = await seedItem(podcastChannelId, 'recount-cap', ITEM_DURATION_SECONDS);
+      const capped = (item: SeededEntity): ListenInput => ({
+        accountId: heavy.id,
+        target: itemTarget(item),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+        storedDailyCap: 3,
+        popularityDailyCap: 1,
+      });
+      expect(await listen(capped(podcastItem))).toBe('counted');
+      expect(await listen(capped(overCapItem))).toBe('counted');
+      expect(await lastEvent(heavy.id)).toMatchObject({ popularity_counted: false, ...noMarks });
+      expect(await allTimeDailyCount('item', overCapItem.id, todayUtc())).toBe(0);
+
+      const fast = await seedAccount('recount-flagged', true);
+      const flaggedItem = await seedItem(
+        podcastChannelId,
+        'recount-flagged',
+        ITEM_DURATION_SECONDS
+      );
+      const toCap = (): ListenInput => ({
+        accountId: fast.id,
+        target: itemTarget(podcastItem),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+        storedDailyCap: 2,
+        popularityDailyCap: 2,
+        flagStoredCapWithinHours: 3,
+      });
+      expect(await listen(toCap())).toBe('counted');
+      expect(await listen(toCap())).toBe('counted');
+      expect(await flagRow(await listenerIdOf(fast.id))).not.toBeNull();
+      expect(
+        await listen({
+          accountId: fast.id,
+          target: itemTarget(flaggedItem),
+          clientListenId: randomUUID(),
+          secondsHeard: 75,
+          storedDailyCap: 10,
+          popularityDailyCap: 10,
+        })
+      ).toBe('counted');
+      expect(await lastEvent(fast.id)).toMatchObject({ popularity_counted: false, ...noMarks });
+      expect(await allTimeDailyCount('item', flaggedItem.id, todayUtc())).toBe(0);
+
+      const cooling = await seedAccount('recount-cooldown', true);
+      const coolingItem = await seedItem(
+        podcastChannelId,
+        'recount-cooldown',
+        ITEM_DURATION_SECONDS
+      );
+      await setOptedOutAt(cooling.id, '1 day');
+      expect(
+        await listen({
+          accountId: cooling.id,
+          target: itemTarget(coolingItem),
+          clientListenId: randomUUID(),
+          secondsHeard: 75,
+        })
+      ).toBe('counted');
+      expect(await lastEvent(cooling.id)).toMatchObject({ popularity_counted: false, ...noMarks });
+      expect(await dailyCounts('item', coolingItem.id, todayUtc())).toBeNull();
+    });
+
+    it('does not let an opt-out and a new Yes add a listener to an all-time total again inside the period', async () => {
+      const returning = await seedAccount('recount-opt-out', true);
+      const item = await seedItem(podcastChannelId, 'recount-opt-out', ITEM_DURATION_SECONDS);
+      const session = (): ListenInput => ({
+        accountId: returning.id,
+        target: itemTarget(item),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+      });
+
+      expect(await listen(session())).toBe('counted');
+      expect(await lastEvent(returning.id)).toMatchObject({ item_all_time_counted: true });
+      expect(await dailyCounts('item', item.id, todayUtc())).toMatchObject({ listener_count: 1 });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(1);
+
+      const { AccountSettingsListenStatsService } = await import('@podverse/orm');
+      const settingsService = new AccountSettingsListenStatsService();
+      await settingsService.update({
+        account_id: returning.id,
+        accepted: false,
+        agreement_version: AGREEMENT_VERSION,
+      });
+      await settingsService.update({
+        account_id: returning.id,
+        accepted: true,
+        agreement_version: AGREEMENT_VERSION,
+      });
+      expect(await listenEvents(returning.id)).toHaveLength(0);
+
+      expect(await listen(session())).toBe('counted');
+      expect(await lastEvent(returning.id)).toMatchObject({
+        popularity_counted: false,
+        ...noMarks,
+      });
+      expect(await dailyCounts('item', item.id, todayUtc())).toMatchObject({ listener_count: 1 });
+      expect(await allTimeDailyCount('item', item.id, todayUtc())).toBe(1);
+    });
+
+    it("adds an opener to a profile's all-time total once per recount period", async () => {
+      const opener = await seedAccount('recount-opener', true);
+      const profileOwner = await seedAccount('recount-owner', true);
+      const profile: StatsOpenTarget = { kind: 'account', id_text: profileOwner.idText };
+      const openMarks = async (): Promise<unknown[]> =>
+        rowsOf(
+          await query(
+            `SELECT o.all_time_counted FROM stats_open_event o
+               JOIN listener_identity.stats_listener l ON l.listener_id = o.listener_id
+              WHERE l.account_id = $1
+              ORDER BY o.created_at, o.id`,
+            [opener.id]
+          )
+        ).map((row) => row.all_time_counted);
+
+      expect(await open(opener.id, profile)).toBe('counted');
+      expect(await allTimeDailyCount('account', profileOwner.id, todayUtc())).toBe(1);
+      expect(await openMarks()).toEqual([true]);
+
+      await backdateOpens(await listenerIdOf(opener.id), 48);
+      expect(await open(opener.id, profile)).toBe('counted');
+      expect(await dailyOpenCount('account', profileOwner.id, todayUtc())).toBe(2);
+      expect(await allTimeDailyCount('account', profileOwner.id, todayUtc())).toBe(1);
+      expect(await openMarks()).toEqual([true, false]);
+    });
+  });
+
+  describe('flagged listeners', () => {
+    const tooSoonSession = (
+      accountId: number,
+      item: SeededEntity,
+      flagTooSoonMinutes?: number
+    ): ListenInput => ({
+      accountId,
+      target: itemTarget(item),
+      clientListenId: randomUUID(),
+      secondsHeard: 75,
+      minIntervalSeconds: 20,
+      flagTooSoonMinutes,
+    });
+
+    it('flags a listener that reaches the stored cap within the window and leaves its later listens and opens out of daily totals', async () => {
+      const fast = await seedAccount('flag-stored-cap', true);
+      const report = (): ListenInput => ({
+        accountId: fast.id,
+        target: itemTarget(podcastItem),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+        storedDailyCap: 2,
+        popularityDailyCap: 2,
+        flagStoredCapWithinHours: 3,
+      });
+
+      expect(await listen(report())).toBe('counted');
+      const listenerId = await listenerIdOf(fast.id);
+      expect(await flagRow(listenerId)).toBeNull();
+
+      expect(await listen(report())).toBe('counted');
+      const flag = await flagRow(listenerId);
+      expect(flag).toMatchObject({
+        reason: 'stored_cap_reached',
+        times_flagged: 1,
+        cleared_at: null,
+      });
+
+      expect(await listen(report())).toBe('daily_cap_reached');
+      expect(await flagRow(listenerId)).toEqual(flag);
+
+      const freshItem = await seedItem(podcastChannelId, 'flagged-fresh', ITEM_DURATION_SECONDS);
+      const channelDailyBefore = await dailyCounts('channel', podcastChannelId, todayUtc());
+      const tasteBefore = await requireTasteRow(fast.id, podcastChannelId);
+      expect(
+        await listen({
+          accountId: fast.id,
+          target: itemTarget(freshItem),
+          clientListenId: randomUUID(),
+          secondsHeard: 75,
+          storedDailyCap: 10,
+          popularityDailyCap: 10,
+        })
+      ).toBe('counted');
+      const events = await listenEvents(fast.id);
+      expect(events.find((event) => event.item_id === freshItem.id)?.popularity_counted).toBe(
+        false
+      );
+      expect(await dailyCounts('item', freshItem.id, todayUtc())).toBeNull();
+      expect(await dailyCounts('channel', podcastChannelId, todayUtc())).toEqual(
+        channelDailyBefore
+      );
+      expect((await requireTasteRow(fast.id, podcastChannelId)).listen_count).toBe(
+        tasteBefore.listen_count + 1
+      );
+
+      const profileOwner = await seedAccount('flag-open-owner', true);
+      expect(await open(fast.id, { kind: 'account', id_text: profileOwner.idText })).toBe(
+        'counted'
+      );
+      const openEvent = firstRow(
+        await query(
+          'SELECT popularity_counted FROM stats_open_event WHERE listener_id = $1::uuid AND account_id = $2',
+          [listenerId, profileOwner.id]
+        )
+      );
+      expect(openEvent.popularity_counted).toBe(false);
+      expect(await dailyOpenCount('account', profileOwner.id, todayUtc())).toBe(0);
+    });
+
+    it('does not flag a listener that reaches the stored cap after the window', async () => {
+      const reachCapWithCarry = async (
+        label: string,
+        carryAgeSql: string
+      ): Promise<Record<string, unknown> | null> => {
+        const account = await seedAccount(label, true);
+        const report = (): ListenInput => ({
+          accountId: account.id,
+          target: itemTarget(podcastItem),
+          clientListenId: randomUUID(),
+          secondsHeard: 75,
+          storedDailyCap: 3,
+          flagStoredCapWithinHours: 1,
+        });
+
+        expect(await listen(report())).toBe('counted');
+        const listenerId = await listenerIdOf(account.id);
+        await query(
+          `UPDATE listener_identity.stats_listener
+              SET opt_out_day = $2::date,
+                  opt_out_day_stored_count = 1,
+                  opt_out_day_first_stored_at = now() - $3::interval
+            WHERE listener_id = $1::uuid`,
+          [listenerId, todayUtc(), carryAgeSql]
+        );
+        expect(await listen(report())).toBe('counted');
+        const flagAtCap = await flagRow(listenerId);
+        expect(await listen(report())).toBe('daily_cap_reached');
+        expect(await flagRow(listenerId)).toEqual(flagAtCap);
+        return flagAtCap;
+      };
+
+      expect(await reachCapWithCarry('flag-cap-late', '2 hours')).toBeNull();
+      expect(await reachCapWithCarry('flag-cap-early', '30 minutes')).toMatchObject({
+        reason: 'stored_cap_reached',
+      });
+    });
+
+    it('writes no flag at the stored cap when the window is 0', async () => {
+      const capped = await seedAccount('flag-cap-off', true);
+      const report = (): ListenInput => ({
+        accountId: capped.id,
+        target: itemTarget(podcastItem),
+        clientListenId: randomUUID(),
+        secondsHeard: 75,
+        storedDailyCap: 1,
+      });
+
+      expect(await listen(report())).toBe('counted');
+      expect(await listen(report())).toBe('daily_cap_reached');
+      expect(await flagRow(await listenerIdOf(capped.id))).toBeNull();
+    });
+
+    it('flags a listener after an unbroken run of too-soon minutes', async () => {
+      const scripted = await seedAccount('flag-too-soon-run', true);
+      await waitForFreshMinute();
+
+      expect(await listen(tooSoonSession(scripted.id, podcastItem, 3))).toBe('counted');
+      const listenerId = await listenerIdOf(scripted.id);
+
+      expect(await listen(tooSoonSession(scripted.id, podcastItem, 3))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(1);
+      expect(await flagRow(listenerId)).toBeNull();
+
+      expect(await listen(tooSoonSession(scripted.id, podcastItem, 3))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(1);
+
+      await moveRunBack(listenerId, 2);
+      expect(await listen(tooSoonSession(scripted.id, podcastItem, 3))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(2);
+      expect(await flagRow(listenerId)).toBeNull();
+
+      await moveRunBack(listenerId, 1);
+      expect(await listen(tooSoonSession(scripted.id, podcastItem, 3))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(3);
+      expect(await flagRow(listenerId)).toMatchObject({ reason: 'too_soon_minutes' });
+    }, 20_000);
+
+    it('starts a new run after a gap of more than 2 minutes', async () => {
+      const paused = await seedAccount('flag-too-soon-gap', true);
+
+      expect(await listen(tooSoonSession(paused.id, podcastItem, 2))).toBe('counted');
+      const listenerId = await listenerIdOf(paused.id);
+      expect(await listen(tooSoonSession(paused.id, podcastItem, 2))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(1);
+
+      await moveRunBack(listenerId, 3);
+      expect(await listen(tooSoonSession(paused.id, podcastItem, 2))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(1);
+      expect(await flagRow(listenerId)).toBeNull();
+    });
+
+    it('does not count too-soon listens of items under 60 seconds toward the run', async () => {
+      const shortListener = await seedAccount('flag-too-soon-short', true);
+      const shortItem = await seedItem(podcastChannelId, 'short-flag', 30);
+      const longItem = await seedItem(podcastChannelId, 'long-flag', ITEM_DURATION_SECONDS);
+
+      expect(await listen(tooSoonSession(shortListener.id, podcastItem, 1))).toBe('counted');
+      const listenerId = await listenerIdOf(shortListener.id);
+
+      expect(
+        await listen({ ...tooSoonSession(shortListener.id, shortItem, 1), secondsHeard: 30 })
+      ).toBe('too_soon');
+      expect(await signalRow(listenerId)).toBeNull();
+      expect(await flagRow(listenerId)).toBeNull();
+
+      expect(await listen(tooSoonSession(shortListener.id, longItem, 1))).toBe('too_soon');
+      expect((await signalRow(listenerId))?.too_soon_minutes).toBe(1);
+      expect(await flagRow(listenerId)).not.toBeNull();
+    });
+
+    it('writes no signal when the too-soon minutes threshold is 0', async () => {
+      const unwatched = await seedAccount('flag-too-soon-off', true);
+
+      expect(await listen(tooSoonSession(unwatched.id, podcastItem))).toBe('counted');
+      expect(await listen(tooSoonSession(unwatched.id, podcastItem))).toBe('too_soon');
+      expect(await signalRow(await listenerIdOf(unwatched.id))).toBeNull();
+    });
+
+    it('does not add a completion to daily totals for a listen stored before the flag', async () => {
+      const finisher = await seedAccount('flag-completion', true);
+      const sessionA = tooSoonSession(finisher.id, podcastItem, 1);
+
+      expect(await listen(sessionA)).toBe('counted');
+      expect(await listen(tooSoonSession(finisher.id, podcastItem, 1))).toBe('too_soon');
+      expect(await flagRow(await listenerIdOf(finisher.id))).not.toBeNull();
+
+      const itemDailyBefore = await dailyCounts('item', podcastItem.id, todayUtc());
+      const channelDailyBefore = await dailyCounts('channel', podcastChannelId, todayUtc());
+      const tasteBefore = await requireTasteRow(finisher.id, podcastChannelId);
+
+      expect(await listen({ ...sessionA, completed: true })).toBe('updated');
+      expect(await dailyCounts('item', podcastItem.id, todayUtc())).toEqual(itemDailyBefore);
+      expect(await dailyCounts('channel', podcastChannelId, todayUtc())).toEqual(
+        channelDailyBefore
+      );
+      expect((await requireTasteRow(finisher.id, podcastChannelId)).completion_count).toBe(
+        tasteBefore.completion_count + 1
+      );
+    });
+
+    it('keeps a clear for the rest of its UTC day and flags again on a later day', async () => {
+      const repeat = await seedAccount('flag-clear', true);
+
+      expect(await listen(tooSoonSession(repeat.id, podcastItem, 1))).toBe('counted');
+      const listenerId = await listenerIdOf(repeat.id);
+      expect(await listen(tooSoonSession(repeat.id, podcastItem, 1))).toBe('too_soon');
+      expect(await flagRow(listenerId)).not.toBeNull();
+
+      await query(
+        `UPDATE stats_flagged_listener SET cleared_at = now(), cleared_by_admin_id = 1
+          WHERE listener_id = $1::uuid`,
+        [listenerId]
+      );
+      expect(await listen(tooSoonSession(repeat.id, podcastItem, 1))).toBe('too_soon');
+      const clearedToday = await flagRow(listenerId);
+      expect(clearedToday?.cleared_at).toBeInstanceOf(Date);
+      expect(clearedToday?.cleared_by_admin_id).toBe(1);
+      expect(clearedToday?.times_flagged).toBe(1);
+
+      await query(
+        `UPDATE stats_flagged_listener SET cleared_at = now() - interval '1 day'
+          WHERE listener_id = $1::uuid`,
+        [listenerId]
+      );
+      expect(await listen(tooSoonSession(repeat.id, podcastItem, 1))).toBe('too_soon');
+      expect(await flagRow(listenerId)).toMatchObject({
+        cleared_at: null,
+        cleared_by_admin_id: null,
+        times_flagged: 2,
+      });
+    });
+
+    it('keeps flag and signal rows across a No and a new Yes, and removes them with the account', async () => {
+      const returning = await seedAccount('flag-opt-out', true);
+
+      expect(await listen(tooSoonSession(returning.id, podcastItem, 1))).toBe('counted');
+      expect(await listen(tooSoonSession(returning.id, podcastItem, 1))).toBe('too_soon');
+      const listenerId = await listenerIdOf(returning.id);
+
+      const { AccountService, AccountSettingsListenStatsService } = await import('@podverse/orm');
+      const settingsService = new AccountSettingsListenStatsService();
+      await settingsService.update({
+        account_id: returning.id,
+        accepted: false,
+        agreement_version: AGREEMENT_VERSION,
+      });
+      await settingsService.update({
+        account_id: returning.id,
+        accepted: true,
+        agreement_version: AGREEMENT_VERSION,
+      });
+      expect(await listenerIdOf(returning.id)).toBe(listenerId);
+      expect(await flagRow(listenerId)).not.toBeNull();
+      expect(await signalRow(listenerId)).not.toBeNull();
+
+      await new AccountService().delete(returning.id);
+      createdAccountIds.splice(createdAccountIds.indexOf(returning.id), 1);
+      expect(await flagRow(listenerId)).toBeNull();
+      expect(await signalRow(listenerId)).toBeNull();
+    });
+
+    it('writes one flag when five new sessions arrive at once inside the minimum interval', async () => {
+      const burst = await seedAccount('flag-burst', true);
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () => listen(tooSoonSession(burst.id, concurrencyItem, 1)))
+      );
+
+      expect([...results].sort()).toEqual([
+        'counted',
+        'too_soon',
+        'too_soon',
+        'too_soon',
+        'too_soon',
+      ]);
+      const flags = rowsOf(
+        await query(
+          'SELECT times_flagged FROM stats_flagged_listener WHERE listener_id = $1::uuid',
+          [await listenerIdOf(burst.id)]
+        )
+      );
+      expect(flags).toEqual([{ times_flagged: 1 }]);
     });
   });
 });

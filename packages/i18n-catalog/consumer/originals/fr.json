@@ -682,34 +682,27 @@
     "takedown_policy": "Politique de retrait",
     "takedown_policy_explanation": "Ce contenu a été retiré suite à une demande de retrait du titulaire des droits d'auteur."
   },
-  "popularity_tracking": {
-    "title": "Suivi de popularité",
-    "summary": "Aidez à mettre en avant les émissions que les gens écoutent le plus. Vos écoutes peuvent compter dans ces classements sans que votre nom y soit associé.",
-    "yes": "Oui, me suivre",
+  "taste_profile_consent": {
+    "summary": "{brand_name} enregistre vos écoutes pour créer votre profil de goûts. Ces écoutes comptent aussi dans les classements publics de popularité, sans votre nom.",
+    "yes": "Oui, créer mon profil de goûts",
     "no": "Non merci",
-    "learn_more": "En savoir plus",
     "how_it_works": "Comment ça marche",
     "retry": "Réessayer",
     "already_agreed": "Vous avez déjà activé ceci pour l'explication actuelle.",
-    "agreement_date": "Date de l'accord : {agreement_date}",
-    "error": "Impossible d'enregistrer votre choix de suivi de popularité. Veuillez réessayer.",
-    "back_to_choice": "Retour",
-    "change": "Modifier le suivi de popularité",
-    "dismiss_note": "Fermer cette fenêtre ne change pas votre choix. Vous pourrez le modifier plus tard dans Paramètres.",
-    "load_error": "Impossible de charger le fonctionnement du suivi de popularité. Veuillez réessayer.",
-    "status_opted_out": "Le suivi de popularité est désactivé.",
-    "status_stale": "Le fonctionnement du suivi de popularité a changé. Il reste désactivé jusqu'à ce que vous le réactiviez.",
-    "status_undecided": "Vous n'avez pas encore choisi d'autoriser le suivi de popularité.",
-    "opt_out_confirm_title": "Désactiver le suivi de popularité ?",
-    "opt_out_confirm_body": "Votre profil de goûts, votre liste Masqué du profil de goûts et votre historique d'écoute enregistré seront supprimés immédiatement. Si vous réactivez le suivi de popularité plus tard, vos recommandations repartiront de zéro. Les totaux d'écoute publics qui incluent déjà vos écoutes restent inchangés.",
+    "error": "Impossible d'enregistrer votre choix pour le profil de goûts. Veuillez réessayer.",
+    "load_error": "Impossible de charger le fonctionnement du profil de goûts. Veuillez réessayer.",
+    "status_opted_out": "Le profil de goûts est désactivé.",
+    "status_stale": "Le fonctionnement du profil de goûts a changé. Il reste désactivé jusqu'à ce que vous le réactiviez.",
+    "status_undecided": "Vous n'avez pas encore choisi d'activer le profil de goûts.",
+    "opt_out_confirm_title": "Désactiver le profil de goûts ?",
+    "opt_out_confirm_body": "Votre profil de goûts, votre liste Masqué du profil de goûts et votre historique d'écoute enregistré seront supprimés immédiatement. Si vous réactivez le profil de goûts plus tard, vos recommandations repartiront de zéro. Les totaux d'écoute publics qui incluent déjà vos écoutes restent inchangés.",
     "opt_out_confirm_action": "Désactiver et supprimer"
   },
   "taste_profile": {
     "title": "Profil de goûts",
-    "description": "Émissions ajoutées par vos écoutes pendant que le suivi de popularité est activé. Les futures recommandations utiliseront cette liste. Retirer une émission supprime ici ses données d'écoute et la déplace vers Masqué du profil de goûts.",
-    "empty": "Aucune émission pour l'instant. Elles apparaissent ici quand vous écoutez avec le suivi de popularité activé.",
+    "empty": "Aucune émission pour l'instant. Elles apparaissent ici quand vous écoutez avec le profil de goûts activé.",
     "hidden_title": "Masqué du profil de goûts",
-    "hidden_description": "Émissions que vous avez retirées. Les écouter ne les ajoute pas à nouveau. Réaffichez une émission pour l'ajouter maintenant ou pour que votre prochaine écoute l'ajoute.",
+    "hidden_description": "Émissions que vous avez retirées. Retirer une émission supprime ses données d'écoute, et l'écouter ne l'ajoute pas à nouveau. Réaffichez une émission pour l'ajouter maintenant ou pour que votre prochaine écoute l'ajoute.",
     "hidden_empty": "Aucune émission masquée.",
     "remove": "Retirer",
     "remove_accessible": "Retirer {title} du profil de goûts",
@@ -941,8 +934,6 @@
     "set_password_other_session_banner": "Vous êtes connecté en tant que {sessionLabel}. Ce lien d'invitation termine la configuration d'un autre compte.",
     "set_password_sign_out_to_continue": "Se déconnecter et continuer",
     "set_password_continue_without_signing_out": "Continuer sans se déconnecter",
-    "listen_stats_opt_in": "Aider à améliorer le contenu tendance avec des statistiques d'écoute",
-    "listen_stats_opt_in_help": "Nous enregistrons des événements d'écoute pseudonymes pour afficher la popularité. Les données sont conservées {retention_days} jours. Vous pouvez modifier ce choix à tout moment dans les paramètres du compte.",
     "terms_version_invalid": "La version des conditions d'utilisation est obsolète. Actualisez la page et réessayez."
   },
   "terms_acceptance": {
@@ -1214,11 +1205,7 @@
         "current_incorrect": "Le mot de passe actuel est incorrect.",
         "missing_field": "Saisissez votre mot de passe actuel et un nouveau mot de passe.",
         "error": "Impossible de changer votre mot de passe. Veuillez réessayer."
-      },
-      "listen_stats_toggle": "Suivi de popularité",
-      "listen_stats_toggle_help": "Autoriser les classements d'auditeurs uniques qui aident à trouver des émissions populaires. Vous pouvez modifier cela à tout moment.",
-      "listen_stats_toggle_error": "Impossible de mettre à jour la préférence de statistiques d'écoute. Veuillez réessayer.",
-      "listen_stats_terms_link": "En savoir plus dans nos <termsLink>Conditions d'utilisation</termsLink>."
+      }
     },
     "profile": {
       "profile": "Profil",

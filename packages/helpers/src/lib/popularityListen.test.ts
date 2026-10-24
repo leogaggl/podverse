@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  countsTowardTooSoonSignal,
   fadeTasteScore,
   getCountedListenThresholdSeconds,
   isCountedListen,
+  isPopularityFlagReason,
+  isStoredCapReachedFast,
   POPULARITY_COUNTED_LISTEN_MIN_SECONDS,
   POPULARITY_TASTE_HALF_LIFE_DAYS,
 } from './popularityListen.js';
@@ -75,5 +78,52 @@ describe('POPULARITY_TASTE_HALF_LIFE_DAYS', () => {
     expect(POPULARITY_TASTE_HALF_LIFE_DAYS.recent).toBeLessThan(
       POPULARITY_TASTE_HALF_LIFE_DAYS.longTerm
     );
+  });
+});
+
+describe('isPopularityFlagReason', () => {
+  it('accepts both flag reasons and rejects anything else', () => {
+    expect(isPopularityFlagReason('stored_cap_reached')).toBe(true);
+    expect(isPopularityFlagReason('too_soon_minutes')).toBe(true);
+    expect(isPopularityFlagReason('daily_cap_reached')).toBe(false);
+    expect(isPopularityFlagReason(1)).toBe(false);
+    expect(isPopularityFlagReason(null)).toBe(false);
+  });
+});
+
+describe('countsTowardTooSoonSignal', () => {
+  it('leaves out items and clips under 60 seconds and counts longer or unknown durations', () => {
+    expect(countsTowardTooSoonSignal(30)).toBe(false);
+    expect(countsTowardTooSoonSignal(59.9)).toBe(false);
+    expect(countsTowardTooSoonSignal(60)).toBe(true);
+    expect(countsTowardTooSoonSignal(3_600)).toBe(true);
+    expect(countsTowardTooSoonSignal(null)).toBe(true);
+  });
+});
+
+describe('isStoredCapReachedFast', () => {
+  const firstStoredAt = new Date('2026-01-01T00:00:00.000Z');
+
+  it('is true up to exactly the window and false a second later', () => {
+    expect(
+      isStoredCapReachedFast({
+        firstStoredAt,
+        reachedAt: new Date('2026-01-01T03:00:00.000Z'),
+        withinHours: 3,
+      })
+    ).toBe(true);
+    expect(
+      isStoredCapReachedFast({
+        firstStoredAt,
+        reachedAt: new Date('2026-01-01T03:00:01.000Z'),
+        withinHours: 3,
+      })
+    ).toBe(false);
+  });
+
+  it('is never true when the window is 0', () => {
+    expect(
+      isStoredCapReachedFast({ firstStoredAt, reachedAt: firstStoredAt, withinHours: 0 })
+    ).toBe(false);
   });
 });

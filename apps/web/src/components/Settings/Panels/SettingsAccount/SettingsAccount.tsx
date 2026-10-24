@@ -15,7 +15,6 @@ import { SettingsSection } from '../../SettingsSection';
 import { ModalChangeEmail } from './ModalChangeEmail';
 import { ModalChangePassword } from './ModalChangePassword';
 import { ModalDeleteAccount } from './ModalDeleteAccount';
-import { SettingsListenStats } from './SettingsListenStats';
 import { SettingsMembership } from './SettingsMembership';
 import { SettingsSessions } from './SettingsSessions';
 import { SettingsTasteProfile } from './SettingsTasteProfile';
@@ -80,8 +79,6 @@ export function SettingsAccount() {
       <SettingsMembership />
       <Divider withSpacing />
       <SettingsTerms />
-      <Divider withSpacing />
-      <SettingsListenStats />
       <Divider withSpacing />
       <SettingsTasteProfile />
       <Divider withSpacing />

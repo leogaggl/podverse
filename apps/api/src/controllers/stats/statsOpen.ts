@@ -1,8 +1,8 @@
 import { config } from '@api/config/index.js';
 import { handleGenericErrorResponse } from '@api/controllers/helpers/error.js';
 import {
-  POPULARITY_TRACKING_NOT_ALLOWED_BODY,
   STATS_TARGET_NOT_FOUND_BODY,
+  TASTE_PROFILE_CONSENT_REQUIRED_BODY,
 } from '@api/controllers/stats/statsListen.js';
 import { ensureAuthenticated, getAuthenticatedUser } from '@api/lib/auth/index.js';
 import { assertListenStatsAllowed, ListenStatsOptedOutError } from '@api/lib/legal/listenStats.js';
@@ -37,9 +37,10 @@ function openResponse(result: PopularityOpenResult): { status: number; body: obj
       return { status: 201, body: { result } };
     case 'unchanged':
     case 'own_content':
+    case 'daily_cap_reached':
       return { status: 200, body: { result } };
     case 'not_allowed':
-      return { status: 403, body: POPULARITY_TRACKING_NOT_ALLOWED_BODY };
+      return { status: 403, body: TASTE_PROFILE_CONSENT_REQUIRED_BODY };
     case 'not_found':
       return { status: 404, body: STATS_TARGET_NOT_FOUND_BODY };
   }
@@ -62,14 +63,16 @@ export class StatsOpenController {
             await assertListenStatsAllowed(jwtUser.id);
             const result = await StatsOpenController.statsOpenWriteService.recordOpen({
               account_id: jwtUser.id,
-              agreement_version: config.popularityTracking.version,
+              agreement_version: config.tasteProfileAgreement.version,
+              daily_cap: config.popularityTracking.dailyOpenCap,
+              all_time_recount_days: config.popularityTracking.allTimeRecountDays,
               target: openTarget(body),
             });
             const response = openResponse(result);
             res.status(response.status).json(response.body);
           } catch (error) {
             if (error instanceof ListenStatsOptedOutError) {
-              res.status(403).json(POPULARITY_TRACKING_NOT_ALLOWED_BODY);
+              res.status(403).json(TASTE_PROFILE_CONSENT_REQUIRED_BODY);
               return;
             }
             handleGenericErrorResponse(res, error);

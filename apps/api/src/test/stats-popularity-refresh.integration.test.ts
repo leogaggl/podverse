@@ -37,22 +37,29 @@ const TABLES = {
     key: 'channel_id',
     daily: 'stats_daily_channel',
     popularity: 'stats_popularity_channel',
+    events: 'stats_listen_event',
   },
   playlist: {
     key: 'playlist_id',
     daily: 'stats_daily_playlist',
     popularity: 'stats_popularity_playlist',
+    events: 'stats_open_event',
   },
   account: {
     key: 'account_id',
     daily: 'stats_daily_account',
     popularity: 'stats_popularity_account',
+    events: 'stats_open_event',
   },
 } as const;
 
 type TestEntityType = keyof typeof TABLES;
 
-type DailyRow = { day: string; listeners: number };
+type OpenKind = 'playlist' | 'account';
+
+type DailyRow = { day: string; listeners: number; allTime: number };
+
+type SeededChannel = { channelId: number; itemId: number };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -69,6 +76,10 @@ function asNumber(value: unknown): number {
   throw new Error('expected a number');
 }
 
+function eventTime(day: string): string {
+  return `${day}T12:00:00.000Z`;
+}
+
 describe('Popularity range totals refresh (real database)', () => {
   let server: Server | undefined;
   let ormContext: ORMContext | undefined;
@@ -77,12 +88,15 @@ describe('Popularity range totals refresh (real database)', () => {
   const createdAccountIds: number[] = [];
   const createdFeedIds: number[] = [];
 
-  let windowChannelId: number;
-  let oldRowsChannelId: number;
-  let staleAllTimeChannelId: number;
-  let noDailyRowsChannelId: number;
+  let windowChannel: SeededChannel;
+  let exclusionChannel: SeededChannel;
+  let oldRowsChannel: SeededChannel;
+  let staleAllTimeChannel: SeededChannel;
+  let noDailyRowsChannel: SeededChannel;
+  let allTimeOnlyChannel: SeededChannel;
   let playlistId: number;
   let profileAccountId: number;
+  let flaggedListenerId: string;
 
   const query = async (sql: string, params: unknown[] = []): Promise<unknown> =>
     manager.query(sql, params);
@@ -124,8 +138,22 @@ describe('Popularity range totals refresh (real database)', () => {
     return account.id;
   };
 
-  const seedChannel = async (label: string): Promise<number> => {
-    const { Channel, Feed } = await import('@podverse/orm');
+  const seedListener = async (label: string): Promise<string> => {
+    const accountId = await seedAccount(label);
+    const row = rowsOf(
+      await query(
+        'INSERT INTO listener_identity.stats_listener (account_id) VALUES ($1) RETURNING listener_id::text AS listener_id',
+        [accountId]
+      )
+    )[0];
+    if (row === undefined || typeof row.listener_id !== 'string') {
+      throw new Error(`expected a listener id for ${label}`);
+    }
+    return row.listener_id;
+  };
+
+  const seedChannel = async (label: string): Promise<SeededChannel> => {
+    const { Channel, Feed, Item } = await import('@podverse/orm');
     const feedRepo = manager.getRepository(Feed);
     const feed = await feedRepo.save(
       feedRepo.create({
@@ -142,7 +170,56 @@ describe('Popularity range totals refresh (real database)', () => {
         title: `Stats popularity refresh ${label} ${runId}`,
       })
     );
-    return channel.id;
+    const itemRepo = manager.getRepository(Item);
+    const item = await itemRepo.save(
+      itemRepo.create({
+        channel_id: String(channel.id),
+        title: `Stats popularity refresh ${label} episode`,
+        item_flag_status: { id: 1 },
+        guid: `stats-popularity-refresh-${runId}-${label}`,
+      })
+    );
+    return { channelId: channel.id, itemId: item.id };
+  };
+
+  const insertListen = async (
+    listenerId: string,
+    channel: SeededChannel,
+    day: string,
+    popularityCounted = true
+  ): Promise<void> => {
+    await query(
+      `INSERT INTO stats_listen_event
+         (created_at, listener_id, channel_id, item_id, popularity_counted)
+       VALUES ($1::timestamptz, $2::uuid, $3, $4, $5)`,
+      [eventTime(day), listenerId, channel.channelId, channel.itemId, popularityCounted]
+    );
+  };
+
+  const insertOpen = async (
+    listenerId: string,
+    kind: OpenKind,
+    entityId: number,
+    day: string
+  ): Promise<void> => {
+    const { key } = TABLES[kind];
+    await query(
+      `INSERT INTO stats_open_event (created_at, listener_id, ${key})
+       VALUES ($1::timestamptz, $2::uuid, $3)`,
+      [eventTime(day), listenerId, entityId]
+    );
+  };
+
+  const flagListener = async (listenerId: string, cleared: boolean): Promise<void> => {
+    await query(
+      `INSERT INTO stats_flagged_listener
+         (listener_id, reason, flagged_at, cleared_at, cleared_by_admin_id)
+       VALUES ($1::uuid, 'stored_cap_reached', now(), $2::timestamptz, $3)
+       ON CONFLICT (listener_id) DO UPDATE
+          SET cleared_at = EXCLUDED.cleared_at,
+              cleared_by_admin_id = EXCLUDED.cleared_by_admin_id`,
+      [listenerId, cleared ? new Date().toISOString() : null, cleared ? 1 : null]
+    );
   };
 
   const insertDailyRows = async (
@@ -152,11 +229,11 @@ describe('Popularity range totals refresh (real database)', () => {
   ): Promise<void> => {
     const { key, daily } = TABLES[entityType];
     for (const row of rows) {
-      await query(`INSERT INTO ${daily} (${key}, day, listener_count) VALUES ($1, $2::date, $3)`, [
-        entityId,
-        row.day,
-        row.listeners,
-      ]);
+      await query(
+        `INSERT INTO ${daily} (${key}, day, listener_count, all_time_listener_count)
+         VALUES ($1, $2::date, $3, $4)`,
+        [entityId, row.day, row.listeners, row.allTime]
+      );
     }
   };
 
@@ -217,10 +294,12 @@ describe('Popularity range totals refresh (real database)', () => {
     }
     manager = ormContext.dataSourceReadWrite.manager;
 
-    windowChannelId = await seedChannel('window');
-    oldRowsChannelId = await seedChannel('old-rows');
-    staleAllTimeChannelId = await seedChannel('stale-all-time');
-    noDailyRowsChannelId = await seedChannel('no-daily-rows');
+    windowChannel = await seedChannel('window');
+    exclusionChannel = await seedChannel('exclusion');
+    oldRowsChannel = await seedChannel('old-rows');
+    staleAllTimeChannel = await seedChannel('stale-all-time');
+    noDailyRowsChannel = await seedChannel('no-daily-rows');
+    allTimeOnlyChannel = await seedChannel('all-time-only');
 
     const owner = await seedAccount('owner');
     profileAccountId = await seedAccount('profile');
@@ -231,40 +310,85 @@ describe('Popularity range totals refresh (real database)', () => {
     );
     playlistId = playlist.id;
 
-    await insertDailyRows('channel', windowChannelId, [
-      { day: '2001-06-30', listeners: 5 },
-      { day: '2001-06-29', listeners: 3 },
-      { day: '2001-06-25', listeners: 2 },
-      { day: '2001-06-05', listeners: 7 },
-      { day: '2001-01-10', listeners: 11 },
+    const listenerA = await seedListener('listener-a');
+    const listenerB = await seedListener('listener-b');
+    const listenerC = await seedListener('listener-c');
+    const listenerD = await seedListener('listener-d');
+    const listenerE = await seedListener('listener-e');
+    const listenerF = await seedListener('listener-f');
+    flaggedListenerId = await seedListener('listener-g');
+    const staleListener = await seedListener('listener-stale');
+
+    await insertListen(listenerA, windowChannel, '2001-06-30');
+    await insertListen(listenerA, windowChannel, '2001-06-29');
+    await insertListen(listenerA, windowChannel, '2001-06-05');
+    await insertListen(listenerB, windowChannel, '2001-06-30');
+    await insertListen(listenerB, windowChannel, '2001-06-30');
+    await insertListen(listenerC, windowChannel, '2001-06-25');
+    await insertListen(listenerD, windowChannel, '2001-05-20');
+    await insertDailyRows('channel', windowChannel.channelId, [
+      { day: '2001-06-30', listeners: 2, allTime: 2 },
+      { day: '2001-06-29', listeners: 1, allTime: 1 },
+      { day: '2001-06-25', listeners: 1, allTime: 1 },
+      { day: '2001-06-05', listeners: 1, allTime: 1 },
+      { day: '2001-05-20', listeners: 1, allTime: 1 },
+      { day: '2001-01-10', listeners: 3, allTime: 3 },
     ]);
-    await insertDailyRows('channel', oldRowsChannelId, [
-      { day: '2001-03-01', listeners: 4 },
-      { day: '2001-02-01', listeners: 6 },
+
+    await insertListen(listenerE, exclusionChannel, '2001-06-30');
+    await insertListen(listenerF, exclusionChannel, '2001-06-30', false);
+    await insertListen(flaggedListenerId, exclusionChannel, '2001-06-30');
+    await flagListener(flaggedListenerId, false);
+    await insertDailyRows('channel', exclusionChannel.channelId, [
+      { day: '2001-06-30', listeners: 3, allTime: 3 },
     ]);
-    await insertDailyRows('channel', staleAllTimeChannelId, [
-      { day: '2001-06-20', listeners: 4 },
-      { day: '2001-06-10', listeners: 2 },
+
+    await insertDailyRows('channel', oldRowsChannel.channelId, [
+      { day: '2001-03-01', listeners: 4, allTime: 4 },
+      { day: '2001-02-01', listeners: 6, allTime: 6 },
     ]);
+
+    await insertListen(staleListener, staleAllTimeChannel, '2001-06-20');
+    await insertDailyRows('channel', staleAllTimeChannel.channelId, [
+      { day: '2001-06-20', listeners: 4, allTime: 4 },
+      { day: '2001-06-10', listeners: 2, allTime: 2 },
+    ]);
+
+    await insertDailyRows('channel', allTimeOnlyChannel.channelId, [
+      { day: '2001-06-30', listeners: 5, allTime: 2 },
+    ]);
+
+    await insertOpen(listenerA, 'playlist', playlistId, '2001-06-30');
+    await insertOpen(listenerB, 'playlist', playlistId, '2001-06-30');
+    await insertOpen(listenerC, 'playlist', playlistId, '2001-06-28');
     await insertDailyRows('playlist', playlistId, [
-      { day: '2001-06-30', listeners: 2 },
-      { day: '2001-06-28', listeners: 1 },
-      { day: '2001-05-01', listeners: 5 },
+      { day: '2001-06-30', listeners: 2, allTime: 2 },
+      { day: '2001-06-28', listeners: 1, allTime: 1 },
+      { day: '2001-05-01', listeners: 5, allTime: 5 },
     ]);
+
+    await insertOpen(listenerA, 'account', profileAccountId, '2001-06-29');
+    await insertOpen(listenerA, 'account', profileAccountId, '2001-06-15');
+    await insertOpen(listenerB, 'account', profileAccountId, '2001-06-15');
     await insertDailyRows('account', profileAccountId, [
-      { day: '2001-06-29', listeners: 4 },
-      { day: '2001-06-15', listeners: 1 },
+      { day: '2001-06-29', listeners: 1, allTime: 1 },
+      { day: '2001-06-15', listeners: 2, allTime: 2 },
     ]);
   }, 60000);
 
   afterAll(async () => {
     if (ormContext) {
-      await deleteStatsRows('channel', [
-        windowChannelId,
-        oldRowsChannelId,
-        staleAllTimeChannelId,
-        noDailyRowsChannelId,
-      ]);
+      await deleteStatsRows(
+        'channel',
+        [
+          windowChannel,
+          exclusionChannel,
+          oldRowsChannel,
+          staleAllTimeChannel,
+          noDailyRowsChannel,
+          allTimeOnlyChannel,
+        ].map((seeded) => seeded.channelId)
+      );
       await deleteStatsRows('playlist', [playlistId]);
       await deleteStatsRows('account', [profileAccountId]);
       const { AccountService } = await import('@podverse/orm');
@@ -279,14 +403,14 @@ describe('Popularity range totals refresh (real database)', () => {
     await stopTestApp(server, ormContext);
   });
 
-  it('sums each window and every daily row into the range totals in recent mode', async () => {
+  it('counts distinct listeners per window, not listener-days', async () => {
     await refresh('2001-06-30', 'recent');
 
-    expect(await popularityRow('channel', windowChannelId)).toEqual({
-      day_count: 8,
-      week_count: 10,
-      month_count: 17,
-      all_time_count: 28,
+    expect(await popularityRow('channel', windowChannel.channelId)).toEqual({
+      day_count: 2,
+      week_count: 3,
+      month_count: 3,
+      all_time_count: 9,
     });
   });
 
@@ -296,38 +420,59 @@ describe('Popularity range totals refresh (real database)', () => {
     expect(resultFor(results, 'channel').rowsWritten).toBe(0);
   });
 
-  it('zeroes the windows and keeps the all-time total once the month window holds no rows', async () => {
-    await refresh('2001-07-31', 'recent');
+  it('leaves out events that are not popularity-counted and listeners with an uncleared flag, and counts them again after a clear', async () => {
+    await refresh('2001-06-30', 'recent');
 
-    expect(await popularityRow('channel', windowChannelId)).toEqual({
-      day_count: 0,
-      week_count: 0,
-      month_count: 0,
-      all_time_count: 28,
+    expect(await popularityRow('channel', exclusionChannel.channelId)).toEqual({
+      day_count: 1,
+      week_count: 1,
+      month_count: 1,
+      all_time_count: 3,
+    });
+
+    await flagListener(flaggedListenerId, true);
+    await refresh('2001-06-30', 'recent');
+
+    expect(await popularityRow('channel', exclusionChannel.channelId)).toEqual({
+      day_count: 2,
+      week_count: 2,
+      month_count: 2,
+      all_time_count: 3,
     });
   });
 
-  it('creates no row in recent mode for an entity with only old rows, and full mode creates it', async () => {
-    expect(await popularityRow('channel', oldRowsChannelId)).toBeNull();
+  it('zeroes the windows and keeps the all-time total once the month window holds no counted events', async () => {
+    await refresh('2001-08-15', 'recent');
+
+    expect(await popularityRow('channel', windowChannel.channelId)).toEqual({
+      day_count: 0,
+      week_count: 0,
+      month_count: 0,
+      all_time_count: 9,
+    });
+  });
+
+  it('creates no row in recent mode for an entity with only old daily rows, and full mode creates it', async () => {
+    expect(await popularityRow('channel', oldRowsChannel.channelId)).toBeNull();
 
     await refresh('2001-06-30', 'full');
 
-    expect(await popularityRow('channel', oldRowsChannelId)).toEqual({
+    expect(await popularityRow('channel', oldRowsChannel.channelId)).toEqual({
       day_count: 0,
       week_count: 0,
       month_count: 0,
       all_time_count: 10,
     });
-    expect(await popularityRow('channel', windowChannelId)).toEqual({
-      day_count: 8,
-      week_count: 10,
-      month_count: 17,
-      all_time_count: 28,
+    expect(await popularityRow('channel', windowChannel.channelId)).toEqual({
+      day_count: 2,
+      week_count: 3,
+      month_count: 3,
+      all_time_count: 9,
     });
   });
 
-  it('keeps a stored all-time total in recent mode without a listen today or yesterday, and full mode corrects it', async () => {
-    await setPopularityRow('channel', staleAllTimeChannelId, {
+  it('keeps a stored all-time total in recent mode without a daily row today or yesterday, and full mode corrects it', async () => {
+    await setPopularityRow('channel', staleAllTimeChannel.channelId, {
       day_count: 0,
       week_count: 0,
       month_count: 0,
@@ -336,25 +481,25 @@ describe('Popularity range totals refresh (real database)', () => {
 
     await refresh('2001-06-30', 'recent');
 
-    expect(await popularityRow('channel', staleAllTimeChannelId)).toEqual({
+    expect(await popularityRow('channel', staleAllTimeChannel.channelId)).toEqual({
       day_count: 0,
       week_count: 0,
-      month_count: 6,
+      month_count: 1,
       all_time_count: 999,
     });
 
     await refresh('2001-06-30', 'full');
 
-    expect(await popularityRow('channel', staleAllTimeChannelId)).toEqual({
+    expect(await popularityRow('channel', staleAllTimeChannel.channelId)).toEqual({
       day_count: 0,
       week_count: 0,
-      month_count: 6,
+      month_count: 1,
       all_time_count: 6,
     });
   });
 
-  it('sets all four counts to zero in full mode on a row whose entity has no daily rows', async () => {
-    await setPopularityRow('channel', noDailyRowsChannelId, {
+  it('sets all four counts to zero in full mode on a row whose entity has no daily rows and no counted events', async () => {
+    await setPopularityRow('channel', noDailyRowsChannel.channelId, {
       day_count: 1,
       week_count: 2,
       month_count: 3,
@@ -364,7 +509,7 @@ describe('Popularity range totals refresh (real database)', () => {
     const results = await refresh('2001-06-30', 'full');
 
     expect(resultFor(results, 'channel').rowsZeroed).toBeGreaterThanOrEqual(1);
-    expect(await popularityRow('channel', noDailyRowsChannelId)).toEqual({
+    expect(await popularityRow('channel', noDailyRowsChannel.channelId)).toEqual({
       day_count: 0,
       week_count: 0,
       month_count: 0,
@@ -372,7 +517,18 @@ describe('Popularity range totals refresh (real database)', () => {
     });
   });
 
-  it('refreshes playlist and profile range totals the same way', async () => {
+  it('sums all_time_listener_count, not listener_count', async () => {
+    await refresh('2001-06-30', 'recent');
+
+    expect(await popularityRow('channel', allTimeOnlyChannel.channelId)).toEqual({
+      day_count: 0,
+      week_count: 0,
+      month_count: 0,
+      all_time_count: 2,
+    });
+  });
+
+  it('refreshes playlist and profile range totals from open events', async () => {
     await refresh('2001-06-30', 'recent');
 
     expect(await popularityRow('playlist', playlistId)).toEqual({
@@ -382,10 +538,10 @@ describe('Popularity range totals refresh (real database)', () => {
       all_time_count: 8,
     });
     expect(await popularityRow('account', profileAccountId)).toEqual({
-      day_count: 4,
-      week_count: 4,
-      month_count: 5,
-      all_time_count: 5,
+      day_count: 1,
+      week_count: 1,
+      month_count: 2,
+      all_time_count: 3,
     });
   });
 });

@@ -1863,3 +1863,193 @@ family revoked`.
 - Who notices: popularity completion totals for a show a listener finishes after an earlier listen
   the same UTC day
 - Operator steps: none
+
+## Popularity Tracking opt-in renamed to Taste Profile
+
+- Surfaces: api, web, web sidecar, mobile, k8s base env, local env
+- Change: the opt-in that records listens is now called Taste Profile in web, mobile, the served
+  explanation, and the terms, in all four locales. Its summary says the app tracks your listens
+  to build your Taste Profile and that those listens also count toward public popularity rankings
+  without your name. Web Settings shows one Taste Profile section (switch, summary, shows list,
+  Hidden From Taste Profile); the mobile screen has the same layout and is renamed Taste Profile.
+  The web consent page moved from `/popularity-tracking` to `/taste-profile` with no redirect. The
+  API route moved from `GET /legal/popularity-tracking` to `GET /legal/taste-profile-agreement`.
+  The listen and open 403 code is now `taste_profile_consent_required`. The account data export
+  key `popularity_tracking` is now `listening_data`. Env keys renamed:
+  `POPULARITY_TRACKING_AGREEMENT_VERSION` → `TASTE_PROFILE_AGREEMENT_VERSION`,
+  `POPULARITY_TRACKING_CONTENT_DIR` → `TASTE_PROFILE_AGREEMENT_CONTENT_DIR`,
+  `NEXT_PUBLIC_POPULARITY_TRACKING_AGREEMENT_VERSION` →
+  `NEXT_PUBLIC_TASTE_PROFILE_AGREEMENT_VERSION`. No agreement or terms version change, so nobody
+  is asked again.
+- Who notices: listeners see the new name and the merged Settings section; operators must rename
+  env keys; anyone parsing the data export sees the new key
+- Operator steps: rename the three keys in home `legal.env` overrides and in every deployed API
+  and web-sidecar env and overlay (values unchanged), then run `make local_env_setup` locally.
+  The API fails startup validation until `TASTE_PROFILE_AGREEMENT_VERSION` is set.
+
+## New listens sent too close together are not recorded
+
+- Surfaces: api, k8s base env
+- Change: a new listen arriving within `STATS_LISTEN_MIN_INTERVAL_SECONDS` (default 20) of the
+  listener's last stored listen is not stored. `POST /stats/listen` answers 200 with
+  `{ "result": "too_soon" }`. Later reports for an already-stored listening session are not
+  affected. Web and mobile treat the answer as done and do not retry, so an offline backlog sent
+  all at once stores only its first new listen.
+- Who notices: nobody listening normally; scripted clients can no longer store listens faster
+  than one per 20 seconds
+- Operator steps: none; set `STATS_LISTEN_MIN_INTERVAL_SECONDS` on the API to change the
+  interval (`0` turns it off)
+
+## Taste Profile agreement and terms describe the new limits
+
+- Surfaces: api (Taste Profile agreement and terms, all four locales)
+- Change: the "daily limit on how many listens count" sentence now says a new listen sent too
+  soon after the last one is not recorded, that a daily limit caps recorded listens, that a lower
+  one caps those counting toward public lists while the rest still update the Taste Profile, and
+  that profile and playlist opens have a daily limit. No numbers appear; the agreement and terms
+  versions do not change, so nobody is asked to accept again.
+- Who notices: anyone reading the Taste Profile agreement or the terms
+- Operator steps: none
+
+## Public popularity counts take at most 100 listens a day per listener
+
+- Surfaces: api, k8s base env, local env overrides, database migration
+- Change: `STATS_LISTEN_DAILY_POPULARITY_CAP` (default 100) caps how many of a listener's
+  listens each UTC day count toward popularity. `STATS_LISTEN_DAILY_CAP` is renamed
+  `STATS_LISTEN_DAILY_STORED_CAP` (still default 300); it caps stored listens, which all feed the
+  Taste Profile. The old key is no longer read. A listen between the two caps is stored with the
+  new `stats_listen_event.popularity_counted = false` column and adds nothing to daily totals.
+  The API still answers `counted` for it.
+- Who notices: heavy listeners' Taste Profiles keep updating past 100 listens a day; public
+  counts stop growing from any one listener after 100
+- Operator steps: run the app migration; any deployment that sets `STATS_LISTEN_DAILY_CAP` on the
+  API renames it to `STATS_LISTEN_DAILY_STORED_CAP`; set `STATS_LISTEN_DAILY_POPULARITY_CAP` to
+  change the popularity cap
+
+## Public popularity counts take at most 10 profile and playlist opens a day per listener
+
+- Surfaces: api, k8s base env
+- Change: `STATS_OPEN_DAILY_CAP` (default 10) caps counted profile and playlist opens per
+  listener per UTC day, both kinds together. `POST /stats/open` answers 200 with
+  `{ "result": "daily_cap_reached" }` past it and stores nothing. Opening your own profile or
+  playlist, or the same one again that day, does not use up the cap.
+- Who notices: nobody browsing normally; one account can no longer push many profiles or
+  playlists up the public lists in a day
+- Operator steps: none; set `STATS_OPEN_DAILY_CAP` on the API to change the cap
+
+## Turning Taste Profile off and on again does not reset popularity limits
+
+- Surfaces: api, k8s base env, local env overrides, database migration
+- Change: a No after a Yes on `PATCH /account-settings/listen-stats` records the new
+  `account_settings.listen_stats_opted_out_at`. For `STATS_ALL_TIME_RECOUNT_DAYS` days (default 90) after it, new listens are stored for the Taste Profile only (`popularity_counted = false`)
+  and still answer `counted`, and profile and playlist opens are not recorded and still answer
+  `counted`. Opting out still deletes listen records, open records, the Taste Profile, and Hidden
+  From Taste Profile right away, but keeps the account's pseudonymous listener id, so limits kept
+  by that id survive. A new listen within the minimum interval of the opt-out answers
+  `too_soon`, and the stored daily cap still counts that day's deleted listens. `GET /auth/me`
+  account settings and the account data export include `listen_stats_opted_out_at`.
+- Who notices: listeners who turn Taste Profile off and on again; their listens do not count
+  toward public popularity for 90 days. Nobody else.
+- Operator steps: run the app migration; set `STATS_ALL_TIME_RECOUNT_DAYS` on the API to change the
+  period
+
+## Listening that looks scripted is left out of public popularity
+
+- Surfaces: api, k8s base env, local env overrides, database migration
+- Change: a listener is flagged when its stored listens reach `STATS_LISTEN_DAILY_STORED_CAP`
+  within `STATS_FLAG_STORED_CAP_WITHIN_HOURS` (default 3, `0` off) of its first stored listen of
+  the UTC day, or when its new listens answer `too_soon` in a run of `STATS_FLAG_TOO_SOON_MINUTES`
+  (default 30, `0` off) minutes. A gap of more than 2 minutes starts a new run, and items and
+  clips under 60 seconds do not count toward it. A flagged listener's later listens and opens are
+  stored with `popularity_counted = false` and add nothing to daily totals; listens still update
+  the Taste Profile, and API answers do not change. New tables `stats_flagged_listener` and
+  `stats_flag_signal` are keyed by the pseudonymous listener id; they survive turning Taste
+  Profile off and on and are removed when the account is deleted. `stats_open_event` gains
+  `popularity_counted`. The web and mobile E2E API profiles set both signals to `0`.
+- Who notices: nobody listening normally; scripted listening stops moving public lists
+- Operator steps: run the app migration; set `STATS_FLAG_TOO_SOON_MINUTES` or
+  `STATS_FLAG_STORED_CAP_WITHIN_HOURS` on the API to change or turn off either signal
+
+## Management lists flagged listeners and clears flags
+
+- Surfaces: management-api
+- Change: `GET /stats/flagged-listeners` (stats read) lists listeners flagged out of popularity,
+  active by default, with reason, times flagged, and listens and opens stored in the last 7 days.
+  `POST /stats/flagged-listeners/:id/clear` (stats update) clears a flag and writes an audit
+  entry. Both work from the pseudonymous listener id and never show an account. A clear holds
+  for the rest of its UTC day; a later day's signal flags the listener again.
+- Who notices: admins with stats permissions
+- Operator steps: none; grant stats update to admins who should clear flags
+
+## Taste Profile agreement and terms mention automated listening
+
+- Surfaces: api (Taste Profile agreement and terms, all four locales)
+- Change: both documents say listening that looks automated can be left out of the public lists
+  while it still updates the Taste Profile. The agreement's "What We Store" adds the mark on the
+  pseudonymous id, says listens and opens recorded while the mark was in place stay out of the
+  public lists after it is removed, and describes the count of recent too-soon minutes. It says
+  both stay with the id when Taste Profile is turned off and are deleted with the account. The
+  agreement and terms versions do not change, so nobody is asked to accept again.
+- Who notices: anyone reading the Taste Profile agreement or the terms
+- Operator steps: none
+
+## Management Stats has a Flagged Listeners page
+
+- Surfaces: management-web
+- Change: Stats links to a new Flagged Listeners page that lists listeners flagged out of
+  popularity (active, cleared, or all), with the pseudonymous listener id, reason, when, times
+  flagged, and listens and opens in the last 7 days. Admins with stats update permission can
+  clear a flag after confirming.
+- Who notices: admins with stats permissions
+- Operator steps: none
+
+## Popularity all-time totals count a listener once per 90 days
+
+- Surfaces: api, k8s base env, database migration
+- Change: a listener adds to an episode's, show's, clip's, profile's, or playlist's all-time
+  popularity total at most once every `STATS_ALL_TIME_RECOUNT_DAYS` (default 90; the same setting
+  sets the popularity cooldown after a Taste Profile opt-out). The first popularity-counted listen
+  or open after the period ends counts again. Listens stored during the opt-out cooldown never
+  add to all-time. The API now refuses to start, with a message naming both keys, when
+  `STATS_ALL_TIME_RECOUNT_DAYS` is greater than `STATS_TRACK_EVENT_RETENTION_DAYS`; nothing
+  lowers it quietly. New `all_time_listener_count` on the five `stats_daily_*` tables
+  (backfilled from `listener_count`) and new marks on `stats_listen_event` and
+  `stats_open_event`. Range totals read the new column once the range-totals change ships.
+- Who notices: all-time Top lists grow more slowly; daily listener counts do not change;
+  operators whose API retention is below 90 days see a startup failure
+- Operator steps: run the app migration; keep the API's `STATS_TRACK_EVENT_RETENTION_DAYS` equal
+  to the workers' value; if either retention is below 90, set `STATS_ALL_TIME_RECOUNT_DAYS` on the
+  API to that value or lower before deploying
+
+## Taste Profile agreement and terms say how each list counts and describe the opt-out cooldown
+
+- Surfaces: api (Taste Profile agreement and terms, all four locales)
+- Change: both documents say each list counts a listener at most once per episode, show, clip,
+  profile, or playlist; that the day, week, and month lists come from stored records, so deleting
+  them removes the listener from those lists; and that all-time adds a listener again only after
+  a set period. Sentences that said every published count stays now say all-time counts stay.
+  A new sentence says that turning Taste Profile off and on again does not reset the daily
+  limits, and that for a set period after turning it off, new listens update the Taste Profile
+  but do not count toward the public lists and profile and playlist opens are not recorded. No
+  number appears. The agreement and terms versions do not change, so nobody is asked to accept
+  again.
+- Who notices: anyone reading the Taste Profile agreement or the terms
+- Operator steps: none
+
+## Popularity day, week, and month counts are distinct listeners
+
+- Surfaces: workers (popularity refresh job), database reads, channel merge
+- Change: the refresh job counts each Day, Week, and Month list as distinct listeners (distinct
+  openers for profiles and playlists) from the listen and open events, instead of summing daily
+  listener counts. A listener who returns on three days counts once in the week. Events past the
+  daily popularity cap, listens stored during the cooldown after a Taste Profile opt-out, and
+  every event of a listener with an uncleared flag are left out, and a cleared flag counts them
+  again. All-time sums the daily `all_time_listener_count`. A channel
+  merge moves every event of the merged-away channel to the survivor channel. A listener who opts
+  out or deletes their account leaves the day, week, and month counts at the next refresh; all-time
+  counts stay. The workers refuse `STATS_TRACK_EVENT_RETENTION_DAYS` below 31.
+- Who notices: Top lists for Week and Month show fewer, more realistic counts; dev seeding still
+  fills Top lists
+- Operator steps: run a full refresh once after deploy
+  (`npm run stats_popularity_refresh -w apps/workers -- -full`) so every entity's counts move to
+  the new rule

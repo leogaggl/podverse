@@ -15,8 +15,8 @@ import { handleRateLimitMessage } from '../rateLimit/handleRateLimitMessage';
 import { isE2eQuickLoginEnabled } from './e2eQuickLoginGate';
 import {
   E2E_PERF_EMAIL,
-  E2E_POPULARITY_UNDECIDED_EMAIL,
   E2E_STALE_TERMS_EMAIL,
+  E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL,
   E2E_USER_EMAIL,
   E2E_USER_PASSWORD,
 } from './e2eSeedConstants';
@@ -134,14 +134,14 @@ export function E2eQuickLogin() {
           testID="e2e-quick-login"
         />
         <Pressable
-          accessibilityLabel={t('e2e.quick_login_popularity')}
+          accessibilityLabel={t('e2e.quick_login_taste_profile_undecided')}
           accessibilityRole="button"
           accessibilityState={{ busy: isLoading, disabled: busy }}
           onPress={() => {
-            signIn(E2E_POPULARITY_UNDECIDED_EMAIL);
+            signIn(E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL);
           }}
           style={styles.hit}
-          testID="e2e-quick-login-popularity"
+          testID="e2e-quick-login-taste-profile-undecided"
         />
         <Pressable
           accessibilityLabel={t('e2e.quick_login_stale_terms')}

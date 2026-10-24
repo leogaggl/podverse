@@ -40,14 +40,15 @@ const TEST_PASSWORD = 'Test!1Aa';
 
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_CONFIGURED_TERMS_VERSION = '2026-10-15';
-const E2E_POPULARITY_TRACKING_VERSION = '2026-10-21';
-const E2E_POPULARITY_UNDECIDED_EMAIL = 'e2e-popularity-undecided@example.com';
+const E2E_TASTE_PROFILE_AGREEMENT_VERSION = '2026-10-21';
+/** Sync with apps/web/e2e/helpers/legalConsent.ts */
+const E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL = 'e2e-taste-consent-undecided@example.com';
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_TASTE_PROFILE_EMAIL = 'e2e-taste-profile@example.com';
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
-const E2E_POPULARITY_STALE_EMAIL = 'e2e-popularity-stale@example.com';
-/** Older than E2E_POPULARITY_TRACKING_VERSION, so an acceptance on it is stale. */
-const E2E_OUTDATED_POPULARITY_TRACKING_VERSION = '2026-01-01';
+const E2E_TASTE_PROFILE_CONSENT_STALE_EMAIL = 'e2e-taste-consent-stale@example.com';
+/** Older than E2E_TASTE_PROFILE_AGREEMENT_VERSION, so an acceptance on it is stale. */
+const E2E_OUTDATED_TASTE_PROFILE_AGREEMENT_VERSION = '2026-01-01';
 /** Sync with apps/web/e2e/helpers/legalConsent.ts */
 const E2E_CONSENT_ORDER_EMAIL = 'e2e-consent-order@example.com';
 /** Sync with apps/web/e2e/helpers/accountSessions.ts */
@@ -545,7 +546,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW())`,
-    [accountId, E2E_POPULARITY_TRACKING_VERSION]
+    [accountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   const staleTermsIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
@@ -589,7 +590,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW())`,
-    [staleTermsAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    [staleTermsAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   const inviteIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
@@ -640,7 +641,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW())`,
-    [inviteAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    [inviteAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   const undecidedIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
@@ -655,7 +656,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
   await client.query(
     `INSERT INTO "account_credentials" (account_id, email, password)
      VALUES ($1, $2, $3)`,
-    [undecidedAccountId, E2E_POPULARITY_UNDECIDED_EMAIL, passwordHash]
+    [undecidedAccountId, E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL, passwordHash]
   );
 
   await client.query(
@@ -772,7 +773,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, false, false, $2, NOW())`,
-    [sessionsAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    [sessionsAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   const tasteProfileIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
@@ -816,39 +817,39 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW())`,
-    [tasteProfileAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    [tasteProfileAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
-  const popularityStaleIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
-  const popularityStaleAccountResult = await client.query(
+  const tasteProfileConsentStaleIdText = crypto.randomBytes(8).toString('hex').slice(0, 15);
+  const tasteProfileConsentStaleAccountResult = await client.query(
     `INSERT INTO "account" (id_text, verified, sharable_status_id)
      VALUES ($1, true, 1)
      RETURNING id`,
-    [popularityStaleIdText]
+    [tasteProfileConsentStaleIdText]
   );
-  const popularityStaleAccountId = popularityStaleAccountResult.rows[0].id;
+  const tasteProfileConsentStaleAccountId = tasteProfileConsentStaleAccountResult.rows[0].id;
 
   await client.query(
     `INSERT INTO "account_credentials" (account_id, email, password)
      VALUES ($1, $2, $3)`,
-    [popularityStaleAccountId, E2E_POPULARITY_STALE_EMAIL, passwordHash]
+    [tasteProfileConsentStaleAccountId, E2E_TASTE_PROFILE_CONSENT_STALE_EMAIL, passwordHash]
   );
 
   await client.query(
     `INSERT INTO "account_membership_status" (account_id, account_membership_id, membership_expires_at)
      VALUES ($1, 1, $2)`,
-    [popularityStaleAccountId, membershipExpiresAt]
+    [tasteProfileConsentStaleAccountId, membershipExpiresAt]
   );
   await client.query(
     `INSERT INTO "billing_membership_grant" (account_id, source, starts_at, ends_at)
      VALUES ($1, 'trial', $2, $3)`,
-    [popularityStaleAccountId, membershipStartsAt, membershipExpiresAt]
+    [tasteProfileConsentStaleAccountId, membershipStartsAt, membershipExpiresAt]
   );
 
   await client.query(
     `INSERT INTO "account_terms_acceptance" (account_id, terms_version, accepted_at)
      VALUES ($1, $2, NOW())`,
-    [popularityStaleAccountId, E2E_CONFIGURED_TERMS_VERSION]
+    [tasteProfileConsentStaleAccountId, E2E_CONFIGURED_TERMS_VERSION]
   );
 
   await client.query(
@@ -860,16 +861,18 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW() - INTERVAL '30 days')`,
-    [popularityStaleAccountId, E2E_OUTDATED_POPULARITY_TRACKING_VERSION]
+    [tasteProfileConsentStaleAccountId, E2E_OUTDATED_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   console.log(`Seeded 1 test user: e2e-user@example.com`);
-  console.log(`Seeded popularity-undecided user: ${E2E_POPULARITY_UNDECIDED_EMAIL}`);
+  console.log(
+    `Seeded Taste Profile consent undecided user: ${E2E_TASTE_PROFILE_CONSENT_UNDECIDED_EMAIL}`
+  );
   console.log(`Seeded consent-order user: ${E2E_CONSENT_ORDER_EMAIL}`);
   console.log(`Seeded sessions user: ${E2E_SESSIONS_EMAIL}`);
   console.log(`Seeded stale-terms user: ${E2E_STALE_TERMS_EMAIL}`);
   console.log(`Seeded taste-profile user: ${E2E_TASTE_PROFILE_EMAIL}`);
-  console.log(`Seeded popularity-stale user: ${E2E_POPULARITY_STALE_EMAIL}`);
+  console.log(`Seeded Taste Profile consent stale user: ${E2E_TASTE_PROFILE_CONSENT_STALE_EMAIL}`);
   console.log(
     `Seeded invite set-password token for account id ${inviteAccountId} (username e2e_invite_user)`
   );
@@ -936,7 +939,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW())`,
-    [perfAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    [perfAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   console.log(`Seeded perf user: ${E2E_PERF_EMAIL}`);
@@ -982,7 +985,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
        listen_stats_decided_at
      )
      VALUES ($1, true, true, $2, NOW())`,
-    [changePasswordAccountId, E2E_POPULARITY_TRACKING_VERSION]
+    [changePasswordAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
   );
 
   console.log(`Seeded change-password user: ${E2E_CHANGE_PASSWORD_WEB_EMAIL}`);
@@ -1040,7 +1043,7 @@ async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPassw
          listen_stats_decided_at
        )
        VALUES ($1, true, true, $2, NOW())`,
-      [changePasswordMobileAccountId, E2E_POPULARITY_TRACKING_VERSION]
+      [changePasswordMobileAccountId, E2E_TASTE_PROFILE_AGREEMENT_VERSION]
     );
 
     console.log(`Seeded change-password user: ${changePasswordMobileAccount.email}`);

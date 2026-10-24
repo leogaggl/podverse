@@ -18,7 +18,7 @@ with its own copy of that text would drift from the phone's copy the first time 
 
 A new route under `apps/web/src/app/faq/` that fetches `faq` and renders the markdown, with SEO
 metadata like the other informational pages. It follows `/terms` and `/about` for layout and
-`popularity-tracking` for the fetch-and-render shape — the difference being that the copy comes from
+`taste-profile` for the fetch-and-render shape — the difference being that the copy comes from
 the API rather than the catalog.
 
 There is no web equivalent of the Make Clip how-to modal. Web's clip form types timestamps into
@@ -29,7 +29,7 @@ mobile.
 
 The page shows `WebLoadingSpinnerOverlay` while the request is out, for the reason in
 [755](755-mobile-faq-and-clip-how-to.md): served copy always has a moment with nothing to paint. The
-popularity-tracking gate and settings panel get the same treatment in the same change, since they
+Taste Profile consent gate and settings panel get the same treatment in the same change, since they
 share the fetch shape and today render an empty area while loading.
 
 ### Shared preview lead
@@ -53,13 +53,13 @@ assumed parity.
 - `/faq` renders the served `faq` markdown, with a spinner while loading and page metadata.
 - The page reads the same endpoint and slug as mobile; no web copy of the FAQ text exists.
 - `ClipForm`'s end-time preview reads the shared constant and still seeks three seconds early.
-- The popularity-tracking gate and settings panel show a loading state instead of an empty panel.
-- Existing clip form and popularity-tracking E2E coverage still passes, extended for the new page.
+- The Taste Profile consent gate and settings panel show a loading state instead of an empty panel.
+- Existing clip form and Taste Profile consent E2E coverage still passes, extended for the new page.
 
 ## Web parity references
 
 - `apps/web/src/app/terms/page.tsx`, `apps/web/src/app/about/page.tsx` — informational page shape
-- `apps/web/src/app/popularity-tracking/PopularityTrackingGateClient.tsx` — fetch and render
+- `apps/web/src/components/Legal/TasteProfileAgreementGate.tsx` — fetch and render
 - `apps/web/src/components/Clip/ClipForm.tsx` — preview buttons
 
 ## Verification

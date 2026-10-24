@@ -261,9 +261,6 @@ npm run mobile:e2e:test -- --platform ios playback-offline-reconciliation
 npm run mobile:e2e:test -- --platform ios playback-resume-on-relaunch
 npm run mobile:e2e:test -- --platform ios player-screen
 npm run mobile:e2e:test -- --platform ios podcast-episode
-npm run mobile:e2e:test -- --platform ios popularity-tracking
-npm run mobile:e2e:test -- --platform ios terms-account-access
-npm run mobile:e2e:test -- --platform ios terms-popularity
 npm run mobile:e2e:test -- --platform ios push
 npm run mobile:e2e:test -- --platform ios queue-add
 npm run mobile:e2e:test -- --platform ios queue-screen
@@ -275,6 +272,9 @@ npm run mobile:e2e:test -- --platform ios settings-select
 npm run mobile:e2e:test -- --platform ios subscriptions-anonymous
 npm run mobile:e2e:test -- --platform ios tab-switch-playback
 npm run mobile:e2e:test -- --platform ios taste-profile
+npm run mobile:e2e:test -- --platform ios taste-profile-consent
+npm run mobile:e2e:test -- --platform ios terms-account-access
+npm run mobile:e2e:test -- --platform ios terms-taste-profile-consent
 npm run mobile:e2e:test -- --platform ios track
 npm run mobile:e2e:test -- --platform ios v4v
 npm run mobile:e2e:test -- --platform ios video-transition
@@ -323,9 +323,6 @@ npm run mobile:e2e:test -- --platform android playback-offline-reconciliation
 npm run mobile:e2e:test -- --platform android playback-resume-on-relaunch
 npm run mobile:e2e:test -- --platform android player-screen
 npm run mobile:e2e:test -- --platform android podcast-episode
-npm run mobile:e2e:test -- --platform android popularity-tracking
-npm run mobile:e2e:test -- --platform android terms-account-access
-npm run mobile:e2e:test -- --platform android terms-popularity
 npm run mobile:e2e:test -- --platform android push
 npm run mobile:e2e:test -- --platform android queue-add
 npm run mobile:e2e:test -- --platform android queue-screen
@@ -337,6 +334,9 @@ npm run mobile:e2e:test -- --platform android settings-select
 npm run mobile:e2e:test -- --platform android subscriptions-anonymous
 npm run mobile:e2e:test -- --platform android tab-switch-playback
 npm run mobile:e2e:test -- --platform android taste-profile
+npm run mobile:e2e:test -- --platform android taste-profile-consent
+npm run mobile:e2e:test -- --platform android terms-account-access
+npm run mobile:e2e:test -- --platform android terms-taste-profile-consent
 npm run mobile:e2e:test -- --platform android track
 npm run mobile:e2e:test -- --platform android v4v
 npm run mobile:e2e:test -- --platform android video-transition
@@ -457,9 +457,6 @@ npm run mobile:e2e:test -- perf-scroll
 npm run mobile:e2e:test -- playback-multi-device-handoff
 npm run mobile:e2e:test -- player-screen
 npm run mobile:e2e:test -- podcast-episode
-npm run mobile:e2e:test -- popularity-tracking
-npm run mobile:e2e:test -- terms-account-access
-npm run mobile:e2e:test -- terms-popularity
 npm run mobile:e2e:test -- push
 npm run mobile:e2e:test -- queue-add
 npm run mobile:e2e:test -- queue-screen
@@ -469,6 +466,9 @@ npm run mobile:e2e:test -- search-unparsed
 npm run mobile:e2e:test -- settings-downloads
 npm run mobile:e2e:test -- subscriptions-anonymous
 npm run mobile:e2e:test -- taste-profile
+npm run mobile:e2e:test -- taste-profile-consent
+npm run mobile:e2e:test -- terms-account-access
+npm run mobile:e2e:test -- terms-taste-profile-consent
 npm run mobile:e2e:test -- track
 ```
 

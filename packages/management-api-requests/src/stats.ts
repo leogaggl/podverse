@@ -1,4 +1,4 @@
-import type { StatsPopularityRange } from '@podverse/helpers';
+import type { PopularityFlagReason, StatsPopularityRange } from '@podverse/helpers';
 
 import { ManagementApiRequestService } from './apiRequestService.js';
 
@@ -71,5 +71,57 @@ export async function reqStatsSearch(
   return service.apiRequest<StatsTopResponse>({
     path: `/stats/${entityType}/search?${params.toString()}`,
     method: 'GET',
+  });
+}
+
+export type StatsFlaggedListenerStatus = 'active' | 'cleared' | 'all';
+
+export type StatsFlaggedListenerRow = {
+  id: number;
+  listener_id: string;
+  reason: PopularityFlagReason;
+  /** ISO 8601 */
+  flagged_at: string;
+  times_flagged: number;
+  /** ISO 8601, or null while the flag is active */
+  cleared_at: string | null;
+  cleared_by_admin_id: number | null;
+  /** Stored listen events in the last 7 days, popularity-counted or not. */
+  listens_last_7_days: number;
+  /** Stored open events in the last 7 days. */
+  opens_last_7_days: number;
+};
+
+export type StatsFlaggedListenersResponse = {
+  rows: StatsFlaggedListenerRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export async function reqStatsFlaggedListeners(
+  status: StatsFlaggedListenerStatus,
+  page: number = 1,
+  limit: number = 25
+): Promise<StatsFlaggedListenersResponse> {
+  const service = new ManagementApiRequestService();
+  const params = new URLSearchParams({
+    status,
+    page: String(page),
+    limit: String(limit),
+  });
+  return service.apiRequest<StatsFlaggedListenersResponse>({
+    path: `/stats/flagged-listeners?${params.toString()}`,
+    method: 'GET',
+  });
+}
+
+export async function reqStatsFlaggedListenerClear(
+  id: number
+): Promise<{ row: StatsFlaggedListenerRow }> {
+  const service = new ManagementApiRequestService();
+  return service.apiRequest<{ row: StatsFlaggedListenerRow }>({
+    path: `/stats/flagged-listeners/${id}/clear`,
+    method: 'POST',
   });
 }

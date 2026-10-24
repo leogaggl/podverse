@@ -8,6 +8,7 @@ export const ROUTES = {
   FEEDS_FLAG_STATUS: '/feeds/flag-status',
   FEEDS_MERGE_REVIEW: '/feeds/merge-review',
   STATS: '/stats',
+  STATS_FLAGGED_LISTENERS: '/stats/flagged-listeners',
   DATABASE: '/database',
   PRODUCTS: '/products',
   PRODUCTS_MEMBERSHIPS: '/products/memberships',

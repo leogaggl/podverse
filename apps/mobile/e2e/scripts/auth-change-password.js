@@ -46,7 +46,7 @@ const REPAIR_THROW =
 const FORBIDDEN_EMAILS = [
   'e2e-user@example.com',
   'e2e-perf@example.com',
-  'e2e-popularity-undecided@example.com',
+  'e2e-taste-consent-undecided@example.com',
   'e2e-stale-terms@example.com',
   'e2e-consent-order@example.com',
 ];

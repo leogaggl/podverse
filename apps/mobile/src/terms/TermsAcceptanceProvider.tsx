@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, Modal, ScrollView, StyleSheet, Text } from 'react-native';
 
-import type { DTOPopularityTrackingAgreement, DTOTermsAgreement } from '@podverse/helpers';
-import { isCurrentTermsAccepted, isPopularityTrackingOptOutDestructive } from '@podverse/helpers';
+import type { DTOTasteProfileAgreement, DTOTermsAgreement } from '@podverse/helpers';
+import { isCurrentTermsAccepted, isTasteProfileConsentOptOutDestructive } from '@podverse/helpers';
 
 import { useAuth } from '../auth/AuthProvider';
 import { requestWithMobileAuthRefresh } from '../auth/authRequestWithRefresh';
@@ -12,9 +12,9 @@ import { createMobileApiRequestService } from '../auth/mobileApi';
 import { syncAllowListenStatsToAccountSettings } from '../auth/syncAccountPrefs';
 import { ModalSafeArea } from '../components/screen/ModalSafeArea';
 import { LoadingSection } from '../components/state/LoadingSection';
-import { PopularityTrackingAgreementBody } from '../popularityTracking/PopularityTrackingAgreementBody';
-import { setPopularityTrackingCurrentVersion } from '../popularityTracking/popularityTrackingGate';
-import { PopularityTrackingOptOutPanel } from '../popularityTracking/PopularityTrackingOptOutPanel';
+import { TasteProfileAgreementBody } from '../tasteProfileConsent/TasteProfileAgreementBody';
+import { setTasteProfileAgreementCurrentVersion } from '../tasteProfileConsent/tasteProfileConsentGate';
+import { TasteProfileConsentOptOutPanel } from '../tasteProfileConsent/TasteProfileConsentOptOutPanel';
 import { screenBodyInsets } from '../theme/screenLayout';
 import { useTheme } from '../theme/useTheme';
 import { AccountAccessPanel } from './AccountAccessPanel';
@@ -29,8 +29,8 @@ function consentTestId(phase: ShownConsentPhase): string {
   switch (phase) {
     case 'account-access':
       return 'account-access-screen';
-    case 'popularity':
-      return 'popularity-tracking-prompt';
+    case 'taste-profile-consent':
+      return 'taste-profile-consent-prompt';
     case 'resolving':
       return 'account-consent-resolving';
     case 'terms':
@@ -51,12 +51,14 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   const [reloadKey, setReloadKey] = useState(0);
   const [showAccountAccess, setShowAccountAccess] = useState(false);
   const [presentedConsent, setPresentedConsent] = useState(false);
-  const [popularityAgreement, setPopularityAgreement] =
-    useState<DTOPopularityTrackingAgreement | null>(null);
-  const [popularityLoading, setPopularityLoading] = useState(false);
-  const [popularityErrorKey, setPopularityErrorKey] = useState<string | null>(null);
-  const [popularityReloadKey, setPopularityReloadKey] = useState(0);
-  const [popularityOptOutConfirming, setPopularityOptOutConfirming] = useState(false);
+  const [tasteProfileAgreement, setTasteProfileAgreement] =
+    useState<DTOTasteProfileAgreement | null>(null);
+  const [tasteProfileAgreementLoading, setTasteProfileAgreementLoading] = useState(false);
+  const [tasteProfileConsentErrorKey, setTasteProfileConsentErrorKey] = useState<string | null>(
+    null
+  );
+  const [tasteProfileAgreementReloadKey, setTasteProfileAgreementReloadKey] = useState(0);
+  const [tasteProfileOptOutConfirming, setTasteProfileOptOutConfirming] = useState(false);
   const decidingRef = useRef(false);
   const previousPhaseRef = useRef<AccountConsentPhase>('none');
   const retainedPhaseRef = useRef<ShownConsentPhase>('terms');
@@ -76,14 +78,15 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   const blockSync =
     status === 'authenticated' &&
     (account === null || agreement === null || !termsCurrent || loadFailed);
-  const popularityVersion = popularityAgreement?.version ?? '';
-  const popularityLoadFailed = popularityErrorKey !== null && !popularityLoading;
+  const tasteProfileAgreementVersion = tasteProfileAgreement?.version ?? '';
+  const tasteProfileAgreementLoadFailed =
+    tasteProfileConsentErrorKey !== null && !tasteProfileAgreementLoading;
   const phase = resolveAccountConsentPhase({
     accountPresent: account !== null,
     authenticated: status === 'authenticated',
     decision: account?.account_settings ?? null,
-    popularityLoadFailed,
-    popularityVersion,
+    tasteProfileAgreementLoadFailed,
+    tasteProfileAgreementVersion,
     presentedConsent,
     showAccountAccess,
     termsOutstanding,
@@ -94,8 +97,9 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   }
   // Keep the last screen painted while the modal fades out.
   const contentPhase: ShownConsentPhase = phase === 'none' ? retainedPhaseRef.current : phase;
-  const popularityBodyLoading =
-    popularityLoading || (popularityAgreement === null && popularityErrorKey === null);
+  const tasteProfileAgreementBodyLoading =
+    tasteProfileAgreementLoading ||
+    (tasteProfileAgreement === null && tasteProfileConsentErrorKey === null);
 
   useEffect(() => {
     setTermsBlocksAccountSync(blockSync);
@@ -121,8 +125,8 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
     const message =
       phase === 'account-access'
         ? t('account_access.title')
-        : phase === 'popularity'
-          ? t('popularity_tracking.title')
+        : phase === 'taste-profile-consent'
+          ? t('taste_profile.title')
           : phase === 'resolving'
             ? t('misc.loading')
             : t('terms_acceptance.header');
@@ -130,8 +134,8 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
   }, [phase, t]);
 
   useEffect(() => {
-    if (phase !== 'popularity') {
-      setPopularityOptOutConfirming(false);
+    if (phase !== 'taste-profile-consent') {
+      setTasteProfileOptOutConfirming(false);
     }
   }, [phase]);
 
@@ -143,10 +147,10 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
       setErrorKey(null);
       setShowAccountAccess(false);
       setPresentedConsent(false);
-      setPopularityAgreement(null);
-      setPopularityTrackingCurrentVersion('');
-      setPopularityLoading(false);
-      setPopularityErrorKey(null);
+      setTasteProfileAgreement(null);
+      setTasteProfileAgreementCurrentVersion('');
+      setTasteProfileAgreementLoading(false);
+      setTasteProfileConsentErrorKey(null);
       return;
     }
 
@@ -190,41 +194,49 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
       return;
     }
     if (blockSync) {
-      setPopularityLoading(false);
+      setTasteProfileAgreementLoading(false);
       return;
     }
 
-    setPopularityLoading(true);
-    setPopularityErrorKey(null);
+    setTasteProfileAgreementLoading(true);
+    setTasteProfileConsentErrorKey(null);
     let cancelled = false;
     void requestWithMobileAuthRefresh(
       { accessToken, clearSession, refreshToken, setTokens },
-      (api) => api.reqLegalPopularityTracking()
+      (api) => api.reqLegalTasteProfileAgreement()
     )
       .then((data) => {
         if (cancelled) {
           return;
         }
-        setPopularityAgreement(data);
-        setPopularityTrackingCurrentVersion(data.version);
-        setPopularityErrorKey(null);
+        setTasteProfileAgreement(data);
+        setTasteProfileAgreementCurrentVersion(data.version);
+        setTasteProfileConsentErrorKey(null);
       })
       .catch((error: unknown) => {
-        console.warn('[TermsAcceptanceProvider] popularity load failed', error);
+        console.warn('[TermsAcceptanceProvider] Taste Profile agreement load failed', error);
         if (!cancelled) {
-          setPopularityErrorKey('errors.generic');
+          setTasteProfileConsentErrorKey('errors.generic');
         }
       })
       .finally(() => {
         if (!cancelled) {
-          setPopularityLoading(false);
+          setTasteProfileAgreementLoading(false);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [accessToken, blockSync, clearSession, popularityReloadKey, refreshToken, setTokens, status]);
+  }, [
+    accessToken,
+    blockSync,
+    clearSession,
+    tasteProfileAgreementReloadKey,
+    refreshToken,
+    setTokens,
+    status,
+  ]);
 
   useEffect(() => {
     if (termsCurrent) {
@@ -255,7 +267,7 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
     }
   };
 
-  const handlePopularityDecision = async (accepted: boolean) => {
+  const handleTasteProfileConsentDecision = async (accepted: boolean) => {
     if (decidingRef.current) {
       return;
     }
@@ -275,7 +287,7 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
     <>
       {children}
       {/*
-        One full-screen modal for terms, account access, and popularity. A second modal
+        One full-screen modal for terms, account access, and Taste Profile consent. A second modal
         cannot present in the same turn this one dismisses (mobile-modal-presentation-lifecycle).
       */}
       <Modal animationType="fade" presentationStyle="fullScreen" visible={phase !== 'none'}>
@@ -287,7 +299,7 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
               { paddingBottom: tokens.spacing['2xl'] },
             ]}
             keyboardShouldPersistTaps="handled"
-            key={`${contentPhase}-${popularityOptOutConfirming ? 'opt-out' : 'choice'}`}
+            key={`${contentPhase}-${tasteProfileOptOutConfirming ? 'opt-out' : 'choice'}`}
           >
             {contentPhase === 'terms' ? (
               <>
@@ -339,50 +351,50 @@ export function TermsAcceptanceProvider({ children }: PropsWithChildren) {
                 }}
               />
             ) : null}
-            {contentPhase === 'popularity' ? (
+            {contentPhase === 'taste-profile-consent' ? (
               <>
                 <Text
                   accessibilityRole="header"
                   style={[styles.title, { color: themeStyles.textPrimary.color }]}
                 >
-                  {popularityOptOutConfirming
-                    ? t('popularity_tracking.opt_out_confirm_title')
-                    : t('popularity_tracking.title')}
+                  {tasteProfileOptOutConfirming
+                    ? t('taste_profile_consent.opt_out_confirm_title')
+                    : t('taste_profile.title')}
                 </Text>
-                {popularityOptOutConfirming ? (
-                  <PopularityTrackingOptOutPanel
+                {tasteProfileOptOutConfirming ? (
+                  <TasteProfileConsentOptOutPanel
                     onCancel={() => {
-                      setPopularityOptOutConfirming(false);
+                      setTasteProfileOptOutConfirming(false);
                     }}
                     onConfirm={() => {
-                      setPopularityOptOutConfirming(false);
-                      void handlePopularityDecision(false);
+                      setTasteProfileOptOutConfirming(false);
+                      void handleTasteProfileConsentDecision(false);
                     }}
                   />
                 ) : (
-                  <PopularityTrackingAgreementBody
-                    accordionTestID="popularity-tracking-full-agreement"
-                    agreement={popularityAgreement}
-                    errorKey={popularityErrorKey}
-                    isLoading={popularityBodyLoading}
-                    noTestID="popularity-tracking-no"
+                  <TasteProfileAgreementBody
+                    accordionTestID="taste-profile-consent-full-agreement"
+                    agreement={tasteProfileAgreement}
+                    errorKey={tasteProfileConsentErrorKey}
+                    isLoading={tasteProfileAgreementBodyLoading}
+                    noTestID="taste-profile-consent-no"
                     onDecision={(accepted) => {
                       if (
                         !accepted &&
-                        isPopularityTrackingOptOutDestructive(account?.account_settings)
+                        isTasteProfileConsentOptOutDestructive(account?.account_settings)
                       ) {
-                        setPopularityOptOutConfirming(true);
+                        setTasteProfileOptOutConfirming(true);
                         AccessibilityInfo.announceForAccessibility(
-                          t('popularity_tracking.opt_out_confirm_title')
+                          t('taste_profile_consent.opt_out_confirm_title')
                         );
                         return;
                       }
-                      void handlePopularityDecision(accepted);
+                      void handleTasteProfileConsentDecision(accepted);
                     }}
                     onRetry={() => {
-                      setPopularityReloadKey((current) => current + 1);
+                      setTasteProfileAgreementReloadKey((current) => current + 1);
                     }}
-                    yesTestID="popularity-tracking-yes"
+                    yesTestID="taste-profile-consent-yes"
                   />
                 )}
               </>

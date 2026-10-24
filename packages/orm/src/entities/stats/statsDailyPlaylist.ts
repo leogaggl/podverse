@@ -17,6 +17,13 @@ export class StatsDailyPlaylist {
   @Column({ type: 'integer', default: 0 })
   listener_count!: number;
 
+  /**
+   * Listeners who added to the all-time total on this day; at most one per listener every
+   * `STATS_ALL_TIME_RECOUNT_DAYS`.
+   */
+  @Column({ type: 'integer', default: 0 })
+  all_time_listener_count!: number;
+
   @ManyToOne('Playlist', (playlist: Playlist) => playlist.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'playlist_id' })
   playlist!: Relation<Playlist>;

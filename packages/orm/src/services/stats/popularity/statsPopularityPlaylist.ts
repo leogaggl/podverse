@@ -15,8 +15,8 @@ const STATS_POPULARITY_SELECT_ALL = {
 };
 
 /**
- * Reads the range totals behind public Top lists. Rows are rebuilt from the daily totals by the
- * popularity refresh job; see `docs/features/POPULARITY-TRACKING.md`.
+ * Reads the range totals behind public Top lists. Rows are rebuilt from counted events and daily
+ * totals by the popularity refresh job; see `docs/features/POPULARITY-AND-TASTE-PROFILE.md`.
  */
 export class StatsPopularityPlaylistService {
   private repositoryRead = AppDataSourceRead.getRepository(StatsPopularityPlaylist);

@@ -9,14 +9,14 @@ import { useAccount } from '../../contexts/Account';
 import { useConfig } from '../../contexts/Config';
 import { useLocalSettings } from '../../contexts/LocalSettings';
 import { isEmbedPathname } from '../../lib/embed/isEmbedPathname';
-import { isPopularityTrackingPromptRequiredForAccount } from '../../lib/popularityTrackingRequired';
+import { isTasteProfileConsentPromptRequiredForAccount } from '../../lib/tasteProfileConsentRequired';
 import { isTermsAcceptanceRequired } from '../../lib/termsAcceptanceRequired';
 import { SessionEndedNotice } from '../Auth/SessionEndedNotice';
 import { BackgroundActivityOverlay } from '../BackgroundActivity/BackgroundActivityOverlay';
 import { CookieConsentBanner } from '../Banner/CookieConsentBanner';
 import { MembershipExpiredBanner } from '../Banner/MembershipExpiredBanner';
 import { LazyLoadedComponents } from '../LazyLoadedComponents/LazyLoadedComponents';
-import { PopularityAgreementGate } from '../Legal/PopularityAgreementGate';
+import { TasteProfileAgreementGate } from '../Legal/TasteProfileAgreementGate';
 import { TermsAgreementGate } from '../Legal/TermsAgreementGate';
 import { MediaPlayerController } from '../MediaPlayer/Controller/MediaPlayerController';
 import { shouldShowServerEnvironmentDisclaimer } from '../Modal/serverEnvironmentDisclaimer';
@@ -40,12 +40,12 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     !showDisclaimer &&
     isTermsAcceptanceRequired(loggedInAccount, config.public.legal.terms.version);
   const onAccountAccess = pathname === ROUTES.ACCOUNT_ACCESS;
-  const showPopularity =
+  const showTasteProfileConsent =
     !showDisclaimer &&
     !showTerms &&
-    isPopularityTrackingPromptRequiredForAccount(
+    isTasteProfileConsentPromptRequiredForAccount(
       loggedInAccount,
-      config.public.legal.popularityTracking.version
+      config.public.legal.tasteProfileAgreement.version
     );
 
   if (isEmbed) {
@@ -60,8 +60,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     return <TermsAgreementGate />;
   }
 
-  if (showPopularity) {
-    return <PopularityAgreementGate />;
+  if (showTasteProfileConsent) {
+    return <TasteProfileAgreementGate />;
   }
 
   return (

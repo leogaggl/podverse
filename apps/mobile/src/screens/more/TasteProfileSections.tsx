@@ -288,8 +288,6 @@ export function TasteProfileSections() {
   return (
     <View>
       <View style={styles.section} testID="taste-profile-section">
-        <SectionHeading>{t('taste_profile.title')}</SectionHeading>
-        <Text style={styles.description}>{t('taste_profile.description')}</Text>
         {actionFailed ? (
           <Text
             accessibilityLiveRegion="polite"
