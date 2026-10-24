@@ -71,8 +71,8 @@ that were applied or rejected so the next run starts from open items.
 - **Reasoning depth** — each Cursor Grok 4.7 prompt runs at the lowest reasoning that reliably
   completes it, with Fast off (**copy-pasta-recommend-model** § Reasoning). A prompt that needed
   a rerun one level up is a signal its kind of work is under-leveled.
-- **Test sweeps** — **abctestall** and **abctestdeferred** run under plan-runner through
-  `scripts/abctest/run.sh`, one fresh agent per tier or per deferred group.
+- **Test sweeps** — **abctestall**, **abcsmoketest**, and **abctestdeferred** run under
+  plan-runner through `scripts/abctest/run.sh`, one fresh agent per tier or per deferred group.
 - **Large requests** — **abcplan** plans and implements under plan-runner through
   `scripts/abcplan/run.sh`, so no single chat holds the whole request. Both runs pass
   `--parallel`: planning areas run in waves, and implementation phases hold only prompts that

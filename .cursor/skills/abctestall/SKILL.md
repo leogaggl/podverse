@@ -5,6 +5,8 @@ description: Run every Podverse monorepo test from lightest to heaviest, fix cle
 
 # `abctestall`
 
+For the fast tiers plus only a web and iOS startup-and-player check, use **abcsmoketest**.
+
 ## When the operator invokes it
 
 Do not run tests in that chat. The sweep runs under plan-runner: one fresh agent per step, one

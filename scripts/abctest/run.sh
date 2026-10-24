@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs the abctestall sweep or the abctestdeferred queue under plan-runner (sibling checkout), one
-# fresh Cursor agent per step, one step at a time.
+# Runs the abctestall sweep, the abcsmoketest run, or the abctestdeferred queue under plan-runner
+# (sibling checkout), one fresh Cursor agent per step, one step at a time.
 #
 # Each run is a plan set at .llm/plans/active/abctest-<mode>-<timestamp>/ built from
 # .cursor/prompts/abctest/<mode>-COPY-PASTA.md. While a run has an unticked step it is continued
@@ -8,7 +8,7 @@
 # to it. Finished runs are removed on the next start; their final messages stay in
 # .artifacts/plan-runner/<set>/.
 #
-# Usage: ./scripts/abctest/run.sh {all|deferred} [runner flags]
+# Usage: ./scripts/abctest/run.sh {all|smoke|deferred} [runner flags]
 
 set -euo pipefail
 
@@ -17,12 +17,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
 usage() {
-  echo "Usage: ./scripts/abctest/run.sh {all|deferred} [--resume 'msg'] [--clear] [--dry-run] [--stop-after NN]" >&2
+  echo "Usage: ./scripts/abctest/run.sh {all|smoke|deferred} [--resume 'msg'] [--clear] [--dry-run] [--stop-after NN]" >&2
 }
 
 mode="${1:-}"
 case "$mode" in
-  all | deferred) shift ;;
+  all | smoke | deferred) shift ;;
   *)
     usage
     exit 1
@@ -52,11 +52,11 @@ set_is_open() {
   grep -q '^- \[ \] \*\*' "$ACTIVE_DIR/$1/COPY-PASTA.md" 2>/dev/null
 }
 
-# abctest all always reaches iOS Maestro. abctest deferred reaches it only when the deferred
-# file names an iOS flow. Metro has to already be the E2E bundle: a Metro started inside a step
-# dies with that step, and port 8081 may belong to the operator's dev Metro.
+# abctest all and smoke always reach iOS Maestro. abctest deferred reaches it only when the
+# deferred file names an iOS flow. Metro has to already be the E2E bundle: a Metro started inside
+# a step dies with that step, and port 8081 may belong to the operator's dev Metro.
 run_needs_e2e_metro() {
-  if [ "$mode" = "all" ]; then
+  if [ "$mode" = "all" ] || [ "$mode" = "smoke" ]; then
     return 0
   fi
   if [ ! -f "$DEFERRED_FILE" ]; then
@@ -141,13 +141,14 @@ find_open_set() {
   echo "$found"
 }
 
-other_mode="deferred"
-[ "$mode" = "deferred" ] && other_mode="all"
-other_open="$(find_open_set "abctest-$other_mode-")"
-if [ -n "$other_open" ]; then
-  echo "Warning: abctest $other_mode run $other_open is still open. Do not let two runs use the" >&2
-  echo "test databases at once. Discard it with: rm -rf $ACTIVE_DIR/$other_open" >&2
-fi
+for other_mode in all smoke deferred; do
+  [ "$other_mode" = "$mode" ] && continue
+  other_open="$(find_open_set "abctest-$other_mode-")"
+  if [ -n "$other_open" ]; then
+    echo "Warning: abctest $other_mode run $other_open is still open. Do not let two runs use the" >&2
+    echo "test databases at once. Discard it with: rm -rf $ACTIVE_DIR/$other_open" >&2
+  fi
+done
 
 open_set="$(find_open_set "abctest-$mode-")"
 

@@ -19,6 +19,7 @@ if (!existsSync('.llm/plans')) {
 function wrapperFor(set) {
   if (set.startsWith('abcplan-')) return `./scripts/abcplan/run.sh plan ${set.slice(8)}`;
   if (set.startsWith('abctest-all-')) return './scripts/abctest/run.sh all';
+  if (set.startsWith('abctest-smoke-')) return './scripts/abctest/run.sh smoke';
   if (set.startsWith('abctest-deferred-')) return './scripts/abctest/run.sh deferred';
   if (existsSync(path.join(ACTIVE_DIR, set, '00-REQUEST.md'))) {
     return `./scripts/abcplan/run.sh run ${set}`;
