@@ -16,20 +16,22 @@ describe('parseFeedForceReparsePayload', () => {
     expect(parseFeedForceReparsePayload({ feedId: 42, reason: 'description_tier_change' })).toEqual(
       { feedId: 42, reason: 'description_tier_change' }
     );
-    expect(parseFeedForceReparsePayload({ feedId: 7, reason: 'description_backfill' })).toEqual({
+    expect(parseFeedForceReparsePayload({ feedId: 7, reason: 'description_tier_change' })).toEqual({
       feedId: 7,
-      reason: 'description_backfill',
+      reason: 'description_tier_change',
     });
   });
 
   it('rejects a missing, string, or non-positive feed id', () => {
-    expect(parseFeedForceReparsePayload({ reason: 'description_backfill' })).toBeNull();
+    expect(parseFeedForceReparsePayload({ reason: 'description_tier_change' })).toBeNull();
     expect(
-      parseFeedForceReparsePayload({ feedId: '42', reason: 'description_backfill' })
+      parseFeedForceReparsePayload({ feedId: '42', reason: 'description_tier_change' })
     ).toBeNull();
-    expect(parseFeedForceReparsePayload({ feedId: 0, reason: 'description_backfill' })).toBeNull();
     expect(
-      parseFeedForceReparsePayload({ feedId: 1.5, reason: 'description_backfill' })
+      parseFeedForceReparsePayload({ feedId: 0, reason: 'description_tier_change' })
+    ).toBeNull();
+    expect(
+      parseFeedForceReparsePayload({ feedId: 1.5, reason: 'description_tier_change' })
     ).toBeNull();
     expect(parseFeedForceReparsePayload(null)).toBeNull();
   });

@@ -25,8 +25,8 @@ configMapGenerator:
   - name: podverse-ops-migration-scripts
     literals:
       - MIGRATION_BUNDLE_SHA=linear-migrations-v1
-      - API_EXPECTED_MIGRATION_FILENAME=0031_account_api_key.sql
-      - MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME=0004_admin_session.sql
+      - API_EXPECTED_MIGRATION_FILENAME=0001_app_schema.sql
+      - MANAGEMENT_API_EXPECTED_MIGRATION_FILENAME=0001_management_schema.sql
     files:
       - source/database/runner/run-linear-migrations.sh
       - source/database/runner/run-linear-migrations-k8s.sh
@@ -41,36 +41,6 @@ configMapGenerator:
     files:
       - source/database/linear-migrations/app/0000_init_helpers.sql
       - source/database/linear-migrations/app/0001_app_schema.sql
-      - source/database/linear-migrations/app/0002_account_pending_following_channel.sql
-      - source/database/linear-migrations/app/0003_notifications_foundation.sql
-      - source/database/linear-migrations/app/0004_admin_notification_campaign.sql
-      - source/database/linear-migrations/app/0005_channel_seen_state.sql
-      - source/database/linear-migrations/app/0006_notifications_read_state.sql
-      - source/database/linear-migrations/app/0007_popularity_tracking_consent.sql
-      - source/database/linear-migrations/app/0008_notification_auto_enable_on_subscribe.sql
-      - source/database/linear-migrations/app/0009_list_sort_indexes.sql
-      - source/database/linear-migrations/app/0010_playback_listen_timestamps.sql
-      - source/database/linear-migrations/app/0011_account_device_auto_download_channel.sql
-      - source/database/linear-migrations/app/0012_add_by_rss_client_credentials.sql
-      - source/database/linear-migrations/app/0013_membership_billing_ledger.sql
-      - source/database/linear-migrations/app/0014_billing_strike.sql
-      - source/database/linear-migrations/app/0015_channel_merge.sql
-      - source/database/linear-migrations/app/0016_description_length_tiers.sql
-      - source/database/linear-migrations/app/0017_archived_slimming.sql
-      - source/database/linear-migrations/app/0018_removed_content_references.sql
-      - source/database/linear-migrations/app/0019_account_content_log.sql
-      - source/database/linear-migrations/app/0020_add_by_rss_feed_identity.sql
-      - source/database/linear-migrations/app/0021_channel_may_have_live_items.sql
-      - source/database/linear-migrations/app/0022_account_notification_read_at.sql
-      - source/database/linear-migrations/app/0023_channel_verified_publisher.sql
-      - source/database/linear-migrations/app/0024_account_session.sql
-      - source/database/linear-migrations/app/0025_popularity_tracking_foundation.sql
-      - source/database/linear-migrations/app/0026_drop_legacy_stats.sql
-      - source/database/linear-migrations/app/0027_stats_listen_event_popularity_counted.sql
-      - source/database/linear-migrations/app/0028_listen_stats_opt_out_cooldown.sql
-      - source/database/linear-migrations/app/0029_stats_flagged_listener.sql
-      - source/database/linear-migrations/app/0030_stats_all_time_recount.sql
-      - source/database/linear-migrations/app/0031_account_api_key.sql
   - name: podverse-ops-management-linear-migrations
     options:
       annotations:
@@ -78,9 +48,6 @@ configMapGenerator:
     files:
       - source/database/linear-migrations/management/0000_init_helpers.sql
       - source/database/linear-migrations/management/0001_management_schema.sql
-      - source/database/linear-migrations/management/0002_notifications_permissions.sql
-      - source/database/linear-migrations/management/0003_billing_permissions.sql
-      - source/database/linear-migrations/management/0004_admin_session.sql
   - name: podverse-ops-management-superuser-scripts
     files:
       - source/database/management-superuser/package.json

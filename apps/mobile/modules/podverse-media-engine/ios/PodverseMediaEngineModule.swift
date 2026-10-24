@@ -136,10 +136,6 @@ public class PodverseMediaEngineModule: Module {
     // Best-effort: a failed write must not surface as a JS
     // error that rolls back the phone-side mutation. ---
 
-    AsyncFunction("writeQueueSnapshot") { (payloadJson: String) in
-      PodverseNativeCache.write(.queue, json: payloadJson)
-    }
-
     AsyncFunction("writeQueueSnapshotAv") { (payloadJson: String) in
       PodverseNativeCache.write(.queueAv, json: payloadJson)
     }

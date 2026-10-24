@@ -64,7 +64,6 @@ export type PodverseMediaEngineNativeModule = {
   animateVideoSurface(toTargetId: string, durationMs: number): void;
   /** JS-desired video-surface visibility; gated by native video capability. */
   setVideoSurfaceVisible(visible: boolean): void;
-  writeQueueSnapshot(payloadJson: string): Promise<void>;
   writeQueueSnapshotAv(payloadJson: string): Promise<void>;
   writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
   writeDownloadsIndex(payloadJson: string): Promise<void>;

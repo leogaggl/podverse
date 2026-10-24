@@ -140,7 +140,7 @@ sql_exec_file_and_record_in_tx() {
 
   {
     echo "BEGIN;"
-    # Same connection/transaction as migration SQL; session lock + unlock across separate psql -c was invalid and caused ExclusiveLock warnings.
+    # The lock is transaction-scoped and shares the migration's connection, so it covers the whole file and the history insert.
     echo "SELECT pg_advisory_xact_lock($LOCK_KEY);"
     cat "$sql_file"
     printf "INSERT INTO linear_migration_history (migration_filename, migration_checksum) VALUES ('%s', '%s');\n" "$escaped_filename" "$escaped_checksum"

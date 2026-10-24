@@ -99,10 +99,6 @@ class NativePlaybackBridgeAdapter implements PodversePlaybackBridge {
     getPodverseMediaEngineModule().setVideoSurfaceVisible(visible);
   }
 
-  writeQueueSnapshot(payloadJson: string): Promise<void> {
-    return getPodverseMediaEngineModule().writeQueueSnapshot(payloadJson);
-  }
-
   writeQueueSnapshotAv(payloadJson: string): Promise<void> {
     return getPodverseMediaEngineModule().writeQueueSnapshotAv(payloadJson);
   }

@@ -42,16 +42,12 @@ describe('prefsStore', () => {
     inMemoryStore.set('uit', 'solarized');
     inMemoryStore.set('pmt', 'text');
     inMemoryStore.set('preferred_media_type', 'news');
-    inMemoryStore.set('home.subscriptionFilter', 'directory');
-    inMemoryStore.set('library.subscriptionFilter', 'directory');
 
     await expect(getPref('uit')).resolves.toBeNull();
     await expect(getPref('pmt')).resolves.toBeNull();
     await expect(getPref('preferred_media_type')).resolves.toBeNull();
     inMemoryStore.set('preferred_media_type', 'livestreams');
     await expect(getPref('preferred_media_type')).resolves.toBe('livestreams');
-    await expect(getPref('home.subscriptionFilter')).resolves.toBeNull();
-    await expect(getPref('library.subscriptionFilter')).resolves.toBeNull();
   });
 
   it('writes booleans as true/false strings and enums as raw strings', async () => {
@@ -59,13 +55,11 @@ describe('prefsStore', () => {
     await setPref('aqc.rp', false);
     await setPref('downloads.auto_delete', false);
     await setPref('preferred_media_type', 'podcasts');
-    await setPref('home.subscriptionFilter', 'addByRss');
 
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('aqc.rd', 'true');
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('aqc.rp', 'false');
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('downloads.auto_delete', 'false');
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('preferred_media_type', 'podcasts');
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith('home.subscriptionFilter', 'addByRss');
   });
 
   it('hydrates a full snapshot with nulls for unset keys', async () => {
@@ -78,8 +72,6 @@ describe('prefsStore', () => {
       'auth.forced_logout_at': null,
       'auth.forced_logout_notice': null,
       'downloads.auto_delete': null,
-      'home.subscriptionFilter': null,
-      'library.subscriptionFilter': null,
       locale: 'es',
       'membership.expiry_dismissed_for': null,
       'playback.handoff_dismissed_state': null,

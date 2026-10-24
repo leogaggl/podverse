@@ -2,8 +2,8 @@
  * Add-by-RSS queue and playlist: build minimal hash input and full resource
  * payload for API. Same resource => same add_by_rss_hash_id (matches backend).
  *
- * Hash uses canonical feed_url + guid (or enclosure_url); index items without a feed URL keep the
- * legacy channel_id_text form. See `extractAddByRSSHashInput` in `@podverse/helpers`.
+ * Hash uses canonical feed_url + guid (or enclosure_url). An index item with no feed URL hashes
+ * `channel_id_text` plus guid or enclosure URL. See `extractAddByRSSHashInput` in `@podverse/helpers`.
  */
 
 import type { AddByRSSResourceDataImageEntry } from '@podverse/helpers';
@@ -187,7 +187,7 @@ export function getAddByRSSHashId(
 
 /**
  * Every add_by_rss_hash_id a server row for this item may carry: the feed form first, then the
- * legacy form for rows written before feed identity. One entry when the item has no feed URL.
+ * form with no feed URL when that id differs. One entry when the item has no feed URL.
  */
 export function getAddByRSSHashIds(
   item: AddByRSSItemIndexItem | AddByRSSLivestreamIndexItem

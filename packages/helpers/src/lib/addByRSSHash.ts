@@ -4,13 +4,14 @@
  * Feed form (the episode has the same id on every device): `feed_url` + `guid`, or
  * `feed_url` + `enclosure_url` when the guid is missing or device-local.
  *
- * Legacy form (payloads without `feed_url`): `channel_id_text` + `guid`, or
+ * Per-device form (payloads without `feed_url`): `channel_id_text` + `guid`, or
  * `channel_id_text` + `enclosure_url` when the guid is missing. `channel_id_text` is a random id
  * each device creates for its copy of the feed, so this form differs per device.
  *
- * `getMd5Hash` hashes `JSON.stringify`, so key insertion order is part of the contract. Migration
- * `0020_add_by_rss_feed_identity.sql` reproduces the feed form in SQL
- * (`public.add_by_rss_hash_id_from_feed`); the two must stay byte for byte identical.
+ * `getMd5Hash` hashes `JSON.stringify`, so key insertion order is part of the contract.
+ * `public.add_by_rss_hash_id_from_feed` in
+ * `infra/k8s/base/ops/source/database/linear-migrations/app/0001_app_schema.sql`
+ * reproduces the feed form. The two must stay byte for byte identical.
  */
 
 import { getMd5Hash } from './hash.js';
@@ -90,8 +91,9 @@ export function getAddByRSSHashId(addByRSSResourceData: unknown): string {
 }
 
 /**
- * The legacy hash for a payload, ignoring `feed_url`. Rows written before feed identity carry it,
- * and rows whose payload never had `feed_url` still use it.
+ * The hash of this payload with `feed_url` left out. When the payload has no `feed_url`, this
+ * is the same id as `getAddByRSSHashId`. When it has `feed_url`, a stored row may still carry
+ * this id.
  */
 export function getLegacyAddByRSSHashId(addByRSSResourceData: unknown): string {
   if (!addByRSSResourceData || typeof addByRSSResourceData !== 'object') {
@@ -102,8 +104,8 @@ export function getLegacyAddByRSSHashId(addByRSSResourceData: unknown): string {
 }
 
 /**
- * Every add_by_rss_hash_id a stored row for this payload may carry: the current hash first, then
- * the legacy hash when it differs.
+ * Every add_by_rss_hash_id a stored row for this payload may carry: the hash of the payload,
+ * then the hash with `feed_url` left out when that id differs.
  */
 export function getAddByRSSHashIdsForResourceData(addByRSSResourceData: unknown): string[] {
   const current = getAddByRSSHashId(addByRSSResourceData);

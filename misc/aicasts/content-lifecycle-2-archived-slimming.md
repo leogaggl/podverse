@@ -1,9 +1,9 @@
 # Content Lifecycle 2: Keeping Only What Archived Content Still Needs
 
-- **Version:** 2026-10-19T00:13-05:00
+- **Version:** 2026-10-23T21:34-05:00
 - **Episode ID:** content-lifecycle-archived-slimming
-- **Changed:** The work is built, so the script describes it as built. Previous title:
-  "Keeping Only What Archived Content Still Needs". Regenerate the audio.
+- **Changed:** Sources no longer cite `0017_archived_slimming.sql`. The spoken script is
+  unchanged; the audio is unchanged.
 - **Description:** How archived episodes and shows that are kept for clips and playlists
   shrink to what those screens show, and how they grow back when the content returns to its
   feed.
@@ -11,7 +11,6 @@
 - **Group:** Content Lifecycle, part 2
 - **Sources:** `.llm/plans/completed/archived-content-slimming/`;
   `packages/orm/src/services/archivedSlimming.ts`, `packages/orm/src/services/archiver.ts`,
-  `infra/k8s/base/ops/source/database/linear-migrations/app/0017_archived_slimming.sql`,
   the `ormArchivedSlimReport` worker command
 - **Length:** about 6 minutes (924 words)
 

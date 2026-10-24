@@ -120,17 +120,6 @@ bash ./infra/k8s/scripts/secret-generators/create_workers_storage_bucket_secret.
 bash ./infra/k8s/scripts/secret-generators/create_firebase_secret.sh
 ```
 
-### Workers bucket secret rename (from `podverse-workers-digital-ocean-opaque`)
-
-GitOps manifests mount **`podverse-workers-storage-bucket-opaque`** for image-shrink workloads. If you
-still have the old Secret name only:
-
-1. Run **`create_workers_storage_bucket_secret.sh`** (same access/secret key values as before).
-2. Commit the generated **`secrets/podverse-<env>-workers-storage-bucket-opaque.enc.yaml`** and apply
-   (or include it in your existing `sops -d … | kubectl apply` loop).
-3. After pods roll healthy, remove the deprecated Secret, for example:
-   `kubectl -n podverse-alpha delete secret podverse-workers-digital-ocean-opaque`
-
 Push to the Argo CD–tracked branch so the cluster can sync.
 
 ### Ops: first deploy migrations (automatic)
@@ -153,10 +142,11 @@ migrate CronJobs below.
 
 ### Ops: drop schema, full bootstrap prep, then migrate
 
-[`infra/k8s/base/ops/db-drop-everything.cronjob.yaml`](base/ops/db-drop-everything.cronjob.yaml) runs
-`DROP SCHEMA public CASCADE; CREATE SCHEMA public;` against **both** the app database (`DB_APP_NAME`) and the
-management database (`DB_MANAGEMENT_NAME`), using each database’s owner credentials from
-`podverse-db-opaque` and `podverse-management-db-opaque`.
+[`infra/k8s/base/ops/db-drop-everything.cronjob.yaml`](base/ops/db-drop-everything.cronjob.yaml) drops
+the `listener_identity` schema and recreates an empty `public` schema in the app database
+(`DB_APP_NAME`), and recreates an empty `public` schema in the management database
+(`DB_MANAGEMENT_NAME`), using each database’s owner credentials from `podverse-db-opaque` and
+`podverse-management-db-opaque`.
 That recreates empty `public` schemas **without** the role sync and grants from StatefulSet bootstrap
 ([`0001_create_app_db_users.sh`](base/db/source/bootstrap/0001_create_app_db_users.sh),
 [`0002_create_management_db_users.sh`](base/db/source/bootstrap/0002_create_management_db_users.sh)), so
@@ -255,7 +245,7 @@ Other overlays render the same way (e.g., `infra/k8s/alpha/api`, `infra/k8s/alph
 - Encrypted secrets live under [secrets/](secrets/) at the monorepo root. Decrypt with `sops -d` when applying manually.
 - Secret generators in [infra/k8s/scripts/secret-generators/](scripts/secret-generators/INFRA-K8S-SCRIPTS-SECRET-GENERATORS.md) and other scripts in [infra/k8s/scripts/](scripts/README.md) assume SOPS keys are available and `nix develop` provides required binaries.
 - Never commit decrypted secrets; ArgoCD consumes the encrypted files directly.
-- If an older encrypted Secret is missing keys the generators now emit, prefer re-running the matching **`create_*`** script (see [INFRA-K8S-SCRIPTS-SECRET-GENERATORS.md](scripts/secret-generators/INFRA-K8S-SCRIPTS-SECRET-GENERATORS.md)); merge with **`sops`** only when you must preserve unrelated material.
+- If an encrypted Secret lacks a key its generator emits, prefer re-running the matching **`create_*`** script (see [INFRA-K8S-SCRIPTS-SECRET-GENERATORS.md](scripts/secret-generators/INFRA-K8S-SCRIPTS-SECRET-GENERATORS.md)); merge with **`sops`** only when you must preserve unrelated material.
 
 ## Linting and Formatting
 
@@ -290,7 +280,7 @@ change k8s YAML (CI `validate` also enforces lint).
 
 ### Important
 
-- **Do not** add `infra/k8s/` back to `.prettierignore` (it was previously ignored but now uses overrides)
+- **Do not** add `infra/k8s/` to `.prettierignore`; K8s files are formatted with their own overrides
 - K8s files are intentionally included in normal Prettier runs with their own overrides
 - See `.cursor/skills/k8s/SKILL.md` and `.cursor/rules/infra-k8s.mdc` for full patterns
 

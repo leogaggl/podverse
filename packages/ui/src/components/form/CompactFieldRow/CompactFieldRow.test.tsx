@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { CompactNumericInput } from '../CompactNumericInput/CompactNumericInput';
-import { CompactFieldRow, CompactNumericInputRow } from './CompactFieldRow';
+import { CompactFieldRow } from './CompactFieldRow';
 
 import textInputStyles from '../TextInput/TextInput.module.scss';
 import rowStyles from './CompactFieldRow.module.scss';
@@ -34,10 +34,6 @@ describe('CompactFieldRow', () => {
     const slot = container.querySelector(`.${rowStyles.row} > *`);
     expect(slot).not.toBeNull();
     expect(container.querySelector(`.${textInputStyles.textInputCompact}`)).not.toBeNull();
-  });
-
-  it('exposes CompactNumericInputRow as an alias', () => {
-    expect(CompactNumericInputRow).toBe(CompactFieldRow);
   });
 
   it('renders optional help text below the row', () => {

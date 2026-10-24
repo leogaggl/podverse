@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildAccountContextPayload,
@@ -9,11 +9,26 @@ import {
   buildLiveIndexPayload,
   buildQueueSnapshotPayload,
   NATIVE_CACHE_SCHEMA_VERSION,
+  projectQueueSnapshotAvToNativeCache,
+  projectQueueSnapshotToNativeCache,
 } from './projection';
 
-// Vitest hoists this above the imports. The payload builders are pure; only the write path
-// reaches the native module, which needs Expo.
-vi.mock('../../bridge/nativePlaybackBridge', () => ({ nativePlaybackBridge: {} }));
+// Vitest hoists this above the imports. Payload builders do not call the bridge. Queue writes
+// resolve through these spies.
+const nativeCacheWriters = vi.hoisted(() => ({
+  writeAccountContext: vi.fn().mockResolvedValue(undefined),
+  writeDownloadsIndex: vi.fn().mockResolvedValue(undefined),
+  writeHistoryIndex: vi.fn().mockResolvedValue(undefined),
+  writeLibraryBrowseIndex: vi.fn().mockResolvedValue(undefined),
+  writeLibraryChildren: vi.fn().mockResolvedValue(undefined),
+  writeLiveIndex: vi.fn().mockResolvedValue(undefined),
+  writeQueueSnapshotAv: vi.fn().mockResolvedValue(undefined),
+  writeQueueSnapshotMusic: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../bridge/nativePlaybackBridge', () => ({
+  nativePlaybackBridge: nativeCacheWriters,
+}));
 
 describe('native cache projection envelopes', () => {
   it('stamps schema version 2 on queue snapshots', () => {
@@ -103,5 +118,37 @@ describe('native cache projection envelopes', () => {
     expect(buildAccountContextPayload({ signedIn: true, accountIdText: 'acc1' }).signedIn).toBe(
       true
     );
+  });
+});
+
+describe('native cache queue snapshot writes', () => {
+  const emptyQueue = {
+    nowPlayingIdText: null,
+    entries: [],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls writeQueueSnapshotAv once when mediumBucket is omitted', async () => {
+    await projectQueueSnapshotToNativeCache(emptyQueue);
+
+    expect(nativeCacheWriters.writeQueueSnapshotAv).toHaveBeenCalledTimes(1);
+    expect(nativeCacheWriters.writeQueueSnapshotMusic).not.toHaveBeenCalled();
+  });
+
+  it('calls writeQueueSnapshotMusic once and never calls writeQueueSnapshotAv for music', async () => {
+    await projectQueueSnapshotToNativeCache({ ...emptyQueue, mediumBucket: 'music' });
+
+    expect(nativeCacheWriters.writeQueueSnapshotMusic).toHaveBeenCalledTimes(1);
+    expect(nativeCacheWriters.writeQueueSnapshotAv).not.toHaveBeenCalled();
+  });
+
+  it('calls writeQueueSnapshotAv once', async () => {
+    await projectQueueSnapshotAvToNativeCache(emptyQueue);
+
+    expect(nativeCacheWriters.writeQueueSnapshotAv).toHaveBeenCalledTimes(1);
+    expect(nativeCacheWriters.writeQueueSnapshotMusic).not.toHaveBeenCalled();
   });
 });

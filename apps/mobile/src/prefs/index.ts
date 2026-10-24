@@ -3,7 +3,6 @@ export {
   DEFAULT_HOME_MEDIA_TYPE,
   DEFAULT_OFFLINE_MODE,
   DEFAULT_PLAYBACK_MEDIA_TYPE,
-  DEFAULT_SUBSCRIPTION_FILTER,
   getPref,
   hydratePrefs,
   setPref,
@@ -14,7 +13,6 @@ export type {
   PrefKey,
   PrefSnapshot,
   PrefValueMap,
-  SubscriptionListFilter,
 } from './prefsStore';
 export {
   hasSeenMakeClipHowToPref,

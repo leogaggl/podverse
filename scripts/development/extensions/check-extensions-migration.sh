@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verifies extensions migration: no prom-client in main apps; K8s extensions base builds.
+# Checks that prom-client is not a dependency of the main apps, and that the extensions K8s base builds.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -23,4 +23,4 @@ else
   echo "WARN: kustomize not on PATH; skip extensions base build"
 fi
 
-echo "Extensions migration checks passed."
+echo "Extensions checks passed."

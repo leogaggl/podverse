@@ -1,15 +1,16 @@
 # Livestreams 1: A Flag, Not a Kind of Show
 
-- **Version:** 2026-10-22T18:57-05:00
+- **Version:** 2026-10-23T21:34-05:00
 - **Episode ID:** livestreams-a-flag-not-a-kind-of-show
-- **Changed:** First version.
+- **Changed:** Sources no longer cite `0021_channel_may_have_live_items.sql`, and the script no
+  longer says migration twenty-one backfills channels or that phone migration twenty-four seeds
+  stored feeds. Regenerate the audio.
 - **Description:** Why a livestream in Podverse is a flag on top of a show's medium, how channels
   and Add by RSS feeds remember that they may have livestreams, and how the Livestreams chip
   lists what is live now and what is scheduled, on the website and the phone.
 - **Status:** Built. The phone side ships in the next store build.
 - **Group:** Livestreams, part 1
 - **Sources:** `.llm/plans/completed/add-by-rss-parity/` (plans 80–89, 95–97, 52, 53);
-  `infra/k8s/base/ops/source/database/linear-migrations/app/0021_channel_may_have_live_items.sql`,
   `packages/parser/src/lib/rss/liveItem/channelLiveItemFlag.ts`,
   `packages/helpers/src/lib/liveItemVisibility.ts`,
   `packages/orm/src/services/item/item.ts` (`getManyUpcomingLiveItems`),
@@ -22,7 +23,7 @@
   `apps/mobile/src/lib/addByRss/liveRows.ts`,
   `apps/mobile/src/screens/home/AddByRssLivestreamDetailScreen.tsx`,
   `apps/mobile/src/screens/player/fullPlayerContentLink.ts`
-- **Length:** about 10 minutes (1,454 words)
+- **Length:** about 9 minutes (1,369 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -70,11 +71,7 @@ CLAIRE: Exactly.
 
 TOM: Start with the server. How does a channel remember?
 
-CLAIRE: Migration twenty-one adds a column to the channel table, may have live items. It defaults to false. The parser sets it to true the first time a parse sees a live item in the feed, of any status. It writes only when the flag is still false, and nothing ever clears it.
-
-TOM: What about channels that already had live items before the migration?
-
-CLAIRE: The migration backfills them. Any channel with a live item row today gets the flag. And when the parser sets it, it writes the channel's own medium back unchanged. So setting the flag can never change what kind of show it is.
+CLAIRE: The channel table has a column, may have live items. It defaults to false. The parser sets it to true the first time a parse sees a live item in the feed, of any status. It writes only when the flag is still false, and nothing ever clears it. When the parser sets it, it writes the channel's own medium back unchanged, so setting the flag can never change what kind of show it is.
 
 TOM: Who reads the flag?
 
@@ -90,9 +87,9 @@ TOM: Now Add by RSS. There's no server copy of those feeds.
 
 CLAIRE: Right, so each device keeps its own flag, may have livestreams, on its stored copy of the feed. One shared helper decides it, so the website and the phone follow the same rule. It's written only when a parse result is stored. The next value is the stored value, or whether this parse has any live items. So once it's true, it stays true.
 
-TOM: Phones already have feeds stored. Do they wait for the next refresh?
+TOM: What about a stored feed that has no flag yet?
 
-CLAIRE: No. Mobile database migration twenty-four adds the column and seeds it from the parsed feeds already on the phone, with no network request. The website stores whole records, so it needs no migration. When it reads a record saved before the flag existed, it also counts the feed if its stored parse has live items.
+CLAIRE: The website stores whole records. When it reads a record with no flag, it counts the feed if its stored parse has live items. The phone's column is part of its database from the first install.
 
 TOM: Does that flag sync to the server?
 
@@ -145,10 +142,6 @@ TOM: Does the phone record livestream playback, the way it does for episodes?
 CLAIRE: No. Livestreams record no playback events, Add by RSS livestreams included.
 
 (pause)
-
-TOM: Rollout?
-
-CLAIRE: Migration twenty-one runs with the API, and the API's readiness marker moves to it. Phones run migration twenty-four on their first launch after the store build. There are no settings to turn on.
 
 TOM: To remember. One: a livestream is a flag on top of a show's medium, never a medium or a feed type. Two: channels and Add by RSS feeds remember that they may have livestreams, and that flag is never cleared. Three: the Livestreams chip shows live first, then scheduled, never ended, from two new routes plus this device's Add by RSS feeds. Four: inside a channel, ended items stay for one day, with Scheduled and Ended badges on the phone. Five: livestream rows can be shared or opened, not queued, and they record no playback.
 

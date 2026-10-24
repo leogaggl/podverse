@@ -13,9 +13,6 @@ export type TableOfContentsSection = {
   items: TableOfContentsLinkItem[];
 };
 
-/** @deprecated Use {@link TableOfContentsSection} via the `sections` prop. */
-export type TableOfContentsItem = TableOfContentsLinkItem;
-
 export type TableOfContentsProps = {
   /** Localized nav landmark label (required; no default copy in shared UI). */
   navAriaLabel: string;

@@ -209,8 +209,6 @@ Builder URL shape:
 
 `/embed/builder?channel=<id_text>&item=<id_text>&playlist=<id_text>&type=<compact|responsive>&list=1&playlist_item=<id_text>&sort=<sort>&t=30`
 
-Legacy builder URLs may still use combined `type=compact-list|responsive-list` or `audio-list`/`video-list`; those map to `type` + `list=1`.
-
 ### List content types and sort (list=1)
 
 For list embeds the builder offers a **List content** selector and a per-content **Sort** selector

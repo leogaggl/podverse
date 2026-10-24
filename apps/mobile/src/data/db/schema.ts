@@ -2,7 +2,7 @@ import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm
 
 /**
  * Generic key/value metadata for the sync layer (per-domain watermarks, last-synced-at, and small
- * flags). Domain-specific metadata can use forward-only migrations alongside this table.
+ * flags). A domain that needs its own columns gets its own table.
  *
  * Never store auth tokens here — tokens live in SecureStore only (see src/data/README.md).
  */
@@ -109,7 +109,7 @@ export type StatsListenOutboxRow = typeof statsListenOutbox.$inferSelect;
 
 /**
  * Add-by-RSS feeds the account follows, keyed by `feed_url`. This is the source of truth for the
- * mobile RSS list and add-by-RSS playback (retiring the slim AsyncStorage store). `mapped_feed_json`
+ * mobile RSS list and add-by-RSS playback. `mapped_feed_json`
  * holds the full `@podverse/parser-mapping` compat bundle from the last successful server parse, so
  * playback can build full `AddByRSSResourceData` and the list works offline. Scalar columns mirror
  * `MobileAddByRSSFeedRecord` for direct row→record mapping without re-parsing the bundle.
@@ -240,7 +240,7 @@ export type DownloadRow = typeof download.$inferSelect;
 export type DownloadInsert = typeof download.$inferInsert;
 
 /**
- * The device's **directory** channel follows, keyed by channel `id_text` (9b.8, 701).
+ * The device's **directory** channel follows, keyed by channel `id_text`.
  *
  * This is the source of truth for what the app displays as subscribed, so a signed-out user can
  * subscribe and keep it. It is **not** cleared on logout — the device keeps what it had.

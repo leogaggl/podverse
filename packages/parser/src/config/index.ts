@@ -1,7 +1,7 @@
 // Re-export config types for app-level use
 export * from './types.js';
 
-// Re-export config from context for backwards compatibility
+// Proxy so callers read config from the current context.
 import { getParserConfig } from '../context.js';
 
 // Create a proxy object that delegates property access to the context's config

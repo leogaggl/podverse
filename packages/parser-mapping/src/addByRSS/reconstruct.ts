@@ -31,11 +31,7 @@ function imageEntriesFromResourceData(value: unknown): AddByRSSResourceDataImage
 
 function channelImageUrlFromResourceData(resourceData: AddByRSSResourceData): string | undefined {
   const [first] = imageEntriesFromResourceData(resourceData.channel_images);
-  if (first) {
-    return first.url;
-  }
-  const legacyUrl = resourceData['channel_image_url'];
-  return typeof legacyUrl === 'string' && legacyUrl.trim() !== '' ? legacyUrl.trim() : undefined;
+  return first?.url;
 }
 
 function trimmedString(value: unknown): string {

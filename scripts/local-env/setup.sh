@@ -286,29 +286,17 @@ generate_uuid() {
 }
 
 load_overrides() {
-	local lightning_file="$OVERRIDES_DIR/lightning.env"
 	if [ ! -d "$OVERRIDES_DIR" ]; then
 		return 0
 	fi
-	# Source all override files except lightning.env, then lightning.env last.
-	# This keeps migration-safe ordering: MetaBoost moved to metaboost.env.example, but existing
-	# installs may still define NEXT_PUBLIC_APP_VALUE_METABOOST_* only in lightning.env; sourcing
-	# lightning.env last preserves those values over empty assignments in metaboost.env.
 	local file
 	for file in "$OVERRIDES_DIR"/*.env; do
 		[ -f "$file" ] || continue
-		[ "$file" = "$lightning_file" ] && continue
 		set -a
 		# shellcheck disable=SC1090
 		. "$file"
 		set +a
 	done
-	if [ -f "$lightning_file" ]; then
-		set -a
-		# shellcheck disable=SC1090
-		. "$lightning_file"
-		set +a
-	fi
 }
 
 apply_override() {
@@ -342,8 +330,6 @@ normalize_api_version() {
 	fi
 	printf '/%s' "${value#/}"
 }
-
-bash "$SCRIPT_DIR/migrate-local-secrets-to-home.sh"
 
 HOME_LOCAL_SECRETS="$(local_secrets_home_file)"
 if [ -f "$HOME_LOCAL_SECRETS" ]; then
@@ -815,14 +801,6 @@ upsert_var "$MANAGEMENT_WEB_SIDECAR_INFRA_ENV" "NEXT_PUBLIC_SSR_API_PORT" "3100"
 # App sidecar .env is for npm run dev only; use localhost, never Docker container names.
 [ -f "$WEB_APP_SIDECAR_ENV" ] && upsert_var "$WEB_APP_SIDECAR_ENV" "NEXT_PUBLIC_SSR_API_HOST" "localhost"
 [ -f "$MANAGEMENT_WEB_APP_SIDECAR_ENV" ] && upsert_var "$MANAGEMENT_WEB_APP_SIDECAR_ENV" "NEXT_PUBLIC_SSR_API_HOST" "localhost"
-
-# Sidecars do not use NODE_ENV; remove it if present (e.g. from an older setup).
-for file in "$WEB_SIDECAR_INFRA_ENV" "$MANAGEMENT_WEB_SIDECAR_INFRA_ENV"; do
-	if [ -f "$file" ] && grep -q -E '^NODE_ENV=' "$file" 2>/dev/null; then
-		sed -i.bak '/^NODE_ENV=/d' "$file"
-		rm -f "${file}.bak"
-	fi
-done
 
 # .env.local: RUNTIME_CONFIG_URL plus Observability/Extensions from sidecar env catalog.
 write_next_app_env_local "http://localhost:3001" "$WEB_APP_SIDECAR_ENV" "$WEB_APP_ENV"

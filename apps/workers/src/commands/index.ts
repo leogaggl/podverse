@@ -40,7 +40,6 @@ import { mqRSSRunLiveItemListener } from './mq/rss/runLiveItemListener.js';
 import { accountContentLogPurge } from './orm/accountContentLog/purge.js';
 import { accountSessionPurge } from './orm/accountSession/purge.js';
 import { ormArchivedSlimReport } from './orm/archivedSlimming/report.js';
-import { ormDescriptionsBackfill } from './orm/descriptions/backfill.js';
 import { notificationsPlatformPurge } from './orm/notifications/platformPurge.js';
 import { deleteOutdatedOnDemandParserEvent } from './orm/onDemandParserEvent/deleteOutdatedOnDemandParserEvent.js';
 import { generateOnDemandParserEventReports } from './orm/onDemandParserEvent/generateOnDemandParserEventReports.js';
@@ -82,7 +81,6 @@ export default {
   billingStrikeEnsureWebhook,
   scheduledJobsRunDue,
   ormArchivedSlimReport,
-  ormDescriptionsBackfill,
   ormVerifiedPublisherLinksBackfill,
   notificationsPlatformPurge,
   accountContentLogPurge,

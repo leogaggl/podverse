@@ -10,7 +10,7 @@ alwaysApply: false
 
 - Custom URL schemes come from `EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES` (comma/space-delimited, no
   `://`); universal / app link host comes from `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` (full URL).
-- When that URL is unset (and `WEB_BASE_URL` is unset), the build registers no https host: no
+- When that URL is unset, the build registers no https host: no
   associated domain, no Android https intent filter, and no https linking prefix. Do not substitute
   a product domain. Share and checkout URLs are absent until a host is set.
 - Single source of truth is the **pure** module `apps/mobile/src/config/deepLinkSchemes.js`

@@ -22,8 +22,8 @@ export type AddByRSSItemIndexItem = {
   /** Parent channel text identifier */
   channelIdText: string;
   /**
-   * Parent feed URL. Missing on index items stored before feed identity; without it the item
-   * hashes in the legacy per-device form.
+   * Parent feed URL. Absent when the item has none; without it the item hashes in the per-device
+   * form (`channel_id_text` plus guid or enclosure URL).
    */
   feedUrl?: string;
   /** Parent channel title */

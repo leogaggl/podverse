@@ -14,25 +14,34 @@ bind are steps **12.7–12.10** and are out of scope here.
 - `ios/PodverseNativeCache.swift`
   - `read(_:)` — atomic-safe file read of each payload; returns `nil` (never throws) when absent.
   - `debugDump()` — reads all three kinds and `NSLog`s a one-line summary
-    (`[native-cache] debugDump queue=present(bytes:…,schemaVersion:1) downloads=… libraryBrowse=…`).
+    (`[native-cache] debugDump queue=present(bytes:…,schemaVersion:2) downloads=… libraryBrowse=…`).
     Reusable by the future CarPlay scene (12.7) as the first read on cold connect.
 - Writes come from JS (step 12.4) via `PodverseMediaEngineModule.write*` →
   `PodverseNativeCache.write`. See engine README § "Durable storage + read helpers".
 
 ## Storage location (v1)
 
-`appGroupIdentifier` is `nil` until the CarPlay entitlement + App Group are provisioned (12.16), so
-v1 writes to the app's Application Support container:
+`appGroupIdentifier` is `group.com.podverse.app.next`. `baseDirectory()` prefers that group's
+container:
+
+```
+<App Group container>/native-cache/
+  queue-snapshot-av.json
+  queue-snapshot-music.json
+  downloads-index.json
+  library-index.json
+```
+
+When the group container is unavailable, the same files are under Application Support
+`native-cache`:
 
 ```
 <app container>/Library/Application Support/native-cache/
-  queue-snapshot.json
+  queue-snapshot-av.json
+  queue-snapshot-music.json
   downloads-index.json
-  library-browse-index.json
+  library-index.json
 ```
-
-Setting `appGroupIdentifier` later transparently moves reads/writes to the shared group container —
-do not fork the schema when that happens.
 
 ## Proof procedure
 
@@ -50,7 +59,7 @@ below:
 3. From Xcode: **I/O ▸ External Displays ▸ CarPlay** on the booted simulator.
 4. On CarPlay connect the scene calls `PodverseNativeCache.debugDump()` before any JS; confirm the
    `[native-cache] debugDump …` line in the device/simulator console with non-zero byte counts and
-   `schemaVersion:1`.
+   `schemaVersion:2`.
 
 Screenshot / console excerpt goes in the "Evidence" section below.
 
@@ -73,13 +82,13 @@ xcrun simctl list devices booted
 ```bash
 APP_CONTAINER=$(xcrun simctl get_app_container booted com.podverse.app.next data)
 ls -la "$APP_CONTAINER/Library/Application Support/native-cache"
-cat "$APP_CONTAINER/Library/Application Support/native-cache/queue-snapshot.json" | head -c 400; echo
+cat "$APP_CONTAINER/Library/Application Support/native-cache/queue-snapshot-av.json" | head -c 400; echo
 cat "$APP_CONTAINER/Library/Application Support/native-cache/downloads-index.json" | head -c 400; echo
-cat "$APP_CONTAINER/Library/Application Support/native-cache/library-browse-index.json" | head -c 400; echo
+cat "$APP_CONTAINER/Library/Application Support/native-cache/library-index.json" | head -c 400; echo
 ```
 
 4. Confirm each file exists, is non-empty, and its JSON starts with the versioned envelope
-   (`{"schemaVersion":1,"updatedAtMs":…,"payload":…}`, detail 380).
+   (`{"schemaVersion":2,"updatedAtMs":…,"payload":…}`, detail 380).
 
 ## Evidence
 

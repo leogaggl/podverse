@@ -1,4 +1,4 @@
-// Re-export logger from context for backwards compatibility
+// Proxy so callers read the logger from the current context.
 import { getLoggerService } from '../context.js';
 
 // Export a proxy object that delegates to the context's logger service

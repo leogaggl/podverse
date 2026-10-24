@@ -1,12 +1,12 @@
 /**
- * Forward-only SQLite migrations for the offline-first data layer.
+ * Forward-only SQLite migrations for the offline-first data layer (see the mobile-data-layer
+ * skill).
  *
- * Rules (see mobile-data-layer skill + DOCS-MOBILE-DATA-LAYER-OFFLINE.md):
- * - Append new migrations with a strictly increasing integer `version`; never edit or reorder
- *   a migration that has shipped.
- * - `version` is applied via `PRAGMA user_version` (see runMigrations); values MUST be integer
- *   literals authored here, never user input.
- * - Domain tables use new migrations appended after the existing versions.
+ * - Append a new migration with the next integer `version`; never edit or reorder a migration
+ *   that has shipped.
+ * - `runMigrations` writes `version` with `PRAGMA user_version`, so each value MUST be an integer
+ *   literal authored here, never user input.
+ * - Every schema change also edits `schema.ts` by hand.
  */
 export type Migration = {
   version: number;
@@ -22,31 +22,26 @@ export const MIGRATIONS: Migration[] = [
         value TEXT,
         updated_at INTEGER
       );`,
-    ],
-  },
-  {
-    version: 2,
-    statements: [
       `CREATE TABLE IF NOT EXISTS account_snapshot (
         id TEXT PRIMARY KEY NOT NULL,
         payload_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );`,
-    ],
-  },
-  {
-    version: 3,
-    statements: [
       `CREATE TABLE IF NOT EXISTS queue_cache (
         cache_key TEXT PRIMARY KEY NOT NULL,
         payload_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );`,
-    ],
-  },
-  {
-    version: 4,
-    statements: [
+      // latest_item_pub_date_ms: directory channels answer "when did this last publish" from
+      // `channel_item`. An Add by RSS feed is one JSON bundle, so without this column ordering the
+      // list by recency would mean deserializing every followed feed on the JS thread.
+      // requires_credentials / last_auth_failure: whether a feed needs Basic Auth, and the last
+      // credential failure a parse reported. The username and password live in SecureStore, never
+      // in SQLite.
+      // may_have_livestreams: whether the feed has carried a live item in any stored parse. Never
+      // cleared, so it outlasts a live item that has left the feed.
+      // followed = 0 holds a feed only because an Add by RSS artist on this device lists it. The
+      // guid columns let an album name its artist and a listing match a feed under another URL.
       `CREATE TABLE IF NOT EXISTS add_by_rss_feed (
         feed_url TEXT PRIMARY KEY NOT NULL,
         id INTEGER NOT NULL,
@@ -57,13 +52,20 @@ export const MIGRATIONS: Migration[] = [
         enclosure_url TEXT,
         playback_position TEXT,
         mapped_feed_json TEXT,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        latest_item_pub_date_ms INTEGER,
+        requires_credentials INTEGER NOT NULL DEFAULT 0,
+        last_auth_failure TEXT,
+        may_have_livestreams INTEGER NOT NULL DEFAULT 0,
+        followed INTEGER NOT NULL DEFAULT 1,
+        podcast_guid TEXT,
+        publisher_guids_json TEXT,
+        publisher_directory_json TEXT
       );`,
-    ],
-  },
-  {
-    version: 5,
-    statements: [
+      `CREATE INDEX IF NOT EXISTS idx_add_by_rss_feed_podcast_guid ON add_by_rss_feed (podcast_guid);`,
+      // Channel identity on the download row so the monitor list and Home's unsubscribed footer
+      // still name the show after the user unsubscribes. dismissed_from_list hides completes from
+      // the monitor without deleting the file (offline play and storage counts still use the row).
       `CREATE TABLE IF NOT EXISTS download (
         item_id_text TEXT PRIMARY KEY NOT NULL,
         enclosure_uri TEXT NOT NULL,
@@ -79,41 +81,41 @@ export const MIGRATIONS: Migration[] = [
         artwork_url TEXT,
         error_reason TEXT,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        channel_id_text TEXT,
+        channel_title TEXT,
+        dismissed_from_list INTEGER NOT NULL DEFAULT 0
       );`,
       `CREATE INDEX IF NOT EXISTS idx_download_status ON download (status);`,
-    ],
-  },
-  {
-    version: 6,
-    statements: [
+      `CREATE INDEX IF NOT EXISTS idx_download_channel_id ON download (channel_id_text);`,
+      // popularity_rank: the directory listen-count rank for Home's popularity order, stored beside
+      // the follow so the subscribed list keeps that order with no connection. kind is the Home
+      // chip bucket (podcasts vs artists vs albums), stamped from medium_id / Add by RSS
+      // resourceType.
       `CREATE TABLE IF NOT EXISTS subscribed_channel (
         id_text TEXT PRIMARY KEY NOT NULL,
         title TEXT NOT NULL,
         image_url TEXT,
         source TEXT NOT NULL,
         medium TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        popularity_rank INTEGER,
+        kind TEXT NOT NULL DEFAULT 'podcasts'
       );`,
-    ],
-  },
-  {
-    version: 7,
-    statements: [
+      `CREATE INDEX IF NOT EXISTS idx_subscribed_channel_kind ON subscribed_channel (kind);`,
+      // details_json: structured diagnostics for one error-log entry (media URL, host HTTP status,
+      // ids). A null renders with code and message only.
       `CREATE TABLE IF NOT EXISTS sync_event_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         occurred_at INTEGER NOT NULL,
         job_kind TEXT NOT NULL,
         outcome TEXT NOT NULL,
         error_code TEXT,
-        message TEXT
+        message TEXT,
+        details_json TEXT
       );`,
       `CREATE INDEX IF NOT EXISTS idx_sync_event_log_occurred_at ON sync_event_log (occurred_at);`,
-    ],
-  },
-  {
-    version: 8,
-    statements: [
+      // popularity_rank: the directory listen-count rank, kept so popularity order works offline.
       `CREATE TABLE IF NOT EXISTS channel_item (
         item_id_text TEXT PRIMARY KEY NOT NULL,
         channel_id_text TEXT NOT NULL,
@@ -121,7 +123,8 @@ export const MIGRATIONS: Migration[] = [
         image_url TEXT,
         pub_date_ms INTEGER,
         payload_json TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        popularity_rank INTEGER
       );`,
       `CREATE INDEX IF NOT EXISTS idx_channel_item_channel_pub_date
         ON channel_item (channel_id_text, pub_date_ms DESC);`,
@@ -131,31 +134,12 @@ export const MIGRATIONS: Migration[] = [
         depth INTEGER NOT NULL,
         synced_at INTEGER
       );`,
-    ],
-  },
-  {
-    version: 9,
-    statements: [
       `CREATE TABLE IF NOT EXISTS channel_seen (
         subscription_key TEXT PRIMARY KEY NOT NULL,
         kind TEXT NOT NULL,
         last_seen_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );`,
-    ],
-  },
-  {
-    version: 10,
-    statements: [
-      // Directory channels answer "when did this last publish" from `channel_item`. An add-by-RSS
-      // feed is one JSON bundle, so without this column the same question would mean deserializing
-      // every followed feed on the JS thread each time the list is ordered by recency.
-      `ALTER TABLE add_by_rss_feed ADD COLUMN latest_item_pub_date_ms INTEGER;`,
-    ],
-  },
-  {
-    version: 11,
-    statements: [
       // Live items are excluded from every regular item query, so `channel_item` can never answer
       // "is this channel broadcasting" and the row would have to ask the network to draw itself.
       `CREATE TABLE IF NOT EXISTS channel_live_status (
@@ -164,53 +148,12 @@ export const MIGRATIONS: Migration[] = [
         status_id INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );`,
-    ],
-  },
-  {
-    version: 12,
-    statements: [
-      // Directory listen-count ranks for Home's popularity order. Stored beside the follow so the
-      // subscribed list can keep that order with no connection.
-      `ALTER TABLE subscribed_channel ADD COLUMN popularity_rank INTEGER;`,
-      `ALTER TABLE channel_item ADD COLUMN popularity_rank INTEGER;`,
-    ],
-  },
-  {
-    version: 13,
-    statements: [
-      // Channel identity on the download row so the monitor list and Home's unsubscribed footer
-      // still name the show after the user unsubscribes. dismissed_from_list hides completes from
-      // the monitor without deleting the file (offline play and storage counts still use the row).
-      `ALTER TABLE download ADD COLUMN channel_id_text TEXT;`,
-      `ALTER TABLE download ADD COLUMN channel_title TEXT;`,
-      `ALTER TABLE download ADD COLUMN dismissed_from_list INTEGER NOT NULL DEFAULT 0;`,
-      `CREATE INDEX IF NOT EXISTS idx_download_channel_id ON download (channel_id_text);`,
-    ],
-  },
-  {
-    version: 14,
-    statements: [
-      // Home chips split follows by channel kind (podcasts vs artists vs albums). Existing rows
-      // default to podcasts; the next subscribe or directory sync stamps the real kind from
-      // medium_id / add-by-RSS resourceType.
-      `ALTER TABLE subscribed_channel ADD COLUMN kind TEXT NOT NULL DEFAULT 'podcasts';`,
-      `CREATE INDEX IF NOT EXISTS idx_subscribed_channel_kind ON subscribed_channel (kind);`,
-    ],
-  },
-  {
-    version: 15,
-    statements: [
       // Evidence-chip visibility for a channel or item, keyed as channel:<id> / item:<id>.
-      `CREATE TABLE section_chrome_flags (
+      `CREATE TABLE IF NOT EXISTS section_chrome_flags (
         cache_key TEXT PRIMARY KEY NOT NULL,
         flags_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );`,
-    ],
-  },
-  {
-    version: 16,
-    statements: [
       // Durable playback mutations that can be replayed in occurred-at order after reconnect.
       `CREATE TABLE IF NOT EXISTS playback_outbox (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -245,11 +188,6 @@ export const MIGRATIONS: Migration[] = [
       );`,
       `CREATE INDEX IF NOT EXISTS idx_playback_local_state_account_queue
         ON playback_local_state (account_id_text, queue_id_text);`,
-    ],
-  },
-  {
-    version: 17,
-    statements: [
       // Offline-first playlist metadata used by My playlists / followed playlists lists.
       `CREATE TABLE IF NOT EXISTS playlist (
         id_text TEXT PRIMARY KEY NOT NULL,
@@ -291,11 +229,6 @@ export const MIGRATIONS: Migration[] = [
         ON playlist_resource (playlist_id_text, list_position);`,
       `CREATE INDEX IF NOT EXISTS idx_playlist_resource_playlist_updated
         ON playlist_resource (playlist_id_text, updated_at DESC);`,
-    ],
-  },
-  {
-    version: 18,
-    statements: [
       // Per-channel auto-download opt-in. enabled_at is the watermark so enabling never backfills.
       `CREATE TABLE IF NOT EXISTS channel_auto_download (
         channel_id_text TEXT PRIMARY KEY NOT NULL,
@@ -318,23 +251,6 @@ export const MIGRATIONS: Migration[] = [
         ON auto_download_candidate (channel_id_text, status);`,
       `CREATE INDEX IF NOT EXISTS idx_auto_download_candidate_status
         ON auto_download_candidate (status);`,
-    ],
-  },
-  {
-    version: 19,
-    statements: [
-      // Structured diagnostics for one error-log entry (media URL, host HTTP status, ids). Rows
-      // written before this column exist keep a null and render with code and message only.
-      `ALTER TABLE sync_event_log ADD COLUMN details_json TEXT;`,
-    ],
-  },
-  {
-    version: 20,
-    statements: [
-      // Whether a feed needs Basic Auth, and the last credential failure a parse reported. The
-      // username and password themselves live in SecureStore, never in SQLite.
-      `ALTER TABLE add_by_rss_feed ADD COLUMN requires_credentials INTEGER NOT NULL DEFAULT 0;`,
-      `ALTER TABLE add_by_rss_feed ADD COLUMN last_auth_failure TEXT;`,
       // Non-secret index of which feeds hold SecureStore credentials per account. SecureStore
       // cannot enumerate its keys, so sign-out and list partitioning read this table instead.
       `CREATE TABLE IF NOT EXISTS add_by_rss_credential_index (
@@ -343,11 +259,6 @@ export const MIGRATIONS: Migration[] = [
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (account_id_text, feed_url)
       );`,
-    ],
-  },
-  {
-    version: 21,
-    statements: [
       // Whole item payloads for items the car can play that no other table keeps whole: live
       // items (excluded from every regular item query) and downloads (whose row holds only
       // display scalars). The phone needs the full item to adopt what the car started.
@@ -359,22 +270,12 @@ export const MIGRATIONS: Migration[] = [
         PRIMARY KEY (item_id_text, source)
       );`,
       `CREATE INDEX IF NOT EXISTS idx_playable_item_source ON playable_item (source);`,
-    ],
-  },
-  {
-    version: 22,
-    statements: [
       // Ids already rewritten onto a survivor. The same pair is not written again.
       `CREATE TABLE IF NOT EXISTS identity_remap_applied (
         from_id_text TEXT PRIMARY KEY NOT NULL,
         to_id_text TEXT NOT NULL,
         applied_at INTEGER NOT NULL
       );`,
-    ],
-  },
-  {
-    version: 23,
-    statements: [
       // Full show notes per item, read when a screen needs more than the list payload carries.
       // A null value means the item has no notes. Pinned rows belong to downloaded items and are
       // never evicted, so their notes stay readable offline.
@@ -389,30 +290,6 @@ export const MIGRATIONS: Migration[] = [
       );`,
       `CREATE INDEX IF NOT EXISTS idx_item_description_cache_evict
         ON item_description_cache (pinned, fetched_at);`,
-    ],
-  },
-  {
-    version: 24,
-    statements: [
-      // Whether an Add by RSS feed has carried a live item in any stored parse. Never cleared, so it
-      // outlasts a live item that has left the feed. Seeded from the bundles already on the device.
-      `ALTER TABLE add_by_rss_feed ADD COLUMN may_have_livestreams INTEGER NOT NULL DEFAULT 0;`,
-      `UPDATE add_by_rss_feed SET may_have_livestreams = 1
-        WHERE mapped_feed_json IS NOT NULL
-          AND json_valid(mapped_feed_json)
-          AND json_array_length(mapped_feed_json, '$.liveItems') > 0;`,
-    ],
-  },
-  {
-    version: 25,
-    statements: [
-      // followed = 0 holds a feed only because an Add by RSS artist on this device lists it. The
-      // guid columns let an album name its artist and a listing match a feed under another URL.
-      `ALTER TABLE add_by_rss_feed ADD COLUMN followed INTEGER NOT NULL DEFAULT 1;`,
-      `ALTER TABLE add_by_rss_feed ADD COLUMN podcast_guid TEXT;`,
-      `ALTER TABLE add_by_rss_feed ADD COLUMN publisher_guids_json TEXT;`,
-      `ALTER TABLE add_by_rss_feed ADD COLUMN publisher_directory_json TEXT;`,
-      `CREATE INDEX IF NOT EXISTS idx_add_by_rss_feed_podcast_guid ON add_by_rss_feed (podcast_guid);`,
       // What each Add by RSS artist on this device lists, replaced whole on every artist parse.
       `CREATE TABLE IF NOT EXISTS add_by_rss_listed_feed (
         publisher_feed_url TEXT NOT NULL,
@@ -436,11 +313,6 @@ export const MIGRATIONS: Migration[] = [
         ON add_by_rss_listed_feed (feed_guid);`,
       `CREATE INDEX IF NOT EXISTS idx_add_by_rss_listed_feed_channel
         ON add_by_rss_listed_feed (channel_id_text);`,
-    ],
-  },
-  {
-    version: 26,
-    statements: [
       // One row per listen session waiting to reach the server. A later report of the same
       // session merges into its row; the row goes once the server accepts the latest state.
       `CREATE TABLE IF NOT EXISTS stats_listen_outbox (

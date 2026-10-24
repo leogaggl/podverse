@@ -2279,7 +2279,7 @@ async function seedMediaPlayerAndEmbedFixtures(client, accountId) {
 
   // Mirror of packages/helpers/src/lib/addByRSSHash.ts (getAddByRSSHashId) for
   // seeded guids, which are never empty or device-local: `{feed_url, guid}` when
-  // the row carries a canonical feed_url, else the legacy `{channel_id_text, guid}`.
+  // the row has a canonical `feed_url`, otherwise `{channel_id_text, guid}`.
   function computeAddByRssHashSeed({ feedUrl, channelIdText, guid }) {
     const minimal = feedUrl
       ? { feed_url: feedUrl, guid }

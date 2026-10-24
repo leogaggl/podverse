@@ -29,17 +29,15 @@ describe('parseEmbedBuilderQueryParams', () => {
     });
   });
 
-  it('accepts legacy audio type aliases', () => {
-    expect(parseEmbedBuilderQueryParams({ type: 'audio' })).toMatchObject({
-      playerSize: 'compact',
-      listEnabled: false,
-      mediaPreference: 'audio',
-    });
-    expect(parseEmbedBuilderQueryParams({ type: 'video-list' })).toMatchObject({
-      playerSize: 'responsive',
-      listEnabled: true,
-      mediaPreference: 'video',
-    });
+  it('parses type values other than compact and responsive as compact with the list off', () => {
+    const types = ['audio', 'video', 'audio-list', 'video-list', 'compact-list', 'responsive-list'];
+
+    for (const type of types) {
+      expect(parseEmbedBuilderQueryParams({ type })).toMatchObject({
+        playerSize: 'compact',
+        listEnabled: false,
+      });
+    }
   });
 
   it('parses list query param independently from type', () => {
@@ -76,10 +74,11 @@ describe('parseEmbedBuilderQueryParams', () => {
     });
   });
 
-  it('maps playlist_item to playlistItem for legacy list type alias', () => {
+  it('maps playlist_item to playlistItem when the list is enabled', () => {
     expect(
       parseEmbedBuilderQueryParams({
-        type: 'audio-list',
+        type: 'compact',
+        list: '1',
         playlist: 'pl-1',
         playlist_item: 'item-1',
       })

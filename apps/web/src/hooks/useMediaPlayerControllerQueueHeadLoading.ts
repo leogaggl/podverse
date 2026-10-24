@@ -362,8 +362,8 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
   };
 
   /**
-   * True when `identity` names the loaded item. An add-by-RSS row written before feed identity
-   * carries the legacy hash of the same payload, so that hash names it too.
+   * True when `identity` names the loaded item. A payload that includes `feed_url` is also named
+   * by the hash that omits `feed_url`.
    */
   const isLoadedPlaybackIdentity = (identity: string): boolean => {
     if (identity === loadedPlaybackIdentity()) {

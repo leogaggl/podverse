@@ -71,7 +71,7 @@ These **do not** support `--auto-gen` and are **not** in the bulk runner. `creat
 - `create_billing_strike_secret.sh` — **Secret `podverse-billing-strike-opaque`** with `STRIKE_API_KEY` and `STRIKE_WEBHOOK_SECRET`. Optional `envFrom` on the API, management API, and CronJob `worker-billing-reconcile`. Strike stays unregistered until `BILLING_STRIKE_ENABLED` is `true`.
 - `create_billing_apple_iap_secret.sh` — App Store `.p8` as **Secret `podverse-billing-apple-iap-opaque`**, key `AuthKey.p8`, mounted read-only at **`/var/secrets/apple-iap`**. Set **`APPLE_IAP_PRIVATE_KEY_PATH=/var/secrets/apple-iap/AuthKey.p8`** together with the other Apple credential keys. The path alone does not enable the processor; set `BILLING_APPLE_IAP_ENABLED` to `true`.
 - `create_billing_google_play_secret.sh` — Play service-account JSON as **Secret `podverse-billing-google-play-opaque`**, key `service-account.json`, mounted read-only at **`/var/secrets/google-play`**. Set **`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH=/var/secrets/google-play/service-account.json`** together with the other Google credential keys. The path alone does not enable the processor; set `BILLING_GOOGLE_PLAY_ENABLED` to `true`.
-- `create_workers_storage_bucket_secret.sh` — **generic** S3-compatible bucket credentials (`BUCKET_ACCESS_KEY`, `BUCKET_SECRET_KEY`). Output Secret **`podverse-workers-storage-bucket-opaque`** (same for Garage, DigitalOcean Spaces, AWS, B2, etc.). Non-secret bucket env (`BUCKET_PROVIDER`, `BUCKET_REGION`, `BUCKET_ENDPOINT`, …) lives in the workers ConfigMap — see **`docs/image-shrinking/BUCKET-PROVIDERS.md`**. If you previously used **`podverse-workers-garage-opaque`** or **`podverse-workers-digital-ocean-opaque`**, regenerate with this script and retire the old Secret names (see **`infra/k8s/INFRA-K8S.md`**).
+- `create_workers_storage_bucket_secret.sh` — **generic** S3-compatible bucket credentials (`BUCKET_ACCESS_KEY`, `BUCKET_SECRET_KEY`). Output Secret **`podverse-workers-storage-bucket-opaque`** (same for Garage, DigitalOcean Spaces, AWS, B2, etc.). Non-secret bucket env (`BUCKET_PROVIDER`, `BUCKET_REGION`, `BUCKET_ENDPOINT`, …) lives in the workers ConfigMap — see **`docs/image-shrinking/BUCKET-PROVIDERS.md`**.
 - `create_github_registry_secret.sh` — GitHub username + PAT (`read:packages`) for **ghcr.io** image pulls; see the subsection below
 
 Billing key files and PayPal credentials: [docs/billing/BILLING.md](/docs/billing/BILLING.md).
@@ -95,13 +95,11 @@ bash ./infra/k8s/scripts/secret-generators/create_github_registry_secret.sh
 
 GitOps repositories usually **copy** these scripts; default output paths already match repo-root **`./secrets/…`**.
 
-If you still have an older layout at **`secrets/<namespace>/github-registry-secret.enc.yaml`**, either move it to **`secrets/github-registry-secret.enc.yaml`** or keep using **`--output-file`** with the previous path until you migrate.
-
 ## Argo CD GitHub repository credentials (private clone)
 
 For Argo CD to clone **private GitHub** GitOps repos over HTTPS, register a repository `Secret` in the **`argocd`** namespace (label **`argocd.argoproj.io/secret-type: repository`**). **`create_argocd_github_repo_secret.sh`** interactively builds that manifest and SOPS-encrypts it under **`./secrets/`**. Run from your **GitOps repository root** (next to **`.sops.yaml`**). Not part of **`create_all_secrets_auto_gen.sh`**.
 
-**Naming:** accept script defaults for consistency across repos: Kubernetes Secret **`<slug>-repo-creds`**, file **`./secrets/<slug>-argoc-repo.enc.yaml`**, where **`<slug>`** is derived from the `github.com/org/repo` path (same idea for every private GitOps URL). Older fixed names (e.g. `github-repo-creds`) can be retired after you apply the new Secret and confirm sync; see your GitOps repo’s `scripts/README.md` if maintained there.
+**Naming:** accept script defaults for consistency across repos: Kubernetes Secret **`<slug>-repo-creds`**, file **`./secrets/<slug>-argoc-repo.enc.yaml`**, where **`<slug>`** is derived from the `github.com/org/repo` path (same idea for every private GitOps URL).
 
 ```bash
 bash ./infra/k8s/scripts/secret-generators/create_argocd_github_repo_secret.sh

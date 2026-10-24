@@ -79,16 +79,6 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
     example_cli: 'npm run orm_archived_slim_report -w apps/workers',
   },
   {
-    name: 'ormDescriptionsBackfill',
-    label: 'Descriptions: backfill previews and reparses',
-    description:
-      'Re-prepare stored item and channel descriptions that have no preview. With -enqueueReparse, schedule throttled feed-force-reparse jobs for feeds whose descriptions were cut before their source length was recorded. Idempotent.',
-    category: 'orm',
-    risk: 'normal',
-    example_cli:
-      'npm run orm_descriptions_backfill -w apps/workers -- -enqueueReparse -maxFeeds 200',
-  },
-  {
     name: 'ormVerifiedPublisherLinksBackfill',
     label: 'Verified publisher links: backfill',
     description:

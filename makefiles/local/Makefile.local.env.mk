@@ -71,7 +71,7 @@ local_env_sync_db_passwords: local_db_sync_passwords
 local_env_worktree_setup: local_env_link local_env_setup local_env_sync_db_passwords
 	@echo "Work tree env ready (home secrets applied; DB passwords synced when Postgres was running)."
 
-# One-time: copy this checkout's infra secrets into ~/.config (use from primary checkout that owns Postgres).
+# Copy this checkout's infra secrets into ~/.config (use from the checkout that owns Postgres).
 local_env_export_secrets_to_home:
 	bash scripts/local-env/export-local-secrets-to-home.sh
 

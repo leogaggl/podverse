@@ -23,14 +23,14 @@ describe('local-settings preferred media type (pmt)', () => {
     expect(getParsedLocalSettings().pmt).toBe('video');
   });
 
-  it('inherits the default pmt for cookies that predate the field', () => {
-    const legacy = {
+  it('uses the default when the cookie omits pmt', () => {
+    const withoutPmt = {
       uit: 'light',
       vs: 'grid',
       seda: false,
       aqc: { rp: false, rd: false },
     };
-    document.cookie = `local-settings=${encodeURIComponent(JSON.stringify(legacy))}; path=/`;
+    document.cookie = `local-settings=${encodeURIComponent(JSON.stringify(withoutPmt))}; path=/`;
 
     expect(getParsedLocalSettings().pmt).toBe('video');
   });

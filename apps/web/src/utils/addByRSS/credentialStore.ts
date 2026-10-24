@@ -11,8 +11,8 @@ import {
 
 /**
  * Add-by-RSS Basic Auth credentials held on this browser only, per account and canonical feed
- * URL. Kept in its own database so the feed cache (`add-by-rss`) can be reset on upgrade without
- * touching secrets. Values are AES-GCM encrypted with a non-extractable per-account key; see
+ * URL. Credentials are in their own database, apart from the feed cache (`add-by-rss`).
+ * Values are AES-GCM encrypted with a non-extractable per-account key; see
  * `generateCredentialKey` for what that does and does not protect against.
  */
 const DB_NAME = 'add-by-rss-credentials';

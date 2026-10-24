@@ -119,18 +119,12 @@ const normalizeBaseUrl = (value: string): string => {
 
 /**
  * Public web origin for share links and https universal / app links.
- * Null when neither `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` nor `WEB_BASE_URL` is set.
+ * Null when `EXPO_PUBLIC_MOBILE_WEB_BASE_URL` is unset.
  */
 export const getMobilePublicWebBaseUrlFromEnv = (): string | null => {
-  const direct = trimToNull(process.env.EXPO_PUBLIC_MOBILE_WEB_BASE_URL);
-  if (direct !== null) {
-    return normalizeBaseUrl(direct);
+  const value = trimToNull(process.env.EXPO_PUBLIC_MOBILE_WEB_BASE_URL);
+  if (value === null) {
+    return null;
   }
-
-  const legacy = trimToNull(process.env.WEB_BASE_URL);
-  if (legacy !== null) {
-    return normalizeBaseUrl(legacy);
-  }
-
-  return null;
+  return normalizeBaseUrl(value);
 };

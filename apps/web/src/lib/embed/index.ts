@@ -13,12 +13,8 @@ export {
 export { parseEmbedBuilderQueryParams } from './parseEmbedBuilderQueryParams';
 export { getEmbedShareAction } from './getEmbedShareActions';
 export type { EmbedShareAction } from './getEmbedShareActions';
-export { EMBED_BUILDER_PLAYER_SIZES, EMBED_BUILDER_TYPES } from './embedBuilderTypes';
-export type {
-  EmbedBuilderPlayerSize,
-  EmbedBuilderQueryParams,
-  EmbedBuilderType,
-} from './embedBuilderTypes';
+export { EMBED_BUILDER_PLAYER_SIZES } from './embedBuilderTypes';
+export type { EmbedBuilderPlayerSize, EmbedBuilderQueryParams } from './embedBuilderTypes';
 export type {
   EmbedUrlBuildResult,
   EmbedUrlEntityContext,

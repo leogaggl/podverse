@@ -177,7 +177,8 @@ export async function loadChannelImages(channel: Channel): Promise<ChannelImage[
 }
 
 /**
- * Gets account IDs for a channel + legacy notification type after entitlement gating.
+ * Account ids subscribed to this channel for `notificationType`, after membership and
+ * `allow_notifications` checks.
  */
 export async function getAccountIdsForChannelNotification(
   channelIdText: string,

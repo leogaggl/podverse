@@ -22,14 +22,6 @@ export const EMBED_LIST_SHELL_RESPONSIVE_HEIGHT_WITH_SELECTOR =
     includePresentationSelector: true,
   });
 
-/** @deprecated Use EMBED_SINGLE_SHELL_RESPONSIVE_HEIGHT */
-export const EMBED_SINGLE_SHELL_VIDEO_HEIGHT = EMBED_SINGLE_SHELL_RESPONSIVE_HEIGHT;
-/** @deprecated Use EMBED_LIST_SHELL_RESPONSIVE_HEIGHT */
-export const EMBED_LIST_SHELL_VIDEO_HEIGHT = EMBED_LIST_SHELL_RESPONSIVE_HEIGHT;
-/** @deprecated Use EMBED_LIST_SHELL_RESPONSIVE_HEIGHT_WITH_SELECTOR */
-export const EMBED_LIST_SHELL_VIDEO_HEIGHT_WITH_SELECTOR =
-  EMBED_LIST_SHELL_RESPONSIVE_HEIGHT_WITH_SELECTOR;
-
 export async function expectEmbedRootVisible(page: Page): Promise<void> {
   await expect(page.getByTestId('embed-root')).toBeVisible();
 }
@@ -75,21 +67,6 @@ export async function expectEmbedResponsiveCenterArt(page: Page): Promise<void> 
     expect(box.width).toBeGreaterThan(8);
     expect(box.height).toBeGreaterThan(8);
   }
-}
-
-/** @deprecated Use expectEmbedResponsiveStage */
-export async function expectEmbedVideoStage(page: Page): Promise<void> {
-  await expectEmbedResponsiveStage(page);
-}
-
-/** @deprecated Use expectEmbedResponsiveVideoElement */
-export async function expectEmbedVideoElement(page: Page): Promise<void> {
-  await expectEmbedResponsiveVideoElement(page);
-}
-
-/** @deprecated Use expectEmbedResponsiveCenterArt */
-export async function expectEmbedVideoCenterArt(page: Page): Promise<void> {
-  await expectEmbedResponsiveCenterArt(page);
 }
 
 export async function expectEmbedCompactShellNoVideoElement(page: Page): Promise<void> {

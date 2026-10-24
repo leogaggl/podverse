@@ -40,9 +40,7 @@ const deepLinkSchemes = parseMobileDeepLinkSchemes(
   process.env.EXPO_PUBLIC_MOBILE_DEEP_LINK_SCHEMES
 );
 
-const universalLinkHost =
-  resolveHost(trimToNull(process.env.EXPO_PUBLIC_MOBILE_WEB_BASE_URL)) ??
-  resolveHost(trimToNull(process.env.WEB_BASE_URL));
+const universalLinkHost = resolveHost(trimToNull(process.env.EXPO_PUBLIC_MOBILE_WEB_BASE_URL));
 
 const universalLinkPathPrefixes = [...MOBILE_UNIVERSAL_LINK_PATH_PREFIXES];
 

@@ -22,6 +22,13 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: listener_identity; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA listener_identity;
+
+
+--
 -- Name: account_fcm_device_platform_options; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -48,6 +55,20 @@ CREATE TYPE public.account_fcm_device_platform_options AS ENUM (
 -- Name: nano_id_v2; Type: DOMAIN; Schema: public; Owner: -
 --
 
+
+
+--
+-- Name: notification_category_options; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.notification_category_options AS ENUM (
+    'new-content',
+    'livestream',
+    'product-update',
+    'maintenance',
+    'terms-of-service',
+    'general'
+);
 
 
 --
@@ -175,6 +196,84 @@ CREATE TYPE public.on_demand_parser_event_type AS ENUM (
 
 
 --
+-- Name: add_by_rss_hash_id_from_feed(text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_by_rss_hash_id_from_feed(feed_url text, guid text, enclosure_url text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $$
+  SELECT md5(
+    '{"feed_url":' || to_json(public.add_by_rss_js_trim(feed_url))::text ||
+    CASE
+      WHEN NULLIF(public.add_by_rss_js_trim(guid), '') IS NOT NULL
+        THEN ',"guid":' || to_json(public.add_by_rss_js_trim(guid))::text
+      WHEN NULLIF(public.add_by_rss_js_trim(enclosure_url), '') IS NOT NULL
+        THEN ',"enclosure_url":' || to_json(public.add_by_rss_js_trim(enclosure_url))::text
+      ELSE ''
+    END || '}'
+  )
+$$;
+
+
+--
+-- Name: add_by_rss_hash_id_from_resource_data(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_by_rss_hash_id_from_resource_data(data jsonb) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $$
+  SELECT CASE
+    WHEN NULLIF(public.add_by_rss_js_trim(data->>'feed_url'), '') IS NULL THEN NULL
+    ELSE public.add_by_rss_hash_id_from_feed(
+      data->>'feed_url',
+      CASE
+        WHEN public.add_by_rss_is_device_local_guid(data->>'guid', data->>'channel_id_text')
+          THEN NULL
+        ELSE data->>'guid'
+      END,
+      data->>'enclosure_url'
+    )
+  END
+$$;
+
+
+--
+-- Name: add_by_rss_is_device_local_guid(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_by_rss_is_device_local_guid(guid text, channel_id_text text) RETURNS boolean
+    LANGUAGE sql IMMUTABLE
+    AS $_$
+  SELECT COALESCE(
+    NULLIF(public.add_by_rss_js_trim(channel_id_text), '') IS NOT NULL
+      AND left(
+        public.add_by_rss_js_trim(guid),
+        length(public.add_by_rss_js_trim(channel_id_text)) + 1
+      ) = public.add_by_rss_js_trim(channel_id_text) || '-'
+      AND substr(
+        public.add_by_rss_js_trim(guid),
+        length(public.add_by_rss_js_trim(channel_id_text)) + 2
+      ) ~ '^[0-9]+$',
+    false
+  )
+$_$;
+
+
+--
+-- Name: add_by_rss_js_trim(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_by_rss_js_trim(value text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $$
+  SELECT btrim(
+    value,
+    U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'
+  )
+$$;
+
+
+--
 -- Name: enforce_playlist_resource_limit(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -215,12 +314,22 @@ BEGIN
     WHERE queue_id = NEW.queue_id;
 
     IF resource_count >= max_resources THEN
-        -- Find the id of the resource with the lowest list_position
+        -- Evict the oldest listened history row first so retention follows history ordering.
         SELECT id INTO min_id
         FROM queue_resource
         WHERE queue_id = NEW.queue_id
-        ORDER BY list_position ASC
+          AND list_position < 0
+        ORDER BY last_played_at ASC NULLS FIRST, list_position ASC
         LIMIT 1;
+
+        IF min_id IS NULL THEN
+            -- Fallback when a queue has no history rows yet (all upcoming/now-playing).
+            SELECT id INTO min_id
+            FROM queue_resource
+            WHERE queue_id = NEW.queue_id
+            ORDER BY list_position ASC
+            LIMIT 1;
+        END IF;
 
         IF min_id IS NOT NULL THEN
             DELETE FROM queue_resource WHERE id = min_id;
@@ -259,10 +368,142 @@ END;
 $$;
 
 
+--
+-- Name: set_updated_at_field(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: stats_event_drop_month_partitions_before(text, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.stats_event_drop_month_partitions_before(parent_table text, cutoff date) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public'
+    AS $_$
+DECLARE
+    partition_row record;
+    dropped integer := 0;
+BEGIN
+    IF parent_table IS NULL OR parent_table NOT IN ('stats_listen_event', 'stats_open_event') THEN
+        RAISE EXCEPTION 'unsupported partitioned table: %', parent_table
+            USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF cutoff IS NULL THEN
+        RAISE EXCEPTION 'cutoff is required' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+
+    EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', parent_table);
+
+    FOR partition_row IN
+        SELECT child.relname::text AS partition_name,
+               to_date(substring(child.relname::text FROM '_p([0-9]{6})$'), 'YYYYMM') AS month_start
+        FROM pg_inherits
+        JOIN pg_class child ON child.oid = pg_inherits.inhrelid
+        WHERE pg_inherits.inhparent = to_regclass(format('public.%I', parent_table))
+          AND child.relname::text ~ ('^' || parent_table || '_p[0-9]{6}$')
+        ORDER BY child.relname
+    LOOP
+        IF (partition_row.month_start + interval '1 month')::date <= cutoff THEN
+            EXECUTE format('DROP TABLE public.%I', partition_row.partition_name);
+            dropped := dropped + 1;
+        END IF;
+    END LOOP;
+
+    EXECUTE format('DELETE FROM public.%I WHERE created_at < $1', parent_table || '_default')
+        USING cutoff::timestamp AT TIME ZONE 'UTC';
+
+    RETURN dropped;
+END;
+$_$;
+
+
+--
+-- Name: stats_event_ensure_month_partition(text, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.stats_event_ensure_month_partition(parent_table text, month_start date) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public'
+    AS $_$
+DECLARE
+    partition_name text;
+    default_name text;
+    range_start timestamp with time zone;
+    range_end timestamp with time zone;
+    default_has_rows boolean;
+BEGIN
+    IF parent_table IS NULL OR parent_table NOT IN ('stats_listen_event', 'stats_open_event') THEN
+        RAISE EXCEPTION 'unsupported partitioned table: %', parent_table
+            USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF month_start IS NULL OR month_start <> date_trunc('month', month_start)::date THEN
+        RAISE EXCEPTION 'month_start must be the first day of a month: %', month_start
+            USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+
+    partition_name := parent_table || '_p' || to_char(month_start, 'YYYYMM');
+    default_name := parent_table || '_default';
+    range_start := month_start::timestamp AT TIME ZONE 'UTC';
+    range_end := (month_start + interval '1 month')::timestamp AT TIME ZONE 'UTC';
+
+    IF to_regclass(format('public.%I', partition_name)) IS NOT NULL THEN
+        RETURN false;
+    END IF;
+
+    EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', parent_table);
+
+    IF to_regclass(format('public.%I', partition_name)) IS NOT NULL THEN
+        RETURN false;
+    END IF;
+
+    EXECUTE format(
+        'SELECT EXISTS (SELECT 1 FROM public.%I WHERE created_at >= $1 AND created_at < $2)',
+        default_name
+    ) INTO default_has_rows USING range_start, range_end;
+
+    IF default_has_rows THEN
+        EXECUTE format('ALTER TABLE public.%I DETACH PARTITION public.%I', parent_table, default_name);
+    END IF;
+
+    EXECUTE format(
+        'CREATE TABLE public.%I PARTITION OF public.%I FOR VALUES FROM (%L) TO (%L)',
+        partition_name, parent_table, range_start, range_end
+    );
+
+    IF default_has_rows THEN
+        EXECUTE format(
+            'WITH moved AS (DELETE FROM public.%I WHERE created_at >= $1 AND created_at < $2 RETURNING *) '
+                || 'INSERT INTO public.%I SELECT * FROM moved',
+            default_name, partition_name
+        ) USING range_start, range_end;
+        EXECUTE format('ALTER TABLE public.%I ATTACH PARTITION public.%I DEFAULT', parent_table, default_name);
+    END IF;
+
+    RETURN true;
+END;
+$_$;
+
 
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: stats_listener; Type: TABLE; Schema: listener_identity; Owner: -
+--
+
+CREATE TABLE listener_identity.stats_listener (
+    listener_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    opt_out_day date,
+    opt_out_day_stored_count integer DEFAULT 0 NOT NULL,
+    opt_out_day_first_stored_at timestamp with time zone,
+    CONSTRAINT stats_listener_opt_out_day_check CHECK ((((opt_out_day IS NULL) = (opt_out_day_first_stored_at IS NULL)) AND (opt_out_day_stored_count >= 0) AND ((opt_out_day IS NOT NULL) OR (opt_out_day_stored_count = 0))))
+);
+
 
 --
 -- Name: account; Type: TABLE; Schema: public; Owner: -
@@ -273,37 +514,81 @@ CREATE TABLE public.account (
     id_text public.nano_id_v2 NOT NULL,
     verified boolean DEFAULT false,
     sharable_status_id integer NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    notifications_last_read_at timestamp with time zone,
+    billing_customer_ref uuid DEFAULT gen_random_uuid() NOT NULL
 );
 
 
 --
--- Name: account_app_store_purchase; Type: TABLE; Schema: public; Owner: -
+-- Name: account_api_key; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.account_app_store_purchase (
+CREATE TABLE public.account_api_key (
+    id bigint NOT NULL,
+    id_text public.nano_id_v2 NOT NULL,
     account_id integer NOT NULL,
-    transaction_id character varying NOT NULL,
-    cancellation_date character varying,
-    cancellation_date_ms character varying,
-    cancellation_date_pst character varying,
-    cancellation_reason character varying,
-    expires_date character varying,
-    expires_date_ms character varying,
-    expires_date_pst character varying,
-    is_in_intro_offer_period boolean,
-    is_trial_period boolean,
-    original_purchase_date character varying,
-    original_purchase_date_ms character varying,
-    original_purchase_date_pst character varying,
-    original_transaction_id character varying,
-    product_id character varying,
-    promotional_offer_id character varying,
-    purchase_date character varying,
-    purchase_date_ms character varying,
-    purchase_date_pst character varying,
-    quantity integer,
-    web_order_line_item_id character varying
+    name public.varchar_short NOT NULL,
+    token_hash character varying(64) NOT NULL,
+    token_hint character varying(4) NOT NULL,
+    permissions jsonb NOT NULL,
+    expires_at timestamp with time zone,
+    last_used_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT account_api_key_name_check CHECK ((btrim((name)::text) <> ''::text)),
+    CONSTRAINT account_api_key_permissions_check CHECK ((jsonb_typeof(permissions) = 'object'::text))
+);
+
+
+--
+-- Name: account_api_key_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_api_key ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.account_api_key_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: account_content_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_content_log (
+    id bigint NOT NULL,
+    account_id integer NOT NULL,
+    log_type character varying(32) NOT NULL,
+    channel_id_text public.nano_id_v2 NOT NULL,
+    channel_title public.varchar_normal,
+    reason character varying(32) NOT NULL,
+    follow_outcome character varying(32),
+    clip_count integer DEFAULT 0 NOT NULL,
+    playlist_entry_count integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT account_content_log_counts_check CHECK (((clip_count >= 0) AND (playlist_entry_count >= 0))),
+    CONSTRAINT account_content_log_follow_outcome_check CHECK (((follow_outcome IS NULL) OR ((follow_outcome)::text = ANY (ARRAY[('ended'::character varying)::text, ('moved_to_add_by_rss'::character varying)::text])))),
+    CONSTRAINT account_content_log_reason_check CHECK (((reason)::text = ANY (ARRAY[('left_directory'::character varying)::text, ('taken_down'::character varying)::text]))),
+    CONSTRAINT account_content_log_type_check CHECK (((log_type)::text = 'removed_content'::text))
+);
+
+
+--
+-- Name: account_content_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_content_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.account_content_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
@@ -340,6 +625,34 @@ CREATE SEQUENCE public.account_credentials_id_seq
 --
 
 ALTER SEQUENCE public.account_credentials_id_seq OWNED BY public.account_credentials.id;
+
+
+--
+-- Name: account_device_auto_download_channel; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_device_auto_download_channel (
+    id integer NOT NULL,
+    account_id integer NOT NULL,
+    installation_id character varying(36) NOT NULL,
+    channel_id integer NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: account_device_auto_download_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_device_auto_download_channel ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.account_device_auto_download_channel_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -430,8 +743,8 @@ CREATE TABLE public.account_following_add_by_rss_channel (
     feed_url public.varchar_url NOT NULL,
     title public.varchar_normal,
     image_url public.varchar_url,
-    basic_auth_username public.varchar_normal,
-    basic_auth_password public.varchar_normal
+    last_seen_at timestamp with time zone,
+    requires_credentials boolean DEFAULT false CONSTRAINT account_following_add_by_rss_chan_requires_credentials_not_null NOT NULL
 );
 
 
@@ -441,7 +754,8 @@ CREATE TABLE public.account_following_add_by_rss_channel (
 
 CREATE TABLE public.account_following_channel (
     account_id integer NOT NULL,
-    channel_id integer NOT NULL
+    channel_id integer NOT NULL,
+    last_seen_at timestamp with time zone
 );
 
 
@@ -452,24 +766,6 @@ CREATE TABLE public.account_following_channel (
 CREATE TABLE public.account_following_playlist (
     account_id integer NOT NULL,
     playlist_id integer NOT NULL
-);
-
-
---
--- Name: account_google_play_purchase; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.account_google_play_purchase (
-    account_id integer NOT NULL,
-    transaction_id character varying NOT NULL,
-    acknowledgement_state integer,
-    consumption_state integer,
-    developer_payload character varying,
-    kind character varying,
-    product_id character varying NOT NULL,
-    purchase_time_millis character varying,
-    purchase_state integer,
-    purchase_token character varying NOT NULL
 );
 
 
@@ -533,24 +829,14 @@ CREATE TABLE public.account_membership_status (
     account_id integer NOT NULL,
     account_membership_id integer NOT NULL,
     membership_expires_at timestamp without time zone,
-    auto_renew boolean DEFAULT false,
     allow_directory_add_by_rss boolean,
     max_add_by_rss_feeds integer,
     max_manual_refreshes_per_hour integer,
     track_stats boolean,
     allow_notifications boolean,
     billing_cadence text,
-    auto_renew_mode text DEFAULT 'off'::text,
-    next_renewal_attempt_at timestamp without time zone,
-    last_renewal_attempt_at timestamp without time zone,
-    last_renewal_status text DEFAULT 'none'::text,
     last_extension_idempotency_key character varying(128),
-    last_renewal_idempotency_key character varying(128),
-    renewal_retry_count integer DEFAULT 0 NOT NULL,
-    renewal_retry_backoff_until timestamp without time zone,
-    CONSTRAINT account_membership_status_auto_renew_mode_check CHECK ((auto_renew_mode = ANY (ARRAY['off'::text, 'on'::text]))),
     CONSTRAINT account_membership_status_billing_cadence_check CHECK ((billing_cadence = ANY (ARRAY['monthly'::text, 'annual'::text]))),
-    CONSTRAINT account_membership_status_last_renewal_status_check CHECK ((last_renewal_status = ANY (ARRAY['none'::text, 'succeeded'::text, 'failed'::text]))),
     CONSTRAINT account_membership_status_max_add_by_rss_feeds_check CHECK (((max_add_by_rss_feeds IS NULL) OR (max_add_by_rss_feeds >= 0))),
     CONSTRAINT account_membership_status_max_manual_refreshes_per_hour_check CHECK (((max_manual_refreshes_per_hour IS NULL) OR (max_manual_refreshes_per_hour >= 0)))
 );
@@ -583,6 +869,24 @@ ALTER SEQUENCE public.account_membership_status_id_seq OWNED BY public.account_m
 CREATE TABLE public.account_metaboost (
     account_id integer NOT NULL,
     sender_guid uuid NOT NULL
+);
+
+
+--
+-- Name: account_notification; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_notification (
+    id integer NOT NULL,
+    account_id integer NOT NULL,
+    category public.notification_category_options NOT NULL,
+    title public.varchar_normal NOT NULL,
+    body text,
+    link_path public.varchar_normal,
+    payload jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '1 mon'::interval) NOT NULL,
+    read_at timestamp with time zone
 );
 
 
@@ -649,13 +953,70 @@ ALTER SEQUENCE public.account_notification_channel_type_id_seq OWNED BY public.a
 
 
 --
--- Name: account_paypal_order; Type: TABLE; Schema: public; Owner: -
+-- Name: account_notification_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.account_paypal_order (
+ALTER TABLE public.account_notification ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.account_notification_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: account_notification_preference; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_notification_preference (
+    id integer NOT NULL,
     account_id integer NOT NULL,
-    payment_id character varying NOT NULL,
-    state character varying
+    category public.notification_category_options NOT NULL,
+    in_app_enabled boolean DEFAULT true NOT NULL,
+    push_enabled boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: account_notification_preference_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_notification_preference ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.account_notification_preference_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: account_pending_following_channel; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_pending_following_channel (
+    id integer NOT NULL,
+    account_id integer NOT NULL,
+    podcast_index_id integer,
+    feed_url public.varchar_url NOT NULL,
+    created_at public.server_time_with_default NOT NULL
+);
+
+
+--
+-- Name: account_pending_following_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_pending_following_channel ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.account_pending_following_channel_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
@@ -724,6 +1085,44 @@ ALTER SEQUENCE public.account_reset_password_id_seq OWNED BY public.account_rese
 
 
 --
+-- Name: account_session; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_session (
+    id bigint NOT NULL,
+    id_text public.nano_id_v2 NOT NULL,
+    account_id integer NOT NULL,
+    client_type character varying(16) NOT NULL,
+    device_label public.varchar_normal,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    idle_expires_at timestamp with time zone NOT NULL,
+    refresh_token_hash character varying(64),
+    previous_refresh_token_hash character varying(64),
+    revoked_at timestamp with time zone,
+    revoked_reason character varying(32),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT account_session_client_type_check CHECK (((client_type)::text = ANY (ARRAY[('web'::character varying)::text, ('mobile'::character varying)::text]))),
+    CONSTRAINT account_session_revoked_pair_check CHECK (((revoked_at IS NULL) = (revoked_reason IS NULL))),
+    CONSTRAINT account_session_revoked_reason_check CHECK (((revoked_reason IS NULL) OR ((revoked_reason)::text = ANY (ARRAY[('signed_out'::character varying)::text, ('signed_out_elsewhere'::character varying)::text, ('password_changed'::character varying)::text, ('admin_password_set'::character varying)::text, ('admin_force_logout'::character varying)::text, ('refresh_reuse'::character varying)::text]))))
+);
+
+
+--
+-- Name: account_session_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_session ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.account_session_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: account_set_password; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -762,7 +1161,11 @@ ALTER SEQUENCE public.account_set_password_id_seq OWNED BY public.account_set_pa
 CREATE TABLE public.account_settings (
     id integer NOT NULL,
     account_id integer NOT NULL,
-    allow_listen_stats boolean DEFAULT true NOT NULL
+    allow_listen_stats boolean DEFAULT false NOT NULL,
+    listen_stats_accepted boolean,
+    listen_stats_agreement_version character varying(64),
+    listen_stats_decided_at timestamp with time zone,
+    listen_stats_opted_out_at timestamp with time zone
 );
 
 
@@ -823,7 +1226,8 @@ ALTER SEQUENCE public.account_settings_locale_id_seq OWNED BY public.account_set
 
 CREATE TABLE public.account_settings_notification (
     id integer NOT NULL,
-    account_settings_id integer NOT NULL
+    account_settings_id integer NOT NULL,
+    auto_enable_on_subscribe boolean DEFAULT false NOT NULL
 );
 
 
@@ -886,7 +1290,7 @@ CREATE TABLE public.account_settings_playback (
     id integer NOT NULL,
     account_settings_id integer NOT NULL,
     preferred_media_type character varying DEFAULT 'video'::character varying NOT NULL,
-    CONSTRAINT account_settings_playback_preferred_media_type_check CHECK (((preferred_media_type)::text = ANY ((ARRAY['audio'::character varying, 'video'::character varying])::text[])))
+    CONSTRAINT account_settings_playback_preferred_media_type_check CHECK (((preferred_media_type)::text = ANY (ARRAY[('audio'::character varying)::text, ('video'::character varying)::text])))
 );
 
 
@@ -1025,37 +1429,144 @@ ALTER SEQUENCE public.account_webpush_device_id_seq OWNED BY public.account_webp
 
 
 --
--- Name: billing_domain_event; Type: TABLE; Schema: public; Owner: -
+-- Name: admin_notification_campaign; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.billing_domain_event (
-    id bigint NOT NULL,
-    account_id integer,
-    event_type text NOT NULL,
-    idempotency_key character varying(128),
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at public.server_time_with_default,
-    CONSTRAINT billing_domain_event_event_type_check CHECK ((event_type = ANY (ARRAY['payment_settled'::text, 'renewal_succeeded'::text, 'renewal_failed'::text, 'pay_on_demand_extension_requested'::text])))
+CREATE TABLE public.admin_notification_campaign (
+    id integer NOT NULL,
+    id_text public.nano_id_v2 NOT NULL,
+    title public.varchar_normal NOT NULL,
+    body text,
+    link_path public.varchar_normal,
+    category public.notification_category_options NOT NULL,
+    audience jsonb DEFAULT '{"type": "all-valid-membership"}'::jsonb NOT NULL,
+    send_push boolean DEFAULT false NOT NULL,
+    status public.varchar_short DEFAULT 'draft'::character varying NOT NULL,
+    scheduled_at timestamp with time zone,
+    sent_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    created_by_admin_id integer,
+    scheduled_job_dedupe_key public.varchar_normal,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT admin_notification_campaign_status_check CHECK (((status)::text = ANY (ARRAY[('draft'::character varying)::text, ('scheduled'::character varying)::text, ('sending'::character varying)::text, ('sent'::character varying)::text, ('cancelled'::character varying)::text])))
 );
 
 
 --
--- Name: billing_domain_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: admin_notification_campaign_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.billing_domain_event_id_seq
+ALTER TABLE public.admin_notification_campaign ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.admin_notification_campaign_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
-    CACHE 1;
+    CACHE 1
+);
 
 
 --
--- Name: billing_domain_event_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: billing_checkout_channel; Type: TABLE; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.billing_domain_event_id_seq OWNED BY public.billing_domain_event.id;
+CREATE TABLE public.billing_checkout_channel (
+    id integer NOT NULL,
+    processor_id character varying(32) NOT NULL,
+    platform text NOT NULL,
+    storefront_allowlist text[] DEFAULT '{}'::text[] NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    min_client_version character varying(32),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_checkout_channel_min_client_version_check CHECK (((min_client_version IS NULL) OR ((min_client_version)::text ~ '^[0-9]+(\.[0-9]+)*$'::text))),
+    CONSTRAINT billing_checkout_channel_platform_check CHECK ((platform = ANY (ARRAY['web'::text, 'ios'::text, 'android'::text, 'foss'::text]))),
+    CONSTRAINT billing_checkout_channel_storefront_allowlist_check CHECK ((array_to_string(storefront_allowlist, ','::text) ~ '^([A-Z]{2}(,[A-Z]{2})*)?$'::text))
+);
+
+
+--
+-- Name: billing_checkout_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.billing_checkout_channel ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.billing_checkout_channel_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: billing_checkout_session; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_checkout_session (
+    id integer NOT NULL,
+    processor_id character varying(32) NOT NULL,
+    external_id text NOT NULL,
+    account_id integer NOT NULL,
+    billing_processor_product_id integer NOT NULL,
+    amount numeric(19,4) NOT NULL,
+    currency_code character(3) NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    settled_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_checkout_session_amount_check CHECK ((amount >= (0)::numeric))
+);
+
+
+--
+-- Name: billing_checkout_session_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.billing_checkout_session ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.billing_checkout_session_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: billing_membership_grant; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_membership_grant (
+    id integer NOT NULL,
+    account_id integer NOT NULL,
+    source text NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    revoked_at timestamp with time zone,
+    billing_transaction_id integer,
+    membership_claim_token_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_membership_grant_claim_token_check CHECK (((source <> 'claim_token'::text) OR (membership_claim_token_id IS NOT NULL))),
+    CONSTRAINT billing_membership_grant_one_time_purchase_check CHECK (((source <> 'one_time_purchase'::text) OR (billing_transaction_id IS NOT NULL))),
+    CONSTRAINT billing_membership_grant_source_check CHECK ((source = ANY (ARRAY['one_time_purchase'::text, 'claim_token'::text, 'admin'::text, 'trial'::text, 'legacy_import'::text, 'migration_baseline'::text]))),
+    CONSTRAINT billing_membership_grant_window_check CHECK ((ends_at >= starts_at))
+);
+
+
+--
+-- Name: billing_membership_grant_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.billing_membership_grant ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.billing_membership_grant_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -1141,6 +1652,51 @@ ALTER SEQUENCE public.billing_price_id_seq OWNED BY public.billing_price.id;
 
 
 --
+-- Name: billing_processor; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_processor (
+    id character varying(32) NOT NULL,
+    display_name text NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: billing_processor_product; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_processor_product (
+    id integer NOT NULL,
+    processor_id character varying(32) NOT NULL,
+    external_product_id character varying(255) NOT NULL,
+    external_base_plan_id character varying(255),
+    billing_product_id integer NOT NULL,
+    billing_cadence text NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_processor_product_billing_cadence_check CHECK ((billing_cadence = ANY (ARRAY['monthly'::text, 'annual'::text])))
+);
+
+
+--
+-- Name: billing_processor_product_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.billing_processor_product ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.billing_processor_product_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: billing_product; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1172,6 +1728,77 @@ CREATE SEQUENCE public.billing_product_id_seq
 --
 
 ALTER SEQUENCE public.billing_product_id_seq OWNED BY public.billing_product.id;
+
+
+--
+-- Name: billing_transaction; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_transaction (
+    id integer NOT NULL,
+    account_id integer NOT NULL,
+    processor_id character varying(32) NOT NULL,
+    external_transaction_id text NOT NULL,
+    amount numeric(19,4),
+    currency_code character(3),
+    settled_at timestamp with time zone NOT NULL,
+    revoked_at timestamp with time zone,
+    revocation_reason text,
+    is_sandbox boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_transaction_amount_check CHECK (((amount IS NULL) OR (amount >= (0)::numeric))),
+    CONSTRAINT billing_transaction_amount_currency_check CHECK (((amount IS NULL) = (currency_code IS NULL))),
+    CONSTRAINT billing_transaction_revocation_check CHECK (((revoked_at IS NULL) = (revocation_reason IS NULL))),
+    CONSTRAINT billing_transaction_revocation_reason_check CHECK ((revocation_reason = ANY (ARRAY['refund'::text, 'chargeback'::text, 'store_revoke'::text])))
+);
+
+
+--
+-- Name: billing_transaction_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.billing_transaction ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.billing_transaction_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: billing_webhook_event; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_webhook_event (
+    id bigint NOT NULL,
+    processor_id character varying(32) NOT NULL,
+    external_event_id text NOT NULL,
+    schema_version character varying(32) NOT NULL,
+    payload jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    received_at timestamp with time zone DEFAULT now() NOT NULL,
+    processed_at timestamp with time zone,
+    process_error text,
+    CONSTRAINT billing_webhook_event_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT billing_webhook_event_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: billing_webhook_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.billing_webhook_event ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.billing_webhook_event_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -1221,7 +1848,13 @@ CREATE TABLE public.channel (
     sortable_title public.varchar_short,
     medium_id integer NOT NULL,
     has_podcast_index_value boolean DEFAULT false,
-    has_value_time_splits boolean DEFAULT false
+    has_value_time_splits boolean DEFAULT false,
+    archived_slimmed_at timestamp without time zone,
+    follow_conversion_status character varying(16),
+    follow_conversion_attempts smallint DEFAULT 0 NOT NULL,
+    follow_conversion_last_attempt_at timestamp without time zone,
+    may_have_live_items boolean DEFAULT false NOT NULL,
+    CONSTRAINT channel_follow_conversion_status_check CHECK (((follow_conversion_status IS NULL) OR ((follow_conversion_status)::text = ANY (ARRAY[('converted'::character varying)::text, ('no_followers'::character varying)::text, ('unreachable'::character varying)::text, ('skipped'::character varying)::text]))))
 );
 
 
@@ -1334,7 +1967,11 @@ ALTER SEQUENCE public.channel_chat_id_seq OWNED BY public.channel_chat.id;
 CREATE TABLE public.channel_description (
     id integer NOT NULL,
     channel_id integer NOT NULL,
-    value public.varchar_longer NOT NULL
+    value text NOT NULL,
+    preview character varying(400),
+    is_truncated boolean DEFAULT false NOT NULL,
+    source_length integer,
+    CONSTRAINT channel_description_value_length_check CHECK ((char_length(value) <= 150000))
 );
 
 
@@ -1572,6 +2209,75 @@ ALTER SEQUENCE public.channel_location_id_seq OWNED BY public.channel_location.i
 
 
 --
+-- Name: channel_merge; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.channel_merge (
+    id integer NOT NULL,
+    from_podcast_index_id integer NOT NULL,
+    to_podcast_index_id integer NOT NULL,
+    from_channel_id integer,
+    to_channel_id integer,
+    mode text,
+    status text NOT NULL,
+    confidence numeric(5,4),
+    match_stats jsonb DEFAULT '{}'::jsonb NOT NULL,
+    note text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    applied_at timestamp with time zone,
+    CONSTRAINT channel_merge_confidence_check CHECK (((confidence IS NULL) OR ((confidence >= (0)::numeric) AND (confidence <= (1)::numeric)))),
+    CONSTRAINT channel_merge_mode_check CHECK (((mode IS NULL) OR (mode = ANY (ARRAY['repoint'::text, 'absorb'::text])))),
+    CONSTRAINT channel_merge_status_check CHECK ((status = ANY (ARRAY['detected'::text, 'verified'::text, 'needs_review'::text, 'applied'::text, 'rejected'::text, 'reverted'::text])))
+);
+
+
+--
+-- Name: channel_merge_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.channel_merge ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.channel_merge_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: channel_merge_journal; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.channel_merge_journal (
+    id integer NOT NULL,
+    channel_merge_id integer NOT NULL,
+    table_name text NOT NULL,
+    row_pk text NOT NULL,
+    action text NOT NULL,
+    before_json jsonb,
+    after_json jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT channel_merge_journal_action_check CHECK ((action = ANY (ARRAY['insert'::text, 'update'::text, 'delete'::text])))
+);
+
+
+--
+-- Name: channel_merge_journal_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.channel_merge_journal ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.channel_merge_journal_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: channel_meta_boost; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1744,7 +2450,8 @@ CREATE TABLE public.channel_publisher_remote_item (
     feed_url public.varchar_url,
     item_guid public.varchar_uri,
     title public.varchar_normal,
-    medium_id integer
+    medium_id integer,
+    item_id integer
 );
 
 
@@ -2009,6 +2716,35 @@ ALTER SEQUENCE public.channel_value_recipient_id_seq OWNED BY public.channel_val
 
 
 --
+-- Name: channel_verified_publisher; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.channel_verified_publisher (
+    id integer NOT NULL,
+    channel_id integer NOT NULL,
+    publisher_channel_id integer NOT NULL,
+    item_id integer,
+    claim_position smallint NOT NULL,
+    CONSTRAINT channel_verified_publisher_claim_position_check CHECK ((claim_position >= 0)),
+    CONSTRAINT channel_verified_publisher_not_self_check CHECK ((channel_id <> publisher_channel_id))
+);
+
+
+--
+-- Name: channel_verified_publisher_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.channel_verified_publisher ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.channel_verified_publisher_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: clip; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2016,13 +2752,15 @@ CREATE TABLE public.clip (
     id integer NOT NULL,
     id_text public.nano_id_v2 NOT NULL,
     account_id integer NOT NULL,
-    item_id integer NOT NULL,
+    item_id integer,
     start_time public.media_player_time NOT NULL,
     end_time public.media_player_time,
     title public.varchar_normal,
     description public.varchar_long,
     sharable_status_id integer NOT NULL,
-    created_at public.server_time_with_default
+    created_at public.server_time_with_default,
+    removed_source jsonb,
+    source_removed_at timestamp without time zone
 );
 
 
@@ -2075,6 +2813,11 @@ CREATE TABLE public.feed (
     updated_at public.server_time_with_default,
     spam_item_limit_override integer,
     max_response_body_bytes_override integer,
+    description_length_tier_override character varying(16),
+    description_truncated_count integer DEFAULT 0 NOT NULL,
+    description_longest_source_length integer,
+    description_truncated_at timestamp without time zone,
+    CONSTRAINT feed_description_length_tier_override_check CHECK (((description_length_tier_override IS NULL) OR ((description_length_tier_override)::text = ANY (ARRAY[('standard'::character varying)::text, ('extended'::character varying)::text, ('maximum'::character varying)::text])))),
     CONSTRAINT feed_max_response_body_bytes_override_positive_check CHECK (((max_response_body_bytes_override IS NULL) OR (max_response_body_bytes_override > 0))),
     CONSTRAINT feed_parsing_priority_check CHECK (((parsing_priority >= 0) AND (parsing_priority <= 5))),
     CONSTRAINT feed_spam_item_limit_override_positive_check CHECK (((spam_item_limit_override IS NULL) OR (spam_item_limit_override > 0)))
@@ -2468,6 +3211,7 @@ CREATE TABLE public.item (
     pub_date timestamp with time zone,
     title public.varchar_normal,
     item_flag_status_id integer NOT NULL,
+    archived_slimmed_at timestamp without time zone,
     CONSTRAINT item_check CHECK (((guid IS NOT NULL) OR (guid_enclosure_url IS NOT NULL)))
 );
 
@@ -2754,7 +3498,11 @@ ALTER SEQUENCE public.item_content_link_id_seq OWNED BY public.item_content_link
 CREATE TABLE public.item_description (
     id integer NOT NULL,
     item_id integer NOT NULL,
-    value public.varchar_longer NOT NULL
+    value text NOT NULL,
+    preview character varying(400),
+    is_truncated boolean DEFAULT false NOT NULL,
+    source_length integer,
+    CONSTRAINT item_description_value_length_check CHECK ((char_length(value) <= 150000))
 );
 
 
@@ -3095,6 +3843,34 @@ CREATE SEQUENCE public.item_location_id_seq
 --
 
 ALTER SEQUENCE public.item_location_id_seq OWNED BY public.item_location.id;
+
+
+--
+-- Name: item_merge_map; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.item_merge_map (
+    id integer NOT NULL,
+    channel_merge_id integer NOT NULL,
+    from_item_id integer NOT NULL,
+    to_item_id integer,
+    match_tier text,
+    CONSTRAINT item_merge_map_match_tier_check CHECK (((match_tier IS NULL) OR (match_tier = ANY (ARRAY['guid'::text, 'enclosure'::text, 'fuzzy'::text]))))
+);
+
+
+--
+-- Name: item_merge_map_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.item_merge_map ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.item_merge_map_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -3701,7 +4477,9 @@ CREATE TABLE public.playlist_resource (
     item_soundbite_id integer,
     add_by_rss_resource_data jsonb,
     add_by_rss_hash_id public.varchar_md5,
-    CONSTRAINT playlist_resource_check CHECK (((((((item_id IS NOT NULL))::integer + ((add_by_rss_hash_id IS NOT NULL))::integer) + ((clip_id IS NOT NULL))::integer) + ((item_soundbite_id IS NOT NULL))::integer) = 1))
+    removed_source jsonb,
+    source_removed_at timestamp without time zone,
+    CONSTRAINT playlist_resource_check CHECK (((num_nonnulls(item_id, add_by_rss_hash_id, clip_id, item_soundbite_id) = 1) OR ((num_nonnulls(item_id, add_by_rss_hash_id, clip_id, item_soundbite_id) = 0) AND (source_removed_at IS NOT NULL))))
 );
 
 
@@ -3723,6 +4501,20 @@ CREATE SEQUENCE public.playlist_resource_id_seq
 --
 
 ALTER SEQUENCE public.playlist_resource_id_seq OWNED BY public.playlist_resource.id;
+
+
+--
+-- Name: podcast_index_dead_feed_sync; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.podcast_index_dead_feed_sync (
+    id smallint NOT NULL,
+    last_modified text,
+    etag text,
+    synced_at timestamp with time zone,
+    last_retire_eligible_count integer,
+    CONSTRAINT podcast_index_dead_feed_sync_singleton CHECK ((id = 1))
+);
 
 
 --
@@ -3796,6 +4588,8 @@ CREATE TABLE public.queue_resource (
     item_soundbite_id integer,
     add_by_rss_resource_data jsonb,
     add_by_rss_hash_id public.varchar_md5,
+    last_played_at timestamp with time zone,
+    last_played_received_at timestamp with time zone,
     CONSTRAINT queue_resource_check CHECK (((((((item_id IS NOT NULL))::integer + ((add_by_rss_hash_id IS NOT NULL))::integer) + ((clip_id IS NOT NULL))::integer) + ((item_soundbite_id IS NOT NULL))::integer) = 1))
 );
 
@@ -3818,6 +4612,44 @@ CREATE SEQUENCE public.queue_resource_id_seq
 --
 
 ALTER SEQUENCE public.queue_resource_id_seq OWNED BY public.queue_resource.id;
+
+
+--
+-- Name: scheduled_job; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scheduled_job (
+    id integer NOT NULL,
+    job_type public.varchar_normal NOT NULL,
+    dedupe_key public.varchar_normal NOT NULL,
+    run_after timestamp with time zone NOT NULL,
+    status public.varchar_short DEFAULT 'pending'::character varying NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    max_attempts integer DEFAULT 5 NOT NULL,
+    locked_at timestamp with time zone,
+    locked_by public.varchar_short,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT scheduled_job_attempts_nonnegative CHECK ((attempts >= 0)),
+    CONSTRAINT scheduled_job_max_attempts_positive CHECK ((max_attempts > 0)),
+    CONSTRAINT scheduled_job_status_check CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('running'::character varying)::text, ('completed'::character varying)::text, ('cancelled'::character varying)::text, ('failed'::character varying)::text])))
+);
+
+
+--
+-- Name: scheduled_job_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.scheduled_job ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.scheduled_job_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -3852,423 +4684,150 @@ ALTER SEQUENCE public.sharable_status_id_seq OWNED BY public.sharable_status.id;
 
 
 --
--- Name: stats_aggregated_account; Type: TABLE; Schema: public; Owner: -
+-- Name: stats_daily_account; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.stats_aggregated_account (
-    id integer NOT NULL,
-    tracked_account_id integer NOT NULL,
-    day_current_count integer DEFAULT 0 NOT NULL,
-    day_1_count integer DEFAULT 0 NOT NULL,
-    day_2_count integer DEFAULT 0 NOT NULL,
-    day_3_count integer DEFAULT 0 NOT NULL,
-    day_4_count integer DEFAULT 0 NOT NULL,
-    day_5_count integer DEFAULT 0 NOT NULL,
-    day_6_count integer DEFAULT 0 NOT NULL,
-    day_7_count integer DEFAULT 0 NOT NULL,
-    day_8_count integer DEFAULT 0 NOT NULL,
-    week_current_count integer DEFAULT 0 NOT NULL,
-    week_1_count integer DEFAULT 0 NOT NULL,
-    week_2_count integer DEFAULT 0 NOT NULL,
-    week_3_count integer DEFAULT 0 NOT NULL,
-    week_4_count integer DEFAULT 0 NOT NULL,
-    month_current_count integer DEFAULT 0 NOT NULL,
-    month_1_count integer DEFAULT 0 NOT NULL,
-    all_time_count integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: stats_aggregated_account_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stats_aggregated_account_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_aggregated_account_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_aggregated_account_id_seq OWNED BY public.stats_aggregated_account.id;
-
-
---
--- Name: stats_aggregated_channel; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_aggregated_channel (
-    id integer NOT NULL,
-    channel_id integer NOT NULL,
-    day_current_count integer DEFAULT 0 NOT NULL,
-    day_1_count integer DEFAULT 0 NOT NULL,
-    day_2_count integer DEFAULT 0 NOT NULL,
-    day_3_count integer DEFAULT 0 NOT NULL,
-    day_4_count integer DEFAULT 0 NOT NULL,
-    day_5_count integer DEFAULT 0 NOT NULL,
-    day_6_count integer DEFAULT 0 NOT NULL,
-    day_7_count integer DEFAULT 0 NOT NULL,
-    day_8_count integer DEFAULT 0 NOT NULL,
-    week_current_count integer DEFAULT 0 NOT NULL,
-    week_1_count integer DEFAULT 0 NOT NULL,
-    week_2_count integer DEFAULT 0 NOT NULL,
-    week_3_count integer DEFAULT 0 NOT NULL,
-    week_4_count integer DEFAULT 0 NOT NULL,
-    month_current_count integer DEFAULT 0 NOT NULL,
-    month_1_count integer DEFAULT 0 NOT NULL,
-    all_time_count integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: stats_aggregated_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stats_aggregated_channel_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_aggregated_channel_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_aggregated_channel_id_seq OWNED BY public.stats_aggregated_channel.id;
-
-
---
--- Name: stats_aggregated_clip; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_aggregated_clip (
-    id integer NOT NULL,
-    clip_id integer NOT NULL,
-    day_current_count integer DEFAULT 0 NOT NULL,
-    day_1_count integer DEFAULT 0 NOT NULL,
-    day_2_count integer DEFAULT 0 NOT NULL,
-    day_3_count integer DEFAULT 0 NOT NULL,
-    day_4_count integer DEFAULT 0 NOT NULL,
-    day_5_count integer DEFAULT 0 NOT NULL,
-    day_6_count integer DEFAULT 0 NOT NULL,
-    day_7_count integer DEFAULT 0 NOT NULL,
-    day_8_count integer DEFAULT 0 NOT NULL,
-    week_current_count integer DEFAULT 0 NOT NULL,
-    week_1_count integer DEFAULT 0 NOT NULL,
-    week_2_count integer DEFAULT 0 NOT NULL,
-    week_3_count integer DEFAULT 0 NOT NULL,
-    week_4_count integer DEFAULT 0 NOT NULL,
-    month_current_count integer DEFAULT 0 NOT NULL,
-    month_1_count integer DEFAULT 0 NOT NULL,
-    all_time_count integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: stats_aggregated_clip_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stats_aggregated_clip_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_aggregated_clip_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_aggregated_clip_id_seq OWNED BY public.stats_aggregated_clip.id;
-
-
---
--- Name: stats_aggregated_item; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_aggregated_item (
-    id integer NOT NULL,
-    item_id integer NOT NULL,
-    day_current_count integer DEFAULT 0 NOT NULL,
-    day_1_count integer DEFAULT 0 NOT NULL,
-    day_2_count integer DEFAULT 0 NOT NULL,
-    day_3_count integer DEFAULT 0 NOT NULL,
-    day_4_count integer DEFAULT 0 NOT NULL,
-    day_5_count integer DEFAULT 0 NOT NULL,
-    day_6_count integer DEFAULT 0 NOT NULL,
-    day_7_count integer DEFAULT 0 NOT NULL,
-    day_8_count integer DEFAULT 0 NOT NULL,
-    week_current_count integer DEFAULT 0 NOT NULL,
-    week_1_count integer DEFAULT 0 NOT NULL,
-    week_2_count integer DEFAULT 0 NOT NULL,
-    week_3_count integer DEFAULT 0 NOT NULL,
-    week_4_count integer DEFAULT 0 NOT NULL,
-    month_current_count integer DEFAULT 0 NOT NULL,
-    month_1_count integer DEFAULT 0 NOT NULL,
-    all_time_count integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: stats_aggregated_item_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stats_aggregated_item_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_aggregated_item_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_aggregated_item_id_seq OWNED BY public.stats_aggregated_item.id;
-
-
---
--- Name: stats_aggregated_playlist; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_aggregated_playlist (
-    id integer NOT NULL,
-    playlist_id integer NOT NULL,
-    day_current_count integer DEFAULT 0 NOT NULL,
-    day_1_count integer DEFAULT 0 NOT NULL,
-    day_2_count integer DEFAULT 0 NOT NULL,
-    day_3_count integer DEFAULT 0 NOT NULL,
-    day_4_count integer DEFAULT 0 NOT NULL,
-    day_5_count integer DEFAULT 0 NOT NULL,
-    day_6_count integer DEFAULT 0 NOT NULL,
-    day_7_count integer DEFAULT 0 NOT NULL,
-    day_8_count integer DEFAULT 0 NOT NULL,
-    week_current_count integer DEFAULT 0 NOT NULL,
-    week_1_count integer DEFAULT 0 NOT NULL,
-    week_2_count integer DEFAULT 0 NOT NULL,
-    week_3_count integer DEFAULT 0 NOT NULL,
-    week_4_count integer DEFAULT 0 NOT NULL,
-    month_current_count integer DEFAULT 0 NOT NULL,
-    month_1_count integer DEFAULT 0 NOT NULL,
-    all_time_count integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: stats_aggregated_playlist_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stats_aggregated_playlist_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_aggregated_playlist_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_aggregated_playlist_id_seq OWNED BY public.stats_aggregated_playlist.id;
-
-
---
--- Name: stats_track_account_guid; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_track_account_guid (
-    id integer NOT NULL,
+CREATE TABLE public.stats_daily_account (
     account_id integer NOT NULL,
-    account_guid uuid NOT NULL,
-    updated_at public.server_time_with_default NOT NULL
+    day date NOT NULL,
+    listener_count integer DEFAULT 0 NOT NULL,
+    all_time_listener_count integer DEFAULT 0 NOT NULL,
+    CONSTRAINT stats_daily_account_all_time_check CHECK (((all_time_listener_count >= 0) AND (all_time_listener_count <= listener_count))),
+    CONSTRAINT stats_daily_account_counts_check CHECK ((listener_count >= 0))
 );
 
 
 --
--- Name: stats_track_account_guid_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: stats_daily_channel; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.stats_track_account_guid_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_track_account_guid_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_track_account_guid_id_seq OWNED BY public.stats_track_account_guid.id;
-
-
---
--- Name: stats_track_event_account; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_track_event_account (
-    id integer NOT NULL,
-    account_guid uuid NOT NULL,
-    tracked_account_id integer NOT NULL,
-    created_at public.server_time_with_default NOT NULL,
-    stats_track_account_guid_id integer NOT NULL
-);
-
-
---
--- Name: stats_track_event_account_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stats_track_event_account_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_track_event_account_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_track_event_account_id_seq OWNED BY public.stats_track_event_account.id;
-
-
---
--- Name: stats_track_event_channel; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_track_event_channel (
-    id integer NOT NULL,
-    account_guid uuid NOT NULL,
+CREATE TABLE public.stats_daily_channel (
     channel_id integer NOT NULL,
-    created_at public.server_time_with_default NOT NULL,
-    stats_track_account_guid_id integer NOT NULL
+    day date NOT NULL,
+    listener_count integer DEFAULT 0 NOT NULL,
+    completion_count integer DEFAULT 0 NOT NULL,
+    all_time_listener_count integer DEFAULT 0 NOT NULL,
+    CONSTRAINT stats_daily_channel_all_time_check CHECK (((all_time_listener_count >= 0) AND (all_time_listener_count <= listener_count))),
+    CONSTRAINT stats_daily_channel_counts_check CHECK (((listener_count >= 0) AND (completion_count >= 0) AND (completion_count <= listener_count)))
 );
 
 
 --
--- Name: stats_track_event_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: stats_daily_clip; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.stats_track_event_channel_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_track_event_channel_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_track_event_channel_id_seq OWNED BY public.stats_track_event_channel.id;
-
-
---
--- Name: stats_track_event_clip; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_track_event_clip (
-    id integer NOT NULL,
-    account_guid uuid NOT NULL,
+CREATE TABLE public.stats_daily_clip (
     clip_id integer NOT NULL,
-    created_at public.server_time_with_default NOT NULL,
-    stats_track_account_guid_id integer NOT NULL
+    day date NOT NULL,
+    listener_count integer DEFAULT 0 NOT NULL,
+    completion_count integer DEFAULT 0 NOT NULL,
+    all_time_listener_count integer DEFAULT 0 NOT NULL,
+    CONSTRAINT stats_daily_clip_all_time_check CHECK (((all_time_listener_count >= 0) AND (all_time_listener_count <= listener_count))),
+    CONSTRAINT stats_daily_clip_counts_check CHECK (((listener_count >= 0) AND (completion_count >= 0) AND (completion_count <= listener_count)))
 );
 
 
 --
--- Name: stats_track_event_clip_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: stats_daily_item; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.stats_track_event_clip_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_track_event_clip_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_track_event_clip_id_seq OWNED BY public.stats_track_event_clip.id;
-
-
---
--- Name: stats_track_event_item; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_track_event_item (
-    id integer NOT NULL,
-    account_guid uuid NOT NULL,
+CREATE TABLE public.stats_daily_item (
     item_id integer NOT NULL,
-    created_at public.server_time_with_default NOT NULL,
-    stats_track_account_guid_id integer NOT NULL
+    day date NOT NULL,
+    listener_count integer DEFAULT 0 NOT NULL,
+    completion_count integer DEFAULT 0 NOT NULL,
+    all_time_listener_count integer DEFAULT 0 NOT NULL,
+    CONSTRAINT stats_daily_item_all_time_check CHECK (((all_time_listener_count >= 0) AND (all_time_listener_count <= listener_count))),
+    CONSTRAINT stats_daily_item_counts_check CHECK (((listener_count >= 0) AND (completion_count >= 0) AND (completion_count <= listener_count)))
 );
 
 
 --
--- Name: stats_track_event_item_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: stats_daily_playlist; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.stats_track_event_item_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stats_track_event_item_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stats_track_event_item_id_seq OWNED BY public.stats_track_event_item.id;
-
-
---
--- Name: stats_track_event_playlist; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stats_track_event_playlist (
-    id integer NOT NULL,
-    account_guid uuid NOT NULL,
+CREATE TABLE public.stats_daily_playlist (
     playlist_id integer NOT NULL,
-    created_at public.server_time_with_default NOT NULL,
-    stats_track_account_guid_id integer NOT NULL
+    day date NOT NULL,
+    listener_count integer DEFAULT 0 NOT NULL,
+    all_time_listener_count integer DEFAULT 0 NOT NULL,
+    CONSTRAINT stats_daily_playlist_all_time_check CHECK (((all_time_listener_count >= 0) AND (all_time_listener_count <= listener_count))),
+    CONSTRAINT stats_daily_playlist_counts_check CHECK ((listener_count >= 0))
 );
 
 
 --
--- Name: stats_track_event_playlist_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: stats_flag_signal; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.stats_track_event_playlist_id_seq
-    AS integer
+CREATE TABLE public.stats_flag_signal (
+    listener_id uuid NOT NULL,
+    too_soon_minutes integer NOT NULL,
+    last_too_soon_minute timestamp with time zone NOT NULL,
+    CONSTRAINT stats_flag_signal_too_soon_minutes_check CHECK ((too_soon_minutes >= 1))
+);
+
+
+--
+-- Name: stats_flagged_listener; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_flagged_listener (
+    id integer NOT NULL,
+    listener_id uuid NOT NULL,
+    reason text NOT NULL,
+    flagged_at timestamp with time zone NOT NULL,
+    times_flagged integer DEFAULT 1 NOT NULL,
+    cleared_at timestamp with time zone,
+    cleared_by_admin_id integer,
+    CONSTRAINT stats_flagged_listener_cleared_check CHECK (((cleared_at IS NULL) = (cleared_by_admin_id IS NULL))),
+    CONSTRAINT stats_flagged_listener_reason_check CHECK ((reason = ANY (ARRAY['stored_cap_reached'::text, 'too_soon_minutes'::text]))),
+    CONSTRAINT stats_flagged_listener_times_flagged_check CHECK ((times_flagged >= 1))
+);
+
+
+--
+-- Name: stats_flagged_listener_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.stats_flagged_listener ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.stats_flagged_listener_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: stats_listen_event; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_listen_event (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    listener_id uuid NOT NULL,
+    channel_id integer NOT NULL,
+    item_id integer NOT NULL,
+    clip_id integer,
+    client_listen_id uuid,
+    seconds_heard integer DEFAULT 0 NOT NULL,
+    completed boolean DEFAULT false NOT NULL,
+    popularity_counted boolean DEFAULT true NOT NULL,
+    item_all_time_counted boolean DEFAULT false NOT NULL,
+    channel_all_time_counted boolean DEFAULT false NOT NULL,
+    clip_all_time_counted boolean DEFAULT false NOT NULL,
+    CONSTRAINT stats_listen_event_seconds_heard_check CHECK ((seconds_heard >= 0))
+)
+PARTITION BY RANGE (created_at);
+
+
+--
+-- Name: stats_listen_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.stats_listen_event_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -4277,10 +4836,194 @@ CREATE SEQUENCE public.stats_track_event_playlist_id_seq
 
 
 --
--- Name: stats_track_event_playlist_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: stats_listen_event_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.stats_track_event_playlist_id_seq OWNED BY public.stats_track_event_playlist.id;
+ALTER SEQUENCE public.stats_listen_event_id_seq OWNED BY public.stats_listen_event.id;
+
+
+--
+-- Name: stats_listen_event_default; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_listen_event_default (
+    id bigint DEFAULT nextval('public.stats_listen_event_id_seq'::regclass) CONSTRAINT stats_listen_event_id_not_null NOT NULL,
+    created_at timestamp with time zone DEFAULT now() CONSTRAINT stats_listen_event_created_at_not_null NOT NULL,
+    listener_id uuid CONSTRAINT stats_listen_event_listener_id_not_null NOT NULL,
+    channel_id integer CONSTRAINT stats_listen_event_channel_id_not_null NOT NULL,
+    item_id integer CONSTRAINT stats_listen_event_item_id_not_null NOT NULL,
+    clip_id integer,
+    client_listen_id uuid,
+    seconds_heard integer DEFAULT 0 CONSTRAINT stats_listen_event_seconds_heard_not_null NOT NULL,
+    completed boolean DEFAULT false CONSTRAINT stats_listen_event_completed_not_null NOT NULL,
+    popularity_counted boolean DEFAULT true CONSTRAINT stats_listen_event_popularity_counted_not_null NOT NULL,
+    item_all_time_counted boolean DEFAULT false CONSTRAINT stats_listen_event_item_all_time_counted_not_null NOT NULL,
+    channel_all_time_counted boolean DEFAULT false CONSTRAINT stats_listen_event_channel_all_time_counted_not_null NOT NULL,
+    clip_all_time_counted boolean DEFAULT false CONSTRAINT stats_listen_event_clip_all_time_counted_not_null NOT NULL,
+    CONSTRAINT stats_listen_event_seconds_heard_check CHECK ((seconds_heard >= 0))
+);
+
+
+--
+-- Name: stats_open_event; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_open_event (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    listener_id uuid NOT NULL,
+    account_id integer,
+    playlist_id integer,
+    popularity_counted boolean DEFAULT true NOT NULL,
+    all_time_counted boolean DEFAULT false NOT NULL,
+    CONSTRAINT stats_open_event_target_check CHECK ((num_nonnulls(account_id, playlist_id) = 1))
+)
+PARTITION BY RANGE (created_at);
+
+
+--
+-- Name: stats_open_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.stats_open_event_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: stats_open_event_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.stats_open_event_id_seq OWNED BY public.stats_open_event.id;
+
+
+--
+-- Name: stats_open_event_default; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_open_event_default (
+    id bigint DEFAULT nextval('public.stats_open_event_id_seq'::regclass) CONSTRAINT stats_open_event_id_not_null NOT NULL,
+    created_at timestamp with time zone DEFAULT now() CONSTRAINT stats_open_event_created_at_not_null NOT NULL,
+    listener_id uuid CONSTRAINT stats_open_event_listener_id_not_null NOT NULL,
+    account_id integer,
+    playlist_id integer,
+    popularity_counted boolean DEFAULT true CONSTRAINT stats_open_event_popularity_counted_not_null NOT NULL,
+    all_time_counted boolean DEFAULT false CONSTRAINT stats_open_event_all_time_counted_not_null NOT NULL,
+    CONSTRAINT stats_open_event_target_check CHECK ((num_nonnulls(account_id, playlist_id) = 1))
+);
+
+
+--
+-- Name: stats_popularity_account; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_popularity_account (
+    account_id integer NOT NULL,
+    day_count integer DEFAULT 0 NOT NULL,
+    week_count integer DEFAULT 0 NOT NULL,
+    month_count integer DEFAULT 0 NOT NULL,
+    all_time_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: stats_popularity_channel; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_popularity_channel (
+    channel_id integer NOT NULL,
+    day_count integer DEFAULT 0 NOT NULL,
+    week_count integer DEFAULT 0 NOT NULL,
+    month_count integer DEFAULT 0 NOT NULL,
+    all_time_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: stats_popularity_clip; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_popularity_clip (
+    clip_id integer NOT NULL,
+    day_count integer DEFAULT 0 NOT NULL,
+    week_count integer DEFAULT 0 NOT NULL,
+    month_count integer DEFAULT 0 NOT NULL,
+    all_time_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: stats_popularity_item; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_popularity_item (
+    item_id integer NOT NULL,
+    day_count integer DEFAULT 0 NOT NULL,
+    week_count integer DEFAULT 0 NOT NULL,
+    month_count integer DEFAULT 0 NOT NULL,
+    all_time_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: stats_popularity_playlist; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_popularity_playlist (
+    playlist_id integer NOT NULL,
+    day_count integer DEFAULT 0 NOT NULL,
+    week_count integer DEFAULT 0 NOT NULL,
+    month_count integer DEFAULT 0 NOT NULL,
+    all_time_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: stats_taste_profile; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_taste_profile (
+    listener_id uuid NOT NULL,
+    channel_id integer NOT NULL,
+    listen_count integer DEFAULT 0 NOT NULL,
+    completion_count integer DEFAULT 0 NOT NULL,
+    first_listened_at timestamp with time zone NOT NULL,
+    last_listened_at timestamp with time zone NOT NULL,
+    recent_score double precision DEFAULT 0 NOT NULL,
+    long_term_score double precision DEFAULT 0 NOT NULL,
+    scores_updated_at timestamp with time zone NOT NULL,
+    CONSTRAINT stats_taste_profile_counts_check CHECK (((listen_count >= 0) AND (completion_count >= 0))),
+    CONSTRAINT stats_taste_profile_listened_order_check CHECK ((first_listened_at <= last_listened_at)),
+    CONSTRAINT stats_taste_profile_scores_check CHECK (((recent_score >= (0)::double precision) AND (long_term_score >= (0)::double precision)))
+);
+
+
+--
+-- Name: stats_taste_profile_hidden; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stats_taste_profile_hidden (
+    listener_id uuid NOT NULL,
+    channel_id integer NOT NULL,
+    hidden_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: stats_listen_event_default; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_listen_event ATTACH PARTITION public.stats_listen_event_default DEFAULT;
+
+
+--
+-- Name: stats_open_event_default; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_open_event ATTACH PARTITION public.stats_open_event_default DEFAULT;
 
 
 --
@@ -4414,13 +5157,6 @@ ALTER TABLE ONLY public.account_verification ALTER COLUMN id SET DEFAULT nextval
 --
 
 ALTER TABLE ONLY public.account_webpush_device ALTER COLUMN id SET DEFAULT nextval('public.account_webpush_device_id_seq'::regclass);
-
-
---
--- Name: billing_domain_event id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.billing_domain_event ALTER COLUMN id SET DEFAULT nextval('public.billing_domain_event_id_seq'::regclass);
 
 
 --
@@ -4984,95 +5720,48 @@ ALTER TABLE ONLY public.sharable_status ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
--- Name: stats_aggregated_account id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: stats_listen_event id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_account ALTER COLUMN id SET DEFAULT nextval('public.stats_aggregated_account_id_seq'::regclass);
-
-
---
--- Name: stats_aggregated_channel id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_channel ALTER COLUMN id SET DEFAULT nextval('public.stats_aggregated_channel_id_seq'::regclass);
+ALTER TABLE ONLY public.stats_listen_event ALTER COLUMN id SET DEFAULT nextval('public.stats_listen_event_id_seq'::regclass);
 
 
 --
--- Name: stats_aggregated_clip id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: stats_open_event id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_clip ALTER COLUMN id SET DEFAULT nextval('public.stats_aggregated_clip_id_seq'::regclass);
-
-
---
--- Name: stats_aggregated_item id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_item ALTER COLUMN id SET DEFAULT nextval('public.stats_aggregated_item_id_seq'::regclass);
+ALTER TABLE ONLY public.stats_open_event ALTER COLUMN id SET DEFAULT nextval('public.stats_open_event_id_seq'::regclass);
 
 
 --
--- Name: stats_aggregated_playlist id; Type: DEFAULT; Schema: public; Owner: -
+-- Data for Name: stats_listener; Type: TABLE DATA; Schema: listener_identity; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_playlist ALTER COLUMN id SET DEFAULT nextval('public.stats_aggregated_playlist_id_seq'::regclass);
-
-
---
--- Name: stats_track_account_guid id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_account_guid ALTER COLUMN id SET DEFAULT nextval('public.stats_track_account_guid_id_seq'::regclass);
-
-
---
--- Name: stats_track_event_account id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_account ALTER COLUMN id SET DEFAULT nextval('public.stats_track_event_account_id_seq'::regclass);
-
-
---
--- Name: stats_track_event_channel id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_channel ALTER COLUMN id SET DEFAULT nextval('public.stats_track_event_channel_id_seq'::regclass);
-
-
---
--- Name: stats_track_event_clip id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_clip ALTER COLUMN id SET DEFAULT nextval('public.stats_track_event_clip_id_seq'::regclass);
-
-
---
--- Name: stats_track_event_item id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_item ALTER COLUMN id SET DEFAULT nextval('public.stats_track_event_item_id_seq'::regclass);
-
-
---
--- Name: stats_track_event_playlist id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_playlist ALTER COLUMN id SET DEFAULT nextval('public.stats_track_event_playlist_id_seq'::regclass);
+COPY listener_identity.stats_listener (listener_id, account_id, created_at, opt_out_day, opt_out_day_stored_count, opt_out_day_first_stored_at) FROM stdin;
+\.
 
 
 --
 -- Data for Name: account; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account (id, id_text, verified, sharable_status_id, created_at) FROM stdin;
+COPY public.account (id, id_text, verified, sharable_status_id, created_at, notifications_last_read_at, billing_customer_ref) FROM stdin;
 \.
 
 
 --
--- Data for Name: account_app_store_purchase; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: account_api_key; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_app_store_purchase (account_id, transaction_id, cancellation_date, cancellation_date_ms, cancellation_date_pst, cancellation_reason, expires_date, expires_date_ms, expires_date_pst, is_in_intro_offer_period, is_trial_period, original_purchase_date, original_purchase_date_ms, original_purchase_date_pst, original_transaction_id, product_id, promotional_offer_id, purchase_date, purchase_date_ms, purchase_date_pst, quantity, web_order_line_item_id) FROM stdin;
+COPY public.account_api_key (id, id_text, account_id, name, token_hash, token_hint, permissions, expires_at, last_used_at, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: account_content_log; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.account_content_log (id, account_id, log_type, channel_id_text, channel_title, reason, follow_outcome, clip_count, playlist_entry_count, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -5081,6 +5770,14 @@ COPY public.account_app_store_purchase (account_id, transaction_id, cancellation
 --
 
 COPY public.account_credentials (id, account_id, email, username, password) FROM stdin;
+\.
+
+
+--
+-- Data for Name: account_device_auto_download_channel; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.account_device_auto_download_channel (id, account_id, installation_id, channel_id, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -5112,7 +5809,7 @@ COPY public.account_following_account (account_id, following_account_id) FROM st
 -- Data for Name: account_following_add_by_rss_channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_following_add_by_rss_channel (account_id, feed_url, title, image_url, basic_auth_username, basic_auth_password) FROM stdin;
+COPY public.account_following_add_by_rss_channel (account_id, feed_url, title, image_url, last_seen_at, requires_credentials) FROM stdin;
 \.
 
 
@@ -5120,7 +5817,7 @@ COPY public.account_following_add_by_rss_channel (account_id, feed_url, title, i
 -- Data for Name: account_following_channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_following_channel (account_id, channel_id) FROM stdin;
+COPY public.account_following_channel (account_id, channel_id, last_seen_at) FROM stdin;
 \.
 
 
@@ -5129,14 +5826,6 @@ COPY public.account_following_channel (account_id, channel_id) FROM stdin;
 --
 
 COPY public.account_following_playlist (account_id, playlist_id) FROM stdin;
-\.
-
-
---
--- Data for Name: account_google_play_purchase; Type: TABLE DATA; Schema: public; Owner: -
---
-
-COPY public.account_google_play_purchase (account_id, transaction_id, acknowledgement_state, consumption_state, developer_payload, kind, product_id, purchase_time_millis, purchase_state, purchase_token) FROM stdin;
 \.
 
 
@@ -5154,7 +5843,7 @@ COPY public.account_membership (id, tier) FROM stdin;
 -- Data for Name: account_membership_status; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_membership_status (id, account_id, account_membership_id, membership_expires_at, auto_renew, allow_directory_add_by_rss, max_add_by_rss_feeds, max_manual_refreshes_per_hour, track_stats, allow_notifications, billing_cadence, auto_renew_mode, next_renewal_attempt_at, last_renewal_attempt_at, last_renewal_status, last_extension_idempotency_key, last_renewal_idempotency_key, renewal_retry_count, renewal_retry_backoff_until) FROM stdin;
+COPY public.account_membership_status (id, account_id, account_membership_id, membership_expires_at, allow_directory_add_by_rss, max_add_by_rss_feeds, max_manual_refreshes_per_hour, track_stats, allow_notifications, billing_cadence, last_extension_idempotency_key) FROM stdin;
 \.
 
 
@@ -5163,6 +5852,14 @@ COPY public.account_membership_status (id, account_id, account_membership_id, me
 --
 
 COPY public.account_metaboost (account_id, sender_guid) FROM stdin;
+\.
+
+
+--
+-- Data for Name: account_notification; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.account_notification (id, account_id, category, title, body, link_path, payload, created_at, expires_at, read_at) FROM stdin;
 \.
 
 
@@ -5183,10 +5880,18 @@ COPY public.account_notification_channel_type (id, account_notification_channel_
 
 
 --
--- Data for Name: account_paypal_order; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: account_notification_preference; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_paypal_order (account_id, payment_id, state) FROM stdin;
+COPY public.account_notification_preference (id, account_id, category, in_app_enabled, push_enabled) FROM stdin;
+\.
+
+
+--
+-- Data for Name: account_pending_following_channel; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.account_pending_following_channel (id, account_id, podcast_index_id, feed_url, created_at) FROM stdin;
 \.
 
 
@@ -5207,6 +5912,14 @@ COPY public.account_reset_password (id, account_id, reset_token, reset_token_exp
 
 
 --
+-- Data for Name: account_session; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.account_session (id, id_text, account_id, client_type, device_label, last_seen_at, idle_expires_at, refresh_token_hash, previous_refresh_token_hash, revoked_at, revoked_reason, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: account_set_password; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -5218,7 +5931,7 @@ COPY public.account_set_password (id, account_id, set_password_token, set_passwo
 -- Data for Name: account_settings; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_settings (id, account_id, allow_listen_stats) FROM stdin;
+COPY public.account_settings (id, account_id, allow_listen_stats, listen_stats_accepted, listen_stats_agreement_version, listen_stats_decided_at, listen_stats_opted_out_at) FROM stdin;
 \.
 
 
@@ -5234,7 +5947,7 @@ COPY public.account_settings_locale (id, account_settings_id, locale) FROM stdin
 -- Data for Name: account_settings_notification; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.account_settings_notification (id, account_settings_id) FROM stdin;
+COPY public.account_settings_notification (id, account_settings_id, auto_enable_on_subscribe) FROM stdin;
 \.
 
 
@@ -5287,10 +6000,44 @@ COPY public.account_webpush_device (id, account_id, endpoint, p256dh, auth, loca
 
 
 --
--- Data for Name: billing_domain_event; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: admin_notification_campaign; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.billing_domain_event (id, account_id, event_type, idempotency_key, payload, created_at) FROM stdin;
+COPY public.admin_notification_campaign (id, id_text, title, body, link_path, category, audience, send_push, status, scheduled_at, sent_at, cancelled_at, created_by_admin_id, scheduled_job_dedupe_key, last_error, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: billing_checkout_channel; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_checkout_channel (id, processor_id, platform, storefront_allowlist, enabled, min_client_version, created_at, updated_at) FROM stdin;
+1	paypal	web	{}	t	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+2	apple	ios	{}	t	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+3	google_play	android	{}	t	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+4	paypal	ios	{}	f	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+5	paypal	android	{}	f	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+6	paypal	foss	{}	t	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+7	strike	web	{}	f	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+8	strike	foss	{}	f	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+9	strike	ios	{}	f	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+10	strike	android	{}	f	\N	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+\.
+
+
+--
+-- Data for Name: billing_checkout_session; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_checkout_session (id, processor_id, external_id, account_id, billing_processor_product_id, amount, currency_code, expires_at, settled_at, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: billing_membership_grant; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_membership_grant (id, account_id, source, starts_at, ends_at, revoked_at, billing_transaction_id, membership_claim_token_id, created_at) FROM stdin;
 \.
 
 
@@ -5313,11 +6060,48 @@ COPY public.billing_price_change_audit (id, billing_price_id, changed_by_admin_a
 
 
 --
+-- Data for Name: billing_processor; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_processor (id, display_name, is_active, created_at, updated_at) FROM stdin;
+paypal	PayPal	t	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+apple	Apple App Store	t	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+google_play	Google Play	t	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+test	Test	t	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+strike	Strike	t	2000-01-01 00:00:00+00	2000-01-01 00:00:00+00
+\.
+
+
+--
+-- Data for Name: billing_processor_product; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_processor_product (id, processor_id, external_product_id, external_base_plan_id, billing_product_id, billing_cadence, is_active, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: billing_product; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.billing_product (id, product_code, name, is_active, created_at, updated_at) FROM stdin;
 1	membership_premium	Premium Membership	t	2000-01-01 00:00:00	2000-01-01 00:00:00
+\.
+
+
+--
+-- Data for Name: billing_transaction; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_transaction (id, account_id, processor_id, external_transaction_id, amount, currency_code, settled_at, revoked_at, revocation_reason, is_sandbox, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: billing_webhook_event; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.billing_webhook_event (id, processor_id, external_event_id, schema_version, payload, status, attempts, received_at, processed_at, process_error) FROM stdin;
 \.
 
 
@@ -5443,7 +6227,7 @@ COPY public.category (id, parent_id, display_name, slug, mapping_key) FROM stdin
 -- Data for Name: channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.channel (id, id_text, slug, feed_id, podcast_guid, title, sortable_title, medium_id, has_podcast_index_value, has_value_time_splits) FROM stdin;
+COPY public.channel (id, id_text, slug, feed_id, podcast_guid, title, sortable_title, medium_id, has_podcast_index_value, has_value_time_splits, archived_slimmed_at, follow_conversion_status, follow_conversion_attempts, follow_conversion_last_attempt_at, may_have_live_items) FROM stdin;
 \.
 
 
@@ -5475,7 +6259,7 @@ COPY public.channel_chat (id, channel_id, server, protocol, account_id, space) F
 -- Data for Name: channel_description; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.channel_description (id, channel_id, value) FROM stdin;
+COPY public.channel_description (id, channel_id, value, preview, is_truncated, source_length) FROM stdin;
 \.
 
 
@@ -5530,6 +6314,22 @@ COPY public.channel_location (id, channel_id, geo, osm, name) FROM stdin;
 
 
 --
+-- Data for Name: channel_merge; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.channel_merge (id, from_podcast_index_id, to_podcast_index_id, from_channel_id, to_channel_id, mode, status, confidence, match_stats, note, created_at, updated_at, applied_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: channel_merge_journal; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.channel_merge_journal (id, channel_merge_id, table_name, row_pk, action, before_json, after_json, created_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: channel_meta_boost; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -5573,7 +6373,7 @@ COPY public.channel_publisher (id, channel_id) FROM stdin;
 -- Data for Name: channel_publisher_remote_item; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.channel_publisher_remote_item (id, channel_publisher_id, feed_guid, feed_url, item_guid, title, medium_id) FROM stdin;
+COPY public.channel_publisher_remote_item (id, channel_publisher_id, feed_guid, feed_url, item_guid, title, medium_id, item_id) FROM stdin;
 \.
 
 
@@ -5634,10 +6434,18 @@ COPY public.channel_value_recipient (id, channel_value_id, type, address, split,
 
 
 --
+-- Data for Name: channel_verified_publisher; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.channel_verified_publisher (id, channel_id, publisher_channel_id, item_id, claim_position) FROM stdin;
+\.
+
+
+--
 -- Data for Name: clip; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.clip (id, id_text, account_id, item_id, start_time, end_time, title, description, sharable_status_id, created_at) FROM stdin;
+COPY public.clip (id, id_text, account_id, item_id, start_time, end_time, title, description, sharable_status_id, created_at, removed_source, source_removed_at) FROM stdin;
 \.
 
 
@@ -5653,7 +6461,7 @@ COPY public.embed_demo_showcase (showcase_id, resource_id_text, created_at, upda
 -- Data for Name: feed; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.feed (id, url, podcast_index_id, last_parsed_file_hash, is_parsing, parsing_priority, container_id, created_at, updated_at, spam_item_limit_override, max_response_body_bytes_override) FROM stdin;
+COPY public.feed (id, url, podcast_index_id, last_parsed_file_hash, is_parsing, parsing_priority, container_id, created_at, updated_at, spam_item_limit_override, max_response_body_bytes_override, description_length_tier_override, description_truncated_count, description_longest_source_length, description_truncated_at) FROM stdin;
 \.
 
 
@@ -5704,6 +6512,7 @@ COPY public.feed_lifecycle_state_type (id, state_key, created_at, updated_at) FR
 2	pending_archive	2000-01-01 00:00:00	2000-01-01 00:00:00
 3	archived	2000-01-01 00:00:00	2000-01-01 00:00:00
 4	takedown	2000-01-01 00:00:00	2000-01-01 00:00:00
+5	merged	2000-01-01 00:00:00	2000-01-01 00:00:00
 \.
 
 
@@ -5758,7 +6567,7 @@ COPY public.image_shrink_source (id, url, etag, last_modified, content_length, c
 -- Data for Name: item; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.item (id, id_text, slug, channel_id, guid, guid_enclosure_url, pub_date, title, item_flag_status_id) FROM stdin;
+COPY public.item (id, id_text, slug, channel_id, guid, guid_enclosure_url, pub_date, title, item_flag_status_id, archived_slimmed_at) FROM stdin;
 \.
 
 
@@ -5830,7 +6639,7 @@ COPY public.item_content_link (id, item_id, href, title) FROM stdin;
 -- Data for Name: item_description; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.item_description (id, item_id, value) FROM stdin;
+COPY public.item_description (id, item_id, value, preview, is_truncated, source_length) FROM stdin;
 \.
 
 
@@ -5910,6 +6719,14 @@ COPY public.item_license (id, item_id, identifier, url) FROM stdin;
 --
 
 COPY public.item_location (id, item_id, geo, osm, name) FROM stdin;
+\.
+
+
+--
+-- Data for Name: item_merge_map; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.item_merge_map (id, channel_merge_id, from_item_id, to_item_id, match_tier) FROM stdin;
 \.
 
 
@@ -6093,7 +6910,15 @@ COPY public.playlist (id, id_text, account_id, sharable_status_id, title, descri
 -- Data for Name: playlist_resource; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.playlist_resource (id, playlist_id, list_position, item_id, clip_id, item_soundbite_id, add_by_rss_resource_data, add_by_rss_hash_id) FROM stdin;
+COPY public.playlist_resource (id, playlist_id, list_position, item_id, clip_id, item_soundbite_id, add_by_rss_resource_data, add_by_rss_hash_id, removed_source, source_removed_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: podcast_index_dead_feed_sync; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.podcast_index_dead_feed_sync (id, last_modified, etag, synced_at, last_retire_eligible_count) FROM stdin;
 \.
 
 
@@ -6117,7 +6942,15 @@ COPY public.queue (id, id_text, account_id, medium_id, is_active_queue) FROM std
 -- Data for Name: queue_resource; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.queue_resource (id, queue_id, list_position, playback_position, media_file_duration, completed, item_id, clip_id, item_soundbite_id, add_by_rss_resource_data, add_by_rss_hash_id) FROM stdin;
+COPY public.queue_resource (id, queue_id, list_position, playback_position, media_file_duration, completed, item_id, clip_id, item_soundbite_id, add_by_rss_resource_data, add_by_rss_hash_id, last_played_at, last_played_received_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: scheduled_job; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.scheduled_job (id, job_type, dedupe_key, run_after, status, attempts, max_attempts, locked_at, locked_by, payload, last_error, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -6133,91 +6966,145 @@ COPY public.sharable_status (id, status) FROM stdin;
 
 
 --
--- Data for Name: stats_aggregated_account; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_daily_account; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_aggregated_account (id, tracked_account_id, day_current_count, day_1_count, day_2_count, day_3_count, day_4_count, day_5_count, day_6_count, day_7_count, day_8_count, week_current_count, week_1_count, week_2_count, week_3_count, week_4_count, month_current_count, month_1_count, all_time_count) FROM stdin;
+COPY public.stats_daily_account (account_id, day, listener_count, all_time_listener_count) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_aggregated_channel; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_daily_channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_aggregated_channel (id, channel_id, day_current_count, day_1_count, day_2_count, day_3_count, day_4_count, day_5_count, day_6_count, day_7_count, day_8_count, week_current_count, week_1_count, week_2_count, week_3_count, week_4_count, month_current_count, month_1_count, all_time_count) FROM stdin;
+COPY public.stats_daily_channel (channel_id, day, listener_count, completion_count, all_time_listener_count) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_aggregated_clip; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_daily_clip; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_aggregated_clip (id, clip_id, day_current_count, day_1_count, day_2_count, day_3_count, day_4_count, day_5_count, day_6_count, day_7_count, day_8_count, week_current_count, week_1_count, week_2_count, week_3_count, week_4_count, month_current_count, month_1_count, all_time_count) FROM stdin;
+COPY public.stats_daily_clip (clip_id, day, listener_count, completion_count, all_time_listener_count) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_aggregated_item; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_daily_item; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_aggregated_item (id, item_id, day_current_count, day_1_count, day_2_count, day_3_count, day_4_count, day_5_count, day_6_count, day_7_count, day_8_count, week_current_count, week_1_count, week_2_count, week_3_count, week_4_count, month_current_count, month_1_count, all_time_count) FROM stdin;
+COPY public.stats_daily_item (item_id, day, listener_count, completion_count, all_time_listener_count) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_aggregated_playlist; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_daily_playlist; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_aggregated_playlist (id, playlist_id, day_current_count, day_1_count, day_2_count, day_3_count, day_4_count, day_5_count, day_6_count, day_7_count, day_8_count, week_current_count, week_1_count, week_2_count, week_3_count, week_4_count, month_current_count, month_1_count, all_time_count) FROM stdin;
+COPY public.stats_daily_playlist (playlist_id, day, listener_count, all_time_listener_count) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_track_account_guid; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_flag_signal; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_track_account_guid (id, account_id, account_guid, updated_at) FROM stdin;
+COPY public.stats_flag_signal (listener_id, too_soon_minutes, last_too_soon_minute) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_track_event_account; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_flagged_listener; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_track_event_account (id, account_guid, tracked_account_id, created_at, stats_track_account_guid_id) FROM stdin;
+COPY public.stats_flagged_listener (id, listener_id, reason, flagged_at, times_flagged, cleared_at, cleared_by_admin_id) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_track_event_channel; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_listen_event_default; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_track_event_channel (id, account_guid, channel_id, created_at, stats_track_account_guid_id) FROM stdin;
+COPY public.stats_listen_event_default (id, created_at, listener_id, channel_id, item_id, clip_id, client_listen_id, seconds_heard, completed, popularity_counted, item_all_time_counted, channel_all_time_counted, clip_all_time_counted) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_track_event_clip; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_open_event_default; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_track_event_clip (id, account_guid, clip_id, created_at, stats_track_account_guid_id) FROM stdin;
+COPY public.stats_open_event_default (id, created_at, listener_id, account_id, playlist_id, popularity_counted, all_time_counted) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_track_event_item; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_popularity_account; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_track_event_item (id, account_guid, item_id, created_at, stats_track_account_guid_id) FROM stdin;
+COPY public.stats_popularity_account (account_id, day_count, week_count, month_count, all_time_count) FROM stdin;
 \.
 
 
 --
--- Data for Name: stats_track_event_playlist; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: stats_popularity_channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.stats_track_event_playlist (id, account_guid, playlist_id, created_at, stats_track_account_guid_id) FROM stdin;
+COPY public.stats_popularity_channel (channel_id, day_count, week_count, month_count, all_time_count) FROM stdin;
 \.
+
+
+--
+-- Data for Name: stats_popularity_clip; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_popularity_clip (clip_id, day_count, week_count, month_count, all_time_count) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_popularity_item; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_popularity_item (item_id, day_count, week_count, month_count, all_time_count) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_popularity_playlist; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_popularity_playlist (playlist_id, day_count, week_count, month_count, all_time_count) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_taste_profile; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_taste_profile (listener_id, channel_id, listen_count, completion_count, first_listened_at, last_listened_at, recent_score, long_term_score, scores_updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stats_taste_profile_hidden; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.stats_taste_profile_hidden (listener_id, channel_id, hidden_at) FROM stdin;
+\.
+
+
+--
+-- Name: account_api_key_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_api_key_id_seq', 1, false);
+
+
+--
+-- Name: account_content_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_content_log_id_seq', 1, false);
 
 
 --
@@ -6225,6 +7112,13 @@ COPY public.stats_track_event_playlist (id, account_guid, playlist_id, created_a
 --
 
 SELECT pg_catalog.setval('public.account_credentials_id_seq', 1, false);
+
+
+--
+-- Name: account_device_auto_download_channel_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_device_auto_download_channel_id_seq', 1, false);
 
 
 --
@@ -6277,6 +7171,27 @@ SELECT pg_catalog.setval('public.account_notification_channel_type_id_seq', 1, f
 
 
 --
+-- Name: account_notification_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_notification_id_seq', 1, false);
+
+
+--
+-- Name: account_notification_preference_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_notification_preference_id_seq', 1, false);
+
+
+--
+-- Name: account_pending_following_channel_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_pending_following_channel_id_seq', 1, false);
+
+
+--
 -- Name: account_profile_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6288,6 +7203,13 @@ SELECT pg_catalog.setval('public.account_profile_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.account_reset_password_id_seq', 1, false);
+
+
+--
+-- Name: account_session_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.account_session_id_seq', 1, false);
 
 
 --
@@ -6354,10 +7276,31 @@ SELECT pg_catalog.setval('public.account_webpush_device_id_seq', 1, false);
 
 
 --
--- Name: billing_domain_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: admin_notification_campaign_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.billing_domain_event_id_seq', 1, false);
+SELECT pg_catalog.setval('public.admin_notification_campaign_id_seq', 1, false);
+
+
+--
+-- Name: billing_checkout_channel_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.billing_checkout_channel_id_seq', 10, true);
+
+
+--
+-- Name: billing_checkout_session_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.billing_checkout_session_id_seq', 1, false);
+
+
+--
+-- Name: billing_membership_grant_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.billing_membership_grant_id_seq', 1, false);
 
 
 --
@@ -6375,10 +7318,31 @@ SELECT pg_catalog.setval('public.billing_price_id_seq', 2, true);
 
 
 --
+-- Name: billing_processor_product_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.billing_processor_product_id_seq', 1, false);
+
+
+--
 -- Name: billing_product_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.billing_product_id_seq', 1, true);
+
+
+--
+-- Name: billing_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.billing_transaction_id_seq', 1, false);
+
+
+--
+-- Name: billing_webhook_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.billing_webhook_event_id_seq', 1, false);
 
 
 --
@@ -6463,6 +7427,20 @@ SELECT pg_catalog.setval('public.channel_license_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.channel_location_id_seq', 1, false);
+
+
+--
+-- Name: channel_merge_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.channel_merge_id_seq', 1, false);
+
+
+--
+-- Name: channel_merge_journal_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.channel_merge_journal_id_seq', 1, false);
 
 
 --
@@ -6557,6 +7535,13 @@ SELECT pg_catalog.setval('public.channel_value_recipient_id_seq', 1, false);
 
 
 --
+-- Name: channel_verified_publisher_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.channel_verified_publisher_id_seq', 1, false);
+
+
+--
 -- Name: clip_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6602,7 +7587,7 @@ SELECT pg_catalog.setval('public.feed_lifecycle_state_id_seq', 1, false);
 -- Name: feed_lifecycle_state_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.feed_lifecycle_state_type_id_seq', 4, true);
+SELECT pg_catalog.setval('public.feed_lifecycle_state_type_id_seq', 5, true);
 
 
 --
@@ -6774,6 +7759,13 @@ SELECT pg_catalog.setval('public.item_location_id_seq', 1, false);
 
 
 --
+-- Name: item_merge_map_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.item_merge_map_id_seq', 1, false);
+
+
+--
 -- Name: item_person_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6857,7 +7849,6 @@ SELECT pg_catalog.setval('public.item_value_time_split_recipient_id_seq', 1, fal
 SELECT pg_catalog.setval('public.item_value_time_split_remote_item_id_seq', 1, false);
 
 
-
 --
 -- Name: live_item_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
@@ -6915,6 +7906,13 @@ SELECT pg_catalog.setval('public.queue_resource_id_seq', 1, false);
 
 
 --
+-- Name: scheduled_job_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.scheduled_job_id_seq', 1, false);
+
+
+--
 -- Name: sharable_status_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6922,88 +7920,88 @@ SELECT pg_catalog.setval('public.sharable_status_id_seq', 3, true);
 
 
 --
--- Name: stats_aggregated_account_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: stats_flagged_listener_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stats_aggregated_account_id_seq', 1, false);
-
-
---
--- Name: stats_aggregated_channel_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.stats_aggregated_channel_id_seq', 1, false);
+SELECT pg_catalog.setval('public.stats_flagged_listener_id_seq', 1, false);
 
 
 --
--- Name: stats_aggregated_clip_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: stats_listen_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stats_aggregated_clip_id_seq', 1, false);
-
-
---
--- Name: stats_aggregated_item_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.stats_aggregated_item_id_seq', 1, false);
+SELECT pg_catalog.setval('public.stats_listen_event_id_seq', 1, false);
 
 
 --
--- Name: stats_aggregated_playlist_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: stats_open_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stats_aggregated_playlist_id_seq', 1, false);
-
-
---
--- Name: stats_track_account_guid_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.stats_track_account_guid_id_seq', 1, false);
+SELECT pg_catalog.setval('public.stats_open_event_id_seq', 1, false);
 
 
 --
--- Name: stats_track_event_account_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: stats_listener stats_listener_account_id_key; Type: CONSTRAINT; Schema: listener_identity; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stats_track_event_account_id_seq', 1, false);
-
-
---
--- Name: stats_track_event_channel_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.stats_track_event_channel_id_seq', 1, false);
+ALTER TABLE ONLY listener_identity.stats_listener
+    ADD CONSTRAINT stats_listener_account_id_key UNIQUE (account_id);
 
 
 --
--- Name: stats_track_event_clip_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: stats_listener stats_listener_pkey; Type: CONSTRAINT; Schema: listener_identity; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stats_track_event_clip_id_seq', 1, false);
-
-
---
--- Name: stats_track_event_item_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.stats_track_event_item_id_seq', 1, false);
+ALTER TABLE ONLY listener_identity.stats_listener
+    ADD CONSTRAINT stats_listener_pkey PRIMARY KEY (listener_id);
 
 
 --
--- Name: stats_track_event_playlist_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: account_api_key account_api_key_id_text_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stats_track_event_playlist_id_seq', 1, false);
+ALTER TABLE ONLY public.account_api_key
+    ADD CONSTRAINT account_api_key_id_text_key UNIQUE (id_text);
 
 
 --
--- Name: account_app_store_purchase account_app_store_purchase_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: account_api_key account_api_key_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.account_app_store_purchase
-    ADD CONSTRAINT account_app_store_purchase_pkey PRIMARY KEY (transaction_id);
+ALTER TABLE ONLY public.account_api_key
+    ADD CONSTRAINT account_api_key_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account_api_key account_api_key_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_api_key
+    ADD CONSTRAINT account_api_key_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: account account_billing_customer_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account
+    ADD CONSTRAINT account_billing_customer_ref_key UNIQUE (billing_customer_ref);
+
+
+--
+-- Name: account_content_log account_content_log_account_type_channel_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_content_log
+    ADD CONSTRAINT account_content_log_account_type_channel_key UNIQUE (account_id, log_type, channel_id_text);
+
+
+--
+-- Name: account_content_log account_content_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_content_log
+    ADD CONSTRAINT account_content_log_pkey PRIMARY KEY (id);
 
 
 --
@@ -7036,6 +8034,22 @@ ALTER TABLE ONLY public.account_credentials
 
 ALTER TABLE ONLY public.account_credentials
     ADD CONSTRAINT account_credentials_username_key UNIQUE (username);
+
+
+--
+-- Name: account_device_auto_download_channel account_device_auto_download_channel_account_install_channel_ke; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_device_auto_download_channel
+    ADD CONSTRAINT account_device_auto_download_channel_account_install_channel_ke UNIQUE (account_id, installation_id, channel_id);
+
+
+--
+-- Name: account_device_auto_download_channel account_device_auto_download_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_device_auto_download_channel
+    ADD CONSTRAINT account_device_auto_download_channel_pkey PRIMARY KEY (id);
 
 
 --
@@ -7108,22 +8122,6 @@ ALTER TABLE ONLY public.account_following_channel
 
 ALTER TABLE ONLY public.account_following_playlist
     ADD CONSTRAINT account_following_playlist_pkey PRIMARY KEY (account_id, playlist_id);
-
-
---
--- Name: account_google_play_purchase account_google_play_purchase_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.account_google_play_purchase
-    ADD CONSTRAINT account_google_play_purchase_pkey PRIMARY KEY (transaction_id);
-
-
---
--- Name: account_google_play_purchase account_google_play_purchase_purchase_token_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.account_google_play_purchase
-    ADD CONSTRAINT account_google_play_purchase_purchase_token_key UNIQUE (purchase_token);
 
 
 --
@@ -7207,11 +8205,43 @@ ALTER TABLE ONLY public.account_notification_channel_type
 
 
 --
--- Name: account_paypal_order account_paypal_order_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: account_notification account_notification_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.account_paypal_order
-    ADD CONSTRAINT account_paypal_order_pkey PRIMARY KEY (payment_id);
+ALTER TABLE ONLY public.account_notification
+    ADD CONSTRAINT account_notification_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account_notification_preference account_notification_preference_account_id_category_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_notification_preference
+    ADD CONSTRAINT account_notification_preference_account_id_category_key UNIQUE (account_id, category);
+
+
+--
+-- Name: account_notification_preference account_notification_preference_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_notification_preference
+    ADD CONSTRAINT account_notification_preference_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account_pending_following_channel account_pending_following_channel_account_id_feed_url_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_pending_following_channel
+    ADD CONSTRAINT account_pending_following_channel_account_id_feed_url_key UNIQUE (account_id, feed_url);
+
+
+--
+-- Name: account_pending_following_channel account_pending_following_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_pending_following_channel
+    ADD CONSTRAINT account_pending_following_channel_pkey PRIMARY KEY (id);
 
 
 --
@@ -7252,6 +8282,22 @@ ALTER TABLE ONLY public.account_reset_password
 
 ALTER TABLE ONLY public.account_reset_password
     ADD CONSTRAINT account_reset_password_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account_session account_session_id_text_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_session
+    ADD CONSTRAINT account_session_id_text_key UNIQUE (id_text);
+
+
+--
+-- Name: account_session account_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_session
+    ADD CONSTRAINT account_session_pkey PRIMARY KEY (id);
 
 
 --
@@ -7415,11 +8461,75 @@ ALTER TABLE ONLY public.account_webpush_device
 
 
 --
--- Name: billing_domain_event billing_domain_event_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: admin_notification_campaign admin_notification_campaign_id_text_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.billing_domain_event
-    ADD CONSTRAINT billing_domain_event_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.admin_notification_campaign
+    ADD CONSTRAINT admin_notification_campaign_id_text_key UNIQUE (id_text);
+
+
+--
+-- Name: admin_notification_campaign admin_notification_campaign_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_notification_campaign
+    ADD CONSTRAINT admin_notification_campaign_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_checkout_channel billing_checkout_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_channel
+    ADD CONSTRAINT billing_checkout_channel_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_checkout_channel billing_checkout_channel_processor_platform_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_channel
+    ADD CONSTRAINT billing_checkout_channel_processor_platform_key UNIQUE (processor_id, platform);
+
+
+--
+-- Name: billing_checkout_session billing_checkout_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_session
+    ADD CONSTRAINT billing_checkout_session_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_checkout_session billing_checkout_session_processor_external_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_session
+    ADD CONSTRAINT billing_checkout_session_processor_external_key UNIQUE (processor_id, external_id);
+
+
+--
+-- Name: billing_membership_grant billing_membership_grant_billing_transaction_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_membership_grant
+    ADD CONSTRAINT billing_membership_grant_billing_transaction_id_key UNIQUE (billing_transaction_id);
+
+
+--
+-- Name: billing_membership_grant billing_membership_grant_membership_claim_token_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_membership_grant
+    ADD CONSTRAINT billing_membership_grant_membership_claim_token_id_key UNIQUE (membership_claim_token_id);
+
+
+--
+-- Name: billing_membership_grant billing_membership_grant_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_membership_grant
+    ADD CONSTRAINT billing_membership_grant_pkey PRIMARY KEY (id);
 
 
 --
@@ -7447,6 +8557,30 @@ ALTER TABLE ONLY public.billing_price
 
 
 --
+-- Name: billing_processor billing_processor_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_processor
+    ADD CONSTRAINT billing_processor_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_processor_product billing_processor_product_external_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_processor_product
+    ADD CONSTRAINT billing_processor_product_external_key UNIQUE NULLS NOT DISTINCT (processor_id, external_product_id, external_base_plan_id);
+
+
+--
+-- Name: billing_processor_product billing_processor_product_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_processor_product
+    ADD CONSTRAINT billing_processor_product_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: billing_product billing_product_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7460,6 +8594,38 @@ ALTER TABLE ONLY public.billing_product
 
 ALTER TABLE ONLY public.billing_product
     ADD CONSTRAINT billing_product_product_code_key UNIQUE (product_code);
+
+
+--
+-- Name: billing_transaction billing_transaction_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_transaction
+    ADD CONSTRAINT billing_transaction_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_transaction billing_transaction_processor_external_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_transaction
+    ADD CONSTRAINT billing_transaction_processor_external_key UNIQUE (processor_id, external_transaction_id);
+
+
+--
+-- Name: billing_webhook_event billing_webhook_event_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_webhook_event
+    ADD CONSTRAINT billing_webhook_event_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_webhook_event billing_webhook_event_processor_external_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_webhook_event
+    ADD CONSTRAINT billing_webhook_event_processor_external_key UNIQUE (processor_id, external_event_id);
 
 
 --
@@ -7639,6 +8805,30 @@ ALTER TABLE ONLY public.channel_location
 
 
 --
+-- Name: channel_merge channel_merge_from_podcast_index_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_merge
+    ADD CONSTRAINT channel_merge_from_podcast_index_id_key UNIQUE (from_podcast_index_id);
+
+
+--
+-- Name: channel_merge_journal channel_merge_journal_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_merge_journal
+    ADD CONSTRAINT channel_merge_journal_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: channel_merge channel_merge_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_merge
+    ADD CONSTRAINT channel_merge_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: channel_meta_boost channel_meta_boost_channel_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7719,14 +8909,6 @@ ALTER TABLE ONLY public.channel_publisher
 
 
 --
--- Name: channel_publisher_remote_item channel_publisher_remote_item_channel_publisher_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.channel_publisher_remote_item
-    ADD CONSTRAINT channel_publisher_remote_item_channel_publisher_id_key UNIQUE (channel_publisher_id);
-
-
---
 -- Name: channel_publisher_remote_item channel_publisher_remote_item_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7804,6 +8986,14 @@ ALTER TABLE ONLY public.channel_value
 
 ALTER TABLE ONLY public.channel_value_recipient
     ADD CONSTRAINT channel_value_recipient_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: channel_verified_publisher channel_verified_publisher_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_verified_publisher
+    ADD CONSTRAINT channel_verified_publisher_pkey PRIMARY KEY (id);
 
 
 --
@@ -8263,6 +9453,22 @@ ALTER TABLE ONLY public.item_location
 
 
 --
+-- Name: item_merge_map item_merge_map_channel_merge_from_item_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_merge_map
+    ADD CONSTRAINT item_merge_map_channel_merge_from_item_key UNIQUE (channel_merge_id, from_item_id);
+
+
+--
+-- Name: item_merge_map item_merge_map_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_merge_map
+    ADD CONSTRAINT item_merge_map_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: item_person item_person_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8519,6 +9725,14 @@ ALTER TABLE ONLY public.playlist_resource
 
 
 --
+-- Name: podcast_index_dead_feed_sync podcast_index_dead_feed_sync_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.podcast_index_dead_feed_sync
+    ADD CONSTRAINT podcast_index_dead_feed_sync_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: product_membership_settings product_membership_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8599,6 +9813,22 @@ ALTER TABLE ONLY public.queue_resource
 
 
 --
+-- Name: scheduled_job scheduled_job_dedupe_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scheduled_job
+    ADD CONSTRAINT scheduled_job_dedupe_key_key UNIQUE (dedupe_key);
+
+
+--
+-- Name: scheduled_job scheduled_job_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scheduled_job
+    ADD CONSTRAINT scheduled_job_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: sharable_status sharable_status_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8615,187 +9845,190 @@ ALTER TABLE ONLY public.sharable_status
 
 
 --
--- Name: stats_aggregated_account stats_aggregated_account_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_account stats_daily_account_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_account
-    ADD CONSTRAINT stats_aggregated_account_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_aggregated_account stats_aggregated_account_tracked_account_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_account
-    ADD CONSTRAINT stats_aggregated_account_tracked_account_id_key UNIQUE (tracked_account_id);
+ALTER TABLE ONLY public.stats_daily_account
+    ADD CONSTRAINT stats_daily_account_pkey PRIMARY KEY (account_id, day);
 
 
 --
--- Name: stats_aggregated_channel stats_aggregated_channel_channel_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_channel stats_daily_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_channel
-    ADD CONSTRAINT stats_aggregated_channel_channel_id_key UNIQUE (channel_id);
-
-
---
--- Name: stats_aggregated_channel stats_aggregated_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_channel
-    ADD CONSTRAINT stats_aggregated_channel_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.stats_daily_channel
+    ADD CONSTRAINT stats_daily_channel_pkey PRIMARY KEY (channel_id, day);
 
 
 --
--- Name: stats_aggregated_clip stats_aggregated_clip_clip_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_clip stats_daily_clip_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_clip
-    ADD CONSTRAINT stats_aggregated_clip_clip_id_key UNIQUE (clip_id);
-
-
---
--- Name: stats_aggregated_clip stats_aggregated_clip_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_clip
-    ADD CONSTRAINT stats_aggregated_clip_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.stats_daily_clip
+    ADD CONSTRAINT stats_daily_clip_pkey PRIMARY KEY (clip_id, day);
 
 
 --
--- Name: stats_aggregated_item stats_aggregated_item_item_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_item stats_daily_item_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_item
-    ADD CONSTRAINT stats_aggregated_item_item_id_key UNIQUE (item_id);
-
-
---
--- Name: stats_aggregated_item stats_aggregated_item_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_item
-    ADD CONSTRAINT stats_aggregated_item_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.stats_daily_item
+    ADD CONSTRAINT stats_daily_item_pkey PRIMARY KEY (item_id, day);
 
 
 --
--- Name: stats_aggregated_playlist stats_aggregated_playlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_playlist stats_daily_playlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_playlist
-    ADD CONSTRAINT stats_aggregated_playlist_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_aggregated_playlist stats_aggregated_playlist_playlist_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_playlist
-    ADD CONSTRAINT stats_aggregated_playlist_playlist_id_key UNIQUE (playlist_id);
+ALTER TABLE ONLY public.stats_daily_playlist
+    ADD CONSTRAINT stats_daily_playlist_pkey PRIMARY KEY (playlist_id, day);
 
 
 --
--- Name: stats_track_account_guid stats_track_account_guid_account_guid_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_flag_signal stats_flag_signal_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_account_guid
-    ADD CONSTRAINT stats_track_account_guid_account_guid_key UNIQUE (account_guid);
-
-
---
--- Name: stats_track_account_guid stats_track_account_guid_account_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_account_guid
-    ADD CONSTRAINT stats_track_account_guid_account_id_key UNIQUE (account_id);
+ALTER TABLE ONLY public.stats_flag_signal
+    ADD CONSTRAINT stats_flag_signal_pkey PRIMARY KEY (listener_id);
 
 
 --
--- Name: stats_track_account_guid stats_track_account_guid_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_flagged_listener stats_flagged_listener_listener_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_account_guid
-    ADD CONSTRAINT stats_track_account_guid_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_track_event_account stats_track_event_account_account_guid_tracked_account_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_account
-    ADD CONSTRAINT stats_track_event_account_account_guid_tracked_account_id_key UNIQUE (account_guid, tracked_account_id);
+ALTER TABLE ONLY public.stats_flagged_listener
+    ADD CONSTRAINT stats_flagged_listener_listener_id_key UNIQUE (listener_id);
 
 
 --
--- Name: stats_track_event_account stats_track_event_account_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_flagged_listener stats_flagged_listener_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_account
-    ADD CONSTRAINT stats_track_event_account_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_track_event_channel stats_track_event_channel_account_guid_channel_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_channel
-    ADD CONSTRAINT stats_track_event_channel_account_guid_channel_id_key UNIQUE (account_guid, channel_id);
+ALTER TABLE ONLY public.stats_flagged_listener
+    ADD CONSTRAINT stats_flagged_listener_pkey PRIMARY KEY (id);
 
 
 --
--- Name: stats_track_event_channel stats_track_event_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_listen_event stats_listen_event_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_channel
-    ADD CONSTRAINT stats_track_event_channel_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_track_event_clip stats_track_event_clip_account_guid_clip_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_clip
-    ADD CONSTRAINT stats_track_event_clip_account_guid_clip_id_key UNIQUE (account_guid, clip_id);
+ALTER TABLE ONLY public.stats_listen_event
+    ADD CONSTRAINT stats_listen_event_pkey PRIMARY KEY (created_at, id);
 
 
 --
--- Name: stats_track_event_clip stats_track_event_clip_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_listen_event_default stats_listen_event_default_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_clip
-    ADD CONSTRAINT stats_track_event_clip_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_track_event_item stats_track_event_item_account_guid_item_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_item
-    ADD CONSTRAINT stats_track_event_item_account_guid_item_id_key UNIQUE (account_guid, item_id);
+ALTER TABLE ONLY public.stats_listen_event_default
+    ADD CONSTRAINT stats_listen_event_default_pkey PRIMARY KEY (created_at, id);
 
 
 --
--- Name: stats_track_event_item stats_track_event_item_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_open_event stats_open_event_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_item
-    ADD CONSTRAINT stats_track_event_item_pkey PRIMARY KEY (id);
-
-
---
--- Name: stats_track_event_playlist stats_track_event_playlist_account_guid_playlist_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_playlist
-    ADD CONSTRAINT stats_track_event_playlist_account_guid_playlist_id_key UNIQUE (account_guid, playlist_id);
+ALTER TABLE ONLY public.stats_open_event
+    ADD CONSTRAINT stats_open_event_pkey PRIMARY KEY (created_at, id);
 
 
 --
--- Name: stats_track_event_playlist stats_track_event_playlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_open_event_default stats_open_event_default_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_playlist
-    ADD CONSTRAINT stats_track_event_playlist_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.stats_open_event_default
+    ADD CONSTRAINT stats_open_event_default_pkey PRIMARY KEY (created_at, id);
+
+
+--
+-- Name: stats_popularity_account stats_popularity_account_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_account
+    ADD CONSTRAINT stats_popularity_account_pkey PRIMARY KEY (account_id);
+
+
+--
+-- Name: stats_popularity_channel stats_popularity_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_channel
+    ADD CONSTRAINT stats_popularity_channel_pkey PRIMARY KEY (channel_id);
+
+
+--
+-- Name: stats_popularity_clip stats_popularity_clip_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_clip
+    ADD CONSTRAINT stats_popularity_clip_pkey PRIMARY KEY (clip_id);
+
+
+--
+-- Name: stats_popularity_item stats_popularity_item_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_item
+    ADD CONSTRAINT stats_popularity_item_pkey PRIMARY KEY (item_id);
+
+
+--
+-- Name: stats_popularity_playlist stats_popularity_playlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_playlist
+    ADD CONSTRAINT stats_popularity_playlist_pkey PRIMARY KEY (playlist_id);
+
+
+--
+-- Name: stats_taste_profile_hidden stats_taste_profile_hidden_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_taste_profile_hidden
+    ADD CONSTRAINT stats_taste_profile_hidden_pkey PRIMARY KEY (listener_id, channel_id);
+
+
+--
+-- Name: stats_taste_profile stats_taste_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_taste_profile
+    ADD CONSTRAINT stats_taste_profile_pkey PRIMARY KEY (listener_id, channel_id);
+
+
+--
+-- Name: account_api_key_account_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX account_api_key_account_created_idx ON public.account_api_key USING btree (account_id, created_at DESC);
+
+
+--
+-- Name: account_content_log_account_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX account_content_log_account_updated_idx ON public.account_content_log USING btree (account_id, updated_at DESC);
+
+
+--
+-- Name: account_content_log_updated_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX account_content_log_updated_at_idx ON public.account_content_log USING btree (updated_at);
+
+
+--
+-- Name: account_session_account_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX account_session_account_active_idx ON public.account_session USING btree (account_id, last_seen_at DESC) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: account_session_idle_expires_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX account_session_idle_expires_at_idx ON public.account_session USING btree (idle_expires_at);
 
 
 --
@@ -8813,10 +10046,10 @@ CREATE UNIQUE INDEX channel_slug ON public.channel USING btree (slug) WHERE (slu
 
 
 --
--- Name: idx_account_app_store_purchase_account_id; Type: INDEX; Schema: public; Owner: -
+-- Name: feed_description_truncated_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_account_app_store_purchase_account_id ON public.account_app_store_purchase USING btree (account_id);
+CREATE INDEX feed_description_truncated_idx ON public.feed USING btree (description_longest_source_length DESC) WHERE (description_truncated_count > 0);
 
 
 --
@@ -8831,6 +10064,20 @@ CREATE INDEX idx_account_created_at ON public.account USING btree (created_at DE
 --
 
 CREATE INDEX idx_account_credentials_account_id ON public.account_credentials USING btree (account_id);
+
+
+--
+-- Name: idx_account_device_auto_download_channel_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_account_device_auto_download_channel_channel ON public.account_device_auto_download_channel USING btree (channel_id);
+
+
+--
+-- Name: idx_account_device_auto_download_channel_install; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_account_device_auto_download_channel_install ON public.account_device_auto_download_channel USING btree (account_id, installation_id);
 
 
 --
@@ -8918,13 +10165,6 @@ CREATE INDEX idx_account_following_playlist_playlist_id ON public.account_follow
 
 
 --
--- Name: idx_account_google_play_purchase_account_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_account_google_play_purchase_account_id ON public.account_google_play_purchase USING btree (account_id);
-
-
---
 -- Name: idx_account_membership_status_account_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8939,24 +10179,17 @@ CREATE INDEX idx_account_membership_status_account_membership_id ON public.accou
 
 
 --
--- Name: idx_account_membership_status_next_renewal_attempt_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_account_membership_status_next_renewal_attempt_at ON public.account_membership_status USING btree (next_renewal_attempt_at) WHERE (next_renewal_attempt_at IS NOT NULL);
-
-
---
--- Name: idx_account_membership_status_renewal_retry_backoff_until; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_account_membership_status_renewal_retry_backoff_until ON public.account_membership_status USING btree (renewal_retry_backoff_until) WHERE (renewal_retry_backoff_until IS NOT NULL);
-
-
---
 -- Name: idx_account_metaboost_sender_guid; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_account_metaboost_sender_guid ON public.account_metaboost USING btree (sender_guid);
+
+
+--
+-- Name: idx_account_notification_account_id_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_account_notification_account_id_created_at ON public.account_notification USING btree (account_id, created_at DESC);
 
 
 --
@@ -8974,10 +10207,31 @@ CREATE INDEX idx_account_notification_channel_channel_id ON public.account_notif
 
 
 --
--- Name: idx_account_paypal_order_account_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_account_notification_expires_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_account_paypal_order_account_id ON public.account_paypal_order USING btree (account_id);
+CREATE INDEX idx_account_notification_expires_at ON public.account_notification USING btree (expires_at);
+
+
+--
+-- Name: idx_account_notification_preference_account_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_account_notification_preference_account_id ON public.account_notification_preference USING btree (account_id);
+
+
+--
+-- Name: idx_account_pending_following_channel_account_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_account_pending_following_channel_account_id ON public.account_pending_following_channel USING btree (account_id);
+
+
+--
+-- Name: idx_account_pending_following_channel_podcast_index_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_account_pending_following_channel_podcast_index_id ON public.account_pending_following_channel USING btree (podcast_index_id);
 
 
 --
@@ -9051,10 +10305,45 @@ CREATE INDEX idx_account_webpush_device_endpoint ON public.account_webpush_devic
 
 
 --
--- Name: idx_billing_domain_event_account_created; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_admin_notification_campaign_category; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_billing_domain_event_account_created ON public.billing_domain_event USING btree (account_id, created_at DESC);
+CREATE INDEX idx_admin_notification_campaign_category ON public.admin_notification_campaign USING btree (category);
+
+
+--
+-- Name: idx_admin_notification_campaign_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_admin_notification_campaign_created_at ON public.admin_notification_campaign USING btree (created_at DESC);
+
+
+--
+-- Name: idx_admin_notification_campaign_status_scheduled_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_admin_notification_campaign_status_scheduled_at ON public.admin_notification_campaign USING btree (status, scheduled_at);
+
+
+--
+-- Name: idx_billing_checkout_session_account_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_billing_checkout_session_account_id ON public.billing_checkout_session USING btree (account_id);
+
+
+--
+-- Name: idx_billing_checkout_session_unsettled_processor_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_billing_checkout_session_unsettled_processor_created_at ON public.billing_checkout_session USING btree (processor_id, created_at) WHERE (settled_at IS NULL);
+
+
+--
+-- Name: idx_billing_membership_grant_account_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_billing_membership_grant_account_id ON public.billing_membership_grant USING btree (account_id);
 
 
 --
@@ -9062,6 +10351,20 @@ CREATE INDEX idx_billing_domain_event_account_created ON public.billing_domain_e
 --
 
 CREATE INDEX idx_billing_price_effective_lookup ON public.billing_price USING btree (billing_product_id, billing_cadence, currency_code, effective_from DESC);
+
+
+--
+-- Name: idx_billing_transaction_account_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_billing_transaction_account_id ON public.billing_transaction USING btree (account_id);
+
+
+--
+-- Name: idx_billing_webhook_event_unprocessed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_billing_webhook_event_unprocessed ON public.billing_webhook_event USING btree (received_at) WHERE (status <> 'processed'::text);
 
 
 --
@@ -9086,17 +10389,17 @@ CREATE INDEX idx_channel_about_itunes_type_id ON public.channel_about USING btre
 
 
 --
--- Name: idx_channel_about_last_pub_date; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_channel_about_last_pub_date_desc_channel_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_channel_about_last_pub_date ON public.channel_about USING btree (last_pub_date);
+CREATE INDEX idx_channel_about_last_pub_date_desc_channel_id ON public.channel_about USING btree (last_pub_date DESC, channel_id);
 
 
 --
--- Name: idx_channel_category_category_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_channel_category_category_id_channel_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_channel_category_category_id ON public.channel_category USING btree (category_id);
+CREATE INDEX idx_channel_category_category_id_channel_id ON public.channel_category USING btree (category_id, channel_id);
 
 
 --
@@ -9163,10 +10466,24 @@ CREATE INDEX idx_channel_location_channel_id ON public.channel_location USING bt
 
 
 --
--- Name: idx_channel_medium_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_channel_medium_id_sortable_title; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_channel_medium_id ON public.channel USING btree (medium_id);
+CREATE INDEX idx_channel_medium_id_sortable_title ON public.channel USING btree (medium_id, sortable_title);
+
+
+--
+-- Name: idx_channel_merge_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_merge_status ON public.channel_merge USING btree (status);
+
+
+--
+-- Name: idx_channel_merge_to_podcast_index_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_merge_to_podcast_index_id ON public.channel_merge USING btree (to_podcast_index_id);
 
 
 --
@@ -9251,6 +10568,13 @@ CREATE INDEX idx_channel_publisher_remote_item_feed_url ON public.channel_publis
 --
 
 CREATE INDEX idx_channel_publisher_remote_item_item_guid ON public.channel_publisher_remote_item USING btree (item_guid);
+
+
+--
+-- Name: idx_channel_publisher_remote_item_item_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_publisher_remote_item_item_id ON public.channel_publisher_remote_item USING btree (item_id) WHERE (item_id IS NOT NULL);
 
 
 --
@@ -9342,6 +10666,20 @@ CREATE INDEX idx_channel_value_channel_id ON public.channel_value USING btree (c
 --
 
 CREATE INDEX idx_channel_value_recipient_channel_value_id ON public.channel_value_recipient USING btree (channel_value_id);
+
+
+--
+-- Name: idx_channel_verified_publisher_item_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_verified_publisher_item_id ON public.channel_verified_publisher USING btree (item_id) WHERE (item_id IS NOT NULL);
+
+
+--
+-- Name: idx_channel_verified_publisher_publisher_channel_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_verified_publisher_publisher_channel_id ON public.channel_verified_publisher USING btree (publisher_channel_id);
 
 
 --
@@ -9468,6 +10806,13 @@ CREATE INDEX idx_item_about_item_itunes_episode_type_id ON public.item_about USI
 --
 
 CREATE INDEX idx_item_channel_id ON public.item USING btree (channel_id);
+
+
+--
+-- Name: idx_item_channel_id_pub_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_item_channel_id_pub_date ON public.item USING btree (channel_id, pub_date DESC);
 
 
 --
@@ -9884,10 +11229,31 @@ CREATE INDEX idx_queue_resource_queue_id ON public.queue_resource USING btree (q
 
 
 --
+-- Name: idx_queue_resource_queue_id_last_played_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_queue_resource_queue_id_last_played_at ON public.queue_resource USING btree (queue_id, last_played_at DESC);
+
+
+--
 -- Name: idx_queue_resource_soundbite_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_queue_resource_soundbite_id ON public.queue_resource USING btree (item_soundbite_id);
+
+
+--
+-- Name: idx_scheduled_job_status_run_after; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_scheduled_job_status_run_after ON public.scheduled_job USING btree (status, run_after) WHERE ((status)::text = 'pending'::text);
+
+
+--
+-- Name: item_archived_unslimmed_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX item_archived_unslimmed_idx ON public.item USING btree (id) WHERE ((item_flag_status_id = 3) AND (archived_slimmed_at IS NULL));
 
 
 --
@@ -9898,346 +11264,290 @@ CREATE UNIQUE INDEX item_slug ON public.item USING btree (slug) WHERE (slug IS N
 
 
 --
--- Name: stats_aggregated_account_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_daily_account_day_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_account_all_time_count_idx ON public.stats_aggregated_account USING btree (all_time_count);
+CREATE INDEX stats_daily_account_day_idx ON public.stats_daily_account USING btree (day, account_id) INCLUDE (listener_count);
 
 
 --
--- Name: stats_aggregated_account_day_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_daily_channel_day_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_account_day_current_count_idx ON public.stats_aggregated_account USING btree (day_current_count);
+CREATE INDEX stats_daily_channel_day_idx ON public.stats_daily_channel USING btree (day, channel_id) INCLUDE (listener_count);
 
 
 --
--- Name: stats_aggregated_account_month_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_daily_clip_day_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_account_month_current_count_idx ON public.stats_aggregated_account USING btree (month_current_count);
+CREATE INDEX stats_daily_clip_day_idx ON public.stats_daily_clip USING btree (day, clip_id) INCLUDE (listener_count);
 
 
 --
--- Name: stats_aggregated_account_tracked_account_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_daily_item_day_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_account_tracked_account_id_idx ON public.stats_aggregated_account USING btree (tracked_account_id);
+CREATE INDEX stats_daily_item_day_idx ON public.stats_daily_item USING btree (day, item_id) INCLUDE (listener_count);
 
 
 --
--- Name: stats_aggregated_account_week_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_daily_playlist_day_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_account_week_current_count_idx ON public.stats_aggregated_account USING btree (week_current_count);
+CREATE INDEX stats_daily_playlist_day_idx ON public.stats_daily_playlist USING btree (day, playlist_id) INCLUDE (listener_count);
 
 
 --
--- Name: stats_aggregated_channel_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_channel_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_channel_all_time_count_idx ON public.stats_aggregated_channel USING btree (all_time_count);
+CREATE INDEX stats_listen_event_channel_id_idx ON ONLY public.stats_listen_event USING btree (channel_id);
 
 
 --
--- Name: stats_aggregated_channel_channel_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_clip_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_channel_channel_id_idx ON public.stats_aggregated_channel USING btree (channel_id);
+CREATE INDEX stats_listen_event_clip_id_idx ON ONLY public.stats_listen_event USING btree (clip_id) WHERE (clip_id IS NOT NULL);
 
 
 --
--- Name: stats_aggregated_channel_day_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_default_channel_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_channel_day_current_count_idx ON public.stats_aggregated_channel USING btree (day_current_count);
+CREATE INDEX stats_listen_event_default_channel_id_idx ON public.stats_listen_event_default USING btree (channel_id);
 
 
 --
--- Name: stats_aggregated_channel_month_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_default_clip_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_channel_month_current_count_idx ON public.stats_aggregated_channel USING btree (month_current_count);
+CREATE INDEX stats_listen_event_default_clip_id_idx ON public.stats_listen_event_default USING btree (clip_id) WHERE (clip_id IS NOT NULL);
 
 
 --
--- Name: stats_aggregated_channel_week_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_item_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_channel_week_current_count_idx ON public.stats_aggregated_channel USING btree (week_current_count);
+CREATE INDEX stats_listen_event_item_id_idx ON ONLY public.stats_listen_event USING btree (item_id);
 
 
 --
--- Name: stats_aggregated_clip_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_default_item_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_clip_all_time_count_idx ON public.stats_aggregated_clip USING btree (all_time_count);
+CREATE INDEX stats_listen_event_default_item_id_idx ON public.stats_listen_event_default USING btree (item_id);
 
 
 --
--- Name: stats_aggregated_clip_clip_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_listener_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_clip_clip_id_idx ON public.stats_aggregated_clip USING btree (clip_id);
+CREATE INDEX stats_listen_event_listener_created_idx ON ONLY public.stats_listen_event USING btree (listener_id, created_at);
 
 
 --
--- Name: stats_aggregated_clip_day_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_listen_event_default_listener_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_clip_day_current_count_idx ON public.stats_aggregated_clip USING btree (day_current_count);
+CREATE INDEX stats_listen_event_default_listener_id_created_at_idx ON public.stats_listen_event_default USING btree (listener_id, created_at);
 
 
 --
--- Name: stats_aggregated_clip_month_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_open_event_account_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_clip_month_current_count_idx ON public.stats_aggregated_clip USING btree (month_current_count);
+CREATE INDEX stats_open_event_account_id_idx ON ONLY public.stats_open_event USING btree (account_id) WHERE (account_id IS NOT NULL);
 
 
 --
--- Name: stats_aggregated_clip_week_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_open_event_default_account_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_clip_week_current_count_idx ON public.stats_aggregated_clip USING btree (week_current_count);
+CREATE INDEX stats_open_event_default_account_id_idx ON public.stats_open_event_default USING btree (account_id) WHERE (account_id IS NOT NULL);
 
 
 --
--- Name: stats_aggregated_item_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_open_event_listener_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_item_all_time_count_idx ON public.stats_aggregated_item USING btree (all_time_count);
+CREATE INDEX stats_open_event_listener_created_idx ON ONLY public.stats_open_event USING btree (listener_id, created_at);
 
 
 --
--- Name: stats_aggregated_item_day_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_open_event_default_listener_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_item_day_current_count_idx ON public.stats_aggregated_item USING btree (day_current_count);
+CREATE INDEX stats_open_event_default_listener_id_created_at_idx ON public.stats_open_event_default USING btree (listener_id, created_at);
 
 
 --
--- Name: stats_aggregated_item_item_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_open_event_playlist_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_item_item_id_idx ON public.stats_aggregated_item USING btree (item_id);
+CREATE INDEX stats_open_event_playlist_id_idx ON ONLY public.stats_open_event USING btree (playlist_id) WHERE (playlist_id IS NOT NULL);
 
 
 --
--- Name: stats_aggregated_item_month_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_open_event_default_playlist_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_item_month_current_count_idx ON public.stats_aggregated_item USING btree (month_current_count);
+CREATE INDEX stats_open_event_default_playlist_id_idx ON public.stats_open_event_default USING btree (playlist_id) WHERE (playlist_id IS NOT NULL);
 
 
 --
--- Name: stats_aggregated_item_week_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_account_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_item_week_current_count_idx ON public.stats_aggregated_item USING btree (week_current_count);
+CREATE INDEX stats_popularity_account_all_time_count_idx ON public.stats_popularity_account USING btree (all_time_count DESC, account_id);
 
 
 --
--- Name: stats_aggregated_playlist_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_account_day_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_playlist_all_time_count_idx ON public.stats_aggregated_playlist USING btree (all_time_count);
+CREATE INDEX stats_popularity_account_day_count_idx ON public.stats_popularity_account USING btree (day_count DESC, account_id);
 
 
 --
--- Name: stats_aggregated_playlist_day_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_account_month_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_playlist_day_current_count_idx ON public.stats_aggregated_playlist USING btree (day_current_count);
+CREATE INDEX stats_popularity_account_month_count_idx ON public.stats_popularity_account USING btree (month_count DESC, account_id);
 
 
 --
--- Name: stats_aggregated_playlist_month_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_account_week_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_playlist_month_current_count_idx ON public.stats_aggregated_playlist USING btree (month_current_count);
+CREATE INDEX stats_popularity_account_week_count_idx ON public.stats_popularity_account USING btree (week_count DESC, account_id);
 
 
 --
--- Name: stats_aggregated_playlist_playlist_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_channel_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_playlist_playlist_id_idx ON public.stats_aggregated_playlist USING btree (playlist_id);
+CREATE INDEX stats_popularity_channel_all_time_count_idx ON public.stats_popularity_channel USING btree (all_time_count DESC, channel_id);
 
 
 --
--- Name: stats_aggregated_playlist_week_current_count_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_channel_day_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_aggregated_playlist_week_current_count_idx ON public.stats_aggregated_playlist USING btree (week_current_count);
+CREATE INDEX stats_popularity_channel_day_count_idx ON public.stats_popularity_channel USING btree (day_count DESC, channel_id);
 
 
 --
--- Name: stats_track_account_guid_account_guid_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_channel_month_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_account_guid_account_guid_idx ON public.stats_track_account_guid USING btree (account_guid);
+CREATE INDEX stats_popularity_channel_month_count_idx ON public.stats_popularity_channel USING btree (month_count DESC, channel_id);
 
 
 --
--- Name: stats_track_account_guid_account_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_channel_week_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_account_guid_account_id_idx ON public.stats_track_account_guid USING btree (account_id);
+CREATE INDEX stats_popularity_channel_week_count_idx ON public.stats_popularity_channel USING btree (week_count DESC, channel_id);
 
 
 --
--- Name: stats_track_account_guid_updated_at_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_clip_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_account_guid_updated_at_idx ON public.stats_track_account_guid USING btree (updated_at);
+CREATE INDEX stats_popularity_clip_all_time_count_idx ON public.stats_popularity_clip USING btree (all_time_count DESC, clip_id);
 
 
 --
--- Name: stats_track_event_account_account_guid_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_clip_day_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_account_account_guid_idx ON public.stats_track_event_account USING btree (account_guid);
+CREATE INDEX stats_popularity_clip_day_count_idx ON public.stats_popularity_clip USING btree (day_count DESC, clip_id);
 
 
 --
--- Name: stats_track_event_account_created_at_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_clip_month_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_account_created_at_idx ON public.stats_track_event_account USING btree (created_at);
+CREATE INDEX stats_popularity_clip_month_count_idx ON public.stats_popularity_clip USING btree (month_count DESC, clip_id);
 
 
 --
--- Name: stats_track_event_account_stats_track_account_guid_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_clip_week_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_account_stats_track_account_guid_id_idx ON public.stats_track_event_account USING btree (stats_track_account_guid_id);
+CREATE INDEX stats_popularity_clip_week_count_idx ON public.stats_popularity_clip USING btree (week_count DESC, clip_id);
 
 
 --
--- Name: stats_track_event_account_tracked_account_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_item_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_account_tracked_account_id_idx ON public.stats_track_event_account USING btree (tracked_account_id);
+CREATE INDEX stats_popularity_item_all_time_count_idx ON public.stats_popularity_item USING btree (all_time_count DESC, item_id);
 
 
 --
--- Name: stats_track_event_channel_account_guid_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_item_day_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_channel_account_guid_idx ON public.stats_track_event_channel USING btree (account_guid);
+CREATE INDEX stats_popularity_item_day_count_idx ON public.stats_popularity_item USING btree (day_count DESC, item_id);
 
 
 --
--- Name: stats_track_event_channel_channel_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_item_month_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_channel_channel_id_idx ON public.stats_track_event_channel USING btree (channel_id);
+CREATE INDEX stats_popularity_item_month_count_idx ON public.stats_popularity_item USING btree (month_count DESC, item_id);
 
 
 --
--- Name: stats_track_event_channel_created_at_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_item_week_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_channel_created_at_idx ON public.stats_track_event_channel USING btree (created_at);
+CREATE INDEX stats_popularity_item_week_count_idx ON public.stats_popularity_item USING btree (week_count DESC, item_id);
 
 
 --
--- Name: stats_track_event_channel_stats_track_account_guid_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_playlist_all_time_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_channel_stats_track_account_guid_id_idx ON public.stats_track_event_channel USING btree (stats_track_account_guid_id);
+CREATE INDEX stats_popularity_playlist_all_time_count_idx ON public.stats_popularity_playlist USING btree (all_time_count DESC, playlist_id);
 
 
 --
--- Name: stats_track_event_clip_account_guid_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_playlist_day_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_clip_account_guid_idx ON public.stats_track_event_clip USING btree (account_guid);
+CREATE INDEX stats_popularity_playlist_day_count_idx ON public.stats_popularity_playlist USING btree (day_count DESC, playlist_id);
 
 
 --
--- Name: stats_track_event_clip_clip_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_playlist_month_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_clip_clip_id_idx ON public.stats_track_event_clip USING btree (clip_id);
+CREATE INDEX stats_popularity_playlist_month_count_idx ON public.stats_popularity_playlist USING btree (month_count DESC, playlist_id);
 
 
 --
--- Name: stats_track_event_clip_created_at_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_popularity_playlist_week_count_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_clip_created_at_idx ON public.stats_track_event_clip USING btree (created_at);
+CREATE INDEX stats_popularity_playlist_week_count_idx ON public.stats_popularity_playlist USING btree (week_count DESC, playlist_id);
 
 
 --
--- Name: stats_track_event_clip_stats_track_account_guid_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_taste_profile_channel_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_clip_stats_track_account_guid_id_idx ON public.stats_track_event_clip USING btree (stats_track_account_guid_id);
+CREATE INDEX stats_taste_profile_channel_id_idx ON public.stats_taste_profile USING btree (channel_id);
 
 
 --
--- Name: stats_track_event_item_account_guid_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: stats_taste_profile_hidden_channel_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX stats_track_event_item_account_guid_idx ON public.stats_track_event_item USING btree (account_guid);
-
-
---
--- Name: stats_track_event_item_created_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_item_created_at_idx ON public.stats_track_event_item USING btree (created_at);
-
-
---
--- Name: stats_track_event_item_item_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_item_item_id_idx ON public.stats_track_event_item USING btree (item_id);
-
-
---
--- Name: stats_track_event_item_stats_track_account_guid_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_item_stats_track_account_guid_id_idx ON public.stats_track_event_item USING btree (stats_track_account_guid_id);
-
-
---
--- Name: stats_track_event_playlist_account_guid_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_playlist_account_guid_idx ON public.stats_track_event_playlist USING btree (account_guid);
-
-
---
--- Name: stats_track_event_playlist_created_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_playlist_created_at_idx ON public.stats_track_event_playlist USING btree (created_at);
-
-
---
--- Name: stats_track_event_playlist_playlist_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_playlist_playlist_id_idx ON public.stats_track_event_playlist USING btree (playlist_id);
-
-
---
--- Name: stats_track_event_playlist_stats_track_account_guid_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX stats_track_event_playlist_stats_track_account_guid_id_idx ON public.stats_track_event_playlist USING btree (stats_track_account_guid_id);
-
-
---
--- Name: uq_billing_domain_event_idempotency; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX uq_billing_domain_event_idempotency ON public.billing_domain_event USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL);
+CREATE INDEX stats_taste_profile_hidden_channel_id_idx ON public.stats_taste_profile_hidden USING btree (channel_id);
 
 
 --
@@ -10262,17 +11572,10 @@ CREATE UNIQUE INDEX uq_channel_podroll_remote_item_feed_guid_no_item_guid ON pub
 
 
 --
--- Name: uq_channel_publisher_remote_item_feed_guid_item_guid; Type: INDEX; Schema: public; Owner: -
+-- Name: uq_channel_publisher_remote_item_claim; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX uq_channel_publisher_remote_item_feed_guid_item_guid ON public.channel_publisher_remote_item USING btree (channel_publisher_id, feed_guid, item_guid) WHERE (item_guid IS NOT NULL);
-
-
---
--- Name: uq_channel_publisher_remote_item_feed_guid_no_item_guid; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX uq_channel_publisher_remote_item_feed_guid_no_item_guid ON public.channel_publisher_remote_item USING btree (channel_publisher_id, feed_guid) WHERE (item_guid IS NULL);
+CREATE UNIQUE INDEX uq_channel_publisher_remote_item_claim ON public.channel_publisher_remote_item USING btree (channel_publisher_id, item_id, feed_guid, item_guid) NULLS NOT DISTINCT;
 
 
 --
@@ -10290,6 +11593,13 @@ CREATE UNIQUE INDEX uq_channel_remote_item_feed_guid_no_item_guid ON public.chan
 
 
 --
+-- Name: uq_channel_verified_publisher; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_channel_verified_publisher ON public.channel_verified_publisher USING btree (channel_id, publisher_channel_id, item_id) NULLS NOT DISTINCT;
+
+
+--
 -- Name: uq_item_value_time_split_remote_item_feed_guid_item_guid; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10301,6 +11611,69 @@ CREATE UNIQUE INDEX uq_item_value_time_split_remote_item_feed_guid_item_guid ON 
 --
 
 CREATE UNIQUE INDEX uq_item_value_time_split_remote_item_feed_guid_no_item_guid ON public.item_value_time_split_remote_item USING btree (item_value_time_split_id, feed_guid) WHERE (item_guid IS NULL);
+
+
+--
+-- Name: stats_listen_event_default_channel_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_listen_event_channel_id_idx ATTACH PARTITION public.stats_listen_event_default_channel_id_idx;
+
+
+--
+-- Name: stats_listen_event_default_clip_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_listen_event_clip_id_idx ATTACH PARTITION public.stats_listen_event_default_clip_id_idx;
+
+
+--
+-- Name: stats_listen_event_default_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_listen_event_item_id_idx ATTACH PARTITION public.stats_listen_event_default_item_id_idx;
+
+
+--
+-- Name: stats_listen_event_default_listener_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_listen_event_listener_created_idx ATTACH PARTITION public.stats_listen_event_default_listener_id_created_at_idx;
+
+
+--
+-- Name: stats_listen_event_default_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_listen_event_pkey ATTACH PARTITION public.stats_listen_event_default_pkey;
+
+
+--
+-- Name: stats_open_event_default_account_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_open_event_account_id_idx ATTACH PARTITION public.stats_open_event_default_account_id_idx;
+
+
+--
+-- Name: stats_open_event_default_listener_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_open_event_listener_created_idx ATTACH PARTITION public.stats_open_event_default_listener_id_created_at_idx;
+
+
+--
+-- Name: stats_open_event_default_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_open_event_pkey ATTACH PARTITION public.stats_open_event_default_pkey;
+
+
+--
+-- Name: stats_open_event_default_playlist_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.stats_open_event_playlist_id_idx ATTACH PARTITION public.stats_open_event_default_playlist_id_idx;
 
 
 --
@@ -10325,6 +11698,13 @@ CREATE TRIGGER queue_resource_limit_trigger BEFORE INSERT ON public.queue_resour
 
 
 --
+-- Name: account_device_auto_download_channel set_updated_at_account_device_auto_download_channel; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_updated_at_account_device_auto_download_channel BEFORE UPDATE ON public.account_device_auto_download_channel FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_field();
+
+
+--
 -- Name: account_fcm_device set_updated_at_account_fcm_device; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -10346,6 +11726,13 @@ CREATE TRIGGER set_updated_at_account_webpush_device BEFORE UPDATE ON public.acc
 
 
 --
+-- Name: billing_checkout_channel set_updated_at_billing_checkout_channel; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_updated_at_billing_checkout_channel BEFORE UPDATE ON public.billing_checkout_channel FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_field();
+
+
+--
 -- Name: billing_price set_updated_at_billing_price; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -10353,10 +11740,31 @@ CREATE TRIGGER set_updated_at_billing_price BEFORE UPDATE ON public.billing_pric
 
 
 --
+-- Name: billing_processor set_updated_at_billing_processor; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_updated_at_billing_processor BEFORE UPDATE ON public.billing_processor FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_field();
+
+
+--
+-- Name: billing_processor_product set_updated_at_billing_processor_product; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_updated_at_billing_processor_product BEFORE UPDATE ON public.billing_processor_product FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_field();
+
+
+--
 -- Name: billing_product set_updated_at_billing_product; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER set_updated_at_billing_product BEFORE UPDATE ON public.billing_product FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_field();
+
+
+--
+-- Name: channel_merge set_updated_at_channel_merge; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_updated_at_channel_merge BEFORE UPDATE ON public.channel_merge FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_field();
 
 
 --
@@ -10430,11 +11838,27 @@ CREATE TRIGGER set_updated_at_item_flag_status BEFORE UPDATE ON public.item_flag
 
 
 --
--- Name: account_app_store_purchase account_app_store_purchase_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_listener stats_listener_account_id_fkey; Type: FK CONSTRAINT; Schema: listener_identity; Owner: -
 --
 
-ALTER TABLE ONLY public.account_app_store_purchase
-    ADD CONSTRAINT account_app_store_purchase_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY listener_identity.stats_listener
+    ADD CONSTRAINT stats_listener_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_api_key account_api_key_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_api_key
+    ADD CONSTRAINT account_api_key_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_content_log account_content_log_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_content_log
+    ADD CONSTRAINT account_content_log_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 
 
 --
@@ -10443,6 +11867,22 @@ ALTER TABLE ONLY public.account_app_store_purchase
 
 ALTER TABLE ONLY public.account_credentials
     ADD CONSTRAINT account_credentials_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_device_auto_download_channel account_device_auto_download_channel_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_device_auto_download_channel
+    ADD CONSTRAINT account_device_auto_download_channel_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_device_auto_download_channel account_device_auto_download_channel_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_device_auto_download_channel
+    ADD CONSTRAINT account_device_auto_download_channel_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
 
 
 --
@@ -10518,14 +11958,6 @@ ALTER TABLE ONLY public.account_following_playlist
 
 
 --
--- Name: account_google_play_purchase account_google_play_purchase_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.account_google_play_purchase
-    ADD CONSTRAINT account_google_play_purchase_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
-
-
---
 -- Name: account_membership_status account_membership_status_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10547,6 +11979,14 @@ ALTER TABLE ONLY public.account_membership_status
 
 ALTER TABLE ONLY public.account_metaboost
     ADD CONSTRAINT account_metaboost_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_notification account_notification_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_notification
+    ADD CONSTRAINT account_notification_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 
 
 --
@@ -10574,11 +12014,19 @@ ALTER TABLE ONLY public.account_notification_channel
 
 
 --
--- Name: account_paypal_order account_paypal_order_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: account_notification_preference account_notification_preference_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.account_paypal_order
-    ADD CONSTRAINT account_paypal_order_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.account_notification_preference
+    ADD CONSTRAINT account_notification_preference_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_pending_following_channel account_pending_following_channel_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_pending_following_channel
+    ADD CONSTRAINT account_pending_following_channel_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 
 
 --
@@ -10595,6 +12043,14 @@ ALTER TABLE ONLY public.account_profile
 
 ALTER TABLE ONLY public.account_reset_password
     ADD CONSTRAINT account_reset_password_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_session account_session_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_session
+    ADD CONSTRAINT account_session_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 
 
 --
@@ -10686,11 +12142,59 @@ ALTER TABLE ONLY public.account_webpush_device
 
 
 --
--- Name: billing_domain_event billing_domain_event_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: billing_checkout_channel billing_checkout_channel_processor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.billing_domain_event
-    ADD CONSTRAINT billing_domain_event_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.billing_checkout_channel
+    ADD CONSTRAINT billing_checkout_channel_processor_id_fkey FOREIGN KEY (processor_id) REFERENCES public.billing_processor(id);
+
+
+--
+-- Name: billing_checkout_session billing_checkout_session_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_session
+    ADD CONSTRAINT billing_checkout_session_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: billing_checkout_session billing_checkout_session_billing_processor_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_session
+    ADD CONSTRAINT billing_checkout_session_billing_processor_product_id_fkey FOREIGN KEY (billing_processor_product_id) REFERENCES public.billing_processor_product(id);
+
+
+--
+-- Name: billing_checkout_session billing_checkout_session_processor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_session
+    ADD CONSTRAINT billing_checkout_session_processor_id_fkey FOREIGN KEY (processor_id) REFERENCES public.billing_processor(id);
+
+
+--
+-- Name: billing_membership_grant billing_membership_grant_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_membership_grant
+    ADD CONSTRAINT billing_membership_grant_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: billing_membership_grant billing_membership_grant_billing_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_membership_grant
+    ADD CONSTRAINT billing_membership_grant_billing_transaction_id_fkey FOREIGN KEY (billing_transaction_id) REFERENCES public.billing_transaction(id);
+
+
+--
+-- Name: billing_membership_grant billing_membership_grant_membership_claim_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_membership_grant
+    ADD CONSTRAINT billing_membership_grant_membership_claim_token_id_fkey FOREIGN KEY (membership_claim_token_id) REFERENCES public.membership_claim_token(id);
 
 
 --
@@ -10707,6 +12211,46 @@ ALTER TABLE ONLY public.billing_price
 
 ALTER TABLE ONLY public.billing_price_change_audit
     ADD CONSTRAINT billing_price_change_audit_billing_price_id_fkey FOREIGN KEY (billing_price_id) REFERENCES public.billing_price(id) ON DELETE SET NULL;
+
+
+--
+-- Name: billing_processor_product billing_processor_product_billing_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_processor_product
+    ADD CONSTRAINT billing_processor_product_billing_product_id_fkey FOREIGN KEY (billing_product_id) REFERENCES public.billing_product(id);
+
+
+--
+-- Name: billing_processor_product billing_processor_product_processor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_processor_product
+    ADD CONSTRAINT billing_processor_product_processor_id_fkey FOREIGN KEY (processor_id) REFERENCES public.billing_processor(id);
+
+
+--
+-- Name: billing_transaction billing_transaction_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_transaction
+    ADD CONSTRAINT billing_transaction_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: billing_transaction billing_transaction_processor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_transaction
+    ADD CONSTRAINT billing_transaction_processor_id_fkey FOREIGN KEY (processor_id) REFERENCES public.billing_processor(id);
+
+
+--
+-- Name: billing_webhook_event billing_webhook_event_processor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_webhook_event
+    ADD CONSTRAINT billing_webhook_event_processor_id_fkey FOREIGN KEY (processor_id) REFERENCES public.billing_processor(id);
 
 
 --
@@ -10822,6 +12366,30 @@ ALTER TABLE ONLY public.channel
 
 
 --
+-- Name: channel_merge channel_merge_from_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_merge
+    ADD CONSTRAINT channel_merge_from_channel_id_fkey FOREIGN KEY (from_channel_id) REFERENCES public.channel(id);
+
+
+--
+-- Name: channel_merge_journal channel_merge_journal_channel_merge_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_merge_journal
+    ADD CONSTRAINT channel_merge_journal_channel_merge_id_fkey FOREIGN KEY (channel_merge_id) REFERENCES public.channel_merge(id) ON DELETE CASCADE;
+
+
+--
+-- Name: channel_merge channel_merge_to_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_merge
+    ADD CONSTRAINT channel_merge_to_channel_id_fkey FOREIGN KEY (to_channel_id) REFERENCES public.channel(id);
+
+
+--
 -- Name: channel_meta_boost channel_meta_boost_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10875,6 +12443,14 @@ ALTER TABLE ONLY public.channel_publisher
 
 ALTER TABLE ONLY public.channel_publisher_remote_item
     ADD CONSTRAINT channel_publisher_remote_item_channel_publisher_id_fkey FOREIGN KEY (channel_publisher_id) REFERENCES public.channel_publisher(id) ON DELETE CASCADE;
+
+
+--
+-- Name: channel_publisher_remote_item channel_publisher_remote_item_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_publisher_remote_item
+    ADD CONSTRAINT channel_publisher_remote_item_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
 
 
 --
@@ -10958,6 +12534,30 @@ ALTER TABLE ONLY public.channel_value_recipient
 
 
 --
+-- Name: channel_verified_publisher channel_verified_publisher_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_verified_publisher
+    ADD CONSTRAINT channel_verified_publisher_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: channel_verified_publisher channel_verified_publisher_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_verified_publisher
+    ADD CONSTRAINT channel_verified_publisher_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
+
+
+--
+-- Name: channel_verified_publisher channel_verified_publisher_publisher_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_verified_publisher
+    ADD CONSTRAINT channel_verified_publisher_publisher_channel_id_fkey FOREIGN KEY (publisher_channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
 -- Name: clip clip_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10970,7 +12570,7 @@ ALTER TABLE ONLY public.clip
 --
 
 ALTER TABLE ONLY public.clip
-    ADD CONSTRAINT clip_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
+    ADD CONSTRAINT clip_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE SET NULL;
 
 
 --
@@ -11214,6 +12814,30 @@ ALTER TABLE ONLY public.item_location
 
 
 --
+-- Name: item_merge_map item_merge_map_channel_merge_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_merge_map
+    ADD CONSTRAINT item_merge_map_channel_merge_id_fkey FOREIGN KEY (channel_merge_id) REFERENCES public.channel_merge(id) ON DELETE CASCADE;
+
+
+--
+-- Name: item_merge_map item_merge_map_from_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_merge_map
+    ADD CONSTRAINT item_merge_map_from_item_id_fkey FOREIGN KEY (from_item_id) REFERENCES public.item(id);
+
+
+--
+-- Name: item_merge_map item_merge_map_to_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_merge_map
+    ADD CONSTRAINT item_merge_map_to_item_id_fkey FOREIGN KEY (to_item_id) REFERENCES public.item(id);
+
+
+--
 -- Name: item_person item_person_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11378,7 +13002,7 @@ ALTER TABLE ONLY public.playlist_resource
 --
 
 ALTER TABLE ONLY public.playlist_resource
-    ADD CONSTRAINT playlist_resource_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
+    ADD CONSTRAINT playlist_resource_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE SET NULL;
 
 
 --
@@ -11386,7 +13010,7 @@ ALTER TABLE ONLY public.playlist_resource
 --
 
 ALTER TABLE ONLY public.playlist_resource
-    ADD CONSTRAINT playlist_resource_item_soundbite_id_fkey FOREIGN KEY (item_soundbite_id) REFERENCES public.item_soundbite(id) ON DELETE CASCADE;
+    ADD CONSTRAINT playlist_resource_item_soundbite_id_fkey FOREIGN KEY (item_soundbite_id) REFERENCES public.item_soundbite(id) ON DELETE SET NULL;
 
 
 --
@@ -11454,131 +13078,194 @@ ALTER TABLE ONLY public.queue_resource
 
 
 --
--- Name: stats_aggregated_account stats_aggregated_account_tracked_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_account stats_daily_account_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_account
-    ADD CONSTRAINT stats_aggregated_account_tracked_account_id_fkey FOREIGN KEY (tracked_account_id) REFERENCES public.account(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_aggregated_channel stats_aggregated_channel_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_channel
-    ADD CONSTRAINT stats_aggregated_channel_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_daily_account
+    ADD CONSTRAINT stats_daily_account_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_aggregated_clip stats_aggregated_clip_clip_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_channel stats_daily_channel_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_clip
-    ADD CONSTRAINT stats_aggregated_clip_clip_id_fkey FOREIGN KEY (clip_id) REFERENCES public.clip(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_aggregated_item stats_aggregated_item_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_aggregated_item
-    ADD CONSTRAINT stats_aggregated_item_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_daily_channel
+    ADD CONSTRAINT stats_daily_channel_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_aggregated_playlist stats_aggregated_playlist_playlist_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_clip stats_daily_clip_clip_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_aggregated_playlist
-    ADD CONSTRAINT stats_aggregated_playlist_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlist(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_track_account_guid stats_track_account_guid_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_account_guid
-    ADD CONSTRAINT stats_track_account_guid_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_daily_clip
+    ADD CONSTRAINT stats_daily_clip_clip_id_fkey FOREIGN KEY (clip_id) REFERENCES public.clip(id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_track_event_account stats_track_event_account_stats_track_account_guid_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_item stats_daily_item_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_account
-    ADD CONSTRAINT stats_track_event_account_stats_track_account_guid_id_fkey FOREIGN KEY (stats_track_account_guid_id) REFERENCES public.stats_track_account_guid(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_track_event_account stats_track_event_account_tracked_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_account
-    ADD CONSTRAINT stats_track_event_account_tracked_account_id_fkey FOREIGN KEY (tracked_account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_daily_item
+    ADD CONSTRAINT stats_daily_item_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_track_event_channel stats_track_event_channel_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_daily_playlist stats_daily_playlist_playlist_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_channel
-    ADD CONSTRAINT stats_track_event_channel_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_track_event_channel stats_track_event_channel_stats_track_account_guid_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_channel
-    ADD CONSTRAINT stats_track_event_channel_stats_track_account_guid_id_fkey FOREIGN KEY (stats_track_account_guid_id) REFERENCES public.stats_track_account_guid(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_daily_playlist
+    ADD CONSTRAINT stats_daily_playlist_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlist(id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_track_event_clip stats_track_event_clip_clip_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_flag_signal stats_flag_signal_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_clip
-    ADD CONSTRAINT stats_track_event_clip_clip_id_fkey FOREIGN KEY (clip_id) REFERENCES public.clip(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_track_event_clip stats_track_event_clip_stats_track_account_guid_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_clip
-    ADD CONSTRAINT stats_track_event_clip_stats_track_account_guid_id_fkey FOREIGN KEY (stats_track_account_guid_id) REFERENCES public.stats_track_account_guid(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_flag_signal
+    ADD CONSTRAINT stats_flag_signal_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_track_event_item stats_track_event_item_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_flagged_listener stats_flagged_listener_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_item
-    ADD CONSTRAINT stats_track_event_item_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
-
-
---
--- Name: stats_track_event_item stats_track_event_item_stats_track_account_guid_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stats_track_event_item
-    ADD CONSTRAINT stats_track_event_item_stats_track_account_guid_id_fkey FOREIGN KEY (stats_track_account_guid_id) REFERENCES public.stats_track_account_guid(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.stats_flagged_listener
+    ADD CONSTRAINT stats_flagged_listener_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_track_event_playlist stats_track_event_playlist_playlist_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_listen_event stats_listen_event_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_playlist
-    ADD CONSTRAINT stats_track_event_playlist_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlist(id) ON DELETE CASCADE;
+ALTER TABLE public.stats_listen_event
+    ADD CONSTRAINT stats_listen_event_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
 
 
 --
--- Name: stats_track_event_playlist stats_track_event_playlist_stats_track_account_guid_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stats_listen_event stats_listen_event_clip_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.stats_track_event_playlist
-    ADD CONSTRAINT stats_track_event_playlist_stats_track_account_guid_id_fkey FOREIGN KEY (stats_track_account_guid_id) REFERENCES public.stats_track_account_guid(id) ON DELETE CASCADE;
+ALTER TABLE public.stats_listen_event
+    ADD CONSTRAINT stats_listen_event_clip_id_fkey FOREIGN KEY (clip_id) REFERENCES public.clip(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_listen_event stats_listen_event_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.stats_listen_event
+    ADD CONSTRAINT stats_listen_event_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_listen_event stats_listen_event_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.stats_listen_event
+    ADD CONSTRAINT stats_listen_event_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_open_event stats_open_event_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.stats_open_event
+    ADD CONSTRAINT stats_open_event_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_open_event stats_open_event_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.stats_open_event
+    ADD CONSTRAINT stats_open_event_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_open_event stats_open_event_playlist_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.stats_open_event
+    ADD CONSTRAINT stats_open_event_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlist(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_popularity_account stats_popularity_account_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_account
+    ADD CONSTRAINT stats_popularity_account_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_popularity_channel stats_popularity_channel_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_channel
+    ADD CONSTRAINT stats_popularity_channel_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_popularity_clip stats_popularity_clip_clip_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_clip
+    ADD CONSTRAINT stats_popularity_clip_clip_id_fkey FOREIGN KEY (clip_id) REFERENCES public.clip(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_popularity_item stats_popularity_item_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_item
+    ADD CONSTRAINT stats_popularity_item_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.item(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_popularity_playlist stats_popularity_playlist_playlist_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_popularity_playlist
+    ADD CONSTRAINT stats_popularity_playlist_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlist(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_taste_profile stats_taste_profile_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_taste_profile
+    ADD CONSTRAINT stats_taste_profile_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_taste_profile_hidden stats_taste_profile_hidden_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_taste_profile_hidden
+    ADD CONSTRAINT stats_taste_profile_hidden_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_taste_profile_hidden stats_taste_profile_hidden_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_taste_profile_hidden
+    ADD CONSTRAINT stats_taste_profile_hidden_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
+
+
+--
+-- Name: stats_taste_profile stats_taste_profile_listener_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stats_taste_profile
+    ADD CONSTRAINT stats_taste_profile_listener_id_fkey FOREIGN KEY (listener_id) REFERENCES listener_identity.stats_listener(listener_id) ON DELETE CASCADE;
+
+
+--
+-- Name: SCHEMA listener_identity; Type: ACL; Schema: -; Owner: -
+--
+
+GRANT USAGE ON SCHEMA listener_identity TO podverse_app_read_write;
 
 
 --
@@ -11591,6 +13278,29 @@ GRANT USAGE ON SCHEMA public TO podverse_app_read;
 
 
 --
+-- Name: FUNCTION stats_event_drop_month_partitions_before(parent_table text, cutoff date); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.stats_event_drop_month_partitions_before(parent_table text, cutoff date) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.stats_event_drop_month_partitions_before(parent_table text, cutoff date) TO podverse_app_read_write;
+
+
+--
+-- Name: FUNCTION stats_event_ensure_month_partition(parent_table text, month_start date); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.stats_event_ensure_month_partition(parent_table text, month_start date) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.stats_event_ensure_month_partition(parent_table text, month_start date) TO podverse_app_read_write;
+
+
+--
+-- Name: TABLE stats_listener; Type: ACL; Schema: listener_identity; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE listener_identity.stats_listener TO podverse_app_read_write;
+
+
+--
 -- Name: TABLE account; Type: ACL; Schema: public; Owner: -
 --
 
@@ -11599,11 +13309,35 @@ GRANT SELECT ON TABLE public.account TO podverse_app_read;
 
 
 --
--- Name: TABLE account_app_store_purchase; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE account_api_key; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_app_store_purchase TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.account_app_store_purchase TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_api_key TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_api_key TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE account_api_key_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.account_api_key_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_api_key_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE account_content_log; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_content_log TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_content_log TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE account_content_log_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.account_content_log_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_content_log_id_seq TO podverse_app_read;
 
 
 --
@@ -11620,6 +13354,22 @@ GRANT SELECT ON TABLE public.account_credentials TO podverse_app_read;
 
 GRANT ALL ON SEQUENCE public.account_credentials_id_seq TO podverse_app_read_write;
 GRANT SELECT ON SEQUENCE public.account_credentials_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE account_device_auto_download_channel; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_device_auto_download_channel TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_device_auto_download_channel TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE account_device_auto_download_channel_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.account_device_auto_download_channel_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_device_auto_download_channel_id_seq TO podverse_app_read;
 
 
 --
@@ -11687,14 +13437,6 @@ GRANT SELECT ON TABLE public.account_following_playlist TO podverse_app_read;
 
 
 --
--- Name: TABLE account_google_play_purchase; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_google_play_purchase TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.account_google_play_purchase TO podverse_app_read;
-
-
---
 -- Name: SEQUENCE account_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
@@ -11743,6 +13485,14 @@ GRANT SELECT ON TABLE public.account_metaboost TO podverse_app_read;
 
 
 --
+-- Name: TABLE account_notification; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_notification TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_notification TO podverse_app_read;
+
+
+--
 -- Name: TABLE account_notification_channel; Type: ACL; Schema: public; Owner: -
 --
 
@@ -11775,11 +13525,43 @@ GRANT SELECT ON SEQUENCE public.account_notification_channel_type_id_seq TO podv
 
 
 --
--- Name: TABLE account_paypal_order; Type: ACL; Schema: public; Owner: -
+-- Name: SEQUENCE account_notification_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_paypal_order TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.account_paypal_order TO podverse_app_read;
+GRANT ALL ON SEQUENCE public.account_notification_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_notification_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE account_notification_preference; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_notification_preference TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_notification_preference TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE account_notification_preference_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.account_notification_preference_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_notification_preference_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE account_pending_following_channel; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_pending_following_channel TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_pending_following_channel TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE account_pending_following_channel_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.account_pending_following_channel_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_pending_following_channel_id_seq TO podverse_app_read;
 
 
 --
@@ -11812,6 +13594,22 @@ GRANT SELECT ON TABLE public.account_reset_password TO podverse_app_read;
 
 GRANT ALL ON SEQUENCE public.account_reset_password_id_seq TO podverse_app_read_write;
 GRANT SELECT ON SEQUENCE public.account_reset_password_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE account_session; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_session TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.account_session TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE account_session_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.account_session_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.account_session_id_seq TO podverse_app_read;
 
 
 --
@@ -11967,19 +13765,67 @@ GRANT SELECT ON SEQUENCE public.account_webpush_device_id_seq TO podverse_app_re
 
 
 --
--- Name: TABLE billing_domain_event; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE admin_notification_campaign; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_domain_event TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.billing_domain_event TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.admin_notification_campaign TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.admin_notification_campaign TO podverse_app_read;
 
 
 --
--- Name: SEQUENCE billing_domain_event_id_seq; Type: ACL; Schema: public; Owner: -
+-- Name: SEQUENCE admin_notification_campaign_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON SEQUENCE public.billing_domain_event_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.billing_domain_event_id_seq TO podverse_app_read;
+GRANT ALL ON SEQUENCE public.admin_notification_campaign_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.admin_notification_campaign_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE billing_checkout_channel; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_checkout_channel TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_checkout_channel TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE billing_checkout_channel_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.billing_checkout_channel_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.billing_checkout_channel_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE billing_checkout_session; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_checkout_session TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_checkout_session TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE billing_checkout_session_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.billing_checkout_session_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.billing_checkout_session_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE billing_membership_grant; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_membership_grant TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_membership_grant TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE billing_membership_grant_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.billing_membership_grant_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.billing_membership_grant_id_seq TO podverse_app_read;
 
 
 --
@@ -12015,6 +13861,30 @@ GRANT SELECT ON SEQUENCE public.billing_price_id_seq TO podverse_app_read;
 
 
 --
+-- Name: TABLE billing_processor; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_processor TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_processor TO podverse_app_read;
+
+
+--
+-- Name: TABLE billing_processor_product; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_processor_product TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_processor_product TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE billing_processor_product_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.billing_processor_product_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.billing_processor_product_id_seq TO podverse_app_read;
+
+
+--
 -- Name: TABLE billing_product; Type: ACL; Schema: public; Owner: -
 --
 
@@ -12028,6 +13898,38 @@ GRANT SELECT ON TABLE public.billing_product TO podverse_app_read;
 
 GRANT ALL ON SEQUENCE public.billing_product_id_seq TO podverse_app_read_write;
 GRANT SELECT ON SEQUENCE public.billing_product_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE billing_transaction; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_transaction TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_transaction TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE billing_transaction_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.billing_transaction_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.billing_transaction_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE billing_webhook_event; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.billing_webhook_event TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.billing_webhook_event TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE billing_webhook_event_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.billing_webhook_event_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.billing_webhook_event_id_seq TO podverse_app_read;
 
 
 --
@@ -12220,6 +14122,38 @@ GRANT SELECT ON TABLE public.channel_location TO podverse_app_read;
 
 GRANT ALL ON SEQUENCE public.channel_location_id_seq TO podverse_app_read_write;
 GRANT SELECT ON SEQUENCE public.channel_location_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE channel_merge; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.channel_merge TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.channel_merge TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE channel_merge_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.channel_merge_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.channel_merge_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE channel_merge_journal; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.channel_merge_journal TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.channel_merge_journal TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE channel_merge_journal_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.channel_merge_journal_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.channel_merge_journal_id_seq TO podverse_app_read;
 
 
 --
@@ -12428,6 +14362,22 @@ GRANT SELECT ON TABLE public.channel_value_recipient TO podverse_app_read;
 
 GRANT ALL ON SEQUENCE public.channel_value_recipient_id_seq TO podverse_app_read_write;
 GRANT SELECT ON SEQUENCE public.channel_value_recipient_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE channel_verified_publisher; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.channel_verified_publisher TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.channel_verified_publisher TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE channel_verified_publisher_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.channel_verified_publisher_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.channel_verified_publisher_id_seq TO podverse_app_read;
 
 
 --
@@ -12935,6 +14885,22 @@ GRANT SELECT ON SEQUENCE public.item_location_id_seq TO podverse_app_read;
 
 
 --
+-- Name: TABLE item_merge_map; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.item_merge_map TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.item_merge_map TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE item_merge_map_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.item_merge_map_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.item_merge_map_id_seq TO podverse_app_read;
+
+
+--
 -- Name: TABLE item_person; Type: ACL; Schema: public; Owner: -
 --
 
@@ -13126,6 +15092,13 @@ GRANT ALL ON SEQUENCE public.item_value_time_split_remote_item_id_seq TO podvers
 GRANT SELECT ON SEQUENCE public.item_value_time_split_remote_item_id_seq TO podverse_app_read;
 
 
+--
+-- Name: SEQUENCE linear_migration_history_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.linear_migration_history_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.linear_migration_history_id_seq TO podverse_app_read;
+
 
 --
 -- Name: TABLE live_item; Type: ACL; Schema: public; Owner: -
@@ -13232,6 +15205,14 @@ GRANT SELECT ON SEQUENCE public.playlist_resource_id_seq TO podverse_app_read;
 
 
 --
+-- Name: TABLE podcast_index_dead_feed_sync; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.podcast_index_dead_feed_sync TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.podcast_index_dead_feed_sync TO podverse_app_read;
+
+
+--
 -- Name: TABLE product_membership_settings; Type: ACL; Schema: public; Owner: -
 --
 
@@ -13272,6 +15253,22 @@ GRANT SELECT ON SEQUENCE public.queue_resource_id_seq TO podverse_app_read;
 
 
 --
+-- Name: TABLE scheduled_job; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_job TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.scheduled_job TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE scheduled_job_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.scheduled_job_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.scheduled_job_id_seq TO podverse_app_read;
+
+
+--
 -- Name: TABLE sharable_status; Type: ACL; Schema: public; Owner: -
 --
 
@@ -13288,179 +15285,171 @@ GRANT SELECT ON SEQUENCE public.sharable_status_id_seq TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_aggregated_account; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_daily_account; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_aggregated_account TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_aggregated_account TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_aggregated_account_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_aggregated_account_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_aggregated_account_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_daily_account TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_daily_account TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_aggregated_channel; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_daily_channel; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_aggregated_channel TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_aggregated_channel TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_aggregated_channel_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_aggregated_channel_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_aggregated_channel_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_daily_channel TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_daily_channel TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_aggregated_clip; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_daily_clip; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_aggregated_clip TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_aggregated_clip TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_aggregated_clip_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_aggregated_clip_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_aggregated_clip_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_daily_clip TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_daily_clip TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_aggregated_item; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_daily_item; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_aggregated_item TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_aggregated_item TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_aggregated_item_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_aggregated_item_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_aggregated_item_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_daily_item TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_daily_item TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_aggregated_playlist; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_daily_playlist; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_aggregated_playlist TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_aggregated_playlist TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_aggregated_playlist_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_aggregated_playlist_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_aggregated_playlist_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_daily_playlist TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_daily_playlist TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_track_account_guid; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_flag_signal; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_track_account_guid TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_track_account_guid TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_track_account_guid_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_track_account_guid_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_track_account_guid_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_flag_signal TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_flag_signal TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_track_event_account; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_flagged_listener; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_track_event_account TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_track_event_account TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_track_event_account_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_track_event_account_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_track_event_account_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_flagged_listener TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_flagged_listener TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_track_event_channel; Type: ACL; Schema: public; Owner: -
+-- Name: SEQUENCE stats_flagged_listener_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_track_event_channel TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_track_event_channel TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_track_event_channel_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_track_event_channel_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_track_event_channel_id_seq TO podverse_app_read;
+GRANT ALL ON SEQUENCE public.stats_flagged_listener_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.stats_flagged_listener_id_seq TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_track_event_clip; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_listen_event; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_track_event_clip TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_track_event_clip TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_track_event_clip_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_track_event_clip_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_track_event_clip_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_listen_event TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_listen_event TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_track_event_item; Type: ACL; Schema: public; Owner: -
+-- Name: SEQUENCE stats_listen_event_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_track_event_item TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_track_event_item TO podverse_app_read;
-
-
---
--- Name: SEQUENCE stats_track_event_item_id_seq; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON SEQUENCE public.stats_track_event_item_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_track_event_item_id_seq TO podverse_app_read;
+GRANT ALL ON SEQUENCE public.stats_listen_event_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.stats_listen_event_id_seq TO podverse_app_read;
 
 
 --
--- Name: TABLE stats_track_event_playlist; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_listen_event_default; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_track_event_playlist TO podverse_app_read_write;
-GRANT SELECT ON TABLE public.stats_track_event_playlist TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_listen_event_default TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_listen_event_default TO podverse_app_read;
 
 
 --
--- Name: SEQUENCE stats_track_event_playlist_id_seq; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE stats_open_event; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON SEQUENCE public.stats_track_event_playlist_id_seq TO podverse_app_read_write;
-GRANT SELECT ON SEQUENCE public.stats_track_event_playlist_id_seq TO podverse_app_read;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_open_event TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_open_event TO podverse_app_read;
+
+
+--
+-- Name: SEQUENCE stats_open_event_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.stats_open_event_id_seq TO podverse_app_read_write;
+GRANT SELECT ON SEQUENCE public.stats_open_event_id_seq TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_open_event_default; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_open_event_default TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_open_event_default TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_popularity_account; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_popularity_account TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_popularity_account TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_popularity_channel; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_popularity_channel TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_popularity_channel TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_popularity_clip; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_popularity_clip TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_popularity_clip TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_popularity_item; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_popularity_item TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_popularity_item TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_popularity_playlist; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_popularity_playlist TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_popularity_playlist TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_taste_profile; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_taste_profile TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_taste_profile TO podverse_app_read;
+
+
+--
+-- Name: TABLE stats_taste_profile_hidden; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.stats_taste_profile_hidden TO podverse_app_read_write;
+GRANT SELECT ON TABLE public.stats_taste_profile_hidden TO podverse_app_read;
 
 
 --

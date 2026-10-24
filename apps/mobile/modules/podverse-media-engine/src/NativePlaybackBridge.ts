@@ -72,9 +72,9 @@ export interface NativePlaybackBridge {
  * Native stores opaque snapshots — it does not re-decide queue rules.
  */
 export interface NativeCacheWriteBridge {
-  /** Legacy / dual-write now-playing + upcoming (prefer AV/Music writers). */
-  writeQueueSnapshot(payloadJson: string): Promise<void>;
+  /** Now-playing + upcoming for the podcast and video queue. */
   writeQueueSnapshotAv(payloadJson: string): Promise<void>;
+  /** Now-playing + upcoming for the music queue. */
   writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
   /** Local `file://` paths + metadata for offline car browse. */
   writeDownloadsIndex(payloadJson: string): Promise<void>;

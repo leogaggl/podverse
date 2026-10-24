@@ -1,4 +1,4 @@
-// Re-export timerManager from context for backwards compatibility
+// Proxy so callers read the timer manager from the current context.
 import { getTimerManager } from '../context.js';
 
 // Export a proxy object that delegates to the context's timer manager

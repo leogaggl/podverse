@@ -165,7 +165,7 @@ describe('error log details', () => {
     });
   });
 
-  it('reads rows written before details existed, or by something else, as empty', () => {
+  it('reads missing or unreadable details as empty', () => {
     expect(parseSyncEventLogDetails(null)).toEqual({});
     expect(parseSyncEventLogDetails('not json')).toEqual({});
     expect(parseSyncEventLogDetails('[1,2]')).toEqual({});

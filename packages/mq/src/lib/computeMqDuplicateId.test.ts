@@ -50,8 +50,6 @@ describe('computeMqDuplicateId', () => {
   });
 
   it('regression: two OPML batches with different requestIds are not collapsed as duplicates', () => {
-    // Before the fix, OPML messages fell through to `message.url` (undefined),
-    // so every batch hashed String(undefined) and collapsed to one delivery.
     const now = 1_000_000;
     const first = computeMqDuplicateId('opml-import', opmlMessage('user-1-batch'), 60_000, now);
     const second = computeMqDuplicateId('opml-import', opmlMessage('user-2-batch'), 60_000, now);

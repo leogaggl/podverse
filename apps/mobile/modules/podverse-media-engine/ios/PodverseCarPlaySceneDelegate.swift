@@ -387,14 +387,9 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
 
   private func resolveDownloadFileURL(_ stored: String) -> String? {
     if stored.hasPrefix("content://") { return stored }
-    let fileName: String
-    if stored.hasPrefix("file://") || stored.hasPrefix("/") {
-      fileName = (stored as NSString).lastPathComponent
-    } else if stored.hasPrefix("downloads/") {
-      fileName = String(stored.dropFirst("downloads/".count))
-    } else {
-      fileName = stored
-    }
+    let fileName =
+      stored.hasPrefix("downloads/")
+      ? String(stored.dropFirst("downloads/".count)) : stored
     guard !fileName.isEmpty else { return nil }
     guard
       let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -403,11 +398,6 @@ public final class PodverseCarPlaySceneDelegate: NSObject, CPTemplateApplication
       .appendingPathComponent(fileName, isDirectory: false)
     if FileManager.default.fileExists(atPath: url.path) {
       return url.absoluteString
-    }
-    if stored.hasPrefix("file://"), let legacy = URL(string: stored),
-      FileManager.default.fileExists(atPath: legacy.path)
-    {
-      return stored
     }
     return nil
   }

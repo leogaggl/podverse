@@ -9,7 +9,7 @@ const hydrate = vi.fn(async (..._args: unknown[]) => undefined);
 const markFileMissing = vi.fn(async (..._args: unknown[]) => undefined);
 
 vi.mock('expo-file-system/legacy', () => ({
-  // Stored file:// rows rebase onto this directory, so file:///downloads/ stays that path.
+  // A stored file name joins under this directory as file:///downloads/<name>.
   documentDirectory: 'file:///',
   getInfoAsync: (uri: string) => getInfoAsync(uri),
 }));
@@ -72,7 +72,7 @@ describe('resolvePlaybackUrl Offline Mode', () => {
   it('still returns a completed local file while Offline Mode is on', async () => {
     isOfflineModeEnabled.mockReturnValue(true);
     downloadStoreGet.mockReturnValue({
-      filePath: 'file:///downloads/ep-1.mp3',
+      filePath: 'ep-1.mp3',
       status: 'complete',
     });
     getInfoAsync.mockResolvedValue({ exists: true });
@@ -112,7 +112,7 @@ describe('resolveLocalDownloadPlaybackUrl', () => {
 
   it('returns the absolute path when a complete download file is on disk', async () => {
     downloadStoreGet.mockReturnValue({
-      filePath: 'file:///downloads/ep-1.mp3',
+      filePath: 'ep-1.mp3',
       status: 'complete',
     });
     getInfoAsync.mockResolvedValue({ exists: true });
@@ -125,7 +125,7 @@ describe('resolveLocalDownloadPlaybackUrl', () => {
 
   it('returns null when the download row is not complete', async () => {
     downloadStoreGet.mockReturnValue({
-      filePath: 'file:///downloads/ep-1.mp3',
+      filePath: 'ep-1.mp3',
       status: 'downloading',
     });
 
@@ -136,7 +136,7 @@ describe('resolveLocalDownloadPlaybackUrl', () => {
 
   it('returns null and marks the row missing when a complete download file is gone', async () => {
     downloadStoreGet.mockReturnValue({
-      filePath: 'file:///downloads/ep-gone.mp3',
+      filePath: 'ep-gone.mp3',
       status: 'complete',
     });
     getInfoAsync.mockResolvedValue({ exists: false });

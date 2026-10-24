@@ -47,7 +47,7 @@ const trimmedOrNull = (value: unknown): string | null => {
   return trimmed === '' ? null : trimmed;
 };
 
-/** The `feed_url` on resource data, or null when the row predates feed identity. */
+/** The `feed_url` on resource data, or null when the payload has none. */
 export const getAddByRSSResourceDataFeedUrl = (
   resourceData: AddByRSSResourceData | null | undefined
 ): string | null => trimmedOrNull(resourceData?.['feed_url']);

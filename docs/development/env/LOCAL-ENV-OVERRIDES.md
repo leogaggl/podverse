@@ -78,9 +78,10 @@ Auto-generated infra secrets live in **`~/.config/podverse/local-env-overrides/l
 **`infra/config/local/db.env`** (gitignored) as the runtime file apps and Docker read; setup copies
 passwords from home `local-secrets.env` into that file.
 
-### Existing installs (seed home secrets from primary checkout)
+### Seed home secrets from an existing checkout
 
-If you already had a working primary checkout before this flow, run **once from that checkout**:
+To copy the passwords a checkout already uses into home `local-secrets.env`, run this
+from that checkout:
 
 ```bash
 make local_env_export_secrets_to_home

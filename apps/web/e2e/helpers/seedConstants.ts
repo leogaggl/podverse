@@ -125,8 +125,8 @@ export const E2E_ADD_BY_RSS_RESOURCE_FRESH_ID_TEXT = 'e2eAbRsResF01';
 export const E2E_ADD_BY_RSS_RESOURCE_FRESH_GUID =
   'https://e2e-seed-addbyrss.example/item-guid/fresh';
 /**
- * Canonical test-assets feed URL carried by the seeded with-position queue row, so its hash is
- * the `{feed_url, guid}` form. The fresh row carries no `feed_url` and keeps the legacy hash.
+ * Canonical test-assets feed URL on the seeded with-position queue row. That row's hash is
+ * `{feed_url, guid}`. The fresh row has no `feed_url`, so its hash is `{channel_id_text, guid}`.
  */
 export const E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL = 'http://localhost:2111/feeds/feed-podcast-1.rss';
 /** The seeded account follows the test-assets feed with this title and artwork. */

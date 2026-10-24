@@ -16,10 +16,8 @@ const HOME_MEDIA_TYPES = [
   'tracks',
   'livestreams',
 ] as const;
-const SUBSCRIPTION_FILTERS = ['all', 'addByRss'] as const;
 
 export type HomeMediaType = (typeof HOME_MEDIA_TYPES)[number];
-export type SubscriptionListFilter = (typeof SUBSCRIPTION_FILTERS)[number];
 export type PrefBooleanKey = 'aqc.rd' | 'aqc.rp' | 'downloads.auto_delete' | 'offline.mode';
 export type PrefKey =
   | 'aqc.rd'
@@ -27,8 +25,6 @@ export type PrefKey =
   | 'auth.forced_logout_at'
   | 'auth.forced_logout_notice'
   | 'downloads.auto_delete'
-  | 'home.subscriptionFilter'
-  | 'library.subscriptionFilter'
   | 'locale'
   | 'membership.expiry_dismissed_for'
   | 'playback.handoff_dismissed_state'
@@ -51,8 +47,6 @@ export type PrefValueMap = {
    */
   'auth.forced_logout_notice': AuthSessionEndedNotice;
   'downloads.auto_delete': boolean;
-  'home.subscriptionFilter': SubscriptionListFilter;
-  'library.subscriptionFilter': SubscriptionListFilter;
   locale: string;
   /**
    * Dismissal key of the last dismissed expiring-soon notice.
@@ -80,8 +74,6 @@ const PREF_KEYS: readonly PrefKey[] = [
   'aqc.rp',
   'auth.forced_logout_at',
   'auth.forced_logout_notice',
-  'home.subscriptionFilter',
-  'library.subscriptionFilter',
   'locale',
   'downloads.auto_delete',
   'membership.expiry_dismissed_for',
@@ -91,16 +83,11 @@ const PREF_KEYS: readonly PrefKey[] = [
 
 export const DEFAULT_PLAYBACK_MEDIA_TYPE: MediaTypePreference = DEFAULT_MEDIA_TYPE_PREFERENCE;
 export const DEFAULT_HOME_MEDIA_TYPE: HomeMediaType = 'podcasts';
-export const DEFAULT_SUBSCRIPTION_FILTER: SubscriptionListFilter = 'all';
 export const DEFAULT_DOWNLOAD_AUTO_DELETE = false;
 export const DEFAULT_OFFLINE_MODE = false;
 
 const isHomeMediaType = (value: string): value is HomeMediaType => {
   return HOME_MEDIA_TYPES.some((mediaType) => mediaType === value);
-};
-
-const isSubscriptionListFilter = (value: string): value is SubscriptionListFilter => {
-  return SUBSCRIPTION_FILTERS.some((filter) => filter === value);
 };
 
 const isUITheme = (value: string): value is UITheme => {
@@ -121,8 +108,6 @@ const createEmptySnapshot = (): PrefSnapshot => ({
   'auth.forced_logout_at': null,
   'auth.forced_logout_notice': null,
   'downloads.auto_delete': null,
-  'home.subscriptionFilter': null,
-  'library.subscriptionFilter': null,
   locale: null,
   'membership.expiry_dismissed_for': null,
   'playback.handoff_dismissed_state': null,
@@ -147,8 +132,6 @@ export function getPref(key: 'aqc.rp'): Promise<boolean | null>;
 export function getPref(key: 'auth.forced_logout_at'): Promise<string | null>;
 export function getPref(key: 'auth.forced_logout_notice'): Promise<AuthSessionEndedNotice | null>;
 export function getPref(key: 'downloads.auto_delete'): Promise<boolean | null>;
-export function getPref(key: 'home.subscriptionFilter'): Promise<SubscriptionListFilter | null>;
-export function getPref(key: 'library.subscriptionFilter'): Promise<SubscriptionListFilter | null>;
 export function getPref(key: 'locale'): Promise<string | null>;
 export function getPref(key: 'membership.expiry_dismissed_for'): Promise<string | null>;
 export function getPref(key: 'playback.handoff_dismissed_state'): Promise<string | null>;
@@ -166,12 +149,6 @@ export async function getPref(key: PrefKey): Promise<PrefValueMap[PrefKey] | nul
     key === 'offline.mode'
   ) {
     return parseBoolean(stored);
-  }
-  if (key === 'home.subscriptionFilter' || key === 'library.subscriptionFilter') {
-    if (stored === null) {
-      return null;
-    }
-    return isSubscriptionListFilter(stored) ? stored : null;
   }
   if (
     key === 'auth.forced_logout_at' ||
@@ -213,14 +190,6 @@ export function setPref(
   value: AuthSessionEndedNotice
 ): Promise<void>;
 export function setPref(key: 'downloads.auto_delete', value: boolean): Promise<void>;
-export function setPref(
-  key: 'home.subscriptionFilter',
-  value: SubscriptionListFilter
-): Promise<void>;
-export function setPref(
-  key: 'library.subscriptionFilter',
-  value: SubscriptionListFilter
-): Promise<void>;
 export function setPref(key: 'locale', value: string): Promise<void>;
 export function setPref(key: 'membership.expiry_dismissed_for', value: string): Promise<void>;
 export function setPref(key: 'playback.handoff_dismissed_state', value: string): Promise<void>;
@@ -275,14 +244,6 @@ export const hydratePrefs = async (): Promise<PrefSnapshot> => {
       }
       if (key === 'offline.mode') {
         snapshot['offline.mode'] = await getPref('offline.mode');
-        return;
-      }
-      if (key === 'home.subscriptionFilter') {
-        snapshot['home.subscriptionFilter'] = await getPref('home.subscriptionFilter');
-        return;
-      }
-      if (key === 'library.subscriptionFilter') {
-        snapshot['library.subscriptionFilter'] = await getPref('library.subscriptionFilter');
         return;
       }
       if (key === 'locale') {

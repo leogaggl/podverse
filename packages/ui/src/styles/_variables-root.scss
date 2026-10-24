@@ -102,7 +102,7 @@
   --spacing-gap-4xl: 2rem;
   --spacing-modal-side: 100px;
 
-  // compatibility aliases (kept for byte-equivalence with apps/web)
+  // Header inset, and the gap between stacked form fields.
   --header-padding: var(--spacing-container);
   --form-gap: var(--spacing-3xl);
 

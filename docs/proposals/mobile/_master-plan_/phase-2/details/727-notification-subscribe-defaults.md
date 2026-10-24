@@ -23,8 +23,8 @@ Type create/delete APIs already exist (`reqAccountSettingsNotificationTypeCreate
 
 ### Schema
 
-- Linear migration `0008_*.sql` (next after `0007_popularity_tracking_consent.sql`): add
-  `auto_enable_on_subscribe boolean not null default false` on `account_settings_notification`.
+- `account_settings_notification.auto_enable_on_subscribe` is `boolean not null default false`
+  in `0001_app_schema.sql`.
 - ORM entity + DTO widen
   [`DTOAccountSettingsNotification`](packages/helpers/src/dtos/account/accountSettings/accountSettingsNotification.ts).
 - Seed / ensure-settings paths set the column to false for new rows.

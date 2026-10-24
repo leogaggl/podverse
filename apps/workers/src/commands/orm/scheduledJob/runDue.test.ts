@@ -84,7 +84,7 @@ vi.mock('@podverse/orm', () => {
     parseAdminNotificationSendPayload: parseAdminNotificationSendPayloadMock,
     parseFeedForceReparsePayload: (payload: { feedId?: unknown }) =>
       typeof payload.feedId === 'number'
-        ? { feedId: payload.feedId, reason: 'description_backfill' }
+        ? { feedId: payload.feedId, reason: 'description_tier_change' }
         : null,
     shouldAttemptFeedParseFromLifecycleAndPolicy: shouldAttemptFeedParseMock,
   };
@@ -99,7 +99,7 @@ const reparseJob = {
   id: 31,
   job_type: 'feed-force-reparse',
   max_attempts: 5,
-  payload: { feedId: 55, reason: 'description_backfill' },
+  payload: { feedId: 55, reason: 'description_tier_change' },
 };
 
 const campaignJob = {

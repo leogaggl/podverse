@@ -35,12 +35,6 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
-  it('maps ormDescriptionsBackfill to Base and ORM', () => {
-    expect(sortCategories(getCategoriesForCommand('ormDescriptionsBackfill'))).toEqual(
-      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
-    );
-  });
-
   it('maps ormArchivedSlimReport to Base and ORM', () => {
     expect(sortCategories(getCategoriesForCommand('ormArchivedSlimReport'))).toEqual(
       sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))

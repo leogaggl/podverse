@@ -59,8 +59,8 @@ function isDryRun(args: CommandLineArgs): boolean {
 /**
  * Recomputes verified publisher links for every content channel that has publisher claims or
  * stored links, from the stored references of both feeds. A rerun converges: a channel whose
- * stored rows already match is left unchanged. Run once after the verified publisher migration,
- * and any time links look stale. `-afterId` resumes after the last channel id of a finished batch.
+ * stored rows already match is left unchanged. Use it when a parse failed to recompute links or
+ * the stored links look stale. `-afterId` resumes after the last channel id of a finished batch.
  */
 export const ormVerifiedPublisherLinksBackfill = async (args: CommandLineArgs) => {
   const logger = getLogger();

@@ -1,6 +1,5 @@
 # Version: 3
 # Pattern: Suspended CronJob (Manual Trigger Only)
-# UPDATE: Added PGPASSWORD env var to fix 'no password supplied' error.
 apiVersion: batch/v1
 kind: CronJob
 metadata:

@@ -76,8 +76,8 @@ jobs:
         id: db-verify
         run: bash scripts/database/validate-linear-migrations.sh
 
-      - name: Verify linear baseline 0003
-        id: db-baseline-0003
+      - name: Verify linear baselines 0004/0005
+        id: db-linear-baselines
         run: bash scripts/database/verify-linear-baseline.sh
 
       - name: Verify bootstrap init contract in ephemeral Postgres
@@ -170,8 +170,8 @@ jobs:
               '| Check | Status |',
               '|-------|--------|',
               '| Linear migration files valid | ✅ |',
-              '| Linear baseline 0003 (vs generator) | ✅ |',
-              '| Bootstrap init contract (0001/0002/0003/0004) | ✅ |',
+              '| Linear baselines 0004/0005 (vs generator) | ✅ |',
+              '| Bootstrap init contract (0001–0005) | ✅ |',
               '| Runtime CREATE EXTENSION guard | ✅ |',
               '| Dependencies installed | ✅ |',
               '| Build packages | ✅ |',
@@ -253,7 +253,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_NUMBER: ${{ steps.pr-comment.outputs.pr_number }}
           DB_VERIFY: ${{ steps.db-verify.outcome }}
-          DB_BASELINE_0003: ${{ steps.db-baseline-0003.outcome }}
+          DB_LINEAR_BASELINES: ${{ steps.db-linear-baselines.outcome }}
           DB_BOOTSTRAP_CONTRACT: ${{ steps.db-bootstrap-contract.outcome }}
           DB_RUNTIME_EXTENSION_GUARD: ${{ steps.db-runtime-extension-guard.outcome }}
           INSTALL: ${{ steps.install.outcome }}
@@ -272,10 +272,10 @@ jobs:
             };
 
             const extra =
-              process.env.DB_BASELINE_0003 === 'failure'
+              process.env.DB_LINEAR_BASELINES === 'failure'
                 ? [
                     '',
-                    '**Linear baseline 0003a/0003b / migration seed 0004:** Regenerate from the repo root, then commit:',
+                    '**Linear baselines 0004/0005:** Regenerate from the repo root, then commit:',
                     '```',
                     'make db_regen_linear_baseline',
                     'make db_verify_linear_baseline',
@@ -293,8 +293,8 @@ jobs:
               '| Check | Status |',
               '|-------|--------|',
               `| Linear migration files valid | ${status(process.env.DB_VERIFY)} |`,
-              `| Linear baseline 0003 (vs generator) | ${status(process.env.DB_BASELINE_0003)} |`,
-              `| Bootstrap init contract (0001/0002/0003/0004) | ${status(process.env.DB_BOOTSTRAP_CONTRACT)} |`,
+              `| Linear baselines 0004/0005 (vs generator) | ${status(process.env.DB_LINEAR_BASELINES)} |`,
+              `| Bootstrap init contract (0001–0005) | ${status(process.env.DB_BOOTSTRAP_CONTRACT)} |`,
               `| Runtime CREATE EXTENSION guard | ${status(process.env.DB_RUNTIME_EXTENSION_GUARD)} |`,
               `| Dependencies installed | ${status(process.env.INSTALL)} |`,
               `| Build packages | ${status(process.env.BUILD_PACKAGES)} |`,

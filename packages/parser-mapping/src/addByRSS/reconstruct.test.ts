@@ -53,6 +53,18 @@ describe('buildMinimalAddByRSSItemFromResourceData', () => {
     expect(item.idText).toBe('phone-item-1');
   });
 
+  it('builds an item without channel art when the row has only channel_image_url', () => {
+    const row = phoneRow({
+      channel_image_url: 'https://cdn.example.com/old.jpg',
+    });
+    delete row.channel_images;
+
+    const item = buildMinimalAddByRSSItemFromResourceData(row);
+    expect(item).not.toBeNull();
+    if (!item) return;
+    expect(item.channelImageUrl).toBeUndefined();
+  });
+
   it('round-trips to resource data with the same Add by RSS hash as the row', () => {
     const row = phoneRow();
     const item = buildMinimalAddByRSSItemFromResourceData(row);

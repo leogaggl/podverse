@@ -138,10 +138,6 @@ class PodverseMediaEngineModule : Module() {
     // defined in `src/data/nativeCache/projection.ts`.
     // Best-effort: a failed write must not surface as a JS error that rolls back the mutation. ---
 
-    AsyncFunction("writeQueueSnapshot") { payloadJson: String ->
-      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.QUEUE, payloadJson)
-    }
-
     AsyncFunction("writeQueueSnapshotAv") { payloadJson: String ->
       PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.QUEUE_AV, payloadJson)
     }

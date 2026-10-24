@@ -1,7 +1,7 @@
 // Re-export config types for app-level use
 export * from './types.js';
 
-// Re-export config from context for backwards compatibility
+// Re-export config from context
 // This creates a proxy that delegates to the context's config
 // Apps should use createORMContext() and access config from the returned context
 import { getORMConfig } from '@orm/context.js';

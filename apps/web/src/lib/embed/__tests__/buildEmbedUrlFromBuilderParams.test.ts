@@ -47,7 +47,7 @@ describe('buildEmbedUrlPathFromBuilderParams', () => {
     ).toBe('/embed/track/track-item?presentation=audio&player=compact');
   });
 
-  it('builds podcast list paths for compact-list type', () => {
+  it('builds podcast list paths when the list is enabled', () => {
     expect(
       buildEmbedUrlPathFromBuilderParams({
         ...baseParams,

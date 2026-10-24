@@ -163,10 +163,9 @@ export class BillingMembershipExtensionService {
   }
 
   /**
-   * Accounts written before the ledger (and seeds that set the cache directly) can hold a cached
-   * expiry no grant covers. The next recompute would drop that time, so before any ledger write
-   * the uncovered time becomes a `migration_baseline` grant. Returns the account's status and the
-   * access expiry after adoption. The caller holds the account lock.
+   * A cached expiry no grant covers would be dropped on the next recompute. Before any ledger
+   * write, that uncovered time becomes a `migration_baseline` grant. Returns the account's
+   * status and the access expiry after adoption. The caller holds the account lock.
    */
   private async adoptCachedExpiryWithManager(
     transactionalEntityManager: EntityManager,
