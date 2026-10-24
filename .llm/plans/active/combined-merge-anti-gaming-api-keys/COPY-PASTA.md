@@ -51,7 +51,7 @@ the final message of step 01 first.
 
 ## Phase 3 — Whole-tree verification
 
-- [ ] **03 — Whole-tree verification on feature/combined**
+- [x] **03 — Whole-tree verification on feature/combined**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
