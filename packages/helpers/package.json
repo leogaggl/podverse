@@ -55,6 +55,10 @@
       "types": "./dist/lib/marquee/index.d.ts",
       "default": "./dist/lib/marquee/index.js"
     },
+    "./chipRowReveal": {
+      "types": "./dist/lib/chipRowReveal.d.ts",
+      "default": "./dist/lib/chipRowReveal.js"
+    },
     "./pagination": {
       "types": "./dist/lib/pagination.d.ts",
       "default": "./dist/lib/pagination.js"

@@ -1,23 +1,24 @@
 import { expect, test } from '@playwright/test';
 
+import { E2E_PODCAST_CHANNEL_ID_TEXT, E2E_PODCAST_CHANNEL_TITLE } from './helpers/seedConstants';
 import { actionAndCapture } from './helpers/stepScreenshots';
 
 test.describe('Main layout navbar chrome', () => {
-  test('the home page shows account menu and history controls on a wide viewport', async ({
+  test('the home page shows the account menu and no history controls on a wide viewport', async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await actionAndCapture(
       page,
       testInfo,
-      'The wide home page shows account menu and history controls.',
+      'The wide home page shows the account menu and no Back or Forward buttons.',
       async () => {
         await page.goto('/');
         const chrome = page.locator('[data-appearance="web"]');
         await expect(chrome).toBeVisible();
         await expect(chrome.getByRole('button', { name: 'Account' })).toBeVisible();
-        await expect(chrome.getByRole('button', { name: 'Back' })).toBeVisible();
-        await expect(chrome.getByRole('button', { name: 'Forward' })).toBeVisible();
+        await expect(chrome.getByRole('button', { name: 'Back' })).toHaveCount(0);
+        await expect(chrome.getByRole('button', { name: 'Forward' })).toHaveCount(0);
       },
       page.locator('[data-appearance="web"]')
     );
@@ -66,5 +67,128 @@ test.describe('Main layout navbar chrome', () => {
       },
       page.locator('[data-appearance="web"]')
     );
+  });
+
+  test('a wide viewport shows the Settings page title in the top bar as the only level-1 heading', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const chrome = page.locator('[data-appearance="web"]');
+    const barTitle = chrome.getByRole('heading', { level: 1, name: 'Settings' });
+    await actionAndCapture(
+      page,
+      testInfo,
+      'The wide Settings page shows Settings in the top bar and exposes exactly one level-1 heading.',
+      async () => {
+        await page.goto('/settings');
+        await expect(page).toHaveURL(/\/settings$/);
+        await expect(barTitle).toBeVisible();
+        await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+      },
+      barTitle
+    );
+  });
+
+  test('a narrow viewport shows the Settings page title as its own row under the top bar', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const chrome = page.locator('[data-appearance="web"]');
+    const pageTitle = page.getByRole('heading', { level: 1, name: 'Settings' });
+    await actionAndCapture(
+      page,
+      testInfo,
+      'The narrow Settings page shows the Settings title below the top bar and no title inside the bar.',
+      async () => {
+        await page.goto('/settings');
+        await expect(page).toHaveURL(/\/settings$/);
+        await expect(pageTitle).toBeVisible();
+        await expect(chrome.getByRole('heading')).toHaveCount(0);
+        const chromeBox = await chrome.boundingBox();
+        const titleBox = await pageTitle.boundingBox();
+        expect(chromeBox).not.toBeNull();
+        expect(titleBox).not.toBeNull();
+        if (chromeBox !== null && titleBox !== null) {
+          expect(titleBox.y).toBeGreaterThanOrEqual(chromeBox.y + chromeBox.height);
+        }
+      },
+      pageTitle
+    );
+  });
+
+  test('the top bar title follows client navigation and stays empty on a podcast detail page', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const chrome = page.locator('[data-appearance="web"]');
+
+    await test.step('The wide Settings page shows Settings in the top bar.', async () => {
+      await page.goto('/settings');
+      await expect(page).toHaveURL(/\/settings$/);
+      await expect(chrome.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    });
+
+    await test.step('Clicking Browse in the sidebar changes the top bar title to Browse.', async () => {
+      const browseTitle = chrome.getByRole('heading', { level: 1, name: 'Browse' });
+      await actionAndCapture(
+        page,
+        testInfo,
+        'After clicking Browse in the sidebar, the top bar title reads Browse.',
+        async () => {
+          await page.locator('#sidebar a[href="/browse"]').click();
+          await expect(page).toHaveURL(/\/browse$/);
+          await expect(browseTitle).toBeVisible();
+        },
+        browseTitle
+      );
+    });
+
+    await test.step('The seeded podcast page shows no title in the top bar and keeps its own heading.', async () => {
+      const podcastHeading = page.getByRole('heading', {
+        level: 1,
+        name: E2E_PODCAST_CHANNEL_TITLE,
+      });
+      await actionAndCapture(
+        page,
+        testInfo,
+        'The seeded podcast page has no top bar title, and the podcast header shows the podcast name.',
+        async () => {
+          await page.goto(`/podcast/${E2E_PODCAST_CHANNEL_ID_TEXT}`);
+          await expect(page).toHaveURL(new RegExp(`/podcast/${E2E_PODCAST_CHANNEL_ID_TEXT}`));
+          await expect(podcastHeading).toBeVisible();
+          await expect(chrome.getByRole('heading')).toHaveCount(0);
+        },
+        podcastHeading
+      );
+    });
+  });
+
+  test('pages with a header and no list show their title in the top bar on a wide viewport', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const chrome = page.locator('[data-appearance="web"]');
+    const pages = [
+      { path: '/terms', title: 'Terms' },
+      { path: '/membership', title: 'Membership' },
+      { path: '/sign-up', title: 'Sign Up' },
+    ];
+
+    for (const { path, title } of pages) {
+      await test.step(`The ${path} page shows ${title} in the top bar.`, async () => {
+        const barTitle = chrome.getByRole('heading', { level: 1, name: title, exact: true });
+        await actionAndCapture(
+          page,
+          testInfo,
+          `The wide ${path} page shows ${title} as the top bar title.`,
+          async () => {
+            await page.goto(path);
+            await expect(page).toHaveURL(new RegExp(`${path}$`));
+            await expect(barTitle).toBeVisible();
+          },
+          barTitle
+        );
+      });
+    }
   });
 });

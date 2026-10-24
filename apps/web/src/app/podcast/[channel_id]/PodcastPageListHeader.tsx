@@ -3,22 +3,13 @@
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
-import type {
-  QueryParamsChannelSort,
-  QueryParamsChannelType,
-  QueryParamsStatsRange,
-} from '@podverse/helpers-requests';
-import {
-  QUERY_PARAMS_CHANNEL_SORT_VALUES,
-  QUERY_PARAMS_CHANNEL_TYPE_VALUES,
-  QUERY_PARAMS_STATS_RANGE_VALUES,
-} from '@podverse/helpers-requests';
-import { Dropdown, Tabs } from '@podverse/ui';
+import type { QueryParamsChannelSort, QueryParamsChannelType } from '@podverse/helpers-requests';
+import type { ChipRowItem } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
+import { ListSortChip } from '../../../components/ListSortChip/ListSortChip';
 import { useAccount } from '../../../contexts/Account';
 import { usePodcastPageContext } from './PodcastPageContext';
-import { getPodcastPageDropdownConfig } from './PodcastPageDropdownConfig';
 
 type PodcastPageListHeaderProps = {
   ssrHasPeople: boolean;
@@ -43,148 +34,90 @@ export const PodcastPageListHeader: React.FC<PodcastPageListHeaderProps> = ({
   const tValue = useTranslations('value');
   const { loggedInAccount } = useAccount();
 
-  const { sortMenuItems, rangeMenuItems, showRangeDropdown } = getPodcastPageDropdownConfig({
-    sort,
-    tFilters,
-    tMedia,
-  });
-
-  function isChannelType(val: string): val is QueryParamsChannelType {
-    return QUERY_PARAMS_CHANNEL_TYPE_VALUES.includes(val as QueryParamsChannelType);
-  }
-  function isChannelSort(val: string): val is QueryParamsChannelSort {
-    return QUERY_PARAMS_CHANNEL_SORT_VALUES.includes(val as QueryParamsChannelSort);
-  }
-  function isStatsRange(val: string): val is QueryParamsStatsRange {
-    return QUERY_PARAMS_STATS_RANGE_VALUES.includes(val as QueryParamsStatsRange);
-  }
-
-  const handleTypeChange = (value: string) => {
-    if (isChannelType(value)) {
-      setFilterParams({ ...filterParams, type: value, page: 1 });
-    }
-  };
-
-  const handleSortChange = (value: string) => {
-    if (isChannelSort(value)) {
-      if (value === 'top') {
-        setFilterParams({ ...filterParams, sort: value, range: 'week', page: 1 });
-      } else {
-        setFilterParams({ ...filterParams, sort: value, page: 1 });
-      }
-    }
-  };
-
-  const handleRangeChange = (value: string) => {
-    if (isStatsRange(value)) {
-      setFilterParams({ ...filterParams, range: value, page: 1 });
-    }
-  };
-
-  const tabData = [
+  const items: ChipRowItem<QueryParamsChannelType>[] = [
     {
       key: 'episodes',
       label: tMedia('podcast.episodes'),
-      onClick: () => handleTypeChange('episodes'),
-      hideDesktop: false,
-      zIndex: 6,
     },
   ];
 
   if (ssrHasItemSoundbites) {
-    tabData.push({
+    items.push({
       key: 'soundbites',
       label: tInfo('soundbite.official_clips'),
-      onClick: () => handleTypeChange('soundbites'),
-      hideDesktop: false,
-      zIndex: 5,
     });
   }
 
-  tabData.push({
+  items.push({
     key: 'clips',
     label: tFeatures('clip.clips'),
-    onClick: () => handleTypeChange('clips'),
-    hideDesktop: false,
-    zIndex: 4,
   });
 
   if (ssrCanShowBoosts) {
-    tabData.push({
+    items.push({
       key: 'boosts',
       label: tValue('boost'),
-      onClick: () => handleTypeChange('boosts'),
-      hideDesktop: false,
-      zIndex: 3,
     });
   }
 
-  tabData.push({
+  items.push({
     key: 'about',
     label: tInfo('about'),
-    onClick: () => handleTypeChange('about'),
     hideDesktop: true,
-    zIndex: 2,
   });
 
   if (ssrHasPodroll) {
-    tabData.push({
+    items.push({
       key: 'podroll',
       label: tInfo('podroll'),
-      onClick: () => handleTypeChange('podroll'),
       hideDesktop: true,
-      zIndex: 1,
     });
   }
 
   if (ssrHasPeople) {
-    tabData.push({
+    items.push({
       key: 'people',
       label: tInfo('people.people'),
-      onClick: () => handleTypeChange('people'),
       hideDesktop: true,
-      zIndex: 1,
     });
   }
 
   if (loggedInAccount) {
-    tabData.push({
+    items.push({
       key: 'settings',
       label: tSettings('settings'),
-      onClick: () => handleTypeChange('settings'),
-      hideDesktop: false,
-      zIndex: 0,
     });
   }
 
-  let sideButtons: React.ReactNode = null;
-  if (type === 'episodes' || type === 'clips') {
-    sideButtons = (
-      <>
-        <Dropdown
-          key="sort"
-          value={sort ?? ''}
-          menuItems={sortMenuItems}
-          onChange={handleSortChange}
-          position="right"
-        />
-        {showRangeDropdown && (
-          <Dropdown
-            key="range"
-            value={range ?? ''}
-            menuItems={rangeMenuItems}
-            onChange={handleRangeChange}
-            position="right"
-          />
-        )}
-      </>
-    );
-  }
+  const sortOptions: { value: QueryParamsChannelSort; label: string }[] = [
+    { value: 'recent', label: tFilters('sort.recent') },
+    { value: 'oldest', label: tFilters('sort.oldest') },
+    { value: 'top', label: tFilters('sort.top') },
+  ];
 
   return (
     <CommonDetailListHeader
-      tabs={<Tabs tabData={tabData} selectedKey={type ?? ''} />}
-      sideButtons={sideButtons}
+      items={items}
+      onSelect={(nextType) => {
+        setFilterParams({ ...filterParams, type: nextType, page: 1 });
+      }}
+      selectedKey={type}
+      testId="podcast-detail-chips"
+      trailing={
+        type === 'episodes' || type === 'clips' ? (
+          <ListSortChip
+            onChange={(nextSort, nextRange) => {
+              setFilterParams({ ...filterParams, page: 1, range: nextRange, sort: nextSort });
+            }}
+            options={sortOptions}
+            position="right"
+            range={sort === 'top' ? range : null}
+            rangeSort="top"
+            testId="podcast-detail-sort"
+            value={sort}
+          />
+        ) : null
+      }
     />
   );
 };

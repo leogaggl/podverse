@@ -139,10 +139,19 @@ const PARSED_FEED = {
   ],
 };
 
-const chipRow = (page: Page) => page.getByTestId('media-list-chips');
+const chipRow = (page: Page) => page.getByTestId('media-list-chips-items');
 
 const chipButton = (page: Page, name: string) =>
   chipRow(page).getByRole('button', { name, exact: true });
+
+const chipTrailing = (page: Page) => page.getByTestId('media-list-chips-trailing');
+
+const sortChip = (page: Page) => chipTrailing(page).getByRole('button', { name: /^Sort: / });
+
+const categoryChip = (page: Page) => chipTrailing(page).getByTestId('media-list-category-chip');
+
+const layoutChip = (page: Page) =>
+  chipTrailing(page).getByRole('button', { name: 'Change Layout View', exact: true });
 
 const expectAppPath = async (page: Page, path: string): Promise<void> => {
   await expect(page).toHaveURL((url) => `${url.pathname}${url.search}` === path);
@@ -249,6 +258,16 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await expect(page.getByRole('button', { name: 'Create Playlist' })).toHaveCount(0);
       await expect(page.getByRole('tab', { name: 'My Playlists' })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'My Playlists', exact: true })).toHaveCount(0);
+      await expect(
+        chipTrailing(page).getByRole('button', { name: 'Filter: Podcasts', exact: true })
+      ).toBeVisible();
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Week');
+      await sortChip(page).click();
+      await expect(page.getByRole('menu', { name: 'Range' })).toBeVisible();
+      await expect(page.getByRole('menu', { name: 'Sort' })).toHaveCount(0);
+      await expect(page.getByTestId('media-list-chips').getByRole('menu')).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('menu', { name: 'Range' })).toHaveCount(0);
 
       await capturePageLoad(
         page,
@@ -263,6 +282,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await expectAppPath(page, '/browse?tab=users');
       await expectPressedChip(page, 'Users');
       await expect(page.locator('header').getByText('Global', { exact: true })).toHaveCount(0);
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Recent');
 
       await capturePageLoad(
         page,
@@ -273,27 +293,165 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
     });
   });
 
-  test('A Browse category link keeps the chip', async ({ page }, testInfo) => {
-    await test.step('Choosing a category on Browse Episodes keeps Episodes pressed and in the URL', async () => {
-      await page.goto('/browse?tab=episodes');
-      await expectAppPath(page, '/browse?tab=episodes');
+  test('On a narrow screen the Browse chips stay on one line and the chosen chip is scrolled into view', async ({
+    page,
+  }, testInfo) => {
+    // The row scrolls the selected chip into view on mount, so the viewport is narrow first.
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await test.step('Browse Users stays on one line, and the Users chip sits inside the row', async () => {
+      await page.goto('/browse?tab=users');
+      await expectAppPath(page, '/browse?tab=users');
       await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
-      await expectPressedChip(page, 'Episodes');
 
-      await page.locator('header').getByRole('button', { name: 'Global', exact: true }).click();
-      await page.getByRole('menuitem', { name: 'Category', exact: true }).click();
-      const categoriesDialog = page.getByRole('dialog', { name: 'Categories' });
-      await expect(categoriesDialog).toBeVisible();
-      await categoriesDialog.getByRole('button', { name: 'Arts', exact: true }).click();
+      const usersChip = page.getByTestId('media-list-chips-users');
+      const podcastsChip = page.getByTestId('media-list-chips-podcasts');
+      const chipRowRoot = page.getByTestId('media-list-chips');
+      await expect(usersChip).toHaveAttribute('aria-pressed', 'true');
 
-      await expectAppPath(page, '/browse?tab=episodes&category=arts');
-      await expectPressedChip(page, 'Episodes');
+      const usersBox = await usersChip.boundingBox();
+      const podcastsBox = await podcastsChip.boundingBox();
+      const rowBox = await chipRowRoot.boundingBox();
+      expect(usersBox, 'Users chip is in the layout').not.toBeNull();
+      expect(podcastsBox, 'Podcasts chip is in the layout').not.toBeNull();
+      expect(rowBox, 'chip row is in the layout').not.toBeNull();
+      if (usersBox === null || podcastsBox === null || rowBox === null) {
+        return;
+      }
+
+      expect(podcastsBox.y).toBe(usersBox.y);
+      expect(usersBox.x).toBeGreaterThanOrEqual(rowBox.x);
+      expect(usersBox.x + usersBox.width).toBeLessThanOrEqual(rowBox.x + rowBox.width);
 
       await capturePageLoad(
         page,
         testInfo,
-        'The category stays on Browse Episodes and Episodes stays pressed.',
-        chipButton(page, 'Episodes')
+        'On a narrow screen the Users chip stays on one line and inside the chip row.',
+        usersChip
+      );
+    });
+  });
+
+  test('On Browse, the Categories chip shows the category list in place of the list and hides Sort until a category is chosen', async ({
+    page,
+  }, testInfo) => {
+    const categoriesList = page.getByTestId('media-list-categories');
+
+    await test.step('Pressing the Categories chip on Browse Episodes shows the category list and hides Sort and the gear', async () => {
+      await page.goto('/browse?tab=episodes');
+      await expectAppPath(page, '/browse?tab=episodes');
+      await expectPressedChip(page, 'Episodes');
+      await expect(categoryChip(page)).toHaveAccessibleName('Categories');
+      await expect(categoryChip(page)).toHaveAttribute('aria-expanded', 'false');
+      await expect(sortChip(page)).toBeVisible();
+
+      await categoryChip(page).click();
+      await expect(categoryChip(page)).toHaveAttribute('aria-expanded', 'true');
+      await expect(categoriesList).toBeVisible();
+      await expect(sortChip(page)).toHaveCount(0);
+      await expect(layoutChip(page)).toHaveCount(0);
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'The category list replaces the episodes, and Sort and the gear are hidden.',
+        categoriesList
+      );
+    });
+
+    await test.step('Choosing Arts keeps Episodes pressed, names Arts on the chip, and brings Sort back', async () => {
+      await categoriesList.getByRole('button', { name: 'Arts', exact: true }).click();
+
+      await expectAppPath(page, '/browse?tab=episodes&category=arts');
+      await expectPressedChip(page, 'Episodes');
+      await expect(categoryChip(page)).toHaveAccessibleName('Categories: Arts');
+      await expect(categoryChip(page)).toHaveAttribute('aria-expanded', 'false');
+      await expect(categoriesList).toHaveCount(0);
+      await expect(sortChip(page)).toBeVisible();
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'The Categories chip names Arts and the episodes list is back.',
+        categoryChip(page)
+      );
+    });
+
+    await test.step('Reopening the list marks Arts as current, and All Categories clears the category', async () => {
+      await categoryChip(page).click();
+      await expect(
+        categoriesList.getByRole('button', { name: 'Arts', exact: true })
+      ).toHaveAttribute('aria-current', 'true');
+
+      await categoriesList.getByRole('button', { name: 'All Categories', exact: true }).click();
+
+      await expectAppPath(page, '/browse?tab=episodes');
+      await expect(categoryChip(page)).toHaveAccessibleName('Categories');
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'All Categories clears the category and the chip reads Categories again.',
+        categoryChip(page)
+      );
+    });
+  });
+
+  test('Subscribed and Browse lists put Sort and the gear after the media chips, and only where the list uses them', async ({
+    page,
+  }, testInfo) => {
+    await test.step('Signed-out Subscribed Episodes has a plain title, no Categories chip, Sort on Recent, and the gear', async () => {
+      await page.goto('/?tab=episodes&category=arts');
+      await expect(page.getByRole('heading', { name: 'Subscribed', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Subscribed >/ })).toHaveCount(0);
+      await expect(categoryChip(page)).toHaveCount(0);
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Recent');
+      await expect(layoutChip(page)).toBeVisible();
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'Subscribed Episodes shows Sort and the gear after the media chips.',
+        sortChip(page)
+      );
+    });
+
+    await test.step('On Browse Podcasts, choosing Top then Month puts Month on the sort chip', async () => {
+      await page.goto('/browse');
+      await sortChip(page).click();
+      await expect(page.getByRole('menu', { name: 'Sort' })).toBeVisible();
+      await expect(page.getByTestId('media-list-chips').getByRole('menu')).toHaveCount(0);
+
+      await page.getByRole('menuitemradio', { name: 'Top', exact: true }).click();
+      const rangeMenu = page.getByRole('menu', { name: 'Range' });
+      await expect(rangeMenu).toBeVisible();
+      await rangeMenu.getByRole('menuitemradio', { name: 'Month', exact: true }).click();
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Month');
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'The sort chip reads Month after choosing Top and then Month.',
+        sortChip(page)
+      );
+    });
+
+    await test.step('Browse Clips has Categories and Sort but no gear, and Browse Artists has Sort and the gear but no Categories', async () => {
+      await page.goto('/browse?tab=clips');
+      await expect(categoryChip(page)).toBeVisible();
+      await expect(sortChip(page)).toBeVisible();
+      await expect(layoutChip(page)).toHaveCount(0);
+
+      await page.goto('/browse?tab=artists');
+      await expect(categoryChip(page)).toHaveCount(0);
+      await expect(sortChip(page)).toBeVisible();
+      await expect(layoutChip(page)).toBeVisible();
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'Browse Artists shows Sort and the gear and no Categories chip.',
+        sortChip(page)
       );
     });
   });
@@ -494,6 +652,74 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         );
       });
 
+      await test.step('Add Feed and Check for Updates sit above the chips, and choosing Oldest updates the Sort chip', async () => {
+        const actions = page.locator('#mainOuterWrapper').getByTestId('add-by-rss-list-actions');
+        const addFeed = actions.getByRole('button', { name: 'Add Feed', exact: true });
+        const checkUpdates = actions.getByRole('button', {
+          name: 'Check for Updates',
+          exact: true,
+        });
+        await expect(addFeed).toBeVisible();
+        await expect(checkUpdates).toBeVisible();
+
+        const header = page.locator('header');
+        await expect(header.getByRole('button', { name: 'Add Feed', exact: true })).toHaveCount(0);
+        await expect(
+          header.getByRole('button', { name: 'Check for Updates', exact: true })
+        ).toHaveCount(0);
+
+        const chips = page.getByTestId('media-list-chips');
+        const actionsBox = await actions.boundingBox();
+        const chipsBox = await chips.boundingBox();
+        const addFeedBox = await addFeed.boundingBox();
+        const checkUpdatesBox = await checkUpdates.boundingBox();
+        expect(actionsBox, 'actions row is in the layout').not.toBeNull();
+        expect(chipsBox, 'chip row is in the layout').not.toBeNull();
+        expect(addFeedBox, 'Add Feed is in the layout').not.toBeNull();
+        expect(checkUpdatesBox, 'Check for Updates is in the layout').not.toBeNull();
+        if (
+          actionsBox !== null &&
+          chipsBox !== null &&
+          addFeedBox !== null &&
+          checkUpdatesBox !== null
+        ) {
+          expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(chipsBox.y);
+          expect(addFeedBox.x).toBeLessThan(checkUpdatesBox.x);
+        }
+
+        const trailing = page.getByTestId('media-list-chips-trailing');
+        const sortButton = trailing.getByRole('button', { name: 'Sort: Recent', exact: true });
+        const layoutButton = trailing.getByRole('button', {
+          name: 'Change Layout View',
+          exact: true,
+        });
+        await expect(sortButton).toBeVisible();
+        await expect(layoutButton).toBeVisible();
+        const sortBox = await sortButton.boundingBox();
+        const layoutBox = await layoutButton.boundingBox();
+        expect(sortBox, 'Sort chip is in the layout').not.toBeNull();
+        expect(layoutBox, 'layout gear is in the layout').not.toBeNull();
+        if (sortBox !== null && layoutBox !== null) {
+          expect(sortBox.x).toBeLessThan(layoutBox.x);
+        }
+
+        await expect(page.getByRole('button', { name: 'Recent', exact: true })).toHaveCount(0);
+
+        await sortButton.click();
+        // The open menu is portaled on document.body, outside the trailing slot.
+        await page.getByRole('menuitemradio', { name: 'Oldest', exact: true }).click();
+        await expect(
+          trailing.getByRole('button', { name: 'Sort: Oldest', exact: true })
+        ).toBeVisible();
+
+        await capturePageLoad(
+          page,
+          testInfo,
+          'Add Feed and Check for Updates sit above the chips, and the Sort chip shows Oldest.',
+          actions
+        );
+      });
+
       await test.step('Add Feed opens the add-feed page', async () => {
         const addFeed = page.getByRole('button', { name: 'Add Feed', exact: true });
         await addFeed.click();
@@ -527,11 +753,20 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
           hasText: E2E_CHIPS_ADD_BY_RSS_LIVESTREAM_TITLE,
         });
         await expect(liveRow.getByText('Live', { exact: true })).toBeVisible();
+        const actions = page.getByTestId('add-by-rss-list-actions');
+        await expect(
+          actions.getByRole('button', { name: 'Check for Updates', exact: true })
+        ).toBeVisible();
+        await expect(actions.getByRole('button', { name: 'Add Feed', exact: true })).toBeVisible();
         const header = page.locator('header');
         await expect(
           header.getByRole('button', { name: 'Check for Updates', exact: true })
-        ).toBeVisible();
-        await expect(header.getByRole('button', { name: 'Add Feed', exact: true })).toBeVisible();
+        ).toHaveCount(0);
+        await expect(header.getByRole('button', { name: 'Add Feed', exact: true })).toHaveCount(0);
+        await expect(page.getByTestId('media-list-chips-trailing')).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Sort: Recent', exact: true })).toHaveCount(
+          0
+        );
         await expect(
           page.getByRole('button', { name: 'Change Layout View', exact: true })
         ).toHaveCount(0);
@@ -667,8 +902,8 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         const scheduledRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_SCHEDULED_TITLE);
         const endedRecentRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE);
 
-        await page.getByRole('button', { name: 'Recent', exact: true }).click();
-        await page.getByRole('menuitem', { name: 'Oldest', exact: true }).click();
+        await page.getByRole('button', { name: 'Sort: Recent', exact: true }).click();
+        await page.getByRole('menuitemradio', { name: 'Oldest', exact: true }).click();
 
         const liveTop = await rowTop(liveRow);
         const scheduledTop = await rowTop(scheduledRow);

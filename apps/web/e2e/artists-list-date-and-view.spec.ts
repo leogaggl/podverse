@@ -24,7 +24,11 @@ test.describe('Artists list date and view', () => {
       .getByTestId('artist-row-updated')
       .filter({ hasText: DIRECTORY_ARTIST_DATE });
     const layoutButton = page.getByRole('button', { name: 'Change Layout View' });
-    const gridViewItem = page.getByRole('menuitem', { name: '✓ Grid view' });
+    const gridViewItem = page.getByRole('menuitemradio', {
+      name: 'Grid View',
+      exact: true,
+      checked: true,
+    });
 
     await test.step('The public Artists directory shows the seeded title and formatted date', async () => {
       await page.goto(ARTISTS_URL);
@@ -64,7 +68,7 @@ test.describe('Artists list date and view', () => {
         await expect(podcastsChip).toHaveAttribute('aria-pressed', 'true');
 
         await layoutButton.click();
-        await page.getByRole('menuitem', { name: 'Grid View' }).click();
+        await page.getByRole('menuitemradio', { name: 'Grid View', exact: true }).click();
         await layoutButton.click();
         await expect(gridViewItem).toBeVisible();
       },
@@ -82,7 +86,7 @@ test.describe('Artists list date and view', () => {
         await expect(artistDate).toBeVisible();
 
         await layoutButton.click();
-        await page.getByRole('menuitem', { name: 'List View' }).click();
+        await page.getByRole('menuitemradio', { name: 'List View', exact: true }).click();
         await expect(artistTitle).toBeVisible();
         await expect(artistDate).toBeVisible();
         await expect(page).toHaveURL(/\/browse\?tab=artists$/);

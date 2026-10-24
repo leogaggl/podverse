@@ -207,82 +207,73 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
     ) : null;
 
   return (
-    <>
-      <MainHeader title={`${tFeatures('add_by_rss.label')} · ${feedTitle}`} />
-      <MainWrapper>
-        <MainSidebarLayout>
-          <SideContent />
-          <MainColumnStack>
-            {headerNode ?? (
-              <section className={styles.feedHeader}>
-                <SkeletonFlashImage
-                  candidates={feedImageCandidates}
-                  alt={feedTitle || tMedia('podcast.podcast_image')}
-                  width={IMAGES.LIST.PODCASTS.SIZE}
-                  height={IMAGES.LIST.PODCASTS.SIZE}
-                  className={styles.feedImage}
-                />
-                <div className={styles.feedMeta}>
-                  <h2 className={styles.feedTitle}>{feedTitle}</h2>
-                  <p className={styles.feedUrl}>{feed.feedUrl}</p>
-                  <p className={styles.feedResource}>
-                    {tFeatures('add_by_rss.label')} · {resourceType}
+    <MainWrapper>
+      <MainSidebarLayout>
+        <SideContent />
+        <MainColumnStack>
+          {headerNode ?? (
+            <section className={styles.feedHeader}>
+              <SkeletonFlashImage
+                candidates={feedImageCandidates}
+                alt={feedTitle || tMedia('podcast.podcast_image')}
+                width={IMAGES.LIST.PODCASTS.SIZE}
+                height={IMAGES.LIST.PODCASTS.SIZE}
+                className={styles.feedImage}
+              />
+              <div className={styles.feedMeta}>
+                <h1 className={styles.feedTitle}>{feedTitle}</h1>
+                <p className={styles.feedUrl}>{feed.feedUrl}</p>
+                <p className={styles.feedResource}>
+                  {tFeatures('add_by_rss.label')} · {resourceType}
+                </p>
+                {feed.status && (
+                  <p className={styles.feedStatus}>
+                    {tFeatures('add_by_rss.status')}: {statusLabel ?? feed.status}
                   </p>
-                  {feed.status && (
-                    <p className={styles.feedStatus}>
-                      {tFeatures('add_by_rss.status')}: {statusLabel ?? feed.status}
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {feedDescription && (
-              <section className={styles.feedDescription}>
-                <DescriptionRenderer description={feedDescription} />
-                {isDescriptionTruncated(mappedChannel?.description) ? (
-                  <DescriptionTruncationNotice
-                    kind="channel"
-                    linkUrl={mappedChannel?.about?.website_link_url}
-                  />
-                ) : null}
-              </section>
-            )}
-
-            <DetailListWrapper>
-              <section className={styles.items}>
-                <h3 className={styles.itemsHeader}>{itemsLabel}</h3>
-                {items.length === 0 ? (
-                  <p
-                    className={styles.emptyItems}
-                    role={isAwaitingFirstItems ? 'status' : undefined}
-                  >
-                    {isAwaitingFirstItems
-                      ? `${tFeatures('add_by_rss.status')}: ${statusLabel ?? feed.status}`
-                      : tFeatures('add_by_rss.no_feeds')}
-                  </p>
-                ) : (
-                  <ul className={styles.itemsList}>
-                    {items.map((bundle, index) => (
-                      <li
-                        key={bundle.item.guid ?? `${index}-${feed.idText}`}
-                        className={styles.item}
-                      >
-                        <div className={styles.itemTitle}>{bundle.item.title}</div>
-                        {bundle.item.pub_date && (
-                          <div className={styles.itemDate}>
-                            {formatDateAbbrev(bundle.item.pub_date, locale)}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
                 )}
-              </section>
-            </DetailListWrapper>
-          </MainColumnStack>
-        </MainSidebarLayout>
-      </MainWrapper>
-    </>
+              </div>
+            </section>
+          )}
+
+          {feedDescription && (
+            <section className={styles.feedDescription}>
+              <DescriptionRenderer description={feedDescription} />
+              {isDescriptionTruncated(mappedChannel?.description) ? (
+                <DescriptionTruncationNotice
+                  kind="channel"
+                  linkUrl={mappedChannel?.about?.website_link_url}
+                />
+              ) : null}
+            </section>
+          )}
+
+          <DetailListWrapper>
+            <section className={styles.items}>
+              <h3 className={styles.itemsHeader}>{itemsLabel}</h3>
+              {items.length === 0 ? (
+                <p className={styles.emptyItems} role={isAwaitingFirstItems ? 'status' : undefined}>
+                  {isAwaitingFirstItems
+                    ? `${tFeatures('add_by_rss.status')}: ${statusLabel ?? feed.status}`
+                    : tFeatures('add_by_rss.no_feeds')}
+                </p>
+              ) : (
+                <ul className={styles.itemsList}>
+                  {items.map((bundle, index) => (
+                    <li key={bundle.item.guid ?? `${index}-${feed.idText}`} className={styles.item}>
+                      <div className={styles.itemTitle}>{bundle.item.title}</div>
+                      {bundle.item.pub_date && (
+                        <div className={styles.itemDate}>
+                          {formatDateAbbrev(bundle.item.pub_date, locale)}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </DetailListWrapper>
+        </MainColumnStack>
+      </MainSidebarLayout>
+    </MainWrapper>
   );
 };

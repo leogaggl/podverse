@@ -59,3 +59,47 @@ Settle these from the code where you can. Ask the operator only about product ch
 4. **Shared component.** Whether the chip row and its filter variant belong in `@podverse/ui`, per **prefer-shared-ui-web-management**.
 5. **Management-web.** Whether it shares the NavBar change, or keeps its own layout.
 6. **E2E.** Specs that assert the second bar, the dropdowns, or the category title suffix, and the screenshot report specs to update.
+
+### Review of the first planning pass
+
+The operator answered D1–D30. "Keep" means the planner's choice stands. The quote is the option they picked.
+
+- **D1** Keep. "Context from each page."
+- **D2** Keep. "Right-aligned row at the top of the content."
+- **D3** Keep. "No title in the bar on detail pages."
+- **D4** Keep. "Keep management-web's own layout, no bar title."
+- **D5** Keep. "--font-size-2xl in the bar and the small-screen row."
+- **D6** Keep. "Keep their in-page heading."
+- **D7** Keep. "Generic pieces in @podverse/ui, wrappers in the web app."
+- **D8** Keep. "One Sort chip that swaps to the range list."
+- **D9** Reverse plan 20. "Sideways scrolling, like mobile." On narrow screens the chip row scrolls sideways. Menus render in a portal so they are not clipped.
+- **D10** Keep. "Buttons with aria-pressed."
+- **D11** Keep. "Accent outline on Sort; plain gear, no caret."
+- **D12** Keep. "Server passes the config; the client fills the trailing slot."
+- **D13** Keep. "Category list in place of the results; remove the modal."
+- **D14** Keep. "Disclosure button; name becomes Categories: Arts."
+- **D15** Keep. "Reuse the mobile string in the consumer catalog."
+- **D16** Keep. "Remove the suffix on Browse and Subscribed."
+- **D17** Keep. "Keep web's full nested category tree."
+- **D18** Keep. "Only the Categories chip closes the list."
+- **D19** Keep. "No gear on Clips or Livestreams."
+- **D20** Keep. "One trailing component and one shared header."
+- **D21** Keep. "Each list keeps its own config file."
+- **D22** Keep. "Use the range the user picks."
+- **D23** Keep. "No trailing controls on Recommendations."
+- **D24** Keep. "A Filter chip before Sort."
+- **D25** Keep. "Turn them into pill chips."
+- **D26** Keep. "Keep Recent and Top."
+- **D27** Keep. "Both primary."
+- **D28** Keep. "Hide those chips from 1200px up."
+- **D29** Keep. "Keep Settings as a section chip."
+- **D30** Keep. "No new sort chip on those pages."
+
+### Review of the chip-row revision
+
+Step 07 settled the details D9 left open. The operator kept each choice. Plan 20 already matches them.
+
+- **D31** Keep. "The row scrolls at every width and never wraps." On a wide screen where every chip fits, nothing moves.
+- **D32** Keep. "An open chip menu follows its chip." It closes without a selection only once the chip is fully off screen.
+- **D33** Keep. "The scrollbar stays hidden at every width."
+- **D34** Keep. "The portal is opt-in." Only the chip menus pass `anchorRef`. Other dropdowns stay in place.

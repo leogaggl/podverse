@@ -1,7 +1,6 @@
 import type { CategoryMappingKeys } from '@podverse/helpers';
 import type {
   QueryParamsStatsRange,
-  QueryParamsSubscribedFullSort,
   QueryParamsSubscribedPartialSort,
   QueryParamsSubscribedType,
 } from '@podverse/helpers-requests';
@@ -10,62 +9,16 @@ import {
   QUERY_PARAMS_SUBSCRIBED_PARTIAL_SORT,
 } from '@podverse/helpers-requests';
 
-import {
-  buildSubscribedListDropdownConfig,
-  buildSubscribedListFilterParams,
-} from '../../../utils/dropdownMenuItems';
+import { buildSubscribedListFilterParams } from '../../../utils/dropdownMenuItems';
 import type { MediaListScope } from '../../../utils/mediaListChips';
 
-export function getEpisodesPageDropdownConfig({
-  type,
-  sort,
-  tFilters,
-  medium,
-  scope,
-}: {
-  sort: QueryParamsSubscribedFullSort;
-  type: QueryParamsSubscribedType;
-  tFilters: (key: string) => string;
-  medium?: 'av' | 'music';
-  scope?: MediaListScope;
-}) {
-  const typeOptions: { label: string; value: QueryParamsSubscribedType }[] = [];
-  if (scope === 'browse') {
-    typeOptions.push(
-      { label: tFilters('type.global'), value: 'global' },
-      { label: tFilters('type.category'), value: 'category' }
-    );
-  } else if (scope !== 'subscribed') {
-    typeOptions.push(
-      { label: tFilters('type.global'), value: 'global' },
-      { label: tFilters('type.subscribed'), value: 'subscribed' }
-    );
-    if (!medium || medium === 'av') {
-      typeOptions.push({ label: tFilters('type.category'), value: 'category' });
-    }
-  }
-
-  const categorySorts = [
-    { label: tFilters('sort.recent'), value: 'recent' as const },
-    { label: tFilters('sort.top'), value: 'top' as const },
+export function getEpisodesPageSortOptions(
+  tFilters: (key: string) => string
+): { label: string; value: QueryParamsSubscribedPartialSort }[] {
+  return [
+    { label: tFilters('sort.recent'), value: 'recent' },
+    { label: tFilters('sort.top'), value: 'top' },
   ];
-
-  return buildSubscribedListDropdownConfig({
-    categorySorts,
-    globalSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    showRangeWhenSort: 'top',
-    sort,
-    subscribedSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    tFilters,
-    type,
-    typeOptions,
-  });
 }
 
 type EpisodesPageDropdownConfigParams = {

@@ -3,7 +3,7 @@ import { AddByRSSEpisodesPageClient } from '../../components/AddByRSS/List/AddBy
 import { AddByRSSListClient } from '../../components/AddByRSS/List/AddByRSSListClient';
 import { AddByRSSLivestreamsPageClient } from '../../components/AddByRSS/List/AddByRSSLivestreamsPageClient';
 import { AddByRSSTracksPageClient } from '../../components/AddByRSS/List/AddByRSSTracksPageClient';
-import { MediaListChips } from '../../components/MediaListChips/MediaListChips';
+import type { MediaListChipsConfig } from '../../components/MediaListChips/MediaListChips';
 import {
   ADD_BY_RSS_CHIPS,
   DEFAULT_MEDIA_LIST_CHIP,
@@ -25,23 +25,28 @@ export default async function AddByRSSPage({ searchParams }: AddByRSSPageProps) 
     storedValue: readStoredMediaListChip(ssr.localSettings, 'add-by-rss'),
     defaultChip: DEFAULT_MEDIA_LIST_CHIP,
   });
-  const chipsNode = (
-    <MediaListChips page="add-by-rss" chips={ADD_BY_RSS_CHIPS} selected={chip} urlChip={urlChip} />
-  );
+  const chipsConfig: MediaListChipsConfig = {
+    page: 'add-by-rss',
+    chips: ADD_BY_RSS_CHIPS,
+    selected: chip,
+    urlChip,
+  };
 
   switch (chip) {
     case 'podcasts':
-      return <AddByRSSListClient key="podcasts" resourceType="podcasts" chipsNode={chipsNode} />;
+      return (
+        <AddByRSSListClient key="podcasts" chipsConfig={chipsConfig} resourceType="podcasts" />
+      );
     case 'episodes':
-      return <AddByRSSEpisodesPageClient key="episodes" chipsNode={chipsNode} />;
+      return <AddByRSSEpisodesPageClient key="episodes" chipsConfig={chipsConfig} />;
     case 'artists':
-      return <AddByRSSArtistsPageClient key="artists" chipsNode={chipsNode} />;
+      return <AddByRSSArtistsPageClient key="artists" chipsConfig={chipsConfig} />;
     case 'albums':
-      return <AddByRSSListClient key="albums" resourceType="albums" chipsNode={chipsNode} />;
+      return <AddByRSSListClient key="albums" chipsConfig={chipsConfig} resourceType="albums" />;
     case 'tracks':
-      return <AddByRSSTracksPageClient key="tracks" chipsNode={chipsNode} />;
+      return <AddByRSSTracksPageClient key="tracks" chipsConfig={chipsConfig} />;
     case 'livestreams':
-      return <AddByRSSLivestreamsPageClient key="livestreams" chipsNode={chipsNode} />;
+      return <AddByRSSLivestreamsPageClient key="livestreams" chipsConfig={chipsConfig} />;
     default: {
       const _exhaustive: never = chip;
       return _exhaustive;

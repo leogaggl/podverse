@@ -130,6 +130,7 @@
     },
     "browse": {
       "browse": "Περιήγηση",
+      "category_all": "Όλες οι κατηγορίες",
       "users": "Χρήστες"
     },
     "recommendations": {
@@ -681,6 +682,7 @@
       "title": "Φίλτρο και ταξινόμηση",
       "filter_heading": "Φίλτρο",
       "sort_heading": "Ταξινόμηση",
+      "sections_heading": "Ενότητες",
       "range_heading": "Εύρος"
     }
   },
@@ -779,8 +781,6 @@
     "mobile": "Κινητό",
     "donate": "Δωρεά",
     "open_source": "Ανοικτός κώδικας",
-    "browser_back": "Πίσω",
-    "browser_forward": "Εμπρός",
     "navbar_menu_open": "Άνοιγμα μενού",
     "navbar_menu_close": "Κλείσιμο μενού",
     "close_modal": "Κλείσιμο παραθύρου διαλόγου",

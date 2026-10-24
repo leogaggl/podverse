@@ -17,7 +17,6 @@ import {
   CallToActionMessage,
   DescriptionRenderer,
   Divider,
-  Dropdown,
   MainColumnStack,
   MainSidebarLayout,
   SideContent,
@@ -30,6 +29,7 @@ import { BoostMessagesSection } from '../../../components/Boost/messages/BoostMe
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
 import { DescriptionTruncationNotice } from '../../../components/Content/Description/DescriptionTruncationNotice';
 import { DetailListWrapper } from '../../../components/List/DetailListWrapper';
+import { ListSortChip } from '../../../components/ListSortChip/ListSortChip';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { Pagination } from '../../../components/Pagination/Pagination';
 import { AddByRSSCredentialsSettingsSection } from '../../../components/Settings/AddByRSSCredentialsSettingsSection';
@@ -178,18 +178,10 @@ export const AddByRSSPodcastPageDetailClient: React.FC<AddByRSSPodcastPageDetail
     setCurrentPage(1);
   };
 
-  const sortMenuItems = useMemo(
-    () => [
-      { label: tFilters('sort.recent'), param: 'sort', value: 'recent' },
-      { label: tFilters('sort.oldest'), param: 'sort', value: 'oldest' },
-    ],
-    [tFilters]
-  );
-
-  const sideButtons =
-    activeTab === 'episodes' ? (
-      <Dropdown value={sort} menuItems={sortMenuItems} onChange={handleSortChange} />
-    ) : null;
+  const sortOptions: { value: AddByRSSPodcastSort; label: string }[] = [
+    { value: 'recent', label: tFilters('sort.recent') },
+    { value: 'oldest', label: tFilters('sort.oldest') },
+  ];
 
   const statusLines = useAddByRSSFeedParseStatusLines(localFeed, locale, tFeatures, tSettings);
 
@@ -344,7 +336,20 @@ export const AddByRSSPodcastPageDetailClient: React.FC<AddByRSSPodcastPageDetail
             selectedKey={activeTab}
             onSelect={handleTabSelect}
             canShowBoosts={canShowBoostTab}
-            sideButtons={sideButtons}
+            trailing={
+              activeTab === 'episodes' ? (
+                <ListSortChip
+                  onChange={(nextSort) => {
+                    handleSortChange(nextSort);
+                  }}
+                  options={sortOptions}
+                  position="right"
+                  range={null}
+                  testId="add-by-rss-podcast-detail-sort"
+                  value={sort}
+                />
+              ) : null
+            }
           />
           <DetailListWrapper>
             {activeTab === 'episodes' && (

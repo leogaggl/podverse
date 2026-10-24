@@ -1,17 +1,33 @@
 'use client';
 
-import React from 'react';
+import { useTranslations } from 'next-intl';
+import type { ReactNode } from 'react';
 
-import { ListHeader } from '../../List/ListHeader';
+import type { ChipRowItem } from '@podverse/ui';
+import { ChipRow } from '@podverse/ui';
 
-type CommonDetailListHeaderProps = {
-  tabs: React.ReactNode;
-  sideButtons?: React.ReactNode | null;
-};
-
-export const CommonDetailListHeader: React.FC<CommonDetailListHeaderProps> = ({
-  tabs,
-  sideButtons = null,
-}) => {
-  return <ListHeader tabs={tabs} sideButtons={sideButtons} />;
-};
+export function CommonDetailListHeader<T extends string>({
+  items,
+  onSelect,
+  selectedKey,
+  testId,
+  trailing,
+}: {
+  items: readonly ChipRowItem<T>[];
+  selectedKey: T | null;
+  onSelect: (key: T) => void;
+  testId: string;
+  trailing?: ReactNode;
+}) {
+  const tFilters = useTranslations('filters');
+  return (
+    <ChipRow
+      ariaLabel={tFilters('screen.sections_heading')}
+      items={items}
+      onSelect={onSelect}
+      selectedKey={selectedKey}
+      testId={testId}
+      trailing={trailing}
+    />
+  );
+}

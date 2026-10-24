@@ -7,16 +7,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AddByRSSParseStatus, DTOChannel } from '@podverse/helpers';
 import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
-import {
-  CallToActionMessage,
-  Dropdown,
-  MainColumnStack,
-  MainSidebarLayout,
-  SideContent,
-} from '@podverse/ui';
+import { CallToActionMessage, MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
 
 import { AddByRSSArtistHeader } from '../../../components/AddByRSS/Artist/AddByRSSArtistHeader';
 import { useBoostMessagesView } from '../../../components/Boost/messages/useBoostMessagesView';
+import { ListSortChip } from '../../../components/ListSortChip/ListSortChip';
 import { WebLoadingYourContentSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { NoResults } from '../../../components/NoResults/NoResults';
@@ -545,19 +540,10 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
     );
   }
 
-  const sortMenuItems = [
-    { label: tFilters('sort.recent'), param: 'sort', value: 'recent' },
-    { label: tFilters('sort.oldest'), param: 'sort', value: 'oldest' },
+  const sortOptions: { value: SortOption; label: string }[] = [
+    { value: 'recent', label: tFilters('sort.recent') },
+    { value: 'oldest', label: tFilters('sort.oldest') },
   ];
-
-  const sideButtons =
-    activeTab === 'albums' || activeTab === 'tracks' ? (
-      <Dropdown
-        value={sort}
-        menuItems={sortMenuItems}
-        onChange={(value) => setSort(toSortOption(value))}
-      />
-    ) : null;
 
   const isEmptyActiveTab =
     activeTab !== 'settings' &&
@@ -579,7 +565,20 @@ export const AddByRSSArtistPageClient: React.FC<AddByRSSArtistPageClientProps> =
             hasTracks={hasTracks}
             canShowBoosts={canShowBoostTab}
             hasDescription={hasDescription}
-            sideButtons={sideButtons}
+            trailing={
+              activeTab === 'albums' || activeTab === 'tracks' ? (
+                <ListSortChip
+                  onChange={(nextSort) => {
+                    setSort(toSortOption(nextSort));
+                  }}
+                  options={sortOptions}
+                  position="right"
+                  range={null}
+                  testId="add-by-rss-artist-detail-sort"
+                  value={sort}
+                />
+              ) : null
+            }
           />
           {isEmptyActiveTab ? (
             <NoResults message={tFeatures('add_by_rss.no_feeds_music')} />

@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 
-import { ButtonTabs } from '@podverse/ui';
+import { ChipRow } from '@podverse/ui';
 
 import type { MediaListChip, MediaListChipsPage } from '../../utils/mediaListChips';
 import {
@@ -15,15 +16,27 @@ import {
 
 import styles from '../../styles/components/MediaListChips/MediaListChips.module.scss';
 
-type MediaListChipsProps = {
+/** What a server page knows about the chip row. Serializable; a client adds `trailing`. */
+export type MediaListChipsConfig = {
   page: MediaListChipsPage;
   chips: readonly MediaListChip[];
   selected: MediaListChip;
   urlChip: MediaListChip | null;
 };
 
-/** Chip row for Subscribed, Browse, Add by RSS, and Recommendations. */
-export function MediaListChips({ page, chips, selected, urlChip }: MediaListChipsProps) {
+type MediaListChipsProps = MediaListChipsConfig & {
+  /**
+   * Controls after the media chips, in this order: Category (Browse only, where it applies),
+   * Sort, then the gear. Mount each only when the selected chip can use it.
+   */
+  trailing?: ReactNode;
+};
+
+/**
+ * Media chips plus the trailing controls for Subscribed, Browse, Add by RSS, and
+ * Recommendations.
+ */
+export function MediaListChips({ page, chips, selected, urlChip, trailing }: MediaListChipsProps) {
   const t = useTranslations();
   const router = useRouter();
 
@@ -49,16 +62,13 @@ export function MediaListChips({ page, chips, selected, urlChip }: MediaListChip
   };
 
   return (
-    <div className={styles.chipRow} data-testid="media-list-chips">
-      <ButtonTabs
-        buttonTabs={chips.map((chip) => ({
-          key: chip,
-          label: t(MEDIA_LIST_CHIP_LABEL_KEYS[chip]),
-          onClick: () => onSelect(chip),
-        }))}
-        className={styles.chips}
-        selectedKey={selected}
-      />
-    </div>
+    <ChipRow
+      className={styles.chipRow}
+      items={chips.map((chip) => ({ key: chip, label: t(MEDIA_LIST_CHIP_LABEL_KEYS[chip]) }))}
+      onSelect={onSelect}
+      selectedKey={selected}
+      testId="media-list-chips"
+      trailing={trailing}
+    />
   );
 }

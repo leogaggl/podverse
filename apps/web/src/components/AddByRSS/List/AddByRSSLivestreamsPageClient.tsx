@@ -9,10 +9,10 @@ import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 import { AddByRSSLivestreamNodes } from '../../../components/AddByRSS/Livestream/AddByRSSLivestreamNodes';
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { dismissToast, showToast, showToastLoading } from '../../../components/Toast/Toast';
 import { useAccount } from '../../../contexts/Account';
-import { useLocalSettings } from '../../../contexts/LocalSettings';
 import { useModals } from '../../../contexts/Modals';
 import { useUpcomingAddByRSSLivestreams } from '../../../hooks/useUpcomingAddByRSSLivestreams';
 import type { AddByRSSParseOutcome } from '../../../utils/addByRSS/actions';
@@ -20,21 +20,20 @@ import { applyAddByRSSParseStatus } from '../../../utils/addByRSS/actions';
 import { runAddByRSSParseAll } from '../../../utils/addByRSS/parseAll';
 import { getAllAddByRSSFeeds } from '../../../utils/addByRSS/storage';
 import type { AddByRSSFeedRecord, AddByRSSParsedFeed } from '../../../utils/addByRSS/types';
-import { AddByRSSListHeader } from './AddByRSSListHeader';
+import { AddByRSSListHeader, AddByRSSListToolbar } from './AddByRSSListHeader';
 
 type AddByRSSLivestreamsPageClientProps = {
-  chipsNode: React.ReactNode;
+  chipsConfig: MediaListChipsConfig;
 };
 
 export const AddByRSSLivestreamsPageClient: React.FC<AddByRSSLivestreamsPageClientProps> = ({
-  chipsNode,
+  chipsConfig,
 }) => {
   const tFeatures = useTranslations('features');
   const tMedia = useTranslations('media');
   const tMisc = useTranslations('misc');
   const { loggedInAccount } = useAccount();
   const { setModalAuthLogin } = useModals();
-  const { viewSelected, setViewSelected } = useLocalSettings();
   const { items, isReady } = useUpcomingAddByRSSLivestreams(!!loggedInAccount);
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -110,19 +109,15 @@ export const AddByRSSLivestreamsPageClient: React.FC<AddByRSSLivestreamsPageClie
 
   return (
     <>
-      <AddByRSSListHeader
-        title={tFeatures('add_by_rss.label')}
-        isUpdating={isUpdating}
-        onCheckUpdates={handleCheckForUpdates}
-        checkUpdatesLabel={tFeatures('add_by_rss.check_updates')}
-        viewSelected={viewSelected}
-        setViewSelected={setViewSelected}
-        showViewSelector={false}
-      />
+      <AddByRSSListHeader title={tFeatures('add_by_rss.label')} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <AddByRSSListToolbar
+              chipsConfig={chipsConfig}
+              isUpdating={isUpdating}
+              onCheckUpdates={handleCheckForUpdates}
+            />
             {isReady && items.length > 0 ? (
               <AddByRSSLivestreamNodes items={items} viewSelected="rows" showChannelInfo />
             ) : isReady ? (

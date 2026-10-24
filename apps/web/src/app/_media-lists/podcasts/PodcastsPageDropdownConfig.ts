@@ -13,10 +13,7 @@ import {
   QUERY_PARAMS_SUBSCRIBED_FULL_SORT,
 } from '@podverse/helpers-requests';
 
-import {
-  buildSubscribedListDropdownConfig,
-  buildSubscribedListFilterParams,
-} from '../../../utils/dropdownMenuItems';
+import { buildSubscribedListFilterParams } from '../../../utils/dropdownMenuItems';
 import type { MediaListScope } from '../../../utils/mediaListChips';
 
 export function podcastsListViewModeScope(scope: MediaListScope): SortPrefScope {
@@ -25,45 +22,20 @@ export function podcastsListViewModeScope(scope: MediaListScope): SortPrefScope 
     : BROWSE_LIST_VIEW_MODE_SCOPE_PODCASTS;
 }
 
-export function getPodcastsPageDropdownConfig({
-  scope,
+export function getPodcastsPageSortOptions({
   type,
-  sort,
   tFilters,
 }: {
-  scope: MediaListScope;
-  sort: QueryParamsSubscribedFullSort;
   type: QueryParamsSubscribedType;
   tFilters: (key: string) => string;
-}) {
-  const typeOptions: { label: string; value: QueryParamsSubscribedType }[] =
-    scope === 'browse'
-      ? [
-          { label: tFilters('type.global'), value: 'global' },
-          { label: tFilters('type.category'), value: 'category' },
-        ]
-      : [];
-
-  return buildSubscribedListDropdownConfig({
-    categorySorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    globalSorts: [
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    showRangeWhenSort: 'top',
-    sort,
-    subscribedSorts: [
-      { label: tFilters('sort.a_z'), value: 'a_z' },
-      { label: tFilters('sort.recent'), value: 'recent' },
-      { label: tFilters('sort.top'), value: 'top' },
-    ],
-    tFilters,
-    type,
-    typeOptions,
-  });
+}): { label: string; value: QueryParamsSubscribedFullSort }[] {
+  const recentAndTop: { label: string; value: QueryParamsSubscribedFullSort }[] = [
+    { label: tFilters('sort.recent'), value: 'recent' },
+    { label: tFilters('sort.top'), value: 'top' },
+  ];
+  return type === 'subscribed'
+    ? [{ label: tFilters('sort.a_z'), value: 'a_z' }, ...recentAndTop]
+    : recentAndTop;
 }
 
 type PodcastsPageDropdownConfigParams = {

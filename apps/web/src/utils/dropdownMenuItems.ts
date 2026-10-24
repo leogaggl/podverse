@@ -1,99 +1,22 @@
 import type { QueryParamsStatsRange } from '@podverse/helpers-requests';
-import { getValidQueryParam } from '@podverse/helpers-requests';
-import type { DropdownOption } from '@podverse/ui';
+import { getValidQueryParam, QUERY_PARAMS_STATS_RANGE_VALUES } from '@podverse/helpers-requests';
 
 import type { MediaListScope } from './mediaListChips';
 
+/** `filters` catalog key for each popularity range. */
+export const STATS_RANGE_LABEL_KEYS = {
+  day: 'range.day',
+  week: 'range.week',
+  month: 'range.month',
+  'all-time': 'range.all_time',
+} as const satisfies Record<QueryParamsStatsRange, string>;
+
 export function getRangeDropdownItems(tFilters: (key: string) => string) {
-  return [
-    { label: tFilters('range.day'), param: 'range', value: 'day' },
-    { label: tFilters('range.week'), param: 'range', value: 'week' },
-    { label: tFilters('range.month'), param: 'range', value: 'month' },
-    { label: tFilters('range.all_time'), param: 'range', value: 'all-time' },
-  ];
-}
-
-function toTypeMenuItems<TType extends string>(
-  typeOptions: readonly { label: string; value: TType }[]
-): DropdownOption[] {
-  return typeOptions.map((item) => ({
-    label: item.label,
-    param: 'type',
-    value: item.value,
+  return QUERY_PARAMS_STATS_RANGE_VALUES.map((value) => ({
+    label: tFilters(STATS_RANGE_LABEL_KEYS[value]),
+    param: 'range',
+    value,
   }));
-}
-
-function toSortMenuItems<TSort extends string>(
-  sortOptions: readonly { label: string; value: TSort }[]
-): DropdownOption[] {
-  return sortOptions.map((item) => ({
-    label: item.label,
-    param: 'sort',
-    value: item.value,
-  }));
-}
-
-export type SubscribedListDropdownSortOption<TSort extends string> = {
-  label: string;
-  value: TSort;
-};
-
-export type SubscribedListDropdownTypeOption<TType extends string> = {
-  label: string;
-  value: TType;
-};
-
-export function buildSubscribedListDropdownConfig<
-  TType extends string,
-  TSort extends string,
->(args: {
-  categorySorts?: readonly SubscribedListDropdownSortOption<TSort>[];
-  globalSorts: readonly SubscribedListDropdownSortOption<TSort>[];
-  showRangeWhenSort: TSort;
-  sort: TSort;
-  subscribedSorts: readonly SubscribedListDropdownSortOption<TSort>[];
-  tFilters: (key: string) => string;
-  type: TType;
-  typeOptions: readonly SubscribedListDropdownTypeOption<TType>[];
-}): {
-  rangeMenuItems: DropdownOption[];
-  showRangeDropdown: boolean;
-  sortMenuItems: DropdownOption[];
-  typeMenuItems: DropdownOption[];
-} {
-  const {
-    categorySorts,
-    globalSorts,
-    showRangeWhenSort,
-    sort,
-    subscribedSorts,
-    tFilters,
-    type,
-    typeOptions,
-  } = args;
-
-  const rangeMenuItems = getRangeDropdownItems(tFilters);
-  const typeStr = String(type);
-
-  let sortMenuItems: DropdownOption[];
-  if (typeStr === 'global') {
-    sortMenuItems = toSortMenuItems(globalSorts);
-  } else if (typeStr === 'subscribed') {
-    sortMenuItems = toSortMenuItems(subscribedSorts);
-  } else if (categorySorts !== undefined && typeStr === 'category') {
-    sortMenuItems = toSortMenuItems(categorySorts);
-  } else {
-    sortMenuItems = [];
-  }
-
-  const showRangeDropdown = sort === showRangeWhenSort;
-
-  return {
-    rangeMenuItems,
-    showRangeDropdown,
-    sortMenuItems,
-    typeMenuItems: toTypeMenuItems(typeOptions),
-  };
 }
 
 type BuildSubscribedListFilterParamsBase<TType extends string, TSort extends string> = {

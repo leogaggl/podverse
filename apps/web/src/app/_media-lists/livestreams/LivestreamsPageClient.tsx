@@ -1,28 +1,28 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOItem } from '@podverse/helpers';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
+import { MediaListChips } from '../../../components/MediaListChips/MediaListChips';
 import type { MediaListScope } from '../../../utils/mediaListChips';
+import { MediaListPageHeader } from '../MediaListPageHeader';
 import { LivestreamsPageContextProvider } from './LivestreamsPageContext';
-import { LivestreamsPageHeader } from './LivestreamsPageHeader';
 import { LivestreamsPageList } from './LivestreamsPageList';
 
 type LivestreamsPageClientProps = {
   scope: MediaListScope;
-  chipsNode: ReactNode;
+  chipsConfig: MediaListChipsConfig;
   initialPage: number;
   ssrItems: DTOItem[];
   ssrTotalPages: number;
 };
 
-export type LivestreamsListProps = Omit<LivestreamsPageClientProps, 'chipsNode'>;
+export type LivestreamsListProps = Omit<LivestreamsPageClientProps, 'chipsConfig'>;
 
 export function LivestreamsPageClient(props: LivestreamsPageClientProps) {
-  const { chipsNode, initialPage, scope, ssrItems, ssrTotalPages } = props;
+  const { chipsConfig, initialPage, scope, ssrItems, ssrTotalPages } = props;
 
   return (
     <LivestreamsPageContextProvider
@@ -31,11 +31,11 @@ export function LivestreamsPageClient(props: LivestreamsPageClientProps) {
       ssrItems={ssrItems}
       ssrTotalPages={ssrTotalPages}
     >
-      <LivestreamsPageHeader />
+      <MediaListPageHeader scope={scope} />
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
+            <MediaListChips {...chipsConfig} />
             <LivestreamsPageList />
           </MainColumnStack>
         </MainSidebarLayout>

@@ -101,7 +101,7 @@ test.describe('Focus state consistency', () => {
 
     await test.step('Tab-focused button shows --box-shadow-focus ring', async () => {
       // Episode tab strip buttons use a U-shaped ::after ring (box-shadow none). Assert the global
-      // token ring on a top-chrome control (Back/Forward/Account) instead of sidebar tab stops.
+      // token ring on the account menu trigger instead of sidebar tab stops.
       await page.goto('/');
       await expect(topChromeNav(page)).toBeVisible({ timeout: 15_000 });
       await page.evaluate(() => {

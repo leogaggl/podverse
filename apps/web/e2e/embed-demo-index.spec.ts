@@ -11,7 +11,8 @@ test.describe('Embed demo index', () => {
     test.setTimeout(120_000);
 
     await page.goto('/embed');
-    await expect(page.getByRole('heading', { name: 'Embed Player' })).toBeVisible();
+    const chrome = page.locator('[data-appearance="web"]');
+    await expect(chrome.getByRole('heading', { level: 1, name: 'Embed Player' })).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Single Episodes, Tracks, and Clips' })
     ).toBeVisible();
@@ -91,7 +92,7 @@ test.describe('Embed demo index', () => {
       page,
       testInfo,
       'The embed demo index lists deterministic fixture iframe previews for every showcase slot.',
-      page.getByRole('heading', { name: 'Embed Player' })
+      chrome.getByRole('heading', { level: 1, name: 'Embed Player' })
     );
 
     await test.step('Table of contents jumps to a demo anchor', async () => {
@@ -118,6 +119,7 @@ test.describe('Embed demo index', () => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Embed' }).click();
     await expect(page).toHaveURL('/embed');
-    await expect(page.getByRole('heading', { name: 'Embed Player' })).toBeVisible();
+    const chrome = page.locator('[data-appearance="web"]');
+    await expect(chrome.getByRole('heading', { level: 1, name: 'Embed Player' })).toBeVisible();
   });
 });

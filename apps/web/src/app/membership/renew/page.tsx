@@ -2,7 +2,15 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
 import type { MembershipTier } from '@podverse/helpers';
+import {
+  FormStack,
+  MainColumnStack,
+  MainHeader,
+  MainSidebarLayout,
+  SideContent,
+} from '@podverse/ui';
 
+import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { getConfig } from '../../../config';
 import { ROUTES } from '../../../constants/routes';
 import { getSSRApiRequestService } from '../../../factories/apiRequestService';
@@ -46,30 +54,43 @@ export default async function MembershipRenewPage() {
   }
 
   return (
-    <div className="container">
-      <h1>{t(tier === 'premium' ? 'extend_my_membership' : 'buy_membership')}</h1>
-      {inGrace ? (
-        <>
-          <p>{t('manage.grace_renew_body')}</p>
-          <p>
-            <Link href={manageHref}>{t('manage.manage_membership')}</Link>
-          </p>
-          <p>
-            <Link href={purchasable ? ROUTES.CHECKOUT : ROUTES.MEMBERSHIP}>
-              {purchasable ? t('extend_my_membership') : t('membership_link_text')}
-            </Link>
-          </p>
-        </>
-      ) : (
-        <>
-          <p>
-            {t(tier === 'premium' ? 'membership_expired_text_line2' : 'trial_expired_text_line2')}
-          </p>
-          <p>
-            <Link href={ROUTES.MEMBERSHIP}>{t('membership_link_text')}</Link>
-          </p>
-        </>
-      )}
-    </div>
+    <>
+      <MainHeader title={t(tier === 'premium' ? 'extend_my_membership' : 'buy_membership')} />
+      <MainWrapper>
+        <MainSidebarLayout>
+          <SideContent />
+          <MainColumnStack>
+            <FormStack>
+              {inGrace ? (
+                <>
+                  <p>{t('manage.grace_renew_body')}</p>
+                  <p>
+                    <Link href={manageHref}>{t('manage.manage_membership')}</Link>
+                  </p>
+                  <p>
+                    <Link href={purchasable ? ROUTES.CHECKOUT : ROUTES.MEMBERSHIP}>
+                      {purchasable ? t('extend_my_membership') : t('membership_link_text')}
+                    </Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    {t(
+                      tier === 'premium'
+                        ? 'membership_expired_text_line2'
+                        : 'trial_expired_text_line2'
+                    )}
+                  </p>
+                  <p>
+                    <Link href={ROUTES.MEMBERSHIP}>{t('membership_link_text')}</Link>
+                  </p>
+                </>
+              )}
+            </FormStack>
+          </MainColumnStack>
+        </MainSidebarLayout>
+      </MainWrapper>
+    </>
   );
 }

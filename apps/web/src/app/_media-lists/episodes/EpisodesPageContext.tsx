@@ -28,8 +28,8 @@ interface EpisodesPageContextType {
   setIsLoading: (isLoading: boolean) => void;
   showSubscribeMessage: boolean;
   setShowSubscribeMessage: (show: boolean) => void;
-  showCategoriesModal: boolean;
-  setShowCategoriesModal: (show: boolean) => void;
+  isCategoryListOpen: boolean;
+  setIsCategoryListOpen: (open: boolean) => void;
 }
 
 const EpisodesPageContext = createContext<EpisodesPageContextType | undefined>(undefined);
@@ -71,7 +71,7 @@ export const EpisodesPageContextProvider = ({
   const [showSubscribeMessage, setShowSubscribeMessage] = useState<boolean>(
     scope === 'subscribed' && loggedInAccount === null
   );
-  const [showCategoriesModal, setShowCategoriesModal] = useState<boolean>(false);
+  const [isCategoryListOpen, setIsCategoryListOpen] = useState<boolean>(false);
   const medium = 'av';
 
   useFilterDefaults(scope === 'subscribed' ? 'subscribed-episodes' : 'episodes', filterParams);
@@ -152,8 +152,8 @@ export const EpisodesPageContextProvider = ({
         setIsLoading,
         showSubscribeMessage,
         setShowSubscribeMessage,
-        showCategoriesModal,
-        setShowCategoriesModal,
+        isCategoryListOpen,
+        setIsCategoryListOpen,
       }}
     >
       {children}

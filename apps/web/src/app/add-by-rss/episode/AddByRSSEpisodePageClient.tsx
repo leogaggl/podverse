@@ -9,7 +9,8 @@ import type { DTOItemChapter } from '@podverse/helpers';
 import type { TranscriptRow } from '@podverse/helpers';
 import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
-import { MainColumnStack, MainSidebarLayout, SideContent, Tabs } from '@podverse/ui';
+import type { ChipRowItem } from '@podverse/ui';
+import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
 
 import { AddByRSSPodcastHeader } from '../../../components/AddByRSS/Podcast/AddByRSSPodcastHeader';
 import { AddByRSSEpisodeDetailHeader } from '../../../components/AddByRSS/Podcast/Episode/AddByRSSEpisodeDetailHeader';
@@ -310,46 +311,33 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
     };
   }, [itemIdText, loggedInAccount]);
 
-  const tabData = React.useMemo(() => {
-    const tabs: Array<{
-      key: 'summary' | 'boosts' | 'chapters' | 'transcript';
-      label: string;
-      onClick: () => void;
-      zIndex: number;
-    }> = [
+  const items = React.useMemo(() => {
+    const next: ChipRowItem<'summary' | 'boosts' | 'chapters' | 'transcript'>[] = [
       {
         key: 'summary',
         label: tInfo('summary.summary'),
-        onClick: () => handleTabSelect('summary'),
-        zIndex: 1,
       },
     ];
     if (canShowBoostTab) {
-      tabs.push({
+      next.push({
         key: 'boosts',
         label: tValue('boost'),
-        onClick: () => handleTabSelect('boosts'),
-        zIndex: 3,
       });
     }
     if (chaptersFeedUrl) {
-      tabs.push({
+      next.push({
         key: 'chapters',
         label: tInfo('chapter.chapters'),
-        onClick: () => handleTabSelect('chapters'),
-        zIndex: 2,
       });
     }
     if (transcriptUrl) {
-      tabs.push({
+      next.push({
         key: 'transcript',
         label: tInfo('transcript.transcript'),
-        onClick: () => handleTabSelect('transcript'),
-        zIndex: 3,
       });
     }
-    return tabs;
-  }, [canShowBoostTab, chaptersFeedUrl, handleTabSelect, tInfo, tValue, transcriptUrl]);
+    return next;
+  }, [canShowBoostTab, chaptersFeedUrl, tInfo, tValue, transcriptUrl]);
 
   const handlePlayChapter = React.useCallback(
     (chapter: DTOItemChapter) => {
@@ -406,7 +394,12 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
             title={title}
             indexItem={episode}
           />
-          <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
+          <CommonDetailListHeader
+            items={items}
+            onSelect={handleTabSelect}
+            selectedKey={selectedTab}
+            testId="add-by-rss-episode-detail-chips"
+          />
           <DetailListWrapper>
             {selectedTab === 'summary' &&
               (description ? (

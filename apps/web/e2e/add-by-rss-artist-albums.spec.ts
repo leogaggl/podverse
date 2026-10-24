@@ -75,6 +75,8 @@ test.describe('Add by RSS artist albums', () => {
 
       const heading = page.getByRole('heading', { name: ARTIST_TITLE, level: 1 });
       await expect(heading).toBeVisible();
+      const chrome = page.locator('[data-appearance="web"]');
+      await expect(chrome.getByRole('heading')).toHaveCount(0);
       // The listed albums are stored after the artist page opens; wait for them before reloading.
       await expect(page.getByRole('link', { name: ALBUM_TITLE })).toBeVisible({ timeout: 15_000 });
 

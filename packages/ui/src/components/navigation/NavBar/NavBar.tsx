@@ -15,7 +15,6 @@ import { DropdownMenu } from '../DropdownMenu/DropdownMenu';
 import { DropdownMenuItem } from '../DropdownMenu/DropdownMenuItem';
 import type { DropdownMenuLinkComponentProps } from '../DropdownMenu/DropdownMenuLinkItem';
 import { DropdownMenuLinkItem } from '../DropdownMenu/DropdownMenuLinkItem';
-import { NavArrowButton } from '../NavArrowButton/NavArrowButton';
 
 import styles from './NavBar.module.scss';
 
@@ -42,13 +41,6 @@ export type NavBarBrandProps = {
   linkClassName?: string;
   LinkComponent?: ComponentType<NavBarLinkComponentProps>;
   visibility?: NavBarBrandVisibility;
-};
-
-export type NavBarBackForwardProps = {
-  backLabel: string;
-  forwardLabel: string;
-  onBack: () => void;
-  onForward: () => void;
 };
 
 export type NavBarSearchProps = {
@@ -80,10 +72,14 @@ export type NavBarMobileToggleProps = {
 export type NavBarProps = {
   appearance?: NavBarAppearance;
   accountMenu?: NavBarAccountMenuProps;
-  backForward?: NavBarBackForwardProps;
   brand: NavBarBrandProps;
   mobileToggle?: NavBarMobileToggleProps;
   search?: NavBarSearchProps;
+  /**
+   * Page title shown at the left of the bar on large screens. Hidden on small screens, where the
+   * page renders its own title row.
+   */
+  title?: string;
   trailingActions?: ReactNode;
 };
 
@@ -121,10 +117,10 @@ function NavBarSearchControl({ search }: { search: NavBarSearchProps }) {
 export function NavBar({
   appearance = 'management',
   accountMenu,
-  backForward,
   brand,
   mobileToggle,
   search,
+  title,
   trailingActions,
 }: NavBarProps) {
   const BrandLink = brand.LinkComponent ?? DefaultNavBarLink;
@@ -143,18 +139,9 @@ export function NavBar({
         </BrandLink>
       </div>
 
-      {backForward !== undefined ? (
-        <div className={styles.leftCluster}>
-          <NavArrowButton
-            ariaLabel={backForward.backLabel}
-            direction="left"
-            onClick={backForward.onBack}
-          />
-          <NavArrowButton
-            ariaLabel={backForward.forwardLabel}
-            direction="right"
-            onClick={backForward.onForward}
-          />
+      {title !== undefined && title !== '' ? (
+        <div className={styles.titleRegion}>
+          <h1 className={styles.title}>{title}</h1>
         </div>
       ) : null}
 

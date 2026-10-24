@@ -8,7 +8,8 @@ import React from 'react';
 import type { TranscriptRow } from '@podverse/helpers';
 import { isDescriptionTruncated } from '@podverse/helpers';
 import { buildAddByRssBoostChannel } from '@podverse/parser-mapping';
-import { MainColumnStack, MainSidebarLayout, SideContent, Tabs } from '@podverse/ui';
+import type { ChipRowItem } from '@podverse/ui';
+import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
 
 import { AddByRSSAlbumHeader } from '../../../components/AddByRSS/Artist/Album/AddByRSSAlbumHeader';
 import { AddByRSSTrackDetailHeader } from '../../../components/AddByRSS/Artist/Album/Track/AddByRSSTrackDetailHeader';
@@ -316,38 +317,27 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
     };
   }, [track, feed, selectedTab, transcriptUrl, tMisc, accountId]);
 
-  const tabData = React.useMemo(() => {
-    const tabs: Array<{
-      key: 'summary' | 'boosts' | 'transcript';
-      label: string;
-      onClick: () => void;
-      zIndex: number;
-    }> = [
+  const items = React.useMemo(() => {
+    const next: ChipRowItem<'summary' | 'boosts' | 'transcript'>[] = [
       {
         key: 'summary',
         label: tInfo('summary.summary'),
-        onClick: () => handleTabSelect('summary'),
-        zIndex: 1,
       },
     ];
     if (canShowBoostTab) {
-      tabs.push({
+      next.push({
         key: 'boosts',
         label: tValue('boost'),
-        onClick: () => handleTabSelect('boosts'),
-        zIndex: 2,
       });
     }
     if (transcriptUrl) {
-      tabs.push({
+      next.push({
         key: 'transcript',
         label: tInfo('transcript.lyrics'),
-        onClick: () => handleTabSelect('transcript'),
-        zIndex: 1,
       });
     }
-    return tabs;
-  }, [canShowBoostTab, handleTabSelect, tInfo, tValue, transcriptUrl]);
+    return next;
+  }, [canShowBoostTab, tInfo, tValue, transcriptUrl]);
 
   const clock = useDescriptionClockPlayback(
     track === null ? null : { indexItem: track, kind: 'add-by-rss' }
@@ -385,7 +375,12 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
             indexItem={track}
             artistLinks={artistLinks}
           />
-          <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={selectedTab} />} />
+          <CommonDetailListHeader
+            items={items}
+            onSelect={handleTabSelect}
+            selectedKey={selectedTab}
+            testId="add-by-rss-track-detail-chips"
+          />
           <DetailListWrapper>
             {selectedTab === 'summary' &&
               (description ? (

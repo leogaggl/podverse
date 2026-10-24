@@ -1,0 +1,40 @@
+@use '../../../styles/breakpoints';
+
+.chipRow {
+  min-width: 0;
+}
+
+// The padding equals the 4px focus ring, so a ring stays inside the clip on every side; the
+// matching negative margin keeps the chips on the page gutter and the row's outer box unchanged.
+.scroller {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--spacing-md);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: var(--spacing-sm);
+  margin: calc(-1 * var(--spacing-sm));
+  scroll-padding-inline: var(--spacing-sm);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.items,
+.trailing {
+  display: flex;
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.chipRow [data-hide-desktop='true'] {
+  @media (min-width: breakpoints.$breakpoint-xl-min) {
+    display: none;
+  }
+}

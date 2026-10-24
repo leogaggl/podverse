@@ -1,3 +1,5 @@
+@use '../../mixins/focus';
+
 .categoryList {
   list-style: none;
   padding: var(--spacing-none);
@@ -11,4 +13,28 @@
 
 .categoryList li {
   margin-bottom: var(--spacing-lg);
+}
+
+.categoryButton {
+  padding: var(--spacing-none);
+  border: none;
+  background: none;
+  color: var(--text-color-link);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-color-link-hover);
+  }
+
+  &:focus-visible {
+    outline: none;
+    @include focus.focus-ring;
+  }
+
+  &[aria-current='true'] {
+    color: var(--text-color-primary);
+    font-weight: var(--font-weight-bold);
+  }
 }

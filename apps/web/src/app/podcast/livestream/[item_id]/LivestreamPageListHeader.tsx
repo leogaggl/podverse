@@ -4,8 +4,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import type { QueryParamsLiveItemType } from '@podverse/helpers-requests';
-import { QUERY_PARAMS_LIVE_ITEM_TYPE_VALUES } from '@podverse/helpers-requests';
-import { Tabs } from '@podverse/ui';
+import type { ChipRowItem } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../../components/Common/List/CommonDetailListHeader';
 import { useLivestreamPageContext } from './LivestreamPageContext';
@@ -24,42 +23,35 @@ export const LivestreamPageListHeader: React.FC<LivestreamPageListHeaderProps> =
   const tInfo = useTranslations('info');
   const tValue = useTranslations('value');
 
-  function isLiveItemType(val: string): val is QueryParamsLiveItemType {
-    return QUERY_PARAMS_LIVE_ITEM_TYPE_VALUES.includes(val as QueryParamsLiveItemType);
-  }
-
-  const handleTypeChange = (value: string) => {
-    if (isLiveItemType(value)) {
-      setFilterParams({ ...filterParams, type: value });
-    }
-  };
-
-  const tabData = [
+  const items: ChipRowItem<QueryParamsLiveItemType>[] = [
     {
       key: 'summary',
       label: tInfo('summary.summary'),
-      onClick: () => handleTypeChange('summary'),
-      zIndex: 5,
     },
   ];
 
   if (ssrCanShowBoosts) {
-    tabData.push({
+    items.push({
       key: 'boosts',
       label: tValue('boost'),
-      onClick: () => handleTypeChange('boosts'),
-      zIndex: 4,
     });
   }
 
   if (ssrHasPeople) {
-    tabData.push({
+    items.push({
       key: 'people',
       label: tInfo('people.people'),
-      onClick: () => handleTypeChange('people'),
-      zIndex: 0,
     });
   }
 
-  return <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={type ?? ''} />} />;
+  return (
+    <CommonDetailListHeader
+      items={items}
+      onSelect={(nextType) => {
+        setFilterParams({ ...filterParams, type: nextType });
+      }}
+      selectedKey={type}
+      testId="livestream-detail-chips"
+    />
+  );
 };

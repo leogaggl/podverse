@@ -1,30 +1,29 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import type { DTOPlaylist } from '@podverse/helpers';
 import type { QueryParamsPlaylists } from '@podverse/helpers-requests';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
+import type { MediaListChipsConfig } from '../../components/MediaListChips/MediaListChips';
+import { PlaylistsPageChipRow } from './PlaylistsPageChipRow';
 import { PlaylistsPageContextProvider } from './PlaylistsPageContext';
 import { PlaylistsPageHeader } from './PlaylistsPageHeader';
 import { PlaylistsPageList } from './PlaylistsPageList';
-import { PlaylistsPageListHeader } from './PlaylistsPageListHeader';
 
 interface PlaylistsPageClientProps {
-  chipsNode?: ReactNode;
+  chipsConfig?: MediaListChipsConfig;
   initialQueryParams: QueryParamsPlaylists;
   listScope?: 'page' | 'browse';
   ssrPlaylists: DTOPlaylist[];
   ssrTotalPages: number;
 }
 
-export type PlaylistsListProps = Omit<PlaylistsPageClientProps, 'chipsNode'>;
+export type PlaylistsListProps = Omit<PlaylistsPageClientProps, 'chipsConfig'>;
 
 export function PlaylistsPageClient(props: PlaylistsPageClientProps) {
   const {
-    chipsNode = null,
+    chipsConfig,
     initialQueryParams,
     listScope = 'page',
     ssrPlaylists,
@@ -42,8 +41,7 @@ export function PlaylistsPageClient(props: PlaylistsPageClientProps) {
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            {chipsNode}
-            <PlaylistsPageListHeader />
+            <PlaylistsPageChipRow chipsConfig={chipsConfig} />
             <PlaylistsPageList />
           </MainColumnStack>
         </MainSidebarLayout>

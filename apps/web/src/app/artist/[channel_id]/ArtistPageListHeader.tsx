@@ -5,8 +5,7 @@ import React from 'react';
 
 import type { DTOChannel } from '@podverse/helpers';
 import type { QueryParamsChannelMusicArtistType } from '@podverse/helpers-requests';
-import { QUERY_PARAMS_CHANNEL_MUSIC_ARTIST_TYPE_VALUES } from '@podverse/helpers-requests';
-import { Tabs } from '@podverse/ui';
+import type { ChipRowItem } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
 import { useAccount } from '../../../contexts/Account';
@@ -43,89 +42,68 @@ export const ArtistPageListHeader: React.FC<ArtistPageListHeaderProps> = ({
   const tValue = useTranslations('value');
   const { loggedInAccount } = useAccount();
 
-  function isChannelType(val: string): val is QueryParamsChannelMusicArtistType {
-    return QUERY_PARAMS_CHANNEL_MUSIC_ARTIST_TYPE_VALUES.includes(
-      val as QueryParamsChannelMusicArtistType
-    );
-  }
-
-  const handleTypeChange = (value: string) => {
-    if (isChannelType(value)) {
-      setFilterParams({ ...filterParams, type: value });
-    }
-  };
-
-  const tabData = [];
+  const items: ChipRowItem<QueryParamsChannelMusicArtistType>[] = [];
 
   if (showAlbums) {
-    tabData.push({
+    items.push({
       key: 'albums',
       label: tMedia('music.albums'),
-      onClick: () => handleTypeChange('albums'),
-      hideDesktop: false,
-      zIndex: 7,
     });
   }
 
   if (showTracks) {
-    tabData.push({
+    items.push({
       key: 'tracks',
       label: tMedia('music.tracks'),
-      onClick: () => handleTypeChange('tracks'),
-      hideDesktop: false,
-      zIndex: 6,
     });
   }
 
   if (ssrCanShowBoosts) {
-    tabData.push({
+    items.push({
       key: 'boosts',
       label: tValue('boost'),
-      onClick: () => handleTypeChange('boosts'),
-      hideDesktop: false,
-      zIndex: 5,
     });
   }
 
   if (ssrHasDescription) {
-    tabData.push({
+    items.push({
       key: 'about',
       label: tInfo('about'),
-      onClick: () => handleTypeChange('about'),
       hideDesktop: true,
-      zIndex: 3,
     });
   }
 
   if (ssrHasPodroll) {
-    tabData.push({
+    items.push({
       key: 'podroll',
       label: tInfo('podroll'),
-      onClick: () => handleTypeChange('podroll'),
       hideDesktop: true,
-      zIndex: 2,
     });
   }
 
   if (ssrHasPeople) {
-    tabData.push({
+    items.push({
       key: 'people',
       label: tInfo('people.people'),
-      onClick: () => handleTypeChange('people'),
       hideDesktop: true,
-      zIndex: 1,
     });
   }
 
   if (loggedInAccount) {
-    tabData.push({
+    items.push({
       key: 'settings',
       label: tSettings('settings'),
-      onClick: () => handleTypeChange('settings'),
-      hideDesktop: false,
-      zIndex: 1,
     });
   }
 
-  return <CommonDetailListHeader tabs={<Tabs tabData={tabData} selectedKey={type ?? ''} />} />;
+  return (
+    <CommonDetailListHeader
+      items={items}
+      onSelect={(nextType) => {
+        setFilterParams({ ...filterParams, type: nextType });
+      }}
+      selectedKey={type}
+      testId="artist-detail-chips"
+    />
+  );
 };

@@ -130,6 +130,7 @@
     },
     "browse": {
       "browse": "",
+      "category_all": "",
       "users": ""
     },
     "recommendations": {
@@ -681,6 +682,7 @@
       "title": "",
       "filter_heading": "",
       "sort_heading": "",
+      "sections_heading": "",
       "range_heading": ""
     }
   },
@@ -779,8 +781,6 @@
     "mobile": "",
     "donate": "",
     "open_source": "",
-    "browser_back": "",
-    "browser_forward": "",
     "navbar_menu_open": "",
     "navbar_menu_close": "",
     "close_modal": "",

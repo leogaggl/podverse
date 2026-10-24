@@ -20,9 +20,10 @@ See [`.cursor/skills/styles-source-of-truth/SKILL.md`](/.cursor/skills/styles-so
 ## Navigation — NavBar
 
 [`NavBar`](src/components/navigation/NavBar/NavBar.tsx) is a structured composite: apps pass localized
-strings, optional regions (`accountMenu`, `backForward`, `brand`, `mobileToggle`, `search`,
-`trailingActions`), and branding via `brand.children`. `trailingActions` renders in the right cluster
-before the account menu (for app-level controls like a notifications bell). Exported types
+strings, optional regions (`accountMenu`, `brand`, `mobileToggle`, `search`, `title`,
+`trailingActions`), and branding via `brand.children`. `title` renders as the bar's `h1` after the
+brand on large screens and is hidden at the `mobile` breakpoint. `trailingActions` renders in the
+right cluster before the account menu (for app-level controls like a notifications bell). Exported types
 (`NavBarCompositeProps`, `NavBarBrandProps`, etc.) live in that module and the package barrel — do not
 duplicate them in prose docs.
 
@@ -44,9 +45,8 @@ narrower surface than dropdown link items.
 | Area            | Prop path                                       | Purpose                                          |
 | --------------- | ----------------------------------------------- | ------------------------------------------------ |
 | Brand           | `brand.children` (and optional `linkClassName`) | App provides logo or text; alt on `Image` in app |
-| Back / forward  | `backForward.backLabel`                         | Accessible label for back control                |
-| Back / forward  | `backForward.forwardLabel`                      | Accessible label for forward control             |
 | Search          | `search.ariaLabel`                              | `aria-label` for search link control             |
+| Title           | `title`                                         | Page title, already localized by the app         |
 | Account trigger | `accountMenu.ariaLabel`                         | `aria-label` for account dropdown trigger        |
 | Account rows    | `accountMenu.items[].label`                     | Row text for meta / link / action                |
 | Mobile toggle   | `mobileToggle.openLabel`                        | `aria-label` when menu is closed                 |
@@ -54,6 +54,75 @@ narrower surface than dropdown link items.
 
 Optional **`accountMenu.displayName`** is shown by the app when needed for the trigger; localization
 policy stays in the app.
+
+## Layout — MainHeader and the app bar title
+
+Pages render [`MainHeader`](src/components/layout/MainHeader/MainHeader.tsx) with `title` and
+optional `buttonsNode`. `buttonsNode` holds page actions and never enters the bar.
+
+- Apps mount [`AppBarTitleProvider`](src/components/layout/AppBarTitle/AppBarTitle.tsx) around
+  the chrome and pass `useAppBarTitle()` to `NavBar` `title`. `MainHeader` publishes its title
+  with `usePublishAppBarTitle`. A page with no `MainHeader` leaves the bar title empty.
+- Large screens: the title shows in the NavBar, and `MainHeader` renders only `buttonsNode`, as a
+  right-aligned row on the content background.
+- Small screens (the `mobile` mixin, 767px and below): `MainHeader` renders the title as its own
+  row under the NavBar, with `buttonsNode` under the title.
+- Each width exposes one `h1`: the NavBar title and the `MainHeader` title switch at the same
+  breakpoint.
+- Without a provider (tests, management-web), `MainHeader` still renders and publishes nothing.
+
+## Navigation — Chips
+
+[`Chip`](src/components/navigation/Chip/Chip.tsx),
+[`ChipRow`](src/components/navigation/Chip/ChipRow.tsx),
+[`MenuChip`](src/components/navigation/Chip/MenuChip.tsx), and
+[`SortChip`](src/components/navigation/Chip/SortChip.tsx) are the list chip family. Every string
+(labels, headings, menu names, accessible names) comes from the app.
+
+### Variants
+
+- **`pill`** picks which list shows (Podcasts, Episodes, …). Round; the selected pill fills with
+  the primary button color.
+- **`filter`** narrows the list (Category, Sort, the gear). Square radius in both states; the
+  selected face gets an accent outline and accent label.
+
+Every chip is a real `<button>` with a fixed height, so text, icon-only, and caret chips line up.
+An icon-only chip throws without `aria-label`, the same contract as `IconButton`.
+
+### `ChipRow`
+
+- Order: the items, then `trailing` (Category, Sort, then the gear). Mount each trailing control
+  only when the current item can use it; do not leave a disabled one to hold layout.
+- Items keep the caller's order. Each item chip carries `aria-pressed` inside a `role="group"`.
+- The row is one line at every width. It scrolls sideways when it does not fit, with no visible
+  scrollbar, and the trailing controls scroll with the chips. On a wide screen where everything
+  fits, nothing moves.
+- The selected chip is scrolled fully into view on mount (a jump) and on every selection change
+  (animated, or instant under reduced motion). A swipe afterwards is left alone. The offset comes
+  from `getChipRevealOffset` in `@podverse/helpers/chipRowReveal`, shared with mobile.
+- The row has no outer margin; the caller's `className` sets outer spacing.
+- A `ChipRow` item may set `hideDesktop`, which hides that chip from 1200px up. Channel detail
+  pages use it for About, Podroll, and People.
+
+### `MenuChip` and `SortChip`
+
+- `MenuChip` is a filter chip with a one-step menu (the gear). `SortChip` is one chip for the list
+  order: the face is the current sort, or the range while the range sort (Top) is selected.
+  Choosing Top swaps the open menu to the range options, and `onChange` fires only once a range
+  is chosen. When `options` is exactly the range sort, every open starts on the range list.
+- Menus show the current option as a checked radio item (`menuitemradio` with `aria-checked`)
+  and carry an accessible name.
+- Their menus render in a portal on `document.body`, anchored to the chip (`DropdownMenuPanel`
+  `anchorRef`), so the row's scroller cannot clip them. They follow the chip on scroll and
+  resize, and close with no selection once the chip is scrolled fully out of sight. `position`
+  picks which chip edge the menu lines up with.
+- Playwright and Testing Library find these menus from the page or `screen`, not inside the row.
+
+### `DropdownMenuPanel` placement
+
+Only the chip menus pass `anchorRef`. Every other `DropdownMenuPanel` caller (`Dropdown`,
+`MoreButton`, `SettingsButton`, the app menus) omits it and keeps the in-place menu, absolutely
+positioned inside its wrapper.
 
 ## Layout — ToolbarCluster
 

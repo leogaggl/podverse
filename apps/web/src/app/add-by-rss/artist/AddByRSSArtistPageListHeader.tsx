@@ -1,9 +1,9 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import type { ReactNode } from 'react';
 
-import { Tabs } from '@podverse/ui';
+import type { ChipRowItem } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
 
@@ -16,77 +16,66 @@ type AddByRSSArtistPageListHeaderProps = {
   hasTracks: boolean;
   canShowBoosts?: boolean;
   hasDescription: boolean;
-  sideButtons?: React.ReactNode | null;
+  trailing?: ReactNode;
 };
 
-export const AddByRSSArtistPageListHeader: React.FC<AddByRSSArtistPageListHeaderProps> = ({
+export function AddByRSSArtistPageListHeader({
   selectedKey,
   onSelect,
   hasAlbums,
   hasTracks,
   canShowBoosts = false,
   hasDescription,
-  sideButtons = null,
-}) => {
+  trailing,
+}: AddByRSSArtistPageListHeaderProps) {
   const tMedia = useTranslations('media');
   const tInfo = useTranslations('info');
   const tSettings = useTranslations('settings');
   const tValue = useTranslations('value');
 
-  const tabData = [];
+  const items: ChipRowItem<AddByRSSArtistPageTabKey>[] = [];
 
   if (hasAlbums) {
-    tabData.push({
+    items.push({
       key: 'albums',
       label: tMedia('music.albums'),
-      onClick: () => onSelect('albums'),
-      hideDesktop: false,
-      zIndex: 7,
     });
   }
 
   if (hasTracks) {
-    tabData.push({
+    items.push({
       key: 'tracks',
       label: tMedia('music.tracks'),
-      onClick: () => onSelect('tracks'),
-      hideDesktop: false,
-      zIndex: 6,
     });
   }
 
   if (canShowBoosts) {
-    tabData.push({
+    items.push({
       key: 'boosts',
       label: tValue('boost'),
-      onClick: () => onSelect('boosts'),
-      hideDesktop: false,
-      zIndex: 5,
     });
   }
 
   if (hasDescription) {
-    tabData.push({
+    items.push({
       key: 'about',
       label: tInfo('about'),
-      onClick: () => onSelect('about'),
       hideDesktop: true,
-      zIndex: 3,
     });
   }
 
-  tabData.push({
+  items.push({
     key: 'settings',
     label: tSettings('settings'),
-    onClick: () => onSelect('settings'),
-    hideDesktop: false,
-    zIndex: 2,
   });
 
   return (
     <CommonDetailListHeader
-      tabs={<Tabs tabData={tabData} selectedKey={selectedKey} />}
-      sideButtons={sideButtons}
+      items={items}
+      onSelect={onSelect}
+      selectedKey={selectedKey}
+      testId="add-by-rss-artist-detail-chips"
+      trailing={trailing}
     />
   );
-};
+}
