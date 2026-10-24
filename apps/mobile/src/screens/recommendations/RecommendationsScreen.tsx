@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
@@ -6,11 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { DTOAccountRecommendation, RecommendationChip } from '@podverse/helpers';
-import {
-  isRecommendationChip,
-  isTasteProfileTrackingAllowed,
-  primaryChannelListArtworkUrl,
-} from '@podverse/helpers';
+import { isTasteProfileTrackingAllowed, primaryChannelListArtworkUrl } from '@podverse/helpers';
 
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
@@ -35,8 +30,8 @@ import { LIST_ROW_ARTWORK_SIZE } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import { MediaTypeSelector } from '../home/MediaTypeSelector';
+import { readRecommendationChip, writeRecommendationChip } from './recommendationsListPrefs';
 
-const CHIP_STORAGE_KEY = 'recommendations.chip';
 const CHIPS = ['podcasts', 'albums', 'artists'] as const satisfies readonly RecommendationChip[];
 
 const CHIP_LABEL_KEYS: Record<RecommendationChip, string> = {
@@ -111,13 +106,11 @@ export function RecommendationsScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      void AsyncStorage.getItem(CHIP_STORAGE_KEY).then((stored) => {
+      void readRecommendationChip().then((stored) => {
         if (cancelled) {
           return;
         }
-        if (stored !== null && isRecommendationChip(stored)) {
-          setChip(stored);
-        }
+        setChip(stored);
         setChipReady(true);
       });
       return () => {
@@ -190,7 +183,7 @@ export function RecommendationsScreen() {
 
   const selectChip = useCallback((next: RecommendationChip) => {
     setChip(next);
-    void AsyncStorage.setItem(CHIP_STORAGE_KEY, next);
+    void writeRecommendationChip(next);
   }, []);
 
   const items = state.status === 'ready' ? state.items : [];
