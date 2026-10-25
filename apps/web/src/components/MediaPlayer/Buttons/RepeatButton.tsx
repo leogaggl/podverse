@@ -1,6 +1,8 @@
 import { useTranslations } from 'next-intl';
 import { FaRepeat } from 'react-icons/fa6';
 
+import { toggleAutoQueueRepeat } from '@podverse/playback-core';
+
 import { useAutoQueue } from '../../../contexts/AutoQueue';
 import { useAutoQueueLoadResources } from '../../../hooks/useAutoQueueLoadResources';
 
@@ -13,16 +15,11 @@ export const RepeatButton = () => {
   const autoQueueLoadResources = useAutoQueueLoadResources();
 
   const onClick = () => {
+    const nextConfig = toggleAutoQueueRepeat(autoQueueConfig);
     setAutoQueueActiveRow(0);
     setAutoQueueResources({});
-    setAutoQueueConfig({
-      ...autoQueueConfig,
-      repeat: !autoQueueConfig.repeat,
-      nextPage: 1,
-    });
-    setTimeout(() => {
-      autoQueueLoadResources();
-    }, 0);
+    setAutoQueueConfig(nextConfig);
+    void autoQueueLoadResources({ config: nextConfig, resources: {} });
   };
 
   return (

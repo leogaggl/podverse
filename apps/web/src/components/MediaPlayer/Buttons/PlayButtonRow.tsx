@@ -6,6 +6,9 @@ import { clampRatio } from '@podverse/helpers/math';
 
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
+import { useRemotePlaybackPositionSeconds } from '../../../hooks/useRemotePlaybackPositionSeconds';
+import { useRemotePlayerDisplay } from '../../../hooks/useRemotePlayerDisplay';
+import { useRemoteRowPlayback } from '../../../hooks/useRemoteRowPlayback';
 
 import styles from '../../../styles/components/MediaPlayer/Buttons/PlayButtonRow.module.scss';
 
@@ -16,6 +19,8 @@ type PlayButtonRowProps = {
   item_chapter?: DTOItemChapter;
   /** When provided (e.g. add-by-RSS livestream row), match now-playing by idText; item may be null. */
   addByRSSIdText?: string;
+  /** Add by RSS hash ids for this row (getAddByRSSHashIds), to match playback on another device. */
+  addByRSSHashIds?: readonly string[];
   onClick: () => void;
 };
 
@@ -40,38 +45,75 @@ function PlayButtonRowProgress() {
   );
 }
 
+/**
+ * Playhead for the row matching playback on another device. Only that row mounts this, so only
+ * it follows the remote position.
+ */
+function RemotePlayButtonRowProgress() {
+  const remote = useRemotePlayerDisplay();
+  const positionSeconds = useRemotePlaybackPositionSeconds(true);
+  const durationSeconds = remote?.state.duration_seconds ?? 0;
+  const position = positionSeconds ?? 0;
+  const ratio = durationSeconds > 0 ? clampRatio(position / durationSeconds) : 0;
+  const percent = ratio * 100;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={styles.playButtonRowProgress}
+      data-testid="play-button-row-progress"
+    >
+      <div className={styles.playButtonRowProgressFill} style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
 export const PlayButtonRow: React.FC<PlayButtonRowProps> = ({
   clip,
   item,
   item_chapter,
   item_soundbite,
   addByRSSIdText,
+  addByRSSHashIds,
   onClick,
 }) => {
   const { mpIsPlaying, mpItem, mpItemChapter, mpItemSoundbite, mpClip, mpAddByRSS } =
     useMediaPlayer();
   const tMediaPlayer = useTranslations('media_player');
+  const remoteRow = useRemoteRowPlayback({
+    itemIdText: item?.id_text ?? null,
+    chapterIdText: item_chapter?.id_text ?? null,
+    clipIdText: clip?.id_text ?? null,
+    soundbiteIdText: item_soundbite?.id_text ?? null,
+    addByRSSHashIds: addByRSSHashIds ?? null,
+  });
 
   if (!item && !addByRSSIdText) {
     return null;
   }
 
-  let isCurrentlyInPlayer = false;
+  let isLocalMatch = false;
   if (addByRSSIdText && mpAddByRSS?.idText === addByRSSIdText) {
-    isCurrentlyInPlayer = true;
+    isLocalMatch = true;
   } else if (item_chapter && item) {
-    isCurrentlyInPlayer = mpItemChapter?.id_text === item_chapter.id_text;
+    isLocalMatch = mpItemChapter?.id_text === item_chapter.id_text;
   } else if (item_soundbite && item) {
-    isCurrentlyInPlayer = mpItemSoundbite?.id_text === item_soundbite.id_text;
+    isLocalMatch = mpItemSoundbite?.id_text === item_soundbite.id_text;
   } else if (clip && item) {
-    isCurrentlyInPlayer = mpClip?.id_text === clip.id_text;
+    isLocalMatch = mpClip?.id_text === clip.id_text;
   } else if (mpItem && item) {
-    isCurrentlyInPlayer = mpItem.id_text === item.id_text;
+    isLocalMatch = mpItem.id_text === item.id_text;
   }
 
-  const isPlaying = isCurrentlyInPlayer && mpIsPlaying;
+  const isCurrentlyInPlayer = isLocalMatch || remoteRow.isCurrent;
+  const isPlaying = (isLocalMatch && mpIsPlaying) || remoteRow.isPlaying;
   const label = isPlaying ? tMediaPlayer('pause') : tMediaPlayer('play');
   const icon = isPlaying ? <FaPause /> : <FaPlay />;
+  const progress = isLocalMatch ? (
+    <PlayButtonRowProgress />
+  ) : remoteRow.showsProgress ? (
+    <RemotePlayButtonRowProgress />
+  ) : null;
 
   return (
     <div
@@ -88,7 +130,7 @@ export const PlayButtonRow: React.FC<PlayButtonRowProps> = ({
       >
         {icon}
       </button>
-      {isCurrentlyInPlayer ? <PlayButtonRowProgress /> : null}
+      {progress}
     </div>
   );
 };

@@ -18,14 +18,14 @@ Use when implementing or changing **mobile playback**, **queue advance**, **auto
 
 ## Stack map (web → mobile)
 
-| Web layer     | Location                                                 | Mobile equivalent                                                       |
-| ------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Policy (pure) | `apps/web/src/lib/playback/` → `@podverse/playback-core` | **Same** `@podverse/playback-core` functions                            |
-| Bridge        | `useMediaElementBridge`, `mediaElementBridgeSurface.ts`  | **`NativePlaybackBridge`** TS module → `podverse-media-engine`          |
-| Controls      | `useMediaPlayerControls()`                               | RN controls store/hook exposing `seek`, `loadAndStart`, `pauseAt`, etc. |
-| Orchestration | `NonLiveMediaOrchestrator`, ended handlers               | RN orchestrator hook on engine **ended** events                         |
-| Queue load    | `useQueueResourcesLoadActive`, queue wrappers            | Same `req*` from `@podverse/helpers-requests`                           |
-| Auto-queue    | `AutoQueue.tsx`, `useAutoQueueLoadResources`             | Same API calls; device prefs instead of cookies (`aqc.rd` / `aqc.rp`)   |
+| Web layer     | Location                                                              | Mobile equivalent                                                       |
+| ------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Policy (pure) | `apps/web/src/lib/playback/` → `@podverse/playback-core`              | **Same** `@podverse/playback-core` functions                            |
+| Bridge        | `useMediaElementBridge`, `mediaElementBridgeSurface.ts`               | **`NativePlaybackBridge`** TS module → `podverse-media-engine`          |
+| Controls      | `useMediaPlayerControls()`                                            | RN controls store/hook exposing `seek`, `loadAndStart`, `pauseAt`, etc. |
+| Orchestration | `NonLiveMediaOrchestrator`, ended handlers                            | RN orchestrator hook on engine **ended** events                         |
+| Queue load    | `useQueueResourcesLoadActive`, queue wrappers                         | Same `req*` from `@podverse/helpers-requests`                           |
+| Auto-queue    | `AutoQueue.tsx`; `@podverse/playback-core/autoQueue`, `autoQueueWalk` | `AutoQueueProvider` + `useAutoQueueFill`; fetchers are per client       |
 
 Read web hooks first for behavior; reuse wrappers and policy — replace only transport and UI.
 
@@ -71,7 +71,8 @@ Reference: [DOCS-MOBILE-PROCESS-PLAYBACK-QUEUE-PARITY.md §5–10](/docs/proposa
 
 1. Move now-playing to history (same POST wrappers as web).
 2. If manual upcoming has items → load next manual item.
-3. Else increment auto-queue row → load prefetched resource (playlist or channel sources unchanged).
+3. Else load the next auto-queue row. The eager fill usually has it already; otherwise
+   `refillAutoQueueAhead` fetches it. An Add by RSS item walks its feed instead.
 4. Run `playback-core` decision → bridge `loadAndStart`.
 5. **Write native cache snapshot** (feeds CarPlay/Android Auto — **mobile-carplay-android-auto** rule).
 
@@ -108,6 +109,51 @@ This reads like a bug to anyone meeting it cold. It is not. Do not "fix" it into
 
 A deliberate local scrub writes a newer meaningful event, so `shouldAdoptRemotePosition` declines
 and the playhead is not yanked forward.
+
+While another device is active, live control replaces the prompt. See the next section.
+
+## Cross-device playback (live control)
+
+- **Roles:** `active` plays and publishes; `remote` sends commands; `idle` plays locally and
+  claims. Route by the store's `availability === 'ready'` and `role`; read it at call time.
+- **Claims:** every local start claims, whatever started it (app, lock screen, headset, car,
+  command). An auto-advance while already active does not claim, so a device that lost the role
+  stops on the 409 instead of taking it back.
+- **Stopping for another device is silent:** pause the engine and write no playback event. A pause
+  event would put this item back as the account's now-playing. That is the same rule as
+  `adoptRemotePlaybackPosition`.
+- **Commands** run through the normal local actions, so they write the events a tap would. Live
+  items take no seek or rate. Mobile never reports `autoplay_blocked`.
+- **The 744 prompt** waits while the view is `pending`, stays closed while any device is active,
+  and works as before when nobody is active or the phone cannot see other devices. Do not show it
+  together with live control.
+- **Remote to idle:** when the role goes from `remote` to `idle` while `ready`, load a different
+  shared item paused at the shared position, or move the loaded item to that position, and write
+  no events. Do nothing on a cold open, while this phone is playing, during an authoring hold, for
+  a live item, or when the shared state has no resource.
+- **Background:** no grace period. Do not drive background work from `setTimeout` or
+  `setInterval`; Android does not fire them there. Use progress samples or request settles.
+- **Next and previous** commands run on the playing phone as taps of its own Next and Previous
+  buttons, on its own queue. A phone in the remote role sends them instead of moving locally.
+- **Commanded starts:** when `take_over`, `play_item`, or `seek` lands at or past the length of
+  the file this phone loaded, start 5 s before that length (`clampCommandStartToFileEnd`).
+- **Late end on a remote phone:** a phone in the `remote` role does not auto-advance when its own
+  file ends. Only the playing device fires end reached, auto-advance, history, journal, and
+  position events.
+- **Don't:** add a second stream, or write remote positions anywhere.
+- **Drawing the other device:** read `useCrossDevicePlayerDisplay` (mini and full player) or
+  `usePlaybackRowDisplay` (rows). Do not compare `activeTarget` alone; a superseded local item
+  stays loaded and paused under the remote display.
+- **Remote progress** comes from `useRemotePlaybackPositionSeconds` and the store's position
+  clock, never from `playbackProgressStore`. Remote duration is `state.duration_seconds`.
+- **One item for chapters:** `useNowPlayingChapters` and every `useNowPlayingAddByRssSections`
+  caller take the item from the display (`useDisplayedAddByRssResourceData` for Add by RSS); two
+  callers asking for different items make the single-entry caches fight.
+- **Failure notice is a dialog on purpose:** web uses a toast; the phone has no toast system and
+  the failure can arrive after the menu closed. Keep the reasons and copy aligned, not the
+  mechanism.
+- **Native surfaces stay local:** lock screen, notification, and car show and control the phone's
+  own player; pressing play there takes playback over.
 
 ## Last-playback snapshot (cold-start restore)
 
@@ -169,6 +215,12 @@ seamless video architecture).
 
 Whenever queue, auto-queue, or downloads metadata changes, JS must update the native cache so car
 surfaces work app-closed. Schema: Track **12.1**; implementation steps **10.22**, **12.4**, **2.35**.
+`useNativeAdvanceWindow` rewrites `advance-window.json` (manual upcoming, then up to
+`NATIVE_ADVANCE_WINDOW_AUTO_ROWS` automatic rows: auto-queue items, clips, and soundbites, or the
+next Add by RSS episodes) after each load, refill, and queue change; native walks it only while JS
+does not own advance. It also saves the window's source (`nativeAdvanceSourceRepository`), which
+`adoptEngineSource` continues when the adopted item is one of its rows, and keeps whole behind the
+queue when the adopted item is in the account queue.
 
 ## Player transport button (mini + full only)
 
@@ -228,13 +280,17 @@ way, so short viewports and large OS text sizes shrink the square instead of mov
   region and `paneSheetHeight` math (pass `sheetBottomInset` from `tokens.spacing.md`).
 - Keep transport controls on shared constants from `@podverse/helpers`
   (`MEDIA_JUMP_BACK_SECONDS` = 10, `MEDIA_JUMP_FORWARD_SECONDS` = 30).
-- Previous/next match web: tap is chapter-aware for whole-item playback (`skipToPrevious` /
-  `skipToNext`); when chapters exist, a 500ms hold skips the episode (`skipToPreviousTrack` /
-  `skipToNextTrack`) only when something is ahead. Probe the live queue before mutating: a
-  long-press with an empty upcoming + auto-queue is a no-op, including when another device emptied
-  the queue after the last UI refresh. A skip that cannot start the next item must leave the
-  current item playing; only natural complete may clear now-playing. Clip and soundbite targets
-  never use chapter prev/next.
+- Previous and next are chapter-aware for whole-item playback. A tap steps chapters
+  (`skipToPrevious` / `skipToNext`). When chapters exist, a 500ms hold skips the item
+  (`skipToPreviousTrack` / `skipToNextTrack`) only when something is ahead. Without chapters,
+  Previous restarts past 3 seconds, otherwise steps back through played auto-queue rows, then
+  walks the source backward. Shuffle only restarts. Account queue history is not used. The hold
+  and the remote Previous command skip the 3-second restart. Next is enabled only when something
+  is next: the manual queue for the playing medium, a loaded auto-queue row, or a newer Add by
+  RSS feed item. Web leaves Next enabled. Probe the live queue before mutating: a long-press
+  with nothing ahead is a no-op, including when another device emptied the queue after the last
+  UI refresh. A skip that cannot start the next item must leave the current item playing; only
+  natural complete may clear now-playing. Clip and soundbite targets never use chapter prev/next.
 - When the item completes and nothing is ahead, now-playing clears and the **focused** full player
   dismisses. Make clip holds the item (`beginAuthoringHold`) and must stay mounted: do not add
   empty-session dismiss there, and do not `goBack()` from an unfocused full player (that would pop
@@ -331,8 +387,10 @@ touch target because it is the one a listener reaches for without looking.
   `FaRotateRight`), with the interval in the accessibility label; they do not print `-10` /
   `+30` as their face.
 - **Previous/next are chapter-aware.** Tap steps chapters when the episode has them; a hold (500ms)
-  skips the episode. Without chapters, previous restarts past 3s or else skips to the prior queue
-  item, and next skips the queue.
+  skips the item when something is ahead. Without chapters, Previous restarts past 3 seconds, else
+  steps back through played auto-queue rows, then walks the source backward. Shuffle only restarts.
+  Account queue history is not used. The hold and the remote Previous command skip the 3-second
+  restart. Next is enabled only when something is next. Web leaves Next enabled.
 - **Rate is plain text.** Playback speed is a `ghost` label with no fill or border, so it does not
   read as a second primary action beside the play circle.
 - **Music transport is previous, play, and next.** Shuffle and repeat sit in the utility row with
@@ -385,7 +443,9 @@ fit, and truncates instead under Reduce Motion.
 
 - **Do** call `@podverse/playback-core` for seek/resume/auto-play/`pauseAt` decisions.
 - **Do** route UI actions through the mobile controls hook → bridge (not direct engine calls from screens).
-- **Do** mirror web `req*` sequences for queue/playlist/auto-queue.
+- **Do** send auto-queue source choice and walks through `@podverse/playback-core` (`autoQueue`,
+  `autoQueueWalk`, `addByRSSListWalk`) with each client's fetchers. Mirror web `req*` sequences
+  for the manual queue and playlists.
 - **Don't** edit `useMediaElementBridge` for mobile behavior.
 - **Don't** duplicate policy logic in RN or native Swift/Kotlin.
 - **Don't** use Playwright or `make e2e_*` for mobile playback verification — Maestro/Detox (**mobile-e2e-screenshots**).

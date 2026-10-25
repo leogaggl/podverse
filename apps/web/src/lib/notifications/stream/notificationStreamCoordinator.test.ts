@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AccountNotificationStreamEvent, AuthSessionEndedNotice } from '@podverse/helpers';
-import { ACCOUNT_SESSION_STREAM_EVENT } from '@podverse/helpers';
+import type {
+  AccountNotificationStreamEvent,
+  AccountPlaybackStreamEvent,
+  AuthSessionEndedNotice,
+} from '@podverse/helpers';
+import { ACCOUNT_PLAYBACK_STREAM_EVENT, ACCOUNT_SESSION_STREAM_EVENT } from '@podverse/helpers';
 
 import type {
   NotificationStreamConnectionOptions,
@@ -27,6 +31,23 @@ const CREATED_RAW = JSON.stringify({ notification: NOTIFICATION, unread_count: 1
 const CREATED_PARSED = {
   type: 'notification.created',
   data: { notification: NOTIFICATION, unread_count: 1 },
+};
+const PLAYBACK_STATE = {
+  revision: 1,
+  active_session_id_text: 'session-1',
+  resource: null,
+  status: 'paused',
+  is_live: false,
+  position_seconds: null,
+  duration_seconds: null,
+  rate: 1,
+  updated_at_ms: 1_700_000_000_000,
+  sent_at_ms: 1_700_000_000_250,
+};
+const PLAYBACK_STATE_RAW = JSON.stringify(PLAYBACK_STATE);
+const PLAYBACK_STATE_PARSED = {
+  type: ACCOUNT_PLAYBACK_STREAM_EVENT.state,
+  data: PLAYBACK_STATE,
 };
 
 /** Lets queued microtasks (lock grants, channel delivery) run. */
@@ -135,6 +156,7 @@ function createTestBrowser() {
   const environment: NotificationStreamEnvironment = {
     locks,
     createChannel: hub.create,
+    now: () => 0,
     openConnection: (options) => {
       const fake: FakeConnection = { options, closed: false };
       connections.push(fake);
@@ -155,15 +177,23 @@ function createTestBrowser() {
     const events: AccountNotificationStreamEvent[] = [];
     const statuses: NotificationStreamStatus[] = [];
     const sessionEnded: AuthSessionEndedNotice[] = [];
+    const playbackEvents: Array<{ event: AccountPlaybackStreamEvent; receivedAtMs: number }> = [];
+    const leadership: boolean[] = [];
     const coordinator = startNotificationStreamCoordinator({
       accountId,
       apiBaseUrl: API_BASE_URL,
       onEvent: (event) => events.push(event),
       onSessionEnded: (notice) => sessionEnded.push(notice),
+      onPlaybackEvent: (event, receivedAtMs) => {
+        playbackEvents.push({ event, receivedAtMs });
+      },
+      onLeadership: (isLeader) => {
+        leadership.push(isLeader);
+      },
       onStatus: (status) => statuses.push(status),
       environment: { ...environment, ...overrides },
     });
-    return { coordinator, events, statuses, sessionEnded };
+    return { coordinator, events, statuses, sessionEnded, playbackEvents, leadership };
   };
 
   const connectionAt = (index: number): FakeConnection => {
@@ -190,6 +220,14 @@ function createTestBrowser() {
     });
   };
 
+  const emitPlaybackState = (connection: FakeConnection, rawData: string) => {
+    connection.options.onRawEvent({
+      eventName: ACCOUNT_PLAYBACK_STREAM_EVENT.state,
+      rawData,
+      lastEventId: null,
+    });
+  };
+
   const openConnections = () => connections.filter((connection) => !connection.closed);
 
   return {
@@ -200,6 +238,7 @@ function createTestBrowser() {
     connectionAt,
     emitCreated,
     emitSessionEnded,
+    emitPlaybackState,
     openConnections,
   };
 }
@@ -337,5 +376,68 @@ describe('startNotificationStreamCoordinator', () => {
     expect(browser.openConnections()).toHaveLength(0);
     expect(browser.hub.openCount()).toBe(0);
     expect(browser.locks.isHeld('podverse:notification-stream:1')).toBe(false);
+  });
+
+  it('delivers a playback state event to every tab with that tab receive time', async () => {
+    const browser = createTestBrowser();
+    const leader = browser.start(1, { now: () => 1_000 });
+    const follower = browser.start(1, { now: () => 2_000 });
+    await flush();
+
+    browser.emitPlaybackState(browser.connectionAt(0), PLAYBACK_STATE_RAW);
+    await flush();
+
+    expect(leader.playbackEvents).toEqual([{ event: PLAYBACK_STATE_PARSED, receivedAtMs: 1_000 }]);
+    expect(follower.playbackEvents).toEqual([
+      { event: PLAYBACK_STATE_PARSED, receivedAtMs: 2_000 },
+    ]);
+    expect(leader.events).toEqual([]);
+    expect(follower.events).toEqual([]);
+  });
+
+  it('drops an invalid playback state payload in every tab', async () => {
+    const browser = createTestBrowser();
+    const leader = browser.start(1);
+    const follower = browser.start(1);
+    await flush();
+
+    browser.emitPlaybackState(browser.connectionAt(0), '{"revision":1}');
+    await flush();
+
+    expect(leader.playbackEvents).toEqual([]);
+    expect(follower.playbackEvents).toEqual([]);
+    expect(leader.events).toEqual([]);
+    expect(follower.events).toEqual([]);
+  });
+
+  it('reports leadership as the lock moves, and false once when the leader stops', async () => {
+    const browser = createTestBrowser();
+    const leader = browser.start(1);
+    const follower = browser.start(1);
+    await flush();
+
+    expect(leader.leadership).toEqual([false, true]);
+    expect(follower.leadership).toEqual([false]);
+
+    leader.coordinator.stop();
+    await flush();
+
+    expect(leader.leadership).toEqual([false, true, false]);
+    expect(follower.leadership).toEqual([false, true]);
+
+    leader.coordinator.stop();
+    await flush();
+
+    expect(leader.leadership).toEqual([false, true, false]);
+  });
+
+  it('reports each tab as leader when Web Locks are unavailable', async () => {
+    const browser = createTestBrowser();
+    const first = browser.start(1, { locks: null });
+    const second = browser.start(1, { locks: null });
+    await flush();
+
+    expect(first.leadership).toEqual([false, true]);
+    expect(second.leadership).toEqual([false, true]);
   });
 });

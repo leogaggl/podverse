@@ -4,6 +4,7 @@ import { FaPause, FaPlay } from 'react-icons/fa6';
 import type { DTOClip, DTOItem, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers';
 
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
+import { useRemoteRowPlayback } from '../../../hooks/useRemoteRowPlayback';
 import { playbackErrorIdentity } from '../../../utils/media/playbackErrorCopy';
 import { PlaybackErrorButton } from './PlaybackErrorButton';
 
@@ -16,6 +17,8 @@ type PlayButtonLargeProps = {
   item_soundbite?: DTOItemSoundbite;
   /** When provided (e.g. add-by-RSS livestream detail), match now-playing by idText. */
   addByRSSIdText?: string;
+  /** Add by RSS hash ids for this row (getAddByRSSHashIds), to match playback on another device. */
+  addByRSSHashIds?: readonly string[];
   onClick: () => void;
 };
 
@@ -25,6 +28,7 @@ export const PlayButtonLarge: React.FC<PlayButtonLargeProps> = ({
   item_chapter,
   item_soundbite,
   addByRSSIdText,
+  addByRSSHashIds,
   onClick,
 }) => {
   const {
@@ -37,21 +41,28 @@ export const PlayButtonLarge: React.FC<PlayButtonLargeProps> = ({
     mpPlaybackError,
   } = useMediaPlayer();
   const tMediaPlayer = useTranslations('media_player');
+  const remoteRow = useRemoteRowPlayback({
+    itemIdText: item?.id_text ?? null,
+    chapterIdText: item_chapter?.id_text ?? null,
+    clipIdText: clip?.id_text ?? null,
+    soundbiteIdText: item_soundbite?.id_text ?? null,
+    addByRSSHashIds: addByRSSHashIds ?? null,
+  });
 
-  let isCurrentlyInPlayer = false;
+  let isLocalMatch = false;
   if (addByRSSIdText && mpAddByRSS?.idText === addByRSSIdText) {
-    isCurrentlyInPlayer = true;
+    isLocalMatch = true;
   } else if (clip) {
-    isCurrentlyInPlayer = mpClip?.id_text === clip.id_text;
+    isLocalMatch = mpClip?.id_text === clip.id_text;
   } else if (item_soundbite) {
-    isCurrentlyInPlayer = mpItemSoundbite?.id_text === item_soundbite.id_text;
+    isLocalMatch = mpItemSoundbite?.id_text === item_soundbite.id_text;
   } else if (item_chapter) {
-    isCurrentlyInPlayer = mpItemChapter?.id_text === item_chapter.id_text;
+    isLocalMatch = mpItemChapter?.id_text === item_chapter.id_text;
   } else if (item && !mpClip && !mpItemSoundbite) {
-    isCurrentlyInPlayer = mpItem?.id === item.id;
+    isLocalMatch = mpItem?.id === item.id;
   }
 
-  const isPlaying = isCurrentlyInPlayer && mpIsPlaying;
+  const isPlaying = (isLocalMatch && mpIsPlaying) || remoteRow.isPlaying;
   const loadedIdentity = playbackErrorIdentity({
     addByRssResourceData: mpAddByRSS?.resourceData ?? null,
     itemIdText: mpItem?.id_text ?? null,
@@ -59,7 +70,7 @@ export const PlayButtonLarge: React.FC<PlayButtonLargeProps> = ({
     soundbiteIdText: mpItemSoundbite?.id_text ?? null,
   });
   if (
-    isCurrentlyInPlayer &&
+    isLocalMatch &&
     mpPlaybackError !== null &&
     loadedIdentity !== null &&
     mpPlaybackError.identity === loadedIdentity

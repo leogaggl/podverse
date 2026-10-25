@@ -2310,6 +2310,574 @@ components:
             - password_changed
             - admin_force_logout
             - security
+    ApiPlaybackResourceRef:
+      description: >-
+        The resource a device plays, by kind. Ids are non-empty and at most 500 characters.
+      oneOf:
+        - type: object
+          required:
+            - kind
+            - item_id_text
+          properties:
+            kind:
+              type: string
+              enum:
+                - item
+            item_id_text:
+              type: string
+              minLength: 1
+              maxLength: 500
+        - type: object
+          required:
+            - kind
+            - clip_id_text
+          properties:
+            kind:
+              type: string
+              enum:
+                - clip
+            clip_id_text:
+              type: string
+              minLength: 1
+              maxLength: 500
+        - type: object
+          required:
+            - kind
+            - item_soundbite_id_text
+          properties:
+            kind:
+              type: string
+              enum:
+                - soundbite
+            item_soundbite_id_text:
+              type: string
+              minLength: 1
+              maxLength: 500
+        - type: object
+          required:
+            - kind
+            - add_by_rss_hash_id
+          properties:
+            kind:
+              type: string
+              enum:
+                - add_by_rss
+            add_by_rss_hash_id:
+              type: string
+              minLength: 1
+              maxLength: 500
+      example:
+        kind: item
+        item_id_text: abcdefghi1
+    ApiPlaybackResourceSummary:
+      type: object
+      description: The resource the playing device has loaded, with what other devices display.
+      required:
+        - ref
+        - medium
+        - title
+        - channel_title
+        - image_url
+      properties:
+        ref:
+          $ref: "#/components/schemas/ApiPlaybackResourceRef"
+        medium:
+          type: integer
+          description: >-
+            The resource's channel medium id, the same values as a channel's `medium_id`. An id
+            the API does not know is a 400.
+          example: 1
+        title:
+          type: string
+          nullable: true
+          maxLength: 500
+        channel_title:
+          type: string
+          nullable: true
+          maxLength: 500
+        image_url:
+          type: string
+          nullable: true
+          maxLength: 2048
+    ApiPlaybackState:
+      type: object
+      description: >-
+        The account's playback state, written by the playing device. `revision` only grows;
+        clients ignore a state whose revision is not newer than the one they hold. A live item has
+        null `position_seconds` and `duration_seconds` and rate 1. With no resource, `status` is
+        `paused` and `position_seconds` is null.
+      required:
+        - revision
+        - active_session_id_text
+        - resource
+        - status
+        - is_live
+        - position_seconds
+        - duration_seconds
+        - rate
+        - updated_at_ms
+        - sent_at_ms
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        active_session_id_text:
+          type: string
+          nullable: true
+          description: The session of the playing device; null when no device is active.
+        resource:
+          allOf:
+            - $ref: "#/components/schemas/ApiPlaybackResourceSummary"
+          nullable: true
+        status:
+          type: string
+          enum:
+            - playing
+            - paused
+            - loading
+        is_live:
+          type: boolean
+        position_seconds:
+          type: number
+          minimum: 0
+          nullable: true
+        duration_seconds:
+          type: number
+          minimum: 0
+          nullable: true
+        rate:
+          type: number
+          minimum: 0.5
+          maximum: 3
+        updated_at_ms:
+          type: integer
+          minimum: 0
+          description: Server clock (epoch ms) when this position was accepted.
+        sent_at_ms:
+          type: integer
+          minimum: 0
+          description: Server clock (epoch ms) when this copy was written to the response or stream.
+      example:
+        revision: 1793944800000
+        active_session_id_text: s1abcdefgh
+        resource:
+          ref:
+            kind: item
+            item_id_text: abcdefghi1
+          medium: 1
+          title: Episode One
+          channel_title: The Show
+          image_url: null
+        status: playing
+        is_live: false
+        position_seconds: 120.5
+        duration_seconds: 3600
+        rate: 1
+        updated_at_ms: 1793944800000
+        sent_at_ms: 1793944800000
+    ApiPlaybackDevice:
+      type: object
+      description: A connected device. Each device is one login session.
+      required:
+        - session_id_text
+        - client_type
+        - device_label
+        - session_created_at
+      properties:
+        session_id_text:
+          type: string
+        client_type:
+          type: string
+          enum:
+            - web
+            - mobile
+        device_label:
+          type: string
+          nullable: true
+        session_created_at:
+          type: string
+          format: date-time
+          description: Clients sort by it and use it to tell same-label devices apart.
+    ApiPlaybackDevices:
+      type: object
+      description: >-
+        The devices checked in now. `revision` only grows; clients ignore a list whose revision is
+        not newer than the one they hold.
+      required:
+        - revision
+        - devices
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiPlaybackDevice"
+    ApiPlaybackSnapshot:
+      type: object
+      description: >-
+        Data of `playback.snapshot`: the devices and the state at once. It replaces the client's
+        playback view.
+      required:
+        - devices
+        - state
+      properties:
+        devices:
+          $ref: "#/components/schemas/ApiPlaybackDevices"
+        state:
+          allOf:
+            - $ref: "#/components/schemas/ApiPlaybackState"
+          nullable: true
+    ApiPlaybackCommandPlay:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - play
+    ApiPlaybackCommandPause:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - pause
+    ApiPlaybackCommandSeek:
+      type: object
+      description: >-
+        An absolute position. A skip is a seek the sender computes, so two devices skipping at once
+        land on the same spot. Not allowed for a live item.
+      required:
+        - type
+        - position_seconds
+      properties:
+        type:
+          type: string
+          enum:
+            - seek
+        position_seconds:
+          type: number
+          minimum: 0
+    ApiPlaybackCommandSetRate:
+      type: object
+      description: Not allowed for a live item.
+      required:
+        - type
+        - rate
+      properties:
+        type:
+          type: string
+          enum:
+            - set_rate
+        rate:
+          type: number
+          minimum: 0.5
+          maximum: 3
+    ApiPlaybackCommandNext:
+      type: object
+      description: >-
+        The playing device runs its own Next button on its own queue. The server never edits a
+        queue for it.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - next
+    ApiPlaybackCommandPrevious:
+      type: object
+      description: >-
+        The playing device runs its own Previous button on its own queue. The server never edits a
+        queue for it.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - previous
+    ApiPlaybackCommandPlayItem:
+      type: object
+      description: >-
+        The playing device plays this resource through its normal play path, which writes
+        now-playing through the queue routes.
+      required:
+        - type
+        - resource
+        - add_by_rss_resource_data
+        - start_seconds
+      properties:
+        type:
+          type: string
+          enum:
+            - play_item
+        resource:
+          $ref: "#/components/schemas/ApiPlaybackResourceRef"
+        add_by_rss_resource_data:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: >-
+            Required when `resource.kind` is `add_by_rss`, null for every other kind. Its shape is
+            validated where the playing device uses it.
+        start_seconds:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Null resumes the saved position, or the live point for a live item.
+    ApiPlaybackCommandTakeOver:
+      type: object
+      description: >-
+        Moves playback to the target device. Carries no item; the server attaches the stored
+        state to the envelope.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - take_over
+    ApiPlaybackCommand:
+      description: >-
+        A command names the target state, never a toggle, so two devices pressing at once cannot
+        cancel each other.
+      oneOf:
+        - $ref: "#/components/schemas/ApiPlaybackCommandPlay"
+        - $ref: "#/components/schemas/ApiPlaybackCommandPause"
+        - $ref: "#/components/schemas/ApiPlaybackCommandSeek"
+        - $ref: "#/components/schemas/ApiPlaybackCommandSetRate"
+        - $ref: "#/components/schemas/ApiPlaybackCommandNext"
+        - $ref: "#/components/schemas/ApiPlaybackCommandPrevious"
+        - $ref: "#/components/schemas/ApiPlaybackCommandPlayItem"
+        - $ref: "#/components/schemas/ApiPlaybackCommandTakeOver"
+      discriminator:
+        propertyName: type
+        mapping:
+          play: "#/components/schemas/ApiPlaybackCommandPlay"
+          pause: "#/components/schemas/ApiPlaybackCommandPause"
+          seek: "#/components/schemas/ApiPlaybackCommandSeek"
+          set_rate: "#/components/schemas/ApiPlaybackCommandSetRate"
+          next: "#/components/schemas/ApiPlaybackCommandNext"
+          previous: "#/components/schemas/ApiPlaybackCommandPrevious"
+          play_item: "#/components/schemas/ApiPlaybackCommandPlayItem"
+          take_over: "#/components/schemas/ApiPlaybackCommandTakeOver"
+    ApiPlaybackCommandEnvelope:
+      type: object
+      description: >-
+        Data of `playback.command`, sent only to the target device's streams. Clients drop it once
+        `expires_at_ms` has passed.
+      required:
+        - command_id
+        - sender_session_id_text
+        - target_session_id_text
+        - issued_at_ms
+        - expires_at_ms
+        - command
+        - state
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        sender_session_id_text:
+          type: string
+        target_session_id_text:
+          type: string
+        issued_at_ms:
+          type: integer
+          minimum: 0
+        expires_at_ms:
+          type: integer
+          minimum: 0
+          description: Five seconds after `issued_at_ms`.
+        command:
+          $ref: "#/components/schemas/ApiPlaybackCommand"
+        state:
+          allOf:
+            - $ref: "#/components/schemas/ApiPlaybackState"
+          nullable: true
+          description: The stored state for `take_over`; null for every other command.
+    ApiPlaybackStartFailed:
+      type: object
+      description: >-
+        Data of `playback.start_failed`, sent only to the sender's streams: the target could not
+        start audio for that command.
+      required:
+        - command_id
+        - sender_session_id_text
+        - target_session_id_text
+        - reason
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        sender_session_id_text:
+          type: string
+        target_session_id_text:
+          type: string
+        reason:
+          $ref: "#/components/schemas/ApiPlaybackStartFailedReason"
+    ApiPlaybackStartFailedReason:
+      type: string
+      description: >-
+        `autoplay_blocked`: the target needs a tap before it can play and shows a tap-to-play
+        prompt. `load_failed`: the media did not load.
+      enum:
+        - autoplay_blocked
+        - load_failed
+    ApiPlaybackErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - playback_not_active_device
+                - playback_no_active_device
+                - playback_device_not_connected
+                - playback_target_already_active
+                - playback_nothing_to_transfer
+                - playback_command_not_allowed_for_live
+                - playback_take_over_self
+                - playback_unavailable
+            active_session_id_text:
+              type: string
+              nullable: true
+              description: >-
+                Present on `playback_not_active_device`: the device that is active now, or null
+                when none is.
+    ApiPostAccountPlaybackPresenceResponse200:
+      allOf:
+        - $ref: "#/components/schemas/ApiPlaybackSnapshot"
+        - type: object
+          required:
+            - session_id_text
+          properties:
+            session_id_text:
+              type: string
+              description: This device's session id.
+      description: >-
+        Devices and state apply by revision, not as a replacing snapshot: the response can be
+        older than an event the stream already delivered.
+    ApiPostAccountPlaybackStateRequest:
+      type: object
+      required:
+        - claim
+        - resource
+        - status
+        - is_live
+        - position_seconds
+        - duration_seconds
+        - rate
+      properties:
+        claim:
+          type: boolean
+          description: >-
+            True makes the caller the active device (it started playing locally or took over).
+            The last claim wins.
+        resource:
+          allOf:
+            - $ref: "#/components/schemas/ApiPlaybackResourceSummary"
+          nullable: true
+          description: Null with `claim` false releases the active device.
+        status:
+          type: string
+          enum:
+            - playing
+            - paused
+            - loading
+          description: Must be `paused` when `resource` is null.
+        is_live:
+          type: boolean
+        position_seconds:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Must be null for a live item or when `resource` is null.
+        duration_seconds:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Must be null for a live item.
+        rate:
+          type: number
+          minimum: 0.5
+          maximum: 3
+          description: Must be 1 for a live item.
+      example:
+        claim: true
+        resource:
+          ref:
+            kind: item
+            item_id_text: abcdefghi1
+          medium: 1
+          title: Episode One
+          channel_title: The Show
+          image_url: null
+        status: playing
+        is_live: false
+        position_seconds: 120.5
+        duration_seconds: 3600
+        rate: 1
+    ApiPostAccountPlaybackStateResponse200:
+      type: object
+      required:
+        - revision
+        - active_session_id_text
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        active_session_id_text:
+          type: string
+          nullable: true
+    ApiPostAccountPlaybackCommandRequest:
+      type: object
+      required:
+        - command
+      properties:
+        target_session_id_text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: >-
+            Required for `take_over` and refused for every other command, which goes to the active
+            device.
+        command:
+          $ref: "#/components/schemas/ApiPlaybackCommand"
+      example:
+        command:
+          type: pause
+    ApiPostAccountPlaybackCommandResponse202:
+      type: object
+      required:
+        - command_id
+        - target_session_id_text
+        - expires_at_ms
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        target_session_id_text:
+          type: string
+        expires_at_ms:
+          type: integer
+          minimum: 0
+    ApiPostAccountPlaybackStartFailedRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          $ref: "#/components/schemas/ApiPlaybackStartFailedReason"
+      example:
+        reason: autoplay_blocked
     ChannelSeenState:
       type: object
       required:
@@ -8511,10 +9079,18 @@ paths:
         "200":
           description: >-
             An open event stream. The first bytes are `retry: 5000`, then `notification.state`, then
-            any replay, then live events. Event names are namespaced: `notification.*` and
-            `session.*` are in use; `playback.*` is reserved for cross-device playback state and
-            control commands, which never carry an SSE `id:` and never replay. Clients ignore event
-            names they do not know.
+            any replay, then live events. Event names are namespaced: `notification.*`,
+            `session.*`, and `playback.*` are in use. Clients ignore event names they do not know.
+            The cross-device playback events never carry an SSE `id:` and never replay.
+            `playback.snapshot` (`#/components/schemas/ApiPlaybackSnapshot`) holds the devices
+            and the state; it is sent after `notification.state` on connect and again after the
+            API recovers its Redis subscription, and it replaces the client's playback view.
+            `playback.state` (`#/components/schemas/ApiPlaybackState`) and `playback.devices`
+            (`#/components/schemas/ApiPlaybackDevices`) are latest-value events sent on change;
+            clients apply one only when its `revision` is newer than the one they hold.
+            `playback.command` (`#/components/schemas/ApiPlaybackCommandEnvelope`) goes only to the
+            target device's streams, and `playback.start_failed`
+            (`#/components/schemas/ApiPlaybackStartFailed`) only to the sender's streams.
             The notification events are `notification.state`
             (`#/components/schemas/ApiAccountNotificationStreamState`), `notification.created`
             (`#/components/schemas/ApiAccountNotificationStreamCreated`), `notification.read`
@@ -8544,6 +9120,16 @@ paths:
                   $ref: "#/components/schemas/ApiAccountNotificationStreamResync"
                 session.ended:
                   $ref: "#/components/schemas/ApiAccountSessionStreamEnded"
+                playback.snapshot:
+                  $ref: "#/components/schemas/ApiPlaybackSnapshot"
+                playback.state:
+                  $ref: "#/components/schemas/ApiPlaybackState"
+                playback.devices:
+                  $ref: "#/components/schemas/ApiPlaybackDevices"
+                playback.command:
+                  $ref: "#/components/schemas/ApiPlaybackCommandEnvelope"
+                playback.start_failed:
+                  $ref: "#/components/schemas/ApiPlaybackStartFailed"
         "401":
           description: Unauthorized
           content:
@@ -8583,6 +9169,369 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /account/playback/presence:
+    post:
+      operationId: apiPostAccountPlaybackPresence
+      tags:
+        - account
+      summary: POST /account/playback/presence
+      description: >-
+        Checks this device in for cross-device playback. A device is a login session; it stays in
+        the device list for 40 seconds after its last check-in or state publish, so a device with
+        an open account event stream checks in every 15 seconds. Returns this device's session id,
+        the connected devices, and the current playback state, so a device has everything it needs
+        on start without waiting for the stream. Publishes `playback.devices` when this device
+        joined or others expired. Requires a valid membership. API keys cannot call this route.
+        All playback routes share one limit of 240 requests per minute per account.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountPlaybackPresenceResponse200"
+              example:
+                session_id_text: s1abcdefgh
+                devices:
+                  revision: 1793944800000
+                  devices:
+                    - session_id_text: s1abcdefgh
+                      client_type: web
+                      device_label: Chrome · macOS
+                      session_created_at: "2026-10-20T00:00:00.000Z"
+                state: null
+        "401":
+          description: Unauthorized, or the request names no login session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: >-
+            Membership has expired (`membership_expired`), terms are not accepted, or an API key
+            made the request (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthorizationErrorResponse"
+                  - $ref: "#/components/schemas/TermsAcceptanceRequiredErrorResponse"
+                  - $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+              examples:
+                membershipExpired:
+                  summary: The account membership has expired
+                  value:
+                    message: Your membership has expired. Renew to use this feature.
+                    code: membership_expired
+                    i18nKey: membership.membership_expired
+                    renewPath: /membership/renew
+        "429":
+          description: Too many playback requests for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+        "503":
+          description: The playback store is unreachable (`playback_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPlaybackErrorResponse"
+              example:
+                message: Playback is unavailable.
+                code: playback_unavailable
+  /account/playback/state:
+    post:
+      operationId: apiPostAccountPlaybackState
+      tags:
+        - account
+      summary: POST /account/playback/state
+      description: >-
+        The playing device publishes its item (with the item's channel medium id), status,
+        position, duration, and rate, or claims the active slot with `claim: true`. One device per
+        account is active; the last claim wins and is never refused because another device is
+        active. A publish is also a check-in. A publish that shows nothing new (same item and
+        status, position within 2 seconds of the stored position moved forward to now) returns
+        the stored revision and publishes nothing; any other write publishes `playback.state`. A
+        publish with `resource: null` and `claim: false` releases the active slot. Requires a valid
+        membership. API keys cannot call this route.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountPlaybackStateRequest"
+      responses:
+        "200":
+          description: Written, or unchanged; either way the current revision and active device.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountPlaybackStateResponse200"
+              example:
+                revision: 1793944800000
+                active_session_id_text: s1abcdefgh
+        "400":
+          description: >-
+            Bad request, including a resource with no `medium`, a `medium` that is not an integer,
+            or an id the API does not know.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized, or the request names no login session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: >-
+            Membership has expired (`membership_expired`), terms are not accepted, or an API key
+            made the request (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthorizationErrorResponse"
+                  - $ref: "#/components/schemas/TermsAcceptanceRequiredErrorResponse"
+                  - $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+        "409":
+          description: >-
+            `playback_not_active_device`: a publish without a claim from a device that is not
+            active, or a claim that lost three revision races in a row. `active_session_id_text`
+            names the active device (another device took over), or is null (claim again).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPlaybackErrorResponse"
+              example:
+                message: This device is not the active playback device.
+                code: playback_not_active_device
+                active_session_id_text: s2abcdefgh
+        "429":
+          description: Too many playback requests for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+        "503":
+          description: The playback store is unreachable (`playback_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPlaybackErrorResponse"
+  /account/playback/commands:
+    post:
+      operationId: apiPostAccountPlaybackCommand
+      tags:
+        - account
+      summary: POST /account/playback/commands
+      description: >-
+        Sends one command to a device through its account event stream as `playback.command`.
+        `take_over` goes to `target_session_id_text` and carries the stored state; every other
+        command goes to the active device, which may be this session (browser tabs share one).
+        Commands expire 5 seconds after they are issued, are never stored for later delivery,
+        and are never retried; a target whose stream is not open at that moment never sees one.
+        The sender sees the outcome in the next `playback.state`. `next` and `previous` make the
+        playing device run its own Next or Previous button on its own queue; the server never
+        reads or edits a queue for any command. Requires a valid membership. API keys cannot call
+        this route.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountPlaybackCommandRequest"
+            examples:
+              pause:
+                summary: Pause the playing device
+                value:
+                  command:
+                    type: pause
+              next:
+                summary: Skip to the next item on the playing device
+                value:
+                  command:
+                    type: next
+              takeOver:
+                summary: Move playback to another device
+                value:
+                  target_session_id_text: s2abcdefgh
+                  command:
+                    type: take_over
+      responses:
+        "202":
+          description: Relayed to the target device's streams.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPostAccountPlaybackCommandResponse202"
+              example:
+                command_id: 0b7c9a8e-3f43-4d1a-9b8e-3c2f1a5d6e7f
+                target_session_id_text: s1abcdefgh
+                expires_at_ms: 1793944805000
+        "400":
+          description: >-
+            Bad request: an unknown command type, a value out of range, `target_session_id_text`
+            missing on `take_over` or present on any other command, or `playback_take_over_self`
+            (taking over on this device is a local play and claim).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
+                  - $ref: "#/components/schemas/ApiPlaybackErrorResponse"
+        "401":
+          description: Unauthorized, or the request names no login session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: >-
+            Membership has expired (`membership_expired`), terms are not accepted, or an API key
+            made the request (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthorizationErrorResponse"
+                  - $ref: "#/components/schemas/TermsAcceptanceRequiredErrorResponse"
+                  - $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+        "409":
+          description: >-
+            `playback_no_active_device` (no device is active for a command other than
+            `take_over`), `playback_target_already_active` (`take_over` to the active device),
+            `playback_nothing_to_transfer` (`take_over` with nothing loaded),
+            `playback_device_not_connected` (the target is not checked in), or
+            `playback_command_not_allowed_for_live` (`seek` or `set_rate` while a live item plays).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPlaybackErrorResponse"
+              example:
+                message: No device is playing.
+                code: playback_no_active_device
+        "429":
+          description: Too many playback requests for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+        "503":
+          description: The playback store is unreachable (`playback_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPlaybackErrorResponse"
+  /account/playback/commands/{command_id}/start-failed:
+    post:
+      operationId: apiPostAccountPlaybackStartFailed
+      tags:
+        - account
+      summary: POST /account/playback/commands/{command_id}/start-failed
+      description: >-
+        The command's target reports that it could not start audio, and the sender's streams get
+        `playback.start_failed`. Only the target session may report, for 60 seconds after the
+        command was sent. Requires a valid membership. API keys cannot call this route.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: command_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiPostAccountPlaybackStartFailedRequest"
+      responses:
+        "204":
+          description: Reported to the sender's streams.
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Unauthorized, or the request names no login session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationErrorResponse"
+        "403":
+          description: >-
+            Membership has expired (`membership_expired`), terms are not accepted, or an API key
+            made the request (`api_key_not_allowed`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthorizationErrorResponse"
+                  - $ref: "#/components/schemas/TermsAcceptanceRequiredErrorResponse"
+                  - $ref: "#/components/schemas/ApiKeyAuthorizationErrorResponse"
+        "404":
+          description: >-
+            No such command for this account, the command record expired, or this session is not
+            its target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+              example:
+                message: Command not found
+        "429":
+          description: Too many playback requests for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalServerErrorResponse"
+        "503":
+          description: The playback store is unreachable (`playback_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiPlaybackErrorResponse"
   /account/recent:
     get:
       operationId: apiGetAccountRecent

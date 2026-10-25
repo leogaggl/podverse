@@ -1,9 +1,11 @@
 import type { DTOAccountNotification } from '@podverse/helpers';
+import type { AccountPlaybackStreamEvent } from '@podverse/helpers/accountPlaybackStream';
 
 /**
  * In-memory notification state for the signed-in account: the unread count, the account event
- * stream's connection, and the in-app event channel the inbox, badges, and banner subscribe to.
- * Module-level state with listener sets; no coalescing, because events are rare.
+ * stream's connection, the in-app event channel the inbox, badges, and banner subscribe to, and
+ * the `playback.*` channel cross-device playback subscribes to. Module-level state with listener
+ * sets; no coalescing, because events are rare.
  */
 
 export type NotificationStreamConnection = 'idle' | 'connecting' | 'open' | 'retrying' | 'stopped';
@@ -17,6 +19,8 @@ export type NotificationStreamAppEvent =
 
 type NotificationStreamEventListener = (event: NotificationStreamAppEvent) => void;
 
+type NotificationStreamPlaybackEventListener = (event: AccountPlaybackStreamEvent) => void;
+
 let unreadCount = 0;
 let connection: NotificationStreamConnection = 'idle';
 let inboxFocusHolds = 0;
@@ -24,6 +28,7 @@ let inboxFocusHolds = 0;
 const unreadCountListeners = new Set<() => void>();
 const connectionListeners = new Set<() => void>();
 const eventListeners = new Set<NotificationStreamEventListener>();
+const playbackEventListeners = new Set<NotificationStreamPlaybackEventListener>();
 const inboxFocusListeners = new Set<() => void>();
 
 const callListener = (call: () => void): void => {
@@ -95,6 +100,24 @@ export function subscribeNotificationStreamEvents(
   eventListeners.add(listener);
   return () => {
     eventListeners.delete(listener);
+  };
+}
+
+/** A validated `playback.*` event from the current connection. These are never replayed. */
+export function publishNotificationStreamPlaybackEvent(event: AccountPlaybackStreamEvent): void {
+  for (const listener of [...playbackEventListeners]) {
+    callListener(() => {
+      listener(event);
+    });
+  }
+}
+
+export function subscribeNotificationStreamPlaybackEvents(
+  listener: NotificationStreamPlaybackEventListener
+): () => void {
+  playbackEventListeners.add(listener);
+  return () => {
+    playbackEventListeners.delete(listener);
   };
 }
 

@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 import {
   clearSeededPodcastQueueResources,
   expectMediaPlayerTitleVisible,
+  openTrackAndPlay,
   waitForAudioReadyAtLeast,
 } from './helpers/mediaPlayerAssertions';
 import {
@@ -54,16 +55,6 @@ async function fastForwardAudioTo(page: Page, seconds: number): Promise<void> {
     el.currentTime = nextTime;
     el.dispatchEvent(new Event('timeupdate'));
   }, seconds);
-}
-
-async function openTrackAndPlay(
-  page: Page,
-  itemIdText: string,
-  trackHeading: string
-): Promise<void> {
-  await page.goto(`/track/${itemIdText}`);
-  await expect(page.getByRole('heading', { name: trackHeading })).toBeVisible();
-  await page.getByRole('button', { name: 'Play' }).first().click();
 }
 
 /**

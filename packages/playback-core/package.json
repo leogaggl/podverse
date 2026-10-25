@@ -19,6 +19,18 @@
       "types": "./dist/resolveQueueAdvance.d.ts",
       "default": "./dist/resolveQueueAdvance.js"
     },
+    "./autoQueue": {
+      "types": "./dist/autoQueue.d.ts",
+      "default": "./dist/autoQueue.js"
+    },
+    "./autoQueueWalk": {
+      "types": "./dist/autoQueueWalk.d.ts",
+      "default": "./dist/autoQueueWalk.js"
+    },
+    "./addByRSSListWalk": {
+      "types": "./dist/addByRSSListWalk.d.ts",
+      "default": "./dist/addByRSSListWalk.js"
+    },
     "./clampNearEndSeconds": {
       "types": "./dist/clampNearEndSeconds.d.ts",
       "default": "./dist/clampNearEndSeconds.js"

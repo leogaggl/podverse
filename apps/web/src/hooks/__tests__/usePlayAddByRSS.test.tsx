@@ -4,11 +4,12 @@
  * the write unless another item started first.
  */
 import { renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getAddByRSSHashId, MediumEnum } from '@podverse/helpers';
+import { ACCOUNT_PLAYBACK_STREAM_EVENT, getAddByRSSHashId, MediumEnum } from '@podverse/helpers';
 import type { AddByRSSItemIndexItem } from '@podverse/parser-mapping';
 
+import { crossDevicePlaybackStore } from '../../lib/crossDevicePlayback/crossDevicePlaybackStore';
 import {
   clearPlaybackHandoffLocalState,
   readPlaybackHandoffLocalState,
@@ -32,7 +33,11 @@ const hoisted = vi.hoisted(() => {
       return { initialSeekSeconds: 0 };
     }),
     reqQueueResourceItemAddByRSSAddNowPlaying: vi.fn(),
+    reqAccountPlaybackSendCommand: vi.fn(() => Promise.resolve()),
     queueResourcesLoadActive: vi.fn(),
+    setMPAddByRSS: vi.fn(),
+    setMPCurrentTime: vi.fn(),
+    setMPShouldPlay: vi.fn(),
   };
 });
 
@@ -63,7 +68,7 @@ vi.mock('../../contexts/MediaPlayer', () => ({
   useMediaPlayer: () => ({
     applyPlaybackLoad: hoisted.applyPlaybackLoad,
     playbackLoadGenerationRef: hoisted.playbackLoadGenerationRef,
-    setMPAddByRSS: vi.fn(),
+    setMPAddByRSS: hoisted.setMPAddByRSS,
     setMPChannel: vi.fn(),
     setMPClip: vi.fn(),
     setMPItem: vi.fn(),
@@ -73,13 +78,13 @@ vi.mock('../../contexts/MediaPlayer', () => ({
     setMPItemSoundbite: vi.fn(),
     setMPItemLabeledItemEnclosures: vi.fn(),
     setMPEnclosureSelectedParams: vi.fn(),
-    setMPShouldPlay: vi.fn(),
+    setMPShouldPlay: hoisted.setMPShouldPlay,
     setMPDuration: vi.fn(),
   }),
 }));
 
 vi.mock('../../contexts/MediaPlayerCurrentTime', () => ({
-  useMediaPlayerCurrentTime: () => ({ setMPCurrentTime: vi.fn() }),
+  useMediaPlayerCurrentTime: () => ({ setMPCurrentTime: hoisted.setMPCurrentTime }),
 }));
 
 vi.mock('../../contexts/Queue', () => ({
@@ -94,6 +99,7 @@ vi.mock('../../contexts/Queue', () => ({
 vi.mock('../../factories/apiRequestService', () => ({
   getApiRequestService: () => ({
     reqQueueResourceItemAddByRSSAddNowPlaying: hoisted.reqQueueResourceItemAddByRSSAddNowPlaying,
+    reqAccountPlaybackSendCommand: hoisted.reqAccountPlaybackSendCommand,
   }),
 }));
 
@@ -107,13 +113,55 @@ const indexItemWithoutMedium = {
   mediumId: null,
 } as unknown as AddByRSSItemIndexItem;
 
+/** Puts this tab in the remote role: checked in as `session-this` while `session-other` plays. */
+function setRoleRemote() {
+  crossDevicePlaybackStore.reset({ accountId: 1, enabled: true });
+  crossDevicePlaybackStore.applyPresenceResponse(
+    { session_id_text: 'session-this', devices: { revision: 1, devices: [] }, state: null },
+    Date.now()
+  );
+  crossDevicePlaybackStore.applyStreamEvent(
+    {
+      type: ACCOUNT_PLAYBACK_STREAM_EVENT.state,
+      data: {
+        revision: 1,
+        active_session_id_text: 'session-other',
+        resource: {
+          ref: { kind: 'item', item_id_text: 'item-20' },
+          medium: MediumEnum.Podcast,
+          title: 'Other item',
+          channel_title: 'Other channel',
+          image_url: null,
+        },
+        status: 'playing',
+        is_live: false,
+        position_seconds: 10,
+        duration_seconds: 600,
+        rate: 1,
+        updated_at_ms: 0,
+        sent_at_ms: 0,
+      },
+    },
+    Date.now()
+  );
+}
+
 describe('usePlayAddByRSS', () => {
   beforeEach(() => {
+    crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
     clearPlaybackHandoffLocalState();
     hoisted.playbackLoadGenerationRef.current = 0;
     hoisted.applyPlaybackLoad.mockClear();
+    hoisted.setMPAddByRSS.mockClear();
+    hoisted.setMPCurrentTime.mockClear();
+    hoisted.setMPShouldPlay.mockClear();
+    hoisted.reqAccountPlaybackSendCommand.mockClear();
     hoisted.reqQueueResourceItemAddByRSSAddNowPlaying.mockReset().mockResolvedValue(undefined);
     hoisted.queueResourcesLoadActive.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
   });
 
   it('writes the handoff record with the Add by RSS hash, not the id_text, when the episode loads', () => {
@@ -185,5 +233,43 @@ describe('usePlayAddByRSS', () => {
     await Promise.resolve();
 
     expect(hoisted.queueResourcesLoadActive).not.toHaveBeenCalled();
+  });
+
+  it('sends play_item and sets no player state while another device is playing', () => {
+    setRoleRemote();
+    expect(crossDevicePlaybackStore.getSnapshot().role).toBe('remote');
+    const { result } = renderHook(() => usePlayAddByRSS());
+
+    result.current(indexItemWithoutMedium);
+
+    expect(hoisted.reqAccountPlaybackSendCommand).toHaveBeenCalledWith({
+      command: {
+        type: 'play_item',
+        resource: {
+          kind: 'add_by_rss',
+          add_by_rss_hash_id: getAddByRSSHashId({
+            feed_url: 'https://feeds.example.com/show.xml',
+            guid: 'ep-1',
+          }),
+        },
+        add_by_rss_resource_data: {
+          feed_url: 'https://feeds.example.com/show.xml',
+          guid: 'ep-1',
+          id_text: 'abr-1',
+          title: 'Add by RSS Episode',
+          medium_id: null,
+        },
+        start_seconds: null,
+      },
+    });
+    expect(hoisted.applyPlaybackLoad).not.toHaveBeenCalled();
+    expect(hoisted.setMPAddByRSS).not.toHaveBeenCalled();
+    expect(hoisted.setMPCurrentTime).not.toHaveBeenCalled();
+    expect(hoisted.setMPShouldPlay).not.toHaveBeenCalled();
+    expect(hoisted.reqQueueResourceItemAddByRSSAddNowPlaying).not.toHaveBeenCalled();
+    expect(readPlaybackHandoffLocalState()).toBeNull();
+    expect(crossDevicePlaybackStore.getSnapshot().displayState).toBe(
+      crossDevicePlaybackStore.getSnapshot().state
+    );
   });
 });

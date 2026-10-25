@@ -4,6 +4,8 @@ import { useCallback } from 'react';
 
 import { useAddByRSSListContext } from '../contexts/AddByRSSListContext';
 import { useMediaPlayer } from '../contexts/MediaPlayer';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
+import { sendPlaybackCommand } from '../lib/crossDevicePlayback/sendPlaybackCommand';
 import { resolveAddByRSSListContextFromCurrentItem } from '../utils/addByRSS/resolveListContextFromCurrentItem';
 import { useAddByRSSPlayNext } from './useAddByRSSPlayNext';
 import { useEpisodeChapterNavigation } from './useEpisodeChapterNavigation';
@@ -13,6 +15,8 @@ import { useQueueResourcesLoadActive } from './useQueueResourcesLoadActive';
 
 export function useTrackNextButtonActions(): {
   hasEpisodeChaptersForTrackButtons: boolean;
+  /** What a click on the button runs. Cross-device `next` / `previous` commands call this. */
+  runLocalClick: () => Promise<void>;
   onClick: () => void;
   longPressProps: {
     onPointerDown: (e: React.PointerEvent) => void;
@@ -74,16 +78,28 @@ export function useTrackNextButtonActions(): {
   ]);
 
   const handleLongPress = useCallback(() => {
+    if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+      void sendPlaybackCommand({ type: 'next' });
+      return;
+    }
     void runNextTrack();
   }, [runNextTrack]);
 
-  const handleClick = useCallback(async () => {
+  const runLocalClick = useCallback(async () => {
     if (hasEpisodeChaptersForTrackButtons) {
       seekToAdjacentChapter('next');
       return;
     }
     await runNextTrack();
   }, [hasEpisodeChaptersForTrackButtons, seekToAdjacentChapter, runNextTrack]);
+
+  const handleClick = useCallback(async () => {
+    if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+      await sendPlaybackCommand({ type: 'next' });
+      return;
+    }
+    await runLocalClick();
+  }, [runLocalClick]);
 
   const { onClick, ...longPressProps } = useLongPress({
     onLongPress: handleLongPress,
@@ -93,6 +109,7 @@ export function useTrackNextButtonActions(): {
 
   return {
     hasEpisodeChaptersForTrackButtons,
+    runLocalClick,
     onClick,
     longPressProps,
   };

@@ -11,6 +11,7 @@ import Foundation
 enum PodverseNativeCacheKind: String, CaseIterable {
   case queueAv
   case queueMusic
+  case advanceWindow
   case downloads
   case libraryBrowse
   case history
@@ -22,6 +23,7 @@ enum PodverseNativeCacheKind: String, CaseIterable {
     switch self {
     case .queueAv: return "queue-snapshot-av.json"
     case .queueMusic: return "queue-snapshot-music.json"
+    case .advanceWindow: return "advance-window.json"
     case .downloads: return "downloads-index.json"
     case .libraryBrowse: return "library-index.json"
     case .history: return "history-index.json"
@@ -232,10 +234,11 @@ enum PodverseNativeCache {
     return best.map { (position: $0.0, occurredAtMs: $0.1) }
   }
 
-  /// Clear account-scoped car cache files on logout (queues, history, library, live, journal).
+  /// Clear account-scoped car cache files on logout (queues, advance window, history, library, live,
+  /// journal).
   static func clearAccountScopedFiles() {
     let kinds: [PodverseNativeCacheKind] = [
-      .queueAv, .queueMusic, .history, .live, .libraryBrowse, .playbackJournal,
+      .queueAv, .queueMusic, .advanceWindow, .history, .live, .libraryBrowse, .playbackJournal,
       .accountContext,
     ]
     for kind in kinds {

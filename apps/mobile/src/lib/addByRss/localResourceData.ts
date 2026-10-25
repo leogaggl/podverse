@@ -4,13 +4,25 @@ import { toNonEmptyTrimmedString } from '@podverse/helpers/guards';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
-import { toAddByRssItemPlaybackResourceData } from './domain';
+import {
+  toAddByRssItemPlaybackResourceData,
+  toAddByRssLiveItemPlaybackResourceData,
+} from './domain';
 import type { AddByRssItemSectionUrls } from './itemSections';
 import { addByRssItemSectionUrls } from './itemSections';
-import { isAddByRssLivestreamResourceData, withCanonicalAddByRssFeedUrl } from './resourceData';
+import {
+  addByRssPlaybackMediaId,
+  isAddByRssLivestreamResourceData,
+  withCanonicalAddByRssFeedUrl,
+} from './resourceData';
 
 export type LocalAddByRssFeedLookup = {
   getFeedByUrl: (feedUrl: string) => Promise<MobileAddByRSSFeedRecord | null>;
+  getMappedFeedByUrl: (feedUrl: string) => Promise<AddByRSSMappedFeed | null>;
+};
+
+export type LocalAddByRssFeedListLookup = {
+  listFeeds: () => Promise<MobileAddByRSSFeedRecord[]>;
   getMappedFeedByUrl: (feedUrl: string) => Promise<AddByRSSMappedFeed | null>;
 };
 
@@ -79,7 +91,7 @@ export const addByRssEpisodeItemKey = (
 ): string | null => findAddByRssLocalItem(mappedFeed, resourceData)?.itemKey ?? null;
 
 /** This device's stored feed and parsed bundle. Null when either is missing or the read throws. */
-const loadLocalFeed = async (
+export const loadLocalFeed = async (
   lookup: LocalAddByRssFeedLookup,
   feedUrl: string
 ): Promise<{ mappedFeed: AddByRSSMappedFeed; record: MobileAddByRSSFeedRecord } | null> => {
@@ -135,6 +147,54 @@ export async function resolveLocalAddByRssResourceData(
     local.itemIndex
   );
   return getAddByRSSHashId(localData) === getAddByRSSHashId(rowData) ? localData : rowData;
+}
+
+/**
+ * The local Add by RSS episode, track, or livestream whose playback hash is `hashId`, or null.
+ * Searches every followed feed's parsed bundle; a feed with no bundle, or one whose read throws, is
+ * skipped.
+ */
+export async function findLocalAddByRssResourceDataByHash(
+  hashId: string,
+  lookup: LocalAddByRssFeedListLookup
+): Promise<AddByRSSResourceData | null> {
+  let feeds: MobileAddByRSSFeedRecord[];
+  try {
+    feeds = await lookup.listFeeds();
+  } catch {
+    return null;
+  }
+
+  for (const record of feeds) {
+    let mappedFeed: AddByRSSMappedFeed | null;
+    try {
+      mappedFeed = await lookup.getMappedFeedByUrl(record.feedUrl);
+    } catch {
+      continue;
+    }
+    if (mappedFeed === null) {
+      continue;
+    }
+
+    for (const [itemIndex, itemBundle] of mappedFeed.items.entries()) {
+      const data = toAddByRssItemPlaybackResourceData(record, mappedFeed, itemBundle, itemIndex);
+      if (addByRssPlaybackMediaId(data) === hashId) {
+        return data;
+      }
+    }
+    for (const [liveIndex, liveBundle] of mappedFeed.liveItems.entries()) {
+      const data = toAddByRssLiveItemPlaybackResourceData(
+        record,
+        mappedFeed,
+        liveBundle,
+        liveIndex
+      );
+      if (addByRssPlaybackMediaId(data) === hashId) {
+        return data;
+      }
+    }
+  }
+  return null;
 }
 
 /**

@@ -8,6 +8,7 @@ import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-c
 import splashBanner from './assets/splash/banner.png';
 import splashIcon from './assets/splash/icon.png';
 import { AuthPromptProvider, AuthProvider, useAuth } from './src/auth';
+import { CrossDevicePlaybackNotice } from './src/components/feedback/CrossDevicePlaybackNotice';
 import { ForcedLogoutNotice } from './src/components/feedback/ForcedLogoutNotice';
 import { MembershipExpiredBanner } from './src/components/feedback/MembershipExpiredBanner';
 import { OverlayA11yShield, OverlayHostProvider, OverlayOutlet } from './src/components/overlay';
@@ -305,6 +306,7 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
             <TermsAcceptanceProvider>
               <NotificationsRuntime />
               <ForcedLogoutNotice />
+              <CrossDevicePlaybackNotice />
               <OverlayA11yShield>
                 <MembershipExpiredBanner onRenew={navigateToMembershipScreen} />
                 <MobileTabNavigator

@@ -4,11 +4,11 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { FaGear } from 'react-icons/fa6';
 
-import { getNextPlaybackSpeed, getPlaybackTranslationKey } from '@podverse/helpers';
+import { getPlaybackTranslationKey } from '@podverse/helpers';
 import type { DropdownMenuPanelItem } from '@podverse/ui';
 import { DropdownMenuPanel, useDropdownKeyboardNavigation } from '@podverse/ui';
 
-import { useMediaPlayer } from '../../../contexts/MediaPlayer';
+import { usePlayerTransport } from '../../../hooks/usePlayerTransport';
 import {
   getSleepTimerMinutes,
   setSleepTimerMinutes,
@@ -20,7 +20,7 @@ import styles from '../../../styles/components/MediaPlayer/Buttons/SettingsButto
 export const SettingsButton = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
-  const { mpPlaybackSpeed, setMPPlaybackSpeed } = useMediaPlayer();
+  const { playbackSpeed, cyclePlaybackSpeed } = usePlayerTransport();
   const tMediaPlayer = useTranslations('media_player');
   const sleepMinutes = useSyncExternalStore(
     subscribeSleepTimer,
@@ -70,10 +70,10 @@ export const SettingsButton = () => {
   const rootItems: DropdownMenuPanelItem[] = [
     {
       label: tMediaPlayer('playback_speed.playback_speed_with_value', {
-        speed: tMediaPlayer(`playback_speed.speeds.${getPlaybackTranslationKey(mpPlaybackSpeed)}`),
+        speed: tMediaPlayer(`playback_speed.speeds.${getPlaybackTranslationKey(playbackSpeed)}`),
       }),
       onClick: () => {
-        setMPPlaybackSpeed(getNextPlaybackSpeed(mpPlaybackSpeed));
+        cyclePlaybackSpeed();
         closeMenu();
       },
     },

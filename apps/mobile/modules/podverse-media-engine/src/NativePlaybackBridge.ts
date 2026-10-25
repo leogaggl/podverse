@@ -76,6 +76,8 @@ export interface NativeCacheWriteBridge {
   writeQueueSnapshotAv(payloadJson: string): Promise<void>;
   /** Now-playing + upcoming for the music queue. */
   writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
+  /** Play order after the playing item, for native advance while JS is not running. */
+  writeAdvanceWindow(payloadJson: string): Promise<void>;
   /** Local `file://` paths + metadata for offline car browse. */
   writeDownloadsIndex(payloadJson: string): Promise<void>;
   /** Podcast/playlist lists for car browse templates. */
@@ -89,7 +91,10 @@ export interface NativeCacheWriteBridge {
   readPlaybackJournal(): Promise<string | null>;
   /** Replace the journal payload after a successful drain. */
   writePlaybackJournal(payloadJson: string): Promise<void>;
-  /** When true, JS owns queue advance on ended; native must not auto-advance. */
+  /**
+   * When true, JS owns queue advance on ended; native must not auto-advance. Native also takes
+   * advance back when the module that installed the event sink goes away.
+   */
   setJsOwnsAdvance(owns: boolean): Promise<void>;
 }
 

@@ -130,8 +130,31 @@ the phone UI on this Expo/RN stack).
   `setNowPlayingMetadata(title:)`, and presents `CPNowPlayingTemplate.shared`.
 - **Remotes (12.10):** `CPNowPlayingTemplate` / `MPRemoteCommandCenter` bind to the **one** command
   center registered by the engine — the CarPlay scene adds **no** second command center or player.
-- **Known gap:** app-closed skip/advance uses engine/session behavior only; full auto-queue refill
-  stays in `@podverse/playback-core` (JS) and is not reimplemented in Swift.
+- **App-closed advance:**
+  - While JS runs, it owns advance (`setJsOwnsAdvance(true)`) and the auto-queue fills in
+    `@podverse/playback-core` as in the app.
+  - JS also writes `advance-window.json`: the play order after the playing item (the manual
+    queue's upcoming rows for that medium, then up to 10 resolved automatic rows), with the
+    playing item's `kind` and id as the anchor. Automatic rows are auto-queue rows (items, clips,
+    and soundbites) or, for an Add by RSS episode, that feed's next episodes.
+  - Each entry carries its engine `kind`; clip and soundbite entries carry `clipStartSeconds` and
+    `clipEndSeconds`. Rows are matched by `kind` plus id, so a clip and its full episode are
+    separate rows.
+  - When JS is not running, `ended`, a clip's end, and a remote Next play the next window entry
+    when the loaded item is the anchor or is in the window; at the window's end playback stops;
+    any other item walks the account queue snapshot as before.
+  - Add by RSS entries are plain media URLs or downloads. Feed passwords and auth headers are
+    never written; an entry whose media needs them and is not downloaded ends the window.
+  - Native takes advance back as soon as the module that owns the event sink goes away.
+  - When the app runs again and picks up the playing item, it continues the source the window came
+    from (the same playlist, album, or podcast rows and settings, or the same Add by RSS feed) if
+    the item is one of its rows. An item in the account queue (now playing or upcoming) keeps the
+    whole saved playlist, album, or podcast behind the queue, as a manual-queue play in the app
+    does, even when it is not one of those rows. Any other item, even from the same podcast,
+    refills from its own podcast or album. The source is kept on the device and deleted on
+    sign-out.
+  - Not covered: an item the car starts that is not in the window (no automatic rows until the app
+    runs again), livestreams (manual queue only). Previous with the app closed restarts the track.
 - **Operator:** entitlement/App Group runbook
   [`CARPLAY-ENTITLEMENT.md`](./CARPLAY-ENTITLEMENT.md); Simulator browse+play gate
   [`CARPLAY-SIMULATOR-CHECKLIST.md`](./CARPLAY-SIMULATOR-CHECKLIST.md).
@@ -283,17 +306,18 @@ durable storage lands (12.2–12.3) and the JS write path is wired (12.4).
 TypeScript source of truth: `apps/mobile/src/data/nativeCache/projection.ts` (envelope +
 `NATIVE_CACHE_SCHEMA_VERSION`, currently `2`). Do not invent a competing schema here.
 
-| Method (JS → native)      | Payload (schema owned by 12.1 / detail 380)                       | Reader                        |
-| ------------------------- | ----------------------------------------------------------------- | ----------------------------- |
-| `writeQueueSnapshotAv`    | podcast and video now-playing + upcoming item ids / titles / urls | car skip/advance, now-playing |
-| `writeQueueSnapshotMusic` | music now-playing + upcoming                                      | same reader                   |
-| `writeDownloadsIndex`     | local `file://` paths + metadata                                  | offline car browse            |
-| `writeLibraryBrowseIndex` | podcast / playlist list for templates                             | car browse roots              |
+| Method (JS → native)      | Payload (schema owned by 12.1 / detail 380)                                                                                    | Reader                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `writeQueueSnapshotAv`    | podcast and video now-playing + upcoming item ids / titles / urls                                                              | car skip/advance, now-playing |
+| `writeQueueSnapshotMusic` | music now-playing + upcoming                                                                                                   | same reader                   |
+| `writeAdvanceWindow`      | play order after the playing item: manual upcoming, then resolved automatic rows (kind, clip range); anchor kind + id + medium | app-closed advance            |
+| `writeDownloadsIndex`     | local `file://` paths + metadata                                                                                               | offline car browse            |
+| `writeLibraryBrowseIndex` | podcast / playlist list for templates                                                                                          | car browse roots              |
 
 Each takes a single JSON-string payload and returns `Promise<void>`. Every payload carries a
 `schemaVersion` + `updatedAtMs` envelope (see `build*Payload` in `projection.ts`). Native stores an
 opaque snapshot, ignores unknown keys, and does not re-decide queue rules (policy stays in
-`@podverse/playback-core`).
+`@podverse/playback-core`). The advance window is a list to step through, not a rule set.
 
 ### Durable storage + read helpers (steps 12.2–12.3 / details 381–382)
 
@@ -302,10 +326,10 @@ car surfaces (CarPlay scene 12.7+, Android Auto `MediaLibraryService` 12.11+) an
 (12.5–12.6) load these files **with the JS runtime not running**. Writes are atomic (temp + rename)
 and best-effort — a failed write never rolls back the phone-side mutation.
 
-| Platform | Module (read/write API)                                               | Location                                                                                                                         | Filenames                                                                                           |
-| -------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| iOS      | `PodverseNativeCache.write(_:json:)` / `read(_:)`                     | App Group container for `group.com.podverse.app.next` when that container resolves, otherwise Application Support `native-cache` | `queue-snapshot-av.json`, `queue-snapshot-music.json`, `downloads-index.json`, `library-index.json` |
-| Android  | `PodverseNativeCache.write(context,kind,json)` / `read(context,kind)` | `context.filesDir/native-cache/`                                                                                                 | same filenames                                                                                      |
+| Platform | Module (read/write API)                                               | Location                                                                                                                         | Filenames                                                                                                                  |
+| -------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| iOS      | `PodverseNativeCache.write(_:json:)` / `read(_:)`                     | App Group container for `group.com.podverse.app.next` when that container resolves, otherwise Application Support `native-cache` | `queue-snapshot-av.json`, `queue-snapshot-music.json`, `downloads-index.json`, `library-index.json`, `advance-window.json` |
+| Android  | `PodverseNativeCache.write(context,kind,json)` / `read(context,kind)` | `context.filesDir/native-cache/`                                                                                                 | same filenames                                                                                                             |
 
 - `PodverseNativeCache.appGroupIdentifier` is `group.com.podverse.app.next`, and `baseDirectory()`
   prefers that container, falling back to Application Support `native-cache` when the group

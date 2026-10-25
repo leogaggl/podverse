@@ -6,7 +6,11 @@ import React, { useMemo } from 'react';
 
 import type { EnclosureSelectedParams } from '@podverse/helpers';
 import { addByRSSBundleEnclosuresToDTO, getQueueForMedium } from '@podverse/helpers';
-import { buildAddByRSSResourceData, getAddByRSSHashId } from '@podverse/parser-mapping';
+import {
+  buildAddByRSSResourceData,
+  getAddByRSSHashId,
+  getAddByRSSHashIds,
+} from '@podverse/parser-mapping';
 
 import { IMAGES } from '../../../../constants/images';
 import { useAccount } from '../../../../contexts/Account';
@@ -61,6 +65,10 @@ export const AddByRSSEpisodeDetailHeader: React.FC<AddByRSSEpisodeDetailHeaderPr
     return [{ hashId: getAddByRSSHashId(indexItem), indexItem }];
   }, [indexItem]);
   const { isLiked, toggle } = useLikesAddByRssBatch(addByRssLikeRows);
+  const addByRSSHashIds = useMemo(
+    () => (indexItem ? getAddByRSSHashIds(indexItem) : undefined),
+    [indexItem]
+  );
   const likeHashId = indexItem ? getAddByRSSHashId(indexItem) : '';
 
   const imageCandidates =
@@ -246,6 +254,7 @@ export const AddByRSSEpisodeDetailHeader: React.FC<AddByRSSEpisodeDetailHeaderPr
         <AddByRSSItemHeaderPlaySection
           onPlay={onPlay}
           addByRSSIdText={indexItem?.idText ?? undefined}
+          addByRSSHashIds={addByRSSHashIds}
           moreButtonMenuItems={moreButtonMenuItems}
           enclosures={
             indexItem?.bundle?.enclosures

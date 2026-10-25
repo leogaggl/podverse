@@ -1,5 +1,6 @@
 import {
   ACCOUNT_NOTIFICATION_STREAM_EVENT,
+  ACCOUNT_PLAYBACK_STREAM_EVENT,
   ACCOUNT_SESSION_STREAM_EVENT,
   parseAccountSessionStreamEvent,
 } from '@podverse/helpers';
@@ -9,8 +10,8 @@ import { buildNotificationStreamUrl, readSseLastEventId } from './notificationSt
 export type NotificationStreamStatus = 'off' | 'connecting' | 'open' | 'down';
 
 /**
- * One received SSE event, before parsing. Carries every `notification.*` and `session.*` event
- * the stream sends. `lastEventId` is set only on `notification.created`.
+ * One received SSE event, before parsing. Carries every account stream event name.
+ * `lastEventId` is set only on `notification.created`.
  */
 export type RawNotificationStreamEvent = {
   eventName: string;
@@ -43,6 +44,15 @@ export type NotificationStreamConnection = {
 
 /** `EventSource.CLOSED` per the HTML spec, for environments without a global `EventSource`. */
 const EVENT_SOURCE_CLOSED = 2;
+
+/**
+ * `notification.*` and `playback.*`. `session.ended` is registered separately so a notice can
+ * close the stream.
+ */
+const ACCOUNT_STREAM_EVENT_NAMES: readonly string[] = [
+  ...Object.values(ACCOUNT_NOTIFICATION_STREAM_EVENT),
+  ...Object.values(ACCOUNT_PLAYBACK_STREAM_EVENT),
+];
 
 /**
  * Wait before replacing an `EventSource` that gave up (HTTP error status or wrong content type).
@@ -138,7 +148,7 @@ export function openNotificationStreamConnection(
       scheduleRetry();
     };
 
-    for (const eventName of Object.values(ACCOUNT_NOTIFICATION_STREAM_EVENT)) {
+    for (const eventName of ACCOUNT_STREAM_EVENT_NAMES) {
       next.addEventListener(eventName, (event) => {
         if (source !== next) {
           return;

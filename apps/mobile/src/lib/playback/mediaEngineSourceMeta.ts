@@ -1,4 +1,5 @@
 import { primaryListArtworkUrl } from '@podverse/helpers';
+import type { DTOClip, DTOItemSoundbite } from '@podverse/helpers/dto';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import type { MediaEngineSourceMeta } from '../../../modules/podverse-media-engine';
@@ -6,7 +7,7 @@ import { addByRssPlaybackMediaId } from '../addByRss/resourceData';
 import { resolveEngineAudioProfile } from './engineAudioProfile';
 import { nowPlayingArtistFields, playbackTargetArtists } from './verifiedArtists';
 
-const queueMediumFromTarget = (target: PlaybackTarget): 'av' | 'music' => {
+export const queueMediumFromTarget = (target: PlaybackTarget): 'av' | 'music' => {
   return resolveEngineAudioProfile(target) === 'music' ? 'music' : 'av';
 };
 
@@ -26,8 +27,9 @@ const metaKindFromTarget = (target: PlaybackTarget): MediaEngineSourceMeta['kind
 };
 
 /**
- * Engine source id for this target. It must return what `playbackTargetRowMediaId` returns,
- * because the provider compares the engine's `meta.idText` with it.
+ * Engine source id for this target: the id of the media the engine loads. A chapter plays its
+ * item, so a chapter target has its item's id, not the chapter id `playbackTargetRowMediaId`
+ * returns. Compare an engine id with a target through `engineSourceMatchesTarget`.
  */
 const idTextFromTarget = (target: PlaybackTarget): string | null => {
   switch (target.kind) {
@@ -117,22 +119,32 @@ const secondsFromDto = (value: string | number | null | undefined): number | nul
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const clipBoundsFromTarget = (
-  target: PlaybackTarget
-): { start: number | null; end: number | null } => {
+type ClipBounds = { start: number | null; end: number | null };
+
+/** The range a clip plays, in seconds. */
+export const clipBoundsForClip = (clip: Pick<DTOClip, 'start_time' | 'end_time'>): ClipBounds => ({
+  start: secondsFromDto(clip.start_time),
+  end: secondsFromDto(clip.end_time),
+});
+
+/** The range a soundbite plays, in seconds. The end is open unless the duration is positive. */
+export const clipBoundsForSoundbite = (
+  soundbite: Pick<DTOItemSoundbite, 'start_time' | 'duration'>
+): ClipBounds => {
+  const start = secondsFromDto(soundbite.start_time);
+  const duration = secondsFromDto(soundbite.duration);
+  return {
+    start,
+    end: start !== null && duration !== null && duration > 0 ? start + duration : null,
+  };
+};
+
+const clipBoundsFromTarget = (target: PlaybackTarget): ClipBounds => {
   if (target.kind === 'clip') {
-    return {
-      start: secondsFromDto(target.clip.start_time),
-      end: secondsFromDto(target.clip.end_time),
-    };
+    return clipBoundsForClip(target.clip);
   }
   if (target.kind === 'soundbite') {
-    const start = secondsFromDto(target.soundbite.start_time);
-    const duration = secondsFromDto(target.soundbite.duration);
-    return {
-      start,
-      end: start !== null && duration !== null && duration > 0 ? start + duration : null,
-    };
+    return clipBoundsForSoundbite(target.soundbite);
   }
   if (target.kind === 'chapter') {
     return {
@@ -144,6 +156,37 @@ const clipBoundsFromTarget = (
 };
 
 /**
+ * The `kind` and `idText` the engine meta records for this target, which native compares with
+ * cached rows. Null when the target has no usable id.
+ */
+export const engineSourceIdentityFromTarget = (
+  target: PlaybackTarget
+): { kind: MediaEngineSourceMeta['kind']; idText: string } | null => {
+  const idText = idTextFromTarget(target);
+  if (idText === null || idText.length === 0) {
+    return null;
+  }
+  return { idText, kind: metaKindFromTarget(target) };
+};
+
+/**
+ * Whether an engine event about `engineIdText` belongs to `target`. The engine names a source by
+ * the media it loaded, so a chapter target matches its item's id and a clip target matches only
+ * the clip's id. With no engine id, no target, or a target with no engine identity there is
+ * nothing to tell them apart by, so it counts as a match.
+ */
+export const engineSourceMatchesTarget = (
+  engineIdText: string | null,
+  target: PlaybackTarget | null
+): boolean => {
+  if (engineIdText === null || target === null) {
+    return true;
+  }
+  const identity = engineSourceIdentityFromTarget(target);
+  return identity === null || identity.idText === engineIdText;
+};
+
+/**
  * Build engine source meta for a phone-initiated load. Returns null when the target has no usable
  * id (rare); callers then omit meta.
  */
@@ -151,8 +194,8 @@ export const mediaEngineSourceMetaFromTarget = (
   target: PlaybackTarget,
   origin: MediaEngineSourceMeta['origin'] = 'js'
 ): MediaEngineSourceMeta | null => {
-  const idText = idTextFromTarget(target);
-  if (idText === null || idText.length === 0) {
+  const identity = engineSourceIdentityFromTarget(target);
+  if (identity === null) {
     return null;
   }
   const bounds = clipBoundsFromTarget(target);
@@ -165,9 +208,9 @@ export const mediaEngineSourceMetaFromTarget = (
     artworkUrl: artworkFromTarget(target),
     clipEndSeconds: bounds.end,
     clipStartSeconds: bounds.start,
-    idText,
+    idText: identity.idText,
     isLive: target.kind === 'livestream',
-    kind: metaKindFromTarget(target),
+    kind: identity.kind,
     origin,
     queueMedium: queueMediumFromTarget(target),
     subtitle: artistFields.artist,

@@ -12,7 +12,7 @@
 import { useEffect } from 'react';
 
 import { useEmbedPlaybackGuardrails } from '../../contexts/EmbedPlaybackMode';
-import { useMediaPlayer } from '../../contexts/MediaPlayer';
+import { useMediaPlayerBarVisible } from '../../hooks/useRemotePlayerDisplay';
 import {
   updateLayoutForMediaPlayer,
   updateLayoutForMediaPlayerSegmentStrip,
@@ -28,14 +28,13 @@ import styles from '../../styles/components/MediaPlayer/MediaPlayer.module.scss'
 
 export const MediaPlayer = () => {
   const { skipMainAppLayoutMutations } = useEmbedPlaybackGuardrails();
-  const { mpAddByRSS, mpChannel } = useMediaPlayer();
+  const isBarVisible = useMediaPlayerBarVisible();
   const segmentStripVisible = useMediaPlayerSegmentStripVisible();
 
-  // Sync layout when this component mounts (e.g. after lazy load) or when playing state changes.
-  // This ensures the "reserve space" CSS is only applied once the player UI is ready to display.
+  // The page reserves player space while the bar has a local item or another device's item.
   useEffect(() => {
-    updateLayoutForMediaPlayer(!!mpChannel || !!mpAddByRSS, { skipMainAppLayoutMutations });
-  }, [mpAddByRSS, mpChannel, skipMainAppLayoutMutations]);
+    updateLayoutForMediaPlayer(isBarVisible, { skipMainAppLayoutMutations });
+  }, [isBarVisible, skipMainAppLayoutMutations]);
 
   useEffect(() => {
     updateLayoutForMediaPlayerSegmentStrip(segmentStripVisible, { skipMainAppLayoutMutations });

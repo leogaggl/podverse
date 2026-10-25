@@ -1,8 +1,10 @@
 import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { AutoQueueConfig, AutoQueueResourcesMap } from '../lib/autoQueue/autoQueue';
-import { createDefaultAutoQueueConfig } from '../lib/autoQueue/autoQueue';
+import { getShuffleHash } from '@podverse/helpers-requests';
+import type { AutoQueueConfig, AutoQueueResourcesMap } from '@podverse/playback-core/autoQueue';
+import { createDefaultAutoQueueConfig } from '@podverse/playback-core/autoQueue';
+
 import {
   readAutoQueuePrefs,
   writeAutoQueueRandomPref,
@@ -10,9 +12,10 @@ import {
 } from '../prefs/autoQueuePrefs';
 
 /**
- * Auto-queue store — mirrors web `apps/web/src/contexts/AutoQueue.tsx`. Owns the resources map,
- * config, and active row. Shuffle/repeat prefs persist to device storage (`aqc.rd` / `aqc.rp`) with
- * web cookie-key parity. Kept separate from the manual queue store (`QueuesProvider`).
+ * Auto-queue store: the resources map, config, and active row. `useAutoQueueFill` in the playback
+ * provider writes the buffer; screens only read. Shuffle/repeat prefs persist to device storage
+ * under `aqc.rd` / `aqc.rp`, the same keys web uses for its cookies. Kept separate from the manual
+ * queue store (`QueuesProvider`).
  */
 type AutoQueueContextType = {
   autoQueueResources: AutoQueueResourcesMap;
@@ -28,7 +31,7 @@ const AutoQueueContext = createContext<AutoQueueContextType | undefined>(undefin
 export function AutoQueueProvider({ children }: PropsWithChildren) {
   const [autoQueueResources, setAutoQueueResources] = useState<AutoQueueResourcesMap>({});
   const [autoQueueConfig, setAutoQueueConfig] = useState<AutoQueueConfig>(() =>
-    createDefaultAutoQueueConfig()
+    createDefaultAutoQueueConfig(getShuffleHash)
   );
   const [autoQueueActiveRow, setAutoQueueActiveRow] = useState<number>(0);
 

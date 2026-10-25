@@ -18,6 +18,13 @@ import { useEmbedPlaybackGuardrails } from '../contexts/EmbedPlaybackMode';
 import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { useQueueResourcesAbridgedIndex } from '../contexts/QueueResourcesAbridgedIndex';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
+import {
+  buildPlaybackResourceRefFromTarget,
+  playbackStartSecondsFromTarget,
+} from '../lib/crossDevicePlayback/playbackResource';
+import { resolveRemotePickCommand } from '../lib/crossDevicePlayback/remotePlaybackRouting';
+import { sendPlaybackCommand } from '../lib/crossDevicePlayback/sendPlaybackCommand';
 import type { PlaybackLoadDecision, PlaybackLoadRequest, PlaybackTarget } from '../lib/playback';
 import { parsePlaybackSeconds } from '../lib/playback';
 import { useQueueResourcesUpdateNowPlaying } from './useQueueResourceUpdateNowPlaying';
@@ -228,7 +235,21 @@ export function useMediaPlayerResourceUpdate() {
     mpItemRef.current = mpItem;
   }, [mpItem]);
 
-  return (input: MediaPlayerPlaybackLoadInput): PlaybackLoadDecision => {
+  return (input: MediaPlayerPlaybackLoadInput): PlaybackLoadDecision | null => {
+    if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+      const command = resolveRemotePickCommand({
+        pickedRef: buildPlaybackResourceRefFromTarget(input.target),
+        addByRSSResourceData: input.target.kind === 'add-by-rss' ? input.target.resourceData : null,
+        startSeconds: playbackStartSecondsFromTarget(input.target, input.explicitPlaybackSeconds),
+        loadsPaused: input.shouldPlay === false || input.skipNowPlayingWrite === true,
+        remoteState: crossDevicePlaybackStore.getSnapshot().displayState,
+      });
+      if (command !== null) {
+        void sendPlaybackCommand(command);
+      }
+      return null;
+    }
+
     const {
       target,
       explicitPlaybackSeconds,

@@ -13,6 +13,9 @@ import type {
   DeleteAccountUPDeviceParams,
   DeleteAccountWebPushDeviceParams,
   LiveItemStatus,
+  PlaybackCommandSendBody,
+  PlaybackStartFailedBody,
+  PlaybackStatePublishBody,
   PlaylistResourceIdTextOptions,
   UpdateAccountFCMDeviceParams,
   UpdateAccountUPDeviceParams,
@@ -106,6 +109,12 @@ import {
   reqNotificationsMarkReadOne,
   reqNotificationsUnreadCount,
 } from './account/notification/notifications.js';
+import {
+  reqAccountPlaybackCheckIn,
+  reqAccountPlaybackPublishState,
+  reqAccountPlaybackReportStartFailed,
+  reqAccountPlaybackSendCommand,
+} from './account/playback.js';
 import {
   reqAccountRecommendations,
   reqAccountTasteProfile,
@@ -872,6 +881,27 @@ export class ApiRequestService {
 
   reqAccountContentLog(params: { type: 'removed_content' }) {
     return reqAccountContentLog(this, params);
+  }
+
+  /* ACCOUNT > PLAYBACK */
+
+  reqAccountPlaybackCheckIn() {
+    return reqAccountPlaybackCheckIn(this);
+  }
+
+  reqAccountPlaybackPublishState(body: PlaybackStatePublishBody) {
+    return reqAccountPlaybackPublishState(this, body);
+  }
+
+  reqAccountPlaybackSendCommand(body: PlaybackCommandSendBody) {
+    return reqAccountPlaybackSendCommand(this, body);
+  }
+
+  reqAccountPlaybackReportStartFailed(params: {
+    commandIdText: string;
+    body: PlaybackStartFailedBody;
+  }) {
+    return reqAccountPlaybackReportStartFailed(this, params);
   }
 
   /* ACCOUNT > TASTE PROFILE */

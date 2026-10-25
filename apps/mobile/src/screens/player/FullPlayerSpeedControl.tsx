@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 
 import type { MoreMenuSection } from '../../components/primitives/MoreMenu';
 import { MoreMenu } from '../../components/primitives/MoreMenu';
+import { useCrossDevicePlayerDisplay } from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 
 /**
  * Playback speed control. Wired to the engine via `usePlaybackSession().setRate`, which calls
- * `NativePlaybackBridge.setRate` — no reload. Reflects the current rate from context (`playbackRate`)
- * and persists for the session (provider state). Rates and their labels mirror the web speed menu
- * (`media_player.playback_speed.speeds.*`).
+ * `NativePlaybackBridge.setRate` — no reload. The selected rate is the other device's while the
+ * player shows that device, and this phone's rate otherwise. Rates and their labels mirror the
+ * web speed menu (`media_player.playback_speed.speeds.*`).
  */
 const SPEED_OPTIONS: { rate: number; labelKey: string }[] = [
   { labelKey: 'media_player.playback_speed.speeds.0-5', rate: 0.5 },
@@ -28,7 +29,9 @@ type FullPlayerSpeedControlProps = {
 
 export function FullPlayerSpeedControl({ onCancel, visible }: FullPlayerSpeedControlProps) {
   const { t } = useTranslation();
+  const display = useCrossDevicePlayerDisplay();
   const { playbackRate, setRate } = usePlaybackSession();
+  const currentRate = display.kind === 'remote' ? display.rate : playbackRate;
 
   const sections = useMemo<MoreMenuSection[]>(
     () => [
@@ -39,13 +42,13 @@ export function FullPlayerSpeedControl({ onCancel, visible }: FullPlayerSpeedCon
           onPress: () => {
             setRate(option.rate);
           },
-          selected: option.rate === playbackRate,
+          selected: option.rate === currentRate,
           testID: `full-player-speed-option-${option.rate}`,
         })),
         key: 'speed-options',
       },
     ],
-    [playbackRate, setRate, t]
+    [currentRate, setRate, t]
   );
 
   return (

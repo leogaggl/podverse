@@ -8,6 +8,11 @@ import {
   ACCOUNT_EVENTS_STREAM_API_PATH,
   parseAccountNotificationStreamEvent,
 } from '@podverse/helpers';
+import type { AccountPlaybackStreamEvent } from '@podverse/helpers/accountPlaybackStream';
+import {
+  isAccountPlaybackStreamEventName,
+  parseAccountPlaybackStreamEvent,
+} from '@podverse/helpers/accountPlaybackStream';
 
 import { buildMobileClientHeaders } from '../auth/mobileClientHeaders';
 import { getMobileConfig } from '../config';
@@ -19,6 +24,7 @@ export type OpenNotificationStreamParams = {
   lastEventId: number | null;
   signal: AbortSignal;
   onEvent: (event: AccountNotificationStreamEvent) => void;
+  onPlaybackEvent: (event: AccountPlaybackStreamEvent) => void;
   onActivity: () => void;
 };
 
@@ -82,6 +88,13 @@ export async function openNotificationStream(
         for (const item of parser.push(text)) {
           params.onActivity();
           if (item.kind !== 'event') {
+            continue;
+          }
+          if (isAccountPlaybackStreamEventName(item.event)) {
+            const playbackEvent = parseAccountPlaybackStreamEvent(item.event, item.data);
+            if (playbackEvent !== null) {
+              params.onPlaybackEvent(playbackEvent);
+            }
             continue;
           }
           const event = parseAccountNotificationStreamEvent(item.event, item.data);

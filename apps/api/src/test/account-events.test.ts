@@ -4,6 +4,7 @@ import http from 'node:http';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { DTOPlaybackDevice, DTOPlaybackDevices } from '@podverse/helpers';
 import { buildEpisodePath } from '@podverse/helpers';
 import type { AccountEvent, ORMContext } from '@podverse/orm';
 
@@ -416,6 +417,74 @@ describe('account event stream route', () => {
     expect(me.status).toBe(401);
     expect(me.body.code).toBe('session_ended');
     expect(setCookies(me).some((value) => value.startsWith('jwt=;'))).toBe(true);
+  });
+
+  it('sends playback.snapshot after notification.state, lists a device that checked in, and relays playback.devices', async () => {
+    const { getPlaybackRedis } = await import('@api/lib/accountPlayback/playbackRedis.js');
+    const { touchPlaybackPresence } = await import('@api/lib/accountPlayback/playbackStore.js');
+    const playbackKeys = ['presence', 'devices', 'devices_rev', 'state', 'state_rev', 'active'].map(
+      (name) => `podverse:playback:${TEST_USER_ID}:${name}`
+    );
+    await getPlaybackRedis().del(...playbackKeys);
+    try {
+      const first = await openStream(authHeaders(TEST_USER_ID));
+      try {
+        const empty = await first.nextEvent('playback.snapshot');
+        expect(empty).toEqual({
+          event: 'playback.snapshot',
+          data: { devices: { revision: 0, devices: [] }, state: null },
+        });
+        expect(first.events.slice(0, 2).map((entry) => entry.event)).toEqual([
+          'notification.state',
+          'playback.snapshot',
+        ]);
+      } finally {
+        first.close();
+      }
+
+      const device: DTOPlaybackDevice = {
+        session_id_text: TEST_ACCOUNT_SESSION_ID_TEXT,
+        client_type: 'mobile',
+        device_label: 'iPhone · iOS',
+        session_created_at: '2026-10-20T00:00:00.000Z',
+      };
+      const touched = await touchPlaybackPresence({
+        accountId: TEST_USER_ID,
+        device,
+        nowMs: Date.now(),
+      });
+
+      const second = await openStream(authHeaders(TEST_USER_ID));
+      try {
+        const listed = await second.nextEvent('playback.snapshot');
+        expect(listed.data).toEqual({
+          devices: { revision: touched.devicesRevision, devices: [device] },
+          state: null,
+        });
+
+        const devices: DTOPlaybackDevices = {
+          revision: touched.devicesRevision + 1,
+          devices: [
+            device,
+            {
+              session_id_text: 'sessother22',
+              client_type: 'web',
+              device_label: 'Firefox · macOS',
+              session_created_at: '2026-10-21T00:00:00.000Z',
+            },
+          ],
+        };
+        emit({ account_id: TEST_USER_ID, type: 'playback.devices', data: devices });
+        expect(await second.nextEvent('playback.devices')).toEqual({
+          event: 'playback.devices',
+          data: devices,
+        });
+      } finally {
+        second.close();
+      }
+    } finally {
+      await getPlaybackRedis().del(...playbackKeys);
+    }
   });
 
   // The hub remembers an ended session for 60 seconds and closes any stream that registers for

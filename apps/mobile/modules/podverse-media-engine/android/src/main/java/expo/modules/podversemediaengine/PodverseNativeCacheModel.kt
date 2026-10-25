@@ -46,10 +46,24 @@ object PodverseNativeCacheModel {
     val artist: String?,
     val startPositionSeconds: Double?,
     val downloadFileName: String?,
+    val kind: String = "item",
+    val clipStartSeconds: Double? = null,
+    val clipEndSeconds: Double? = null,
   )
 
   data class QueueSnapshot(
     val nowPlayingIdText: String?,
+    val entries: List<QueueEntry>,
+  )
+
+  /**
+   * The play order JS resolved after [anchorIdText] (`advance-window.json`). [entries] never
+   * contains the anchor; native steps through it in order and makes no queue choice.
+   */
+  data class AdvanceWindow(
+    val mediumBucket: String,
+    val anchorIdText: String?,
+    val anchorKind: String,
     val entries: List<QueueEntry>,
   )
 
@@ -137,24 +151,45 @@ object PodverseNativeCacheModel {
     val entries = ArrayList<QueueEntry>(array.length())
     for (i in 0 until array.length()) {
       val obj = array.optJSONObject(i) ?: continue
-      val idText = obj.optString("idText").takeIf { it.isNotBlank() } ?: continue
-      val title = obj.optString("title").takeIf { it.isNotBlank() } ?: continue
-      entries.add(
-        QueueEntry(
-          idText = idText,
-          title = title,
-          artworkUrl = optStringOrNull(obj, "artworkUrl"),
-          mediaUrl = optStringOrNull(obj, "mediaUrl"),
-          podcastTitle = optStringOrNull(obj, "podcastTitle"),
-          artist = optStringOrNull(obj, "artist"),
-          startPositionSeconds =
-            if (obj.has("startPositionSeconds") && !obj.isNull("startPositionSeconds"))
-              obj.optDouble("startPositionSeconds")
-            else null,
-          downloadFileName = optStringOrNull(obj, "downloadFileName"),
-        ))
+      parseQueueEntry(obj)?.let { entries.add(it) }
     }
     return QueueSnapshot(nowPlayingIdText, entries)
+  }
+
+  fun parseAdvanceWindow(json: String?): AdvanceWindow? {
+    val root = decodeEnvelope(json, "advance-window") ?: return null
+    val array = root.optJSONArray("entries")
+    val entries = ArrayList<QueueEntry>()
+    if (array != null) {
+      for (i in 0 until array.length()) {
+        val obj = array.optJSONObject(i) ?: continue
+        parseQueueEntry(obj)?.let { entries.add(it) }
+      }
+    }
+    return AdvanceWindow(
+      mediumBucket = optStringOrNull(root, "mediumBucket") ?: "av",
+      anchorIdText = optStringOrNull(root, "anchorIdText"),
+      anchorKind = optStringOrNull(root, "anchorKind") ?: "item",
+      entries = entries,
+    )
+  }
+
+  private fun parseQueueEntry(obj: JSONObject): QueueEntry? {
+    val idText = obj.optString("idText").takeIf { it.isNotBlank() } ?: return null
+    val title = obj.optString("title").takeIf { it.isNotBlank() } ?: return null
+    return QueueEntry(
+      idText = idText,
+      title = title,
+      artworkUrl = optStringOrNull(obj, "artworkUrl"),
+      mediaUrl = optStringOrNull(obj, "mediaUrl"),
+      podcastTitle = optStringOrNull(obj, "podcastTitle"),
+      artist = optStringOrNull(obj, "artist"),
+      startPositionSeconds = optFiniteDoubleOrNull(obj, "startPositionSeconds"),
+      downloadFileName = optStringOrNull(obj, "downloadFileName"),
+      kind = optStringOrNull(obj, "kind") ?: "item",
+      clipStartSeconds = optFiniteDoubleOrNull(obj, "clipStartSeconds"),
+      clipEndSeconds = optFiniteDoubleOrNull(obj, "clipEndSeconds"),
+    )
   }
 
   fun parseChildItems(json: String?): List<ChildItem> {
@@ -253,4 +288,7 @@ object PodverseNativeCacheModel {
 
   private fun optStringOrNull(obj: JSONObject, key: String): String? =
     if (obj.has(key) && !obj.isNull(key)) obj.optString(key).takeIf { it.isNotBlank() } else null
+
+  private fun optFiniteDoubleOrNull(obj: JSONObject, key: String): Double? =
+    if (obj.has(key) && !obj.isNull(key)) obj.optDouble(key).takeIf { it.isFinite() } else null
 }

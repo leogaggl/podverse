@@ -182,6 +182,13 @@ type Config = {
     password: string;
     cacheExpiration: number;
   };
+  playback: {
+    /**
+     * From PLAYBACK_PRESENCE_LEAVE_GRACE_MS. How long a device stays in the device menu after its
+     * account event stream closes, so a quick reconnect does not drop it.
+     */
+    presenceLeaveGraceMs: number;
+  };
   resetPassword: {
     tokenExpiration: number;
   };
@@ -484,6 +491,9 @@ export const config: Config = {
     port: Number(process.env.KEYVALDB_PORT!),
     password: process.env.KEYVALDB_PASSWORD!,
     cacheExpiration: readRequiredPositiveExpirationEnv('KEYVALDB_CACHE_EXPIRATION'),
+  },
+  playback: {
+    presenceLeaveGraceMs: Number(process.env.PLAYBACK_PRESENCE_LEAVE_GRACE_MS!),
   },
   resetPassword: {
     tokenExpiration: readOptionalPositiveExpirationEnv(

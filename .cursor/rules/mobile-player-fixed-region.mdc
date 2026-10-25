@@ -41,6 +41,10 @@ with scroll. The mini player on other screens is a separate surface.
   `FULL_PLAYER_REGION_TOP_PADDING` above the title and `FULL_PLAYER_REGION_BOTTOM_PADDING` below the
   utility row (the seam before the section chips). Both paddings are chrome so the bands sum to the
   region height rather than overflowing. The chip header has no hairlines.
+- The remote region (`FullPlayerRemoteRegion`) keeps the same bands and heights, always reserves
+  the segment band (the chapter on its first line when there is one, the "Playing on {device}"
+  status line on its second, or the status line alone), and has no section chips or pane. Moving
+  between the local and the remote region counts as a new item.
 - Peek sizes first paint so the chip strip sits at the fold. `resolveFullPlayerLayout` reserves the
   chip strip plus the bottom safe-area inset from the player height, which is what keeps the chips
   above the home indicator. Space above the chips and space from chips to the pane sheet are each

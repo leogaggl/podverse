@@ -79,8 +79,9 @@ These variables are **always required** regardless of configuration:
 - **`KEYVALDB_PASSWORD`** (Required) - Key-value database password
 - **`KEYVALDB_CACHE_EXPIRATION`** (Required) - KeyValDB cache time-to-live in seconds (integer > 0)
 
-The API opens three KeyValDB connections with these values: the cache client, one account event
-publisher, and one account event subscriber on `podverse:account-events`.
+The API opens four KeyValDB connections with these values: the cache client, one account event
+publisher, one account event subscriber on `podverse:account-events`, and one connection
+(`podverse-api-playback`) for cross-device playback presence and state.
 
 ### Podcast Index
 

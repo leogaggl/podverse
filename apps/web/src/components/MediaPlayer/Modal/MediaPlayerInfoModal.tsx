@@ -15,6 +15,7 @@ import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentT
 import { useMediaPlayerVideo } from '../../../contexts/MediaPlayerVideo';
 import { useDeviceArtistLinks } from '../../../hooks/useDeviceArtistLinks';
 import { useModalArtworkSquareSize } from '../../../hooks/useModalArtworkSquareSize';
+import { useRemotePlayerInfo } from '../../../hooks/useRemotePlayerInfo';
 import { isNonLiveVideoPlaying } from '../../../utils/mediaPlayer/isNonLiveVideoPlaying';
 import {
   buildMediaPlayerArtworkImageCandidates,
@@ -24,6 +25,7 @@ import {
 import { getMediaPlayerInfoResolution } from '../../../utils/mediaPlayer/mediaPlayerInfoResolution';
 import { Link } from '../../Link/Link';
 import { ReadableTimeRange } from '../../Time/ReadableTimeRange';
+import { PlayerDeviceCaption } from '../CrossDevice/PlayerDeviceCaption';
 import { ChapterLinkButton } from './ChapterLinkButton';
 import { MediaPlayerArtistChooser } from './MediaPlayerArtistChooser';
 import { MediaPlayerVtsOverrideLikeButton } from './MediaPlayerVtsOverrideLikeButton';
@@ -82,6 +84,7 @@ export const MediaPlayerInfoModal: React.FC = () => {
     setPlayerModalIsOpen,
   } = useMediaPlayer();
   const deviceArtistLinks = useDeviceArtistLinks();
+  const remoteInfo = useRemotePlayerInfo();
   const { mpCurrentTime } = useMediaPlayerCurrentTime();
   const { videoLocation, setModalVideoTarget, modalVideoAspectRatio } = useMediaPlayerVideo();
   const tMediaPlayer = useTranslations('media_player');
@@ -110,8 +113,11 @@ export const MediaPlayerInfoModal: React.FC = () => {
     }),
     imageSizeTarget: 'largest',
   });
+  const remoteImageUrl = remoteInfo?.display.resource.image_url ?? null;
+  const displayArtwork =
+    remoteInfo === null ? artImageCandidates : remoteImageUrl !== null ? [remoteImageUrl] : [];
 
-  const infoResolution = getMediaPlayerInfoResolution({
+  const localResolution = getMediaPlayerInfoResolution({
     mpChannel,
     mpItem,
     mpAddByRSS,
@@ -122,11 +128,12 @@ export const MediaPlayerInfoModal: React.FC = () => {
     currentTimeSeconds: mpCurrentTime,
     deviceArtistLinks,
   });
+  const infoResolution = remoteInfo?.resolution ?? localResolution;
   const artistLine = infoResolution.artistLine;
   const [chooserOpen, setChooserOpen] = useState(false);
   const chooserTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const showModalVideo = videoLocation === 'full-modal' && isVideoPlaying;
+  const showModalVideo = remoteInfo === null && videoLocation === 'full-modal' && isVideoPlaying;
   const ratioKnown = modalVideoAspectRatio !== null;
 
   const infoRef = useRef<HTMLDivElement>(null);
@@ -232,6 +239,7 @@ export const MediaPlayerInfoModal: React.FC = () => {
           <MediaPlayerVtsOverrideLikeButton likeTarget={infoResolution.resolvedLikeTarget} />
         </div>
       )}
+      <PlayerDeviceCaption />
     </div>
   );
 
@@ -292,7 +300,7 @@ export const MediaPlayerInfoModal: React.FC = () => {
           >
             <ImageNonReact
               className={styles.image}
-              candidates={artImageCandidates}
+              candidates={displayArtwork}
               alt={tMediaPlayer('media_player_image')}
             />
           </div>

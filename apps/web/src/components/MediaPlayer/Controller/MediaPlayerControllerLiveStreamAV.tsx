@@ -9,6 +9,7 @@ import type {
 import { getSelectedLabeledItemEnclosureAndSource, isEqual, isHlsSource } from '@podverse/helpers';
 
 import type { MediaElementSource } from '../../../hooks/useMediaElementBridge';
+import { crossDevicePlaybackStore } from '../../../lib/crossDevicePlayback/crossDevicePlaybackStore';
 import { MediaElement } from '../MediaElement/MediaElement';
 import { resolveLivestreamSourceType } from './livestreamSourceType';
 
@@ -45,7 +46,9 @@ function LivestreamMediaElement({
       return;
     }
     const start = () => {
-      void media.play().catch(() => undefined);
+      void media.play().catch((error: unknown) => {
+        crossDevicePlaybackStore.notifyLocalPlayRejected(error);
+      });
     };
     if (media.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       start();

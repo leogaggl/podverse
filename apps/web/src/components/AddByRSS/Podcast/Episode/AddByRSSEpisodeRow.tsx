@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import type { EnclosureSelectedParams } from '@podverse/helpers';
 import {
@@ -12,7 +12,11 @@ import {
   getQueueForMedium,
 } from '@podverse/helpers';
 import { getDescriptionPreviewText } from '@podverse/helpers';
-import { buildAddByRSSResourceData, getAddByRSSHashId } from '@podverse/parser-mapping';
+import {
+  buildAddByRSSResourceData,
+  getAddByRSSHashId,
+  getAddByRSSHashIds,
+} from '@podverse/parser-mapping';
 import { ImagesPerView } from '@podverse/ui';
 
 import { IMAGES } from '../../../../constants/images';
@@ -73,6 +77,10 @@ export const AddByRSSEpisodeRow: React.FC<AddByRSSEpisodeRowProps> = ({
   const playAddByRSS = usePlayAddByRSS();
   const apiRequestService = getApiRequestService();
   const { runQueueAdd } = useQueueAddWithGate();
+  const addByRSSHashIds = useMemo(
+    () => (indexItem ? getAddByRSSHashIds(indexItem) : undefined),
+    [indexItem]
+  );
   const title = bundle.item.title ?? tMedia('podcast.episode_image');
   const description = getDescriptionPreviewText(bundle.description) || channelTitle;
   const itemImageCandidates = buildDTOItemImageLoadCandidates(
@@ -270,6 +278,7 @@ export const AddByRSSEpisodeRow: React.FC<AddByRSSEpisodeRowProps> = ({
             <PlayButtonRow
               item={null}
               addByRSSIdText={indexItem?.idText ?? undefined}
+              addByRSSHashIds={addByRSSHashIds}
               onClick={playButtonOnClick}
             />
             <div className={styles.timeSection}>

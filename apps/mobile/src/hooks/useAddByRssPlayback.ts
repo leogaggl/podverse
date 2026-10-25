@@ -4,14 +4,11 @@ import type { AddByRSSResourceData } from '@podverse/helpers';
 import { toNonEmptyTrimmedString } from '@podverse/helpers/guards';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
-import {
-  toAddByRssItemPlaybackResourceData,
-  toAddByRssLiveItemPlaybackResourceData,
-} from '../lib/addByRss/domain';
-import { addByRssDownloadItemIdText } from '../lib/addByRss/downloadIdText';
+import { toAddByRssLiveItemPlaybackResourceData } from '../lib/addByRss/domain';
+import { addByRssEpisodePlayEntry } from '../lib/addByRss/feedWalk';
 import { addByRssPlaybackMediaId } from '../lib/addByRss/resourceData';
-import { playbackTargetRowMediaId } from '../lib/playback/buildPlaybackTarget';
-import { usePlaybackIsPlaying, usePlaybackSession } from '../playback/PlaybackProvider';
+import { usePlaybackRowDisplay } from '../playback/crossDevice/useCrossDevicePlayerDisplay';
+import { usePlaybackSession } from '../playback/PlaybackProvider';
 import type { MobileAddByRSSFeedRecord } from '../prefs/addByRSSFeeds';
 
 type UseAddByRssPlaybackOptions = {
@@ -24,15 +21,14 @@ type UseAddByRssPlaybackOptions = {
  * download of an episode plays from the device. A livestream has no download. Loading the native
  * engine from a screen would leave whatever the provider last loaded (for example the queue head
  * adopted at sign-in) as the now-playing item, and its `ended` event would finish that item
- * instead. Pressing play on the item that is already loaded pauses or resumes it, as other rows do.
+ * instead. Pressing play on the active row pauses or resumes it, as other rows do.
  */
 export function useAddByRssPlayback({ onNotice }: UseAddByRssPlaybackOptions) {
-  const { activeTarget, pause, playAddByRssResourceData, resume } = usePlaybackSession();
-  const isPlaying = usePlaybackIsPlaying();
+  const { pause, playAddByRssResourceData, resume } = usePlaybackSession();
+  const { activeMediaId, isPlaying } = usePlaybackRowDisplay();
 
   const playLoadedResource = useCallback(
     async (resourceData: AddByRSSResourceData, localDownloadItemIdText?: string) => {
-      const activeMediaId = activeTarget !== null ? playbackTargetRowMediaId(activeTarget) : null;
       if (activeMediaId !== null && activeMediaId === addByRssPlaybackMediaId(resourceData)) {
         if (isPlaying) {
           pause();
@@ -48,7 +44,7 @@ export function useAddByRssPlayback({ onNotice }: UseAddByRssPlaybackOptions) {
         localDownloadItemIdText === undefined ? undefined : { localDownloadItemIdText }
       );
     },
-    [activeTarget, isPlaying, onNotice, pause, playAddByRssResourceData, resume]
+    [activeMediaId, isPlaying, onNotice, pause, playAddByRssResourceData, resume]
   );
 
   const playItem = useCallback(
@@ -58,16 +54,13 @@ export function useAddByRssPlayback({ onNotice }: UseAddByRssPlaybackOptions) {
       itemBundle: AddByRSSMappedFeed['items'][number],
       itemIndex: number
     ) => {
-      const enclosureUrl = itemBundle.enclosures[0]?.item_enclosure_sources[0]?.uri ?? null;
-      if (enclosureUrl === null) {
+      const entry = addByRssEpisodePlayEntry(feed, mappedFeed, itemBundle, itemIndex);
+      if (entry === null) {
         onNotice('features.add_by_rss.status_processing');
         return;
       }
 
-      await playLoadedResource(
-        toAddByRssItemPlaybackResourceData(feed, mappedFeed, itemBundle, itemIndex),
-        addByRssDownloadItemIdText(feed.feedUrl, itemBundle.item, itemIndex)
-      );
+      await playLoadedResource(entry.resourceData, entry.localDownloadItemIdText);
     },
     [onNotice, playLoadedResource]
   );

@@ -109,6 +109,34 @@ describe('DropdownMenuPanel', () => {
     expect(screen.getAllByRole('menuitem')[0]?.hasAttribute('aria-checked')).toBe(false);
   });
 
+  it('renders a description inside the menu item', () => {
+    renderPanel({
+      menuItems: [{ label: 'Laptop', description: 'This Device', onClick: () => {} }],
+    });
+
+    const item = screen.getByRole('menuitem');
+    expect(item.textContent).toContain('Laptop');
+    expect(item.textContent).toContain('This Device');
+  });
+
+  it('renders two items that share a label when each has its own key', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      renderPanel({
+        menuItems: [
+          { key: 'session-a', label: 'Phone', onClick: () => {} },
+          { key: 'session-b', label: 'Phone', onClick: () => {} },
+        ],
+      });
+
+      expect(screen.getAllByRole('menuitem')).toHaveLength(2);
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('renders the menu inside its container when no anchorRef is passed', () => {
     const { container } = renderPanel();
 

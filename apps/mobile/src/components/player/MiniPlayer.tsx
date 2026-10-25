@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GestureResponderEvent } from 'react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { breakpoints } from '@podverse/design-tokens';
 
@@ -9,6 +9,10 @@ import { useActionError } from '../../feedback/ActionErrorProvider';
 import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
 import { artistAlbumLine, playbackTargetArtists } from '../../lib/playback/verifiedArtists';
+import {
+  useCrossDevicePlayerDisplay,
+  usePlayerStatusText,
+} from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { MINI_PLAYER_ARTWORK_SIZE } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -17,6 +21,8 @@ import { useTheme } from '../../theme/useTheme';
 import { MarqueeText } from '../primitives/MarqueeText';
 import { MiniPlayerArtwork } from './MiniPlayerArtwork';
 import { MiniPlayerProgress } from './MiniPlayerProgress';
+import { MiniPlayerRemoteArtwork, MiniPlayerRemoteProgress } from './MiniPlayerRemote';
+import { PlaybackDeviceButton } from './PlaybackDeviceButton';
 import { PlayerTransportButton } from './PlayerTransportButton';
 
 type MiniPlayerProps = {
@@ -27,8 +33,9 @@ type MiniPlayerProps = {
 const MINI_PLAYER_CHANNEL_TITLE_NUDGE = -2;
 
 /**
- * Mini player fixed above the tab bar. Session chrome only — progress fill and chapter artwork live
- * in leaf components so the shell does not re-render on every playhead tick.
+ * Mini player fixed above the tab bar. Shows this phone's session, or another device's playback
+ * when the cross-device display says so. Progress fill and chapter artwork live in leaf components
+ * so the shell does not re-render on every playhead tick.
  */
 export function MiniPlayer({ onExpand }: MiniPlayerProps) {
   const { t } = useTranslation();
@@ -43,6 +50,9 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
     retryPlayback,
     transportState,
   } = usePlaybackSession();
+  const display = useCrossDevicePlayerDisplay();
+  const statusText = usePlayerStatusText(display);
+  const remote = display.kind === 'remote' ? display : null;
   const { openPlaybackError } = useActionError();
 
   const styles = useMemo(
@@ -61,6 +71,9 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
           alignItems: 'center',
           flexDirection: 'row',
           height: MINI_PLAYER_ARTWORK_SIZE,
+        },
+        remoteStatus: {
+          color: themeStyles.textSecondary.color,
         },
         subtitle: {
           ...typography.body,
@@ -93,11 +106,19 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
     [activeTarget, artistIndexVersion]
   );
 
-  if (activeTarget === null || nowPlaying === null) {
+  if (remote === null && (activeTarget === null || nowPlaying === null)) {
     return null;
   }
 
-  const secondLine = artistAlbumLine(artists, nowPlaying.channelTitle);
+  let title: string;
+  if (remote !== null) {
+    title = remote.resource.title ?? (nowPlaying === null ? '' : nowPlaying.title);
+  } else if (nowPlaying !== null) {
+    title = nowPlaying.title;
+  } else {
+    return null;
+  }
+  const secondLine = nowPlaying === null ? null : artistAlbumLine(artists, nowPlaying.channelTitle);
 
   const handlePlay = (event: GestureResponderEvent) => {
     stopPropagation(event);
@@ -124,9 +145,20 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
       style={[styles.container, isTablet ? styles.containerTablet : undefined]}
       testID="mini-player"
     >
-      <MiniPlayerProgress />
+      {remote !== null ? (
+        <MiniPlayerRemoteProgress durationSeconds={remote.durationSeconds} isLive={remote.isLive} />
+      ) : (
+        <MiniPlayerProgress />
+      )}
       <View style={styles.row}>
-        <MiniPlayerArtwork accessibilityLabel={t('media_player.media_player_image')} />
+        {remote !== null ? (
+          <MiniPlayerRemoteArtwork
+            accessibilityLabel={t('media_player.media_player_image')}
+            imageUrl={remote.resource.image_url}
+          />
+        ) : (
+          <MiniPlayerArtwork accessibilityLabel={t('media_player.media_player_image')} />
+        )}
         <View style={styles.textColumn}>
           <MarqueeText
             style={styles.title}
@@ -134,9 +166,17 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
             turnGroup="mini-player"
             turnOrder={0}
           >
-            {nowPlaying.title}
+            {title}
           </MarqueeText>
-          {secondLine !== null ? (
+          {statusText !== null ? (
+            <Text
+              numberOfLines={1}
+              style={[styles.subtitle, styles.remoteStatus]}
+              testID="mini-player-remote-status"
+            >
+              {statusText}
+            </Text>
+          ) : secondLine !== null ? (
             <MarqueeText
               style={styles.subtitle}
               testID="mini-player-subtitle"
@@ -147,13 +187,14 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
             </MarqueeText>
           ) : null}
         </View>
+        <PlaybackDeviceButton appearance="mini" testID="mini-player-devices" />
         <View style={styles.transport}>
           <PlayerTransportButton
             appearance="bare"
             onPause={handlePause}
             onPlay={handlePlay}
             onErrorPress={handleErrorPress}
-            state={transportState}
+            state={remote !== null ? remote.transportState : transportState}
             testID="mini-player-play-pause"
           />
         </View>

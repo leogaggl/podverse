@@ -8,9 +8,15 @@ import type {
   DTOItemChapter,
   DTOItemSoundbite,
 } from '@podverse/helpers';
+import type { DTOPlaybackResourceSummary } from '@podverse/helpers/accountPlaybackStream';
+import { MediumEnum } from '@podverse/helpers/medium';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
-import { buildNowPlayingShareUrl, buildPublicShareUrl } from './shareUrl';
+import {
+  buildNowPlayingShareUrl,
+  buildPublicShareUrl,
+  buildRemotePlaybackShareUrl,
+} from './shareUrl';
 
 const makeChannel = (idText: string): DTOChannel => {
   return {
@@ -209,5 +215,92 @@ describe('buildNowPlayingShareUrl', () => {
       resourceData: {} satisfies AddByRSSResourceData,
     };
     expect(buildNowPlayingShareUrl(webBaseUrl, target)).toBeNull();
+  });
+});
+
+const remoteSummary = (
+  ref: DTOPlaybackResourceSummary['ref'],
+  medium: MediumEnum
+): DTOPlaybackResourceSummary => ({
+  channel_title: 'Show',
+  image_url: null,
+  medium,
+  ref,
+  title: 'Title',
+});
+
+describe('buildRemotePlaybackShareUrl', () => {
+  const webBaseUrl = 'https://example.com/';
+
+  it('maps an item to its episode or track page, and a live item to its livestream page', () => {
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ item_id_text: 'ep123', kind: 'item' }, MediumEnum.Podcast),
+        false
+      )
+    ).toBe('https://example.com/episode/ep123');
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ item_id_text: 'tr123', kind: 'item' }, MediumEnum.Music),
+        false
+      )
+    ).toBe('https://example.com/track/tr123');
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ item_id_text: 'ep123', kind: 'item' }, MediumEnum.Podcast),
+        true
+      )
+    ).toBe('https://example.com/podcast/livestream/ep123');
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ item_id_text: 'tr123', kind: 'item' }, MediumEnum.Music),
+        true
+      )
+    ).toBe('https://example.com/music/livestream/tr123');
+  });
+
+  it('maps a clip and an official clip to their own pages', () => {
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ clip_id_text: 'clip123', kind: 'clip' }, MediumEnum.Podcast),
+        false
+      )
+    ).toBe('https://example.com/clip/clip123');
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ item_soundbite_id_text: 'sb123', kind: 'soundbite' }, MediumEnum.Podcast),
+        false
+      )
+    ).toBe('https://example.com/official-clip/sb123');
+  });
+
+  it('returns null for Add by RSS and when this build has no web host', () => {
+    expect(
+      buildRemotePlaybackShareUrl(
+        webBaseUrl,
+        remoteSummary({ add_by_rss_hash_id: 'hash1', kind: 'add_by_rss' }, MediumEnum.Podcast),
+        false
+      )
+    ).toBeNull();
+    expect(
+      buildRemotePlaybackShareUrl(
+        null,
+        remoteSummary({ item_id_text: 'ep123', kind: 'item' }, MediumEnum.Podcast),
+        false
+      )
+    ).toBeNull();
+    expect(
+      buildRemotePlaybackShareUrl(
+        '   ',
+        remoteSummary({ item_id_text: 'ep123', kind: 'item' }, MediumEnum.Podcast),
+        false
+      )
+    ).toBeNull();
   });
 });

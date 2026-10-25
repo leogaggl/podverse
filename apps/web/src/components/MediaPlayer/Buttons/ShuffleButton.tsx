@@ -2,6 +2,7 @@ import { useTranslations } from 'next-intl';
 import { FaShuffle } from 'react-icons/fa6';
 
 import { getShuffleHash } from '@podverse/helpers-requests';
+import { toggleAutoQueueShuffle } from '@podverse/playback-core';
 
 import { useAutoQueue } from '../../../contexts/AutoQueue';
 import { useAutoQueueLoadResources } from '../../../hooks/useAutoQueueLoadResources';
@@ -15,17 +16,11 @@ export const ShuffleButton = () => {
   const autoQueueLoadResources = useAutoQueueLoadResources();
 
   const onClick = () => {
+    const nextConfig = toggleAutoQueueShuffle(autoQueueConfig, getShuffleHash);
     setAutoQueueActiveRow(0);
     setAutoQueueResources({});
-    setAutoQueueConfig({
-      ...autoQueueConfig,
-      random: !autoQueueConfig.random,
-      shuffleHash: getShuffleHash(),
-      nextPage: 1,
-    });
-    setTimeout(() => {
-      autoQueueLoadResources();
-    }, 0);
+    setAutoQueueConfig(nextConfig);
+    void autoQueueLoadResources({ config: nextConfig, resources: {} });
   };
 
   return (

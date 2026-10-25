@@ -5,6 +5,7 @@ import {
   getChannelRouteKind,
   getMediumIdArrayFromType,
   getQueueListMediumFromActiveQueues,
+  isMediumEnumValue,
   MediumEnum,
   resolveQueueListMedium,
 } from './medium.js';
@@ -93,5 +94,22 @@ describe('resolveQueueListMedium', () => {
         queues: [{ is_active_queue: true, medium_id: MediumEnum.Music }],
       })
     ).toBe('music');
+  });
+});
+
+describe('isMediumEnumValue', () => {
+  it('returns true for known MediumEnum members', () => {
+    expect(isMediumEnumValue(MediumEnum.Podcast)).toBe(true);
+    expect(isMediumEnumValue(MediumEnum.PublisherAV)).toBe(true);
+  });
+
+  it('returns false for unknown or non-integer values', () => {
+    expect(isMediumEnumValue(0)).toBe(false);
+    expect(isMediumEnumValue(999)).toBe(false);
+    expect(isMediumEnumValue(2.5)).toBe(false);
+    expect(isMediumEnumValue('2')).toBe(false);
+    expect(isMediumEnumValue('Podcast')).toBe(false);
+    expect(isMediumEnumValue(null)).toBe(false);
+    expect(isMediumEnumValue(undefined)).toBe(false);
   });
 });

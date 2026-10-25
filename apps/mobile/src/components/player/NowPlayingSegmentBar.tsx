@@ -6,8 +6,13 @@ import { StyleSheet, View } from 'react-native';
 import { breakpoints } from '@podverse/design-tokens';
 
 import {
+  useCrossDevicePlayerDisplay,
+  useRemotePlaybackPositionSeconds,
+} from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
+import {
   nowPlayingSegmentLabelKey,
   resolveNowPlayingSegment,
+  resolveRemoteNowPlayingSegment,
 } from '../../playback/nowPlayingSegment';
 import { usePlaybackProgress, usePlaybackSession } from '../../playback/PlaybackProvider';
 import { usePlaybackScrubPreview } from '../../playback/playbackScrubPreviewStore';
@@ -25,7 +30,8 @@ import { setNowPlayingSegmentStripVisible } from './nowPlayingSegmentStripPresen
 
 /**
  * Slim strip naming the clip, official clip, or chapter playing inside the current episode.
- * Chapters come from {@link useNowPlayingChapters}; the playhead drives which chapter is named.
+ * Chapters come from {@link useNowPlayingChapters}. The playhead is this phone's, or the other
+ * device's estimate while remote.
  * Height and type match the other bottom-chrome strips ({@link bottomChromeStripContainerLayout}).
  */
 export function NowPlayingSegmentBar() {
@@ -33,7 +39,9 @@ export function NowPlayingSegmentBar() {
   const { isTablet } = useResponsive();
   const { styles: themeStyles, tokens } = useTheme();
   const { activeTarget } = usePlaybackSession();
+  const display = useCrossDevicePlayerDisplay();
   const { positionSeconds } = usePlaybackProgress();
+  const remotePosition = useRemotePlaybackPositionSeconds();
   const previewPositionSeconds = usePlaybackScrubPreview();
   const { chapters } = useNowPlayingChapters();
 
@@ -72,12 +80,21 @@ export function NowPlayingSegmentBar() {
     [themeStyles, tokens]
   );
 
-  const segment = resolveNowPlayingSegment({
-    chapters,
-    positionSeconds,
-    previewPositionSeconds,
-    target: activeTarget,
-  });
+  const segment =
+    display.kind === 'remote'
+      ? resolveRemoteNowPlayingSegment({
+          chapters,
+          isLive: display.isLive,
+          positionSeconds: remotePosition,
+          previewPositionSeconds,
+          refKind: display.resource.ref.kind,
+        })
+      : resolveNowPlayingSegment({
+          chapters,
+          positionSeconds,
+          previewPositionSeconds,
+          target: activeTarget,
+        });
 
   const segmentVisible = segment !== null;
   useLayoutEffect(() => {

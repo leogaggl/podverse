@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AccountNotificationStreamEvent, DTOAccountNotification } from '@podverse/helpers';
 import { ACCOUNT_NOTIFICATION_STREAM_EVENT, NotificationCategoryEnum } from '@podverse/helpers';
+import type { AccountPlaybackStreamEvent } from '@podverse/helpers/accountPlaybackStream';
+import { ACCOUNT_PLAYBACK_STREAM_EVENT } from '@podverse/helpers/accountPlaybackStream';
 
 import type { NotificationStreamConnectParams } from './notificationStreamController';
 import { createNotificationStreamController } from './notificationStreamController';
@@ -12,6 +14,7 @@ import {
   getNotificationUnreadCount,
   resetNotificationStreamStore,
   subscribeNotificationStreamEvents,
+  subscribeNotificationStreamPlaybackEvents,
 } from './notificationStreamStore';
 
 const sampleNotification = (id: number): DTOAccountNotification => ({
@@ -37,12 +40,18 @@ const createdEvent = (id: number, unreadCount: number): AccountNotificationStrea
   data: { notification: sampleNotification(id), unread_count: unreadCount },
 });
 
+const playbackDevicesEvent = (revision: number): AccountPlaybackStreamEvent => ({
+  type: ACCOUNT_PLAYBACK_STREAM_EVENT.devices,
+  data: { revision, devices: [] },
+});
+
 type FakeConnection = {
   params: NotificationStreamConnectParams;
   end: () => void;
   fail: (error: Error) => void;
   /** Delivers an event the way the client does: activity first, then the parsed event. */
   deliver: (event: AccountNotificationStreamEvent) => void;
+  deliverPlayback: (event: AccountPlaybackStreamEvent) => void;
 };
 
 /** Lets the timer queue and every pending promise callback run. */
@@ -69,6 +78,10 @@ const createHarness = () => {
           deliver: (event) => {
             params.onActivity();
             params.onEvent(event);
+          },
+          deliverPlayback: (event) => {
+            params.onActivity();
+            params.onPlaybackEvent(event);
           },
         });
         if (failEveryConnect !== null) {
@@ -161,6 +174,33 @@ describe('createNotificationStreamController', () => {
 
     expect(getNotificationUnreadCount()).toBe(4);
     expect(appEvents).toEqual([{ type: 'resync' }]);
+  });
+
+  it('publishes playback events from the current attempt only, and they never open the stream', async () => {
+    const playbackEvents: AccountPlaybackStreamEvent[] = [];
+    const unsubscribePlayback = subscribeNotificationStreamPlaybackEvents((event) => {
+      playbackEvents.push(event);
+    });
+    harness.controller.start();
+    const first = harness.latest();
+
+    first.deliverPlayback(playbackDevicesEvent(1));
+
+    expect(playbackEvents).toEqual([playbackDevicesEvent(1)]);
+    expect(getNotificationStreamConnection()).toBe('connecting');
+    expect(getNotificationUnreadCount()).toBe(0);
+    expect(appEvents).toEqual([]);
+
+    await harness.advance(15_000);
+    expect(first.params.signal.aborted).toBe(true);
+    first.deliverPlayback(playbackDevicesEvent(2));
+
+    expect(playbackEvents).toEqual([playbackDevicesEvent(1)]);
+
+    await harness.advance(1_000);
+    expect(harness.connect).toHaveBeenCalledTimes(2);
+    expect(harness.latest().params.lastEventId).toBeNull();
+    unsubscribePlayback();
   });
 
   it('publishes each created id once and reconnects with the highest id', async () => {

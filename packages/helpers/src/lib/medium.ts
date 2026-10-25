@@ -341,3 +341,7 @@ export const parseMediumId = (value: unknown): number | null => {
   }
   return null;
 };
+
+/** True when `value` is a number that names a `MediumEnum` member. */
+export const isMediumEnumValue = (value: unknown): value is MediumEnum =>
+  typeof value === 'number' && Number.isInteger(value) && typeof MediumEnum[value] === 'string';

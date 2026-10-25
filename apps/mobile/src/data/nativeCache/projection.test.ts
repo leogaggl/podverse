@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { NativeCacheQueueEntry } from './projection';
 import {
   buildAccountContextPayload,
   buildDownloadsIndexPayload,
@@ -9,6 +10,7 @@ import {
   buildLiveIndexPayload,
   buildQueueSnapshotPayload,
   NATIVE_CACHE_SCHEMA_VERSION,
+  projectAdvanceWindowToNativeCache,
   projectQueueSnapshotAvToNativeCache,
   projectQueueSnapshotToNativeCache,
 } from './projection';
@@ -17,6 +19,7 @@ import {
 // resolve through these spies.
 const nativeCacheWriters = vi.hoisted(() => ({
   writeAccountContext: vi.fn().mockResolvedValue(undefined),
+  writeAdvanceWindow: vi.fn().mockResolvedValue(undefined),
   writeDownloadsIndex: vi.fn().mockResolvedValue(undefined),
   writeHistoryIndex: vi.fn().mockResolvedValue(undefined),
   writeLibraryBrowseIndex: vi.fn().mockResolvedValue(undefined),
@@ -150,5 +153,41 @@ describe('native cache queue snapshot writes', () => {
 
     expect(nativeCacheWriters.writeQueueSnapshotAv).toHaveBeenCalledTimes(1);
     expect(nativeCacheWriters.writeQueueSnapshotMusic).not.toHaveBeenCalled();
+  });
+});
+
+describe('native cache advance window write', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls writeAdvanceWindow once with the anchor and entries at schema version 2', async () => {
+    const entry: NativeCacheQueueEntry = {
+      idText: 'clip-1',
+      title: 'Clip',
+      artworkUrl: null,
+      mediaUrl: 'https://example.com/a.mp3',
+      kind: 'clip',
+      startPositionSeconds: 10,
+      clipStartSeconds: 10,
+      clipEndSeconds: 20,
+      downloadFileName: null,
+    };
+    await projectAdvanceWindowToNativeCache({
+      mediumBucket: 'music',
+      anchorIdText: 'ep-1',
+      anchorKind: 'item',
+      entries: [entry],
+    });
+
+    expect(nativeCacheWriters.writeAdvanceWindow).toHaveBeenCalledTimes(1);
+    const [payloadJson] = nativeCacheWriters.writeAdvanceWindow.mock.calls[0] ?? [];
+    expect(JSON.parse(String(payloadJson))).toMatchObject({
+      schemaVersion: 2,
+      mediumBucket: 'music',
+      anchorIdText: 'ep-1',
+      anchorKind: 'item',
+      entries: [entry],
+    });
   });
 });

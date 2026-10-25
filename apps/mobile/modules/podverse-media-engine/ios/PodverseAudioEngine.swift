@@ -157,13 +157,15 @@ public final class PodverseAudioEngine: NSObject {
     }
   }
 
-  /// Clear the sink only when `owner` is still the current owner.
+  /// Clear the sink only when `owner` is still the current owner. With no sink nobody receives
+  /// `ended` or `remoteTrackCommand`, so native takes advance back.
   func clearEventSink(owner: AnyObject) {
     onMain { [weak self] in
       guard let self = self else { return }
       guard self.eventSinkOwner === owner else { return }
       self.eventSinkOwner = nil
       self.eventSink = nil
+      self.jsOwnsAdvance = false
     }
   }
 
@@ -877,7 +879,8 @@ public final class PodverseAudioEngine: NSObject {
   }
 
   /// Previous restarts a track that is more than a few seconds in. Otherwise the phone's queue
-  /// decides while JS is running, and the projected queue snapshot does when it is not.
+  /// decides while JS is running, and the advance window then the projected queue snapshot do
+  /// when it is not.
   private func handleRemoteTrackCommand(_ command: String) {
     onMain { [weak self] in
       guard let self = self else { return }
@@ -933,6 +936,9 @@ public final class PodverseAudioEngine: NSObject {
         self.appendJournal(eventKind: "completed", positionSeconds: position)
         self.publish(state: .ended)
         self.emit(.ended, ["positionSeconds": position])
+        if !self.jsOwnsAdvance {
+          self.advanceToNextCachedItem()
+        }
         return
       }
       let nowMs = Int(Date().timeIntervalSince1970 * 1000)
@@ -1061,13 +1067,24 @@ public final class PodverseAudioEngine: NSObject {
     }
   }
 
-  /// Advance through the projected queue snapshot when JS is not listening.
+  /// Advance when JS is not listening: the advance window first, then the projected queue
+  /// snapshot. Both lists are play order written by JS; this only steps to the next row.
   private func advanceToNextCachedItem() {
     let medium = loadedSource?.meta?.queueMedium ?? "av"
+    let currentId = loadedSource?.meta?.idText
+    let currentKind = loadedSource?.meta?.kind ?? "item"
+    switch advanceWindowStep(currentId: currentId, currentKind: currentKind, medium: medium) {
+    case .play(let next):
+      startNativeAdvance(next, medium: medium)
+      return
+    case .end:
+      return
+    case .notInWindow:
+      break
+    }
     let kind: PodverseNativeCacheKind = medium == "music" ? .queueMusic : .queueAv
     let snapshot = PodverseCarPlayCacheModel.parseQueueSnapshot(PodverseNativeCache.read(kind))
     guard !snapshot.entries.isEmpty else { return }
-    let currentId = loadedSource?.meta?.idText
     let startIndex: Int = {
       guard let currentId = currentId,
         let idx = snapshot.entries.firstIndex(where: { $0.idText == currentId })
@@ -1075,21 +1092,61 @@ public final class PodverseAudioEngine: NSObject {
       return idx + 1
     }()
     guard startIndex < snapshot.entries.count else { return }
-    let next = snapshot.entries[startIndex]
+    startNativeAdvance(snapshot.entries[startIndex], medium: medium)
+  }
+
+  private enum AdvanceWindowStep {
+    case play(PodverseCarPlayCacheModel.QueueEntry)
+    /// The current row is the window's last; playback stops where it is.
+    case end
+    /// No usable window, or it belongs to another item; the queue snapshot decides.
+    case notInWindow
+  }
+
+  /// Locate the current row in `advance-window.json` by `kind` plus `idText`. `.end` must not fall
+  /// through to the snapshot walk, which would replay an older item from the snapshot's start.
+  private func advanceWindowStep(currentId: String?, currentKind: String, medium: String)
+    -> AdvanceWindowStep
+  {
+    guard
+      let window = PodverseCarPlayCacheModel.parseAdvanceWindow(
+        PodverseNativeCache.read(.advanceWindow)),
+      let currentId = currentId,
+      window.mediumBucket == medium
+    else { return .notInWindow }
+    let entries = window.entries
+    if currentKind == window.anchorKind, currentId == window.anchorIdText {
+      guard let first = entries.first else { return .end }
+      return .play(first)
+    }
+    guard
+      let index = entries.firstIndex(where: { $0.kind == currentKind && $0.idText == currentId })
+    else { return .notInWindow }
+    let nextIndex = index + 1
+    guard nextIndex < entries.count else { return .end }
+    return .play(entries[nextIndex])
+  }
+
+  /// Load and play one cached row as a car-origin source. Rows are plain media URLs or local
+  /// downloads, so no credentials are attached. A clip or soundbite row carries its range in the
+  /// meta, and the periodic observer ends it at `clipEndSeconds`.
+  private func startNativeAdvance(_ next: PodverseCarPlayCacheModel.QueueEntry, medium: String) {
     guard let url = resolveQueuePlayableURL(next) else { return }
-    let meta: [String: Any] = [
+    var meta: [String: Any] = [
       "idText": next.idText,
-      "kind": "item",
+      "kind": next.kind,
       "queueMedium": medium,
       "title": next.title,
       "origin": "car",
       "isLive": false,
     ]
+    if let clipStartSeconds = next.clipStartSeconds { meta["clipStartSeconds"] = clipStartSeconds }
+    if let clipEndSeconds = next.clipEndSeconds { meta["clipEndSeconds"] = clipEndSeconds }
     let metaJson =
       (try? JSONSerialization.data(withJSONObject: meta)).flatMap {
         String(data: $0, encoding: .utf8)
       }
-    let seek = next.startPositionSeconds
+    let seek = next.startPositionSeconds ?? next.clipStartSeconds
     do {
       try loadAndStart(
         url: url, initialSeekSeconds: seek, basicAuth: nil, audioProfile: nil, metaJson: metaJson)

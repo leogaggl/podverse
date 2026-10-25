@@ -1,5 +1,6 @@
 import { Share } from 'react-native';
 
+import type { DTOPlaybackResourceSummary } from '@podverse/helpers/accountPlaybackStream';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import { getMobileConfig } from '../../config';
@@ -8,6 +9,7 @@ import type { ShareResource } from './shareUrl';
 import {
   buildNowPlayingShareUrl as buildNowPlayingShareUrlFromWebBaseUrl,
   buildPublicShareUrl as buildPublicShareUrlFromWebBaseUrl,
+  buildRemotePlaybackShareUrl as buildRemotePlaybackShareUrlFromWebBaseUrl,
 } from './shareUrl';
 
 export const buildPublicShareUrl = (resource: ShareResource, idText: string): string | null => {
@@ -33,4 +35,15 @@ export const shareResolvedUrl = (url: string | null): void => {
  */
 export function buildNowPlayingShareUrl(target: PlaybackTarget): string | null {
   return buildNowPlayingShareUrlFromWebBaseUrl(getMobileConfig().webBaseUrl, target);
+}
+
+/**
+ * Public URL for the item another device is playing, or `null` when it has no public page
+ * (Add by RSS). Callers treat `null` as a disabled Share button.
+ */
+export function buildRemotePlaybackShareUrl(
+  resource: DTOPlaybackResourceSummary,
+  isLive: boolean
+): string | null {
+  return buildRemotePlaybackShareUrlFromWebBaseUrl(getMobileConfig().webBaseUrl, resource, isLive);
 }

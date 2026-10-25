@@ -16,9 +16,13 @@ export type DropdownMenuPanelItem = {
   variant?: 'primary' | 'warning' | 'danger';
   /** When false, selecting the item does not close the menu (default true). */
   dismissOnSelect?: boolean;
+  /** React key; defaults to `label`. Set it when two items can share a label. */
+  key?: string;
+  /** Second line under the label, smaller and muted. */
+  description?: string;
   /**
-   * Marks the current option. When any item defines it, the menu is a radio menu: rows are
-   * `menuitemradio` with `aria-checked`, and each row reserves a leading check slot.
+   * Radio state. When any item in the list sets `checked` (true or false), every item renders as
+   * `menuitemradio` with `aria-checked` and a leading check slot; otherwise items stay `menuitem`.
    */
   checked?: boolean;
 };
@@ -111,7 +115,7 @@ export function DropdownMenuPanel({
     style = { ...positionStyle, ...verticalStyle, ...fullWidthStyle, ...viewportClampStyle };
   }
 
-  const isRadioMenu = menuItems.some((item) => item.checked !== undefined);
+  const isRadioGroup = menuItems.some((item) => item.checked !== undefined);
 
   const menu = (
     <ul
@@ -123,34 +127,45 @@ export function DropdownMenuPanel({
       onKeyDown={handleMenuKeyDown}
       style={style}
     >
-      {menuItems.map((item, idx) => (
-        <li
-          key={item.label}
-          role={isRadioMenu ? 'menuitemradio' : 'menuitem'}
-          aria-checked={isRadioMenu ? item.checked === true : undefined}
-          tabIndex={-1}
-          className={classNames(
-            styles.menuItem,
-            item.variant === 'warning' ? styles.menuItemWarning : null,
-            item.variant === 'danger' ? styles.menuItemDanger : null
-          )}
-          onClick={() => {
-            item.onClick();
-            if (item.dismissOnSelect !== false) {
-              setOpen(false);
-            }
-          }}
-          onMouseEnter={() => setFocusedIndex(idx)}
-          aria-selected={focusedIndex === idx}
-        >
-          {isRadioMenu ? (
-            <span className={styles.check} aria-hidden="true">
-              {item.checked === true ? <FaCheck /> : null}
-            </span>
-          ) : null}
-          {item.label}
-        </li>
-      ))}
+      {menuItems.map((item, idx) => {
+        const hasDescription = item.description !== undefined && item.description !== '';
+        return (
+          <li
+            key={item.key ?? item.label}
+            role={isRadioGroup ? 'menuitemradio' : 'menuitem'}
+            aria-checked={isRadioGroup ? item.checked === true : undefined}
+            tabIndex={-1}
+            className={classNames(
+              styles.menuItem,
+              item.variant === 'warning' ? styles.menuItemWarning : null,
+              item.variant === 'danger' ? styles.menuItemDanger : null,
+              item.checked === true ? styles.menuItemChecked : null
+            )}
+            onClick={() => {
+              item.onClick();
+              if (item.dismissOnSelect !== false) {
+                setOpen(false);
+              }
+            }}
+            onMouseEnter={() => setFocusedIndex(idx)}
+            aria-selected={focusedIndex === idx}
+          >
+            {isRadioGroup ? (
+              <span className={styles.check} aria-hidden="true">
+                {item.checked === true ? <FaCheck /> : null}
+              </span>
+            ) : null}
+            {hasDescription ? (
+              <span className={styles.menuItemLines}>
+                <span className={styles.menuItemLabel}>{item.label}</span>
+                <span className={styles.menuItemDescription}>{item.description}</span>
+              </span>
+            ) : (
+              item.label
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 

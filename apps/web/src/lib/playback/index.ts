@@ -1,4 +1,5 @@
 export {
+  clampCommandStartToFileEnd,
   clampNearEndSeconds,
   clampPlaybackPositionForStorage,
   combineQueueNowPlayingAndUpcoming,

@@ -473,6 +473,50 @@
       "switch_action": "",
       "unknown_episode": ""
     },
+    "devices": {
+      "switch_device": "",
+      "switch_device_pending": "",
+      "sheet_title": "",
+      "this_device_entry": "",
+      "same_label_number": "",
+      "another_device": "",
+      "transfer_failed_title": "",
+      "transfer_failed_load_failed": "",
+      "transfer_failed_autoplay_blocked": "",
+      "transfer_failed_timeout": "",
+      "transfer_failed_not_connected": "",
+      "transfer_failed_send_failed": "",
+      "command_failed_title": "",
+      "command_failed_body": ""
+    },
+    "cross_device": {
+      "devices_button": "",
+      "this_device": "",
+      "playing": "",
+      "sending": "",
+      "device_with_number": "",
+      "unnamed_web_device": "",
+      "unnamed_mobile_device": "",
+      "unknown_device": "",
+      "playing_on_device": "",
+      "paused_on_device": "",
+      "starting_on_device": "",
+      "playing_in_another_tab": "",
+      "sending_to_device": "",
+      "transfer_failed": {
+        "autoplay_blocked": "",
+        "load_failed": "",
+        "no_response": "",
+        "not_connected": "",
+        "request_failed": ""
+      },
+      "tap_to_play": {
+        "title": "",
+        "body": "",
+        "play_action": "",
+        "dismiss_action": ""
+      }
+    },
     "step_back": "",
     "step_forward": "",
     "mute": "",

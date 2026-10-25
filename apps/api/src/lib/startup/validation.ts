@@ -130,6 +130,21 @@ const validateAllTimeRecountWithinRetention = (): ValidationResult => {
   };
 };
 
+/** Required with no code fallback, and a whole number of milliseconds, since a timer reads it. */
+const validatePlaybackPresenceLeaveGraceMs = (): ValidationResult => {
+  const name = 'PLAYBACK_PRESENCE_LEAVE_GRACE_MS';
+  const result = validatePositiveNumber(name, 'Playback', true, 1);
+  const value = process.env[name];
+  if (!result.isValid || Number.isSafeInteger(Number(value))) {
+    return result;
+  }
+  return {
+    ...result,
+    isValid: false,
+    message: `Invalid value: "${value}" - must be a whole number of milliseconds >= 1`,
+  };
+};
+
 /**
  * Validates critical environment variables and configuration at application startup.
  * This function runs early in the initialization process to catch configuration errors
@@ -243,6 +258,9 @@ const validateAllEnvironmentVariables = (): ValidationSummary => {
   results.push(validateRequired('KEYVALDB_PORT', 'KeyValDB'));
   results.push(validateRequired('KEYVALDB_PASSWORD', 'KeyValDB'));
   results.push(validateRequired('KEYVALDB_CACHE_EXPIRATION', 'KeyValDB'));
+
+  // Cross-device playback
+  results.push(validatePlaybackPresenceLeaveGraceMs());
 
   // Podcast Index
   results.push(validateRequired('PODCAST_INDEX_AUTH_KEY', 'Podcast Index'));

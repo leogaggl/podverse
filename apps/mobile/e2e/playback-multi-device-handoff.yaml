@@ -41,6 +41,9 @@ name: Playback Multi-device Handoff
     clearState: false
 - runFlow: shared/connect-dev-client-overlay-ok.yaml
 # Home paints before playback-replay finishes; wait for the prompt that job publishes.
+# The dialog appears after this phone stops being the active device, about 5 s after relaunch:
+# it played A, and the prompt stays closed through the API's 5 s leave grace. Keep this timeout
+# longer than that grace.
 - extendedWaitUntil:
     visible:
       id: playback-handoff-dialog

@@ -4,10 +4,12 @@ import { isAuthSessionEndedNotice } from './authSessionNotice.js';
 
 /**
  * The account's one event stream, relative to the versioned API base
- * (`${API_PREFIX}${API_VERSION}`). Event names are namespaced: `notification.*` and `session.*`
- * are in use, and `playback.*` is reserved for cross-device playback state and control commands.
- * Only events that carry an SSE `id:` replay; latest-value state and one-shot commands never
- * carry one.
+ * (`${API_PREFIX}${API_VERSION}`). Event names are namespaced: `notification.*`, `session.*`, and
+ * `playback.*` are in use. The playback namespace is defined in
+ * `./accountPlaybackStream.ts`: latest-value events (`playback.snapshot`, `playback.state`,
+ * `playback.devices`) and one-shot events (`playback.command`, `playback.start_failed`) that do
+ * not carry an SSE `id:`. Only events that carry an SSE `id:` replay; latest-value state and
+ * one-shot commands never carry one.
  */
 export const ACCOUNT_EVENTS_STREAM_API_PATH = '/account/events';
 

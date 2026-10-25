@@ -5,6 +5,7 @@ import type { DTOClip, DTOItem, DTOItemSoundbite, PlaybackEventKind } from '@pod
 import { useAccount } from '../contexts/Account';
 import { useQueues } from '../contexts/Queue';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
 import { useQueueResourcesAbridgedIndexUpdate } from './useQueueResourcesAbridgedIndexUpdate';
 
 export type MoveNowPlayingToHistoryCallbackParams = {
@@ -30,6 +31,10 @@ export function useQueueResourcesMoveNowPlayingToHistory() {
   }, [loggedInAccount]);
 
   return useCallback(async (params: MoveNowPlayingToHistoryCallbackParams) => {
+    if (!crossDevicePlaybackStore.isLocalPlaybackWriteAllowed()) {
+      return;
+    }
+
     const apiRequestService = getApiRequestService();
     const { completed, mpClip, mpItem, mpItemSoundbite } = params;
     const isLiveItem = !!mpItem?.live_item;

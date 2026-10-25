@@ -473,6 +473,50 @@
       "switch_action": "Changer d'épisode",
       "unknown_episode": "un épisode inconnu"
     },
+    "devices": {
+      "switch_device": "Changer d’appareil",
+      "switch_device_pending": "Transfert de la lecture vers {device}",
+      "sheet_title": "Lire sur",
+      "this_device_entry": "{device} (cet appareil)",
+      "same_label_number": "{device} ({number})",
+      "another_device": "Un autre appareil",
+      "transfer_failed_title": "La lecture n’a pas démarré",
+      "transfer_failed_load_failed": "{device} n’a pas pu charger ce média.",
+      "transfer_failed_autoplay_blocked": "{device} a besoin d’un appui pour lancer la lecture. Appuyez sur Lecture sur cet appareil.",
+      "transfer_failed_timeout": "{device} n’a pas répondu. Vérifiez que Podverse y est ouvert.",
+      "transfer_failed_not_connected": "{device} n’est plus connecté.",
+      "transfer_failed_send_failed": "Impossible de joindre {device}. Réessayez.",
+      "command_failed_title": "Impossible de contrôler la lecture",
+      "command_failed_body": "L’appareil en lecture ne l’a pas reçu. Réessayez."
+    },
+    "cross_device": {
+      "devices_button": "Appareils de lecture",
+      "this_device": "Cet appareil",
+      "playing": "En lecture",
+      "sending": "Envoi…",
+      "device_with_number": "{name} ({number})",
+      "unnamed_web_device": "Navigateur web",
+      "unnamed_mobile_device": "Application mobile",
+      "unknown_device": "l'autre appareil",
+      "playing_on_device": "Lecture sur {device}",
+      "paused_on_device": "En pause sur {device}",
+      "starting_on_device": "Démarrage sur {device}",
+      "playing_in_another_tab": "Lecture dans un autre onglet",
+      "sending_to_device": "Envoi vers {device}…",
+      "transfer_failed": {
+        "autoplay_blocked": "La lecture sur {device} nécessite d'abord un appui. Appuyez sur Lire ici sur cet appareil.",
+        "load_failed": "Impossible de lancer la lecture sur {device}.",
+        "no_response": "Aucune réponse de {device}. Réessayez.",
+        "not_connected": "Impossible de joindre {device}. Il a peut-être été fermé.",
+        "request_failed": "Impossible d'envoyer la lecture vers {device}. Réessayez."
+      },
+      "tap_to_play": {
+        "title": "Prêt à lire ici",
+        "body": "La lecture a été déplacée vers ce navigateur. Votre navigateur a besoin d'un appui avant de pouvoir lancer l'audio.",
+        "play_action": "Lire ici",
+        "dismiss_action": "Pas maintenant"
+      }
+    },
     "step_back": "Reculer d'un pas",
     "step_forward": "Avancer d'un pas",
     "mute": "Couper le son",

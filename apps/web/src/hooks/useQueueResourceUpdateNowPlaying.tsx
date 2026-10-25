@@ -20,6 +20,7 @@ import { useQueues } from '../contexts/Queue';
 import { useQueueResourcesAbridgedIndex } from '../contexts/QueueResourcesAbridgedIndex';
 import { getApiRequestService } from '../factories/apiRequestService';
 import { cookieConsentAllowsAnonymousFeatureStorage } from '../lib/cookieConsent/cookieConsentPolicy';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
 import { clampPlaybackPositionForStorage } from '../lib/playback';
 import { writeAnonymousPlaybackSnapshotFromPlayerState } from '../utils/anonymousPlaybackStorage';
 import { buildQueueResourceAbridgedUpdatesFromNowPlayingLike } from '../utils/nowPlayingParamsToAbridgedUpdates';
@@ -89,6 +90,10 @@ export function useQueueResourcesUpdateNowPlaying() {
   }, [config.public.cookieConsent.bannerEnabled, cookieConsent]);
 
   return useCallback(async (params: UpdateNowPlayingParams) => {
+    if (!crossDevicePlaybackStore.isLocalPlaybackWriteAllowed()) {
+      return;
+    }
+
     const apiRequestService = getApiRequestService();
 
     const { mpChannel, mpClip, mpItem, mpItemSoundbite, mpDuration, mpCurrentTime, eventKind } =

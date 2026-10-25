@@ -13,6 +13,7 @@ import {
 } from '../../../constants/mediaPlayerMarquee';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
+import { useRemotePlayerInfo } from '../../../hooks/useRemotePlayerInfo';
 import { getMediaPlayerInfoResolution } from '../../../utils/mediaPlayer/mediaPlayerInfoResolution';
 import type { MediaPlayerSegmentKind } from '../../../utils/mediaPlayer/mediaPlayerSegmentStrip';
 import {
@@ -42,6 +43,7 @@ export const MediaPlayerSegmentStrip = ({ variant }: MediaPlayerSegmentStripProp
   const { mpAddByRSS, mpChannel, mpClip, mpItem, mpItemChapter, mpItemChapters, mpItemSoundbite } =
     useMediaPlayer();
   const { mpCurrentTime } = useMediaPlayerCurrentTime();
+  const remoteInfo = useRemotePlayerInfo();
   const tMediaPlayer = useTranslations('media_player');
   const instanceId = useId();
 
@@ -55,12 +57,13 @@ export const MediaPlayerSegmentStrip = ({ variant }: MediaPlayerSegmentStripProp
     mpItemChapters,
     currentTimeSeconds: mpCurrentTime,
   });
-  const segment = resolveMediaPlayerSegmentStripSegment({
+  const localSegment = resolveMediaPlayerSegmentStripSegment({
     hasContent: mpChannel !== null || mpAddByRSS !== null,
     mpClip,
     mpItemSoundbite,
     subsectionTitle,
   });
+  const segment = remoteInfo !== null ? remoteInfo.segment : localSegment;
   const segmentVisible = segment !== null;
 
   useLayoutEffect(() => {

@@ -1,4 +1,9 @@
-export { clampNearEndSeconds, clampPlaybackPositionForStorage } from './clampNearEndSeconds.js';
+export {
+  clampCommandStartToFileEnd,
+  clampNearEndSeconds,
+  clampPlaybackPositionForStorage,
+  COMMAND_START_FILE_END_BACKOFF_SECONDS,
+} from './clampNearEndSeconds.js';
 export { combineQueueNowPlayingAndUpcoming } from './combineQueueNowPlayingAndUpcoming.js';
 export { parsePlaybackSeconds } from './parsePlaybackSeconds.js';
 export {
@@ -28,6 +33,51 @@ export {
   type QueueAdvanceDecision,
   type QueueAdvanceInput,
 } from './resolveQueueAdvance.js';
+export {
+  autoQueueIncrementActiveRow,
+  autoQueueRowFromItem,
+  autoQueueRowFromPlaylistResource,
+  autoQueueSeedFromPlaybackTarget,
+  checkIsActiveRowHighestKey,
+  countAutoQueueRowsAhead,
+  createDefaultAutoQueueConfig,
+  dedupeAutoQueueResources,
+  hasAutoQueueRowAfter,
+  isPlayablePlaylistResource,
+  resolveAutoQueueConfigForExplicitPlay,
+  resolveAutoQueueSource,
+  selectAutoQueueRowsAhead,
+  toggleAutoQueueRepeat,
+  toggleAutoQueueShuffle,
+  type AutoQueueConfig,
+  type AutoQueueResourcesMap,
+  type AutoQueueResourcesMapRow,
+  type AutoQueueSeed,
+  type AutoQueueSource,
+} from './autoQueue.js';
+export {
+  fillAutoQueueAhead,
+  fillAutoQueueForward,
+  resolveAutoQueuePrevious,
+  type AutoQueueDirection,
+  type AutoQueueFillAheadInput,
+  type AutoQueueFillInput,
+  type AutoQueueFillResult,
+  type AutoQueuePreviousDecision,
+  type AutoQueuePreviousInput,
+  type AutoQueueSourceFetchers,
+} from './autoQueueWalk.js';
+export {
+  buildAddByRSSListContext,
+  orderAddByRSSEpisodeIdTexts,
+  resolveAddByRSSAdjacentStep,
+  selectAddByRSSAdjacentIdTexts,
+  type AddByRSSAdjacentDirection,
+  type AddByRSSAdjacentStep,
+  type AddByRSSListContextState,
+  type AddByRSSListEpisode,
+  type AddByRSSListSortOrder,
+} from './addByRSSListWalk.js';
 export {
   resolveEnclosureSwitchPlaybackDecision,
   type ResolveEnclosureSwitchPlaybackDecisionParams,

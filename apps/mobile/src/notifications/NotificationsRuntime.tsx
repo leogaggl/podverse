@@ -44,9 +44,16 @@ export function NotificationsRuntime(): null {
   const controllerRef = useRef<NotificationStreamController | null>(null);
   if (controllerRef.current === null) {
     controllerRef.current = createNotificationStreamController({
-      connect: async ({ lastEventId, signal, onEvent, onActivity }) => {
+      connect: async ({ lastEventId, signal, onEvent, onPlaybackEvent, onActivity }) => {
         const handle = await runWithMobileAuthRefresh(authDepsRef.current, (token) =>
-          openNotificationStream({ accessToken: token, lastEventId, signal, onEvent, onActivity })
+          openNotificationStream({
+            accessToken: token,
+            lastEventId,
+            signal,
+            onEvent,
+            onPlaybackEvent,
+            onActivity,
+          })
         ).catch((error: unknown) => {
           throw error instanceof AccessTokenRefreshUnavailableError
             ? new NotificationStreamHttpError(401)
