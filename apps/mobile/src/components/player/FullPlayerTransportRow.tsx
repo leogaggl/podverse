@@ -20,6 +20,8 @@ type FullPlayerTransportRowProps = {
   /** When true, previous/next accept a hold that skips the episode (web chapter long-press). */
   hasEpisodeChaptersForTrackButtons: boolean;
   hasNextQueueItem: boolean;
+  /** Leaves the jump slots empty. Music already leaves them empty. */
+  hideJumpButtons?: boolean;
   /** Music drops the jump controls; shuffle and repeat live in the utility row. */
   isMusicNowPlaying: boolean;
   onJumpBack: () => void;
@@ -36,11 +38,13 @@ type FullPlayerTransportRowProps = {
 
 /**
  * Five equal-width slots, so the play circle sits on the screen's centerline regardless of how
- * wide the controls beside it are. Music leaves the two inner slots empty: previous, play, next.
+ * wide the controls beside it are. Music leaves the two inner jump slots empty, and
+ * `hideJumpButtons` does the same. Previous and next always render.
  */
 export function FullPlayerTransportRow({
   hasEpisodeChaptersForTrackButtons,
   hasNextQueueItem,
+  hideJumpButtons = false,
   isMusicNowPlaying,
   onJumpBack,
   onJumpForward,
@@ -117,7 +121,7 @@ export function FullPlayerTransportRow({
         />
       </View>
       <View style={styles.slot}>
-        {isMusicNowPlaying ? null : (
+        {isMusicNowPlaying || hideJumpButtons ? null : (
           <PlayerJumpButton
             direction="back"
             glyphSize={FULL_PLAYER_TRANSPORT_ICON_SIZE}
@@ -140,7 +144,7 @@ export function FullPlayerTransportRow({
         />
       </View>
       <View style={styles.slot}>
-        {isMusicNowPlaying ? null : (
+        {isMusicNowPlaying || hideJumpButtons ? null : (
           <PlayerJumpButton
             direction="forward"
             glyphSize={FULL_PLAYER_TRANSPORT_ICON_SIZE}

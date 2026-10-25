@@ -8,7 +8,11 @@ import type {
   DTOItemSoundbite,
 } from '@podverse/helpers/dto';
 
-import { resolveNowPlayingSegment, soundbiteEndTime } from './nowPlayingSegment';
+import {
+  resolveNowPlayingSegment,
+  resolveRemoteNowPlayingSegment,
+  soundbiteEndTime,
+} from './nowPlayingSegment';
 
 const channel = { id: 1, id_text: 'ch', medium_id: 1, title: 'Channel' } as DTOChannel;
 const item = { id: 1, id_text: 'it', title: 'Episode' } as DTOItem;
@@ -273,6 +277,107 @@ describe('resolveNowPlayingSegment', () => {
         chapters,
         positionSeconds: 10,
         target: { channel, item, kind: 'item-podcast' },
+      })
+    ).toBeNull();
+  });
+});
+
+describe('resolveRemoteNowPlayingSegment', () => {
+  const chapters = [
+    chapter({ end_time: '30', id: 1, id_text: 'c1', start_time: '0', title: 'Intro' }),
+    chapter({
+      end_time: '90',
+      id: 2,
+      id_text: 'c2',
+      start_time: '30',
+      title: 'Interview',
+      web_url: 'https://example.com/interview',
+    }),
+  ];
+
+  it('names the chapter at the position for an item, and the preview wins', () => {
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: false,
+        positionSeconds: 10,
+        refKind: 'item',
+      })
+    ).toEqual({
+      endTime: '30',
+      kind: 'chapter',
+      startTime: '0',
+      title: 'Intro',
+      webUrl: null,
+    });
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: false,
+        positionSeconds: 10,
+        previewPositionSeconds: 45,
+        refKind: 'item',
+      })
+    ).toEqual({
+      endTime: '90',
+      kind: 'chapter',
+      startTime: '30',
+      title: 'Interview',
+      webUrl: 'https://example.com/interview',
+    });
+  });
+
+  it('names the chapter the same way for an Add by RSS item', () => {
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: false,
+        positionSeconds: 45,
+        refKind: 'add_by_rss',
+      })
+    ).toEqual({
+      endTime: '90',
+      kind: 'chapter',
+      startTime: '30',
+      title: 'Interview',
+      webUrl: 'https://example.com/interview',
+    });
+  });
+
+  it('names nothing for a clip or a soundbite even when chapters are loaded', () => {
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: false,
+        positionSeconds: 10,
+        refKind: 'clip',
+      })
+    ).toBeNull();
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: false,
+        positionSeconds: 10,
+        refKind: 'soundbite',
+      })
+    ).toBeNull();
+  });
+
+  it('names nothing for a live item, or when the position and preview are both unknown', () => {
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: true,
+        positionSeconds: 10,
+        refKind: 'item',
+      })
+    ).toBeNull();
+    expect(
+      resolveRemoteNowPlayingSegment({
+        chapters,
+        isLive: false,
+        positionSeconds: null,
+        refKind: 'item',
       })
     ).toBeNull();
   });

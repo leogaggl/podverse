@@ -60,6 +60,7 @@ import {
   canAdvanceToNextQueueItem,
   resolveAddToPlaylistTarget,
   resolveQueueMutationTarget,
+  resolveRemoteAddToPlaylistTarget,
   shouldDismissFullPlayerOnEmptySession,
   shouldShowV4vAction,
 } from '../../components/player/fullPlayerRows';
@@ -104,19 +105,30 @@ import type { LineArtist } from '../../lib/playback/lineArtist';
 import { joinLineArtistTitles } from '../../lib/playback/lineArtist';
 import { playbackTargetArtists } from '../../lib/playback/verifiedArtists';
 import { clipToHomeRow } from '../../lib/rows/homeRowMappers';
-import { buildNowPlayingShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
+import {
+  buildNowPlayingShareUrl,
+  buildRemotePlaybackShareUrl,
+  shareResolvedUrl,
+} from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { ROOT_SLIDE_UP_ANIMATION_MS } from '../../navigation/slideUpScreen';
+import {
+  useCrossDevicePlayerDisplay,
+  usePlayerStatusText,
+} from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
+import { useDisplayedAddByRssResourceData } from '../../playback/crossDevice/useDisplayedAddByRssResourceData';
 import {
   nowPlayingAddByRssSections,
   useNowPlayingAddByRssSections,
 } from '../../playback/nowPlayingAddByRssSections';
 import { playbackMediumIdFromTarget } from '../../playback/playbackEventSource';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
+import { playingChapterSourceFromTarget } from '../../playback/playingChapter';
 import { hasEpisodeChaptersForTrackButtons } from '../../playback/previousAction';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import { useNowPlayingChapters } from '../../playback/useNowPlayingChapters';
+import { usePlayingChapterIdText } from '../../playback/usePlayingChapterIdText';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
 import { DEFAULT_EPISODE_TAB, EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -155,6 +167,8 @@ import {
   resolveFullPlayerChannelLink,
   resolveFullPlayerTitleLink,
   resolveLocalAddByRssFeedIdText,
+  resolveRemoteFullPlayerChannelLink,
+  resolveRemoteFullPlayerTitleLink,
 } from './fullPlayerContentLink';
 import {
   FULL_PLAYER_ARTIST_LINE_HEIGHT,
@@ -167,6 +181,8 @@ import {
   resolveFullPlayerTitleBlockHeight,
   resolveFullPlayerViewport,
 } from './fullPlayerLayout';
+import type { FullPlayerRemoteRegionStyles } from './FullPlayerRemoteRegion';
+import { FullPlayerRemoteRegion } from './FullPlayerRemoteRegion';
 import { FullPlayerSleepTimer } from './FullPlayerSleepTimer';
 import { FullPlayerSpeedControl } from './FullPlayerSpeedControl';
 import {
@@ -326,6 +342,15 @@ export function FullPlayerScreen({
     toggleShuffle,
     transportState,
   } = usePlaybackSession();
+  const display = useCrossDevicePlayerDisplay();
+  const remoteDisplay = display.kind === 'remote' ? display : null;
+  const isRemoteDisplay = remoteDisplay !== null;
+  const statusText = usePlayerStatusText(display);
+  const addByRssResourceData = useDisplayedAddByRssResourceData();
+  const addByRssItemResourceData =
+    addByRssResourceData !== null && !isAddByRssLivestreamResourceData(addByRssResourceData)
+      ? addByRssResourceData
+      : null;
   const isFocused = useIsFocused();
   const { chapters } = useNowPlayingChapters();
   const { playbackNoticeKey, runPlayAction, runQueueAction } = useHomeRowPlayback();
@@ -380,18 +405,21 @@ export function FullPlayerScreen({
   const previewFlags = episodeForPanes === null ? null : itemSectionFlagsFromDto(episodeForPanes);
   const channel = channelFromTarget(activeTarget);
   const onDescriptionClock = useItemDescriptionClock(currentItem, channel);
-  const hasSections = hasSectionsForTarget(activeTarget);
-  const addByRssItemResourceData =
-    activeTarget?.kind === 'add-by-rss' &&
-    !isAddByRssLivestreamResourceData(activeTarget.resourceData)
-      ? activeTarget.resourceData
-      : null;
+  const hasSections = !isRemoteDisplay && hasSectionsForTarget(activeTarget);
   const addByRssSections = useNowPlayingAddByRssSections(addByRssItemResourceData);
   const addByRssSource = addByRssSections.source;
   const { onRequestLogin } = useAuthPrompt();
   const isPlaybackActive = activeTarget !== null && nowPlaying !== null;
-  const shareUrl = activeTarget !== null ? buildNowPlayingShareUrl(activeTarget) : null;
-  const addToPlaylistTarget = resolveAddToPlaylistTarget(activeTarget);
+  const shareUrl =
+    remoteDisplay !== null
+      ? buildRemotePlaybackShareUrl(remoteDisplay.resource, remoteDisplay.isLive)
+      : activeTarget !== null
+        ? buildNowPlayingShareUrl(activeTarget)
+        : null;
+  const addToPlaylistTarget =
+    remoteDisplay !== null
+      ? resolveRemoteAddToPlaylistTarget(remoteDisplay.resource, addByRssResourceData)
+      : resolveAddToPlaylistTarget(activeTarget);
   const queueMutationTarget = useMemo(
     () => resolveQueueMutationTarget(activeTarget),
     [activeTarget]
@@ -408,15 +436,31 @@ export function FullPlayerScreen({
   const visibleChannelTitle = nowPlaying?.channelTitle ?? null;
   const titleLink = useMemo(
     () =>
-      resolveFullPlayerTitleLink(activeTarget, visibleTitle, {
-        feedIdText: addByRssFeedIdText,
-        itemKey: addByRssItemKey,
-      }),
-    [activeTarget, addByRssFeedIdText, addByRssItemKey, visibleTitle]
+      remoteDisplay !== null
+        ? resolveRemoteFullPlayerTitleLink(remoteDisplay.resource, {
+            feedIdText: addByRssFeedIdText,
+            itemKey: addByRssItemKey,
+            resourceData: addByRssResourceData,
+          })
+        : resolveFullPlayerTitleLink(activeTarget, visibleTitle, {
+            feedIdText: addByRssFeedIdText,
+            itemKey: addByRssItemKey,
+          }),
+    [
+      activeTarget,
+      addByRssFeedIdText,
+      addByRssItemKey,
+      addByRssResourceData,
+      remoteDisplay,
+      visibleTitle,
+    ]
   );
   const channelLink = useMemo(
-    () => resolveFullPlayerChannelLink(activeTarget, visibleChannelTitle, addByRssFeedIdText),
-    [activeTarget, addByRssFeedIdText, visibleChannelTitle]
+    () =>
+      remoteDisplay !== null
+        ? resolveRemoteFullPlayerChannelLink(remoteDisplay.resource, addByRssFeedIdText)
+        : resolveFullPlayerChannelLink(activeTarget, visibleChannelTitle, addByRssFeedIdText),
+    [activeTarget, addByRssFeedIdText, addByRssResourceData, remoteDisplay, visibleChannelTitle]
   );
   const artistIndexVersion = useAddByRssArtistIndexVersion();
   const playerArtists = useMemo(
@@ -437,9 +481,6 @@ export function FullPlayerScreen({
   // artists does not resize the block.
   const hasArtistLine =
     artistBand.mediaId === artistBandMediaId ? artistBand.reserved : playerArtists.length > 0;
-
-  const addByRssResourceData =
-    activeTarget?.kind === 'add-by-rss' ? activeTarget.resourceData : null;
 
   useEffect(() => {
     const resourceData = addByRssResourceData;
@@ -491,13 +532,15 @@ export function FullPlayerScreen({
     (target: FullPlayerContentTarget) => {
       const channelIdText = channel?.id_text;
       const isSubscribed =
-        channelIdText !== undefined && getChannelActionChrome(channelIdText)?.isSubscribed === true;
+        !isRemoteDisplay &&
+        channelIdText !== undefined &&
+        getChannelActionChrome(channelIdText)?.isSubscribed === true;
       onOpenContent({
         ...target,
         stack: playerContentStack({ isSubscribed, kind: target.kind }),
       });
     },
-    [channel, onOpenContent]
+    [channel, isRemoteDisplay, onOpenContent]
   );
   const openArtist = useCallback(
     (artist: LineArtist) => {
@@ -529,13 +572,15 @@ export function FullPlayerScreen({
     }
     const channelIdText = channel?.id_text;
     const isSubscribed =
-      channelIdText !== undefined && getChannelActionChrome(channelIdText)?.isSubscribed === true;
+      !isRemoteDisplay &&
+      channelIdText !== undefined &&
+      getChannelActionChrome(channelIdText)?.isSubscribed === true;
     onOpenItem({
       channel: channelLink,
       item: titleLink,
       stack: playerContentStack({ isSubscribed, kind: titleLink.kind }),
     });
-  }, [channel, channelLink, onOpenItem, openLinkedContent, titleLink]);
+  }, [channel, channelLink, isRemoteDisplay, onOpenItem, openLinkedContent, titleLink]);
   const contentLinkLabel = useCallback(
     (request: FullPlayerContentTarget) =>
       t('media_player.open_named_screen', {
@@ -602,6 +647,17 @@ export function FullPlayerScreen({
       : addByRssPaneState === 'content'
         ? (addByRssSections.sections?.chapters ?? EMPTY_CHAPTER_ROWS)
         : EMPTY_CHAPTER_ROWS;
+  const paneItemMediaId = useMemo(
+    () => playingChapterSourceFromTarget(activeTarget)?.mediaId ?? null,
+    [activeTarget]
+  );
+  const playingChapterIdText = usePlayingChapterIdText({
+    chapters: paneChapterRows,
+    itemMediaId: paneItemMediaId,
+  });
+  const paneListExtraData = `${activeTab}-${isTabLoading}-${addByRssPaneState ?? 'none'}-${
+    playingChapterIdText ?? 'none'
+  }`;
   const paneTranscriptText =
     addByRssItemResourceData === null
       ? transcriptText
@@ -651,6 +707,7 @@ export function FullPlayerScreen({
   );
   const canToggleSubscription = channel !== null;
   const hasSegmentBand =
+    isRemoteDisplay ||
     activeTarget?.kind === 'clip' ||
     activeTarget?.kind === 'soundbite' ||
     activeTarget?.kind === 'chapter' ||
@@ -722,13 +779,14 @@ export function FullPlayerScreen({
   const paneRows =
     !hasSections || !isPrefsHydrated || playerTabs.length === 0 ? EMPTY_PANE_ROWS : listRows;
 
+  const layoutHasArtistLine = !isRemoteDisplay && hasArtistLine;
   const sheetBottomInset = tokens.spacing.md;
   const sheetBottomGap = hasSections ? insets.bottom + sheetBottomInset : 0;
   const layout = useMemo(
     () =>
       resolveFullPlayerLayout({
         chipStripHeight,
-        hasArtistLine,
+        hasArtistLine: layoutHasArtistLine,
         hasSegmentBand,
         hasSections,
         isTablet,
@@ -745,8 +803,8 @@ export function FullPlayerScreen({
     [
       chipStripHeight,
       contentMaxWidth,
-      hasArtistLine,
       hasSegmentBand,
+      layoutHasArtistLine,
       hasSections,
       insets.bottom,
       isTablet,
@@ -929,6 +987,21 @@ export function FullPlayerScreen({
       }),
     [contentMaxWidth, themeStyles, tokens]
   );
+  const remoteRegionStyles = useMemo(
+    (): FullPlayerRemoteRegionStyles => ({
+      artworkBand: styles.playerRegionArtworkBand,
+      content: [styles.column, styles.playerRegionContent, styles.playerRegionFull],
+      controlStack: styles.playerRegionControlStack,
+      region: [styles.playerRegion, { height: layout.playerRegionHeight }],
+      subtitle: [styles.subtitle, styles.subtitlePlain],
+      subtitleLink: [styles.subtitle, styles.subtitleLink],
+      title: styles.title,
+      titleBlock: styles.titleBlock,
+      titleLink: styles.titleLink,
+      upperBands: styles.playerRegionUpperBands,
+    }),
+    [layout.playerRegionHeight, styles]
+  );
 
   // Expand re-parents the single native surface to the `full` target; collapse (unmount) animates it
   // back to `mini`. Reparenting + geometry only — never `load`/`destroy`, so playback stays
@@ -961,14 +1034,22 @@ export function FullPlayerScreen({
   useEffect(() => {
     if (
       shouldDismissFullPlayerOnEmptySession({
-        hasPlaybackSession: activeTarget !== null && nowPlaying !== null,
+        hasPlaybackSession: isRemoteDisplay || (activeTarget !== null && nowPlaying !== null),
         isAuthoringHold,
         isFocused,
       })
     ) {
       onClose();
     }
-  }, [activeTarget, isAuthoringHold, isFocused, nowPlaying, onClose]);
+  }, [activeTarget, isAuthoringHold, isFocused, isRemoteDisplay, nowPlaying, onClose]);
+
+  useEffect(() => {
+    if (!isRemoteDisplay) {
+      return;
+    }
+    setOpenSheet((current) => (current !== null && current !== 'speed' ? null : current));
+    setIsArtistChooserOpen(false);
+  }, [isRemoteDisplay]);
 
   useEffect(() => {
     setIsMarkedPlayed(false);
@@ -1490,28 +1571,80 @@ export function FullPlayerScreen({
       </View>
     ) : null;
 
-  const playerRegion = isPlaybackActive ? (
-    <View
-      style={[styles.playerRegion, { height: layout.playerRegionHeight }]}
-      testID="full-player-region"
-    >
-      <View style={[styles.column, styles.playerRegionContent, styles.playerRegionFull]}>
-        <View style={styles.playerRegionUpperBands}>
-          <View
-            pointerEvents="box-none"
-            style={[
-              styles.titleBlock,
-              { height: resolveFullPlayerTitleBlockHeight(hasArtistLine) },
-            ]}
-          >
-            {titleLink !== null && visibleTitle !== null ? (
-              <Pressable
-                accessibilityLabel={contentLinkLabel(titleLink)}
-                accessibilityRole="link"
-                onPress={openTitleContent}
-                style={({ pressed }) => [styles.titleLink, pressed ? { opacity: 0.6 } : null]}
-                testID="full-player-title-link"
-              >
+  const playerRegion =
+    remoteDisplay !== null ? (
+      <FullPlayerRemoteRegion
+        artworkSize={layout.artworkSize}
+        channelLink={channelLink}
+        chapters={chapters}
+        contentLinkLabel={contentLinkLabel}
+        display={remoteDisplay}
+        onJumpBack={() => {
+          jumpBy(-MEDIA_JUMP_BACK_SECONDS);
+        }}
+        onJumpForward={() => {
+          jumpBy(MEDIA_JUMP_FORWARD_SECONDS);
+        }}
+        onOpenChannel={() => {
+          if (channelLink !== null) {
+            openLinkedContent(channelLink);
+          }
+        }}
+        onOpenSpeed={() => {
+          handleOpenSheet('speed');
+        }}
+        onOpenTitle={openTitleContent}
+        onPause={handlePause}
+        onPlay={handlePlay}
+        onSkipToNext={() => {
+          void skipToNext();
+        }}
+        onSkipToNextTrack={() => {
+          void skipToNextTrack();
+        }}
+        onSkipToPrevious={() => {
+          void skipToPrevious();
+        }}
+        onSkipToPreviousTrack={() => {
+          void skipToPreviousTrack();
+        }}
+        regionStyles={remoteRegionStyles}
+        statusText={statusText}
+        titleLink={titleLink}
+      />
+    ) : isPlaybackActive ? (
+      <View
+        style={[styles.playerRegion, { height: layout.playerRegionHeight }]}
+        testID="full-player-region"
+      >
+        <View style={[styles.column, styles.playerRegionContent, styles.playerRegionFull]}>
+          <View style={styles.playerRegionUpperBands}>
+            <View
+              pointerEvents="box-none"
+              style={[
+                styles.titleBlock,
+                { height: resolveFullPlayerTitleBlockHeight(hasArtistLine) },
+              ]}
+            >
+              {titleLink !== null && visibleTitle !== null ? (
+                <Pressable
+                  accessibilityLabel={contentLinkLabel(titleLink)}
+                  accessibilityRole="link"
+                  onPress={openTitleContent}
+                  style={({ pressed }) => [styles.titleLink, pressed ? { opacity: 0.6 } : null]}
+                  testID="full-player-title-link"
+                >
+                  <MarqueeText
+                    align="center"
+                    style={styles.title}
+                    testID="full-player-title"
+                    turnGroup="full-player"
+                    turnOrder={0}
+                  >
+                    {visibleTitle}
+                  </MarqueeText>
+                </Pressable>
+              ) : (
                 <MarqueeText
                   align="center"
                   style={styles.title}
@@ -1519,130 +1652,119 @@ export function FullPlayerScreen({
                   turnGroup="full-player"
                   turnOrder={0}
                 >
-                  {visibleTitle}
+                  {visibleTitle ?? t('media_player.fullscreen_media_player')}
                 </MarqueeText>
-              </Pressable>
-            ) : (
-              <MarqueeText
-                align="center"
-                style={styles.title}
-                testID="full-player-title"
-                turnGroup="full-player"
-                turnOrder={0}
-              >
-                {visibleTitle ?? t('media_player.fullscreen_media_player')}
-              </MarqueeText>
-            )}
-            {hasArtistLine && artistLineText.length > 0 ? (
-              <Pressable
-                accessibilityLabel={t('media_player.open_named_screen', {
-                  name: artistLineText,
-                  screen: t(
-                    playerArtists.length > 1 ? 'media.music.artists' : 'media.music.artist'
-                  ),
-                })}
-                accessibilityRole="link"
-                onPress={onArtistLinePress}
-                style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}
-                testID="full-player-artist-link"
-              >
-                <Text numberOfLines={1} style={styles.artistLine}>
-                  {artistLineText}
-                </Text>
-              </Pressable>
-            ) : null}
-            {visibleChannelTitle !== null && visibleChannelTitle.length > 0 ? (
-              channelLink !== null ? (
+              )}
+              {hasArtistLine && artistLineText.length > 0 ? (
                 <Pressable
-                  accessibilityLabel={contentLinkLabel(channelLink)}
+                  accessibilityLabel={t('media_player.open_named_screen', {
+                    name: artistLineText,
+                    screen: t(
+                      playerArtists.length > 1 ? 'media.music.artists' : 'media.music.artist'
+                    ),
+                  })}
                   accessibilityRole="link"
-                  onPress={() => {
-                    openLinkedContent(channelLink);
-                  }}
+                  onPress={onArtistLinePress}
                   style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}
-                  testID="full-player-channel-link"
+                  testID="full-player-artist-link"
                 >
-                  <Text numberOfLines={1} style={[styles.subtitle, styles.subtitleLink]}>
-                    {visibleChannelTitle}
+                  <Text numberOfLines={1} style={styles.artistLine}>
+                    {artistLineText}
                   </Text>
                 </Pressable>
-              ) : (
-                <Text numberOfLines={1} style={[styles.subtitle, styles.subtitlePlain]}>
-                  {visibleChannelTitle}
-                </Text>
-              )
+              ) : null}
+              {visibleChannelTitle !== null && visibleChannelTitle.length > 0 ? (
+                channelLink !== null ? (
+                  <Pressable
+                    accessibilityLabel={contentLinkLabel(channelLink)}
+                    accessibilityRole="link"
+                    onPress={() => {
+                      openLinkedContent(channelLink);
+                    }}
+                    style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}
+                    testID="full-player-channel-link"
+                  >
+                    <Text numberOfLines={1} style={[styles.subtitle, styles.subtitleLink]}>
+                      {visibleChannelTitle}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text numberOfLines={1} style={[styles.subtitle, styles.subtitlePlain]}>
+                    {visibleChannelTitle}
+                  </Text>
+                )
+              ) : null}
+            </View>
+
+            <View pointerEvents="box-none" style={styles.playerRegionArtworkBand}>
+              <FullPlayerArtwork
+                accessibilityLabel={t('media_player.media_player_image')}
+                artworkSize={layout.artworkSize}
+                chapters={playerChapters}
+              />
+            </View>
+
+            {hasSegmentBand ? (
+              <View pointerEvents="box-none">
+                <FullPlayerSegmentBand chapters={chapters} />
+              </View>
             ) : null}
+
+            <View pointerEvents="auto">
+              <FullPlayerScrubber chapters={chapters} />
+            </View>
           </View>
 
-          <View pointerEvents="box-none" style={styles.playerRegionArtworkBand}>
-            <FullPlayerArtwork
-              accessibilityLabel={t('media_player.media_player_image')}
-              artworkSize={layout.artworkSize}
-              chapters={playerChapters}
+          <View pointerEvents="auto" style={styles.playerRegionControlStack}>
+            <FullPlayerTransportRow
+              hasEpisodeChaptersForTrackButtons={episodeHasChaptersForTrackButtons}
+              hasNextQueueItem={canSkipToNext}
+              isMusicNowPlaying={isMusicNowPlaying}
+              onJumpBack={() => {
+                jumpBy(-MEDIA_JUMP_BACK_SECONDS);
+              }}
+              onJumpForward={() => {
+                jumpBy(MEDIA_JUMP_FORWARD_SECONDS);
+              }}
+              onPause={handlePause}
+              onPlay={handlePlay}
+              onErrorPress={handleErrorPress}
+              onSkipToNext={() => {
+                void skipToNext();
+              }}
+              onSkipToNextTrack={() => {
+                void skipToNextTrack();
+              }}
+              onSkipToPrevious={() => {
+                void skipToPrevious();
+              }}
+              onSkipToPreviousTrack={() => {
+                void skipToPreviousTrack();
+              }}
+              state={transportState}
+            />
+
+            <FullPlayerUtilityRow
+              isMusicNowPlaying={isMusicNowPlaying}
+              isRepeatEnabled={autoQueueConfig.repeat}
+              isShuffleEnabled={autoQueueConfig.random}
+              onOpenMore={() => {
+                handleOpenSheet('more');
+              }}
+              onOpenSleepTimer={() => {
+                handleOpenSheet('sleep');
+              }}
+              onOpenSpeed={() => {
+                handleOpenSheet('speed');
+              }}
+              onToggleRepeat={handleToggleRepeat}
+              onToggleShuffle={handleToggleShuffle}
+              playbackRate={playbackRate}
             />
           </View>
-
-          {hasSegmentBand ? (
-            <View pointerEvents="box-none">
-              <FullPlayerSegmentBand chapters={chapters} />
-            </View>
-          ) : null}
-
-          <View pointerEvents="auto">
-            <FullPlayerScrubber chapters={chapters} />
-          </View>
-        </View>
-
-        <View pointerEvents="auto" style={styles.playerRegionControlStack}>
-          <FullPlayerTransportRow
-            hasEpisodeChaptersForTrackButtons={episodeHasChaptersForTrackButtons}
-            hasNextQueueItem={canSkipToNext}
-            isMusicNowPlaying={isMusicNowPlaying}
-            onJumpBack={() => {
-              jumpBy(-MEDIA_JUMP_BACK_SECONDS);
-            }}
-            onJumpForward={() => {
-              jumpBy(MEDIA_JUMP_FORWARD_SECONDS);
-            }}
-            onPause={handlePause}
-            onPlay={handlePlay}
-            onErrorPress={handleErrorPress}
-            onSkipToNext={() => {
-              void skipToNext();
-            }}
-            onSkipToNextTrack={() => {
-              void skipToNextTrack();
-            }}
-            onSkipToPrevious={() => {
-              void skipToPrevious();
-            }}
-            onSkipToPreviousTrack={() => {
-              void skipToPreviousTrack();
-            }}
-            state={transportState}
-          />
-
-          <FullPlayerUtilityRow
-            isMusicNowPlaying={isMusicNowPlaying}
-            isRepeatEnabled={autoQueueConfig.repeat}
-            isShuffleEnabled={autoQueueConfig.random}
-            onOpenMore={() => {
-              handleOpenSheet('more');
-            }}
-            onOpenSleepTimer={() => {
-              handleOpenSheet('sleep');
-            }}
-            onOpenSpeed={() => {
-              handleOpenSheet('speed');
-            }}
-            onToggleRepeat={toggleRepeat}
-            onToggleShuffle={toggleShuffle}
-            playbackRate={playbackRate}
-          />
         </View>
       </View>
-    </View>
-  ) : null;
+    ) : null;
 
   const canOuterScroll = hasSections && isPrefsHydrated;
 
@@ -1672,9 +1794,9 @@ export function FullPlayerScreen({
         onOpenQueue={onOpenQueue}
         onOpenV4v={onOpenV4v}
         onShare={handleShare}
-        showBoost={canShowBoost}
-        showCreateClip={!isMusicNowPlaying}
-        showV4v={showV4v}
+        showBoost={!isRemoteDisplay && canShowBoost}
+        showCreateClip={!isRemoteDisplay && !isMusicNowPlaying}
+        showV4v={!isRemoteDisplay && showV4v}
       />
 
       <View onLayout={handleViewportLayout} style={styles.viewport}>
@@ -1706,7 +1828,7 @@ export function FullPlayerScreen({
                   alwaysBounceVertical={false}
                   bounces={false}
                   data={paneRows}
-                  extraData={`${activeTab}-${isTabLoading}-${addByRssPaneState ?? 'none'}`}
+                  extraData={paneListExtraData}
                   keyExtractor={(row) => row.id}
                   nestedScrollEnabled
                   overScrollMode="never"
@@ -1723,6 +1845,7 @@ export function FullPlayerScreen({
                         <ChapterListRow
                           artworkAccessibilityLabel={t('info.chapter.chapter_image')}
                           artworkUri={artwork.show ? artwork.uri : null}
+                          isPlaying={row.chapter.id_text === playingChapterIdText}
                           onPress={() => {
                             handleChapterPress(row.chapter);
                           }}

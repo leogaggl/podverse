@@ -623,6 +623,9 @@ const verifyTokenAndMembership = async (
     id_text: typeof account.id_text === 'string' && account.id_text !== '' ? account.id_text : '',
     verified: typeof account.verified === 'boolean' ? account.verified : true,
     session_id_text: claims.sid,
+    session_client_type: sessionCheck.session.client_type,
+    session_device_label: sessionCheck.session.device_label,
+    session_created_at: sessionCheck.session.created_at.toISOString(),
     api_key: null,
   };
   const tokenExpiresAt = readJwtExpSeconds(decoded);

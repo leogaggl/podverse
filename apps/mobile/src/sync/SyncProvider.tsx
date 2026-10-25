@@ -37,6 +37,7 @@ import {
 import { clearBannerNotificationQueue } from '../notifications/bannerNotificationStore';
 import { resetNotificationsInboxCache } from '../notifications/notificationsInboxCache';
 import { resetNotificationStreamStore } from '../notifications/notificationStreamStore';
+import { resetCrossDevicePlaybackStore } from '../playback/crossDevice/crossDevicePlaybackStore';
 import { nowPlayingAddByRssSections } from '../playback/nowPlayingAddByRssSections';
 import {
   hydrateOfflineMode,
@@ -232,12 +233,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
   // account's rows. It also drops the now-playing Add by RSS chapters and transcript, which this
   // account's saved feed credentials may have fetched. Waiting banner cards are that account's
   // notifications, so they are cleared too. Banner kind switches are device preferences and stay.
+  // The cross-device device list and what the other devices play are account data as well.
   useEffect(() => {
     if (status !== 'anonymous') {
       return;
     }
     syncQueue.reset();
     resetNotificationStreamStore();
+    resetCrossDevicePlaybackStore();
     resetNotificationsInboxCache();
     clearBannerNotificationQueue();
     nowPlayingAddByRssSections.reset();

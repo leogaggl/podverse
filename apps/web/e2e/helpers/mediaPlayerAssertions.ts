@@ -248,6 +248,16 @@ export async function openEpisodeAndPlay(
   await clickDetailPagePlayButton(page);
 }
 
+export async function openTrackAndPlay(
+  page: Page,
+  itemIdText: string,
+  trackHeading: string
+): Promise<void> {
+  await page.goto(`/track/${itemIdText}`);
+  await expect(page.getByRole('heading', { name: trackHeading })).toBeVisible();
+  await clickDetailPagePlayButton(page);
+}
+
 /**
  * Exactly one media element on the page carries a `src`. Two would mean the previous controller was
  * never torn down, which is the double-audio regression the live/non-live transitions guard.

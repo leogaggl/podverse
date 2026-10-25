@@ -1,16 +1,16 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import { Button, Modal } from '@podverse/ui';
 
 import { useEmbedPlaybackGuardrails } from '../../../contexts/EmbedPlaybackMode';
-import { useMediaPlayer } from '../../../contexts/MediaPlayer';
-import { useMediaPlayerControls } from '../../../contexts/MediaPlayerControls';
-import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
 import { useMediaPlayerControllerQueueHeadLoading } from '../../../hooks/useMediaPlayerControllerQueueHeadLoading';
+import { usePlayerTransport } from '../../../hooks/usePlayerTransport';
+import { useMediaPlayerBarVisible } from '../../../hooks/useRemotePlayerDisplay';
 import { updateLayoutForMediaPlayer } from '../../../utils/mediaPlayer/mediaPlayerLayout';
+import { CrossDevicePlaybackNotices } from '../CrossDevice/CrossDevicePlaybackNotices';
 import { NonLiveMediaMount } from '../MediaElement/NonLiveMediaMount';
 import { MediaPlayerControllerLiveStreamAudio } from './LiveStream/MediaPlayerControllerLiveStreamAudio';
 import { MediaPlayerLiveStreamVideoWrapper } from './LiveStream/MediaPlayerLiveStreamVideoWrapper';
@@ -20,78 +20,37 @@ export const MediaPlayerController: React.FC = () => {
   const tMediaPlayer = useTranslations('media_player');
   const tMisc = useTranslations('misc');
   const { skipMainAppLayoutMutations } = useEmbedPlaybackGuardrails();
-  const { mpAddByRSS, mpChannel, mpDuration, mpIsPlaying, mpItem, setMPIsPlaying } =
-    useMediaPlayer();
-  const { seek: bridgeSeek } = useMediaPlayerControls();
-  const { mpCurrentTime, setMPCurrentTime } = useMediaPlayerCurrentTime();
+  const isBarVisible = useMediaPlayerBarVisible();
+  const transport = usePlayerTransport();
+  const transportRef = useRef(transport);
+  transportRef.current = transport;
 
   const { handoffPrompt, continueLocalPlayback, switchToServerPlayback } =
     useMediaPlayerControllerQueueHeadLoading();
 
-  const seekWithUiSync = useCallback(
-    (time: number) => {
-      bridgeSeek(time);
-      setMPCurrentTime(time);
-    },
-    [bridgeSeek, setMPCurrentTime]
-  );
-
-  const mpCurrentTimeRef = useRef(mpCurrentTime);
   useEffect(() => {
-    mpCurrentTimeRef.current = mpCurrentTime;
-  }, [mpCurrentTime]);
-
-  const mpDurationRef = useRef(mpDuration);
-  useEffect(() => {
-    mpDurationRef.current = mpDuration;
-  }, [mpDuration]);
-
-  const mpChannelRef = useRef(mpChannel);
-  useEffect(() => {
-    mpChannelRef.current = mpChannel;
-  }, [mpChannel]);
-
-  const mpAddByRSSRef = useRef(mpAddByRSS);
-  useEffect(() => {
-    mpAddByRSSRef.current = mpAddByRSS;
-  }, [mpAddByRSS]);
-
-  const mpItemRef = useRef(mpItem);
-  useEffect(() => {
-    mpItemRef.current = mpItem;
-  }, [mpItem]);
-
-  const mpIsPlayingRef = useRef(mpIsPlaying);
-  useEffect(() => {
-    mpIsPlayingRef.current = mpIsPlaying;
-  }, [mpIsPlaying]);
-
-  useEffect(() => {
-    const listener = (e: KeyboardEvent) => {
+    const listener = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const current = transportRef.current;
       handleMediaPlayerWindowKeyDown(
-        e,
-        e.target as HTMLElement,
-        {
-          mpAddByRSS: mpAddByRSSRef.current,
-          mpChannel: mpChannelRef.current,
-          mpCurrentTime: mpCurrentTimeRef.current,
-          mpDuration: mpDurationRef.current,
-          isLiveItem: !!mpItemRef.current?.live_item,
-        },
-        seekWithUiSync,
-        () => {
-          setMPIsPlaying(!mpIsPlayingRef.current);
-        }
+        event,
+        target,
+        { hasResource: current.hasResource, isLiveItem: current.isLive },
+        current.jumpBy,
+        current.togglePlayPause
       );
     };
 
     window.addEventListener('keydown', listener);
     return () => window.removeEventListener('keydown', listener);
-  }, [seekWithUiSync, setMPIsPlaying]);
+  }, []);
 
   useEffect(() => {
-    updateLayoutForMediaPlayer(!!mpChannel || !!mpAddByRSS, { skipMainAppLayoutMutations });
-  }, [mpAddByRSS, mpChannel, skipMainAppLayoutMutations]);
+    updateLayoutForMediaPlayer(isBarVisible, { skipMainAppLayoutMutations });
+  }, [isBarVisible, skipMainAppLayoutMutations]);
 
   return (
     <>
@@ -122,6 +81,7 @@ export const MediaPlayerController: React.FC = () => {
           </Button>
         </Modal.Actions>
       </Modal>
+      <CrossDevicePlaybackNotices />
     </>
   );
 };

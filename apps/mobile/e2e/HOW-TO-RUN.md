@@ -256,6 +256,7 @@ npm run mobile:e2e:test -- --platform ios opml
 npm run mobile:e2e:test -- --platform ios perf-chip-switch
 npm run mobile:e2e:test -- --platform ios perf-scroll
 npm run mobile:e2e:test -- --platform ios play-mini-player
+npm run mobile:e2e:test -- --platform ios playback-cross-device
 npm run mobile:e2e:test -- --platform ios playback-multi-device-handoff
 npm run mobile:e2e:test -- --platform ios playback-offline-reconciliation
 npm run mobile:e2e:test -- --platform ios playback-resume-on-relaunch
@@ -319,6 +320,7 @@ npm run mobile:e2e:test -- --platform android opml
 npm run mobile:e2e:test -- --platform android perf-chip-switch
 npm run mobile:e2e:test -- --platform android perf-scroll
 npm run mobile:e2e:test -- --platform android play-mini-player
+npm run mobile:e2e:test -- --platform android playback-cross-device
 npm run mobile:e2e:test -- --platform android playback-multi-device-handoff
 npm run mobile:e2e:test -- --platform android playback-offline-reconciliation
 npm run mobile:e2e:test -- --platform android playback-resume-on-relaunch
@@ -514,6 +516,9 @@ channel without fetching the feed, so the Basic challenge itself is checked by h
 the seeded VOD HLS playlist `e2e-hls-vod.m3u8` from `tools/test-assets/assets/e2e/hls/`. If those
 files are missing, regenerate E2E media (same command as the video fixture) and reseed.
 
+`playback-cross-device` uses a host script as a second device on the seeded account and needs
+the default sequential slots.
+
 ```bash
 npm run mobile:e2e:test -- add-by-rss
 npm run mobile:e2e:test -- add-by-rss-credentials
@@ -525,6 +530,7 @@ npm run mobile:e2e:test -- library-downloads
 npm run mobile:e2e:test -- make-clip
 npm run mobile:e2e:test -- membership-gate
 npm run mobile:e2e:test -- play-mini-player
+npm run mobile:e2e:test -- playback-cross-device
 npm run mobile:e2e:test -- playback-offline-reconciliation
 npm run mobile:e2e:test -- playback-resume-on-relaunch
 npm run mobile:e2e:test -- player-screen

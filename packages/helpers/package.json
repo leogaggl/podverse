@@ -95,6 +95,14 @@
       "types": "./dist/lib/playbackEvents.d.ts",
       "default": "./dist/lib/playbackEvents.js"
     },
+    "./accountPlaybackStream": {
+      "types": "./dist/lib/accountPlaybackStream.d.ts",
+      "default": "./dist/lib/accountPlaybackStream.js"
+    },
+    "./crossDevicePlayback": {
+      "types": "./dist/lib/crossDevicePlayback.d.ts",
+      "default": "./dist/lib/crossDevicePlayback.js"
+    },
     "./playbackOutboxLimits": {
       "types": "./dist/lib/playbackOutboxLimits.d.ts",
       "default": "./dist/lib/playbackOutboxLimits.js"

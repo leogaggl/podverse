@@ -1,5 +1,6 @@
 import type { AddByRSSResourceData } from '@podverse/helpers';
 import { MEDIA_JUMP_BACK_SECONDS, MEDIA_JUMP_FORWARD_SECONDS, MediumEnum } from '@podverse/helpers';
+import type { DTOPlaybackResourceSummary } from '@podverse/helpers/accountPlaybackStream';
 import type { DTOItem } from '@podverse/helpers/dto';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
@@ -136,6 +137,25 @@ export const resolveAddToPlaylistTarget = (
       return target.item !== null ? { idText: target.item.id_text, kind: 'item', medium } : null;
     case 'add-by-rss':
       return { kind: 'add-by-rss', medium, resourceData: target.resourceData };
+  }
+};
+
+export const resolveRemoteAddToPlaylistTarget = (
+  resource: DTOPlaybackResourceSummary,
+  addByRssResourceData: AddByRSSResourceData | null
+): FullPlayerAddToPlaylistTarget | null => {
+  const medium = resource.medium === MediumEnum.Music ? 'music' : 'av';
+  switch (resource.ref.kind) {
+    case 'item':
+      return { idText: resource.ref.item_id_text, kind: 'item', medium };
+    case 'clip':
+      return { idText: resource.ref.clip_id_text, kind: 'clip', medium };
+    case 'soundbite':
+      return { idText: resource.ref.item_soundbite_id_text, kind: 'soundbite', medium };
+    case 'add_by_rss':
+      return addByRssResourceData === null
+        ? null
+        : { kind: 'add-by-rss', medium, resourceData: addByRssResourceData };
   }
 };
 

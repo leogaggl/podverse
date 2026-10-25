@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { usePlaybackDeviceSwitchVisible } from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
 import {
   FULL_PLAYER_SPEED_LABEL_SIZE,
   FULL_PLAYER_UTILITY_ICON_SIZE,
@@ -10,10 +11,16 @@ import {
 } from '../../screens/player/fullPlayerLayout';
 import { useTheme } from '../../theme/useTheme';
 import { Button } from '../primitives/Button';
+import { PlaybackDeviceButton } from './PlaybackDeviceButton';
 
 type FullPlayerUtilityRowProps = {
   /** Music swaps the speed control for shuffle and repeat; it always plays at 1x. */
   isMusicNowPlaying: boolean;
+  /**
+   * `local` is this phone's player. `remote` keeps speed and the device button.
+   * `remoteLive` keeps the device button.
+   */
+  mode?: 'local' | 'remote' | 'remoteLive';
   isRepeatEnabled: boolean;
   isShuffleEnabled: boolean;
   onOpenMore: () => void;
@@ -32,14 +39,19 @@ const formatRate = (rate: number): string => {
 };
 
 /**
- * Secondary player controls in equal-width slots on one centerline. Audio and video show sleep
+ * Secondary player controls in equal-width slots on one centerline. The local row shows sleep
  * timer, playback speed, and More; the rate reads as plain text so it never competes with the
- * transport circle above it. Music shows sleep timer, shuffle, repeat, and More.
+ * transport circle above it. Music swaps speed for shuffle and repeat and always plays at 1x.
+ * A device slot sits in the row when two or more devices are connected, just before More on the
+ * local row. While another device plays, the row keeps speed (except a livestream) and that
+ * device slot. Showing or hiding a slot changes the slot widths only; the row height stays
+ * fixed, including when it renders no slot.
  */
 export function FullPlayerUtilityRow({
   isMusicNowPlaying,
   isRepeatEnabled,
   isShuffleEnabled,
+  mode = 'local',
   onOpenMore,
   onOpenSleepTimer,
   onOpenSpeed,
@@ -49,6 +61,7 @@ export function FullPlayerUtilityRow({
 }: FullPlayerUtilityRowProps) {
   const { t } = useTranslation();
   const { tokens } = useTheme();
+  const showDeviceSlot = usePlaybackDeviceSwitchVisible();
   const iconColor = tokens.button.secondaryColor;
 
   const styles = useMemo(
@@ -78,23 +91,33 @@ export function FullPlayerUtilityRow({
 
   const rateLabel = formatRate(playbackRate);
 
+  const showLocalControls = mode === 'local';
+  const showSpeed = mode === 'remote' || (showLocalControls && !isMusicNowPlaying);
+  const showMusicControls = showLocalControls && isMusicNowPlaying;
+
   return (
     <View style={styles.row} testID="full-player-utility-row">
-      <View style={styles.slot}>
-        <Button
-          accessibilityLabel={t('media_player.sleep_timer.sleep_timer')}
-          icon={
-            <Ionicons color={iconColor} name="moon-outline" size={FULL_PLAYER_UTILITY_ICON_SIZE} />
-          }
-          iconOnly
-          label={t('media_player.sleep_timer.sleep_timer')}
-          onPress={onOpenSleepTimer}
-          size="lg"
-          testID="full-player-sleep-timer"
-          variant="ghost"
-        />
-      </View>
-      {isMusicNowPlaying ? (
+      {showLocalControls ? (
+        <View style={styles.slot}>
+          <Button
+            accessibilityLabel={t('media_player.sleep_timer.sleep_timer')}
+            icon={
+              <Ionicons
+                color={iconColor}
+                name="moon-outline"
+                size={FULL_PLAYER_UTILITY_ICON_SIZE}
+              />
+            }
+            iconOnly
+            label={t('media_player.sleep_timer.sleep_timer')}
+            onPress={onOpenSleepTimer}
+            size="lg"
+            testID="full-player-sleep-timer"
+            variant="ghost"
+          />
+        </View>
+      ) : null}
+      {showMusicControls ? (
         <>
           <View style={styles.slot}>
             <Button
@@ -133,7 +156,7 @@ export function FullPlayerUtilityRow({
             />
           </View>
         </>
-      ) : (
+      ) : showSpeed ? (
         <View style={styles.slot}>
           <Button
             accessibilityLabel={t('media_player.playback_speed.playback_speed_with_value', {
@@ -148,25 +171,32 @@ export function FullPlayerUtilityRow({
             variant="ghost"
           />
         </View>
-      )}
-      <View style={styles.slot}>
-        <Button
-          accessibilityLabel={t('media.more_options')}
-          icon={
-            <Ionicons
-              color={iconColor}
-              name="ellipsis-horizontal"
-              size={FULL_PLAYER_UTILITY_ICON_SIZE}
-            />
-          }
-          iconOnly
-          label={t('media.more_options')}
-          onPress={onOpenMore}
-          size="lg"
-          testID="full-player-more"
-          variant="ghost"
-        />
-      </View>
+      ) : null}
+      {showDeviceSlot ? (
+        <View style={styles.slot}>
+          <PlaybackDeviceButton appearance="full" testID="full-player-devices" />
+        </View>
+      ) : null}
+      {showLocalControls ? (
+        <View style={styles.slot}>
+          <Button
+            accessibilityLabel={t('media.more_options')}
+            icon={
+              <Ionicons
+                color={iconColor}
+                name="ellipsis-horizontal"
+                size={FULL_PLAYER_UTILITY_ICON_SIZE}
+              />
+            }
+            iconOnly
+            label={t('media.more_options')}
+            onPress={onOpenMore}
+            size="lg"
+            testID="full-player-more"
+            variant="ghost"
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

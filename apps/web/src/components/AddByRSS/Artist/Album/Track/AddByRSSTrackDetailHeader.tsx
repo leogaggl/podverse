@@ -2,11 +2,15 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import type { EnclosureSelectedParams } from '@podverse/helpers';
 import { addByRSSBundleEnclosuresToDTO, getQueueForMedium } from '@podverse/helpers';
-import { buildAddByRSSResourceData, getAddByRSSHashId } from '@podverse/parser-mapping';
+import {
+  buildAddByRSSResourceData,
+  getAddByRSSHashId,
+  getAddByRSSHashIds,
+} from '@podverse/parser-mapping';
 
 import { IMAGES } from '../../../../../constants/images';
 import { useAccount } from '../../../../../contexts/Account';
@@ -56,6 +60,10 @@ export const AddByRSSTrackDetailHeader: React.FC<AddByRSSTrackDetailHeaderProps>
   const playAddByRSS = usePlayAddByRSS();
   const apiRequestService = getApiRequestService();
   const { runQueueAdd } = useQueueAddWithGate();
+  const addByRSSHashIds = useMemo(
+    () => (indexItem ? getAddByRSSHashIds(indexItem) : undefined),
+    [indexItem]
+  );
 
   const imageCandidates =
     indexItem?.bundle?.images !== undefined && indexItem.bundle.images.length > 0
@@ -223,6 +231,7 @@ export const AddByRSSTrackDetailHeader: React.FC<AddByRSSTrackDetailHeaderProps>
         <AddByRSSItemHeaderPlaySection
           onPlay={onPlay}
           addByRSSIdText={indexItem?.idText ?? undefined}
+          addByRSSHashIds={addByRSSHashIds}
           moreButtonMenuItems={moreButtonMenuItems}
           enclosures={
             indexItem?.bundle?.enclosures

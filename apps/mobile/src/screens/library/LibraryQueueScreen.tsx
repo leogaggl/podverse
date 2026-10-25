@@ -29,7 +29,6 @@ import { queueRepository } from '../../data';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueResourcesLoadActive } from '../../hooks/useQueueResourcesLoadActive';
 import { resolveListFill } from '../../lib/listFill';
-import { playbackTargetRowMediaId } from '../../lib/playback/buildPlaybackTarget';
 import { queueResourcesForQueueScreen } from '../../lib/queue/queueScreenResources';
 import type { QueueReorderMutation } from '../../lib/reorder/resolveQueueDrop';
 import { resolveQueueDrop } from '../../lib/reorder/resolveQueueDrop';
@@ -37,6 +36,7 @@ import type { QueueResourceHomeRow } from '../../lib/rows/homeRowMappers';
 import { queueResourceToHomeRow } from '../../lib/rows/homeRowMappers';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import type { LibraryStackParamList } from '../../navigation';
+import { usePlaybackRowDisplay } from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { listChipRowBottomGap, screenBodyInsets } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
@@ -104,7 +104,8 @@ export function LibraryQueueScreen(_props: LibraryQueueScreenProps) {
   const { activeQueue, activeQueueUpcomingResources } = useQueues();
   const { fetchActiveQueueListMedium } = usePrimaryQueue();
   const { handleGateError } = useMembershipGate();
-  const { activeTarget, playQueueResourceFromQueue } = usePlaybackSession();
+  const { playQueueResourceFromQueue } = usePlaybackSession();
+  const { activeMediaId: playingContentId } = usePlaybackRowDisplay();
   const loadActiveQueueResources = useQueueResourcesLoadActive();
   const dragTapBlockUntilRef = useRef<number>(0);
   const queueResourcesRef = useRef<readonly DTOQueueResource[]>([]);
@@ -120,8 +121,6 @@ export function LibraryQueueScreen(_props: LibraryQueueScreenProps) {
   const [isSavingOrder, setIsSavingOrder] = useState<boolean>(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [actionNoticeKey, setActionNoticeKey] = useState<QueueActionNoticeKey | null>(null);
-
-  const playingContentId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
 
   useEffect(() => {
     const expectedMediumId = getQueueMediumIdFromType(selectedMedium);

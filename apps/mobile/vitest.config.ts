@@ -87,14 +87,36 @@ import { defineConfig } from 'vitest/config';
  * report-a-conflict (`src/data/repositories/playbackReconcile.ts`), the meaningful-event gate that
  * feeds it (`src/playback/playbackEventSource.ts`), and the handoff prompt and dismissal memory
  * (`src/playback/playbackHandoff.ts`) are all pure, while their SQLite halves stay in
- * `playbackOutboxRepository.ts` and the RN provider stays in `PlaybackProvider.tsx`. The player
- * chrome's rules sit on the same split: the overlay store's closing phase and transition durations
+ * `playbackOutboxRepository.ts` and the RN provider stays in `PlaybackProvider.tsx`. So are the
+ * cross-device playback read model and its rules — revision ordering, own-claim precedence, role,
+ * the publish body and claim rule, the supersede rule, command dedupe and staleness, take-over
+ * start, and the different-item handoff prompt gate
+ * (`src/playback/crossDevice/crossDevicePlaybackStore.ts`, `crossDevicePlaybackPolicy.ts`), and
+ * the cross-device presence rules — availability, check-in timing on the stream and on progress
+ * samples, and the membership latch (`src/playback/crossDevice/crossDevicePresenceController.ts`),
+ * and the cross-device state publisher — claim rule, chaining, the foreground gap and background
+ * skip, periodic publishing from progress samples, and 409/403 handling
+ * (`src/playback/crossDevice/crossDevicePlaybackPublisher.ts`), the cross-device command runner —
+ * target check, dedupe, local staleness, serial execution, live drops, next and previous,
+ * take-over start, and start-failure reporting
+ * (`src/playback/crossDevice/crossDevicePlaybackCommandRunner.ts`), the commanded-start end
+ * clamp — waiting for the engine duration, the correcting seek, and an early end
+ * (`src/playback/crossDevice/commandedStartClamp.ts`), the cross-device remote control — seek
+ * coalescing, failure mapping, and the take-over result
+ * (`src/playback/crossDevice/crossDevicePlaybackRemoteControl.ts`), and the cross-device player
+ * display — when the phone draws another device's playback, device names, and failure copy
+ * (`src/playback/crossDevice/crossDevicePlayerDisplay.ts`); the check-in, publish,
+ * start-failure, and command requests and the local playback paths are injected, and the RN hook
+ * `useCrossDevicePlayback.ts` stays out. The
+ * player chrome's rules sit on the same split: the overlay store's closing phase and transition
+ * durations
  * (`src/components/overlay/overlayStore.ts`, `src/components/overlay/overlayTransitions.ts`), the
  * process-wide Reduce Motion store (`src/hooks/useReduceMotion.ts` — AccessibilityInfo is mocked
  * so the singleton listener is testable in node), the
  * transport glyph mapping that keeps the spinner to a
  * source that cannot start yet (`src/playback/playbackTransport.ts`), which clip or chapter the
- * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the Add by RSS chapters and
+ * now-playing bar names (`src/playback/nowPlayingSegment.ts`), which chapter row is marked as
+ * playing (`src/playback/playingChapter.ts`), the Add by RSS chapters and
  * transcript kept for the item now playing
  * (`src/playback/addByRssNowPlayingSectionsStore.ts` — one item, dropped on reset, nothing on
  * disk), the auto-queue config after an explicit or playlist play
@@ -223,9 +245,18 @@ export default defineConfig({
       'src/playback/playbackErrorLog.test.ts',
       'src/playback/playbackEventSource.test.ts',
       'src/playback/playbackHandoff.test.ts',
+      'src/playback/crossDevice/commandedStartClamp.test.ts',
+      'src/playback/crossDevice/crossDevicePlaybackCommandRunner.test.ts',
+      'src/playback/crossDevice/crossDevicePlaybackPolicy.test.ts',
+      'src/playback/crossDevice/crossDevicePlaybackPublisher.test.ts',
+      'src/playback/crossDevice/crossDevicePlaybackRemoteControl.test.ts',
+      'src/playback/crossDevice/crossDevicePlaybackStore.test.ts',
+      'src/playback/crossDevice/crossDevicePlayerDisplay.test.ts',
+      'src/playback/crossDevice/crossDevicePresenceController.test.ts',
       'src/playback/playbackHandoffTitle.test.ts',
       'src/playback/previousAction.test.ts',
       'src/playback/playbackTransport.test.ts',
+      'src/playback/playingChapter.test.ts',
       'src/prefs/bannerNotificationPrefs.test.ts',
       'src/prefs/homeListPrefs.test.ts',
       'src/prefs/prefsStore.test.ts',

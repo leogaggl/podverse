@@ -10,6 +10,8 @@ import { segmentsRepository } from '../data';
 import { warmItemDescription } from '../lib/content/itemDescriptionAccess';
 import { useOfflineMode } from '../prefs/offlineMode';
 import { shouldAutoLoadAddByRssNowPlayingChapters } from './addByRssNowPlayingSectionsStore';
+import { useCrossDevicePlayerDisplay } from './crossDevice/useCrossDevicePlayerDisplay';
+import { useDisplayedAddByRssResourceData } from './crossDevice/useDisplayedAddByRssResourceData';
 import {
   nowPlayingAddByRssSections,
   useNowPlayingAddByRssSections,
@@ -116,22 +118,29 @@ export const resolveNowPlayingChapters = async (
 };
 
 /**
- * Chapters load once per now-playing item. Directory episodes use the process-wide cache; Add by
- * RSS items use the now-playing Add by RSS store, which needs a signed-in account and Offline Mode
- * off. Warms that episode's show notes for the full player. Does not subscribe to the playhead —
- * pair with {@link useActiveNowPlayingChapter} in leaf chrome.
+ * Chapters for the item the player shows, including another device's item while this phone shows
+ * that device. Directory episodes load once through the process-wide cache. Add by RSS items use
+ * this phone's copy in the now-playing Add by RSS store, which needs a signed-in account and
+ * Offline Mode off. Warms the local episode's show notes for the full player. Does not subscribe
+ * to the playhead — pair with {@link useActiveNowPlayingChapter} in leaf chrome.
  */
 export function useNowPlayingChapters(): { chapters: DTOItemChapter[] } {
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const { activeTarget } = usePlaybackSession();
+  const display = useCrossDevicePlayerDisplay();
   const cache = useSyncExternalStore(subscribeChapters, getChaptersSnapshot, getChaptersSnapshot);
-  const addByRssResourceData =
-    activeTarget?.kind === 'add-by-rss' ? activeTarget.resourceData : null;
+  const addByRssResourceData = useDisplayedAddByRssResourceData();
   const addByRssSections = useNowPlayingAddByRssSections(addByRssResourceData);
 
-  const item = itemFromTarget(activeTarget);
-  const chaptersItemIdText = item !== null ? item.id_text : null;
+  const remoteRef = display.kind === 'remote' ? display.resource.ref : null;
+  const item = remoteRef === null ? itemFromTarget(activeTarget) : null;
+  const chaptersItemIdText =
+    display.kind === 'remote'
+      ? display.resource.ref.kind === 'item' && !display.isLive
+        ? display.resource.ref.item_id_text
+        : null
+      : (item?.id_text ?? null);
 
   useEffect(() => {
     if (item !== null) {
@@ -176,7 +185,10 @@ export function useNowPlayingChapters(): { chapters: DTOItemChapter[] } {
     status,
   ]);
 
-  if (activeTarget?.kind === 'add-by-rss') {
+  if (
+    remoteRef?.kind === 'add_by_rss' ||
+    (remoteRef === null && activeTarget?.kind === 'add-by-rss')
+  ) {
     return { chapters: addByRssSections.sections?.chapters ?? EMPTY_CHAPTERS };
   }
 

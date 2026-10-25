@@ -2,7 +2,9 @@
 
 ## When to use
 
-Changing **file-based** podcast / music / clip / soundbite / chapter / add-by-RSS playback, the queue “now playing” load path, or keyboard / slider / button controls that seek or jump the element.
+Changing **file-based** podcast / music / clip / soundbite / chapter / add-by-RSS playback, the
+queue “now playing” load path, keyboard / slider / button controls that seek or jump the element,
+or cross-device playback (publishing state, obeying or sending remote commands, the device menu).
 
 ## Stack (today)
 
@@ -42,6 +44,20 @@ flowchart LR
   BR --> E[(HTMLMediaElement)]
   M --> AV
 ```
+
+## Cross-device playback
+
+- Route every play, pause, seek, skip, rate, next, previous, and item pick by
+  `resolvePlaybackRole` from `@podverse/helpers` (mobile:
+  `@podverse/helpers/crossDevicePlayback`): `active` and `idle` play locally (`idle` claims),
+  `remote` sends a command with the `@podverse/helpers-requests` playback calls.
+- Commands name the target state. Next and previous are commands, not toggles. Never add a toggle
+  command.
+- Remote state is display only: it never goes through the meaningful-playback path, the playback
+  journal, history, or position saves.
+- Gate controls for live items with `getPlaybackRemoteControls`; do not re-derive the rule.
+- The event contract is `packages/helpers/src/lib/accountPlaybackStream.ts`. The architecture is
+  in `docs/architecture/ARCHITECTURE.md` under Account events.
 
 ## Related
 

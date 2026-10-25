@@ -15,6 +15,7 @@ import { AppState } from 'react-native';
 
 import type { AddByRSSResourceData } from '@podverse/helpers';
 import { primaryLightboxArtworkUrl, primaryListArtworkUrl } from '@podverse/helpers';
+import type { DTOPlaybackResourceRef } from '@podverse/helpers/accountPlaybackStream';
 import type {
   DTOChannel,
   DTOClip,
@@ -47,6 +48,7 @@ import {
   buildEnclosureSwitchPlaybackDecisionIfChanged,
   createListenSessionTracker,
   listenSessionTargetFromPlaybackTarget,
+  parsePlaybackSeconds,
   resolveResumeAtSecondsForEnclosureSwitch,
 } from '@podverse/playback-core';
 import type { AutoQueueResourcesMapRow } from '@podverse/playback-core/autoQueue';
@@ -55,7 +57,11 @@ import {
   autoQueueSeedFromPlaybackTarget,
   hasAutoQueueRowAfter,
 } from '@podverse/playback-core/autoQueue';
-import { clampPlaybackPositionForStorage } from '@podverse/playback-core/clampNearEndSeconds';
+import {
+  clampCommandStartToFileEnd,
+  clampPlaybackPositionForStorage,
+} from '@podverse/playback-core/clampNearEndSeconds';
+import { resolvePlaybackLoadDecision } from '@podverse/playback-core/resolvePlaybackLoadDecision';
 import { resolveQueueAdvance } from '@podverse/playback-core/resolveQueueAdvance';
 
 import type {
@@ -96,10 +102,19 @@ import { playbackErrorFromLoadFailure } from '../feedback/actionErrorCopy';
 import { useQueueDataRevision } from '../hooks/useQueueDataRevision';
 import { useQueueMutations } from '../hooks/useQueueMutations';
 import { useQueueResourcesLoadActive } from '../hooks/useQueueResourcesLoadActive';
+import { EMPTY_ABRIDGED_INDEX } from '../lib/addByRss/domain';
 import type { AddByRssFeedPlayEntry } from '../lib/addByRss/feedWalk';
 import { findAddByRssEpisodePlayEntry } from '../lib/addByRss/feedWalk';
-import { loadLocalFeed, resolveLocalAddByRssResourceData } from '../lib/addByRss/localResourceData';
+import {
+  findLocalAddByRssResourceDataByHash,
+  loadLocalFeed,
+  resolveLocalAddByRssResourceData,
+} from '../lib/addByRss/localResourceData';
 import { isAddByRssResourceData, resolveAddByRssPlaybackUrl } from '../lib/addByRss/playbackUrl';
+import {
+  addByRssPlaybackMediaId,
+  withCanonicalAddByRssFeedUrl,
+} from '../lib/addByRss/resourceData';
 import type { AutoQueueDirective } from '../lib/autoQueue/autoQueue';
 import { createUuid } from '../lib/createUuid';
 import { resolveE2eMediaUrl } from '../lib/e2e/resolveE2eMediaUrl';
@@ -169,6 +184,23 @@ import {
 } from '../sync/playbackReconcileConflict';
 import { shouldSkipListenStatsForAccount } from '../tasteProfileConsent/tasteProfileConsentGate';
 import { addByRssCredentialsStateForUrl, withAddByRssPlaybackAuth } from './addByRssMediaAuth';
+import type { CommandedStartGuard } from './crossDevice/commandedStartClamp';
+import {
+  createCommandedStartGuard,
+  resolveCommandedStartOnEnded,
+  resolveCommandedStartOnProgress,
+} from './crossDevice/commandedStartClamp';
+import type {
+  CrossDevicePlaybackLocalPort,
+  LocalPlaybackStartResult,
+} from './crossDevice/crossDevicePlaybackCommandRunner';
+import {
+  isLivePlaybackTarget,
+  playbackResourceRefFromTarget,
+} from './crossDevice/crossDevicePlaybackPolicy';
+import type { LocalPlaybackChangeKind } from './crossDevice/crossDevicePlaybackPublisher';
+import { getCrossDevicePlaybackView } from './crossDevice/crossDevicePlaybackStore';
+import { useCrossDevicePlayback } from './crossDevice/useCrossDevicePlayback';
 import { resolveNowPlayingAddByRssChapters } from './nowPlayingAddByRssSections';
 import { buildPlaybackErrorLog, playbackErrorLogSignature } from './playbackErrorLog';
 import {
@@ -257,6 +289,36 @@ const parseSeconds = (value: string | number | null | undefined): number | null 
   }
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+type ArmedCommandedStart = {
+  guard: CommandedStartGuard;
+  /**
+   * `playbackTargetRowMediaId` of the target the guard belongs to. Samples and ends from the item
+   * still playing while the commanded load is in flight never resolve it.
+   */
+  targetMediaId: string | null;
+};
+
+/**
+ * The target's own load decision (pause-at, autoplay, stats, auto-queue) starting at a position
+ * another device asked for, without the near-end and music explicit-play start rules.
+ */
+const commandedStartDecision = (target: PlaybackTarget, seconds: number): PlaybackLoadDecision => ({
+  ...resolvePlaybackLoadDecision({ target }, { abridged: EMPTY_ABRIDGED_INDEX }),
+  initialSeekSeconds: seconds,
+});
+
+const isLoadedReconcileResource = (
+  target: PlaybackTarget | null,
+  state: Pick<PlaybackReconcileResourceState, 'resourceIdText' | 'resourceKind'>
+): boolean => {
+  const loaded = target === null ? null : nowPlayingResourceFromTarget(target);
+  return (
+    loaded !== null &&
+    loaded.resourceKind === state.resourceKind &&
+    loaded.resourceIdText === state.resourceIdText
+  );
 };
 
 const extractAddByRssArtworkUrl = (images: unknown): string | null => {
@@ -404,6 +466,43 @@ const resolveQueueResourceRef = (
   return null;
 };
 
+/** What a `play_item` command names for a queue row; null when another device cannot load it. */
+const resolveQueueResourcePlayItem = (
+  resource: DTOQueueResource
+): { ref: DTOPlaybackResourceRef; addByRssResourceData: AddByRSSResourceData | null } | null => {
+  const queueRef = resolveQueueResourceRef(resource);
+  if (queueRef === null) {
+    return null;
+  }
+  switch (queueRef.resourceKind) {
+    case 'add_by_rss': {
+      const resourceData = resource.add_by_rss_resource_data;
+      if (!isAddByRssResourceData(resourceData)) {
+        return null;
+      }
+      return {
+        ref: { kind: 'add_by_rss', add_by_rss_hash_id: queueRef.resourceIdText },
+        addByRssResourceData: withCanonicalAddByRssFeedUrl(resourceData),
+      };
+    }
+    case 'soundbite':
+      return {
+        ref: { kind: 'soundbite', item_soundbite_id_text: queueRef.resourceIdText },
+        addByRssResourceData: null,
+      };
+    case 'clip':
+      return {
+        ref: { kind: 'clip', clip_id_text: queueRef.resourceIdText },
+        addByRssResourceData: null,
+      };
+    case 'item':
+      return {
+        ref: { kind: 'item', item_id_text: queueRef.resourceIdText },
+        addByRssResourceData: null,
+      };
+  }
+};
+
 export type PlaybackContextValue = {
   activeTarget: PlaybackTarget | null;
   nowPlaying: PlaybackNowPlaying | null;
@@ -477,6 +576,10 @@ export type PlaybackContextValue = {
   toggleShuffle: () => void;
   /** Flip auto-queue repeat, then clear and reload the up-next rows from the playing item. */
   toggleRepeat: () => void;
+  /** Move playback to another of the account's devices; this phone keeps playing until it claims. */
+  transferPlaybackTo: (targetSessionIdText: string) => Promise<void>;
+  /** Play what another device is playing here, at its position or the live point, and claim. */
+  takeOverPlaybackHere: () => Promise<void>;
 };
 
 /**
@@ -613,6 +716,12 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
   const accountIdTextRef = useRef<string | null>(account?.id_text ?? null);
   const playbackHandoffPromptRef = useRef<PlaybackHandoffPromptState | null>(null);
   const playbackHandoffDismissedStateKeyRef = useRef<string | null>(null);
+  /** Tells cross-device playback about a seek or rate change; `useCrossDevicePlayback` assigns it. */
+  const crossDeviceLocalChangeRef = useRef<(kind: LocalPlaybackChangeKind) => void>(() => {});
+  /** A commanded start this phone has not yet compared with its own engine duration. */
+  const commandedStartGuardRef = useRef<ArmedCommandedStart | null>(null);
+  /** `seekTo`, for the native handlers registered above its definition. */
+  const seekToRef = useRef<(seconds: number) => void>(() => {});
 
   /**
    * Write a playback failure to the error log. The dialog that shows it closes, and the media comes
@@ -1117,6 +1226,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     clearAddByRssFeedWalk();
     clearDownloadSourceSwap();
     clearSeekHold();
+    commandedStartGuardRef.current = null;
     lastSourceUrlRef.current = null;
     setPlaybackSourceMarker(null);
     sourcePlayableRef.current = false;
@@ -1153,14 +1263,20 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         autoPlayOverride?: boolean;
         playbackDecisionOverride?: PlaybackLoadDecision;
         shouldSkipPlayEventWrite?: boolean;
+        /**
+         * A position another device asked for. Used as given, without the near-end or music
+         * start rules, and clamped to this phone's own file end once the engine knows it.
+         */
+        commandedStartSeconds?: number;
       }
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       setNoticeKey(null);
       if (target.kind === 'add-by-rss') {
         resetEnclosureSelectionSession();
       }
       clearDownloadSourceSwap();
       clearSeekHold();
+      commandedStartGuardRef.current = null;
       lastSourceUrlRef.current = params.url;
       setPlaybackSourceMarker(params.url);
       sourcePlayableRef.current = false;
@@ -1175,6 +1291,16 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         releasePendingStart();
       }
       setTransportState('loading');
+      const commandedStartSeconds =
+        params.commandedStartSeconds !== undefined && !isLivePlaybackTarget(target)
+          ? params.commandedStartSeconds
+          : undefined;
+      if (commandedStartSeconds !== undefined) {
+        commandedStartGuardRef.current = {
+          guard: createCommandedStartGuard(commandedStartSeconds),
+          targetMediaId: playbackTargetRowMediaId(target),
+        };
+      }
       let decision: PlaybackLoadDecision;
       try {
         decision = await applyLoad(
@@ -1186,9 +1312,13 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           params.url,
           effectiveRate,
           params.autoPlayOverride,
-          params.playbackDecisionOverride
+          params.playbackDecisionOverride ??
+            (commandedStartSeconds === undefined
+              ? undefined
+              : commandedStartDecision(target, commandedStartSeconds))
         );
       } catch (error) {
+        commandedStartGuardRef.current = null;
         releasePendingStart();
         const failure = playbackErrorFromLoadFailure(error);
         recordPlaybackError(failure, target, params.url);
@@ -1199,7 +1329,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         setNowPlaying(params.summary);
         setPlaybackPlaying(false);
         getListenSession().end();
-        return;
+        return false;
       }
       applyAutoQueueDirective(params.autoQueue);
       pauseAtRef.current = decision.pauseAtSeconds ?? null;
@@ -1259,6 +1389,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         });
       }
       writeLastPlaybackSnapshotForTarget(target, decision.initialSeekSeconds);
+      return true;
     },
     [
       applyAutoQueueDirective,
@@ -1290,13 +1421,14 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         explicitPlaybackSeconds?: number;
         mediaFileDurationHintSeconds?: number;
         autoPlayOverride?: boolean;
+        commandedStartSeconds?: number;
       }
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       const { labeledItemEnclosures, selectedParams } = await resolvePlaybackSelectionForItem(item);
       const url = await resolvePlaybackUrl(item, selectedParams, labeledItemEnclosures);
       if (url === null) {
         setNoticeKey('media_player.no_media');
-        return;
+        return false;
       }
       const start = resolveItemPlaybackStart({
         channel,
@@ -1308,9 +1440,10 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
           item.item_about.duration
         ),
       });
-      await playTarget(start.target, {
+      return playTarget(start.target, {
         autoPlayOverride: options.autoPlayOverride,
         autoQueue: options.autoQueue,
+        commandedStartSeconds: options.commandedStartSeconds,
         explicitPlaybackSeconds: start.explicitPlaybackSeconds,
         mediaFileDurationHintSeconds: start.mediaFileDurationHintSeconds,
         summary: summaryFromItem(item, channel),
@@ -1330,18 +1463,20 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         explicitPlaybackSeconds?: number;
         mediaFileDurationHintSeconds?: number;
         autoPlayOverride?: boolean;
+        commandedStartSeconds?: number;
       }
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       const { labeledItemEnclosures, selectedParams } = await resolvePlaybackSelectionForItem(item);
       const url = await resolvePlaybackUrl(item, selectedParams, labeledItemEnclosures);
       if (url === null) {
         setNoticeKey('media_player.no_media');
-        return;
+        return false;
       }
       const target = buildClipPlaybackTarget(clip, item, channel);
-      await playTarget(target, {
+      return playTarget(target, {
         autoPlayOverride: options.autoPlayOverride,
         autoQueue: options.autoQueue,
+        commandedStartSeconds: options.commandedStartSeconds,
         explicitPlaybackSeconds: options.explicitPlaybackSeconds,
         mediaFileDurationHintSeconds: resolveMediaFileDurationHintSeconds(
           options.mediaFileDurationHintSeconds,
@@ -1364,18 +1499,20 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         explicitPlaybackSeconds?: number;
         mediaFileDurationHintSeconds?: number;
         autoPlayOverride?: boolean;
+        commandedStartSeconds?: number;
       }
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       const { labeledItemEnclosures, selectedParams } = await resolvePlaybackSelectionForItem(item);
       const url = await resolvePlaybackUrl(item, selectedParams, labeledItemEnclosures);
       if (url === null) {
         setNoticeKey('media_player.no_media');
-        return;
+        return false;
       }
       const target = buildSoundbitePlaybackTarget(soundbite, item, channel);
-      await playTarget(target, {
+      return playTarget(target, {
         autoPlayOverride: options.autoPlayOverride,
         autoQueue: options.autoQueue,
+        commandedStartSeconds: options.commandedStartSeconds,
         explicitPlaybackSeconds: options.explicitPlaybackSeconds,
         mediaFileDurationHintSeconds: resolveMediaFileDurationHintSeconds(
           options.mediaFileDurationHintSeconds,
@@ -1742,8 +1879,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         autoQueue: AutoQueueDirective;
         explicitPlaybackSeconds?: number;
         localDownloadItemIdText?: string;
+        commandedStartSeconds?: number;
       }
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       const localUrl =
         options.localDownloadItemIdText !== undefined
           ? await resolveLocalDownloadPlaybackUrl(options.localDownloadItemIdText)
@@ -1752,9 +1890,9 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         localUrl ?? (isOfflineModeEnabled() ? null : resolveAddByRssPlaybackUrl(resourceData));
       if (url === null) {
         setNoticeKey('media_player.no_media');
-        return;
+        return false;
       }
-      await playTarget(
+      return playTarget(
         {
           kind: 'add-by-rss',
           resourceData,
@@ -1762,6 +1900,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         {
           autoPlayOverride: options.autoPlayOverride,
           autoQueue: options.autoQueue,
+          commandedStartSeconds: options.commandedStartSeconds,
           explicitPlaybackSeconds: options.explicitPlaybackSeconds,
           summary: summaryFromAddByRssResourceData(resourceData),
           url,
@@ -1796,6 +1935,129 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       return activeTargetRef.current !== null && activeTargetRef.current !== targetBefore;
     },
     [startAddByRssPlayback]
+  );
+
+  /**
+   * Starts a resource another device asked this phone to play, through the start functions an
+   * explicit tap uses. A start position is used as given and clamped to this phone's file end; a
+   * null start is an ordinary explicit play. An Add by RSS resource without carried data is found in
+   * this phone's own feeds, then in the now-playing rows the previous device wrote to the queues.
+   * `load_paused` loads without playing and leaves the auto-queue alone, so it writes no playback
+   * event.
+   */
+  const playResourceForCrossDevice = useCallback(
+    async (
+      params: {
+        ref: DTOPlaybackResourceRef;
+        addByRssResourceData: AddByRSSResourceData | null;
+        startSeconds: number | null;
+      },
+      mode: 'play' | 'load_paused'
+    ): Promise<LocalPlaybackStartResult> => {
+      const autoQueue: AutoQueueDirective =
+        mode === 'play' ? { mode: 'clear' } : { mode: 'preserve' };
+      const startSeconds = params.startSeconds ?? undefined;
+      const startOptions = {
+        autoPlayOverride: mode === 'play',
+        autoQueue,
+        commandedStartSeconds: startSeconds,
+        explicitPlaybackSeconds: startSeconds,
+      };
+      const toResult = (started: boolean): LocalPlaybackStartResult =>
+        started ? 'started' : 'failed';
+      const { ref } = params;
+      try {
+        switch (ref.kind) {
+          case 'item': {
+            const item = await playbackContentRepository.getItemByIdText(
+              buildContext(),
+              ref.item_id_text
+            );
+            const channel = await ensureChannel(item);
+            if (channel === null) {
+              return 'failed';
+            }
+            return toResult(
+              await startItemPlayback(item, channel, { ...startOptions, intent: 'explicit_play' })
+            );
+          }
+          case 'clip': {
+            const clip = await playbackContentRepository.getClipByIdText(
+              buildContext(),
+              ref.clip_id_text
+            );
+            const item = clip.item;
+            if (item === null || item === undefined) {
+              return 'failed';
+            }
+            const channel = await ensureChannel(item);
+            if (channel === null) {
+              return 'failed';
+            }
+            return toResult(await startClipPlayback(clip, item, channel, startOptions));
+          }
+          case 'soundbite': {
+            const soundbite = await playbackContentRepository.getSoundbiteByIdText(
+              buildContext(),
+              ref.item_soundbite_id_text
+            );
+            const item = soundbite.item;
+            if (item === null || item === undefined) {
+              return 'failed';
+            }
+            const channel = await ensureChannel(item);
+            if (channel === null) {
+              return 'failed';
+            }
+            return toResult(await startSoundbitePlayback(soundbite, item, channel, startOptions));
+          }
+          case 'add_by_rss': {
+            const hashId = ref.add_by_rss_hash_id;
+            let resourceData =
+              params.addByRssResourceData ??
+              (await findLocalAddByRssResourceDataByHash(hashId, addByRssRepository));
+            if (resourceData === null) {
+              const context = buildContext();
+              for (const queue of await queueRepository.getQueues(context)) {
+                const nowPlayingRow = await queueRepository.getNowPlaying(context, queue.id_text, {
+                  skipCache: true,
+                });
+                if (
+                  nowPlayingRow?.add_by_rss_hash_id === hashId &&
+                  isAddByRssResourceData(nowPlayingRow.add_by_rss_resource_data)
+                ) {
+                  resourceData = nowPlayingRow.add_by_rss_resource_data;
+                  break;
+                }
+              }
+            }
+            if (resourceData === null) {
+              return 'failed';
+            }
+            const localData = await resolveLocalAddByRssResourceData(
+              resourceData,
+              addByRssRepository
+            );
+            return toResult(await startAddByRssPlayback(localData, startOptions));
+          }
+          default: {
+            const unexpected: never = ref;
+            return unexpected;
+          }
+        }
+      } catch (error) {
+        console.warn('[playback] cross-device start failed', { kind: ref.kind, error });
+        return 'failed';
+      }
+    },
+    [
+      buildContext,
+      ensureChannel,
+      startAddByRssPlayback,
+      startClipPlayback,
+      startItemPlayback,
+      startSoundbitePlayback,
+    ]
   );
 
   const playQueueResource = useCallback(
@@ -1901,13 +2163,8 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         'queueIdText' | 'resourceIdText' | 'resourceKind'
       >
     ): Promise<string> => {
-      const activeTarget = activeTargetRef.current;
-      const activeResource =
-        activeTarget === null ? null : nowPlayingResourceFromTarget(activeTarget);
       if (
-        activeResource !== null &&
-        activeResource.resourceKind === state.resourceKind &&
-        activeResource.resourceIdText === state.resourceIdText &&
+        isLoadedReconcileResource(activeTargetRef.current, state) &&
         typeof nowPlayingRef.current?.title === 'string' &&
         nowPlayingRef.current.title.length > 0
       ) {
@@ -1965,80 +2222,6 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     },
     [buildContext, resolveAuthenticatedAccountIdText, t]
   );
-
-  useEffect(() => {
-    if (playbackHandoffPrompt !== null || playbackReconcileConflicts.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    const activeQueueIdText = activeQueueRef.current?.id_text ?? null;
-    const orderedConflicts =
-      activeQueueIdText === null
-        ? [...playbackReconcileConflicts]
-        : [
-            ...playbackReconcileConflicts.filter(
-              (conflict) => conflict.queueIdText === activeQueueIdText
-            ),
-            ...playbackReconcileConflicts.filter(
-              (conflict) => conflict.queueIdText !== activeQueueIdText
-            ),
-          ];
-
-    void (async () => {
-      const context = buildContext();
-      for (const conflict of orderedConflicts) {
-        if (
-          !shouldPromptForPlaybackHandoffConflict({
-            conflict,
-            dismissedStateKey: playbackHandoffDismissedStateKeyRef.current,
-            isPlayingLocally: isPlayingRef.current,
-          })
-        ) {
-          continue;
-        }
-
-        const remoteResource = await queueRepository.getNowPlaying(context, conflict.queueIdText, {
-          skipCache: true,
-        });
-        if (cancelled || remoteResource === null) {
-          continue;
-        }
-
-        const remoteRef = resolveQueueResourceRef(remoteResource);
-        if (
-          remoteRef === null ||
-          remoteRef.resourceKind !== conflict.remote.resourceKind ||
-          remoteRef.resourceIdText !== conflict.remote.resourceIdText
-        ) {
-          continue;
-        }
-
-        const localTitlePromise = resolveConflictStateTitle(conflict.local);
-        const serverTitle = queueResourceTitle(remoteResource);
-        const resolvedServerTitle =
-          serverTitle !== null ? serverTitle : await resolveConflictStateTitle(conflict.remote);
-        const localTitle = await localTitlePromise;
-
-        if (cancelled) {
-          return;
-        }
-
-        setPlaybackHandoffPrompt({
-          conflict,
-          dismissedStateKey: buildPlaybackHandoffDismissedStateKey(conflict.remote),
-          localTitle,
-          remoteResource,
-          serverTitle: resolvedServerTitle,
-        });
-        return;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [buildContext, playbackHandoffPrompt, playbackReconcileConflicts, resolveConflictStateTitle]);
 
   const handlePlaybackHandoffContinue = useCallback(() => {
     const prompt = playbackHandoffPromptRef.current;
@@ -3069,7 +3252,34 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 
   useNativePlaybackBridge({
     ended: () => {
-      if (!engineSourceMatchesTarget(engineSourceIdTextRef.current, activeTargetRef.current)) {
+      // Only the playing device records the end and advances; a late end on a phone another
+      // device just claimed would start the next item here and claim playback back.
+      if (getCrossDevicePlaybackView().role === 'remote') {
+        return;
+      }
+      const activeTarget = activeTargetRef.current;
+      const activeId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
+      if (!engineSourceMatchesTarget(engineSourceIdTextRef.current, activeTarget)) {
+        return;
+      }
+      const armed = commandedStartGuardRef.current;
+      if (armed !== null && armed.targetMediaId === activeId) {
+        // A commanded start past this file's end can end before any sample carried a duration.
+        commandedStartGuardRef.current = null;
+        void (async () => {
+          const durationSeconds = await nativePlaybackBridge.getDuration().catch(() => 0);
+          if (getCrossDevicePlaybackView().role === 'remote') {
+            return;
+          }
+          const action = resolveCommandedStartOnEnded({ guard: armed.guard, durationSeconds });
+          if (action.kind === 'restart_before_end') {
+            seekToRef.current(action.seconds);
+            void nativePlaybackBridge.play();
+            return;
+          }
+          getListenSession().recordCompleted();
+          void advance('complete');
+        })();
         return;
       }
       getListenSession().recordCompleted();
@@ -3184,6 +3394,32 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       );
       if (!identityMatches) {
         return;
+      }
+
+      const armed = commandedStartGuardRef.current;
+      if (armed !== null && armed.targetMediaId === activeId) {
+        const action = resolveCommandedStartOnProgress({
+          guard: armed.guard,
+          positionSeconds: event.positionSeconds,
+          durationSeconds: event.durationSeconds,
+          nowMs: Date.now(),
+        });
+        switch (action.kind) {
+          case 'keep':
+            commandedStartGuardRef.current = { ...armed, guard: action.guard };
+            break;
+          case 'seek':
+            commandedStartGuardRef.current = { ...armed, guard: action.guard };
+            seekToRef.current(action.seconds);
+            break;
+          case 'clear':
+            commandedStartGuardRef.current = null;
+            break;
+          default: {
+            const unexpected: never = action;
+            return unexpected;
+          }
+        }
       }
 
       if (event.durationSeconds > 0) {
@@ -3314,6 +3550,25 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     writePlaybackEvent,
   ]);
 
+  /**
+   * Another device claimed playback. Stops local audio and keeps the device-local snapshot, but
+   * writes no outbox event, now-playing or history change, or position post: a pause here would
+   * make this item the account's now-playing again, over the item the new device just started.
+   * The new device's own play event moves the queue. The engine's later `paused` event closes the
+   * listen segment and flips the playing flag, nothing more.
+   */
+  const stopPlaybackForOtherDevice = useCallback(() => {
+    nativePlaybackBridge.pause();
+    commandedStartGuardRef.current = null;
+    releasePendingStart();
+    setPlaybackPlaying(false);
+    setTransportState('paused');
+    const target = activeTargetRef.current;
+    if (target !== null) {
+      writeLastPlaybackSnapshotForTarget(target, positionRef.current);
+    }
+  }, [releasePendingStart, setPlaybackPlaying, writeLastPlaybackSnapshotForTarget]);
+
   const retryPlayback = useCallback(async () => {
     const url = lastSourceUrlRef.current;
     if (url === null) {
@@ -3368,6 +3623,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       positionRef.current = seconds;
       holdSeekPosition(seconds);
       setPlaybackPositionSeconds(seconds);
+      crossDeviceLocalChangeRef.current('seek');
       const occurredAt = Date.now();
       const postNetworkNow = shouldPostSeekEventNow({
         lastSeekPostAtMs: lastSeekNetworkPostAtRef.current,
@@ -3415,6 +3671,28 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       }, PLAYBACK_SEEK_NETWORK_COALESCE_MS);
     },
     [getListenSession, holdSeekPosition, writePlaybackEvent]
+  );
+  seekToRef.current = seekTo;
+
+  /**
+   * A seek another device asked for. At or past this phone's own file end it lands 5 seconds before
+   * the end; while the engine does not know the duration yet, the guard applies that once it does.
+   */
+  const seekForCrossDevice = useCallback(
+    async (seconds: number): Promise<void> => {
+      const durationSeconds = await nativePlaybackBridge.getDuration().catch(() => 0);
+      if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+        seekTo(clampCommandStartToFileEnd({ seconds, fileDurationSeconds: durationSeconds }));
+        return;
+      }
+      seekTo(seconds);
+      const target = activeTargetRef.current;
+      commandedStartGuardRef.current = {
+        guard: createCommandedStartGuard(seconds),
+        targetMediaId: target === null ? null : playbackTargetRowMediaId(target),
+      };
+    },
+    [seekTo]
   );
 
   /**
@@ -3606,6 +3884,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     (rate: number) => {
       audioVideoRateRef.current = rate;
       nativePlaybackBridge.setRate(applyEffectiveRateForTarget(activeTargetRef.current));
+      crossDeviceLocalChangeRef.current('rate');
     },
     [applyEffectiveRateForTarget]
   );
@@ -3641,7 +3920,12 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     }
     await advance('skip');
   }, [advance, probeHasQueueAhead]);
-  const completeNowPlaying = useCallback(() => advance('complete'), [advance]);
+  const completeNowPlaying = useCallback(async (): Promise<void> => {
+    if (getCrossDevicePlaybackView().role === 'remote') {
+      return;
+    }
+    await advance('complete');
+  }, [advance]);
 
   const remoteTrackCommandHandlersRef = useRef({ skipToNextTrack, skipToPreviousTrack });
   remoteTrackCommandHandlersRef.current = { skipToNextTrack, skipToPreviousTrack };
@@ -3668,6 +3952,434 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
     return hasAutoQueueRowAfter(autoQueueResources, autoQueueActiveRow);
   }, [activeTarget, autoQueueActiveRow, autoQueueResources, hasAddByRssNext]);
 
+  const crossDeviceLocalPort = useMemo<CrossDevicePlaybackLocalPort>(
+    () => ({
+      resume,
+      pause,
+      seekTo: seekForCrossDevice,
+      setRate,
+      skipToNext,
+      skipToPrevious,
+      playResource: (params) => playResourceForCrossDevice(params, 'play'),
+      hasLoadedTarget: () => activeTargetRef.current !== null,
+      isLoadedTargetLive: () => {
+        const target = activeTargetRef.current;
+        return target !== null && isLivePlaybackTarget(target);
+      },
+      loadResourcePaused: async (params) => {
+        const result = await playResourceForCrossDevice(
+          { ...params, addByRssResourceData: null },
+          'load_paused'
+        );
+        if (result === 'failed') {
+          throw new Error(`Paused load failed (${params.ref.kind})`);
+        }
+      },
+      adoptPosition: adoptRemotePlaybackPosition,
+      loadedRef: () => {
+        const target = activeTargetRef.current;
+        return target === null ? null : playbackResourceRefFromTarget(target);
+      },
+    }),
+    [
+      adoptRemotePlaybackPosition,
+      pause,
+      playResourceForCrossDevice,
+      resume,
+      seekForCrossDevice,
+      setRate,
+      skipToNext,
+      skipToPrevious,
+    ]
+  );
+
+  const crossDevice = useCrossDevicePlayback({
+    activeTarget,
+    nowPlaying,
+    isPlaying,
+    transportState,
+    playbackRate,
+    isPlayingRef,
+    readPositionSeconds: () => positionRef.current,
+    readDurationSeconds: () => durationRef.current,
+    readEffectiveRate: () => playbackRateRef.current,
+    localChangeSignalRef: crossDeviceLocalChangeRef,
+    stopForOtherDevice: stopPlaybackForOtherDevice,
+    localPort: crossDeviceLocalPort,
+    lastPlaybackError,
+    isAuthoringHold,
+  });
+  const { handoffGate } = crossDevice;
+
+  // Conflicts wait in `playbackReconcileConflicts` while the gate defers or suppresses, and are
+  // evaluated again when it allows. A conflict naming the loaded item is never offered.
+  useEffect(() => {
+    if (
+      handoffGate !== 'allow' ||
+      playbackHandoffPrompt !== null ||
+      playbackReconcileConflicts.length === 0
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const activeQueueIdText = activeQueueRef.current?.id_text ?? null;
+    const orderedConflicts =
+      activeQueueIdText === null
+        ? [...playbackReconcileConflicts]
+        : [
+            ...playbackReconcileConflicts.filter(
+              (conflict) => conflict.queueIdText === activeQueueIdText
+            ),
+            ...playbackReconcileConflicts.filter(
+              (conflict) => conflict.queueIdText !== activeQueueIdText
+            ),
+          ];
+
+    void (async () => {
+      const context = buildContext();
+      for (const conflict of orderedConflicts) {
+        if (
+          isLoadedReconcileResource(activeTargetRef.current, conflict.remote) ||
+          !shouldPromptForPlaybackHandoffConflict({
+            conflict,
+            dismissedStateKey: playbackHandoffDismissedStateKeyRef.current,
+            isPlayingLocally: isPlayingRef.current,
+          })
+        ) {
+          continue;
+        }
+
+        const remoteResource = await queueRepository.getNowPlaying(context, conflict.queueIdText, {
+          skipCache: true,
+        });
+        if (cancelled || remoteResource === null) {
+          continue;
+        }
+
+        const remoteRef = resolveQueueResourceRef(remoteResource);
+        if (
+          remoteRef === null ||
+          remoteRef.resourceKind !== conflict.remote.resourceKind ||
+          remoteRef.resourceIdText !== conflict.remote.resourceIdText
+        ) {
+          continue;
+        }
+
+        const localTitlePromise = resolveConflictStateTitle(conflict.local);
+        const serverTitle = queueResourceTitle(remoteResource);
+        const resolvedServerTitle =
+          serverTitle !== null ? serverTitle : await resolveConflictStateTitle(conflict.remote);
+        const localTitle = await localTitlePromise;
+
+        if (cancelled) {
+          return;
+        }
+        // A paused load of the shared item can finish while the titles resolve.
+        if (isLoadedReconcileResource(activeTargetRef.current, conflict.remote)) {
+          continue;
+        }
+
+        setPlaybackHandoffPrompt({
+          conflict,
+          dismissedStateKey: buildPlaybackHandoffDismissedStateKey(conflict.remote),
+          localTitle,
+          remoteResource,
+          serverTitle: resolvedServerTitle,
+        });
+        return;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    buildContext,
+    handoffGate,
+    playbackHandoffPrompt,
+    playbackReconcileConflicts,
+    resolveConflictStateTitle,
+  ]);
+
+  // Closing here records no dismissal: the conflict stays held and is offered again once the gate
+  // allows it, unless its item is the one loaded by then.
+  useEffect(() => {
+    if (playbackHandoffPrompt === null) {
+      return;
+    }
+    if (
+      handoffGate === 'suppress' ||
+      isLoadedReconcileResource(activeTarget, playbackHandoffPrompt.conflict.remote)
+    ) {
+      setPlaybackHandoffPrompt(null);
+    }
+  }, [activeTarget, handoffGate, playbackHandoffPrompt]);
+
+  // While another device plays, the context's controls and item picks go to that device. Commands
+  // never edit a queue, so a playlist row played there loses its auto-queue seed. The authoring
+  // hold, `previewWindow`, `loadItemPausedAt`, and lock screen, headset, and car controls stay on
+  // this phone.
+  const sendRemotePlayItem = useCallback(
+    async (
+      resource: DTOPlaybackResourceRef,
+      addByRssResourceData: AddByRSSResourceData | null,
+      startSeconds: number | null,
+      playLocally: () => Promise<void>
+    ): Promise<void> => {
+      const outcome = await crossDevice.sendControl({
+        type: 'play_item',
+        resource,
+        add_by_rss_resource_data: addByRssResourceData,
+        start_seconds: startSeconds,
+      });
+      if (outcome === 'no_device') {
+        await playLocally();
+      }
+    },
+    [crossDevice]
+  );
+
+  const routedPause = useCallback<PlaybackContextValue['pause']>(() => {
+    if (crossDevice.isRemote()) {
+      void crossDevice.sendControl({ type: 'pause' });
+      return;
+    }
+    pause();
+  }, [crossDevice, pause]);
+
+  const routedResume = useCallback<PlaybackContextValue['resume']>(async () => {
+    if (!crossDevice.isRemote()) {
+      await resume();
+      return;
+    }
+    if ((await crossDevice.sendControl({ type: 'play' })) === 'no_device') {
+      await crossDevice.takeOverHere();
+    }
+  }, [crossDevice, resume]);
+
+  const routedSeekTo = useCallback<PlaybackContextValue['seekTo']>(
+    (seconds) => {
+      if (crossDevice.isRemote()) {
+        crossDevice.seekRemote(seconds);
+        return;
+      }
+      seekTo(seconds);
+    },
+    [crossDevice, seekTo]
+  );
+
+  const routedJumpBy = useCallback<PlaybackContextValue['jumpBy']>(
+    (deltaSeconds) => {
+      if (crossDevice.isRemote()) {
+        crossDevice.jumpRemote(deltaSeconds);
+        return;
+      }
+      jumpBy(deltaSeconds);
+    },
+    [crossDevice, jumpBy]
+  );
+
+  const routedSetRate = useCallback<PlaybackContextValue['setRate']>(
+    (rate) => {
+      if (!crossDevice.isRemote()) {
+        setRate(rate);
+        return;
+      }
+      if (getCrossDevicePlaybackView().state?.is_live === true) {
+        return;
+      }
+      void crossDevice.sendControl({ type: 'set_rate', rate });
+    },
+    [crossDevice, setRate]
+  );
+
+  const routedSkipToNext = useCallback<PlaybackContextValue['skipToNext']>(async () => {
+    if (crossDevice.isRemote()) {
+      void crossDevice.sendControl({ type: 'next' });
+      return;
+    }
+    await skipToNext();
+  }, [crossDevice, skipToNext]);
+
+  const routedSkipToNextTrack = useCallback<PlaybackContextValue['skipToNextTrack']>(async () => {
+    if (crossDevice.isRemote()) {
+      void crossDevice.sendControl({ type: 'next' });
+      return;
+    }
+    await skipToNextTrack();
+  }, [crossDevice, skipToNextTrack]);
+
+  const routedSkipToPrevious = useCallback<PlaybackContextValue['skipToPrevious']>(async () => {
+    if (crossDevice.isRemote()) {
+      void crossDevice.sendControl({ type: 'previous' });
+      return;
+    }
+    await skipToPrevious();
+  }, [crossDevice, skipToPrevious]);
+
+  const routedSkipToPreviousTrack = useCallback<
+    PlaybackContextValue['skipToPreviousTrack']
+  >(async () => {
+    if (crossDevice.isRemote()) {
+      void crossDevice.sendControl({ type: 'previous' });
+      return;
+    }
+    await skipToPreviousTrack();
+  }, [crossDevice, skipToPreviousTrack]);
+
+  const routedPlayItem = useCallback<PlaybackContextValue['playItem']>(
+    async (item, channel, options) => {
+      const playLocally = () => playItem(item, channel, options);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        { kind: 'item', item_id_text: item.id_text },
+        null,
+        parsePlaybackSeconds(options?.explicitPlaybackSeconds) ?? null,
+        playLocally
+      );
+    },
+    [crossDevice, playItem, sendRemotePlayItem]
+  );
+
+  const routedPlayItemById = useCallback<PlaybackContextValue['playItemById']>(
+    async (idText) => {
+      const playLocally = () => playItemById(idText);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem({ kind: 'item', item_id_text: idText }, null, null, playLocally);
+    },
+    [crossDevice, playItemById, sendRemotePlayItem]
+  );
+
+  const routedPlayClip = useCallback<PlaybackContextValue['playClip']>(
+    async (clip, item, channel) => {
+      const playLocally = () => playClip(clip, item, channel);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        { kind: 'clip', clip_id_text: clip.id_text },
+        null,
+        null,
+        playLocally
+      );
+    },
+    [crossDevice, playClip, sendRemotePlayItem]
+  );
+
+  const routedPlayClipById = useCallback<PlaybackContextValue['playClipById']>(
+    async (idText) => {
+      const playLocally = () => playClipById(idText);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem({ kind: 'clip', clip_id_text: idText }, null, null, playLocally);
+    },
+    [crossDevice, playClipById, sendRemotePlayItem]
+  );
+
+  const routedPlaySoundbite = useCallback<PlaybackContextValue['playSoundbite']>(
+    async (soundbite, item, channel) => {
+      const playLocally = () => playSoundbite(soundbite, item, channel);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        { kind: 'soundbite', item_soundbite_id_text: soundbite.id_text },
+        null,
+        null,
+        playLocally
+      );
+    },
+    [crossDevice, playSoundbite, sendRemotePlayItem]
+  );
+
+  const routedPlayChapter = useCallback<PlaybackContextValue['playChapter']>(
+    async (chapter, item, channel) => {
+      const playLocally = () => playChapter(chapter, item, channel);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        { kind: 'item', item_id_text: item.id_text },
+        null,
+        parsePlaybackSeconds(chapter.start_time) ?? 0,
+        playLocally
+      );
+    },
+    [crossDevice, playChapter, sendRemotePlayItem]
+  );
+
+  const routedPlayAddByRssResourceData = useCallback<
+    PlaybackContextValue['playAddByRssResourceData']
+  >(
+    async (resourceData, options) => {
+      const playLocally = () => playAddByRssResourceData(resourceData, options);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        { kind: 'add_by_rss', add_by_rss_hash_id: addByRssPlaybackMediaId(resourceData) },
+        withCanonicalAddByRssFeedUrl(resourceData),
+        parsePlaybackSeconds(options?.explicitPlaybackSeconds) ?? null,
+        playLocally
+      );
+    },
+    [crossDevice, playAddByRssResourceData, sendRemotePlayItem]
+  );
+
+  const routedPlayQueueResourceFromQueue = useCallback<
+    PlaybackContextValue['playQueueResourceFromQueue']
+  >(
+    async (resource) => {
+      const playLocally = () => playQueueResourceFromQueue(resource);
+      const playItemResource = crossDevice.isRemote()
+        ? resolveQueueResourcePlayItem(resource)
+        : null;
+      if (playItemResource === null) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        playItemResource.ref,
+        playItemResource.addByRssResourceData,
+        normalizePlaybackPosition(resource.playback_position) ?? null,
+        playLocally
+      );
+    },
+    [crossDevice, playQueueResourceFromQueue, sendRemotePlayItem]
+  );
+
+  const routedPlayPlaylistRowById = useCallback<PlaybackContextValue['playPlaylistRowById']>(
+    async (idText, kind, playlistIdText) => {
+      const playLocally = () => playPlaylistRowById(idText, kind, playlistIdText);
+      if (!crossDevice.isRemote()) {
+        await playLocally();
+        return;
+      }
+      await sendRemotePlayItem(
+        kind === 'clip'
+          ? { kind: 'clip', clip_id_text: idText }
+          : { kind: 'item', item_id_text: idText },
+        null,
+        null,
+        playLocally
+      );
+    },
+    [crossDevice, playPlaylistRowById, sendRemotePlayItem]
+  );
+
   const sessionValue = useMemo<PlaybackSessionContextValue>(
     () => ({
       activeTarget,
@@ -3677,76 +4389,79 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       nowPlaying,
       enclosureSelectedParams,
       itemLabeledEnclosures,
-      pause,
-      playChapter,
-      playAddByRssResourceData,
-      playClip,
-      playClipById,
-      playItem,
-      playItemById,
+      pause: routedPause,
+      playChapter: routedPlayChapter,
+      playAddByRssResourceData: routedPlayAddByRssResourceData,
+      playClip: routedPlayClip,
+      playClipById: routedPlayClipById,
+      playItem: routedPlayItem,
+      playItemById: routedPlayItemById,
       loadItemPausedAt,
-      playPlaylistRowById,
-      playQueueResourceFromQueue,
-      playSoundbite,
+      playPlaylistRowById: routedPlayPlaylistRowById,
+      playQueueResourceFromQueue: routedPlayQueueResourceFromQueue,
+      playSoundbite: routedPlaySoundbite,
       playbackRate,
       beginAuthoringHold,
       endAuthoringHold,
       isAuthoringHold,
       clearPauseBoundary,
       previewWindow,
-      resume,
+      resume: routedResume,
       retryPlayback,
       lastPlaybackError,
       completeNowPlaying,
-      jumpBy,
-      seekTo,
-      setRate,
+      jumpBy: routedJumpBy,
+      seekTo: routedSeekTo,
+      setRate: routedSetRate,
       switchEnclosureSelectedParams,
-      skipToPrevious,
-      skipToPreviousTrack,
-      skipToNext,
-      skipToNextTrack,
+      skipToPrevious: routedSkipToPrevious,
+      skipToPreviousTrack: routedSkipToPreviousTrack,
+      skipToNext: routedSkipToNext,
+      skipToNextTrack: routedSkipToNextTrack,
       toggleRepeat,
       toggleShuffle,
       transportState,
+      transferPlaybackTo: crossDevice.transferTo,
+      takeOverPlaybackHere: crossDevice.takeOverHere,
     }),
     [
       activeTarget,
       hasAutomaticNext,
       completeNowPlaying,
-      jumpBy,
+      crossDevice,
       isPlaying,
       noticeKey,
       nowPlaying,
       enclosureSelectedParams,
       itemLabeledEnclosures,
-      pause,
-      playChapter,
-      playAddByRssResourceData,
-      playClip,
-      playClipById,
-      playItem,
-      playItemById,
       loadItemPausedAt,
-      playPlaylistRowById,
-      playQueueResourceFromQueue,
-      playSoundbite,
       playbackRate,
       beginAuthoringHold,
       endAuthoringHold,
       isAuthoringHold,
       clearPauseBoundary,
       previewWindow,
-      resume,
       retryPlayback,
       lastPlaybackError,
-      seekTo,
-      setRate,
+      routedJumpBy,
+      routedPause,
+      routedPlayAddByRssResourceData,
+      routedPlayChapter,
+      routedPlayClip,
+      routedPlayClipById,
+      routedPlayItem,
+      routedPlayItemById,
+      routedPlayPlaylistRowById,
+      routedPlayQueueResourceFromQueue,
+      routedPlaySoundbite,
+      routedResume,
+      routedSeekTo,
+      routedSetRate,
+      routedSkipToNext,
+      routedSkipToNextTrack,
+      routedSkipToPrevious,
+      routedSkipToPreviousTrack,
       switchEnclosureSelectedParams,
-      skipToNext,
-      skipToNextTrack,
-      skipToPrevious,
-      skipToPreviousTrack,
       toggleRepeat,
       toggleShuffle,
       transportState,
@@ -3759,10 +4474,10 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       enclosureSelectedParams,
       itemLabeledEnclosures,
       noticeKey,
-      pause,
-      playClipById,
-      playItemById,
-      resume,
+      pause: routedPause,
+      playClipById: routedPlayClipById,
+      playItemById: routedPlayItemById,
+      resume: routedResume,
       switchEnclosureSelectedParams,
     }),
     [
@@ -3770,10 +4485,10 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       enclosureSelectedParams,
       itemLabeledEnclosures,
       noticeKey,
-      pause,
-      playClipById,
-      playItemById,
-      resume,
+      routedPause,
+      routedPlayClipById,
+      routedPlayItemById,
+      routedResume,
       switchEnclosureSelectedParams,
     ]
   );

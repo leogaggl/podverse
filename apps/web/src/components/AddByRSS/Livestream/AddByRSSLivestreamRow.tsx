@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import type { DTOLiveItem } from '@podverse/helpers';
 import {
@@ -12,6 +12,7 @@ import {
   LiveItemStatusEnum,
   toIsoOrNull,
 } from '@podverse/helpers';
+import { getAddByRSSHashIds } from '@podverse/parser-mapping';
 import { ImagesPerView } from '@podverse/ui';
 
 import { IMAGES } from '../../../constants/images';
@@ -44,6 +45,7 @@ export const AddByRSSLivestreamRow: React.FC<AddByRSSLivestreamRowProps> = ({
   const { mpAddByRSS, mpIsPlaying, setMPIsPlaying } = useMediaPlayer();
   const { setAddByRSSListContext } = useAddByRSSListContext();
   const playAddByRSS = usePlayAddByRSS();
+  const addByRSSHashIds = useMemo(() => (item ? getAddByRSSHashIds(item) : undefined), [item]);
 
   const mediumParam = getQueryParamFromQueueMediumId(item.mediumId) ?? 'podcast';
   const mediumSlug = mediumParam === 'music' ? 'music' : 'podcast';
@@ -103,7 +105,12 @@ export const AddByRSSLivestreamRow: React.FC<AddByRSSLivestreamRowProps> = ({
         <div className={styles.bottomSection}>
           <div className={styles.bottomSectionStart}>
             {liveStatusId === LiveItemStatusEnum.Live && (
-              <PlayButtonRow item={null} addByRSSIdText={item.idText} onClick={playButtonOnClick} />
+              <PlayButtonRow
+                item={null}
+                addByRSSIdText={item.idText}
+                addByRSSHashIds={addByRSSHashIds}
+                onClick={playButtonOnClick}
+              />
             )}
             <LiveItemStatus live_item={liveItemDto} />
             {startTimeIso !== null && (

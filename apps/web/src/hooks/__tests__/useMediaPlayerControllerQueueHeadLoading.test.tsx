@@ -2,14 +2,22 @@
  * Queue-head loading: same-item guard on play/pause, and automatic loads that give way
  * to a load applied after they start (request-generation).
  */
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { DTOChannel, DTOClip, DTOItem, DTOQueueResource } from '@podverse/helpers';
-import { getAddByRSSHashId } from '@podverse/helpers';
+import type {
+  DTOChannel,
+  DTOClip,
+  DTOItem,
+  DTOPlaybackState,
+  DTOQueueResource,
+} from '@podverse/helpers';
+import { ACCOUNT_PLAYBACK_STREAM_EVENT, getAddByRSSHashId } from '@podverse/helpers';
 import { buildMinimalAddByRSSItemFromResourceData } from '@podverse/parser-mapping';
 
 import type { MediaPlayerAddByRSSState } from '../../contexts/MediaPlayer';
+import { crossDevicePlaybackStore } from '../../lib/crossDevicePlayback/crossDevicePlaybackStore';
+import { readPlaybackHandoffDismissedStateKey } from '../../utils/playbackHandoffDismissal';
 import {
   clearPlaybackHandoffLocalState,
   readPlaybackHandoffLocalState,
@@ -54,6 +62,7 @@ const hoisted = vi.hoisted(() => {
     reqChannelGetByIdOrIdText: vi.fn(),
     reqQueueResourcesPromoteUpcomingToNowPlaying: vi.fn(),
     queueResourcesLoadActive: vi.fn(),
+    updateNowPlaying: vi.fn(),
     player,
     upcoming,
     playbackLoadGenerationRef,
@@ -152,7 +161,7 @@ vi.mock('../useQueueResourcesLoadActive', () => ({
 }));
 
 vi.mock('../useQueueResourceUpdateNowPlaying', () => ({
-  useQueueResourcesUpdateNowPlaying: () => vi.fn(),
+  useQueueResourcesUpdateNowPlaying: () => hoisted.updateNowPlaying,
 }));
 
 // Fixtures carry only the fields the hook reads; the full DTOs are far wider.
@@ -219,8 +228,79 @@ function Harness() {
   return null;
 }
 
+const THIS_SESSION_ID_TEXT = 'session-this';
+const OTHER_SESSION_ID_TEXT = 'session-other';
+const PROMPT_FOR_NEWER_SERVER_HEAD = {
+  localTitle: 'Track One',
+  serverTitle: 'Track Two',
+};
+
+function playbackState(revision: number, activeSessionIdText: string | null): DTOPlaybackState {
+  return {
+    revision,
+    active_session_id_text: activeSessionIdText,
+    resource: null,
+    status: activeSessionIdText === null ? 'paused' : 'playing',
+    is_live: false,
+    position_seconds: 0,
+    duration_seconds: 600,
+    rate: 1,
+    updated_at_ms: 1_000,
+    sent_at_ms: 1_000,
+  };
+}
+
+function enableCrossDevicePlayback() {
+  crossDevicePlaybackStore.reset({ accountId: 1, enabled: true });
+}
+
+function checkInWithNoActiveDevice() {
+  crossDevicePlaybackStore.applyPresenceResponse(
+    {
+      session_id_text: THIS_SESSION_ID_TEXT,
+      devices: { revision: 1, devices: [] },
+      state: null,
+    },
+    1_000
+  );
+}
+
+function publishOtherSessionActive() {
+  crossDevicePlaybackStore.applyStreamEvent(
+    {
+      type: ACCOUNT_PLAYBACK_STREAM_EVENT.state,
+      data: playbackState(2, OTHER_SESSION_ID_TEXT),
+    },
+    2_000
+  );
+}
+
+function stagePausedLocalItemAgainstNewerServerHead() {
+  writePlaybackHandoffLocalState({
+    itemIdText: 'item-1',
+    itemTitle: 'Track One',
+    lastPlayedAt: '2026-10-19T11:00:00.000Z',
+  });
+  hoisted.upcoming = [
+    {
+      ...queueHead,
+      item: otherItem,
+      item_id: 2,
+      last_played_at: '2026-10-19T12:00:00.000Z',
+    } as unknown as DTOQueueResource,
+  ];
+  hoisted.player = { mpChannel: channel, mpItem: item, mpClip: null, mpIsPlaying: false };
+}
+
+async function flushQueueHeadEffect() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 describe('useMediaPlayerControllerQueueHeadLoading', () => {
   beforeEach(() => {
+    crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
     clearPlaybackHandoffLocalState();
     hoisted.latestState.current = null;
     hoisted.resolveAddByRSSIndexItemFromResourceData.mockReset().mockResolvedValue(null);
@@ -230,6 +310,7 @@ describe('useMediaPlayerControllerQueueHeadLoading', () => {
     hoisted.reqItemGetByIdOrIdText.mockReset().mockResolvedValue(item);
     hoisted.reqChannelGetByIdOrIdText.mockReset().mockResolvedValue(channel);
     hoisted.reqQueueResourcesPromoteUpcomingToNowPlaying.mockReset().mockResolvedValue(undefined);
+    hoisted.updateNowPlaying.mockReset();
     hoisted.queueResourcesLoadActive.mockReset().mockResolvedValue({
       activeQueue,
       activeResource: null,
@@ -250,6 +331,7 @@ describe('useMediaPlayerControllerQueueHeadLoading', () => {
 
   afterEach(() => {
     cleanup();
+    crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
   });
 
   it('does not reload the item already in the player when play state flips', async () => {
@@ -532,5 +614,141 @@ describe('useMediaPlayerControllerQueueHeadLoading', () => {
         serverTitle: null,
       });
     });
+  });
+
+  it('still raises the prompt when cross-device playback is off', async () => {
+    crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
+    stagePausedLocalItemAgainstNewerServerHead();
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toEqual(PROMPT_FOR_NEWER_SERVER_HEAD);
+    });
+    expect(hoisted.mediaPlayerResourceUpdate).not.toHaveBeenCalled();
+    expect(crossDevicePlaybackStore.getSnapshot().availability).toBe('off');
+  });
+
+  it('adopts the queue head into an empty player while availability is pending', async () => {
+    act(() => {
+      enableCrossDevicePlayback();
+    });
+    expect(crossDevicePlaybackStore.getSnapshot().availability).toBe('pending');
+    expect(crossDevicePlaybackStore.getSnapshot().role).toBe('idle');
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(hoisted.mediaPlayerResourceUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skipNowPlayingWrite: true,
+          isPlaying: false,
+          shouldPlay: false,
+        })
+      );
+    });
+    expect(hoisted.latestState.current?.handoffPrompt).toBeNull();
+  });
+
+  it('does not adopt the queue head or raise the prompt while another session is active', async () => {
+    act(() => {
+      enableCrossDevicePlayback();
+      checkInWithNoActiveDevice();
+      publishOtherSessionActive();
+    });
+    expect(crossDevicePlaybackStore.getSnapshot().role).toBe('remote');
+
+    render(<Harness />);
+    await flushQueueHeadEffect();
+
+    expect(hoisted.reqItemGetByIdOrIdText).not.toHaveBeenCalled();
+    expect(hoisted.reqQueueResourcesPromoteUpcomingToNowPlaying).not.toHaveBeenCalled();
+    expect(hoisted.mediaPlayerResourceUpdate).not.toHaveBeenCalled();
+    expect(hoisted.playAddByRSS).not.toHaveBeenCalled();
+    expect(hoisted.latestState.current?.handoffPrompt).toBeNull();
+  });
+
+  it('holds the prompt while availability is pending and raises it once this tab is idle', async () => {
+    stagePausedLocalItemAgainstNewerServerHead();
+    act(() => {
+      enableCrossDevicePlayback();
+    });
+
+    render(<Harness />);
+    await flushQueueHeadEffect();
+
+    expect(hoisted.latestState.current?.handoffPrompt).toBeNull();
+    expect(hoisted.mediaPlayerResourceUpdate).not.toHaveBeenCalled();
+    expect(hoisted.updateNowPlaying).not.toHaveBeenCalled();
+
+    act(() => {
+      checkInWithNoActiveDevice();
+    });
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toEqual(PROMPT_FOR_NEWER_SERVER_HEAD);
+    });
+    expect(crossDevicePlaybackStore.getSnapshot().role).toBe('idle');
+    expect(crossDevicePlaybackStore.getSnapshot().availability).toBe('ready');
+    expect(hoisted.mediaPlayerResourceUpdate).not.toHaveBeenCalled();
+    expect(hoisted.updateNowPlaying).not.toHaveBeenCalled();
+  });
+
+  it('closes an open prompt without a write when availability becomes pending, then raises it once idle', async () => {
+    stagePausedLocalItemAgainstNewerServerHead();
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toEqual(PROMPT_FOR_NEWER_SERVER_HEAD);
+    });
+
+    act(() => {
+      enableCrossDevicePlayback();
+    });
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toBeNull();
+    });
+    expect(hoisted.updateNowPlaying).not.toHaveBeenCalled();
+    expect(readPlaybackHandoffLocalState()?.itemIdText).toBe('item-1');
+    expect(readPlaybackHandoffDismissedStateKey()).toBeNull();
+
+    act(() => {
+      checkInWithNoActiveDevice();
+    });
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toEqual(PROMPT_FOR_NEWER_SERVER_HEAD);
+    });
+    expect(hoisted.updateNowPlaying).not.toHaveBeenCalled();
+  });
+
+  it('closes an open prompt without a now-playing write when another session becomes active', async () => {
+    stagePausedLocalItemAgainstNewerServerHead();
+    act(() => {
+      enableCrossDevicePlayback();
+      checkInWithNoActiveDevice();
+    });
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toEqual(PROMPT_FOR_NEWER_SERVER_HEAD);
+    });
+    const localStateBefore = readPlaybackHandoffLocalState();
+    const dismissedBefore = readPlaybackHandoffDismissedStateKey();
+
+    act(() => {
+      publishOtherSessionActive();
+    });
+
+    await waitFor(() => {
+      expect(hoisted.latestState.current?.handoffPrompt).toBeNull();
+    });
+    expect(crossDevicePlaybackStore.getSnapshot().role).toBe('remote');
+    expect(hoisted.updateNowPlaying).not.toHaveBeenCalled();
+    expect(hoisted.mediaPlayerResourceUpdate).not.toHaveBeenCalled();
+    expect(readPlaybackHandoffLocalState()).toEqual(localStateBefore);
+    expect(readPlaybackHandoffDismissedStateKey()).toBe(dismissedBefore);
   });
 });

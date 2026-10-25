@@ -199,6 +199,37 @@ describe('useMediaElementBridge', () => {
     expect(result.current.readCurrentTimeSeconds()).toBeUndefined();
   });
 
+  it('readDurationSeconds is undefined with no element and before loadedmetadata', () => {
+    const unmounted: MutableRefObject<HTMLMediaElement | null> = { current: null };
+    const { result: unmountedBridge } = renderHook(() => useMediaElementBridge(unmounted, {}));
+    expect(unmountedBridge.current.readDurationSeconds()).toBeUndefined();
+
+    const { current } = createMediaElementFakeRef({ readyState: 0 });
+    const mediaRef: MutableRefObject<HTMLMediaElement | null> = { current };
+    const { result } = renderHook(() => useMediaElementBridge(mediaRef, {}));
+    expect(result.current.readDurationSeconds()).toBeUndefined();
+  });
+
+  it('readDurationSeconds returns the file length after loadedmetadata', () => {
+    const { current, fake } = createMediaElementFakeRef({ readyState: 0 });
+    const mediaRef: MutableRefObject<HTMLMediaElement | null> = { current };
+
+    const { result } = renderHook(() => useMediaElementBridge(mediaRef, {}));
+    fake.fireLoadedMetadata(600);
+
+    expect(result.current.readDurationSeconds()).toBe(600);
+  });
+
+  it('readDurationSeconds returns null when loadedmetadata reports no finite duration', () => {
+    const { current, fake } = createMediaElementFakeRef({ readyState: 0 });
+    const mediaRef: MutableRefObject<HTMLMediaElement | null> = { current };
+
+    const { result } = renderHook(() => useMediaElementBridge(mediaRef, {}));
+    fake.fireLoadedMetadata(Number.POSITIVE_INFINITY);
+
+    expect(result.current.readDurationSeconds()).toBeNull();
+  });
+
   it('loadAndStart uses hls.js for an HLS playlist the element cannot play natively', async () => {
     const { current, fake } = createMediaElementFakeRef({ readyState: 0 });
     const mediaRef: MutableRefObject<HTMLMediaElement | null> = { current };

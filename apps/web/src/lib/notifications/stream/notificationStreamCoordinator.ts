@@ -1,6 +1,12 @@
-import type { AccountNotificationStreamEvent, AuthSessionEndedNotice } from '@podverse/helpers';
+import type {
+  AccountNotificationStreamEvent,
+  AccountPlaybackStreamEvent,
+  AuthSessionEndedNotice,
+} from '@podverse/helpers';
 import {
+  isAccountPlaybackStreamEventName,
   parseAccountNotificationStreamEvent,
+  parseAccountPlaybackStreamEvent,
   parseAccountSessionStreamEvent,
 } from '@podverse/helpers';
 
@@ -29,6 +35,8 @@ export type NotificationStreamEnvironment = {
   locks: LockManagerLike | null;
   createChannel: ((name: string) => BroadcastChannelLike) | null;
   openConnection: (options: NotificationStreamConnectionOptions) => NotificationStreamConnection;
+  /** Clock for the receive time of a playback event in this tab. */
+  now: () => number;
 };
 
 export type NotificationStreamCoordinatorOptions = {
@@ -36,6 +44,16 @@ export type NotificationStreamCoordinatorOptions = {
   apiBaseUrl: string;
   /** Parsed events, in this tab, whether this tab leads or follows. */
   onEvent: (event: AccountNotificationStreamEvent) => void;
+  /**
+   * Parsed `playback.*` events in this tab, whether it leads or follows, with this tab's receive
+   * time.
+   */
+  onPlaybackEvent?: (event: AccountPlaybackStreamEvent, receivedAtMs: number) => void;
+  /**
+   * True while this tab holds the stream. In the fallback (no Web Locks or BroadcastChannel) every
+   * tab holds its own.
+   */
+  onLeadership?: (isLeader: boolean) => void;
   /** Called in this tab when the stream reports that this browser's session was ended elsewhere. */
   onSessionEnded?: (notice: AuthSessionEndedNotice) => void;
   onStatus: (status: NotificationStreamStatus) => void;
@@ -146,27 +164,55 @@ function resolveEnvironment(
     createChannel:
       overrides?.createChannel === undefined ? getDefaultCreateChannel() : overrides.createChannel,
     openConnection: overrides?.openConnection ?? openNotificationStreamConnection,
+    now: overrides?.now ?? (() => Date.now()),
   };
 }
 
 /**
  * Keeps one account event stream per browser profile and account. Tabs elect a leader with a Web
  * Lock; the leader holds the stream and relays each raw event over a `BroadcastChannel`, and every
- * tab parses what it receives. When the leader tab closes, the browser releases its lock and the
- * next waiting tab opens the stream from the newest `notification.created` id it has seen. Without
- * Web Locks or `BroadcastChannel`, each tab holds its own stream.
+ * tab parses what it receives. Playback events are delivered through `onPlaybackEvent` with this
+ * tab's receive time, and `onLeadership` reports whether this tab holds the stream. When the
+ * leader tab closes, the browser releases its lock and the next waiting tab opens the stream from
+ * the newest `notification.created` id it has seen. Without Web Locks or `BroadcastChannel`, each
+ * tab holds its own stream.
  */
 export function startNotificationStreamCoordinator(
   options: NotificationStreamCoordinatorOptions
 ): NotificationStreamCoordinator {
   const { accountId, apiBaseUrl, onEvent, onStatus } = options;
-  const { locks, createChannel, openConnection } = resolveEnvironment(options.environment);
+  const { locks, createChannel, openConnection, now } = resolveEnvironment(options.environment);
 
   let stopped = false;
   let lastEventId: number | null = null;
   let connection: NotificationStreamConnection | null = null;
+  /** Set once this tab has told its caller it holds the stream, so stop reports false only then. */
+  let reportedLeader = false;
+
+  options.onLeadership?.(false);
+
+  const reportLeader = () => {
+    reportedLeader = true;
+    options.onLeadership?.(true);
+  };
+
+  const reportLeaderStopped = () => {
+    if (!reportedLeader) {
+      return;
+    }
+    reportedLeader = false;
+    options.onLeadership?.(false);
+  };
 
   const deliver = (eventName: string, rawData: string) => {
+    if (isAccountPlaybackStreamEventName(eventName)) {
+      const parsed = parseAccountPlaybackStreamEvent(eventName, rawData);
+      if (parsed !== null) {
+        options.onPlaybackEvent?.(parsed, now());
+      }
+      return;
+    }
+
     const parsed = parseAccountNotificationStreamEvent(eventName, rawData);
     if (parsed !== null) {
       onEvent(parsed);
@@ -184,6 +230,7 @@ export function startNotificationStreamCoordinator(
   };
 
   if (locks === null || createChannel === null) {
+    reportLeader();
     connection = openConnection({
       apiBaseUrl,
       initialLastEventId: null,
@@ -207,6 +254,7 @@ export function startNotificationStreamCoordinator(
         stopped = true;
         connection?.close();
         connection = null;
+        reportLeaderStopped();
         onStatus('off');
       },
     };
@@ -231,6 +279,7 @@ export function startNotificationStreamCoordinator(
     if (stopped) {
       return;
     }
+    reportLeader();
     leading = true;
     const held = new Promise<void>((resolve) => {
       releaseLock = resolve;
@@ -324,6 +373,7 @@ export function startNotificationStreamCoordinator(
       releaseLock = null;
       channel.onmessage = null;
       channel.close();
+      reportLeaderStopped();
       onStatus('off');
     },
   };

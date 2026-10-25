@@ -47,3 +47,26 @@
 .menuItemDanger {
   color: var(--button-danger-bg-hover);
 }
+
+.menuItemChecked {
+  font-weight: var(--font-weight-bold);
+  color: var(--text-color-accent);
+}
+
+.menuItemLines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.menuItemLabel {
+  display: block;
+}
+
+.menuItemDescription {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  color: var(--text-color-secondary);
+}

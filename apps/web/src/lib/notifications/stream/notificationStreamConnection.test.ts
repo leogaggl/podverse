@@ -112,6 +112,17 @@ describe('openNotificationStreamConnection', () => {
     expect(connection.getLastEventId()).toBe(7);
   });
 
+  it('forwards a playback state event and leaves the last event id unchanged', () => {
+    const { connection, events, latestSource } = setup();
+    latestSource().open();
+    const rawData = '{"revision":1}';
+
+    latestSource().emit('playback.state', rawData, '9');
+
+    expect(events).toEqual([{ eventName: 'playback.state', rawData, lastEventId: null }]);
+    expect(connection.getLastEventId()).toBeNull();
+  });
+
   it('reports connecting and leaves the source alone while the browser retries', () => {
     const { sources, statuses, timers, latestSource } = setup();
     latestSource().open();

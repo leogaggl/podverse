@@ -1,3 +1,4 @@
+import type { DTOPlaybackResourceRef } from '@podverse/helpers/accountPlaybackStream';
 import type { DTOItemChapter } from '@podverse/helpers/dto';
 import { isValidHttpUrl } from '@podverse/helpers-validation/client';
 import type { PlaybackTarget } from '@podverse/playback-core';
@@ -113,6 +114,31 @@ export const resolveNowPlayingSegment = ({
       target.chapter.end_time,
       target.chapter.web_url
     );
+  }
+  const chapter = selectItemChapterForTime(chapters, lookupSeconds);
+  return named('chapter', chapter?.title, chapter?.start_time, chapter?.end_time, chapter?.web_url);
+};
+
+/** The chapter another device is in, by its estimated position; null when there is none to name. */
+export const resolveRemoteNowPlayingSegment = ({
+  chapters,
+  isLive,
+  positionSeconds,
+  previewPositionSeconds = null,
+  refKind,
+}: {
+  chapters: DTOItemChapter[];
+  isLive: boolean;
+  positionSeconds: number | null;
+  previewPositionSeconds?: number | null;
+  refKind: DTOPlaybackResourceRef['kind'];
+}): NowPlayingSegment | null => {
+  if (isLive || refKind === 'clip' || refKind === 'soundbite') {
+    return null;
+  }
+  const lookupSeconds = previewPositionSeconds ?? positionSeconds;
+  if (lookupSeconds === null) {
+    return null;
   }
   const chapter = selectItemChapterForTime(chapters, lookupSeconds);
   return named('chapter', chapter?.title, chapter?.start_time, chapter?.end_time, chapter?.web_url);

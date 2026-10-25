@@ -31,6 +31,9 @@ import { useMediaElementBridge } from '../../../hooks/useMediaElementBridge';
 import type { MoveNowPlayingToHistoryCallbackParams } from '../../../hooks/useQueueResourceMoveNowPlayingToHistory';
 import type { QueueResourcesLoadActiveResult } from '../../../hooks/useQueueResourcesLoadActive';
 import type { UpdateNowPlayingParams } from '../../../hooks/useQueueResourceUpdateNowPlaying';
+import { takeCommandStartSeek } from '../../../lib/crossDevicePlayback/commandStartSeek';
+import { crossDevicePlaybackStore } from '../../../lib/crossDevicePlayback/crossDevicePlaybackStore';
+import { buildPlaybackResourceRefFromPlayer } from '../../../lib/crossDevicePlayback/playbackResource';
 import { notifyEmbedListItemEnded } from '../../../lib/embed/embedListPlaybackAdvance';
 import {
   resolveEmbedPlaybackPauseAtSeconds,
@@ -483,6 +486,7 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       setMPPlaybackError?.(null);
     },
     onPlayRejected(error) {
+      crossDevicePlaybackStore.notifyLocalPlayRejected(error);
       const kind = playRejectionKind(error);
       if (kind === null) {
         return;
@@ -524,16 +528,30 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
       if (mediaType === 'video' && mediaRef.current instanceof HTMLVideoElement) {
         onVideoAspectRatioChangeRef.current?.(resolveModalVideoAspectRatio(mediaRef.current));
       }
+      const commandStartSeconds = takeCommandStartSeek({
+        ref: buildPlaybackResourceRefFromPlayer({
+          mpAddByRSS: mpAddByRSSRef.current,
+          mpChannel: mpChannelRef.current,
+          mpItem: mpItemRef.current,
+          mpClip: mpClipRef.current,
+          mpItemSoundbite: mpItemSoundbiteRef.current,
+          mpItemChapter: mpItemChapterRef.current,
+          mpItemChapters: null,
+        }),
+        fileDurationSeconds: newDuration,
+        nowMs: Date.now(),
+      });
       const stagedDecision = pendingPlaybackDecisionRef.current;
 
       if (stagedDecision !== null && stagedDecision !== undefined) {
         const initialSeekSeconds =
-          stagedDecision.reason === 'enclosure-switch-resume'
+          commandStartSeconds ??
+          (stagedDecision.reason === 'enclosure-switch-resume'
             ? clampNearEndSeconds({
                 currentSeconds: stagedDecision.initialSeekSeconds,
                 durationSeconds: newDuration,
               })
-            : stagedDecision.initialSeekSeconds;
+            : stagedDecision.initialSeekSeconds);
 
         seekInternally(initialSeekSeconds);
         if (typeof stagedDecision.pauseAtSeconds === 'number') {
@@ -592,8 +610,15 @@ export const NonLiveMediaOrchestrator: React.FC<NonLiveMediaOrchestratorProps> =
         }
       }
 
+      if (commandStartSeconds !== null) {
+        newCurrentTime = commandStartSeconds;
+      }
+
       if (
-        (mpClipRef.current || mpItemSoundbiteRef.current || mpItemRef.current) &&
+        (commandStartSeconds !== null ||
+          mpClipRef.current ||
+          mpItemSoundbiteRef.current ||
+          mpItemRef.current) &&
         newCurrentTime !== null
       ) {
         seekInternally(newCurrentTime);

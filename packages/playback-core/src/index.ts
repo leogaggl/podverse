@@ -1,4 +1,9 @@
-export { clampNearEndSeconds, clampPlaybackPositionForStorage } from './clampNearEndSeconds.js';
+export {
+  clampCommandStartToFileEnd,
+  clampNearEndSeconds,
+  clampPlaybackPositionForStorage,
+  COMMAND_START_FILE_END_BACKOFF_SECONDS,
+} from './clampNearEndSeconds.js';
 export { combineQueueNowPlayingAndUpcoming } from './combineQueueNowPlayingAndUpcoming.js';
 export { parsePlaybackSeconds } from './parsePlaybackSeconds.js';
 export {

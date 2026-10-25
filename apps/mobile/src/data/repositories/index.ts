@@ -45,6 +45,7 @@ export type {
   ChannelAutoDownloadRecord,
   ChannelAutoDownloadSource,
 } from './autoDownloadRepository';
+export { crossDevicePlaybackRepository } from './crossDevicePlaybackRepository';
 export { notificationsRepository } from './notificationsRepository';
 export { playbackContentRepository } from './playbackContentRepository';
 export {

@@ -9,6 +9,8 @@ import { ChapterListRow } from './ChapterListRow';
 export type ItemChapterRowProps = {
   chapter: DTOItemChapter;
   fallbackImageUrl: string | null;
+  /** The playing chapter: its title uses the highlighted color. */
+  isPlaying?: boolean;
   showImages: boolean;
   testID: string;
 };
@@ -17,6 +19,7 @@ export type ItemChapterRowProps = {
 export function ItemChapterRow({
   chapter,
   fallbackImageUrl,
+  isPlaying,
   showImages,
   testID,
 }: ItemChapterRowProps) {
@@ -27,6 +30,7 @@ export function ItemChapterRow({
     <ChapterListRow
       artworkAccessibilityLabel={t('info.chapter.chapter_image')}
       artworkUri={artwork.show ? artwork.uri : null}
+      isPlaying={isPlaying}
       showArtwork={artwork.show}
       testID={testID}
       timeRange={t('features.clip.clip_time_range', {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import type {
   DTOChannel,
@@ -15,6 +15,8 @@ import { useAutoQueue } from '../../../contexts/AutoQueue';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useModals } from '../../../contexts/Modals';
 import { useMediaPlayerResourceUpdate } from '../../../hooks/useMediaPlayerResourceUpdate';
+import { usePlayerTransport } from '../../../hooks/usePlayerTransport';
+import { useRemoteRowPlayback } from '../../../hooks/useRemoteRowPlayback';
 import { playbackTargetFromStandardLoad } from '../../../lib/playback';
 import { downloadEpisodeWithModal } from '../../../utils/downloadModal/downloadEpisodeWithModal';
 import { downloadAndSaveFile } from '../../../utils/fileDownloader';
@@ -44,8 +46,20 @@ export const ItemChapterHeaderPlaySection: React.FC<ItemChapterHeaderPlaySection
   const { setModalSourceSelector } = useModals();
   const mediaPlayerResourceUpdate = useMediaPlayerResourceUpdate();
   const { autoQueueConfig } = useAutoQueue();
+  const remoteChapterIdentity = useMemo(
+    () => ({
+      itemIdText: null,
+      chapterIdText: item_chapter.id_text,
+      clipIdText: null,
+      soundbiteIdText: null,
+      addByRSSHashIds: null,
+    }),
+    [item_chapter.id_text]
+  );
+  const remoteChapter = useRemoteRowPlayback(remoteChapterIdentity);
+  const { togglePlayPause } = usePlayerTransport();
 
-  const isActiveItem = item_chapter.id_text === mpItemChapter?.id_text;
+  const isActiveItem = item_chapter.id_text === mpItemChapter?.id_text || remoteChapter.isCurrent;
 
   const loadItem = (
     enclosureSelectedParams: EnclosureSelectedParams | 'use-active-item-or-default'
@@ -77,6 +91,10 @@ export const ItemChapterHeaderPlaySection: React.FC<ItemChapterHeaderPlaySection
   };
 
   const playButtonOnClick = () => {
+    if (remoteChapter.isCurrent) {
+      togglePlayPause();
+      return;
+    }
     if (isActiveItem) {
       setMPIsPlaying(!mpIsPlaying);
     } else {

@@ -203,9 +203,10 @@ sandbox setup, and operations: [docs/billing/BILLING.md](/docs/billing/BILLING.m
 
 `GET /account/events` is the account's one server-sent events stream. Web tabs share one stream
 per browser profile. The mobile app holds one in the foreground, and in the background while it
-plays audio. Event names are namespaced: `notification.*` is in use; `playback.*` is reserved for
-cross-device playback, both latest-value state and one-shot control commands. Neither kind carries
-an SSE id or replays. Clients ignore names they do not know. The client contract is
+plays audio. Event names are namespaced: `notification.*` is in use, and `playback.*` is in use
+for cross-device playback, described under Cross-device playback below. Those playback events are
+latest-value state and one-shot control commands. Neither kind carries an SSE id or replays.
+Clients ignore names they do not know. The client contract is
 [`accountEventStream.ts`](/packages/helpers/src/lib/accountEventStream.ts).
 
 A process writes notification state through `@podverse/orm`
@@ -246,6 +247,50 @@ command. A type that needs replay needs a new SSE id format, because ids are not
 Proxy requirements for the stream are in [APPS-API.md](/apps/api/APPS-API.md). Environment
 variables: [API](/apps/api/ENV.md), [management API](/apps/management-api/ENV.md), and
 [workers](/apps/workers/ENV.md).
+
+### Cross-device playback
+
+One device per account plays at a time (exclusive active-device handoff). A device is a login
+session. The playing device is the source of truth: it publishes its item, status, position,
+playback rate, and whether the item is live, on every change and every 10 seconds while playing.
+Other connected devices show that state and move their progress bar forward locally
+(`estimatePlaybackPositionSeconds`). What they show is display only and writes no history or
+position on them.
+
+These routes all need a membership:
+
+- `POST /account/playback/presence` checks in every 15 seconds while the event stream is open.
+- `POST /account/playback/state` publishes, claims, or releases.
+- `POST /account/playback/commands` sends target-state commands.
+- `POST /account/playback/commands/{command_id}/start-failed` reports that the target could not
+  start audio.
+
+`playback.snapshot` is sent on connect and after the API recovers its Redis subscription.
+`playback.state` and `playback.devices` are sent on change, ordered by `revision`.
+`playback.command` goes to the target device only. `playback.start_failed` goes to the sender
+only. None of them carries an SSE id. Commands expire after 5 seconds and are never replayed.
+
+Commands name the target state: play, pause, seek to a position, set a rate, next, previous, play
+an item, and take over. Next and previous are commands, and there is no toggle command, so two
+devices pressing at once agree. The playing device runs next and previous the same way as its own
+Next and Previous buttons, on its own queue. Skip forward and back are seeks the sender computes.
+Live items allow play, pause, next, previous, play an item, and take over. Take over starts a live
+item at the live point. Seek, skip, and rate are not commands for a live item.
+
+Presence in Redis lasts 40 seconds after the last check-in. A cleanly closed stream leaves the
+device list within about 5 seconds. A device that vanishes leaves within about 50 seconds. When
+the playing device leaves, the state stays, paused, with no active device.
+
+Commands never edit a server queue. The playing device writes now-playing through the queue routes
+as it does for a local pick, which also makes that queue the account's active one. Queue edits
+from other devices use the queue routes directly.
+
+The contract and shared helpers are
+[`accountPlaybackStream.ts`](/packages/helpers/src/lib/accountPlaybackStream.ts) and
+[`crossDevicePlayback.ts`](/packages/helpers/src/lib/crossDevicePlayback.ts). Request calls are
+[`playback.ts`](/packages/helpers-requests/src/api/account/playback.ts). The Redis store and
+service are in [`apps/api/src/lib/accountPlayback/`](/apps/api/src/lib/accountPlayback/). Delivery
+is in the account event stream hub.
 
 ## Add-by-RSS
 

@@ -102,10 +102,18 @@ The API exposes endpoints at `{host}:{port}/api/v2/`:
 ### Account event stream
 
 `GET /api/v2/account/events` is the account's one server-sent events stream, with cookie or bearer
-auth. Event names are namespaced: `notification.*` and `session.*` are in use, and `playback.*` is
-reserved for cross-device playback state and control commands, which carry no SSE id. Only events
-that carry an SSE id replay from `Last-Event-ID`. API pods receive account changes from the Redis
+auth. Event names are namespaced: `notification.*` and `session.*` are in use. Only events that
+carry an SSE id replay from `Last-Event-ID`. API pods receive account changes from the Redis
 channel `podverse:account-events` and fan them out to the streams they hold.
+
+`playback.*` is in use for exclusive active-device handoff. The four routes
+`POST /account/playback/presence`, `POST /account/playback/state`,
+`POST /account/playback/commands`, and `POST /account/playback/commands/{command_id}/start-failed`
+each require a membership and share a limit of 240 requests per minute per account on each API
+pod. The stream carries `playback.snapshot`, `playback.state`, `playback.devices`,
+`playback.command`, and `playback.start_failed`. None of those carries an SSE id. Playback
+presence and state live in Redis under `podverse:playback:<account_id>:` on the API's
+`podverse-api-playback` connection.
 
 Ending a session from anywhere closes that session's streams on every pod at once, through a
 `session.ended` event on `podverse:account-events`. The stream sends `session.ended` with the

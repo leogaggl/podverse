@@ -224,6 +224,53 @@ on an Android AVD/device before release to confirm real input dismisses the play
 - **Poll:** the unread-count poll runs only while the stream is down: one HTTP fetch right after a
   failed connect, then every 60 seconds until a connection opens.
 
+## Cross-device playback
+
+Playback events ride the account event stream (`GET /account/events`). There is no second
+connection. The phone takes part when it is signed in with a membership, Offline Mode is off, and
+terms allow sync.
+
+`src/playback/crossDevice/` holds the pure store and rules (Vitest) and `useCrossDevicePlayback`,
+which `PlaybackProvider` calls once.
+
+The store holds other devices' state for display only. Nothing in it writes the outbox, the
+journal, history, queue rows, the device-local last-playback snapshot, or `playbackProgressStore`.
+
+The phone appears in the device list while the app is open, or in the background while it plays.
+There is no grace period after a background pause. The stream closes and the phone leaves the list
+within a few seconds. iOS suspends the app and Android stops JS timers, so a grace could not end
+on time.
+
+Background publishing and check-ins run from native progress samples, not timers.
+
+To see it work, sign in to the same member account on the phone and on web, play on one, and watch
+the other.
+
+### Player UI
+
+`src/playback/crossDevice/crossDevicePlayerDisplay.ts` decides whether the player draws this
+phone's playback or another device's: `ready`, `remote`, a shared item, and no clip authoring
+hold. `useCrossDevicePlayerDisplay.ts` exposes it to the mini player, the full player, rows, and
+the device menu. The status line ("Playing on {device}", "Paused on…", "Starting on…", "Sending
+to {device}…") comes from `resolvePlayerStatusLine` and the shared `media_player.cross_device`
+keys web uses. "Sending to" shows during a transfer in the local player too.
+
+While remote, the mini player and the full player (`FullPlayerRemoteRegion`) show the shared
+item. Title links, Share, and Add to Playlist are built from the summary's reference and
+`medium`; Add by RSS needs the feed on this phone (`useDisplayedAddByRssResourceData`). Previous
+and next send `previous` and `next` to the playing device. Rows mark that item and toggle it.
+Livestreams show the item, Live, previous, next, and play/pause. Chapters follow the item the
+player shows (`useNowPlayingChapters`), so the segment strip, the full player band (chapter on
+line 1, status on line 2), and the chapter rows (`usePlayingChapterIdText`) use the other
+device's estimated position while remote.
+
+The device button (`PlaybackDeviceButton`) shows with two or more connected devices and opens the
+device menu. `CrossDevicePlaybackNotice` (mounted in `App.tsx`) shows transfers and controls that
+did not reach the other device as a dialog; web shows a toast for the same failures, on purpose.
+The lock screen, media notification, CarPlay, and Android Auto show only the phone's own player.
+Signed-out users and non-members never see any of this; availability stays `off`. Maestro:
+`playback-cross-device` (a host script plays the second device; sequential slots only).
+
 ## Toolchain
 
 - **Node / npm:** from the repo Nix flake — use `./scripts/nix/with-env` from monorepo root (see

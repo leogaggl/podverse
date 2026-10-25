@@ -15,6 +15,8 @@ type AddByRSSItemHeaderPlaySectionProps = {
   onPlay: () => void;
   /** When provided (e.g. episode/track detail), play button shows pause when this item is playing. */
   addByRSSIdText?: string;
+  /** Add by RSS hash ids for this row (getAddByRSSHashIds), to match playback on another device. */
+  addByRSSHashIds?: readonly string[];
   /** When empty or omitted, no more button is shown (e.g. add-by-RSS livestream: play/pause only). */
   moreButtonMenuItems?: MoreButtonMenuItem[];
   /** Item enclosures (DTO shape) for showing the audio/video modality icon. */
@@ -27,6 +29,7 @@ type AddByRSSItemHeaderPlaySectionProps = {
 export const AddByRSSItemHeaderPlaySection: React.FC<AddByRSSItemHeaderPlaySectionProps> = ({
   onPlay,
   addByRSSIdText,
+  addByRSSHashIds,
   moreButtonMenuItems = [],
   enclosures = [],
   itemTitle,
@@ -37,7 +40,11 @@ export const AddByRSSItemHeaderPlaySection: React.FC<AddByRSSItemHeaderPlaySecti
   return (
     <div className={styles.playSection}>
       <div className={styles.sectionStart}>
-        <PlayButtonLarge addByRSSIdText={addByRSSIdText} onClick={onPlay} />
+        <PlayButtonLarge
+          addByRSSIdText={addByRSSIdText}
+          addByRSSHashIds={addByRSSHashIds}
+          onClick={onPlay}
+        />
         <div className={styles.timeSection} />
       </div>
       {moreButtonMenuItems.length > 0 && (

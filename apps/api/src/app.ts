@@ -90,6 +90,7 @@ export const startApp = async () => {
     });
 
     // Import routes after ORM context is initialized
+    const { accountPlaybackRouter } = await import('@api/routes/accountPlayback.js');
     const { accountRouter } = await import('@api/routes/account.js');
     const { authRouter } = await import('@api/routes/auth.js');
     const { billingRouter } = await import('@api/routes/billing.js');
@@ -138,6 +139,7 @@ export const startApp = async () => {
     });
 
     // --- Feature routers
+    app.use(accountPlaybackRouter);
     app.use(accountRouter);
     app.use(accountSettingsRouter);
     app.use(authRouter);

@@ -1,22 +1,38 @@
+import { config } from '@api/config/index.js';
 import { loggerService } from '@api/factories/loggerService.js';
 import type { AccountEventSubscription } from '@api/lib/accountEvents/accountEventRedis.js';
 import { subscribeAccountEvents } from '@api/lib/accountEvents/accountEventRedis.js';
 import { accountNotificationToJson } from '@api/lib/accountNotificationApiSerialization.js';
+import { PlaybackStoreUnavailableError } from '@api/lib/accountPlayback/playbackRedis.js';
+import {
+  handlePlaybackPresenceChange,
+  readPlaybackSnapshot,
+} from '@api/lib/accountPlayback/playbackService.js';
+import {
+  prunePlaybackPresence,
+  removePlaybackPresence,
+  shortenPlaybackPresence,
+} from '@api/lib/accountPlayback/playbackStore.js';
 
 import type {
+  AccountPlaybackStreamEvent,
   AuthSessionEndedNotice,
   DTOAccountNotificationStreamCreated,
   DTOAccountNotificationStreamRead,
   DTOAccountNotificationStreamResync,
   DTOAccountNotificationStreamState,
   DTOAccountSessionStreamEnded,
+  DTOPlaybackDevices,
+  DTOPlaybackSnapshot,
 } from '@podverse/helpers';
 import {
   ACCOUNT_EVENTS_STREAM_HEARTBEAT_MS,
   ACCOUNT_NOTIFICATION_STREAM_EVENT,
   ACCOUNT_NOTIFICATIONS_REPLAY_LIMIT,
+  ACCOUNT_PLAYBACK_STREAM_EVENT,
   ACCOUNT_SESSION_STREAM_EVENT,
   getAuthSessionEndedNotice,
+  toAccountPlaybackStreamEvent,
 } from '@podverse/helpers';
 import type {
   AccountEvent,
@@ -60,6 +76,21 @@ const RECENTLY_ENDED_SESSION_TTL_MS = 60_000;
 /** Most remembered ended sessions; the oldest are dropped first. */
 const RECENTLY_ENDED_SESSION_MAX = 10_000;
 
+/**
+ * How often each pod prunes playback presence for the accounts it holds streams for, so a device
+ * that vanished without closing its stream (sleep, lost network) leaves the device menu.
+ */
+export const PLAYBACK_PRESENCE_SWEEP_INTERVAL_MS = 10_000;
+
+/** One device alone has nobody to show its departure to, so smaller accounts are not swept. */
+const PLAYBACK_PRESENCE_SWEEP_MIN_DEVICES = 2;
+
+/** The leave check runs this long after the grace, so the shortened check-in has passed. */
+const PLAYBACK_PRESENCE_LEAVE_CHECK_MARGIN_MS = 250;
+
+/** Live playback events one stream holds while its snapshot is read; the oldest go first. */
+const PENDING_PLAYBACK_EVENTS_LIMIT = 50;
+
 /** The part of an Express response a stream writes to. */
 export type AccountEventStreamResponse = {
   readonly writable: boolean;
@@ -67,6 +98,12 @@ export type AccountEventStreamResponse = {
   write(chunk: string): boolean;
   end(): unknown;
 };
+
+/** Playback events relayed from the fanout. Only this hub writes `playback.snapshot`. */
+type RelayedPlaybackStreamEvent = Exclude<
+  AccountPlaybackStreamEvent,
+  { type: typeof ACCOUNT_PLAYBACK_STREAM_EVENT.snapshot }
+>;
 
 export type AccountEventStream = {
   readonly account_id: number;
@@ -82,9 +119,32 @@ export type AccountEventStream = {
   endTimer: ReturnType<typeof setTimeout> | null;
   /** Set once the stream has ended by any path; nothing is written after that. */
   closed: boolean;
+  /**
+   * Playback snapshot reads in flight for this stream, 1 from registration. While above zero, live
+   * playback events wait in `pendingPlaybackEvents`, so none is written ahead of an older
+   * snapshot; clients apply a snapshot without a revision check.
+   */
+  playbackSnapshotReads: number;
+  /** In arrival order, at most `PENDING_PLAYBACK_EVENTS_LIMIT`. */
+  readonly pendingPlaybackEvents: RelayedPlaybackStreamEvent[];
 };
 
 export type AccountEventStreamAdmission = 'open' | 'limit' | 'closed';
+
+/**
+ * Why a stream ended. Only the client leaving (`client_closed`, `write_failed`) or its session
+ * ending changes the device's playback presence. After any other end the client reconnects and
+ * keeps checking in.
+ */
+export type AccountEventStreamEndReason =
+  | 'client_closed'
+  | 'write_failed'
+  | 'lifetime'
+  | 'token_expiry'
+  | 'session_ended'
+  | 'shutdown'
+  | 'start_failed'
+  | 'account_deleted';
 
 type RecentlyEndedSession = {
   account_id: number;
@@ -97,6 +157,16 @@ const chainsByAccount = new Map<number, Promise<void>>();
 /** Keyed by session id text, in insertion order. */
 const recentlyEndedSessions = new Map<string, RecentlyEndedSession>();
 const loggedUnhandledTypes = new Set<string>();
+const loggedInvalidPlaybackTypes = new Set<string>();
+/**
+ * The newest device list size seen per account with a stream on this pod, from snapshots and
+ * `playback.devices` events. The sweep reads it.
+ */
+const knownPlaybackDevicesByAccount = new Map<number, { revision: number; count: number }>();
+const presenceLeaveTimers = new Set<ReturnType<typeof setTimeout>>();
+let presenceSweepTimer: ReturnType<typeof setInterval> | null = null;
+let presenceSweepRunning = false;
+let playbackStoreOutageLogged = false;
 let subscription: AccountEventSubscription | null = null;
 let hubClosed = false;
 let accountNotificationService: AccountNotificationService | null = null;
@@ -132,29 +202,32 @@ const enqueueForAccount = (account_id: number, work: () => Promise<void>): void 
   });
 };
 
-/**
- * A client that is not draining its socket is ended rather than buffered; it reconnects with
- * `Last-Event-ID` and replay covers the gap.
- */
-const writeChunk = (stream: AccountEventStream, chunk: string): boolean => {
+/** False when the stream has ended, the socket is gone, the write threw, or the socket backed up. */
+const tryWrite = (stream: AccountEventStream, chunk: string): boolean => {
   if (stream.closed) {
     return false;
   }
   const { response } = stream;
   if (!response.writable || response.writableEnded) {
-    closeAccountEventStream(stream);
     return false;
   }
   try {
-    if (!response.write(chunk)) {
-      closeAccountEventStream(stream);
-      return false;
-    }
-    return true;
+    return response.write(chunk);
   } catch {
-    closeAccountEventStream(stream);
     return false;
   }
+};
+
+/**
+ * A client that is not draining its socket is ended rather than buffered; it reconnects with
+ * `Last-Event-ID` and replay covers the gap.
+ */
+const writeChunk = (stream: AccountEventStream, chunk: string): boolean => {
+  if (tryWrite(stream, chunk)) {
+    return true;
+  }
+  endStream(stream, 'write_failed');
+  return false;
 };
 
 const writeState = (stream: AccountEventStream, unread_count: number): void => {
@@ -260,7 +333,7 @@ const startStream = async (
     }
   } catch (error) {
     loggerService.logError('Failed to start account event stream', error);
-    closeAccountEventStream(stream);
+    endStream(stream, 'start_failed');
   }
 };
 
@@ -343,7 +416,7 @@ const recoverAccount = async (account_id: number): Promise<void> => {
   const account = await getAccountService().get(account_id);
   if (account === null) {
     for (const stream of getOpenStreams(account_id)) {
-      closeAccountEventStream(stream);
+      endStream(stream, 'account_deleted');
     }
     return;
   }
@@ -362,15 +435,15 @@ const recoverAccount = async (account_id: number): Promise<void> => {
 
 /**
  * The last event on the stream, with no SSE id so it never replays. A failed write still ends the
- * stream.
+ * stream as a session end.
  */
 const endWithSessionEnded = (
   stream: AccountEventStream,
   notice: AuthSessionEndedNotice | null
 ): void => {
   const data: DTOAccountSessionStreamEnded = { notice };
-  writeChunk(stream, formatSseEvent({ event: ACCOUNT_SESSION_STREAM_EVENT.ended, data }));
-  closeAccountEventStream(stream);
+  tryWrite(stream, formatSseEvent({ event: ACCOUNT_SESSION_STREAM_EVENT.ended, data }));
+  endStream(stream, 'session_ended');
 };
 
 const rememberEndedSession = (sessionIdText: string, entry: RecentlyEndedSession): void => {
@@ -422,6 +495,285 @@ const handleSessionsEnded = (signal: AccountSessionEndedSignal): void => {
   }
 };
 
+/**
+ * A store outage is logged once, until a playback store call succeeds again. Every other failure
+ * is logged each time.
+ */
+const logPlaybackStoreFailure = (message: string, error: unknown): void => {
+  if (error instanceof PlaybackStoreUnavailableError) {
+    if (!playbackStoreOutageLogged) {
+      playbackStoreOutageLogged = true;
+      loggerService.warn(message, { error: error.message });
+    }
+    return;
+  }
+  loggerService.logError(message, error);
+};
+
+/** Runs playback store work without making the caller wait or fail. */
+const runPlaybackStoreWork = (message: string, work: () => Promise<void>): void => {
+  void work().then(
+    () => {
+      playbackStoreOutageLogged = false;
+    },
+    (error: unknown) => {
+      logPlaybackStoreFailure(message, error);
+    }
+  );
+};
+
+/** An older list never replaces a newer one, and an account with no stream here is not kept. */
+const rememberPlaybackDevices = (account_id: number, devices: DTOPlaybackDevices): void => {
+  if (!streamsByAccount.has(account_id)) {
+    return;
+  }
+  const known = knownPlaybackDevicesByAccount.get(account_id);
+  if (known !== undefined && known.revision > devices.revision) {
+    return;
+  }
+  knownPlaybackDevicesByAccount.set(account_id, {
+    revision: devices.revision,
+    count: devices.devices.length,
+  });
+};
+
+/** The prune script reports each removal to one caller, so pods pruning one account publish once. */
+const prunePlaybackPresenceAndPublish = async (accountId: number): Promise<void> => {
+  const nowMs = Date.now();
+  const result = await prunePlaybackPresence({ accountId, nowMs });
+  if (result.devicesChanged) {
+    await handlePlaybackPresenceChange({ accountId, result, nowMs });
+  }
+};
+
+/**
+ * Lowers the device's check-in to the leave grace, so a quick reconnect keeps it in the menu, and
+ * prunes once the grace has passed, so its departure is published even when no sweep covers the
+ * account.
+ */
+const startPlaybackPresenceLeave = (accountId: number, sessionIdText: string): void => {
+  const graceMs = config.playback.presenceLeaveGraceMs;
+  runPlaybackStoreWork('Failed to shorten playback presence', async () => {
+    await shortenPlaybackPresence({ accountId, sessionIdText, expiresAtMs: Date.now() + graceMs });
+  });
+  const timer = setTimeout(() => {
+    presenceLeaveTimers.delete(timer);
+    runPlaybackStoreWork('Failed to prune playback presence', () =>
+      prunePlaybackPresenceAndPublish(accountId)
+    );
+  }, graceMs + PLAYBACK_PRESENCE_LEAVE_CHECK_MARGIN_MS);
+  timer.unref();
+  presenceLeaveTimers.add(timer);
+};
+
+/**
+ * Several tabs share one session, so presence changes only when the session's last open stream on
+ * this pod ends.
+ */
+const updatePlaybackPresenceAfterEnd = (
+  stream: AccountEventStream,
+  reason: AccountEventStreamEndReason
+): void => {
+  const { account_id: accountId, sessionIdText } = stream;
+  if (sessionIdText === null || hubClosed) {
+    return;
+  }
+  if (getOpenStreams(accountId).some((other) => other.sessionIdText === sessionIdText)) {
+    return;
+  }
+  if (reason === 'client_closed' || reason === 'write_failed') {
+    startPlaybackPresenceLeave(accountId, sessionIdText);
+    return;
+  }
+  if (reason === 'session_ended') {
+    runPlaybackStoreWork('Failed to remove playback presence for an ended session', async () => {
+      const nowMs = Date.now();
+      const result = await removePlaybackPresence({ accountId, sessionIdText, nowMs });
+      if (result.devicesChanged) {
+        await handlePlaybackPresenceChange({ accountId, result, nowMs });
+      }
+    });
+  }
+};
+
+/** Accounts run one after another; a removal's publish returns through Redis like any event. */
+const sweepPlaybackPresence = async (): Promise<void> => {
+  for (const accountId of Array.from(streamsByAccount.keys())) {
+    if (hubClosed) {
+      return;
+    }
+    const known = knownPlaybackDevicesByAccount.get(accountId);
+    if (known === undefined || known.count < PLAYBACK_PRESENCE_SWEEP_MIN_DEVICES) {
+      continue;
+    }
+    try {
+      await prunePlaybackPresenceAndPublish(accountId);
+      playbackStoreOutageLogged = false;
+    } catch (error) {
+      logPlaybackStoreFailure('Failed to sweep playback presence', error);
+    }
+  }
+};
+
+/** A tick that arrives while the previous sweep is still running is skipped. */
+const runPlaybackPresenceSweep = (): void => {
+  if (presenceSweepRunning) {
+    return;
+  }
+  presenceSweepRunning = true;
+  void sweepPlaybackPresence().finally(() => {
+    presenceSweepRunning = false;
+  });
+};
+
+/** A command goes only to its target's streams, and a start-failed report only to its sender's. */
+const isPlaybackEventForStream = (
+  stream: AccountEventStream,
+  event: RelayedPlaybackStreamEvent
+): boolean => {
+  switch (event.type) {
+    case ACCOUNT_PLAYBACK_STREAM_EVENT.command:
+      return stream.sessionIdText === event.data.target_session_id_text;
+    case ACCOUNT_PLAYBACK_STREAM_EVENT.startFailed:
+      return stream.sessionIdText === event.data.sender_session_id_text;
+    case ACCOUNT_PLAYBACK_STREAM_EVENT.state:
+    case ACCOUNT_PLAYBACK_STREAM_EVENT.devices:
+      return true;
+  }
+};
+
+/** True, with a debug log, for a command whose `expires_at_ms` has passed. */
+const shouldDropExpiredPlaybackCommand = (event: RelayedPlaybackStreamEvent): boolean => {
+  if (
+    event.type !== ACCOUNT_PLAYBACK_STREAM_EVENT.command ||
+    Date.now() < event.data.expires_at_ms
+  ) {
+    return false;
+  }
+  loggerService.debug('Dropping expired playback command', {
+    command_id: event.data.command_id,
+    expires_at_ms: event.data.expires_at_ms,
+  });
+  return true;
+};
+
+/**
+ * The one write for a relayed playback event, live or held, so targeting and expiry apply to
+ * both. No SSE id: playback events never replay.
+ */
+const writePlaybackEvent = (
+  stream: AccountEventStream,
+  event: RelayedPlaybackStreamEvent
+): void => {
+  if (!isPlaybackEventForStream(stream, event) || shouldDropExpiredPlaybackCommand(event)) {
+    return;
+  }
+  const data =
+    event.type === ACCOUNT_PLAYBACK_STREAM_EVENT.state
+      ? { ...event.data, sent_at_ms: Date.now() }
+      : event.data;
+  writeChunk(stream, formatSseEvent({ event: event.type, data }));
+};
+
+const holdPlaybackEvent = (stream: AccountEventStream, event: RelayedPlaybackStreamEvent): void => {
+  if (!isPlaybackEventForStream(stream, event)) {
+    return;
+  }
+  stream.pendingPlaybackEvents.push(event);
+  if (stream.pendingPlaybackEvents.length > PENDING_PLAYBACK_EVENTS_LIMIT) {
+    stream.pendingPlaybackEvents.shift();
+  }
+};
+
+/**
+ * Written at once, outside the account's queue: playback events need no query, and waiting
+ * behind a notification query would make remote progress and controls lag.
+ */
+const deliverPlaybackEvent = (account_id: number, event: RelayedPlaybackStreamEvent): void => {
+  if (shouldDropExpiredPlaybackCommand(event)) {
+    return;
+  }
+  if (event.type === ACCOUNT_PLAYBACK_STREAM_EVENT.devices) {
+    rememberPlaybackDevices(account_id, event.data);
+  }
+  for (const stream of getOpenStreams(account_id)) {
+    if (stream.playbackSnapshotReads > 0) {
+      holdPlaybackEvent(stream, event);
+    } else {
+      writePlaybackEvent(stream, event);
+    }
+  }
+};
+
+/** `playback.snapshot` from Redis is not expected, since only this hub writes it. */
+const handlePlaybackEvent = (event: AccountEvent): void => {
+  const playbackEvent = toAccountPlaybackStreamEvent(event.type, event.data);
+  if (playbackEvent === null || playbackEvent.type === ACCOUNT_PLAYBACK_STREAM_EVENT.snapshot) {
+    if (!loggedInvalidPlaybackTypes.has(event.type)) {
+      loggedInvalidPlaybackTypes.add(event.type);
+      loggerService.warn('Dropping playback account event with an unknown type or invalid data', {
+        type: event.type,
+      });
+    }
+    return;
+  }
+  deliverPlaybackEvent(event.account_id, playbackEvent);
+};
+
+const writePlaybackSnapshot = (stream: AccountEventStream, snapshot: DTOPlaybackSnapshot): void => {
+  const data: DTOPlaybackSnapshot = {
+    devices: snapshot.devices,
+    state: snapshot.state === null ? null : { ...snapshot.state, sent_at_ms: Date.now() },
+  };
+  writeChunk(stream, formatSseEvent({ event: ACCOUNT_PLAYBACK_STREAM_EVENT.snapshot, data }));
+};
+
+/**
+ * Reads one snapshot for `streams`, all of one account, and writes it to each. A stream with no
+ * other read in flight then gets the events it held, in arrival order; the client's revision
+ * check drops any the snapshot already covers. A failed read still releases held events, and the
+ * client has no snapshot until its next connection, as it would see with the store down anyway.
+ */
+const sendPlaybackSnapshot = async (
+  account_id: number,
+  streams: AccountEventStream[]
+): Promise<void> => {
+  let snapshot: DTOPlaybackSnapshot | null = null;
+  try {
+    snapshot = await readPlaybackSnapshot({ accountId: account_id, nowMs: Date.now() });
+    playbackStoreOutageLogged = false;
+    rememberPlaybackDevices(account_id, snapshot.devices);
+  } catch (error) {
+    logPlaybackStoreFailure('Failed to read the playback snapshot', error);
+  }
+  for (const stream of streams) {
+    stream.playbackSnapshotReads -= 1;
+    if (stream.closed) {
+      continue;
+    }
+    if (snapshot !== null) {
+      writePlaybackSnapshot(stream, snapshot);
+    }
+    if (stream.playbackSnapshotReads === 0) {
+      for (const event of stream.pendingPlaybackEvents.splice(0)) {
+        writePlaybackEvent(stream, event);
+      }
+    }
+  }
+};
+
+/** Playback events published while the subscriber was down were lost too. */
+const refreshPlaybackSnapshot = (account_id: number): void => {
+  const streams = getOpenStreams(account_id);
+  if (streams.length === 0) {
+    return;
+  }
+  for (const stream of streams) {
+    stream.playbackSnapshotReads += 1;
+  }
+  void sendPlaybackSnapshot(account_id, streams);
+};
+
 const handleAccountEvent = (event: AccountEvent): void => {
   const sessionsEnded = toAccountSessionEndedSignal(event);
   if (sessionsEnded !== null) {
@@ -431,9 +783,13 @@ const handleAccountEvent = (event: AccountEvent): void => {
   if (!streamsByAccount.has(event.account_id)) {
     return;
   }
+  if (event.type.startsWith('playback.')) {
+    handlePlaybackEvent(event);
+    return;
+  }
   const signal = toAccountNotificationSignal(event);
   if (signal === null) {
-    // Includes the reserved `playback.*` namespace and notification types newer than this build.
+    // Notification types newer than this build, and namespaces it has no handler for.
     if (!loggedUnhandledTypes.has(event.type)) {
       loggedUnhandledTypes.add(event.type);
       loggerService.debug('Ignoring account event with no stream handler', { type: event.type });
@@ -445,21 +801,33 @@ const handleAccountEvent = (event: AccountEvent): void => {
 
 const handleRecovered = (): void => {
   for (const account_id of Array.from(streamsByAccount.keys())) {
-    enqueueForAccount(account_id, () => recoverAccount(account_id));
+    enqueueForAccount(account_id, async () => {
+      try {
+        await recoverAccount(account_id);
+      } finally {
+        refreshPlaybackSnapshot(account_id);
+      }
+    });
   }
 };
 
-const getLifetimeMs = (tokenExpiresAt: number | undefined): number => {
+/** Whichever comes first: the lifetime cap or the token's expiry. */
+const getEndTimer = (
+  tokenExpiresAt: number | undefined
+): { delayMs: number; reason: 'lifetime' | 'token_expiry' } => {
   if (tokenExpiresAt === undefined) {
-    return ACCOUNT_EVENT_STREAM_MAX_LIFETIME_MS;
+    return { delayMs: ACCOUNT_EVENT_STREAM_MAX_LIFETIME_MS, reason: 'lifetime' };
   }
-  return Math.max(
-    0,
-    Math.min(ACCOUNT_EVENT_STREAM_MAX_LIFETIME_MS, tokenExpiresAt * 1000 - Date.now())
-  );
+  const untilTokenExpiryMs = Math.max(0, tokenExpiresAt * 1000 - Date.now());
+  return untilTokenExpiryMs < ACCOUNT_EVENT_STREAM_MAX_LIFETIME_MS
+    ? { delayMs: untilTokenExpiryMs, reason: 'token_expiry' }
+    : { delayMs: ACCOUNT_EVENT_STREAM_MAX_LIFETIME_MS, reason: 'lifetime' };
 };
 
-/** Subscribes this pod to account events. Returns at once; Redis connects in the background. */
+/**
+ * Subscribes this pod to account events and starts the playback presence sweep. Returns at once;
+ * Redis connects in the background.
+ */
 export function startAccountEventStreamHub(): void {
   if (subscription !== null) {
     return;
@@ -469,19 +837,30 @@ export function startAccountEventStreamHub(): void {
     onEvent: handleAccountEvent,
     onRecovered: handleRecovered,
   });
+  presenceSweepTimer = setInterval(runPlaybackPresenceSweep, PLAYBACK_PRESENCE_SWEEP_INTERVAL_MS);
+  presenceSweepTimer.unref();
 }
 
 /**
- * Ends every open stream and closes the subscription. Call it before `server.close`, which waits
- * for open connections. Safe to call twice.
+ * Ends every open stream, stops the presence sweep and leave timers, and closes the subscription.
+ * Call it before `server.close`, which waits for open connections. Safe to call twice.
  */
 export async function closeAccountEventStreamHub(): Promise<void> {
   hubClosed = true;
+  if (presenceSweepTimer !== null) {
+    clearInterval(presenceSweepTimer);
+    presenceSweepTimer = null;
+  }
   for (const streams of Array.from(streamsByAccount.values())) {
     for (const stream of Array.from(streams)) {
-      closeAccountEventStream(stream);
+      endStream(stream, 'shutdown');
     }
   }
+  for (const timer of presenceLeaveTimers) {
+    clearTimeout(timer);
+  }
+  presenceLeaveTimers.clear();
+  knownPlaybackDevicesByAccount.clear();
   recentlyEndedSessions.clear();
   const current = subscription;
   subscription = null;
@@ -500,8 +879,9 @@ export function getAccountEventStreamAdmission(account_id: number): AccountEvent
 
 /**
  * Registers a response whose headers are already sent. Writes the retry line at once, then the
- * state snapshot and any replay on the account's queue, ahead of later live events. A session
- * that ended in the last minute gets only `session.ended`, and the stream ends.
+ * state snapshot and any replay on the account's queue, ahead of later live notification events,
+ * then `playback.snapshot`; live playback events wait until it is written. A session that ended in
+ * the last minute gets only `session.ended`, and the stream ends.
  */
 export function openAccountEventStream(params: {
   account_id: number;
@@ -523,6 +903,8 @@ export function openAccountEventStream(params: {
     heartbeat: null,
     endTimer: null,
     closed: false,
+    playbackSnapshotReads: 1,
+    pendingPlaybackEvents: [],
   };
 
   let streams = streamsByAccount.get(params.account_id);
@@ -535,9 +917,10 @@ export function openAccountEventStream(params: {
   stream.heartbeat = setInterval(() => {
     writeChunk(stream, formatSseComment('ping'));
   }, ACCOUNT_EVENTS_STREAM_HEARTBEAT_MS);
+  const endTimer = getEndTimer(params.tokenExpiresAt);
   stream.endTimer = setTimeout(() => {
-    closeAccountEventStream(stream);
-  }, getLifetimeMs(params.tokenExpiresAt));
+    endStream(stream, endTimer.reason);
+  }, endTimer.delayMs);
 
   if (!writeChunk(stream, formatSseRetry(ACCOUNT_EVENT_STREAM_RETRY_MS))) {
     return stream;
@@ -550,16 +933,27 @@ export function openAccountEventStream(params: {
     endWithSessionEnded(stream, endedSession.notice);
     return stream;
   }
-  enqueueForAccount(params.account_id, () => startStream(stream, params.lastEventId));
+  enqueueForAccount(params.account_id, async () => {
+    await startStream(stream, params.lastEventId);
+    if (!stream.closed) {
+      void sendPlaybackSnapshot(params.account_id, [stream]);
+    }
+  });
   return stream;
+}
+
+/** Ends a stream whose client closed the connection. Safe to call twice. */
+export function closeAccountEventStream(stream: AccountEventStream): void {
+  endStream(stream, 'client_closed');
 }
 
 /**
  * The one way a stream ends: token expiry, the lifetime cap, a failed or backed-up write, client
- * close, hub shutdown, and session end all come here. Ends the response, clears its timers, and
- * removes it from the hub. Safe to call twice.
+ * close, hub shutdown, and session end all come here. Ends the response, clears its timers,
+ * removes it from the hub, then updates the device's playback presence for `reason` without
+ * waiting on the store. Safe to call twice; only the first reason counts.
  */
-export function closeAccountEventStream(stream: AccountEventStream): void {
+function endStream(stream: AccountEventStream, reason: AccountEventStreamEndReason): void {
   if (stream.closed) {
     return;
   }
@@ -577,6 +971,7 @@ export function closeAccountEventStream(stream: AccountEventStream): void {
   streams?.delete(stream);
   if (streams?.size === 0) {
     streamsByAccount.delete(stream.account_id);
+    knownPlaybackDevicesByAccount.delete(stream.account_id);
   }
 
   if (!stream.response.writableEnded) {
@@ -586,4 +981,6 @@ export function closeAccountEventStream(stream: AccountEventStream): void {
       // The socket is already gone; there is nothing left to end.
     }
   }
+
+  updatePlaybackPresenceAfterEnd(stream, reason);
 }

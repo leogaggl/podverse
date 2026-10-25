@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
 import { useNowPlayingSegmentStripVisible } from '../components/player/nowPlayingSegmentStripPresence';
+import { useMiniPlayerVisible } from '../components/player/useMiniPlayerVisible';
 import { countInProgressDownloads } from '../downloads/inProgressDownloadCount';
 import { useDownloadsList } from '../downloads/useDownloads';
-import { usePlaybackSession } from '../playback/PlaybackProvider';
 import { useOfflineStatus } from '../prefs/offlineStatus';
 import { useSync } from '../sync';
 import {
@@ -23,7 +23,7 @@ export function useBottomChromeOverlayInsetSource(): number {
   const { state } = useSync();
   const { downloads } = useDownloadsList();
   const { cause } = useOfflineStatus();
-  const { activeTarget, nowPlaying } = usePlaybackSession();
+  const miniPlayerVisible = useMiniPlayerVisible();
   const segmentVisible = useNowPlayingSegmentStripVisible();
 
   const syncVisible = state.status === 'running' && state.activeLabelKey !== null;
@@ -39,6 +39,6 @@ export function useBottomChromeOverlayInsetSource(): number {
     activityHeight +
     bottomChromeStripOverlayHeight(cause !== null, tokens.spacing) +
     bottomChromeStripOverlayHeight(segmentVisible, tokens.spacing) +
-    miniPlayerOverlayHeight(activeTarget !== null && nowPlaying !== null)
+    miniPlayerOverlayHeight(miniPlayerVisible)
   );
 }

@@ -13,11 +13,13 @@ import { buildAddByRSSResourceData } from '@podverse/parser-mapping';
 
 import type { AutoQueueResourcesMapRow } from '../contexts/AutoQueue';
 import { checkIsActiveRowHighestKey, useAutoQueue } from '../contexts/AutoQueue';
+import { useCrossDevicePlaybackSnapshot } from '../contexts/CrossDevicePlayback';
 import { useLocalSettings } from '../contexts/LocalSettings';
 import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { useQueues } from '../contexts/Queue';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
 import type { MusicItemPlaybackIntent } from '../lib/playback';
 import { parsePlaybackSeconds, playbackTargetFromStandardLoad } from '../lib/playback';
 import {
@@ -138,6 +140,10 @@ const resolveDisplayTitle = (
   return null;
 };
 
+/** Another device is playing, so this tab must not load into the local player. */
+const isRemotePlaybackRole = (): boolean =>
+  crossDevicePlaybackStore.getSnapshot().role === 'remote';
+
 export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingState {
   const apiRequestService = getApiRequestService();
   const {
@@ -165,6 +171,10 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
   const queueResourcesLoadActive = useQueueResourcesLoadActive();
   const { autoQueueResources, autoQueueActiveRow, autoQueueConfig } = useAutoQueue();
   const autoQueueLoadResources = useAutoQueueLoadResources();
+  const crossDeviceRole = useCrossDevicePlaybackSnapshot((snapshot) => snapshot.role);
+  const crossDeviceAvailability = useCrossDevicePlaybackSnapshot(
+    (snapshot) => snapshot.availability
+  );
   const [playbackHandoffPrompt, setPlaybackHandoffPrompt] =
     useState<PlaybackHandoffPromptState | null>(null);
   const playbackHandoffDismissedStateKeyRef = useRef<string | null>(null);
@@ -287,6 +297,9 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     if (fullItem) {
       const fullChannel = await apiRequestService.reqChannelGetByIdOrIdText(fullItem.channel_id);
       if (fullChannel) {
+        if (isRemotePlaybackRole()) {
+          return;
+        }
         mediaPlayerResourceUpdate({
           target: playbackTargetFromStandardLoad({
             channel: fullChannel,
@@ -429,6 +442,11 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
       return false;
     }
 
+    // Live control covers a remote or active tab. Hold the prompt until the first check-in settles.
+    if (crossDeviceRole !== 'idle' || crossDeviceAvailability === 'pending') {
+      return false;
+    }
+
     setPlaybackHandoffPrompt({
       dismissedStateKey,
       localTitle:
@@ -450,7 +468,7 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     if (fullItem) {
       const fullChannel = await apiRequestService.reqChannelGetByIdOrIdText(fullItem.channel_id);
       if (fullChannel) {
-        if (isStaleAutomaticLoad(options?.automaticLoad)) {
+        if (isStaleAutomaticLoad(options?.automaticLoad) || isRemotePlaybackRole()) {
           return;
         }
         rememberQueueResourceAsLocalState(nextResource);
@@ -503,7 +521,7 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
             fullItem.channel_id
           );
           if (fullChannel) {
-            if (isStaleAutomaticLoad(options?.automaticLoad)) {
+            if (isStaleAutomaticLoad(options?.automaticLoad) || isRemotePlaybackRole()) {
               return;
             }
             rememberQueueResourceAsLocalState(nextResource);
@@ -569,7 +587,7 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
             fullItem.channel_id
           );
           if (fullChannel) {
-            if (isStaleAutomaticLoad(options?.automaticLoad)) {
+            if (isStaleAutomaticLoad(options?.automaticLoad) || isRemotePlaybackRole()) {
               return;
             }
             rememberQueueResourceAsLocalState(nextResource);
@@ -622,7 +640,7 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     const resourceData = nextResource.add_by_rss_resource_data ?? null;
     const resolved = await resolveAddByRSSIndexItemFromResourceData(resourceData);
     if (resolved) {
-      if (isStaleAutomaticLoad(options?.automaticLoad)) {
+      if (isStaleAutomaticLoad(options?.automaticLoad) || isRemotePlaybackRole()) {
         return;
       }
       const { indexItem, source } = resolved;
@@ -716,6 +734,10 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
   };
 
   useEffect(() => {
+    // Another device is playing. This tab does not load a queue item into the local player.
+    if (crossDeviceRole === 'remote') {
+      return;
+    }
     if (!activeQueueUpcomingResources || activeQueueUpcomingResources.length === 0) {
       return;
     }
@@ -733,6 +755,9 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     const effectLoadGeneration = playbackLoadGenerationRef.current;
 
     const dispatchLoad = (options?: QueueResourceLoadOptions) => {
+      if (isRemotePlaybackRole()) {
+        return;
+      }
       queueHeadLoadRequestIdRef.current += 1;
       const automaticLoad: AutomaticLoadToken = {
         requestId: queueHeadLoadRequestIdRef.current,
@@ -801,7 +826,7 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
       } catch {
         // The row still loads. A full reload retries the promote; this pass does not loop.
       }
-      if (effectLoadGeneration !== playbackLoadGenerationRef.current) {
+      if (effectLoadGeneration !== playbackLoadGenerationRef.current || isRemotePlaybackRole()) {
         queueHeadAdoptInFlightRef.current = false;
         return;
       }
@@ -817,9 +842,15 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
     mpItem?.id_text,
     mpItemSoundbite?.id_text,
     mpItem?.title,
+    crossDeviceRole,
+    crossDeviceAvailability,
   ]);
 
   useEffect(() => {
+    // Read the role when the row changes. A role change by itself does not start a load.
+    if (isRemotePlaybackRole()) {
+      return;
+    }
     if (autoQueueActiveRow || autoQueueActiveRow === 0) {
       const newResource = autoQueueResourcesRef.current[autoQueueActiveRow];
       if (newResource) {
@@ -827,6 +858,27 @@ export function useMediaPlayerControllerQueueHeadLoading(): QueueHeadLoadingStat
       }
     }
   }, [autoQueueActiveRow]);
+
+  // An open prompt belongs to a settled idle tab. Dropping it records nothing, so the same
+  // conflict can ask again once this tab is idle.
+  useEffect(() => {
+    if (playbackHandoffPrompt === null) {
+      return;
+    }
+    if (crossDeviceRole !== 'idle' || crossDeviceAvailability === 'pending') {
+      setPlaybackHandoffPrompt(null);
+    }
+  }, [crossDeviceAvailability, crossDeviceRole, playbackHandoffPrompt]);
+
+  useEffect(() => {
+    if (crossDeviceRole !== 'remote') {
+      return;
+    }
+    // The other device owns the player. Forget an adopt so an empty player can load the queue
+    // head again once this tab is idle.
+    queueHeadAdoptedWithoutListenRef.current = null;
+    queueHeadAdoptInFlightRef.current = false;
+  }, [crossDeviceRole]);
 
   return {
     handoffPrompt:

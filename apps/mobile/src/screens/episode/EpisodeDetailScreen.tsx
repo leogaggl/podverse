@@ -52,6 +52,7 @@ import type { ChannelBrowseStackParamList } from '../../navigation';
 import { buildPodcastDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
+import { usePlayingChapterIdText } from '../../playback/usePlayingChapterIdText';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
 import { EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -424,6 +425,13 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
   });
   const chapterListShowsImages = chapterSectionHasImages(chapterRows);
   const chapterFallbackImageUrl = episode !== null ? getItemPrimaryImageUrl(episode) : null;
+  const playingChapterIdText = usePlayingChapterIdText({
+    chapters: chapterRows,
+    itemMediaId: episode?.id_text ?? null,
+  });
+  const listExtraData = `${activeTab}:${clipSort}:${clipHasMore}:${isTabLoading}:${
+    playingChapterIdText ?? 'none'
+  }`;
 
   useEffect(() => {
     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
@@ -820,6 +828,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           <ItemChapterRow
             chapter={row.chapter}
             fallbackImageUrl={chapterFallbackImageUrl}
+            isPlaying={row.chapter.id_text === playingChapterIdText}
             showImages={chapterListShowsImages}
             testID="episode-detail-chapter-row"
           />
@@ -850,6 +859,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
       chapterFallbackImageUrl,
       chapterListShowsImages,
       handleClipPlay,
+      playingChapterIdText,
       handleClipQueue,
       handleClipRowPress,
       handleSoundbitePlay,
@@ -882,7 +892,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listContent}
           data={listRows}
-          extraData={`${activeTab}:${clipSort}:${clipHasMore}:${isTabLoading}`}
+          extraData={listExtraData}
           keyExtractor={episodePaneRowKeyExtractor}
           ref={listRef}
           renderItem={renderItem}
