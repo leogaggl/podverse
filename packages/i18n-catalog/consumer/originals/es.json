@@ -473,6 +473,50 @@
       "switch_action": "Cambiar episodio",
       "unknown_episode": "un episodio desconocido"
     },
+    "devices": {
+      "switch_device": "Cambiar dispositivo",
+      "switch_device_pending": "Moviendo la reproducción a {device}",
+      "sheet_title": "Reproducir en",
+      "this_device_entry": "{device} (este dispositivo)",
+      "same_label_number": "{device} ({number})",
+      "another_device": "Otro dispositivo",
+      "transfer_failed_title": "La reproducción no se inició",
+      "transfer_failed_load_failed": "{device} no pudo cargar este contenido.",
+      "transfer_failed_autoplay_blocked": "{device} necesita un toque para empezar a reproducir. Pulsa Reproducir allí.",
+      "transfer_failed_timeout": "{device} no respondió. Comprueba que Podverse esté abierto allí.",
+      "transfer_failed_not_connected": "{device} ya no está conectado.",
+      "transfer_failed_send_failed": "No se pudo contactar con {device}. Inténtalo de nuevo.",
+      "command_failed_title": "No se pudo controlar la reproducción",
+      "command_failed_body": "El dispositivo que reproduce no lo recibió. Inténtalo de nuevo."
+    },
+    "cross_device": {
+      "devices_button": "Dispositivos de reproducción",
+      "this_device": "Este dispositivo",
+      "playing": "Reproduciendo",
+      "sending": "Enviando…",
+      "device_with_number": "{name} ({number})",
+      "unnamed_web_device": "Navegador web",
+      "unnamed_mobile_device": "Aplicación móvil",
+      "unknown_device": "el otro dispositivo",
+      "playing_on_device": "Reproduciendo en {device}",
+      "paused_on_device": "En pausa en {device}",
+      "starting_on_device": "Iniciando en {device}",
+      "playing_in_another_tab": "Reproduciendo en otra pestaña",
+      "sending_to_device": "Enviando a {device}…",
+      "transfer_failed": {
+        "autoplay_blocked": "La reproducción en {device} necesita un toque primero. Toca Reproducir aquí en ese dispositivo.",
+        "load_failed": "No se pudo iniciar la reproducción en {device}.",
+        "no_response": "Sin respuesta de {device}. Inténtalo de nuevo.",
+        "not_connected": "No se pudo contactar con {device}. Puede que se haya cerrado.",
+        "request_failed": "No se pudo enviar la reproducción a {device}. Inténtalo de nuevo."
+      },
+      "tap_to_play": {
+        "title": "Listo para reproducir aquí",
+        "body": "La reproducción se movió a este navegador. Tu navegador necesita un toque antes de poder iniciar el audio.",
+        "play_action": "Reproducir aquí",
+        "dismiss_action": "Ahora no"
+      }
+    },
     "step_back": "Paso atrás",
     "step_forward": "Paso adelante",
     "mute": "Silenciar",

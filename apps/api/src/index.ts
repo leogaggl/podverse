@@ -80,6 +80,15 @@ const run = async () => {
         loggerService.error('Error closing account event publisher during shutdown', err as Error);
       }
       try {
+        const { closePlaybackRedis } = await import('./lib/accountPlayback/playbackRedis.js');
+        await closePlaybackRedis();
+      } catch (err) {
+        loggerService.error(
+          'Error closing playback Redis connection during shutdown',
+          err as Error
+        );
+      }
+      try {
         if (keyvaldb.status === 'ready' || keyvaldb.status === 'connecting') {
           await keyvaldb.quit();
           loggerService.info('KeyValDB connection closed');
@@ -235,6 +244,9 @@ const run = async () => {
     const { startAccountEventPublisher } = await import('./lib/accountEvents/accountEventRedis.js');
     startAccountEventPublisher();
     warnIfNoAccountEventPublisher('api');
+
+    const { startPlaybackRedis } = await import('./lib/accountPlayback/playbackRedis.js');
+    startPlaybackRedis();
 
     const { startApp } = await import('./app.js');
     const server = await startApp();

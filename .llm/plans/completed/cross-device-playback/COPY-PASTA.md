@@ -55,7 +55,7 @@ higher (after extra high, **Codex 5.3 · high**), and record the change on the p
 
 ## Phase 1
 
-- [ ] **10 — Cross-device playback contract in `@podverse/helpers`**
+- [x] **10 — Cross-device playback contract in `@podverse/helpers`**
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
@@ -75,7 +75,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **27 — Playback core: a commanded start at or past the file's end backs off 5 s**
+- [x] **27 — Playback core: a commanded start at or past the file's end backs off 5 s**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -94,7 +94,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **40 — Player copy for cross-device playback (consumer catalog)**
+- [x] **40 — Player copy for cross-device playback (consumer catalog)**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -114,7 +114,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **41 — `@podverse/ui` dropdown menu: radio items with a description line**
+- [x] **41 — `@podverse/ui` dropdown menu: radio items with a description line**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -134,7 +134,7 @@ anything a later prompt needs.
 
 ## Phase 2
 
-- [ ] **11 — Cross-device playback shared helpers in `@podverse/helpers`**
+- [x] **11 — Cross-device playback shared helpers in `@podverse/helpers`**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -153,7 +153,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **20 — Web: `playback.*` events and stream leadership through the shared account stream**
+- [x] **20 — Web: `playback.*` events and stream leadership through the shared account stream**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -173,7 +173,7 @@ anything a later prompt needs.
 
 ## Phase 3
 
-- [ ] **12 — API playback store: presence, active device, and state in Redis**
+- [x] **12 — API playback store: presence, active device, and state in Redis**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -192,7 +192,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **21 — Web cross-device playback runtime library**
+- [x] **21 — Web cross-device playback runtime library**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -210,7 +210,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **30 — Mobile cross-device playback store and policy (pure)**
+- [x] **30 — Mobile cross-device playback store and policy (pure)**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -230,7 +230,7 @@ anything a later prompt needs.
 
 ## Phase 4
 
-- [ ] **13 — API playback routes and request calls**
+- [x] **13 — API playback routes and request calls**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -249,7 +249,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **14 — Deliver `playback.*` on the account event stream**
+- [x] **14 — Deliver `playback.*` on the account event stream**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -270,7 +270,7 @@ anything a later prompt needs.
 
 ## Phase 5
 
-- [ ] **15 — Cross-device playback docs**
+- [x] **15 — Cross-device playback docs**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -289,7 +289,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **22 — Web cross-device playback provider: presence, publishing, claims, and stopping on loss**
+- [x] **22 — Web cross-device playback provider: presence, publishing, claims, and stopping on loss**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -307,7 +307,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **31 — Mobile playback events and presence**
+- [x] **31 — Mobile playback events and presence**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -328,7 +328,7 @@ anything a later prompt needs.
 
 ## Phase 6
 
-- [ ] **23 — Web: the audio tab obeys playback commands, and reports starts that fail**
+- [x] **23 — Web: the audio tab obeys playback commands, and reports starts that fail**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -346,7 +346,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **26 — Web: the Switch or Continue prompt yields to live control**
+- [x] **26 — Web: the Switch or Continue prompt yields to live control**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -363,7 +363,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **32 — Mobile publishes its playback and stops when another device takes over**
+- [x] **32 — Mobile publishes its playback and stops when another device takes over**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -383,7 +383,7 @@ anything a later prompt needs.
 
 ## Phase 7
 
-- [ ] **24 — Web: sending audio to another device, and taking it over here**
+- [x] **24 — Web: sending audio to another device, and taking it over here**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -401,7 +401,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **33 — Mobile obeys playback commands and takes over**
+- [x] **33 — Mobile obeys playback commands and takes over**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -422,7 +422,7 @@ anything a later prompt needs.
 
 ## Phase 8
 
-- [ ] **25 — Web: controls in a tab that is not playing go to the playing device**
+- [x] **25 — Web: controls in a tab that is not playing go to the playing device**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -440,7 +440,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **49 — Data the web remote view needs about the item another device plays**
+- [x] **49 — Data the web remote view needs about the item another device plays**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -459,7 +459,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **34 — Mobile controls another device and moves playback**
+- [x] **34 — Mobile controls another device and moves playback**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -479,7 +479,7 @@ anything a later prompt needs.
 
 ## Phase 9
 
-- [ ] **35 — The 744 prompt and live control never show together**
+- [x] **35 — The 744 prompt and live control never show together**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** extra high
 
@@ -496,7 +496,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **42 — Web player shows what another device or tab is playing**
+- [x] **42 — Web player shows what another device or tab is playing**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -517,7 +517,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **50 — Mobile player display model for another device's playback**
+- [x] **50 — Mobile player display model for another device's playback**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -539,7 +539,7 @@ anything a later prompt needs.
 
 ## Phase 10
 
-- [ ] **36 — Mobile cross-device playback docs**
+- [x] **36 — Mobile cross-device playback docs**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -557,7 +557,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **43 — Remote progress bar that advances locally and seeks the playing device**
+- [x] **43 — Remote progress bar that advances locally and seeks the playing device**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -575,7 +575,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **44 — Device button and menu on the web player**
+- [x] **44 — Device button and menu on the web player**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -593,7 +593,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **45 — Tap-to-play prompt and the "could not start there" notice**
+- [x] **45 — Tap-to-play prompt and the "could not start there" notice**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -612,7 +612,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **46 — Item rows, chapter rows, and detail play buttons show what plays on another device**
+- [x] **46 — Item rows, chapter rows, and detail play buttons show what plays on another device**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -630,7 +630,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **51 — Mini player shows what another device is playing**
+- [x] **51 — Mini player shows what another device is playing**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -649,7 +649,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **53 — Mobile notices when playback could not start on another device**
+- [x] **53 — Mobile notices when playback could not start on another device**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -668,7 +668,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **54 — Full player scrubber with a remote source**
+- [x] **54 — Full player scrubber with a remote source**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -686,7 +686,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **56 — List rows and the queue follow another device's playback**
+- [x] **56 — List rows and the queue follow another device's playback**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -705,7 +705,7 @@ anything a later prompt needs.
 
 ## Phase 11
 
-- [ ] **47 — Playwright: two signed-in browsers share one player**
+- [x] **47 — Playwright: two signed-in browsers share one player**
 
 **Cursor model:** Codex 5.3 · **Reasoning:** high
 
@@ -724,7 +724,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **52 — Device switch button and device menu**
+- [x] **52 — Device switch button and device menu**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -744,7 +744,7 @@ anything a later prompt needs.
 
 ## Phase 12
 
-- [ ] **48 — Decision matrix: the cross-device remote view**
+- [x] **48 — Decision matrix: the cross-device remote view**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 
@@ -763,7 +763,7 @@ End without a verification block: report what changed, self-check results, any b
 anything a later prompt needs.
 ```
 
-- [ ] **55 — Full player shows and controls another device's playback**
+- [x] **55 — Full player shows and controls another device's playback**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 
@@ -785,7 +785,7 @@ anything a later prompt needs.
 
 ## Phase 13
 
-- [ ] **59 — Mobile chapter rows mark the chapter that is playing**
+- [x] **59 — Mobile chapter rows mark the chapter that is playing**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -802,7 +802,7 @@ anything a later prompt needs.
 
 ## Phase 14
 
-- [ ] **57 — Maestro flow for the phone with another device playing**
+- [x] **57 — Maestro flow for the phone with another device playing**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** high
 
@@ -821,7 +821,7 @@ anything a later prompt needs.
 
 ## Phase 15
 
-- [ ] **58 — Document the phone's player for another device's playback; then archive the set**
+- [x] **58 — Document the phone's player for another device's playback; then archive the set**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** medium
 

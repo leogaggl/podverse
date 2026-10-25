@@ -18,8 +18,9 @@ import type {
   EnclosureSelectedParams,
   QueueResourcesAbridgedIndex,
 } from '@podverse/helpers';
-import { MediumEnum } from '@podverse/helpers';
+import { ACCOUNT_PLAYBACK_STREAM_EVENT, MediumEnum } from '@podverse/helpers';
 
+import { crossDevicePlaybackStore } from '../../lib/crossDevicePlayback/crossDevicePlaybackStore';
 import type { PlaybackLoadRequest } from '../../lib/playback';
 import { playbackTargetFromStandardLoad, resolvePlaybackLoadDecision } from '../../lib/playback';
 import type { MediaPlayerPlaybackLoadInput } from '../useMediaPlayerResourceUpdate';
@@ -29,6 +30,7 @@ const hoisted = vi.hoisted(() => ({
   setMPCurrentTime: vi.fn<(t: number) => void>(),
   setMPItemLabeledItemEnclosures: vi.fn(),
   updateNowPlaying: vi.fn(),
+  reqAccountPlaybackSendCommand: vi.fn(() => Promise.resolve()),
   abridgedRef: {
     current: {
       items: {},
@@ -97,6 +99,12 @@ vi.mock('../../contexts/QueueResourcesAbridgedIndex', () => ({
 
 vi.mock('../useQueueResourceUpdateNowPlaying', () => ({
   useQueueResourcesUpdateNowPlaying: () => hoisted.updateNowPlaying,
+}));
+
+vi.mock('../../factories/apiRequestService', () => ({
+  getApiRequestService: () => ({
+    reqAccountPlaybackSendCommand: hoisted.reqAccountPlaybackSendCommand,
+  }),
 }));
 
 const defaultEnclosureParams: EnclosureSelectedParams = {
@@ -180,10 +188,45 @@ function dispatch(
   render(<Probe args={merged} />);
 }
 
+/** Puts this tab in the remote role: checked in as `session-this` while `session-other` plays. */
+function setRoleRemote() {
+  crossDevicePlaybackStore.reset({ accountId: 1, enabled: true });
+  crossDevicePlaybackStore.applyPresenceResponse(
+    { session_id_text: 'session-this', devices: { revision: 1, devices: [] }, state: null },
+    Date.now()
+  );
+  crossDevicePlaybackStore.applyStreamEvent(
+    {
+      type: ACCOUNT_PLAYBACK_STREAM_EVENT.state,
+      data: {
+        revision: 1,
+        active_session_id_text: 'session-other',
+        resource: {
+          ref: { kind: 'item', item_id_text: 'item-20' },
+          medium: MediumEnum.Podcast,
+          title: 'Other item',
+          channel_title: 'Other channel',
+          image_url: null,
+        },
+        status: 'playing',
+        is_live: false,
+        position_seconds: 10,
+        duration_seconds: 600,
+        rate: 1,
+        updated_at_ms: 0,
+        sent_at_ms: 0,
+      },
+    },
+    Date.now()
+  );
+}
+
 beforeEach(() => {
+  crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
   hoisted.setMPCurrentTime.mockClear();
   hoisted.setMPItemLabeledItemEnclosures.mockClear();
   hoisted.updateNowPlaying.mockClear();
+  hoisted.reqAccountPlaybackSendCommand.mockClear();
   hoisted.abridgedRef.current = {
     items: {},
     clips: {},
@@ -194,6 +237,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  crossDevicePlaybackStore.reset({ accountId: null, enabled: false });
 });
 
 describe('useMediaPlayerResourceUpdate near-end clamp (matrix § 6)', () => {
@@ -366,6 +410,35 @@ describe('useMediaPlayerResourceUpdate near-end clamp (matrix § 6)', () => {
           }),
         }),
       ])
+    );
+  });
+
+  it('sends play_item and sets no player state while another device is playing', () => {
+    setRoleRemote();
+    expect(crossDevicePlaybackStore.getSnapshot().role).toBe('remote');
+    dispatch(
+      {
+        items: { 10: { p: '150', d: '3000' } },
+        clips: {},
+        item_soundbites: {},
+        add_by_rss_resource_datas: {},
+      },
+      { channel: channel(MediumEnum.Podcast), item: item(10) }
+    );
+
+    expect(hoisted.reqAccountPlaybackSendCommand).toHaveBeenCalledWith({
+      command: {
+        type: 'play_item',
+        resource: { kind: 'item', item_id_text: 'item-10' },
+        add_by_rss_resource_data: null,
+        start_seconds: null,
+      },
+    });
+    expect(hoisted.setMPCurrentTime).not.toHaveBeenCalled();
+    expect(hoisted.setMPItemLabeledItemEnclosures).not.toHaveBeenCalled();
+    expect(hoisted.updateNowPlaying).not.toHaveBeenCalled();
+    expect(crossDevicePlaybackStore.getSnapshot().displayState).toBe(
+      crossDevicePlaybackStore.getSnapshot().state
     );
   });
 });

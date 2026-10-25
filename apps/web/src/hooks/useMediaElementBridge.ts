@@ -70,6 +70,11 @@ export type MediaElementBridge = {
   applyItemEnclosureSurfaceChange: (input: ApplyItemEnclosureSurfaceChangeInput) => void;
   /** Live element playhead when mounted; `undefined` when no element or time is invalid. */
   readCurrentTimeSeconds: () => number | undefined;
+  /**
+   * The loaded file's duration. `undefined` when no element is mounted or it has no metadata yet
+   * (`readyState < 1`); `null` when it reports no finite positive duration.
+   */
+  readDurationSeconds: () => number | null | undefined;
   /** Reload the current source, seek to `seconds`, and play. */
   reloadAt: (seconds: number) => void;
 };
@@ -376,6 +381,18 @@ export function useMediaElementBridge(
     return currentTime;
   }, [mediaRef]);
 
+  const readDurationSeconds = useCallback((): number | null | undefined => {
+    const media = mediaRef.current;
+    if (!media || media.readyState < 1) {
+      return undefined;
+    }
+    const duration = media.duration;
+    if (Number.isFinite(duration) && duration > 0) {
+      return duration;
+    }
+    return null;
+  }, [mediaRef]);
+
   const reloadAt = useCallback(
     (seconds: number) => {
       const media = mediaRef.current;
@@ -423,6 +440,7 @@ export function useMediaElementBridge(
       syncHttpFileUrlRestoreSeekAndPlay,
       applyItemEnclosureSurfaceChange,
       readCurrentTimeSeconds,
+      readDurationSeconds,
       reloadAt,
     }),
     [
@@ -441,6 +459,7 @@ export function useMediaElementBridge(
       syncHttpFileUrlRestoreSeekAndPlay,
       applyItemEnclosureSurfaceChange,
       readCurrentTimeSeconds,
+      readDurationSeconds,
       reloadAt,
     ]
   );

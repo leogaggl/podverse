@@ -16,6 +16,7 @@ import { AddByRSSListContextProvider } from '../contexts/AddByRSSListContext';
 import { AutoQueueProvider } from '../contexts/AutoQueue';
 import { CategoriesProvider } from '../contexts/Categories';
 import { ConfigProvider } from '../contexts/Config';
+import { CrossDevicePlaybackProvider } from '../contexts/CrossDevicePlayback';
 import { LocalSettingsProvider } from '../contexts/LocalSettings';
 import { MediaPlayerProvider } from '../contexts/MediaPlayer';
 import { MediaPlayerControlsProvider } from '../contexts/MediaPlayerControls';
@@ -89,11 +90,13 @@ export default function Providers({
                               <MediaPlayerControlsProvider>
                                 <AddByRSSListContextProvider>
                                   <AutoQueueProvider ssrLocalSettings={ssrLocalSettings}>
-                                    <ModalsProvider>
-                                      <CategoriesProvider ssrCategories={categories}>
-                                        {children}
-                                      </CategoriesProvider>
-                                    </ModalsProvider>
+                                    <CrossDevicePlaybackProvider>
+                                      <ModalsProvider>
+                                        <CategoriesProvider ssrCategories={categories}>
+                                          {children}
+                                        </CategoriesProvider>
+                                      </ModalsProvider>
+                                    </CrossDevicePlaybackProvider>
                                   </AutoQueueProvider>
                                 </AddByRSSListContextProvider>
                               </MediaPlayerControlsProvider>

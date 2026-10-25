@@ -12,12 +12,14 @@ import {
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
 import { useDeviceArtistLinks } from '../../../hooks/useDeviceArtistLinks';
+import { useRemotePlayerInfo } from '../../../hooks/useRemotePlayerInfo';
 import {
   buildMediaPlayerArtworkImageCandidates,
   getMediaPlayerArtworkSources,
   shouldUseChapterArtwork,
 } from '../../../utils/mediaPlayer/mediaPlayerArtwork';
 import { getMediaPlayerInfoResolution } from '../../../utils/mediaPlayer/mediaPlayerInfoResolution';
+import { PlayerDeviceCaption } from '../CrossDevice/PlayerDeviceCaption';
 
 import styles from '../../../styles/components/MediaPlayer/Desktop/MediaPlayerInfoDesktop.module.scss';
 
@@ -34,11 +36,12 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
   } = useMediaPlayer();
   const deviceArtistLinks = useDeviceArtistLinks();
   const { mpCurrentTime } = useMediaPlayerCurrentTime();
+  const remoteInfo = useRemotePlayerInfo();
   const tMediaPlayer = useTranslations('media_player');
   const tMisc = useTranslations('misc');
 
-  const hasContent = !!mpChannel || !!mpAddByRSS;
-  const infoResolution = getMediaPlayerInfoResolution({
+  const hasContent = remoteInfo !== null || !!mpChannel || !!mpAddByRSS;
+  const localResolution = getMediaPlayerInfoResolution({
     mpChannel,
     mpItem,
     mpAddByRSS,
@@ -49,6 +52,7 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
     currentTimeSeconds: mpCurrentTime,
     deviceArtistLinks,
   });
+  const infoResolution = remoteInfo?.resolution ?? localResolution;
   const title = hasContent ? (infoResolution.itemTitle ?? tMisc('untitled')) : '';
   const subtitle = hasContent ? (infoResolution.compactChannelLine ?? tMisc('untitled')) : '';
 
@@ -70,6 +74,9 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
     imageSizeComparison: 'lesser',
     artworkRole: 'list',
   });
+  const remoteImageUrl = remoteInfo?.display.resource.image_url ?? null;
+  const displayArtwork =
+    remoteInfo === null ? artImageCandidates : remoteImageUrl !== null ? [remoteImageUrl] : [];
 
   return (
     <div className={styles.info}>
@@ -82,7 +89,7 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
         <div className={styles.imageWrapper}>
           <ImageNonReact
             className={styles.image}
-            candidates={artImageCandidates}
+            candidates={displayArtwork}
             alt={tMediaPlayer('media_player_image')}
           />
         </div>
@@ -103,6 +110,7 @@ export const MediaPlayerInfoDesktop: React.FC = () => {
           >
             {subtitle}
           </MarqueeText>
+          <PlayerDeviceCaption />
         </div>
       </button>
     </div>

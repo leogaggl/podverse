@@ -473,6 +473,50 @@
       "switch_action": "Αλλαγή επεισοδίου",
       "unknown_episode": "ένα άγνωστο επεισόδιο"
     },
+    "devices": {
+      "switch_device": "Αλλαγή συσκευής",
+      "switch_device_pending": "Μεταφορά αναπαραγωγής σε {device}",
+      "sheet_title": "Αναπαραγωγή σε",
+      "this_device_entry": "{device} (αυτή η συσκευή)",
+      "same_label_number": "{device} ({number})",
+      "another_device": "Άλλη συσκευή",
+      "transfer_failed_title": "Η αναπαραγωγή δεν ξεκίνησε",
+      "transfer_failed_load_failed": "Η συσκευή {device} δεν μπόρεσε να φορτώσει αυτό το μέσο.",
+      "transfer_failed_autoplay_blocked": "Η συσκευή {device} χρειάζεται ένα πάτημα για να ξεκινήσει την αναπαραγωγή. Πατήστε Αναπαραγωγή εκεί.",
+      "transfer_failed_timeout": "Η συσκευή {device} δεν απάντησε. Ελέγξτε ότι το Podverse είναι ανοιχτό εκεί.",
+      "transfer_failed_not_connected": "Η συσκευή {device} δεν είναι πλέον συνδεδεμένη.",
+      "transfer_failed_send_failed": "Δεν ήταν δυνατή η επικοινωνία με τη συσκευή {device}. Δοκιμάστε ξανά.",
+      "command_failed_title": "Δεν ήταν δυνατός ο έλεγχος της αναπαραγωγής",
+      "command_failed_body": "Η συσκευή αναπαραγωγής δεν το έλαβε. Δοκιμάστε ξανά."
+    },
+    "cross_device": {
+      "devices_button": "Συσκευές αναπαραγωγής",
+      "this_device": "Αυτή η συσκευή",
+      "playing": "Αναπαράγεται",
+      "sending": "Αποστολή…",
+      "device_with_number": "{name} ({number})",
+      "unnamed_web_device": "Πρόγραμμα περιήγησης",
+      "unnamed_mobile_device": "Εφαρμογή κινητού",
+      "unknown_device": "άλλη συσκευή",
+      "playing_on_device": "Αναπαραγωγή σε: {device}",
+      "paused_on_device": "Παύση σε: {device}",
+      "starting_on_device": "Έναρξη σε: {device}",
+      "playing_in_another_tab": "Αναπαραγωγή σε άλλη καρτέλα",
+      "sending_to_device": "Αποστολή σε: {device}…",
+      "transfer_failed": {
+        "autoplay_blocked": "Η αναπαραγωγή χρειάζεται πρώτα ένα πάτημα ({device}). Πατήστε «Αναπαραγωγή εδώ» σε εκείνη τη συσκευή.",
+        "load_failed": "Δεν ήταν δυνατή η έναρξη της αναπαραγωγής ({device}).",
+        "no_response": "Καμία απόκριση ({device}). Δοκιμάστε ξανά.",
+        "not_connected": "Δεν ήταν δυνατή η σύνδεση ({device}). Ίσως έχει κλείσει.",
+        "request_failed": "Δεν ήταν δυνατή η αποστολή της αναπαραγωγής ({device}). Δοκιμάστε ξανά."
+      },
+      "tap_to_play": {
+        "title": "Έτοιμο για αναπαραγωγή εδώ",
+        "body": "Η αναπαραγωγή μεταφέρθηκε σε αυτό το πρόγραμμα περιήγησης. Το πρόγραμμα περιήγησης χρειάζεται ένα πάτημα πριν ξεκινήσει τον ήχο.",
+        "play_action": "Αναπαραγωγή εδώ",
+        "dismiss_action": "Όχι τώρα"
+      }
+    },
     "step_back": "Ένα βήμα πίσω",
     "step_forward": "Ένα βήμα εμπρός",
     "mute": "Σίγαση",

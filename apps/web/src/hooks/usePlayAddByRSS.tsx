@@ -17,6 +17,9 @@ import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { useQueues } from '../contexts/Queue';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
+import { resolveRemotePickCommand } from '../lib/crossDevicePlayback/remotePlaybackRouting';
+import { sendPlaybackCommand } from '../lib/crossDevicePlayback/sendPlaybackCommand';
 import { addByRSSPlaybackIdentity, writePlaybackHandoffLocalState } from './playbackHandoffState';
 import { useQueueResourcesLoadActive } from './useQueueResourcesLoadActive';
 
@@ -82,8 +85,26 @@ export function usePlayAddByRSS() {
     enclosureSelectedParamsOverride?: EnclosureSelectedParams,
     options?: PlayAddByRSSOptions
   ) => {
-    const apiRequestService = getApiRequestService();
     const resourceData = buildAddByRSSResourceData(indexItem);
+    if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+      const hashId = addByRSSPlaybackIdentity(resourceData);
+      if (hashId !== null) {
+        const loadsPaused = options?.shouldPlay === false || options?.recordNowPlaying === false;
+        const command = resolveRemotePickCommand({
+          pickedRef: { kind: 'add_by_rss', add_by_rss_hash_id: hashId },
+          addByRSSResourceData: resourceData,
+          startSeconds: playbackPosition ?? null,
+          loadsPaused,
+          remoteState: crossDevicePlaybackStore.getSnapshot().displayState,
+        });
+        if (command !== null) {
+          void sendPlaybackCommand(command);
+        }
+      }
+      return;
+    }
+
+    const apiRequestService = getApiRequestService();
     const idText = indexItem.idText ?? '';
 
     // Feeds without a medium tag are podcasts.

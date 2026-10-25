@@ -26,6 +26,7 @@ export const noopMediaElementBridge: MediaElementBridge = Object.freeze({
   syncHttpFileUrlRestoreSeekAndPlay: () => {},
   applyItemEnclosureSurfaceChange: () => {},
   readCurrentTimeSeconds: () => undefined,
+  readDurationSeconds: () => undefined,
   reloadAt: () => {},
 });
 

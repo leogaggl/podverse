@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import type { DTOChannel, DTOItem, DTOItemChapter } from '@podverse/helpers';
 import {
@@ -17,6 +17,8 @@ import { ROUTES } from '../../../constants/routes';
 import { useAutoQueue } from '../../../contexts/AutoQueue';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerResourceUpdate } from '../../../hooks/useMediaPlayerResourceUpdate';
+import { usePlayerTransport } from '../../../hooks/usePlayerTransport';
+import { useRemoteRowPlayback } from '../../../hooks/useRemoteRowPlayback';
 import { playbackTargetFromStandardLoad } from '../../../lib/playback';
 import { PlayButtonRow } from '../../MediaPlayer/Buttons/PlayButtonRow';
 import { ReadableDate } from '../../Time/ReadableDate';
@@ -71,6 +73,18 @@ export const ListItemChapterRow: React.FC<ListItemChapterRowProps> = ({
   const { mpItemChapter, mpIsPlaying, setMPIsPlaying } = useMediaPlayer();
   const mediaPlayerResourceUpdate = useMediaPlayerResourceUpdate();
   const { autoQueueConfig } = useAutoQueue();
+  const remoteChapterIdentity = useMemo(
+    () => ({
+      itemIdText: null,
+      chapterIdText: item_chapter.id_text,
+      clipIdText: null,
+      soundbiteIdText: null,
+      addByRSSHashIds: null,
+    }),
+    [item_chapter.id_text]
+  );
+  const remoteChapter = useRemoteRowPlayback(remoteChapterIdentity);
+  const { togglePlayPause } = usePlayerTransport();
 
   const itemChapterTitle = item_chapter.title || tMisc('untitled');
   const channelTitle = channel?.title || tMisc('untitled');
@@ -79,7 +93,14 @@ export const ListItemChapterRow: React.FC<ListItemChapterRowProps> = ({
   const startTime = item_chapter.start_time;
   const endTime = item_chapter.end_time;
 
+  const isCurrentChapter =
+    mpItemChapter?.id_text === item_chapter.id_text || remoteChapter.isCurrent;
+
   const playButtonOnClick = () => {
+    if (remoteChapter.isCurrent) {
+      togglePlayPause();
+      return;
+    }
     if (item_chapter.id_text === mpItemChapter?.id_text) {
       setMPIsPlaying(!mpIsPlaying);
     } else if (channel && item) {
@@ -131,9 +152,7 @@ export const ListItemChapterRow: React.FC<ListItemChapterRowProps> = ({
             <h3
               className={
                 styles.clipTitle +
-                (mpItemChapter?.id_text === item_chapter.id_text && !showItemInfo
-                  ? ' ' + 'highlighted-text'
-                  : '')
+                (isCurrentChapter && !showItemInfo ? ' ' + 'highlighted-text' : '')
               }
             >
               {itemChapterTitle}

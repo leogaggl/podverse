@@ -12,11 +12,8 @@ import {
   normalizeHomeFeedPlaybackMediaId,
   playbackTargetRowMediaId,
 } from '../../lib/playback/buildPlaybackTarget';
-import {
-  usePlaybackIsPlaying,
-  usePlaybackProgress,
-  usePlaybackRow,
-} from '../../playback/PlaybackProvider';
+import { usePlaybackRowDisplay } from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
+import { usePlaybackProgress, usePlaybackRow } from '../../playback/PlaybackProvider';
 import { LIST_ROW_ACTION_ICON_SIZE, LIST_ROW_PLAY_ICON_SIZE } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
@@ -549,10 +546,8 @@ function MediaRowIconsLeading({
   durationStyle,
   showActiveProgress,
 }: MediaRowIconsLeadingProps) {
-  const { activeTarget } = usePlaybackRow();
-  const isPlaying = usePlaybackIsPlaying();
+  const { activeMediaId, isPlaying, isRemote } = usePlaybackRowDisplay();
   const resolvedPlaybackMediaId = normalizeHomeFeedPlaybackMediaId(playbackMediaId);
-  const activeMediaId = activeTarget !== null ? playbackTargetRowMediaId(activeTarget) : null;
   const isActiveRow = activeMediaId !== null && activeMediaId === resolvedPlaybackMediaId;
   const showPauseIcon = isActiveRow && isPlaying;
 
@@ -568,7 +563,7 @@ function MediaRowIconsLeading({
         size={size}
         useIcons
       />
-      {isActiveRow && showActiveProgress && hasDuration ? (
+      {isActiveRow && !isRemote && showActiveProgress && hasDuration ? (
         <MediaRowActiveProgress
           testID={durationTestID !== undefined ? `${durationTestID}-progress` : undefined}
         />

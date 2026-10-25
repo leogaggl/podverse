@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-import type { AccountNotificationStreamEvent } from '@podverse/helpers';
+import type { AccountNotificationStreamEvent, AccountPlaybackStreamEvent } from '@podverse/helpers';
 
 import { getApiRequestService, getClientApiBaseUrl } from '../factories/apiRequestService';
 import { useNotificationsUnreadCount } from '../hooks/useNotificationsUnreadCount';
@@ -36,9 +36,15 @@ type NotificationsContextType = {
   setUPEndpoint: (val: string | null) => void;
   unreadCount: number;
   notificationStreamStatus: NotificationStreamStatus;
+  /** True while this tab holds the account stream for the browser profile. */
+  notificationStreamIsLeader: boolean;
   /** Subscribe to parsed stream events in this tab. Returns the unsubscribe function. */
   subscribeToNotificationStream: (
     listener: (event: AccountNotificationStreamEvent) => void
+  ) => () => void;
+  /** Subscribe to parsed playback stream events in this tab. Returns the unsubscribe function. */
+  subscribeToPlaybackStream: (
+    listener: (event: AccountPlaybackStreamEvent, receivedAtMs: number) => void
   ) => () => void;
 };
 
@@ -53,7 +59,9 @@ export const NotificationsContext = createContext<NotificationsContextType>({
   setUPEndpoint: () => {},
   unreadCount: 0,
   notificationStreamStatus: 'off',
+  notificationStreamIsLeader: false,
   subscribeToNotificationStream: () => () => {},
+  subscribeToPlaybackStream: () => () => {},
 });
 
 type NotificationsProviderProps = {
@@ -81,6 +89,7 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
   const [upEndpoint, setUPEndpoint] = useState<string | null>(null);
   const [notificationStreamStatus, setNotificationStreamStatus] =
     useState<NotificationStreamStatus>('off');
+  const [notificationStreamIsLeader, setNotificationStreamIsLeader] = useState(false);
   const { loggedInAccount } = useAccount();
   const accountId = loggedInAccount?.id ?? null;
   const { unreadCount, setUnreadCount } = useNotificationsUnreadCount({
@@ -88,9 +97,22 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
     streamOpen: notificationStreamStatus === 'open',
   });
   const streamListenersRef = useRef(new Set<(event: AccountNotificationStreamEvent) => void>());
+  const playbackStreamListenersRef = useRef(
+    new Set<(event: AccountPlaybackStreamEvent, receivedAtMs: number) => void>()
+  );
   const subscribeToNotificationStream = useCallback(
     (listener: (event: AccountNotificationStreamEvent) => void) => {
       const listeners = streamListenersRef.current;
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    []
+  );
+  const subscribeToPlaybackStream = useCallback(
+    (listener: (event: AccountPlaybackStreamEvent, receivedAtMs: number) => void) => {
+      const listeners = playbackStreamListenersRef.current;
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
@@ -258,14 +280,17 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
   useEffect(() => {
     if (accountId === null) {
       setNotificationStreamStatus('off');
+      setNotificationStreamIsLeader(false);
       return;
     }
 
     const listeners = streamListenersRef.current;
+    const playbackListeners = playbackStreamListenersRef.current;
     const coordinator = startNotificationStreamCoordinator({
       accountId,
       apiBaseUrl: getClientApiBaseUrl(),
       onStatus: setNotificationStreamStatus,
+      onLeadership: setNotificationStreamIsLeader,
       onEvent: (event) => {
         const nextUnreadCount = getNotificationStreamEventUnreadCount(event);
         if (nextUnreadCount !== null) {
@@ -273,6 +298,11 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
         }
         for (const listener of listeners) {
           listener(event);
+        }
+      },
+      onPlaybackEvent: (event, receivedAtMs) => {
+        for (const listener of playbackListeners) {
+          listener(event, receivedAtMs);
         }
       },
       onSessionEnded: reportSessionEnded,
@@ -296,7 +326,9 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
         setUPEndpoint,
         unreadCount,
         notificationStreamStatus,
+        notificationStreamIsLeader,
         subscribeToNotificationStream,
+        subscribeToPlaybackStream,
       }}
     >
       {children}

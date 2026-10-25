@@ -9,6 +9,7 @@ import { useAccount } from '../contexts/Account';
 import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useQueues } from '../contexts/Queue';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
 
 /**
  * Returns callbacks to save add-by-RSS playback position and to add to history on ended.
@@ -24,6 +25,10 @@ export function useAddByRSSPositionSave() {
       eventKind: 'play' | 'pause' | 'progress_tick' | 'seek',
       isPlaying?: boolean
     ) => {
+      if (!crossDevicePlaybackStore.isLocalPlaybackWriteAllowed()) {
+        return;
+      }
+
       const apiRequestService = getApiRequestService();
       if (!loggedInAccount || !mpAddByRSS?.resourceData) return;
       if (!isMeaningfulPlaybackEvent(eventKind, { isPlaying })) {
@@ -50,6 +55,10 @@ export function useAddByRSSPositionSave() {
 
   const handleEnded = useCallback(
     async (_positionSeconds: number) => {
+      if (!crossDevicePlaybackStore.isLocalPlaybackWriteAllowed()) {
+        return;
+      }
+
       const apiRequestService = getApiRequestService();
       if (!loggedInAccount || !mpAddByRSS?.resourceData) return;
       const mediumId = mpAddByRSS.resourceData.medium_id;

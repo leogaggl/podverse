@@ -4,21 +4,15 @@ import { useTranslations } from 'next-intl';
 import { FaPause, FaPlay } from 'react-icons/fa6';
 
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
+import { usePlayerTransport } from '../../../hooks/usePlayerTransport';
 import { playbackErrorIdentity } from '../../../utils/media/playbackErrorCopy';
 import { PlaybackErrorButton } from './PlaybackErrorButton';
 
 import styles from '../../../styles/components/MediaPlayer/Buttons/PlayButton.module.scss';
 
 export const PlayButton = () => {
-  const {
-    mpAddByRSS,
-    mpClip,
-    mpIsPlaying,
-    mpItem,
-    mpItemSoundbite,
-    mpPlaybackError,
-    setMPIsPlaying,
-  } = useMediaPlayer();
+  const { mpAddByRSS, mpClip, mpItem, mpItemSoundbite, mpPlaybackError } = useMediaPlayer();
+  const { isPlaying, togglePlayPause } = usePlayerTransport();
   const tMediaPlayer = useTranslations('media_player');
   const loadedIdentity = playbackErrorIdentity({
     addByRssResourceData: mpAddByRSS?.resourceData ?? null,
@@ -33,18 +27,14 @@ export const PlayButton = () => {
   ) {
     return <PlaybackErrorButton className={styles.playButton} />;
   }
-  const icon = mpIsPlaying ? <FaPause aria-hidden /> : <FaPlay aria-hidden />;
-
-  const handleClick = () => {
-    setMPIsPlaying(!mpIsPlaying);
-  };
+  const icon = isPlaying ? <FaPause aria-hidden /> : <FaPlay aria-hidden />;
 
   return (
     <button
       className={styles.playButton}
-      aria-label={mpIsPlaying ? tMediaPlayer('pause') : tMediaPlayer('play')}
-      data-media-player-playing={mpIsPlaying ? 'true' : undefined}
-      onClick={handleClick}
+      aria-label={isPlaying ? tMediaPlayer('pause') : tMediaPlayer('play')}
+      data-media-player-playing={isPlaying ? 'true' : undefined}
+      onClick={togglePlayPause}
       type="button"
     >
       {icon}

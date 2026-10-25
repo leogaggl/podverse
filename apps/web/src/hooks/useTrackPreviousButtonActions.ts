@@ -18,6 +18,8 @@ import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useMediaPlayerControls } from '../contexts/MediaPlayerControls';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { crossDevicePlaybackStore } from '../lib/crossDevicePlayback/crossDevicePlaybackStore';
+import { sendPlaybackCommand } from '../lib/crossDevicePlayback/sendPlaybackCommand';
 import { playbackTargetFromStandardLoad } from '../lib/playback';
 import { isPlayablePlaylistResource } from '../lib/playlist/playablePlaylistResource';
 import { resolveAddByRSSListContextFromCurrentItem } from '../utils/addByRSS/resolveListContextFromCurrentItem';
@@ -28,6 +30,8 @@ import { useMediaPlayerResourceUpdate } from './useMediaPlayerResourceUpdate';
 
 export function useTrackPreviousButtonActions(): {
   hasEpisodeChaptersForTrackButtons: boolean;
+  /** What a click on the button runs. Cross-device `next` / `previous` commands call this. */
+  runLocalClick: () => Promise<void>;
   onClick: () => void;
   longPressProps: {
     onPointerDown: (e: React.PointerEvent) => void;
@@ -181,10 +185,14 @@ export function useTrackPreviousButtonActions(): {
   }, [mpAddByRSS, runAddByRSSPreviousTrack, runCorePreviousTrack]);
 
   const handleLongPress = useCallback(() => {
+    if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+      void sendPlaybackCommand({ type: 'previous' });
+      return;
+    }
     void runPreviousTrack();
   }, [runPreviousTrack]);
 
-  const handleClick = useCallback(async () => {
+  const runLocalClick = useCallback(async () => {
     if (hasEpisodeChaptersForTrackButtons) {
       seekToAdjacentChapter('previous');
       return;
@@ -220,6 +228,14 @@ export function useTrackPreviousButtonActions(): {
     runCorePreviousTrack,
   ]);
 
+  const handleClick = useCallback(async () => {
+    if (crossDevicePlaybackStore.getSnapshot().role === 'remote') {
+      await sendPlaybackCommand({ type: 'previous' });
+      return;
+    }
+    await runLocalClick();
+  }, [runLocalClick]);
+
   const { onClick, ...longPressProps } = useLongPress({
     onLongPress: handleLongPress,
     onClick: handleClick,
@@ -228,6 +244,7 @@ export function useTrackPreviousButtonActions(): {
 
   return {
     hasEpisodeChaptersForTrackButtons,
+    runLocalClick,
     onClick,
     longPressProps,
   };

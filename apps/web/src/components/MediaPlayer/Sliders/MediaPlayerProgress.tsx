@@ -13,7 +13,9 @@ import {
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useMediaPlayerControls } from '../../../contexts/MediaPlayerControls';
 import { useMediaPlayerCurrentTime } from '../../../contexts/MediaPlayerCurrentTime';
+import { useRemotePlayerDisplay } from '../../../hooks/useRemotePlayerDisplay';
 import { ChapterProgressTooltip } from './ChapterProgressTooltip';
+import { RemoteMediaPlayerProgress } from './RemoteMediaPlayerProgress';
 
 import styles from '../../../styles/components/MediaPlayer/Sliders/MediaPlayerProgress.module.scss';
 
@@ -30,7 +32,7 @@ type MediaPlayerProgressProps = {
   showChapterHoverTooltip?: boolean;
 };
 
-export const MediaPlayerProgress: React.FC<MediaPlayerProgressProps> = ({
+const LocalMediaPlayerProgress: React.FC<MediaPlayerProgressProps> = ({
   isClipForm,
   overrideHighlightStartTime,
   overrideHighlightEndTime,
@@ -266,6 +268,16 @@ export const MediaPlayerProgress: React.FC<MediaPlayerProgressProps> = ({
       )}
     </div>
   );
+};
+
+export const MediaPlayerProgress: React.FC<MediaPlayerProgressProps> = (props) => {
+  const remote = useRemotePlayerDisplay();
+  if (remote !== null && !props.isClipForm && props.layoutVariant !== 'embed') {
+    return (
+      <RemoteMediaPlayerProgress remote={remote} includeMobileTime={props.includeMobileTime} />
+    );
+  }
+  return <LocalMediaPlayerProgress {...props} />;
 };
 
 function getHighlightPositions({

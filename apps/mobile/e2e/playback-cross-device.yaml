@@ -1,0 +1,188 @@
+appId: com.podverse.app.next
+name: Playback Cross Device
+---
+# Another device is playing a chaptered episode. The flow checks the mini player and its chapter
+# strip, the device menu, the full player (title link, status under the chapter, previous and
+# next, Share, Add to Playlist), the playing chapter on the episode screen, a list row, bringing
+# playback to this phone, and the notice when a transfer does not start.
+#
+# Maestro drives one phone. scripts/playback-other-device.js is the second device: it signs in
+# as "E2E Other Device", checks in, and claims playback through the API.
+#
+# Needs flow_needs_e2e_api and flow_needs_test_assets.
+#
+# Needs the default sequential slots. A --parallel run signs both phones into the same seeded
+# account, so each phone sees the other in the device list and they take playback from each other.
+
+- runFlow: shared/launch-and-connect.yaml
+- runFlow: shared/login-seeded-user.yaml
+
+# Paused at 30s, inside the seeded Topic A chapter (21–60s). A paused estimate does not move,
+# so the strip, the band, and the chapter row keep that name through the chapter step.
+- runScript:
+    file: scripts/playback-other-device.js
+    env:
+      E2E_OTHER_DEVICE_ACTION: claim
+      E2E_ITEM_ID_TEXT: e2ePodChap0001
+      E2E_ITEM_TITLE: "E2E Podcast With Chapters"
+      E2E_PLAYBACK_STATUS: paused
+      E2E_PLAYBACK_POSITION: "30"
+      E2E_PLAYBACK_DURATION: "60"
+# Maestro starts extendedWaitUntil from the last UI command. The host script is not one, so
+# this marks the start and the remote mini player gets the full timeout.
+- evalScript: ${true}
+- extendedWaitUntil:
+    visible:
+      id: mini-player-remote-status
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    id: mini-player-remote-status
+    text: "Paused on E2E Other Device"
+# The title testID is the marquee shell. The words are a child of that shell.
+- assertVisible:
+    id: mini-player-title
+    containsDescendants:
+      - text: "E2E Podcast With Chapters"
+- assertVisible:
+    id: now-playing-segment-title
+    containsDescendants:
+      - text: "Topic A"
+- assertVisible:
+    id: mini-player-devices
+- takeScreenshot: playback-cross-device-mini-player
+
+- tapOn:
+    id: mini-player-devices
+- assertVisible:
+    id: mini-player-devices-sheet
+- assertVisible:
+    id: mini-player-devices-sheet-this-device
+- assertVisible:
+    text: "E2E Other Device"
+- takeScreenshot: playback-cross-device-menu
+- tapOn:
+    id: mini-player-devices-sheet-cancel
+
+- tapOn:
+    id: mini-player
+- assertVisible:
+    id: full-player-remote-region
+- assertVisible:
+    id: full-player-remote-title-link
+- assertVisible:
+    id: full-player-remote-title
+    containsDescendants:
+      - text: "E2E Podcast With Chapters"
+- assertVisible:
+    id: full-player-segment-title
+    containsDescendants:
+      - text: "Topic A"
+- assertVisible:
+    id: full-player-remote-status
+    text: "Paused on E2E Other Device"
+- assertVisible:
+    id: full-player-skip-previous
+- assertVisible:
+    id: full-player-skip-next
+- assertVisible:
+    id: full-player-share
+    enabled: true
+- assertVisible:
+    id: full-player-add-to-playlist
+    enabled: true
+- assertVisible:
+    id: full-player-devices
+- assertVisible:
+    id: full-player-speed
+- assertNotVisible:
+    id: full-player-sleep-timer
+- takeScreenshot: playback-cross-device-full-player
+- tapOn:
+    id: full-player-close
+
+- openLink: podverse-next://podcast/e2ePodChnl001/episode/e2ePodChap0001
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: episode-detail-screen
+    timeout: ${TIMEOUT_SLOWER}
+- tapOn:
+    id: episode-detail-tab-chapters
+- assertVisible:
+    id: episode-detail-chapter-row
+    selected: true
+    containsDescendants:
+      - text: "Topic A"
+- takeScreenshot: playback-cross-device-chapter-row
+
+# Near the start of the 60s file. This phone takes over at the estimated position, so the
+# take-over and the transfer that never starts both finish before the episode ends.
+- runScript:
+    file: scripts/playback-other-device.js
+    env:
+      E2E_OTHER_DEVICE_ACTION: publish
+      E2E_ITEM_ID_TEXT: e2ePodChap0001
+      E2E_ITEM_TITLE: "E2E Podcast With Chapters"
+      E2E_PLAYBACK_STATUS: playing
+      E2E_PLAYBACK_POSITION: "5"
+      E2E_PLAYBACK_DURATION: "60"
+- evalScript: ${true}
+# The row's accessible name while its item plays.
+- extendedWaitUntil:
+    visible:
+      id: "home-row-play-.*"
+      text: "Pause"
+    timeout: ${TIMEOUT_SLOW}
+- takeScreenshot: playback-cross-device-row
+
+# The other device drops off the list about 40 s after its last check-in.
+- runScript:
+    file: scripts/playback-other-device.js
+    env:
+      E2E_OTHER_DEVICE_ACTION: check-in
+- tapOn:
+    id: mini-player-devices
+- tapOn:
+    id: mini-player-devices-sheet-this-device
+- extendedWaitUntil:
+    visible:
+      id: playback-active-e2e
+    timeout: ${TIMEOUT_SLOWEST}
+- assertNotVisible:
+    id: mini-player-remote-status
+- takeScreenshot: playback-cross-device-taken-over
+
+- runScript:
+    file: scripts/playback-other-device.js
+    env:
+      E2E_OTHER_DEVICE_ACTION: check-in
+- tapOn:
+    id: mini-player-devices
+- tapOn:
+    text: "E2E Other Device"
+# The host script does not claim, so "Sending to…" stays up until the transfer times out.
+# The match ends in .* so the ellipsis does not have to be typed.
+- assertVisible:
+    id: mini-player-remote-status
+    text: "Sending to E2E Other Device.*"
+- takeScreenshot: playback-cross-device-sending
+- extendedWaitUntil:
+    visible:
+      id: playback-transfer-failed-dialog
+    timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    text: "E2E Other Device didn't respond.*"
+- takeScreenshot: playback-cross-device-transfer-failed
+- tapOn:
+    id: playback-transfer-failed-dismiss
+- assertNotVisible:
+    id: playback-transfer-failed-dialog
+- assertVisible:
+    id: playback-active-e2e
+
+- tapOn:
+    id: mini-player-play-pause
+- runScript:
+    file: scripts/playback-other-device.js
+    env:
+      E2E_OTHER_DEVICE_ACTION: end

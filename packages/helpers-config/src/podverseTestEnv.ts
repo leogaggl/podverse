@@ -8,6 +8,12 @@ export const PODVERSE_TEST_MIN_EXPIRATION = 86400;
 
 const exp = String(PODVERSE_TEST_MIN_EXPIRATION);
 
+/**
+ * Playback presence leave grace for the web E2E API. Short, so the browser of one spec has left
+ * the device menu before the next spec opens and expects to be the only device.
+ */
+export const WEB_E2E_PLAYBACK_PRESENCE_LEAVE_GRACE_MS = 500;
+
 export type PodverseApiTestEnvProfile = 'apiVitest' | 'apiWebE2e' | 'apiMobileE2e';
 
 export type BuildPodverseApiTestEnvOptions = {
@@ -115,6 +121,7 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     // (3 per 10 minutes) 429s the later cases. The dedicated 429 case still walks until the cap.
     ACCOUNT_CREATE_MAX_PER_10_MINUTES: '30',
     API_PUBLIC_BASE_URL: 'http://localhost:29999',
+    PLAYBACK_PRESENCE_LEAVE_GRACE_MS: '5000',
   },
   apiWebE2e: {
     SERVER_ENV: 'local',
@@ -140,6 +147,7 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     // signals off so no account is flagged out of popularity; API integration tests cover them.
     STATS_FLAG_TOO_SOON_MINUTES: '0',
     STATS_FLAG_STORED_CAP_WITHIN_HOURS: '0',
+    PLAYBACK_PRESENCE_LEAVE_GRACE_MS: String(WEB_E2E_PLAYBACK_PRESENCE_LEAVE_GRACE_MS),
   },
   apiMobileE2e: {
     SERVER_ENV: 'local',
@@ -167,6 +175,8 @@ const apiProfileOverrides: Record<PodverseApiTestEnvProfile, Record<string, stri
     // signals off so no account is flagged out of popularity; API integration tests cover them.
     STATS_FLAG_TOO_SOON_MINUTES: '0',
     STATS_FLAG_STORED_CAP_WITHIN_HOURS: '0',
+    // The product grace: the mobile handoff flow waits it out after relaunch.
+    PLAYBACK_PRESENCE_LEAVE_GRACE_MS: '5000',
   },
 };
 

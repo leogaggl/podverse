@@ -1,17 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { MediaPlayerKeyDownState } from './mediaPlayerWindowKeyDown';
 import { handleMediaPlayerWindowKeyDown } from './mediaPlayerWindowKeyDown';
 
 describe('handleMediaPlayerWindowKeyDown', () => {
-  const baseState = {
-    mpAddByRSS: null,
-    mpChannel: { id: 'ch' },
-    mpCurrentTime: 30,
-    mpDuration: 100,
-    isLiveItem: false,
-  };
+  const loaded: MediaPlayerKeyDownState = { hasResource: true, isLiveItem: false };
+  const live: MediaPlayerKeyDownState = { hasResource: true, isLiveItem: true };
+  const empty: MediaPlayerKeyDownState = { hasResource: false, isLiveItem: false };
 
-  it('Space toggles play/pause when channel is loaded and target is not interactive', () => {
+  it('Space toggles play/pause when a resource is loaded and the target is not interactive', () => {
     const preventDefault = vi.fn();
     const togglePlayPause = vi.fn();
     const el = document.createElement('div');
@@ -19,7 +16,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault, repeat: false },
       el,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -28,7 +25,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     expect(preventDefault).toHaveBeenCalledTimes(1);
   });
 
-  it('Space does nothing when no channel or add-by-RSS source', () => {
+  it('Space does nothing without a resource', () => {
     const preventDefault = vi.fn();
     const togglePlayPause = vi.fn();
     const el = document.createElement('div');
@@ -36,36 +33,13 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault, repeat: false },
       el,
-      {
-        ...baseState,
-        mpAddByRSS: null,
-        mpChannel: null,
-      },
+      empty,
       vi.fn(),
       togglePlayPause
     );
 
     expect(togglePlayPause).not.toHaveBeenCalled();
     expect(preventDefault).not.toHaveBeenCalled();
-  });
-
-  it('Space does nothing when add-by-RSS is active without channel', () => {
-    const togglePlayPause = vi.fn();
-    const el = document.createElement('div');
-
-    handleMediaPlayerWindowKeyDown(
-      { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: false },
-      el,
-      {
-        ...baseState,
-        mpAddByRSS: { idText: 'x', resourceData: {} },
-        mpChannel: null,
-      },
-      vi.fn(),
-      togglePlayPause
-    );
-
-    expect(togglePlayPause).toHaveBeenCalledTimes(1);
   });
 
   it('Space ignores key repeat', () => {
@@ -75,7 +49,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: true },
       el,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -90,7 +64,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: false },
       button,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -105,7 +79,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: false },
       input,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -121,7 +95,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: false },
       menuitem,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -137,7 +111,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: false },
       slider,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -156,7 +130,7 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     handleMediaPlayerWindowKeyDown(
       { code: 'Space', key: ' ', preventDefault: vi.fn(), repeat: false },
       content,
-      baseState,
+      loaded,
       vi.fn(),
       togglePlayPause
     );
@@ -165,49 +139,48 @@ describe('handleMediaPlayerWindowKeyDown', () => {
     dialog.remove();
   });
 
-  it('ArrowLeft seeks and ArrowRight seeks', () => {
-    const seek = vi.fn();
+  it('ArrowLeft and ArrowRight jump by 10 seconds', () => {
+    const jumpBy = vi.fn();
     const el = document.createElement('div');
 
     handleMediaPlayerWindowKeyDown(
       { code: 'ArrowLeft', key: 'ArrowLeft', preventDefault: vi.fn(), repeat: false },
       el,
-      baseState,
-      seek,
+      loaded,
+      jumpBy,
       vi.fn()
     );
-    expect(seek).toHaveBeenCalledWith(20);
+    expect(jumpBy).toHaveBeenCalledWith(-10);
 
     handleMediaPlayerWindowKeyDown(
       { code: 'ArrowRight', key: 'ArrowRight', preventDefault: vi.fn(), repeat: false },
       el,
-      baseState,
-      seek,
+      loaded,
+      jumpBy,
       vi.fn()
     );
-    expect(seek).toHaveBeenCalledWith(40);
+    expect(jumpBy).toHaveBeenCalledWith(10);
   });
 
-  it('ArrowLeft and ArrowRight do not seek when a live item is active', () => {
-    const seek = vi.fn();
+  it('ArrowLeft and ArrowRight do nothing when a live item is active', () => {
+    const jumpBy = vi.fn();
     const el = document.createElement('div');
-    const liveState = { ...baseState, isLiveItem: true };
 
     handleMediaPlayerWindowKeyDown(
       { code: 'ArrowLeft', key: 'ArrowLeft', preventDefault: vi.fn(), repeat: false },
       el,
-      liveState,
-      seek,
+      live,
+      jumpBy,
       vi.fn()
     );
     handleMediaPlayerWindowKeyDown(
       { code: 'ArrowRight', key: 'ArrowRight', preventDefault: vi.fn(), repeat: false },
       el,
-      liveState,
-      seek,
+      live,
+      jumpBy,
       vi.fn()
     );
 
-    expect(seek).not.toHaveBeenCalled();
+    expect(jumpBy).not.toHaveBeenCalled();
   });
 });

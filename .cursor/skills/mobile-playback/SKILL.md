@@ -109,6 +109,51 @@ This reads like a bug to anyone meeting it cold. It is not. Do not "fix" it into
 A deliberate local scrub writes a newer meaningful event, so `shouldAdoptRemotePosition` declines
 and the playhead is not yanked forward.
 
+While another device is active, live control replaces the prompt. See the next section.
+
+## Cross-device playback (live control)
+
+- **Roles:** `active` plays and publishes; `remote` sends commands; `idle` plays locally and
+  claims. Route by the store's `availability === 'ready'` and `role`; read it at call time.
+- **Claims:** every local start claims, whatever started it (app, lock screen, headset, car,
+  command). An auto-advance while already active does not claim, so a device that lost the role
+  stops on the 409 instead of taking it back.
+- **Stopping for another device is silent:** pause the engine and write no playback event. A pause
+  event would put this item back as the account's now-playing. That is the same rule as
+  `adoptRemotePlaybackPosition`.
+- **Commands** run through the normal local actions, so they write the events a tap would. Live
+  items take no seek or rate. Mobile never reports `autoplay_blocked`.
+- **The 744 prompt** waits while the view is `pending`, stays closed while any device is active,
+  and works as before when nobody is active or the phone cannot see other devices. Do not show it
+  together with live control.
+- **Remote to idle:** when the role goes from `remote` to `idle` while `ready`, load a different
+  shared item paused at the shared position, or move the loaded item to that position, and write
+  no events. Do nothing on a cold open, while this phone is playing, during an authoring hold, for
+  a live item, or when the shared state has no resource.
+- **Background:** no grace period. Do not drive background work from `setTimeout` or
+  `setInterval`; Android does not fire them there. Use progress samples or request settles.
+- **Next and previous** commands run on the playing phone as taps of its own Next and Previous
+  buttons, on its own queue. A phone in the remote role sends them instead of moving locally.
+- **Commanded starts:** when `take_over`, `play_item`, or `seek` lands at or past the length of
+  the file this phone loaded, start 5 s before that length (`clampCommandStartToFileEnd`).
+- **Late end on a remote phone:** a phone in the `remote` role does not auto-advance when its own
+  file ends. Only the playing device fires end reached, auto-advance, history, journal, and
+  position events.
+- **Don't:** add a second stream, or write remote positions anywhere.
+- **Drawing the other device:** read `useCrossDevicePlayerDisplay` (mini and full player) or
+  `usePlaybackRowDisplay` (rows). Do not compare `activeTarget` alone; a superseded local item
+  stays loaded and paused under the remote display.
+- **Remote progress** comes from `useRemotePlaybackPositionSeconds` and the store's position
+  clock, never from `playbackProgressStore`. Remote duration is `state.duration_seconds`.
+- **One item for chapters:** `useNowPlayingChapters` and every `useNowPlayingAddByRssSections`
+  caller take the item from the display (`useDisplayedAddByRssResourceData` for Add by RSS); two
+  callers asking for different items make the single-entry caches fight.
+- **Failure notice is a dialog on purpose:** web uses a toast; the phone has no toast system and
+  the failure can arrive after the menu closed. Keep the reasons and copy aligned, not the
+  mechanism.
+- **Native surfaces stay local:** lock screen, notification, and car show and control the phone's
+  own player; pressing play there takes playback over.
+
 ## Last-playback snapshot (cold-start restore)
 
 Mobile keeps a **universal** device-local now-playing snapshot in AsyncStorage

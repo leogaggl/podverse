@@ -21,6 +21,11 @@ export type ListRowProps = {
   /** Numeric count shown left of `trailing`. Hidden at 0. */
   badgeCount?: number;
   onPress?: () => void;
+  /**
+   * Marks the row as the current one: highlighted title color and the selected accessibility
+   * state.
+   */
+  isHighlighted?: boolean;
   accessibilityLabel?: string;
   /**
    * Vertical padding for the row. Top and bottom use this same value. Defaults to
@@ -59,6 +64,9 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
       fontSize: 19,
       lineHeight: 26,
     },
+    titleHighlighted: {
+      color: tokens.text.highlighted,
+    },
     trailingCluster: {
       alignItems: 'center',
       flexDirection: 'row',
@@ -81,6 +89,7 @@ export const ListRow = memo(function ListRow({
   trailing,
   badgeCount,
   onPress,
+  isHighlighted,
   accessibilityLabel,
   paddingVertical,
   testID,
@@ -111,7 +120,11 @@ export const ListRow = memo(function ListRow({
     <>
       {leading}
       <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
+        <Text
+          style={isHighlighted === true ? [styles.title, styles.titleHighlighted] : styles.title}
+        >
+          {title}
+        </Text>
         {subtitle !== undefined ? (
           <Text
             numberOfLines={subtitleNumberOfLines}
@@ -133,7 +146,11 @@ export const ListRow = memo(function ListRow({
 
   if (onPress === undefined) {
     return (
-      <View style={[styles.container, containerPadding]} testID={testID}>
+      <View
+        accessibilityState={isHighlighted === true ? { selected: true } : undefined}
+        style={[styles.container, containerPadding]}
+        testID={testID}
+      >
         {body}
       </View>
     );
@@ -156,6 +173,7 @@ export const ListRow = memo(function ListRow({
     <Pressable
       accessibilityLabel={accessibilityLabel ?? labelWithBadge}
       accessibilityRole="button"
+      accessibilityState={isHighlighted === true ? { selected: true } : undefined}
       onPress={onPress}
       style={[styles.container, containerPadding]}
       testID={testID}

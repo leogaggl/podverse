@@ -22,6 +22,9 @@ are sticky pointers — keep them updated when the code moves.
   `anonymousPlaybackStorage.ts`
 - Keyboard shortcuts: `mediaPlayerWindowKeyDown.ts`
 - Livestream: `MediaPlayerControllerLiveStreamAV.tsx` (renders `MediaElement`)
+- Cross-device role, store, and commands:
+  `apps/web/src/contexts/CrossDevicePlayback.tsx` +
+  `apps/web/src/lib/crossDevicePlayback/`
 
 ## Source kinds
 
@@ -334,6 +337,129 @@ playback from a live HLS playlist are asserted in Chromium through `hls.js`.
 Safari native HLS, real live-edge advance, `duration === Infinity`, and
 cross-source fallback are still not asserted.
 
+## Section 7 — Cross-device remote view
+
+A tab's cross-device role is `active`, `remote`, or `idle`
+(`resolveTabPlaybackRole` in `tabPlaybackRole.ts`). In `active` and
+`idle`, sections 1–6 apply unchanged. In `remote`, the local player is
+cleared once (`CrossDevicePlayback.tsx` calls
+`useMediaPlayerClearNowPlaying`) and the cells below apply. The remote
+view's content comes from the shared state's resource summary at once,
+then from the remote item's records once this tab has loaded them
+(channel, item or clip, chapters, or the Add by RSS item from this
+account's queue).
+
+### 7a. What the player shows
+
+`resolveRemotePlayerDisplay` is null unless the role is `remote` and
+`displayState.resource` is set. While it is null and the local player is
+empty, `#media-player` drops `media-player-active` and the bar is hidden.
+Playback Devices renders only when two or more devices are connected.
+
+| Situation | Content | Caption | Progress | Controls |
+| --- | --- | --- | --- | --- |
+| Another device plays a non-live item | `displayState.resource`, then its records | Playing on {device} | remote estimate over `duration_seconds`; one seek on release | play/pause, jumps, previous/next, speed in Settings, Add to Playlist, Share, Playback Devices |
+| Another device is starting the item | same | Starting on {device} | estimate, not advancing | same |
+| Playing device pauses | same | Paused on {device} | frozen estimate | same |
+| Another tab of this browser (any status) | same | Playing in Another Tab | same as that status | same |
+| Another device plays a livestream | same | Playing on {device} (or Paused on, Starting on) | Live label | play/pause, previous/next, Add to Playlist, Share, Playback Devices |
+| Narrow layout, music | same | same | same | previous/next instead of jumps; no Add to Playlist |
+| Narrow layout, other media | same | same | same | jumps instead of previous/next; no Add to Playlist. A livestream shows neither |
+| Playing device stops (`resource` null) | bar hidden | — | — | — |
+| Playing device leaves presence | local queue head, paused; bar stays hidden if the queue is empty | none | local | local |
+| Transfer pending (any role) | as the role shows | Sending to {device}… | as the role shows | as the role shows |
+
+The narrow bar is `MediaPlayerButtonsMobile`. Desktop and the
+full-screen player keep previous/next for a livestream and hide jumps
+and Settings, because seek and rate are not allowed for a live item.
+The narrow non-music bar only has room for jumps, so a live item there
+shows play/pause, Share, and Playback Devices.
+
+Also in the remote view:
+
+- Segment strip: names the chapter at the playing device's estimated
+  position, or the clip or official clip; none for a live item. It
+  follows the estimate (`useRemotePlayerInfo`), not a drag preview.
+- Title, channel, and full-screen links: built from the summary's
+  `medium` until records load (episode path for podcast or video, track
+  path for music, no link otherwise; channel link stays empty), then
+  the same resolution the local player builds. A null resolved title
+  falls back to the summary title.
+- Add to Playlist: opens the playlist modal with the loaded records and
+  sends no command. For an Add by RSS item it stays disabled until the
+  remote resource is `ready` (a now-playing queue row matches the hash
+  and this tab can resolve an index item). A database item stays
+  enabled while records load; a failed load shows one error toast.
+- Share: shown in every role, including while this browser plays. It
+  opens the existing share modal. In the remote role it uses the loaded
+  records (and the chapter the strip names, when that chapter is in the
+  loaded list). It is disabled for an Add by RSS item (no public page),
+  from the summary ref, before records load. A load that is not ready
+  shows one error toast. In `active` and `idle` it uses the local player
+  records and is disabled when those records have no channel and no item.
+- Playback Devices uses the accent color while the remote view is
+  showing. Choosing another device that is already playing does nothing.
+  Choosing This Device takes over in this tab unless this tab already
+  holds the audio, so another tab of this browser still takes over here.
+
+Hidden in the remote view: volume, mute, clip, repeat, shuffle,
+alternate enclosure, chapter markers on the progress bar, clip and
+soundbite highlight on the progress bar, and full-screen video. The
+clip editor and the embed player keep the local progress bar. If the
+shared `duration_seconds` is missing or zero, the remote bar shows the
+position, leaves the duration blank, draws no fill, and does not seek.
+
+### 7b. Triggers in the remote role
+
+A command names the target state. `play` and `pause` are separate
+commands. `seek` and `set_rate` are not sent for a live item.
+
+| Trigger | Result | Where |
+| --- | --- | --- |
+| Play/pause button, Space | `pause` while status is `playing` or `loading`; `play` while `paused` | `usePlayerTransport`, `mediaPlayerWindowKeyDown.ts` |
+| Jump buttons, arrow keys | absolute `seek` from the estimate (arrows ±10s), clamped to the playing device's duration; nothing for live | `usePlayerTransport`, `mediaPlayerWindowKeyDown.ts` |
+| Previous/next (desktop, narrow, and full screen), including long press | `previous` or `next` | `useTrackPreviousButtonActions`, `useTrackNextButtonActions` |
+| Progress click or drag | one `seek` on mouseup | `RemoteMediaPlayerProgress.tsx` |
+| Speed in Settings | `set_rate` | `usePlayerTransport` |
+| Add to Playlist | playlist modal with the loaded records; nothing sent | `PlaylistAddToButton.tsx` |
+| Current remote chapter's play button | `play` or `pause` | `ListItemChapterRow.tsx`, `ItemChapterHeaderPlaySection.tsx` |
+| Pick the item already playing there, with no start time | `play` or `pause` | `useMediaPlayerResourceUpdate`, `usePlayAddByRSS` |
+| Pick another item, a chapter, or the same item with a start time | `play_item` | same |
+| Pick that loads paused (`shouldPlay === false`, or a load that skips the now-playing write) | nothing sent | same |
+| Device menu: another device | take over on that device | `PlaybackDevicesButton.tsx`, `useCrossDevicePlaybackTransfer` |
+| Device menu: This Device | local take over, unless this tab already holds the audio | same |
+| Device menu: another device that is already playing | nothing | `playbackDeviceMenu.ts` |
+
+### 7c. Invariants
+
+- The remote view writes no playback position, history, or saved
+  position. The progress bar does not call `setMPCurrentTime`. Entering
+  `remote` clears the local player once, which sets the local time to 0
+  so this tab stops.
+- The remote progress bar's length is the playing device's
+  `duration_seconds`, never this tab's media element. The estimate
+  advances only while status is `playing` and the item is not live
+  (one 250 ms sample for the tab).
+- No command is a toggle on the wire. No `seek` or `set_rate` for a
+  live item.
+- Item rows and detail play buttons match the remote resource by the
+  first id the row carries: Add by RSS hash, then chapter, soundbite,
+  clip, or item. A match uses the active style and the pause icon while
+  status is `playing` or `loading`. A non-live match draws the row
+  progress line from the estimate; a live match does not. Chapter rows
+  match when the chapter at the playing device's estimated position is
+  theirs (`selectItemChapterForTime`). No chapter matches for a clip,
+  official clip, live item, or Add by RSS item, or when the chapter
+  list is empty or the chapter request failed.
+- The remote item's records load once per resource. A slower load for
+  an older resource cannot replace a later one. Rows read the store and
+  never start a load.
+- A blocked start on the receiving tab shows Ready to Play Here. Play
+  Here sets the local player playing inside the click. Not Now and the
+  close button dismiss it. The sender shows one error toast per
+  failure, then clears it. A device that has already left the list is
+  named "the other device".
+
 ## Cross-cutting side effects glossary
 
 | Effect                                                | When it fires                                                                                                                                                                                                                                                                           | Where                                               |
@@ -421,6 +547,10 @@ without losing coverage.
 - **E2E specs** that drive the matrix end-to-end live under
   [`apps/web/e2e/`](/apps/web/e2e) prefixed with `media-player-` — including
   the livestream specs from § 6b.
+- **Cross-device remote view:** two signed-in browser contexts in
+  [`media-player-cross-device-remote.spec.ts`](/apps/web/e2e/media-player-cross-device-remote.spec.ts),
+  and the unit tests in
+  [`apps/web/src/lib/crossDevicePlayback/`](/apps/web/src/lib/crossDevicePlayback/).
 
 > Open **Phase 2** items (capture before extracting helpers):
 >

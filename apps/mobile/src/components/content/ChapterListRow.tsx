@@ -10,6 +10,8 @@ import { ListRow } from '../primitives/ListRow';
 export type ChapterListRowProps = {
   artworkAccessibilityLabel: string;
   artworkUri: string | null;
+  /** The playing chapter: its title uses the highlighted color. */
+  isPlaying?: boolean;
   onPress?: () => void;
   paddingHorizontal?: number;
   showArtwork: boolean;
@@ -32,11 +34,12 @@ const createStyles = ({ styles: themeStyles }: ThemedStylesTheme) => ({
 /**
  * Chapter list row used on the full player and episode detail. Artwork is omitted when the
  * section has no chapter images; when any chapter has an image, every row shows one (chapter
- * URL, then item/channel/system fallback).
+ * URL, then item/channel/system fallback). The playing chapter's title is highlighted.
  */
 export const ChapterListRow = memo(function ChapterListRow({
   artworkAccessibilityLabel,
   artworkUri,
+  isPlaying,
   onPress,
   paddingHorizontal,
   showArtwork,
@@ -49,6 +52,7 @@ export const ChapterListRow = memo(function ChapterListRow({
   return (
     <View style={[styles.row, { paddingHorizontal: paddingHorizontal ?? 0 }]}>
       <ListRow
+        isHighlighted={isPlaying}
         leading={
           showArtwork ? (
             <CoverImage

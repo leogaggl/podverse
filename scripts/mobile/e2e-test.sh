@@ -42,7 +42,7 @@ flow_needs_e2e_api() {
   detail-sort-prefs | engine-audio-spike | hls-playback | home | history-screen | identity-remap | library-downloads | library-playlists | \
   make-clip | membership-checkout | membership-gate | notifications-inbox | offline-mode | opml | perf-chip-switch | \
   perf-scroll | play-mini-player | \
-  playback-multi-device-handoff | playback-offline-reconciliation | playback-resume-on-relaunch | \
+  playback-cross-device | playback-multi-device-handoff | playback-offline-reconciliation | playback-resume-on-relaunch | \
   player-screen | podcast-episode | removed-content | removed-content-log | show-notes | track | \
   push | queue-add | queue-screen | search | search-unparsed | settings-developer | settings-downloads | \
   subscriptions-anonymous | tab-switch-playback | tablet | taste-profile | taste-profile-consent | terms-account-access | terms-taste-profile-consent | v4v | \
@@ -83,7 +83,7 @@ flow_is_perf() {
 flow_needs_test_assets() {
   case "$1" in
   add-by-rss | add-by-rss-credentials | add-by-rss-episode-sections | add-by-rss-track | add-by-rss-artist | add-by-rss-livestream | auto-queue-advance | engine-audio-spike | hls-playback | library-downloads | make-clip | \
-  membership-gate | play-mini-player | playback-offline-reconciliation | playback-resume-on-relaunch | player-screen | \
+  membership-gate | play-mini-player | playback-cross-device | playback-offline-reconciliation | playback-resume-on-relaunch | player-screen | \
   show-notes | tab-switch-playback | tablet | v4v | video-transition)
     return 0
     ;;

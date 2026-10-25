@@ -14,6 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { PLAYBACK_COMMAND_TTL_MS } from '@podverse/helpers/accountPlaybackStream';
 import type { DTOClip, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers/dto';
 import { clampRatio } from '@podverse/helpers/math';
 import { formatHHMMSS } from '@podverse/helpers/time';
@@ -23,6 +24,14 @@ import {
 } from '@podverse/playback-core/chapterProgressMarkers';
 
 import { useReduceMotion } from '../../hooks/useReduceMotion';
+import {
+  getCrossDevicePlaybackPositionSeconds,
+  subscribeCrossDevicePlaybackPositionClock,
+} from '../../playback/crossDevice/crossDevicePlaybackStore';
+import {
+  useCrossDevicePlaybackView,
+  useRemotePlaybackPositionSeconds,
+} from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
 import {
   getPlaybackProgressRatio,
   subscribePlaybackProgress,
@@ -72,6 +81,25 @@ type HighlightBounds = {
 type FullPlayerScrubberProps = {
   chapters: DTOItemChapter[];
 };
+
+type FullPlayerScrubberSource = {
+  durationSeconds: number;
+  /** Whole-second playhead for the clock labels. */
+  clockSeconds: number;
+  getRatio: () => number;
+  subscribeRatio: (listener: () => void) => () => void;
+  seekTo: (seconds: number) => void;
+  clip: DTOClip | null;
+  soundbite: DTOItemSoundbite | null;
+};
+
+type RemotePendingSeek = {
+  seconds: number;
+  baseRevision: number | null;
+  atMs: number;
+};
+
+const EMPTY_CHAPTERS: DTOItemChapter[] = [];
 
 const parseSeconds = (value: string | number | null | undefined): number | null => {
   if (typeof value === 'number') {
@@ -127,23 +155,31 @@ const resolveHighlightBounds = ({
 };
 
 /**
- * Full-player scrubber: a thin track with a thumb on the playhead, a line at each chapter boundary,
- * a pulsing band behind the current chapter or clip, and a long-press chapter tooltip. The hit
- * target is 44pt. A tap seeks where it lands. A drag takes over only after clear horizontal travel,
- * so a vertical swipe that starts on the bar still scrolls the player. While dragging, the left
- * clock and chapter chrome follow the pending seek so they match the fill. The engine playhead
- * stays put until the finger lifts. Clocks and fill subscribe to the progress store so the parent
- * screen does not re-render on every tick.
+ * Full-player scrubber track. Duration, clocks, fill, and seek come from `source`.
+ * `FullPlayerScrubber` is this phone's playback. `FullPlayerRemoteScrubber` is another device's.
+ *
+ * The track is a thin bar with a thumb on the playhead, a line at each chapter boundary, a pulsing
+ * band behind the current chapter or clip, and a long-press chapter tooltip. The hit target is
+ * 44pt. A tap seeks where it lands. A drag takes over only after clear horizontal travel, so a
+ * vertical swipe that starts on the bar still scrolls the player. While dragging, the left clock
+ * and chapter chrome follow the pending seek so they match the fill. The seek is sent when the
+ * finger lifts. Clocks and fill subscribe through the source so the parent screen does not
+ * re-render on every tick.
  *
  * Gesture objects are memoized and the worklet-to-JS preview hop only fires when the whole-second
  * label would change — rebuilding a Gesture mid-drag re-attaches the recognizer and floods JS.
  */
-export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
+function FullPlayerScrubberTrack({
+  chapters,
+  source,
+}: {
+  chapters: DTOItemChapter[];
+  source: FullPlayerScrubberSource;
+}) {
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
-  const { activeTarget, seekTo } = usePlaybackSession();
-  const durationSeconds = usePlaybackDuration();
-  const clockSeconds = usePlaybackPositionClock();
+  const { durationSeconds, clockSeconds, getRatio, subscribeRatio, seekTo, clip, soundbite } =
+    source;
   const activeChapter = useActiveNowPlayingChapter(chapters);
   const reduceMotion = useReduceMotion();
 
@@ -159,7 +195,7 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
   const trackWidthShared = useSharedValue(0);
   const durationShared = useSharedValue(durationSeconds);
   const lastPreviewSecondShared = useSharedValue(-1);
-  const liveRatioShared = useSharedValue(getPlaybackProgressRatio());
+  const liveRatioShared = useSharedValue(getRatio());
   const segmentPulse = useSharedValue(0);
 
   useEffect(() => {
@@ -171,16 +207,17 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
   }, [durationSeconds, durationShared]);
 
   useEffect(() => {
-    return subscribePlaybackProgress(() => {
+    if (!isScrubbing.value) {
+      liveRatioShared.value = getRatio();
+    }
+    return subscribeRatio(() => {
       if (isScrubbing.value) {
         return;
       }
-      liveRatioShared.value = getPlaybackProgressRatio();
+      liveRatioShared.value = getRatio();
     });
-  }, [isScrubbing, liveRatioShared]);
+  }, [getRatio, isScrubbing, liveRatioShared, subscribeRatio]);
 
-  const clip = activeTarget?.kind === 'clip' ? activeTarget.clip : null;
-  const soundbite = activeTarget?.kind === 'soundbite' ? activeTarget.soundbite : null;
   const highlight = useMemo(
     () =>
       resolveHighlightBounds({
@@ -615,4 +652,98 @@ export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
       </View>
     </View>
   );
+}
+
+/** This phone's full-player scrubber. */
+export function FullPlayerScrubber({ chapters }: FullPlayerScrubberProps) {
+  const { activeTarget, seekTo } = usePlaybackSession();
+  const durationSeconds = usePlaybackDuration();
+  const clockSeconds = usePlaybackPositionClock();
+  const clip = activeTarget?.kind === 'clip' ? activeTarget.clip : null;
+  const soundbite = activeTarget?.kind === 'soundbite' ? activeTarget.soundbite : null;
+  const source = useMemo(
+    (): FullPlayerScrubberSource => ({
+      durationSeconds,
+      clockSeconds,
+      getRatio: getPlaybackProgressRatio,
+      subscribeRatio: subscribePlaybackProgress,
+      seekTo,
+      clip,
+      soundbite,
+    }),
+    [clip, clockSeconds, durationSeconds, seekTo, soundbite]
+  );
+
+  return <FullPlayerScrubberTrack chapters={chapters} source={source} />;
+}
+
+/**
+ * Another device's scrubber. `durationSeconds` is that device's shared duration. The bar has no
+ * chapter marks or clip range. A released seek holds that position until a newer shared state
+ * arrives or `PLAYBACK_COMMAND_TTL_MS` passes.
+ */
+export function FullPlayerRemoteScrubber({ durationSeconds }: { durationSeconds: number | null }) {
+  const duration = durationSeconds !== null && durationSeconds > 0 ? durationSeconds : 0;
+  const { seekTo } = usePlaybackSession();
+  const remoteClock = useRemotePlaybackPositionSeconds();
+  const [pendingSeek, setPendingSeek] = useState<RemotePendingSeek | null>(null);
+  const revision = useCrossDevicePlaybackView().state?.revision ?? null;
+  const revisionRef = useRef(revision);
+
+  useEffect(() => {
+    revisionRef.current = revision;
+  }, [revision]);
+
+  useEffect(() => {
+    if (pendingSeek !== null && revision !== pendingSeek.baseRevision) {
+      setPendingSeek(null);
+    }
+  }, [pendingSeek, revision]);
+
+  useEffect(() => {
+    if (pendingSeek === null) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      setPendingSeek(null);
+    }, PLAYBACK_COMMAND_TTL_MS);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [pendingSeek]);
+
+  // Release reads the shared-state revision at that moment. The callback identity stays put so
+  // the scrubber gesture is not rebuilt mid-drag.
+  const seek = useCallback(
+    (seconds: number) => {
+      setPendingSeek({
+        seconds,
+        baseRevision: revisionRef.current,
+        atMs: Date.now(),
+      });
+      seekTo(seconds);
+    },
+    [seekTo]
+  );
+
+  const getRatio = useCallback(() => {
+    const position = pendingSeek?.seconds ?? getCrossDevicePlaybackPositionSeconds(Date.now());
+    return duration > 0 && position !== null ? clampRatio(position / duration) : 0;
+  }, [duration, pendingSeek]);
+
+  const clockSeconds = Math.floor(pendingSeek?.seconds ?? remoteClock ?? 0);
+  const source = useMemo(
+    (): FullPlayerScrubberSource => ({
+      durationSeconds: duration,
+      clockSeconds,
+      getRatio,
+      subscribeRatio: subscribeCrossDevicePlaybackPositionClock,
+      seekTo: seek,
+      clip: null,
+      soundbite: null,
+    }),
+    [clockSeconds, duration, getRatio, seek]
+  );
+
+  return <FullPlayerScrubberTrack chapters={EMPTY_CHAPTERS} source={source} />;
 }

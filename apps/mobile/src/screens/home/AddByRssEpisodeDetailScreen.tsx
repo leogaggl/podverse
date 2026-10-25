@@ -18,8 +18,11 @@ import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
+import { toAddByRssItemPlaybackResourceData } from '../../lib/addByRss/domain';
 import { addByRssItemSectionUrls } from '../../lib/addByRss/itemSections';
+import { addByRssPlaybackMediaId } from '../../lib/addByRss/resourceData';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import { usePlayingChapterIdText } from '../../playback/usePlayingChapterIdText';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { listHeaderStackGap, screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -163,6 +166,21 @@ export function AddByRssEpisodeDetailScreen({
     [activeTab, sections]
   );
   const chapterListShowsImages = chapterSectionHasImages(chapterRows);
+  const chapterItemMediaId = useMemo(() => {
+    if (feed === null || mappedFeed === null || episode === null) {
+      return null;
+    }
+    return addByRssPlaybackMediaId(
+      toAddByRssItemPlaybackResourceData(feed, mappedFeed, episode.itemBundle, episode.itemIndex)
+    );
+  }, [episode, feed, mappedFeed]);
+  const playingChapterIdText = usePlayingChapterIdText({
+    chapters: chapterRows,
+    itemMediaId: chapterItemMediaId,
+  });
+  const listExtraData = `${activeTab}:${sections === null ? 'none' : 'loaded'}:${
+    playingChapterIdText ?? 'none'
+  }`;
 
   const actionTarget = useMemo(() => {
     if (feed === null || mappedFeed === null || episode === null) {
@@ -220,11 +238,12 @@ export function AddByRssEpisodeDetailScreen({
       <ItemChapterRow
         chapter={chapter}
         fallbackImageUrl={episode?.imageUrl ?? null}
+        isPlaying={chapter.id_text === playingChapterIdText}
         showImages={chapterListShowsImages}
         testID="add-by-rss-episode-detail-chapter-row"
       />
     ),
-    [chapterListShowsImages, episode]
+    [chapterListShowsImages, episode, playingChapterIdText]
   );
 
   const noticeKey = actionNoticeKey ?? playbackNoticeKey;
@@ -358,7 +377,7 @@ export function AddByRssEpisodeDetailScreen({
           }
           contentContainerStyle={styles.listContent}
           data={chapterRows}
-          extraData={`${activeTab}:${sections === null ? 'none' : 'loaded'}`}
+          extraData={listExtraData}
           keyExtractor={addByRssEpisodeChapterKeyExtractor}
           renderItem={renderChapterRow}
           style={styles.list}

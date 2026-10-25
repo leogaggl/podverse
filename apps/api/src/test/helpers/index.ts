@@ -36,6 +36,35 @@ async function waitForTestKeyvaldbReady(): Promise<void> {
   throw new Error('KeyValDB not reachable during test app startup');
 }
 
+async function waitForTestPlaybackRedisReady(): Promise<void> {
+  const { getPlaybackRedis, PlaybackStoreUnavailableError } =
+    await import('../../lib/accountPlayback/playbackRedis.js');
+  const deadline = Date.now() + TEST_KEYVAL_READY_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      getPlaybackRedis();
+      return;
+    } catch (error) {
+      if (!(error instanceof PlaybackStoreUnavailableError)) {
+        throw error;
+      }
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, TEST_KEYVAL_READY_POLL_MS);
+    });
+  }
+  throw new Error('Playback Redis connection not ready during test app startup');
+}
+
+async function closeTestPlaybackRedis(): Promise<void> {
+  try {
+    const { closePlaybackRedis } = await import('../../lib/accountPlayback/playbackRedis.js');
+    await closePlaybackRedis();
+  } catch {
+    // The playback Redis module may not have been loaded in this test file
+  }
+}
+
 async function closeTestKeyvaldb(): Promise<void> {
   try {
     const { keyvaldb } = await import('../../lib/keyvaldb/keyvaldb.js');
@@ -142,6 +171,10 @@ export async function startTestApp(options?: StartTestAppOptions): Promise<TestA
   await ormContext.dataSourceReadWrite.initialize();
   registerAccountEventPublisher({ publish: async () => 0 });
 
+  const { startPlaybackRedis } = await import('../../lib/accountPlayback/playbackRedis.js');
+  startPlaybackRedis();
+  await waitForTestPlaybackRedisReady();
+
   const { initObservability } = await import('@podverse/observability');
   initObservability(appConfig.observability);
 
@@ -157,6 +190,7 @@ export async function stopTestApp(
   ormContext: ORMContext | undefined
 ): Promise<void> {
   await unregisterTestAccountEventPublisher();
+  await closeTestPlaybackRedis();
   await closeTestKeyvaldb();
   await closeTestAccountEventStreamHub();
 

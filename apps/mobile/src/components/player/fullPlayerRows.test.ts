@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DTOChannel, DTOClip, DTOItem } from '@podverse/helpers';
 import { MediumEnum } from '@podverse/helpers';
+import type { DTOPlaybackResourceSummary } from '@podverse/helpers/accountPlaybackStream';
 import type { DTOItemSoundbite } from '@podverse/helpers/dto';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
@@ -12,6 +13,7 @@ import {
   hasNextQueueItem,
   resolveAddToPlaylistTarget,
   resolveQueueMutationTarget,
+  resolveRemoteAddToPlaylistTarget,
   shouldClearNowPlayingAfterAdvance,
   shouldDismissFullPlayerOnEmptySession,
   shouldShowV4vAction,
@@ -313,5 +315,74 @@ describe('fullPlayerRows', () => {
       kind: 'item',
       mediaType: 'tracks',
     });
+  });
+
+  it('resolves a remote playlist target from the summary medium', () => {
+    const summary = (
+      ref: DTOPlaybackResourceSummary['ref'],
+      medium: MediumEnum
+    ): DTOPlaybackResourceSummary => ({
+      channel_title: 'Show',
+      image_url: null,
+      medium,
+      ref,
+      title: 'Title',
+    });
+    const addByRssData = { feed_url: 'https://example.com/feed.xml', title: 'RSS item' };
+
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ item_id_text: 'ep-1', kind: 'item' }, MediumEnum.Podcast),
+        null
+      )
+    ).toEqual({ idText: 'ep-1', kind: 'item', medium: 'av' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ item_id_text: 'track-1', kind: 'item' }, MediumEnum.Music),
+        null
+      )
+    ).toEqual({ idText: 'track-1', kind: 'item', medium: 'music' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ item_id_text: 'live-1', kind: 'item' }, MediumEnum.MusicL),
+        null
+      )
+    ).toEqual({ idText: 'live-1', kind: 'item', medium: 'av' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ clip_id_text: 'clip-1', kind: 'clip' }, MediumEnum.Music),
+        null
+      )
+    ).toEqual({ idText: 'clip-1', kind: 'clip', medium: 'music' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ clip_id_text: 'clip-2', kind: 'clip' }, MediumEnum.Podcast),
+        null
+      )
+    ).toEqual({ idText: 'clip-2', kind: 'clip', medium: 'av' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ item_soundbite_id_text: 'sb-1', kind: 'soundbite' }, MediumEnum.Music),
+        null
+      )
+    ).toEqual({ idText: 'sb-1', kind: 'soundbite', medium: 'music' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ item_soundbite_id_text: 'sb-2', kind: 'soundbite' }, MediumEnum.Video),
+        null
+      )
+    ).toEqual({ idText: 'sb-2', kind: 'soundbite', medium: 'av' });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ add_by_rss_hash_id: 'hash-1', kind: 'add_by_rss' }, MediumEnum.Music),
+        addByRssData
+      )
+    ).toEqual({ kind: 'add-by-rss', medium: 'music', resourceData: addByRssData });
+    expect(
+      resolveRemoteAddToPlaylistTarget(
+        summary({ add_by_rss_hash_id: 'hash-1', kind: 'add_by_rss' }, MediumEnum.Podcast),
+        null
+      )
+    ).toBeNull();
   });
 });

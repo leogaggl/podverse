@@ -473,6 +473,50 @@
       "switch_action": "Switch Episode",
       "unknown_episode": "an unknown episode"
     },
+    "devices": {
+      "switch_device": "Switch Device",
+      "switch_device_pending": "Moving Playback to {device}",
+      "sheet_title": "Play On",
+      "this_device_entry": "{device} (This Device)",
+      "same_label_number": "{device} ({number})",
+      "another_device": "Another Device",
+      "transfer_failed_title": "Playback Didn't Start",
+      "transfer_failed_load_failed": "{device} couldn't load this media.",
+      "transfer_failed_autoplay_blocked": "{device} needs a tap to start playback. Press Play there.",
+      "transfer_failed_timeout": "{device} didn't respond. Check that Podverse is open there.",
+      "transfer_failed_not_connected": "{device} is no longer connected.",
+      "transfer_failed_send_failed": "Couldn't reach {device}. Try again.",
+      "command_failed_title": "Couldn't Control Playback",
+      "command_failed_body": "The playing device didn't receive that. Try again."
+    },
+    "cross_device": {
+      "devices_button": "Playback Devices",
+      "this_device": "This Device",
+      "playing": "Playing",
+      "sending": "Sending…",
+      "device_with_number": "{name} ({number})",
+      "unnamed_web_device": "Web Browser",
+      "unnamed_mobile_device": "Mobile App",
+      "unknown_device": "the other device",
+      "playing_on_device": "Playing on {device}",
+      "paused_on_device": "Paused on {device}",
+      "starting_on_device": "Starting on {device}",
+      "playing_in_another_tab": "Playing in Another Tab",
+      "sending_to_device": "Sending to {device}…",
+      "transfer_failed": {
+        "autoplay_blocked": "Playback on {device} needs a tap first. Tap Play Here on that device.",
+        "load_failed": "Could not start playback on {device}.",
+        "no_response": "No response from {device}. Try again.",
+        "not_connected": "Could not reach {device}. It may have closed.",
+        "request_failed": "Could not send playback to {device}. Try again."
+      },
+      "tap_to_play": {
+        "title": "Ready to Play Here",
+        "body": "Playback moved to this browser. Your browser needs a tap before it can start audio.",
+        "play_action": "Play Here",
+        "dismiss_action": "Not Now"
+      }
+    },
     "step_back": "Step Backward",
     "step_forward": "Step Forward",
     "mute": "Mute",

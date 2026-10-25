@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import type { AddByRSSResourceDataImageEntry } from '@podverse/helpers';
 import { LiveItemStatusEnum } from '@podverse/helpers';
+import { getAddByRSSHashIds } from '@podverse/parser-mapping';
 
 import { IMAGES } from '../../../constants/images';
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
@@ -46,6 +47,10 @@ export const AddByRSSLivestreamDetailHeader: React.FC<AddByRSSLivestreamDetailHe
   const tMediaPlayer = useTranslations('media_player');
   const { mpAddByRSS, mpIsPlaying, setMPIsPlaying } = useMediaPlayer();
   const playAddByRSS = usePlayAddByRSS();
+  const addByRSSHashIds = useMemo(
+    () => (indexItem ? getAddByRSSHashIds(indexItem) : undefined),
+    [indexItem]
+  );
   const liveStatusId = indexItem?.liveItem.live_item_status ?? LiveItemStatusEnum.Pending;
   const showPlayButton = liveStatusId === LiveItemStatusEnum.Live;
 
@@ -88,7 +93,11 @@ export const AddByRSSLivestreamDetailHeader: React.FC<AddByRSSLivestreamDetailHe
     <div className={playSectionStyles.playSection}>
       <div className={playSectionStyles.sectionStart}>
         {showPlayButton && (
-          <PlayButtonLarge addByRSSIdText={indexItem?.idText} onClick={togglePlay} />
+          <PlayButtonLarge
+            addByRSSIdText={indexItem?.idText}
+            addByRSSHashIds={addByRSSHashIds}
+            onClick={togglePlay}
+          />
         )}
         <div className={playSectionStyles.timeSection} />
       </div>

@@ -2,6 +2,8 @@ export * from './_request.js';
 export * from './_response.js';
 export * from './managedCopy/managedCopy.js';
 export * from './parseMembershipGateError.js';
+export { parsePlaybackApiError } from './account/playback.js';
+export type { PlaybackApiError } from './account/playback.js';
 export * from './parseAuthSessionEndedError.js';
 export * from './queryParams.js';
 export type { OpmlImportStatusResponse, ReqAccountOpmlImportResponse } from './account/account.js';

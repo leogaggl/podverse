@@ -127,6 +127,8 @@ export * from './lib/primitives.js';
 export * from './lib/parserMaxFeedBodyBytes.js';
 export type { PremiumBillingCadence } from './lib/premiumBillingCadence.js';
 export * from './lib/playbackEvents.js';
+export * from './lib/accountPlaybackStream.js';
+export * from './lib/crossDevicePlayback.js';
 export * from './lib/playbackOutboxLimits.js';
 export * from './lib/playbackTimestamps.js';
 export * from './lib/queue/queue.js';

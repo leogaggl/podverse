@@ -2,6 +2,7 @@ import "express"; // Import express types
 
 import type {
   AccountMembershipEnum,
+  AccountSessionClientType,
   AccountTrustEntitlements,
   ApiKeyPermissions,
 } from "@podverse/helpers";
@@ -14,6 +15,12 @@ declare global {
       verified: boolean;
       /** `id_text` of the account session the request's token names; null for an API key. */
       session_id_text: string | null;
+      /** The session's client type; set with `session_id_text` from the active session row. */
+      session_client_type?: AccountSessionClientType;
+      /** The session's device label; set with `session_id_text` from the active session row. */
+      session_device_label?: string | null;
+      /** ISO 8601; set with `session_id_text` from the active session row. */
+      session_created_at?: string;
       /** The API key that authenticated the request; null for a session. */
       api_key: { id_text: string; permissions: ApiKeyPermissions } | null;
       entitlements?: AccountTrustEntitlements;

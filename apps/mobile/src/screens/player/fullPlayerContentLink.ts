@@ -1,6 +1,7 @@
 import type { AddByRSSResourceData, DTOChannel, DTOItem } from '@podverse/helpers';
 import { primaryChannelListArtworkUrl, primaryListArtworkUrl } from '@podverse/helpers';
-import { isAlbumMediumId, isArtistMediumId } from '@podverse/helpers/medium';
+import type { DTOPlaybackResourceSummary } from '@podverse/helpers/accountPlaybackStream';
+import { isAlbumMediumId, isArtistMediumId, isMusicMediumId } from '@podverse/helpers/medium';
 import type { PlaybackTarget } from '@podverse/playback-core';
 
 import { isAddByRssLivestreamResourceData } from '../../lib/addByRss/resourceData';
@@ -206,6 +207,81 @@ export const resolveFullPlayerChannelLink = (
     case 'item-podcast':
     case 'item-video':
       return channelRequest(target.channel, name, 'podcast');
+  }
+};
+
+/** Where another device's item title opens, from the shared summary. */
+export const resolveRemoteFullPlayerTitleLink = (
+  resource: DTOPlaybackResourceSummary,
+  addByRss: {
+    feedIdText: string | null;
+    itemKey: string | null;
+    resourceData: AddByRSSResourceData | null;
+  }
+): FullPlayerContentTarget | null => {
+  const name = nonEmpty(resource.title);
+  if (name === null) {
+    return null;
+  }
+
+  switch (resource.ref.kind) {
+    case 'item':
+      return {
+        idText: resource.ref.item_id_text,
+        imageUrl: resource.image_url,
+        kind: isMusicMediumId(resource.medium) ? 'track' : 'episode',
+        name,
+      };
+    case 'clip':
+      return { idText: resource.ref.clip_id_text, imageUrl: null, kind: 'clip', name };
+    case 'soundbite':
+      return null;
+    case 'add_by_rss': {
+      const feedIdText = nonEmpty(addByRss.feedIdText);
+      const itemKey = nonEmpty(addByRss.itemKey);
+      const resourceData = addByRss.resourceData;
+      if (feedIdText === null || itemKey === null || resourceData === null) {
+        return null;
+      }
+      if (isAddByRssLivestreamResourceData(resourceData)) {
+        return {
+          idText: feedIdText,
+          imageUrl: null,
+          itemKey,
+          kind: 'add-by-rss-livestream',
+          name,
+        };
+      }
+      if (isMusicMediumId(resource.medium)) {
+        return { idText: feedIdText, imageUrl: null, itemKey, kind: 'add-by-rss-track', name };
+      }
+      return { idText: feedIdText, imageUrl: null, itemKey, kind: 'add-by-rss-episode', name };
+    }
+  }
+};
+
+/** Where another device's show title opens: only an Add by RSS feed on this phone. */
+export const resolveRemoteFullPlayerChannelLink = (
+  resource: DTOPlaybackResourceSummary,
+  addByRssFeedIdText: string | null
+): FullPlayerContentTarget | null => {
+  const name = nonEmpty(resource.channel_title);
+  if (name === null) {
+    return null;
+  }
+
+  switch (resource.ref.kind) {
+    case 'add_by_rss': {
+      const idText = nonEmpty(addByRssFeedIdText);
+      if (idText === null) {
+        return null;
+      }
+      return { idText, imageUrl: null, kind: 'add-by-rss', name };
+    }
+    case 'item':
+    case 'clip':
+    case 'soundbite':
+      return null;
   }
 };
 

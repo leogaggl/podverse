@@ -2,15 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import { getAddByRSSHashId } from '@podverse/helpers';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
-import { convertParsedRSSFeedToCompat } from '@podverse/parser-mapping';
+import { convertParsedRSSFeedToCompat, Phase4LiveStatus } from '@podverse/parser-mapping';
 
 import type { MobileAddByRSSFeedRecord } from '../../prefs/addByRSSFeeds';
-import type { LocalAddByRssFeedLookup } from './localResourceData';
+import type { LocalAddByRssFeedListLookup, LocalAddByRssFeedLookup } from './localResourceData';
 import {
   addByRssEpisodeItemKey,
+  findLocalAddByRssResourceDataByHash,
   resolveAddByRssNowPlayingItemSource,
   resolveLocalAddByRssResourceData,
 } from './localResourceData';
+import { addByRssPlaybackMediaId } from './resourceData';
 
 const FEED_URL = 'https://example.com/feed.xml';
 const CHAPTERS_URL = 'https://example.com/chapters.json';
@@ -201,5 +203,91 @@ describe('resolveAddByRssNowPlayingItemSource', () => {
     );
 
     expect(resolved).toBeNull();
+  });
+});
+
+describe('findLocalAddByRssResourceDataByHash', () => {
+  const LIVE_FEED_URL = 'https://example.com/live.xml';
+  const UNPARSED_FEED_URL = 'https://example.com/unparsed.xml';
+
+  const liveRecord: MobileAddByRSSFeedRecord = {
+    ...localRecord,
+    feedUrl: LIVE_FEED_URL,
+    id: 8,
+    idText: 'phone-channel-8',
+    title: 'Live Show',
+  };
+  const unparsedRecord: MobileAddByRSSFeedRecord = {
+    ...localRecord,
+    feedUrl: UNPARSED_FEED_URL,
+    id: 9,
+    idText: 'phone-channel-9',
+    title: 'Unparsed Show',
+  };
+
+  const liveFeed: AddByRSSMappedFeed = convertParsedRSSFeedToCompat({
+    explicit: false,
+    items: [],
+    link: LIVE_FEED_URL,
+    podcastLiveItems: [
+      {
+        contentLinks: [],
+        enclosure: { length: 1, type: 'audio/mpeg', url: 'https://example.com/live.mp3' },
+        guid: 'studio-live',
+        start: new Date('2026-06-01T15:00:00.000Z'),
+        status: Phase4LiveStatus.Live,
+      },
+    ],
+    title: 'Live Show',
+  });
+
+  const listLookup = (): LocalAddByRssFeedListLookup => ({
+    listFeeds: async () => [unparsedRecord, localRecord, liveRecord],
+    getMappedFeedByUrl: async (feedUrl) => {
+      if (feedUrl === FEED_URL) {
+        return mappedFeed;
+      }
+      if (feedUrl === LIVE_FEED_URL) {
+        return liveFeed;
+      }
+      return null;
+    },
+  });
+
+  it('finds this phone’s copy of an episode by its playback hash', async () => {
+    const found = await findLocalAddByRssResourceDataByHash(
+      addByRssPlaybackMediaId(webRow),
+      listLookup()
+    );
+
+    expect(found?.channel_id_text).toBe('phone-channel-7');
+    expect(found?.enclosure_url).toBe(LOCAL_ENCLOSURE);
+  });
+
+  it('finds a livestream by its playback hash', async () => {
+    const hashId = addByRssPlaybackMediaId({ feed_url: LIVE_FEED_URL, guid: 'studio-live' });
+
+    const found = await findLocalAddByRssResourceDataByHash(hashId, listLookup());
+
+    expect(found).not.toBeNull();
+    expect(found === null ? null : addByRssPlaybackMediaId(found)).toBe(hashId);
+  });
+
+  it('skips a followed feed this phone has not parsed', async () => {
+    const found = await findLocalAddByRssResourceDataByHash(
+      addByRssPlaybackMediaId({ feed_url: UNPARSED_FEED_URL, guid: 'episode-guid-1' }),
+      listLookup()
+    );
+
+    expect(found).toBeNull();
+  });
+
+  it('returns null when no local feed has that hash', async () => {
+    const found = await findLocalAddByRssResourceDataByHash(
+      addByRssPlaybackMediaId({ feed_url: FEED_URL, guid: 'not-in-the-feed' }),
+      listLookup()
+    );
+
+    expect(found).toBeNull();
   });
 });

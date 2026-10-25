@@ -1,6 +1,12 @@
 import { getLoggerService, getORMConfig } from '@orm/context.js';
 
-import type { AccountSessionRevokeReason } from '@podverse/helpers';
+import type {
+  AccountSessionRevokeReason,
+  DTOPlaybackCommandEnvelope,
+  DTOPlaybackDevices,
+  DTOPlaybackStartFailed,
+  DTOPlaybackState,
+} from '@podverse/helpers';
 import { isPlainObject } from '@podverse/helpers';
 
 /**
@@ -16,15 +22,19 @@ export const ACCOUNT_EVENT_MAX_PER_MESSAGE = 500;
 export const ACCOUNT_EVENT_REDIS_RECONNECT_DELAY_MS = 5_000;
 
 /**
- * Data for each event type the server publishes. Types are namespaced: `notification.*` and
- * `session.*` are in use; `playback.*` is reserved for cross-device playback state and control
- * commands.
+ * Data for each event type the server publishes. Types are namespaced: `notification.*`,
+ * `session.*`, and `playback.*`. `playback.*` carries cross-device playback state, devices, and
+ * control commands; the API hub relays those events to open streams without database reads.
  */
 export type AccountEventDataByType = {
   'notification.created': { notification_ids: number[] };
   'notification.read_all': { last_read_at: string };
   'notification.read_one': { notification_id: number };
   'session.ended': { session_id_texts: string[]; reason: AccountSessionRevokeReason };
+  'playback.state': DTOPlaybackState;
+  'playback.devices': DTOPlaybackDevices;
+  'playback.command': DTOPlaybackCommandEnvelope;
+  'playback.start_failed': DTOPlaybackStartFailed;
 };
 
 export type AccountEventType = keyof AccountEventDataByType;

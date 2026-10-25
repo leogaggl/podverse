@@ -1,5 +1,6 @@
 import type { AccountNotificationStreamEvent } from '@podverse/helpers';
 import { ACCOUNT_NOTIFICATION_STREAM_EVENT } from '@podverse/helpers';
+import type { AccountPlaybackStreamEvent } from '@podverse/helpers/accountPlaybackStream';
 
 import type { NotificationStreamFailureKind } from './notificationStreamPolicy';
 import {
@@ -16,6 +17,7 @@ import {
 import {
   getNotificationStreamConnection,
   publishNotificationStreamEvent,
+  publishNotificationStreamPlaybackEvent,
   setNotificationStreamConnection,
   setNotificationUnreadCount,
 } from './notificationStreamStore';
@@ -24,6 +26,8 @@ export type NotificationStreamConnectParams = {
   lastEventId: number | null;
   signal: AbortSignal;
   onEvent: (event: AccountNotificationStreamEvent) => void;
+  /** A `playback.*` event. It never opens the connection or moves the replay position. */
+  onPlaybackEvent: (event: AccountPlaybackStreamEvent) => void;
   /** Any bytes: an event, a heartbeat comment, or a retry line. */
   onActivity: () => void;
 };
@@ -293,11 +297,18 @@ export function createNotificationStreamController(
       }
     };
 
+    const onPlaybackEvent = (event: AccountPlaybackStreamEvent): void => {
+      if (isCurrentAttempt(myAttempt)) {
+        publishNotificationStreamPlaybackEvent(event);
+      }
+    };
+
     deps
       .connect({
         lastEventId: sessionMaxId,
         signal: attemptAbortController.signal,
         onEvent,
+        onPlaybackEvent,
         onActivity,
       })
       .then(
