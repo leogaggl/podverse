@@ -31,7 +31,6 @@ import type {
   DTOItemSoundbite,
 } from '@podverse/helpers/dto';
 import { formatHHMMSS } from '@podverse/helpers/time';
-import { getShuffleHash } from '@podverse/helpers-requests';
 import type { PlaybackTarget } from '@podverse/playback-core';
 import { getBoostEligibilityForContent } from '@podverse/v4v-metaboost';
 
@@ -58,7 +57,7 @@ import {
   fullPlayerPaneSheetChrome,
 } from '../../components/player/FullPlayerPaneSheet';
 import {
-  hasNextQueueItem,
+  canAdvanceToNextQueueItem,
   resolveAddToPlaylistTarget,
   resolveQueueMutationTarget,
   shouldDismissFullPlayerOnEmptySession,
@@ -86,8 +85,6 @@ import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscri
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { useActionError } from '../../feedback/ActionErrorProvider';
 import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
-import type { AutoQueueSeed } from '../../hooks/useAutoQueueLoadResources';
-import { useAutoQueueLoadResources } from '../../hooks/useAutoQueueLoadResources';
 import { useItemDescription } from '../../hooks/useItemDescription';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueMutations } from '../../hooks/useQueueMutations';
@@ -95,7 +92,6 @@ import { useQueueResources } from '../../hooks/useQueueResources';
 import { resolveAddByRssLiveItemKey } from '../../lib/addByRss/liveItemDetail';
 import { addByRssEpisodeItemKey } from '../../lib/addByRss/localResourceData';
 import { isAddByRssLivestreamResourceData } from '../../lib/addByRss/resourceData';
-import { toggleAutoQueueShuffle } from '../../lib/autoQueue/autoQueue';
 import { getChannelActionChrome } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import {
@@ -116,6 +112,7 @@ import {
   nowPlayingAddByRssSections,
   useNowPlayingAddByRssSections,
 } from '../../playback/nowPlayingAddByRssSections';
+import { playbackMediumIdFromTarget } from '../../playback/playbackEventSource';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { hasEpisodeChaptersForTrackButtons } from '../../playback/previousAction';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
@@ -268,18 +265,6 @@ const channelFromTarget = (target: PlaybackTarget | null): DTOChannel | null => 
   }
 };
 
-const autoQueueSeedFromTarget = (target: PlaybackTarget | null): AutoQueueSeed | null => {
-  if (target === null || target.kind === 'add-by-rss' || target.kind === 'livestream') {
-    return null;
-  }
-  return {
-    channel: target.channel,
-    clip: target.kind === 'clip' ? target.clip : null,
-    item: target.item,
-    item_soundbite: target.kind === 'soundbite' ? target.soundbite : null,
-  };
-};
-
 const hasSectionsForTarget = (target: PlaybackTarget | null): boolean => {
   if (target === null) {
     return false;
@@ -309,16 +294,8 @@ export function FullPlayerScreen({
   const { boostSheet, openBoost } = useBoostSheet();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const { enabled: offlineModeEnabled } = useOfflineMode();
-  const {
-    autoQueueActiveRow,
-    autoQueueConfig,
-    autoQueueResources,
-    setAutoQueueActiveRow,
-    setAutoQueueConfig,
-    setAutoQueueResources,
-  } = useAutoQueue();
-  const loadAutoQueueResources = useAutoQueueLoadResources();
-  const { fetchPrimaryQueue } = usePrimaryQueue();
+  const { autoQueueConfig } = useAutoQueue();
+  const { fetchQueueForMedium } = usePrimaryQueue();
   const { fetchUpcoming } = useQueueResources();
   const { markAddByRssAsPlayed, markAsPlayed } = useQueueMutations();
   const { evaluateFeature, isTierKnown } = useAccessTier();
@@ -327,6 +304,7 @@ export function FullPlayerScreen({
   const { addToPlaylistSheet, requestAddToPlaylist } = useAddToPlaylist();
   const {
     activeTarget,
+    hasAutomaticNext,
     enclosureSelectedParams,
     itemLabeledEnclosures,
     jumpBy,
@@ -344,6 +322,8 @@ export function FullPlayerScreen({
     skipToPrevious,
     skipToPreviousTrack,
     switchEnclosureSelectedParams,
+    toggleRepeat,
+    toggleShuffle,
     transportState,
   } = usePlaybackSession();
   const isFocused = useIsFocused();
@@ -663,14 +643,7 @@ export function FullPlayerScreen({
   const chapterFallbackImageUrl =
     currentItem !== null ? getItemPrimaryImageUrl(currentItem) : (nowPlaying?.imageUrl ?? null);
 
-  const autoUpcomingCount = useMemo(
-    () =>
-      Object.keys(autoQueueResources)
-        .map(Number)
-        .filter((rowIndex) => rowIndex > autoQueueActiveRow).length,
-    [autoQueueActiveRow, autoQueueResources]
-  );
-  const canSkipToNext = hasNextQueueItem(manualUpcomingCount, autoUpcomingCount);
+  const canSkipToNext = canAdvanceToNextQueueItem(manualUpcomingCount, hasAutomaticNext);
   const isMusicNowPlaying = isMusicPlaybackTarget(activeTarget);
   const episodeHasChaptersForTrackButtons = hasEpisodeChaptersForTrackButtons(
     activeTarget,
@@ -1036,7 +1009,9 @@ export function FullPlayerScreen({
       }
 
       try {
-        const queue = await fetchPrimaryQueue();
+        // The queue for the medium that is playing. A track can start while the podcast
+        // queue is still active, and Next plays from the playing medium's queue.
+        const queue = await fetchQueueForMedium(playbackMediumIdFromTarget(activeTarget));
         if (queue === null) {
           if (!cancelled) {
             setManualUpcomingCount(0);
@@ -1056,7 +1031,7 @@ export function FullPlayerScreen({
     return () => {
       cancelled = true;
     };
-  }, [activeTarget, fetchPrimaryQueue, fetchUpcoming]);
+  }, [activeTarget, fetchQueueForMedium, fetchUpcoming]);
 
   const handleOpenSheet = (sheet: Exclude<FullPlayerSheet, null>) => {
     setOpenSheet(sheet);
@@ -1090,30 +1065,6 @@ export function FullPlayerScreen({
   const handlePause = () => {
     pause();
   };
-
-  const handleToggleShuffle = useCallback(() => {
-    setAutoQueueActiveRow(0);
-    setAutoQueueResources({});
-    setAutoQueueConfig(toggleAutoQueueShuffle(autoQueueConfig, getShuffleHash));
-    const seed = autoQueueSeedFromTarget(activeTarget);
-    setTimeout(() => {
-      void loadAutoQueueResources(seed);
-    }, 0);
-  }, [
-    activeTarget,
-    autoQueueConfig,
-    loadAutoQueueResources,
-    setAutoQueueActiveRow,
-    setAutoQueueConfig,
-    setAutoQueueResources,
-  ]);
-
-  const handleToggleRepeat = useCallback(() => {
-    setAutoQueueConfig({
-      ...autoQueueConfig,
-      repeat: !autoQueueConfig.repeat,
-    });
-  }, [autoQueueConfig, setAutoQueueConfig]);
 
   const handleErrorPress = () => {
     openPlaybackError(lastPlaybackError, () => {
@@ -1684,8 +1635,8 @@ export function FullPlayerScreen({
             onOpenSpeed={() => {
               handleOpenSheet('speed');
             }}
-            onToggleRepeat={handleToggleRepeat}
-            onToggleShuffle={handleToggleShuffle}
+            onToggleRepeat={toggleRepeat}
+            onToggleShuffle={toggleShuffle}
             playbackRate={playbackRate}
           />
         </View>

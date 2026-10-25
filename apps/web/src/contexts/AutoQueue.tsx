@@ -1,51 +1,19 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import type { DTOChannel, DTOClip, DTOItemQueueItem, DTOItemSoundbite } from '@podverse/helpers';
 import { getShuffleHash } from '@podverse/helpers-requests';
+import type { AutoQueueConfig, AutoQueueResourcesMap } from '@podverse/playback-core';
+import { createDefaultAutoQueueConfig } from '@podverse/playback-core';
 
 import type { LocalSettingsState } from '../utils/localSettings/localSettings';
 import { useLocalSettings } from './LocalSettings';
 
-export type AutoQueueResourcesMapRow = {
-  item: DTOItemQueueItem;
-  clip: DTOClip | null;
-  item_soundbite: DTOItemSoundbite | null;
-  channel: DTOChannel | null;
-};
-
-export type AutoQueueResourcesMap = { [key: number]: AutoQueueResourcesMapRow };
-
-export type AutoQueueConfig = {
-  playlist_id_text: string | null;
-  disabled: boolean;
-  random: boolean;
-  repeat: boolean;
-  nextPage: number;
-  shuffleHash: string;
-};
-
-export function checkIsActiveRowHighestKey(
-  autoQueueActiveRow: number | null,
-  autoQueueResources: AutoQueueResourcesMap
-): boolean {
-  if (autoQueueActiveRow === null) {
-    return false;
-  }
-  const keys = Object.keys(autoQueueResources).map(Number);
-  if (keys.length === 0) {
-    return false;
-  }
-  const highestKey = Math.max(...keys);
-  return autoQueueActiveRow === highestKey;
-}
-
-export function autoQueueIncrementActiveRow(autoQueueActiveRow: number | null) {
-  if (autoQueueActiveRow === null || autoQueueActiveRow < 1) {
-    return 1;
-  }
-  return autoQueueActiveRow + 1;
-}
+export type {
+  AutoQueueConfig,
+  AutoQueueResourcesMap,
+  AutoQueueResourcesMapRow,
+} from '@podverse/playback-core';
+export { autoQueueIncrementActiveRow, checkIsActiveRowHighestKey } from '@podverse/playback-core';
 
 type AutoQueueContextType = {
   autoQueueResources: AutoQueueResourcesMap;
@@ -56,14 +24,7 @@ type AutoQueueContextType = {
   setAutoQueueActiveRow: (val: number) => void;
 };
 
-const defaultAutoQueueConfig: AutoQueueConfig = {
-  playlist_id_text: null,
-  disabled: false,
-  random: false,
-  repeat: false,
-  nextPage: 1,
-  shuffleHash: getShuffleHash(),
-};
+const defaultAutoQueueConfig = createDefaultAutoQueueConfig(getShuffleHash);
 
 export const AutoQueueContext = createContext<AutoQueueContextType>({
   autoQueueResources: {},

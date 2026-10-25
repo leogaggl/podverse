@@ -79,7 +79,7 @@ export const addByRssEpisodeItemKey = (
 ): string | null => findAddByRssLocalItem(mappedFeed, resourceData)?.itemKey ?? null;
 
 /** This device's stored feed and parsed bundle. Null when either is missing or the read throws. */
-const loadLocalFeed = async (
+export const loadLocalFeed = async (
   lookup: LocalAddByRssFeedLookup,
   feedUrl: string
 ): Promise<{ mappedFeed: AddByRSSMappedFeed; record: MobileAddByRSSFeedRecord } | null> => {

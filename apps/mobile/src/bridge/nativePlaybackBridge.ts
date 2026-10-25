@@ -107,6 +107,10 @@ class NativePlaybackBridgeAdapter implements PodversePlaybackBridge {
     return getPodverseMediaEngineModule().writeQueueSnapshotMusic(payloadJson);
   }
 
+  writeAdvanceWindow(payloadJson: string): Promise<void> {
+    return getPodverseMediaEngineModule().writeAdvanceWindow(payloadJson);
+  }
+
   writeDownloadsIndex(payloadJson: string): Promise<void> {
     return getPodverseMediaEngineModule().writeDownloadsIndex(payloadJson);
   }

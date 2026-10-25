@@ -54,7 +54,10 @@ object PodverseAudioEngine {
     }
   }
 
-  /** Clear the sink only when [owner] is still the current owner. */
+  /**
+   * Clear the sink only when [owner] is still the current owner. With no sink nobody receives
+   * `ended` or `remoteTrackCommand`, so advance returns to native.
+   */
   fun clearEventSink(owner: Any) {
     onMain {
       if (eventSinkOwner !== owner) {
@@ -62,6 +65,7 @@ object PodverseAudioEngine {
       }
       eventSinkOwner = null
       eventSink = null
+      jsOwnsAdvance = false
     }
   }
 
@@ -250,7 +254,7 @@ object PodverseAudioEngine {
   /**
    * Track skip from the car, a headset, or the media notification. Previous restarts a track that
    * is more than a few seconds in. Otherwise the phone's queue decides while JS is running, and the
-   * projected queue snapshot does when it is not.
+   * advance window, then the projected queue snapshot, does when it is not.
    */
   fun handleRemoteTrackCommand(command: String) {
     onMain {
@@ -274,14 +278,38 @@ object PodverseAudioEngine {
 
   private const val PREVIOUS_RESTARTS_AFTER_MS = 3_000L
 
+  /** Result of looking up the loaded item in `advance-window.json`. */
+  private sealed interface AdvanceWindowStep {
+    data class Play(val entry: PodverseNativeCacheModel.QueueEntry) : AdvanceWindowStep
+
+    /** The loaded item is the window's last row (or the anchor of an empty window): stop. */
+    data object End : AdvanceWindowStep
+
+    /** The window is missing or belongs to another item; the queue snapshot decides. */
+    data object NotInWindow : AdvanceWindowStep
+  }
+
+  /**
+   * Main-thread only. Advance with JS not running: the advance window JS resolved comes first,
+   * then the account queue snapshot. Native only steps through those lists in order.
+   */
   private fun advanceToNextCachedItem() {
     val ctx = appContext ?: return
     val medium = (loadedMeta?.get("queueMedium") as? String) ?: "av"
+    val currentId = loadedMeta?.get("idText") as? String
+    val currentKind = (loadedMeta?.get("kind") as? String) ?: "item"
+    when (val step = advanceWindowStep(ctx, currentId, currentKind, medium)) {
+      is AdvanceWindowStep.Play -> {
+        startNativeAdvance(ctx, step.entry, medium)
+        return
+      }
+      AdvanceWindowStep.End -> return
+      AdvanceWindowStep.NotInWindow -> Unit
+    }
     val kind =
       if (medium == "music") PodverseNativeCacheKind.QUEUE_MUSIC else PodverseNativeCacheKind.QUEUE_AV
     val snapshot = PodverseNativeCacheModel.parseQueueSnapshot(PodverseNativeCache.read(ctx, kind))
     if (snapshot.entries.isEmpty()) return
-    val currentId = loadedMeta?.get("idText") as? String
     val startIndex =
       if (currentId == null) 0
       else {
@@ -289,7 +317,43 @@ object PodverseAudioEngine {
         if (idx < 0) 0 else idx + 1
       }
     if (startIndex >= snapshot.entries.size) return
-    val next = snapshot.entries[startIndex]
+    startNativeAdvance(ctx, snapshot.entries[startIndex], medium)
+  }
+
+  /**
+   * Window rows match on kind plus id, so a clip and its full episode are different rows. The
+   * anchor matches on the window's anchor kind and id.
+   */
+  private fun advanceWindowStep(
+    ctx: Context,
+    currentId: String?,
+    currentKind: String,
+    medium: String,
+  ): AdvanceWindowStep {
+    val window =
+      PodverseNativeCacheModel.parseAdvanceWindow(
+        PodverseNativeCache.read(ctx, PodverseNativeCacheKind.ADVANCE_WINDOW))
+        ?: return AdvanceWindowStep.NotInWindow
+    if (currentId == null || window.mediumBucket != medium) return AdvanceWindowStep.NotInWindow
+    val entries = window.entries
+    if (currentKind == window.anchorKind && currentId == window.anchorIdText) {
+      return entries.firstOrNull()?.let { AdvanceWindowStep.Play(it) } ?: AdvanceWindowStep.End
+    }
+    val index = entries.indexOfFirst { it.kind == currentKind && it.idText == currentId }
+    if (index < 0) return AdvanceWindowStep.NotInWindow
+    return entries.getOrNull(index + 1)?.let { AdvanceWindowStep.Play(it) } ?: AdvanceWindowStep.End
+  }
+
+  /**
+   * Load [next] from a native advance: the download when its file exists, else the remote URL.
+   * Entries carry plain URLs only, so there is no Basic Auth. A clip or soundbite carries its range
+   * in the meta, which stops playback at the clip end.
+   */
+  private fun startNativeAdvance(
+    ctx: Context,
+    next: PodverseNativeCacheModel.QueueEntry,
+    medium: String,
+  ) {
     val uri =
       when {
         !next.downloadFileName.isNullOrBlank() -> {
@@ -305,14 +369,19 @@ object PodverseAudioEngine {
     val metaJson =
       JSONObject()
         .put("idText", next.idText)
-        .put("kind", "item")
+        .put("kind", next.kind)
         .put("queueMedium", medium)
         .put("title", next.title)
         .put("origin", "car")
         .put("isLive", false)
-        .apply { next.artworkUrl?.let { put("artworkUrl", it) } }
+        .apply {
+          next.artworkUrl?.let { put("artworkUrl", it) }
+          next.clipStartSeconds?.let { put("clipStartSeconds", it) }
+          next.clipEndSeconds?.let { put("clipEndSeconds", it) }
+        }
         .toString()
-    loadAndStart(ctx, uri, next.startPositionSeconds, null, null, metaJson)
+    loadAndStart(
+      ctx, uri, next.startPositionSeconds ?: next.clipStartSeconds, null, null, metaJson)
   }
 
   @androidx.annotation.OptIn(UnstableApi::class)
@@ -654,6 +723,9 @@ object PodverseAudioEngine {
         publish(PlaybackState.ENDED)
         emit("ended", mapOf("positionSeconds" to position))
         stopProgressUpdates()
+        if (!jsOwnsAdvance) {
+          advanceToNextCachedItem()
+        }
         return
       }
       val nowMs = System.currentTimeMillis()

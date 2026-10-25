@@ -6,14 +6,9 @@
  */
 
 import { primaryListArtworkUrl } from '@podverse/helpers';
-import type { DTOItem, DTOQueueResource } from '@podverse/helpers/dto';
+import type { DTOItem } from '@podverse/helpers/dto';
 import { LiveItemStatusEnum } from '@podverse/helpers/dto';
 
-import {
-  buildItemLabeledEnclosures,
-  DEFAULT_ENCLOSURE_SELECTED_PARAMS,
-  resolveItemEnclosureUrl,
-} from '../../lib/playback/resolveEnclosureUrl';
 import { itemArtistNames } from '../../lib/playback/verifiedArtists';
 import { addByRssRepository } from '../repositories/addByRssRepository';
 import { channelItemsRepository } from '../repositories/channelItemsRepository';
@@ -50,6 +45,12 @@ import {
   projectQueueSnapshotAvToNativeCache,
   projectQueueSnapshotMusicToNativeCache,
 } from './projection';
+import {
+  nativeCacheDurationMs,
+  nativeQueueEntryFromQueueResource,
+  nativeResumeSeconds,
+  resolveNativeCacheMediaUrl,
+} from './queueEntryMapping';
 
 const CHILDREN_WINDOW = 50;
 const HISTORY_CAP = 20;
@@ -76,46 +77,6 @@ const mapChannelToBrowseNode = (channel: SubscribedChannel): NativeCacheBrowseNo
   };
 };
 
-const resolveMediaUrl = (item: DTOItem): string | null => {
-  const labeled = buildItemLabeledEnclosures(item);
-  return resolveItemEnclosureUrl({
-    labeledItemEnclosures: labeled,
-    selectedParams: DEFAULT_ENCLOSURE_SELECTED_PARAMS,
-  });
-};
-
-const toQueueEntry = (resource: DTOQueueResource): NativeCacheQueueEntry | null => {
-  const item = resource.item;
-  const positionSeconds = Number(resource.playback_position);
-  if (item === null || item === undefined) {
-    return null;
-  }
-  return {
-    idText: item.id_text,
-    title: item.title ?? item.id_text,
-    artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
-    mediaUrl: resolveMediaUrl(item),
-    podcastTitle: item.channel?.title ?? null,
-    artist: itemArtistNames(item),
-    durationMs: durationMsFromItem(item),
-    startPositionSeconds:
-      Number.isFinite(positionSeconds) && positionSeconds > 0 ? positionSeconds : null,
-    kind: 'item',
-  };
-};
-
-const durationMsFromItem = (item: DTOItem): number | null => {
-  const raw = item.item_about?.duration;
-  if (raw === null || raw === undefined || raw === '') {
-    return null;
-  }
-  const seconds = typeof raw === 'number' ? raw : Number(raw);
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    return null;
-  }
-  return Math.round(seconds * 1000);
-};
-
 const toChildItem = (
   item: DTOItem,
   downloadById: Map<string, string | null>,
@@ -129,23 +90,20 @@ const toChildItem = (
     subtitle: item.channel?.title ?? null,
     artist: itemArtistNames(item),
     artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
-    mediaUrl: downloadFileName ?? resolveMediaUrl(item),
-    durationMs: durationMsFromItem(item),
+    mediaUrl: downloadFileName ?? resolveNativeCacheMediaUrl(item.item_enclosures),
+    durationMs: nativeCacheDurationMs(item),
     pubDateMs:
       typeof item.pub_date === 'string' && item.pub_date.length > 0
         ? Date.parse(item.pub_date)
         : null,
-    // A played item starts over in the car, so it carries no resume point.
-    progressSeconds:
-      progress !== null && !progress.played && progress.positionSeconds > 0
-        ? progress.positionSeconds
-        : null,
+    progressSeconds: nativeResumeSeconds(progress),
     played: progress?.played ?? false,
     downloadFileName,
   };
 };
 
-const readAccountIdText = async (): Promise<string | null> => {
+/** The signed-in account's id from the stored snapshot; null signed out or on a read failure. */
+export const readAccountIdText = async (): Promise<string | null> => {
   try {
     const { accountRepository } = await import('../repositories/accountRepository');
     return (await accountRepository.getSnapshot())?.id_text ?? null;
@@ -154,7 +112,7 @@ const readAccountIdText = async (): Promise<string | null> => {
   }
 };
 
-const readProgressLookup = async (): Promise<ItemProgressLookup> => {
+export const readProgressLookup = async (): Promise<ItemProgressLookup> => {
   try {
     return await readItemProgressForProjection(await readAccountIdText());
   } catch {
@@ -172,7 +130,7 @@ const soft = async (label: string, work: () => Promise<void>): Promise<void> => 
   }
 };
 
-const completeDownloadMap = async (): Promise<Map<string, string | null>> => {
+export const completeDownloadMap = async (): Promise<Map<string, string | null>> => {
   const downloads = await downloadsRepository.list();
   return new Map(
     downloads
@@ -273,13 +231,13 @@ const projectQueueBucket = async (
   const caches = await readQueueCachesForProjection(queueIdText);
   const entries: NativeCacheQueueEntry[] = [];
   if (caches.nowPlaying !== null) {
-    const entry = toQueueEntry(caches.nowPlaying);
+    const entry = nativeQueueEntryFromQueueResource(caches.nowPlaying);
     if (entry !== null) {
       entries.push(entry);
     }
   }
   for (const resource of caches.upcoming) {
-    const entry = toQueueEntry(resource);
+    const entry = nativeQueueEntryFromQueueResource(resource);
     if (entry !== null && entry.idText !== caches.nowPlaying?.item?.id_text) {
       entries.push(entry);
     }
@@ -326,7 +284,7 @@ export const reprojectHistoryIndex = async (queueIdText?: string | null): Promis
         channelTitle: item.channel?.title ?? null,
         artist: itemArtistNames(item),
         artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
-        mediaUrl: downloadFileName ?? resolveMediaUrl(item),
+        mediaUrl: downloadFileName ?? resolveNativeCacheMediaUrl(item.item_enclosures),
         mediumBucket: 'av',
         downloadFileName,
       });
@@ -345,7 +303,7 @@ const writeLiveIndex = async (items: readonly DTOItem[]): Promise<void> => {
     if (item.live_item?.live_item_status_id !== LiveItemStatusEnum.Live) {
       continue;
     }
-    const mediaUrl = resolveMediaUrl(item);
+    const mediaUrl = resolveNativeCacheMediaUrl(item.item_enclosures);
     if (mediaUrl === null || mediaUrl === '') {
       continue;
     }

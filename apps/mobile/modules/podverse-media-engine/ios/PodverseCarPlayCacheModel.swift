@@ -44,10 +44,23 @@ enum PodverseCarPlayCacheModel {
     let artist: String?
     let startPositionSeconds: Double?
     let downloadFileName: String?
+    /// Engine meta `kind`: `item`, `clip`, `item_soundbite`, or `add_by_rss`.
+    let kind: String
+    let clipStartSeconds: Double?
+    let clipEndSeconds: Double?
   }
 
   struct QueueSnapshot {
     let nowPlayingIdText: String?
+    let entries: [QueueEntry]
+  }
+
+  /// Play order after the anchor, written by JS to `advance-window.json`. `entries` never
+  /// contains the anchor. Rows are identified by `kind` plus `idText`.
+  struct AdvanceWindow {
+    let mediumBucket: String
+    let anchorIdText: String?
+    let anchorKind: String
     let entries: [QueueEntry]
   }
 
@@ -137,24 +150,38 @@ enum PodverseCarPlayCacheModel {
     guard let array = root["entries"] as? [Any] else {
       return QueueSnapshot(nowPlayingIdText: nowPlayingIdText, entries: [])
     }
-    var entries: [QueueEntry] = []
-    for element in array {
-      guard let obj = element as? [String: Any],
-        let idText = nonBlankString(obj["idText"]),
-        let title = nonBlankString(obj["title"])
-      else { continue }
-      entries.append(
-        QueueEntry(
-          idText: idText,
-          title: title,
-          artworkUrl: nonBlankString(obj["artworkUrl"]),
-          mediaUrl: nonBlankString(obj["mediaUrl"]),
-          podcastTitle: nonBlankString(obj["podcastTitle"]),
-          artist: nonBlankString(obj["artist"]),
-          startPositionSeconds: doubleOrNil(obj["startPositionSeconds"]),
-          downloadFileName: nonBlankString(obj["downloadFileName"])))
-    }
-    return QueueSnapshot(nowPlayingIdText: nowPlayingIdText, entries: entries)
+    return QueueSnapshot(
+      nowPlayingIdText: nowPlayingIdText, entries: array.compactMap(parseQueueEntry))
+  }
+
+  static func parseAdvanceWindow(_ json: String?) -> AdvanceWindow? {
+    guard let root = decodeEnvelope(json, label: "advance-window") else { return nil }
+    let entries = (root["entries"] as? [Any])?.compactMap(parseQueueEntry) ?? []
+    return AdvanceWindow(
+      mediumBucket: nonBlankString(root["mediumBucket"]) ?? "av",
+      anchorIdText: nonBlankString(root["anchorIdText"]),
+      anchorKind: nonBlankString(root["anchorKind"]) ?? "item",
+      entries: entries)
+  }
+
+  /// One queue snapshot or advance-window row. A missing `kind` means `item`.
+  private static func parseQueueEntry(_ element: Any) -> QueueEntry? {
+    guard let obj = element as? [String: Any],
+      let idText = nonBlankString(obj["idText"]),
+      let title = nonBlankString(obj["title"])
+    else { return nil }
+    return QueueEntry(
+      idText: idText,
+      title: title,
+      artworkUrl: nonBlankString(obj["artworkUrl"]),
+      mediaUrl: nonBlankString(obj["mediaUrl"]),
+      podcastTitle: nonBlankString(obj["podcastTitle"]),
+      artist: nonBlankString(obj["artist"]),
+      startPositionSeconds: doubleOrNil(obj["startPositionSeconds"]),
+      downloadFileName: nonBlankString(obj["downloadFileName"]),
+      kind: nonBlankString(obj["kind"]) ?? "item",
+      clipStartSeconds: doubleOrNil(obj["clipStartSeconds"]),
+      clipEndSeconds: doubleOrNil(obj["clipEndSeconds"]))
   }
 
   static func parseChildItems(_ json: String?) -> [ChildItem] {

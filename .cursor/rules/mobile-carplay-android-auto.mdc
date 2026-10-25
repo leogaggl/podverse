@@ -29,6 +29,7 @@ JS syncs a small cache whenever queue, downloads, or library index changes:
 | Payload (Track 12)              | Purpose                                      |
 | ------------------------------- | -------------------------------------------- |
 | Queue snapshot                  | Now-playing + upcoming for car skip/advance  |
+| Advance window                  | Play order after the playing item for app-closed advance (kind and clip range per entry) |
 | Downloads index                 | Offline items playable from car              |
 | Library browse index            | Podcast/playlist lists for car templates     |
 
@@ -81,7 +82,10 @@ iOS CarPlay (12.7–12.10) is a later slice pending the Apple CarPlay entitlemen
 - **Don't** assume the RN app must be foreground for car playback.
 - **Don't** assume CarPlay / Android Auto / watch complications read SQLite.
 - **Don't** duplicate queue policy in native — policy stays in `@podverse/playback-core`; native
-  executes transport and displays cached state.
+  executes transport and displays cached state; native steps through the advance window JS wrote,
+  matching rows by kind and id.
+- **Don't** write Add by RSS feed passwords, auth headers, or credentialed media URLs into any
+  native cache file.
 
 ## Related
 

@@ -146,6 +146,10 @@ class PodverseMediaEngineModule : Module() {
       PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.QUEUE_MUSIC, payloadJson)
     }
 
+    AsyncFunction("writeAdvanceWindow") { payloadJson: String ->
+      PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.ADVANCE_WINDOW, payloadJson)
+    }
+
     AsyncFunction("writeDownloadsIndex") { payloadJson: String ->
       PodverseNativeCache.write(reactContext(), PodverseNativeCacheKind.DOWNLOADS, payloadJson)
     }

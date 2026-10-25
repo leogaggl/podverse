@@ -1,4 +1,5 @@
 import type { AddByRSSResourceData } from '@podverse/helpers';
+import { buildAddByRSSListContext, orderAddByRSSEpisodeIdTexts } from '@podverse/playback-core';
 
 import type {
   AddByRSSListContextState,
@@ -50,7 +51,7 @@ export async function resolveAddByRSSListContextFromCurrentItem(
     return null;
   }
 
-  let itemIdTexts: string[];
+  let orderedIdTexts: string[];
 
   if (isLivestream) {
     const all = await getAllAddByRSSLivestreamItems();
@@ -58,31 +59,22 @@ export async function resolveAddByRSSListContextFromCurrentItem(
       (item: AddByRSSLivestreamIndexItem) => item.channelIdText === channelIdText
     );
     // Livestreams follow the channel order; sortOrder orders episodes and tracks.
-    itemIdTexts = selectChannelOrderedLiveItems(forChannel).map((item) => item.idText);
+    orderedIdTexts = selectChannelOrderedLiveItems(forChannel).map((item) => item.idText);
   } else {
     const all = await getAllAddByRSSItems();
     const forChannel = all.filter(
       (item: AddByRSSItemIndexItem) => item.channelIdText === channelIdText
     );
-    forChannel.sort((a, b) =>
-      sortOrder === 'recent' ? b.pubDateMs - a.pubDateMs : a.pubDateMs - b.pubDateMs
+    orderedIdTexts = orderAddByRSSEpisodeIdTexts(
+      forChannel.map((item) => ({ idText: item.idText, pubDateMs: item.pubDateMs })),
+      sortOrder
     );
-    itemIdTexts = forChannel.map((item: AddByRSSItemIndexItem) => item.idText);
   }
 
-  if (itemIdTexts.length === 0) {
-    return null;
-  }
-
-  const currentIndex = itemIdTexts.indexOf(currentIdText);
-  if (currentIndex < 0) {
-    return null;
-  }
-
-  return {
+  return buildAddByRSSListContext({
     feedIdText: channelIdText,
-    itemIdTexts,
-    currentIndex,
+    orderedIdTexts,
+    currentIdText,
     sortOrder,
-  };
+  });
 }

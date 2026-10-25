@@ -154,7 +154,9 @@ export function playbackTargetToHistoryTarget(
  * Stable id for matching a list row to the active playback target (episode/item, clip, soundbite,
  * chapter). Prefixed home-feed ids (`item-` / `clip-` / `soundbite-`) should be normalized with
  * `normalizeHomeFeedPlaybackMediaId` before comparison. An Add by RSS target uses
- * `addByRssPlaybackMediaId`, the same value the engine source records as `meta.idText`.
+ * `addByRssPlaybackMediaId`, the same value the engine source records as `meta.idText`. For a
+ * chapter this is the chapter id, while the engine names the item it loaded, so compare engine
+ * ids with `engineSourceMatchesTarget` instead.
  */
 export function playbackTargetRowMediaId(target: PlaybackTarget): string | null {
   switch (target.kind) {

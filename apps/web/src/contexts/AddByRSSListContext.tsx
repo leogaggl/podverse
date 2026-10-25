@@ -3,15 +3,9 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useState } from 'react';
 
-export type AddByRSSListSortOrder = 'recent' | 'oldest';
+import type { AddByRSSListContextState } from '@podverse/playback-core';
 
-export type AddByRSSListContextState = {
-  feedIdText: string;
-  itemIdTexts: string[];
-  currentIndex: number;
-  /** List sort when context was set. 'recent' = newest first (index 0 = newest); 'oldest' = oldest first. Default 'recent'. */
-  sortOrder?: AddByRSSListSortOrder;
-};
+export type { AddByRSSListContextState, AddByRSSListSortOrder } from '@podverse/playback-core';
 
 type AddByRSSListContextType = {
   listContext: AddByRSSListContextState | null;

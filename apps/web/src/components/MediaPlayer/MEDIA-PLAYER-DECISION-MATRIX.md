@@ -135,6 +135,11 @@ slow adoption never replaces the item the user chose.
 `handleLoadAutoQueueItem` calls `mediaPlayerResourceUpdate` with
 **`autoQueueShouldClear: false`** so the auto-queue is preserved.
 
+The buffer's later rows come from `fillAutoQueueForward` in `@podverse/playback-core`,
+called by `useAutoQueueLoadResources`. `fetchAutoQueueResources` in
+`useMediaPlayerControllerQueueHeadLoading` makes that call when the active row is the
+highest key or the buffer is empty.
+
 | Resource shape                                           | `currentTime` after `loadedmetadata`                                                           | `mpIsPlaying`                                                                                                            | Side effects                                                                                                               |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `autoQueueResources[row].item` + optional clip/soundbite | Same precedence as the queue-load row above (clip > soundbite > item with music/podcast split) | Inherits whatever play state was already on (autoQueue typically advances during ended → load → `setMPShouldPlay(true)`) | Auto-queue remains populated; near-end clamp **inside `useMediaPlayerResourceUpdate`** still applies before metadata loads |
@@ -157,6 +162,10 @@ slow adoption never replaces the item the user chose.
 | `mpAddByRSS != null`         | `onAddByRSSEnded(positionSeconds)`; `setMPShouldPlay(false)`; load active queue with stored `medium_id`; if `upcomingManualCount === 0`, attempt `onAddByRSSPlayNext()`; if that returns false, `clearNowPlaying()` |
 | Non add-by-RSS               | `moveNowPlayingToHistory({ completed: true, ... })`; `useQueueResourcesLoadActive()`; if both queues empty: `clearNowPlaying()`; otherwise: `setMPShouldPlay(true)`                                                 |
 | Embed route (`isEmbedRoute`) | `setMPIsPlaying(false)`; `setMPShouldPlay(false)`; return (no history move, queue load, or `clearNowPlaying`)                                                                                                       |
+
+Add by RSS next and previous choose the neighbor with `resolveAddByRSSAdjacentStep`
+in `@podverse/playback-core`. `useAddByRSSPlayNext` and `useAddByRSSPlayPrevious` load
+that id and play it.
 
 ### 6. Time-update side effects
 
@@ -257,6 +266,9 @@ track's saved position.
 **Playlists:** playlist-driven next/previous uses auto-queue / queue rows;
 no separate playlist intent — same `fresh_transition` vs `session_restore`
 split as § 3–§ 5.
+
+Once chapters and the 3-second restart are handled in `useTrackPreviousButtonActions`,
+`runCorePreviousTrack` calls `resolveAutoQueuePrevious` in `@podverse/playback-core`.
 
 ## Section 6 (REQUIRED) — Livestream baseline
 

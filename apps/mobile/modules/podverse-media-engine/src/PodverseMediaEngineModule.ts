@@ -66,6 +66,8 @@ export type PodverseMediaEngineNativeModule = {
   setVideoSurfaceVisible(visible: boolean): void;
   writeQueueSnapshotAv(payloadJson: string): Promise<void>;
   writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
+  /** Play order after the playing item, for native advance while JS is not running. */
+  writeAdvanceWindow(payloadJson: string): Promise<void>;
   writeDownloadsIndex(payloadJson: string): Promise<void>;
   writeLibraryBrowseIndex(payloadJson: string): Promise<void>;
   writeLibraryChildren(channelIdText: string, payloadJson: string): Promise<void>;
