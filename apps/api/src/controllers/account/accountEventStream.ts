@@ -24,6 +24,10 @@ const getLastEventId = (req: Request): number | null => {
  * The account's one event stream. Auth, terms, and stream-limit failures answer with JSON before
  * any stream bytes; clients treat 401 and 403 as final and stop reconnecting. Membership is not
  * required, so an expired account still gets live read sync across its devices.
+ *
+ * A session-authenticated stream is bound to its session, so ending that session closes it. A
+ * session-ended 401 keeps the cookie because `EventSource` cannot read the body. An API key stream
+ * names no session and ends at its lifetime cap or the key's expiry.
  */
 export class AccountEventStreamController {
   private static accountService = new AccountService();
@@ -36,6 +40,11 @@ export class AccountEventStreamController {
         try {
           const jwtUser = getAuthenticatedUser(req);
           const account_id = jwtUser.id;
+          const sessionIdText = jwtUser.api_key === null ? jwtUser.session_id_text : null;
+          if (jwtUser.api_key === null && (sessionIdText === null || sessionIdText === '')) {
+            res.status(401).json({ message: 'Unauthorized' });
+            return;
+          }
           const lastEventId = getLastEventId(req);
 
           const account = await AccountEventStreamController.accountService.get(account_id);
@@ -68,6 +77,7 @@ export class AccountEventStreamController {
 
           const stream = openAccountEventStream({
             account_id,
+            sessionIdText,
             response: res,
             cutoff: account.notifications_last_read_at ?? null,
             lastEventId,
@@ -86,6 +96,7 @@ export class AccountEventStreamController {
       },
       {
         skipMembershipStatus: true,
+        keepCookieOnSessionEnded: true,
         apiKeyAccess: { resource: 'notifications', action: 'read' },
       }
     );

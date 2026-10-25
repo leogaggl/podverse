@@ -8,6 +8,7 @@ import type { AccountNotificationStreamEvent } from '@podverse/helpers';
 
 import { getApiRequestService, getClientApiBaseUrl } from '../factories/apiRequestService';
 import { useNotificationsUnreadCount } from '../hooks/useNotificationsUnreadCount';
+import { reportSessionEnded } from '../lib/auth/sessionEndedNotice';
 import type { NotificationStreamStatus } from '../lib/notifications/stream/notificationStreamConnection';
 import { startNotificationStreamCoordinator } from '../lib/notifications/stream/notificationStreamCoordinator';
 import { getNotificationStreamEventUnreadCount } from '../lib/notifications/stream/notificationStreamEventUnreadCount';
@@ -274,6 +275,7 @@ export const NotificationsProvider = ({ children }: NotificationsProviderProps) 
           listener(event);
         }
       },
+      onSessionEnded: reportSessionEnded,
     });
 
     return () => {

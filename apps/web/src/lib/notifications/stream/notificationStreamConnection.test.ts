@@ -158,4 +158,44 @@ describe('openNotificationStreamConnection', () => {
     expect(statuses.filter((status) => status === 'off')).toHaveLength(1);
     expect(statuses[statuses.length - 1]).toBe('off');
   });
+
+  it('closes after a session ended event with a notice and does not open another source', () => {
+    const { sources, statuses, events, timers, latestSource, runNextTimer } = setup();
+    latestSource().open();
+
+    latestSource().emit('session.ended', '{"notice":"signed_out_elsewhere"}');
+
+    expect(events).toEqual([
+      {
+        eventName: 'session.ended',
+        rawData: '{"notice":"signed_out_elsewhere"}',
+        lastEventId: null,
+      },
+    ]);
+    expect(latestSource().closed).toBe(true);
+    expect(statuses).toEqual(['connecting', 'open', 'off']);
+
+    const fiveMinutesMs = 300_000;
+    let elapsed = 0;
+    let pending = timers[0];
+    while (pending !== undefined && pending.ms <= fiveMinutesMs - elapsed) {
+      elapsed += runNextTimer();
+      pending = timers[0];
+    }
+    expect(sources).toHaveLength(1);
+  });
+
+  it('leaves the source open after a session ended event with a null notice', () => {
+    const { sources, statuses, events, latestSource } = setup();
+    latestSource().open();
+
+    latestSource().emit('session.ended', '{"notice":null}');
+
+    expect(events).toEqual([
+      { eventName: 'session.ended', rawData: '{"notice":null}', lastEventId: null },
+    ]);
+    expect(latestSource().closed).toBe(false);
+    expect(sources).toHaveLength(1);
+    expect(statuses).toEqual(['connecting', 'open']);
+  });
 });

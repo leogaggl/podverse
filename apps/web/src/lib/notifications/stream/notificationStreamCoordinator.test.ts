@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AccountNotificationStreamEvent } from '@podverse/helpers';
+import type { AccountNotificationStreamEvent, AuthSessionEndedNotice } from '@podverse/helpers';
+import { ACCOUNT_SESSION_STREAM_EVENT } from '@podverse/helpers';
 
 import type {
   NotificationStreamConnectionOptions,
@@ -153,14 +154,16 @@ function createTestBrowser() {
   const start = (accountId: number, overrides: Partial<NotificationStreamEnvironment> = {}) => {
     const events: AccountNotificationStreamEvent[] = [];
     const statuses: NotificationStreamStatus[] = [];
+    const sessionEnded: AuthSessionEndedNotice[] = [];
     const coordinator = startNotificationStreamCoordinator({
       accountId,
       apiBaseUrl: API_BASE_URL,
       onEvent: (event) => events.push(event),
+      onSessionEnded: (notice) => sessionEnded.push(notice),
       onStatus: (status) => statuses.push(status),
       environment: { ...environment, ...overrides },
     });
-    return { coordinator, events, statuses };
+    return { coordinator, events, statuses, sessionEnded };
   };
 
   const connectionAt = (index: number): FakeConnection => {
@@ -179,9 +182,26 @@ function createTestBrowser() {
     });
   };
 
+  const emitSessionEnded = (connection: FakeConnection, notice: AuthSessionEndedNotice | null) => {
+    connection.options.onRawEvent({
+      eventName: ACCOUNT_SESSION_STREAM_EVENT.ended,
+      rawData: JSON.stringify({ notice }),
+      lastEventId: null,
+    });
+  };
+
   const openConnections = () => connections.filter((connection) => !connection.closed);
 
-  return { locks, hub, connections, start, connectionAt, emitCreated, openConnections };
+  return {
+    locks,
+    hub,
+    connections,
+    start,
+    connectionAt,
+    emitCreated,
+    emitSessionEnded,
+    openConnections,
+  };
 }
 
 describe('startNotificationStreamCoordinator', () => {
@@ -258,6 +278,49 @@ describe('startNotificationStreamCoordinator', () => {
 
     browser.emitCreated(browser.connectionAt(0), 7);
     expect(first.events).toEqual([CREATED_PARSED]);
+  });
+
+  it('tells every tab of the account when this browser session was ended elsewhere', async () => {
+    const browser = createTestBrowser();
+    const leader = browser.start(1);
+    const follower = browser.start(1);
+    await flush();
+
+    browser.emitSessionEnded(browser.connectionAt(0), 'admin_force_logout');
+    await flush();
+
+    expect(leader.sessionEnded).toEqual(['admin_force_logout']);
+    expect(follower.sessionEnded).toEqual(['admin_force_logout']);
+    expect(leader.events).toEqual([]);
+    expect(follower.events).toEqual([]);
+    expect(browser.connections).toHaveLength(1);
+    expect(browser.locks.isHeld('podverse:notification-stream:1')).toBe(true);
+  });
+
+  it('does not sign out when the ended event has a null notice', async () => {
+    const browser = createTestBrowser();
+    const leader = browser.start(1);
+    const follower = browser.start(1);
+    await flush();
+
+    browser.emitSessionEnded(browser.connectionAt(0), null);
+    await flush();
+
+    expect(leader.sessionEnded).toEqual([]);
+    expect(follower.sessionEnded).toEqual([]);
+  });
+
+  it('does not tell another account that this browser session ended', async () => {
+    const browser = createTestBrowser();
+    const otherAccount = browser.start(2);
+    const thisAccount = browser.start(1);
+    await flush();
+
+    browser.emitSessionEnded(browser.connectionAt(1), 'admin_force_logout');
+    await flush();
+
+    expect(thisAccount.sessionEnded).toEqual(['admin_force_logout']);
+    expect(otherAccount.sessionEnded).toEqual([]);
   });
 
   it('stops cleanly when called twice and leaves no stream, lock, or channel', async () => {

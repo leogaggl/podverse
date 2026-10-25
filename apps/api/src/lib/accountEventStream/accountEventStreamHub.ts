@@ -4,28 +4,41 @@ import { subscribeAccountEvents } from '@api/lib/accountEvents/accountEventRedis
 import { accountNotificationToJson } from '@api/lib/accountNotificationApiSerialization.js';
 
 import type {
+  AuthSessionEndedNotice,
   DTOAccountNotificationStreamCreated,
   DTOAccountNotificationStreamRead,
   DTOAccountNotificationStreamResync,
   DTOAccountNotificationStreamState,
+  DTOAccountSessionStreamEnded,
 } from '@podverse/helpers';
 import {
   ACCOUNT_EVENTS_STREAM_HEARTBEAT_MS,
   ACCOUNT_NOTIFICATION_STREAM_EVENT,
   ACCOUNT_NOTIFICATIONS_REPLAY_LIMIT,
+  ACCOUNT_SESSION_STREAM_EVENT,
+  getAuthSessionEndedNotice,
 } from '@podverse/helpers';
-import type { AccountEvent, AccountNotification, AccountNotificationSignal } from '@podverse/orm';
+import type {
+  AccountEvent,
+  AccountNotification,
+  AccountNotificationSignal,
+  AccountSessionEndedSignal,
+} from '@podverse/orm';
 import {
   AccountNotificationService,
   AccountService,
   toAccountNotificationSignal,
+  toAccountSessionEndedSignal,
 } from '@podverse/orm';
 
 import { formatSseComment, formatSseEvent, formatSseRetry } from './sseWire.js';
 
 /**
- * Bounds how long a deleted account, a changed password, or a terms change can keep a stream, and
- * spreads clients across pods after a scale-out.
+ * Backstop for a stream whose `session.ended` event never arrives. A session-ended event closes
+ * a stream at once, but a revocation published during a Redis outage is dropped, and deleting an
+ * account removes its sessions without publishing. The cap also spreads clients across pods after
+ * a scale-out. Its cost is one authenticated reconnect per client per 30 minutes, which is why the
+ * hub does not re-check every open stream's session when Redis recovers.
  */
 export const ACCOUNT_EVENT_STREAM_MAX_LIFETIME_MS = 30 * 60_000;
 
@@ -38,6 +51,15 @@ export const ACCOUNT_EVENT_STREAM_RETRY_MS = 5_000;
 /** Delivered notification ids each stream remembers, so a repeated id is not sent twice. */
 const RECENT_IDS_LIMIT = 200;
 
+/**
+ * How long the hub remembers an ended session. The session check runs a few milliseconds before
+ * the stream registers, so an event that lands in that gap still closes the stream.
+ */
+const RECENTLY_ENDED_SESSION_TTL_MS = 60_000;
+
+/** Most remembered ended sessions; the oldest are dropped first. */
+const RECENTLY_ENDED_SESSION_MAX = 10_000;
+
 /** The part of an Express response a stream writes to. */
 export type AccountEventStreamResponse = {
   readonly writable: boolean;
@@ -48,6 +70,8 @@ export type AccountEventStreamResponse = {
 
 export type AccountEventStream = {
   readonly account_id: number;
+  /** The session the stream's token names; null for an API key, which no session event closes. */
+  readonly sessionIdText: string | null;
   readonly response: AccountEventStreamResponse;
   /** This stream's copy of the account's Mark All as Read cutoff. */
   cutoff: Date | null;
@@ -56,13 +80,22 @@ export type AccountEventStream = {
   readonly recentIds: Set<number>;
   heartbeat: ReturnType<typeof setInterval> | null;
   endTimer: ReturnType<typeof setTimeout> | null;
+  /** Set once the stream has ended by any path; nothing is written after that. */
   closed: boolean;
 };
 
 export type AccountEventStreamAdmission = 'open' | 'limit' | 'closed';
 
+type RecentlyEndedSession = {
+  account_id: number;
+  notice: AuthSessionEndedNotice | null;
+  expiresAtMs: number;
+};
+
 const streamsByAccount = new Map<number, Set<AccountEventStream>>();
 const chainsByAccount = new Map<number, Promise<void>>();
+/** Keyed by session id text, in insertion order. */
+const recentlyEndedSessions = new Map<string, RecentlyEndedSession>();
 const loggedUnhandledTypes = new Set<string>();
 let subscription: AccountEventSubscription | null = null;
 let hubClosed = false;
@@ -327,7 +360,74 @@ const recoverAccount = async (account_id: number): Promise<void> => {
   }
 };
 
+/**
+ * The last event on the stream, with no SSE id so it never replays. A failed write still ends the
+ * stream.
+ */
+const endWithSessionEnded = (
+  stream: AccountEventStream,
+  notice: AuthSessionEndedNotice | null
+): void => {
+  const data: DTOAccountSessionStreamEnded = { notice };
+  writeChunk(stream, formatSseEvent({ event: ACCOUNT_SESSION_STREAM_EVENT.ended, data }));
+  closeAccountEventStream(stream);
+};
+
+const rememberEndedSession = (sessionIdText: string, entry: RecentlyEndedSession): void => {
+  const nowMs = Date.now();
+  for (const [key, existing] of recentlyEndedSessions) {
+    if (existing.expiresAtMs > nowMs) {
+      break;
+    }
+    recentlyEndedSessions.delete(key);
+  }
+  recentlyEndedSessions.delete(sessionIdText);
+  recentlyEndedSessions.set(sessionIdText, entry);
+  while (recentlyEndedSessions.size > RECENTLY_ENDED_SESSION_MAX) {
+    const oldest = recentlyEndedSessions.keys().next();
+    if (oldest.done === true) {
+      break;
+    }
+    recentlyEndedSessions.delete(oldest.value);
+  }
+};
+
+const findRecentlyEndedSession = (
+  account_id: number,
+  sessionIdText: string
+): RecentlyEndedSession | null => {
+  const entry = recentlyEndedSessions.get(sessionIdText);
+  if (entry === undefined || entry.account_id !== account_id || entry.expiresAtMs <= Date.now()) {
+    return null;
+  }
+  return entry;
+};
+
+/**
+ * Runs at once, outside the account's queue and with no query. The ids are remembered whether or
+ * not this pod holds a stream for the account, because a stream may be registering.
+ */
+const handleSessionsEnded = (signal: AccountSessionEndedSignal): void => {
+  const notice = getAuthSessionEndedNotice(signal.reason);
+  const expiresAtMs = Date.now() + RECENTLY_ENDED_SESSION_TTL_MS;
+  for (const sessionIdText of signal.session_id_texts) {
+    rememberEndedSession(sessionIdText, { account_id: signal.account_id, notice, expiresAtMs });
+  }
+
+  const endedIds = new Set(signal.session_id_texts);
+  for (const stream of getOpenStreams(signal.account_id)) {
+    if (stream.sessionIdText !== null && endedIds.has(stream.sessionIdText)) {
+      endWithSessionEnded(stream, notice);
+    }
+  }
+};
+
 const handleAccountEvent = (event: AccountEvent): void => {
+  const sessionsEnded = toAccountSessionEndedSignal(event);
+  if (sessionsEnded !== null) {
+    handleSessionsEnded(sessionsEnded);
+    return;
+  }
   if (!streamsByAccount.has(event.account_id)) {
     return;
   }
@@ -382,6 +482,7 @@ export async function closeAccountEventStreamHub(): Promise<void> {
       closeAccountEventStream(stream);
     }
   }
+  recentlyEndedSessions.clear();
   const current = subscription;
   subscription = null;
   if (current !== null) {
@@ -399,10 +500,13 @@ export function getAccountEventStreamAdmission(account_id: number): AccountEvent
 
 /**
  * Registers a response whose headers are already sent. Writes the retry line at once, then the
- * state snapshot and any replay on the account's queue, ahead of later live events.
+ * state snapshot and any replay on the account's queue, ahead of later live events. A session
+ * that ended in the last minute gets only `session.ended`, and the stream ends.
  */
 export function openAccountEventStream(params: {
   account_id: number;
+  /** Null for an API key. */
+  sessionIdText: string | null;
   response: AccountEventStreamResponse;
   cutoff: Date | null;
   lastEventId: number | null;
@@ -411,6 +515,7 @@ export function openAccountEventStream(params: {
 }): AccountEventStream {
   const stream: AccountEventStream = {
     account_id: params.account_id,
+    sessionIdText: params.sessionIdText,
     response: params.response,
     cutoff: params.cutoff,
     highWaterId: params.lastEventId ?? 0,
@@ -434,13 +539,26 @@ export function openAccountEventStream(params: {
     closeAccountEventStream(stream);
   }, getLifetimeMs(params.tokenExpiresAt));
 
-  if (writeChunk(stream, formatSseRetry(ACCOUNT_EVENT_STREAM_RETRY_MS))) {
-    enqueueForAccount(params.account_id, () => startStream(stream, params.lastEventId));
+  if (!writeChunk(stream, formatSseRetry(ACCOUNT_EVENT_STREAM_RETRY_MS))) {
+    return stream;
   }
+  const endedSession =
+    params.sessionIdText === null
+      ? null
+      : findRecentlyEndedSession(params.account_id, params.sessionIdText);
+  if (endedSession !== null) {
+    endWithSessionEnded(stream, endedSession.notice);
+    return stream;
+  }
+  enqueueForAccount(params.account_id, () => startStream(stream, params.lastEventId));
   return stream;
 }
 
-/** Ends the response, clears its timers, and removes it from the hub. Safe to call twice. */
+/**
+ * The one way a stream ends: token expiry, the lifetime cap, a failed or backed-up write, client
+ * close, hub shutdown, and session end all come here. Ends the response, clears its timers, and
+ * removes it from the hub. Safe to call twice.
+ */
 export function closeAccountEventStream(stream: AccountEventStream): void {
   if (stream.closed) {
     return;

@@ -11,6 +11,8 @@ import {
   sha256Hex,
 } from '@podverse/helpers';
 
+import { publishAccountSessionsEnded } from './accountSessionSignal.js';
+
 /** Raw SQL. Call sites narrow the rows; the signature does not invent a row type. */
 type SessionQuery = {
   query: (sql: string, parameters?: readonly unknown[]) => Promise<unknown>;
@@ -156,6 +158,7 @@ export async function touchAccountSession(input: {
  * successfully). Presenting current moves it to previous; presenting previous replaces current
  * and keeps previous, so a client that never received the last response recovers at any delay.
  * Any other id is read as a shared token and revokes the session with `refresh_reuse`.
+ * A `reused` outcome publishes `session.ended` after the transaction commits.
  */
 export async function rotateAccountSessionRefreshToken(input: {
   sessionIdText: string;
@@ -165,7 +168,17 @@ export async function rotateAccountSessionRefreshToken(input: {
   idleExpiresAt: Date;
   now: Date;
 }): Promise<AccountSessionRotateResult> {
-  return AppDataSourceReadWrite.transaction((manager) => rotateWithinTransaction(manager, input));
+  const result = await AppDataSourceReadWrite.transaction((manager) =>
+    rotateWithinTransaction(manager, input)
+  );
+  if (result.outcome === 'reused') {
+    await publishAccountSessionsEnded({
+      account_id: input.accountId,
+      session_id_texts: [input.sessionIdText],
+      reason: 'refresh_reuse',
+    });
+  }
+  return result;
 }
 
 async function rotateWithinTransaction(
@@ -247,7 +260,7 @@ async function rotateWithinTransaction(
 
 /**
  * Ends one of the account's own sessions. True only when an active row changed; a row that is
- * already revoked keeps its first reason.
+ * already revoked keeps its first reason. A change publishes `session.ended` after it commits.
  */
 export async function revokeAccountSession(input: {
   accountId: number;
@@ -266,12 +279,21 @@ export async function revokeAccountSession(input: {
         AND idle_expires_at > $4`,
     [input.sessionIdText, input.accountId, input.reason, input.now]
   );
-  return statementRowCount(result) > 0;
+  const revoked = statementRowCount(result) > 0;
+  if (revoked) {
+    await publishAccountSessionsEnded({
+      account_id: input.accountId,
+      session_id_texts: [input.sessionIdText],
+      reason: input.reason,
+    });
+  }
+  return revoked;
 }
 
 /**
  * Ends every active session on the account. `exceptSessionIdText` keeps the caller's own session;
- * null ends all of them. Returns the number of rows changed.
+ * null ends all of them. Returns the number of rows changed. Publishes `session.ended` naming
+ * exactly the changed sessions after it commits.
  */
 export async function revokeAccountSessions(input: {
   accountId: number;
@@ -286,20 +308,27 @@ export async function revokeAccountSessions(input: {
       WHERE account_id = $1
         AND revoked_at IS NULL
         AND idle_expires_at > $3`;
+  const returning = `\n      RETURNING id_text`;
   const result: unknown =
     input.exceptSessionIdText === null
-      ? await AppDataSourceReadWrite.manager.query(baseSql, [
+      ? await AppDataSourceReadWrite.manager.query(`${baseSql}${returning}`, [
           input.accountId,
           input.reason,
           input.now,
         ])
-      : await AppDataSourceReadWrite.manager.query(`${baseSql}\n        AND id_text <> $4`, [
-          input.accountId,
-          input.reason,
-          input.now,
-          input.exceptSessionIdText,
-        ]);
-  return statementRowCount(result);
+      : await AppDataSourceReadWrite.manager.query(
+          `${baseSql}\n        AND id_text <> $4${returning}`,
+          [input.accountId, input.reason, input.now, input.exceptSessionIdText]
+        );
+  const sessionIdTexts = returnedRows(result).map(readSessionIdText);
+  if (sessionIdTexts.length > 0) {
+    await publishAccountSessionsEnded({
+      account_id: input.accountId,
+      session_id_texts: sessionIdTexts,
+      reason: input.reason,
+    });
+  }
+  return sessionIdTexts.length;
 }
 
 /** Sessions that are neither revoked nor idle-expired, most recently used first. */
@@ -395,7 +424,7 @@ function readSessionState(value: unknown): {
   };
 }
 
-function readSessionRow(value: unknown): AccountSessionRow {
+function readSessionIdText(value: unknown): string {
   if (typeof value !== 'object' || value === null) {
     throw new Error('Account session row is not an object');
   }
@@ -403,6 +432,14 @@ function readSessionRow(value: unknown): AccountSessionRow {
   if (typeof idText !== 'string' || idText === '') {
     throw new Error('Account session id_text is missing');
   }
+  return idText;
+}
+
+function readSessionRow(value: unknown): AccountSessionRow {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('Account session row is not an object');
+  }
+  const idText = readSessionIdText(value);
   const clientType = Reflect.get(value, 'client_type');
   if (!isAccountSessionClientType(clientType)) {
     throw new Error('Account session client_type is not a known value');

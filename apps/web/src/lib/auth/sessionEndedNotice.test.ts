@@ -145,6 +145,32 @@ describe('reportSessionEndedError', () => {
     expect(handler).toHaveBeenCalledWith('security');
   });
 
+  it('lets a stream notice sign the page out once, ahead of a later refused request', async () => {
+    const { reportSessionEnded, reportSessionEndedError, setSessionEndedHandler } =
+      await import('./sessionEndedNotice');
+    const handler = vi.fn(async () => {});
+    setSessionEndedHandler(handler);
+
+    reportSessionEnded('security');
+    reportSessionEndedError(refused('password_changed'));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith('security');
+  });
+
+  it('lets a refused request sign the page out once, ahead of a later stream notice', async () => {
+    const { reportSessionEnded, reportSessionEndedError, setSessionEndedHandler } =
+      await import('./sessionEndedNotice');
+    const handler = vi.fn(async () => {});
+    setSessionEndedHandler(handler);
+
+    reportSessionEndedError(refused('password_changed'));
+    reportSessionEnded('security');
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith('password_changed');
+  });
+
   it('stores the notice and reloads when no handler is registered', async () => {
     const installed = installReloadMock();
     restoreReload = installed.restore;

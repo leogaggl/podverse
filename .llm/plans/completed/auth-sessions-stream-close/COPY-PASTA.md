@@ -30,7 +30,7 @@ If the Cursor Grok 4.7 prompt stalls or makes the same mistake twice, rerun it o
 
 ## Phase 1
 
-- [ ] **70 — Ending a session closes its open account event streams**
+- [x] **70 — Ending a session closes its open account event streams**
 
 **Cursor model:** Opus 5.5 · **Reasoning:** high
 
@@ -53,7 +53,7 @@ anything a later prompt needs.
 
 ## Phase 2
 
-- [ ] **71 — Web: the stream's session-ended event signs the page out at once; then archive the set**
+- [x] **71 — Web: the stream's session-ended event signs the page out at once; then archive the set**
 
 **Cursor model:** Cursor Grok 4.7 · **Reasoning:** extra high
 

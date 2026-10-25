@@ -2292,6 +2292,24 @@ components:
           type: string
           enum:
             - replay_limit
+    ApiAccountSessionStreamEnded:
+      type: object
+      description: >-
+        Data of `session.ended`, the last event on a stream whose session was ended. Sent with no
+        SSE `id:`, so it never replays. A null `notice` means the device signed itself out and the
+        client reconnects as usual; with a notice the client stops reconnecting and signs out with
+        that reason.
+      required:
+        - notice
+      properties:
+        notice:
+          type: string
+          nullable: true
+          enum:
+            - signed_out_elsewhere
+            - password_changed
+            - admin_force_logout
+            - security
     ChannelSeenState:
       type: object
       required:
@@ -8456,7 +8474,9 @@ paths:
         The account's one event stream (server-sent events). Requires login and accepted terms; a
         valid membership is not required. Auth, terms, and stream-limit failures return JSON before
         any stream bytes, and clients treat 401 and 403 as final and stop reconnecting. At most 10
-        streams per account per API pod; more get 429.
+        streams per account per API pod; more get 429. A session-ended `401` on this route leaves
+        the `jwt` cookie in place, because `EventSource` cannot read the body; the browser's next
+        ordinary request gets the session-ended `401` with its notice and the cleared cookie.
         An API key needs notifications read.
       security:
         - bearerAuth: []
@@ -8491,14 +8511,19 @@ paths:
         "200":
           description: >-
             An open event stream. The first bytes are `retry: 5000`, then `notification.state`, then
-            any replay, then live events. Event names are namespaced: `notification.*` is in use;
-            `playback.*` is reserved for cross-device playback state and control commands, which
-            never carry an SSE `id:` and never replay. Clients ignore event names they do not know.
+            any replay, then live events. Event names are namespaced: `notification.*` and
+            `session.*` are in use; `playback.*` is reserved for cross-device playback state and
+            control commands, which never carry an SSE `id:` and never replay. Clients ignore event
+            names they do not know.
             The notification events are `notification.state`
             (`#/components/schemas/ApiAccountNotificationStreamState`), `notification.created`
             (`#/components/schemas/ApiAccountNotificationStreamCreated`), `notification.read`
             (`#/components/schemas/ApiAccountNotificationStreamRead`), and `notification.resync`
-            (`#/components/schemas/ApiAccountNotificationStreamResync`). Each event's `data:` is
+            (`#/components/schemas/ApiAccountNotificationStreamResync`). `session.ended`
+            (`#/components/schemas/ApiAccountSessionStreamEnded`) is the last event on a stream
+            whose session was ended, sent with no `id:`; the server ends the response right after
+            it. With a notice, clients stop reconnecting and sign out with that reason; with a null
+            notice (the device signed itself out), they reconnect as usual. Each event's `data:` is
             one JSON line. Only `notification.created` carries `id:` (the notification id), and
             only events with an id replay. The server writes a `: ping` comment every 25 seconds.
             The stream ends at the auth token's expiry or 30 minutes after it opened, whichever is
@@ -8517,6 +8542,8 @@ paths:
                   $ref: "#/components/schemas/ApiAccountNotificationStreamRead"
                 notification.resync:
                   $ref: "#/components/schemas/ApiAccountNotificationStreamResync"
+                session.ended:
+                  $ref: "#/components/schemas/ApiAccountSessionStreamEnded"
         "401":
           description: Unauthorized
           content:

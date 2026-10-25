@@ -34,8 +34,8 @@ export function getAuthSessionEndedNotice(
   }
 }
 
-function isAuthSessionEndedNotice(value: unknown): value is AuthSessionEndedNotice {
-  return AUTH_SESSION_ENDED_NOTICES.some((notice) => notice === value);
+export function isAuthSessionEndedNotice(value: unknown): value is AuthSessionEndedNotice {
+  return typeof value === 'string' && AUTH_SESSION_ENDED_NOTICES.some((notice) => notice === value);
 }
 
 /** Reads `{ code: 'session_ended', notice }` from a 401 body; null for any other body. */

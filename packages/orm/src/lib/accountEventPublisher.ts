@@ -1,5 +1,6 @@
 import { getLoggerService, getORMConfig } from '@orm/context.js';
 
+import type { AccountSessionRevokeReason } from '@podverse/helpers';
 import { isPlainObject } from '@podverse/helpers';
 
 /**
@@ -15,13 +16,15 @@ export const ACCOUNT_EVENT_MAX_PER_MESSAGE = 500;
 export const ACCOUNT_EVENT_REDIS_RECONNECT_DELAY_MS = 5_000;
 
 /**
- * Data for each event type the server publishes. Types are namespaced: `notification.*` is in
- * use; `playback.*` is reserved for cross-device playback state and control commands.
+ * Data for each event type the server publishes. Types are namespaced: `notification.*` and
+ * `session.*` are in use; `playback.*` is reserved for cross-device playback state and control
+ * commands.
  */
 export type AccountEventDataByType = {
   'notification.created': { notification_ids: number[] };
   'notification.read_all': { last_read_at: string };
   'notification.read_one': { notification_id: number };
+  'session.ended': { session_id_texts: string[]; reason: AccountSessionRevokeReason };
 };
 
 export type AccountEventType = keyof AccountEventDataByType;
