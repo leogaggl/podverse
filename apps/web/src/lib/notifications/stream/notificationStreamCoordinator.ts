@@ -1,5 +1,8 @@
-import type { AccountNotificationStreamEvent } from '@podverse/helpers';
-import { parseAccountNotificationStreamEvent } from '@podverse/helpers';
+import type { AccountNotificationStreamEvent, AuthSessionEndedNotice } from '@podverse/helpers';
+import {
+  parseAccountNotificationStreamEvent,
+  parseAccountSessionStreamEvent,
+} from '@podverse/helpers';
 
 import type {
   NotificationStreamConnection,
@@ -33,6 +36,8 @@ export type NotificationStreamCoordinatorOptions = {
   apiBaseUrl: string;
   /** Parsed events, in this tab, whether this tab leads or follows. */
   onEvent: (event: AccountNotificationStreamEvent) => void;
+  /** Called in this tab when the stream reports that this browser's session was ended elsewhere. */
+  onSessionEnded?: (notice: AuthSessionEndedNotice) => void;
   onStatus: (status: NotificationStreamStatus) => void;
   environment?: Partial<NotificationStreamEnvironment>;
 };
@@ -165,6 +170,10 @@ export function startNotificationStreamCoordinator(
     const parsed = parseAccountNotificationStreamEvent(eventName, rawData);
     if (parsed !== null) {
       onEvent(parsed);
+    }
+    const sessionEvent = parseAccountSessionStreamEvent(eventName, rawData);
+    if (sessionEvent !== null && sessionEvent.data.notice !== null) {
+      options.onSessionEnded?.(sessionEvent.data.notice);
     }
   };
 

@@ -5,9 +5,22 @@ import { ACCOUNT_SESSION_REVOKE_REASONS } from './accountSession.js';
 import type { AuthSessionEndedNotice } from './authSessionNotice.js';
 import {
   AUTH_SESSION_ENDED_CODE,
+  AUTH_SESSION_ENDED_NOTICES,
   getAuthSessionEndedNotice,
+  isAuthSessionEndedNotice,
   parseAuthSessionEndedNotice,
 } from './authSessionNotice.js';
+
+describe('isAuthSessionEndedNotice', () => {
+  it('accepts each notice and rejects a revoke reason, an empty string, and a number', () => {
+    for (const notice of AUTH_SESSION_ENDED_NOTICES) {
+      expect(isAuthSessionEndedNotice(notice)).toBe(true);
+    }
+    expect(isAuthSessionEndedNotice('signed_out')).toBe(false);
+    expect(isAuthSessionEndedNotice('')).toBe(false);
+    expect(isAuthSessionEndedNotice(401)).toBe(false);
+  });
+});
 
 describe('getAuthSessionEndedNotice', () => {
   it('maps every revoke reason to the notice the signed-out device shows', () => {

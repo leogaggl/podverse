@@ -125,4 +125,50 @@ test.describe('Web session ended notice', () => {
       await otherDevice.dispose();
     }
   });
+
+  test('An open page signs out and says why as soon as another device ends its session.', async ({
+    page,
+    playwright,
+  }, testInfo) => {
+    // The dialog wait is 15 seconds, past the 10-second default.
+    test.setTimeout(30_000);
+
+    await test.step('Log in as the sessions user and open Signed-In Devices with the stream open.', async () => {
+      await loginSessionsUser(page.request);
+      await endOtherSessions(page.request);
+      const streamOpened = page.waitForResponse(
+        (response) => response.url().includes('/account/events') && response.status() === 200
+      );
+      await page.goto('/settings?tab=account');
+      await streamOpened;
+      await expect(page).toHaveURL(/\/settings\?tab=account/);
+      await expect(page.getByRole('heading', { name: 'Signed-In Devices' })).toBeVisible();
+    });
+
+    const otherDevice = await newOtherDeviceRequest(playwright, FIREFOX_WINDOWS_USER_AGENT);
+    try {
+      await test.step('End this browser session from another device without touching this page.', async () => {
+        await endOtherSessions(otherDevice);
+      });
+
+      await test.step('This open page signs out and says why as soon as the session ends.', async () => {
+        const dialog = page.getByRole('dialog', { name: "You've Been Signed Out" });
+        // Shorter than the 60-second unread-count poll, so only the stream event can pass this.
+        await expect(dialog).toBeVisible({ timeout: 15_000 });
+        await expect(page).toHaveURL(/\/settings\?tab=account/);
+        await expect(
+          dialog.getByText('You were signed out from another device.', { exact: true })
+        ).toBeVisible();
+        await capturePageLoad(
+          page,
+          testInfo,
+          'The open page says this browser was signed out from another device as soon as another device ended its session.',
+          dialog
+        );
+        await expectSignedOutNavbar(page);
+      });
+    } finally {
+      await otherDevice.dispose();
+    }
+  });
 });

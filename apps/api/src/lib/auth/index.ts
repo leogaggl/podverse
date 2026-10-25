@@ -91,6 +91,12 @@ export type AuthenticatedRequestOptions = {
    * membership check, even where `skipMembershipStatus` lets a session through.
    */
   apiKeyAccess?: ApiKeyPermissionRequirement;
+  /**
+   * For routes a browser reaches through `EventSource`, which cannot read the 401 body. A
+   * session-ended 401 keeps the cookie, so the next ordinary request reports why the session
+   * ended. Every other 401 still clears it.
+   */
+  keepCookieOnSessionEnded?: boolean;
 };
 
 /** What a valid token naming an ended session gets: a 401, or (public routes) anonymous access. */
@@ -567,8 +573,8 @@ const verifyTokenAndMembership = async (
     return;
   }
 
-  const rejectUnauthorized = (notice: AuthSessionEndedNotice | null) => {
-    if (requestToken.source === 'cookie') {
+  const rejectUnauthorized = (notice: AuthSessionEndedNotice | null, clearCookie = true) => {
+    if (clearCookie && requestToken.source === 'cookie') {
       clearAuthCookie(res);
     }
     res.status(401).json(unauthorizedBody('Unauthorized', notice));
@@ -608,7 +614,7 @@ const verifyTokenAndMembership = async (
       next();
       return;
     }
-    rejectUnauthorized(sessionCheck.notice);
+    rejectUnauthorized(sessionCheck.notice, options.keepCookieOnSessionEnded !== true);
     return;
   }
 

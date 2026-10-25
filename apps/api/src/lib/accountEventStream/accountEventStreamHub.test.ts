@@ -93,6 +93,7 @@ vi.mock('@podverse/orm', async (importOriginal) => {
 
 type FakeResponse = {
   chunks: string[];
+  endCalls: number;
   writable: boolean;
   writableEnded: boolean;
   write: (chunk: string) => boolean;
@@ -101,9 +102,12 @@ type FakeResponse = {
 
 type WrittenEvent = { id?: string; event: string; data: unknown };
 
+const DEFAULT_SESSION_ID_TEXT = 'sessdefault1';
+
 const createResponse = (): FakeResponse => {
   const response: FakeResponse = {
     chunks: [],
+    endCalls: 0,
     writable: true,
     writableEnded: false,
     write: (chunk) => {
@@ -111,6 +115,7 @@ const createResponse = (): FakeResponse => {
       return true;
     },
     end: () => {
+      response.endCalls += 1;
       response.writable = false;
       response.writableEnded = true;
     },
@@ -170,11 +175,17 @@ type Hub = Awaited<ReturnType<typeof loadHub>>;
 const openStream = async (
   hub: Hub,
   account_id: number,
-  options: { lastEventId?: number | null; tokenExpiresAt?: number } = {}
+  options: {
+    lastEventId?: number | null;
+    tokenExpiresAt?: number;
+    sessionIdText?: string | null;
+  } = {}
 ): Promise<FakeResponse> => {
   const response = createResponse();
   hub.openAccountEventStream({
     account_id,
+    sessionIdText:
+      options.sessionIdText === undefined ? DEFAULT_SESSION_ID_TEXT : options.sessionIdText,
     response,
     cutoff: null,
     lastEventId: options.lastEventId ?? null,
@@ -385,5 +396,184 @@ describe('account event stream hub', () => {
 
     vi.advanceTimersByTime(60_000);
     expect(pingCountOf(first)).toBe(0);
+  });
+
+  it('ends only the stream of the ended session with the mapped notice and runs no query', async () => {
+    const hub = await loadHub();
+    hub.startAccountEventStreamHub();
+    const sessionA = await openStream(hub, 1, { sessionIdText: 'sessaaaaa1' });
+    const sessionB = await openStream(hub, 1, { sessionIdText: 'sessbbbbb2' });
+    const chunkCountOfB = sessionB.chunks.length;
+    vi.clearAllMocks();
+
+    emit({
+      account_id: 1,
+      type: 'session.ended',
+      data: { session_id_texts: ['sessaaaaa1'], reason: 'admin_force_logout' },
+    });
+
+    expect(eventsOf(sessionA).at(-1)).toEqual({
+      event: 'session.ended',
+      data: { notice: 'admin_force_logout' },
+    });
+    expect(sessionA.writableEnded).toBe(true);
+    expect(sessionB.writableEnded).toBe(false);
+    expect(sessionB.chunks).toHaveLength(chunkCountOfB);
+    await flush();
+    expect(accountGetMock).not.toHaveBeenCalled();
+    expect(countUnreadMock).not.toHaveBeenCalled();
+    expect(getManyByIdsForAccountMock).not.toHaveBeenCalled();
+    expect(getMaxIdForAccountMock).not.toHaveBeenCalled();
+    expect(listForAccountAfterIdMock).not.toHaveBeenCalled();
+  });
+
+  it('sends a null notice when the device signed itself out', async () => {
+    const hub = await loadHub();
+    hub.startAccountEventStreamHub();
+    const response = await openStream(hub, 1, { sessionIdText: 'sessaaaaa1' });
+
+    emit({
+      account_id: 1,
+      type: 'session.ended',
+      data: { session_id_texts: ['sessaaaaa1'], reason: 'signed_out' },
+    });
+
+    expect(eventsOf(response).at(-1)).toEqual({ event: 'session.ended', data: { notice: null } });
+    expect(response.writableEnded).toBe(true);
+  });
+
+  it('leaves another account that uses the same session id text open', async () => {
+    const hub = await loadHub();
+    hub.startAccountEventStreamHub();
+    const ownStream = await openStream(hub, 1, { sessionIdText: 'sessaaaaa1' });
+    const otherAccount = await openStream(hub, 2, { sessionIdText: 'sessaaaaa1' });
+
+    emit({
+      account_id: 1,
+      type: 'session.ended',
+      data: { session_id_texts: ['sessaaaaa1'], reason: 'password_changed' },
+    });
+
+    expect(ownStream.writableEnded).toBe(true);
+    expect(otherAccount.writableEnded).toBe(false);
+    expect(eventsOf(otherAccount).some((entry) => entry.event === 'session.ended')).toBe(false);
+  });
+
+  it('writes nothing to a stream that ended while a notification query was in flight and still reaches the other stream', async () => {
+    const hub = await loadHub();
+    hub.startAccountEventStreamHub();
+    const sessionA = await openStream(hub, 1, { sessionIdText: 'sessaaaaa1' });
+    const sessionB = await openStream(hub, 1, { sessionIdText: 'sessbbbbb2' });
+
+    let releaseRows: (rows: NotificationRow[]) => void = () => undefined;
+    getManyByIdsForAccountMock.mockImplementationOnce(
+      () =>
+        new Promise<NotificationRow[]>((resolve) => {
+          releaseRows = resolve;
+        })
+    );
+    emit({ account_id: 1, type: 'notification.created', data: { notification_ids: [11] } });
+    await flush();
+
+    emit({
+      account_id: 1,
+      type: 'session.ended',
+      data: { session_id_texts: ['sessaaaaa1'], reason: 'signed_out_elsewhere' },
+    });
+    const chunkCountOfA = sessionA.chunks.length;
+    releaseRows([row(11)]);
+    await flush();
+
+    expect(sessionA.chunks).toHaveLength(chunkCountOfA);
+    expect(createdIdsOf(sessionA)).toEqual([]);
+    expect(createdIdsOf(sessionB)).toEqual(['11']);
+  });
+
+  it('closes a stream that registers for a session ended 30 seconds earlier, and not one 61 seconds later', async () => {
+    const hub = await loadHub();
+    hub.startAccountEventStreamHub();
+    emit({
+      account_id: 1,
+      type: 'session.ended',
+      data: {
+        session_id_texts: ['sessaaaaa1', 'sessbbbbb2'],
+        reason: 'signed_out_elsewhere',
+      },
+    });
+
+    vi.advanceTimersByTime(30_000);
+    vi.clearAllMocks();
+    const early = await openStream(hub, 1, { sessionIdText: 'sessaaaaa1' });
+
+    expect(early.chunks[0]).toBe('retry: 5000\n\n');
+    expect(eventsOf(early)).toEqual([
+      { event: 'session.ended', data: { notice: 'signed_out_elsewhere' } },
+    ]);
+    expect(early.writableEnded).toBe(true);
+    expect(countUnreadMock).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(31_000);
+    const late = await openStream(hub, 1, { sessionIdText: 'sessbbbbb2' });
+
+    expect(late.writableEnded).toBe(false);
+    expect(eventsOf(late)).toEqual([
+      { event: 'notification.state', data: { unread_count: 3, last_read_at: null } },
+    ]);
+  });
+
+  it('calls res.end() once on every end path and leaves no timer', async () => {
+    const hub = await loadHub();
+    hub.startAccountEventStreamHub();
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    const sessionEnd = await openStream(hub, 1, { sessionIdText: 'sessaaaaa1' });
+    const clientClose = createResponse();
+    const clientCloseStream = hub.openAccountEventStream({
+      account_id: 2,
+      sessionIdText: 'sessbbbbb2',
+      response: clientClose,
+      cutoff: null,
+      lastEventId: null,
+    });
+    await flush();
+    const writeThrows = await openStream(hub, 3);
+    const backpressure = await openStream(hub, 4);
+    const tokenExpiry = await openStream(hub, 5, { tokenExpiresAt: nowSeconds + 60 });
+    const lifetimeCap = await openStream(hub, 6);
+
+    emit({
+      account_id: 1,
+      type: 'session.ended',
+      data: { session_id_texts: ['sessaaaaa1'], reason: 'signed_out' },
+    });
+    hub.closeAccountEventStream(clientCloseStream);
+    hub.closeAccountEventStream(clientCloseStream);
+
+    writeThrows.write = () => {
+      throw new Error('socket gone');
+    };
+    backpressure.write = () => false;
+    vi.advanceTimersByTime(25_000);
+    vi.advanceTimersByTime(35_000);
+    vi.advanceTimersByTime(25 * 60_000 - 60_000);
+
+    const hubShutdown = await openStream(hub, 7);
+    vi.advanceTimersByTime(5 * 60_000);
+    expect(lifetimeCap.writableEnded).toBe(true);
+    expect(hubShutdown.writableEnded).toBe(false);
+    await hub.closeAccountEventStreamHub();
+
+    for (const response of [
+      sessionEnd,
+      clientClose,
+      writeThrows,
+      backpressure,
+      tokenExpiry,
+      lifetimeCap,
+      hubShutdown,
+    ]) {
+      expect(response.endCalls).toBe(1);
+    }
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

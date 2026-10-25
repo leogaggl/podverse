@@ -8,10 +8,12 @@ import { buildEpisodePath } from '@podverse/helpers';
 import type { AccountEvent, ORMContext } from '@podverse/orm';
 
 import {
+  accountSessionStoreStub,
   authHeaders,
   getBaseApiUrl,
   startTestApp,
   stopTestApp,
+  TEST_ACCOUNT_SESSION_ID_TEXT,
   TEST_USER_ACCOUNT_ID_TEXT,
 } from './helpers/index.js';
 
@@ -112,8 +114,23 @@ type OpenedStream = {
   events: StreamEvent[];
   /** Resolves with the next event of that name not already returned. */
   nextEvent: (name: string) => Promise<StreamEvent>;
+  /** Resolves when the server ends the response. */
+  ended: Promise<void>;
   close: () => void;
 };
+
+function setCookies(res: request.Response): string[] {
+  const header: unknown = res.headers['set-cookie'];
+  if (Array.isArray(header)) {
+    return header.filter((value): value is string => typeof value === 'string');
+  }
+  return typeof header === 'string' ? [header] : [];
+}
+
+/** The test access token from {@link authHeaders}, sent as the `jwt` cookie instead. */
+function authCookie(userId: number): string {
+  return `jwt=${authHeaders(userId).Authorization.slice('Bearer '.length)}`;
+}
 
 /** Comments and the retry line carry no `event:` and are skipped. */
 const parseBlock = (block: string): StreamEvent | null => {
@@ -151,6 +168,7 @@ describe('account event stream route', () => {
   let app: import('express').Express;
   let ormContext: ORMContext | undefined;
   let server: Server | undefined;
+  let apiBase = '';
   let eventsPath = '';
   let port = 0;
 
@@ -165,6 +183,11 @@ describe('account event stream route', () => {
         (res) => {
           res.setEncoding('utf8');
           res.on('error', () => undefined);
+          const ended = new Promise<void>((resolveEnded) => {
+            res.on('end', () => {
+              resolveEnded();
+            });
+          });
           const events: StreamEvent[] = [];
           const consumed = new Set<number>();
           const waiters: Array<{ name: string; resolve: (event: StreamEvent) => void }> = [];
@@ -207,6 +230,7 @@ describe('account event stream route', () => {
                 waiters.push({ name, resolve: resolveEvent });
                 resolveWaiters();
               }),
+            ended,
             close: () => {
               req.destroy();
             },
@@ -228,7 +252,8 @@ describe('account event stream route', () => {
     app = result.app;
     server = result.server;
     ormContext = result.ormContext;
-    eventsPath = `${await getBaseApiUrl()}/account/events`;
+    apiBase = await getBaseApiUrl();
+    eventsPath = `${apiBase}/account/events`;
     const address = server?.address();
     if (address === null || address === undefined || typeof address === 'string') {
       throw new Error('Test server is not listening on a TCP port');
@@ -362,6 +387,57 @@ describe('account event stream route', () => {
         TEST_USER_ID,
         new Date('2026-10-21T00:00:00.000Z')
       );
+    } finally {
+      stream.close();
+    }
+  });
+
+  it('keeps the jwt cookie on a session-ended 401, while /auth/me still clears it', async () => {
+    accountSessionStoreStub.checkAccountSession.mockResolvedValueOnce({
+      kind: 'ended',
+      notice: 'signed_out_elsewhere',
+    });
+    const events = await request(app).get(eventsPath).set('Cookie', authCookie(TEST_USER_ID));
+
+    expect(events.status).toBe(401);
+    expect(events.body).toEqual({
+      message: 'Unauthorized',
+      code: 'session_ended',
+      notice: 'signed_out_elsewhere',
+    });
+    expect(setCookies(events).some((value) => value.startsWith('jwt='))).toBe(false);
+
+    accountSessionStoreStub.checkAccountSession.mockResolvedValueOnce({
+      kind: 'ended',
+      notice: 'signed_out_elsewhere',
+    });
+    const me = await request(app).get(`${apiBase}/auth/me`).set('Cookie', authCookie(TEST_USER_ID));
+
+    expect(me.status).toBe(401);
+    expect(me.body.code).toBe('session_ended');
+    expect(setCookies(me).some((value) => value.startsWith('jwt=;'))).toBe(true);
+  });
+
+  // The hub remembers an ended session for 60 seconds and closes any stream that registers for
+  // it, so this case runs last in the file.
+  it('sends session.ended with the notice and then ends the response when the session ends', async () => {
+    const stream = await openStream(authHeaders(TEST_USER_ID));
+    try {
+      await stream.nextEvent('notification.state');
+
+      emit({
+        account_id: TEST_USER_ID,
+        type: 'session.ended',
+        data: {
+          session_id_texts: [TEST_ACCOUNT_SESSION_ID_TEXT],
+          reason: 'signed_out_elsewhere',
+        },
+      });
+
+      const ended = await stream.nextEvent('session.ended');
+      expect(ended).toEqual({ event: 'session.ended', data: { notice: 'signed_out_elsewhere' } });
+      await stream.ended;
+      expect(stream.events.at(-1)).toEqual(ended);
     } finally {
       stream.close();
     }
