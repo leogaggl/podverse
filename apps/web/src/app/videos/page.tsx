@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
-import { MainHeader } from '@podverse/ui';
+import { CenteredMessage, MainHeader } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { getCuratedStaticPageMetadata } from '../../lib/seo/curatedPageMetadata';
@@ -17,7 +17,7 @@ export default async function VideosPage() {
     <>
       <MainHeader title={tMedia('video.videos')} />
       <MainWrapper>
-        <p>{tPlayer('coming_soon')}</p>
+        <CenteredMessage live="status">{tPlayer('coming_soon')}</CenteredMessage>
       </MainWrapper>
     </>
   );

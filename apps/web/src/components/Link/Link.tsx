@@ -13,6 +13,7 @@ const NextLinkComponent: ComponentType<LinkRenderProps> = ({
   className,
   tabIndex,
   'aria-label': ariaLabel,
+  'aria-current': ariaCurrent,
   title,
   style,
   target,
@@ -23,6 +24,7 @@ const NextLinkComponent: ComponentType<LinkRenderProps> = ({
     className={className}
     tabIndex={tabIndex}
     aria-label={ariaLabel}
+    aria-current={ariaCurrent}
     title={title}
     style={style}
     target={target}
@@ -40,6 +42,7 @@ type LinkProps = {
   type?: 'button' | 'submit' | 'reset';
   tabIndex?: number;
   'aria-label'?: string;
+  'aria-current'?: 'page';
   disabled?: boolean;
   style?: React.CSSProperties;
   color?: 'primary' | 'secondary';

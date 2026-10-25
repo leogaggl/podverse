@@ -52,6 +52,7 @@ export type { DescribedLinkProps } from './components/layout/DescribedLink/Descr
  * - `Banner`: page-top dismissible info bar (membership expiry, system notices).
  * - `Callout`: inline emphasized block inside content (info / warn / success).
  * - `CallToActionMessage`: empty-state with a prominent action button.
+ * - `CenteredMessage`: page fill that centers a lone status message on both axes.
  * - `Alert`: inline status message (error / warn / info / success); see also
  *   `FormErrorMessageText` for form-scoped use.
  * - `RestrictedNotice`: gated-content placeholder when membership / auth blocks
@@ -76,6 +77,9 @@ export type { CallToActionMessageProps } from './components/layout/CallToActionM
 /** Full-page frame that centers its content, and scrolls from the top when the content is taller. */
 export { CenterContainer } from './components/layout/CenterContainer/CenterContainer';
 export type { CenterContainerProps } from './components/layout/CenterContainer/CenterContainer';
+/** Fills the page column and centers a status message horizontally and vertically. */
+export { CenteredMessage } from './components/layout/CenteredMessage/CenteredMessage';
+export type { CenteredMessageProps } from './components/layout/CenteredMessage/CenteredMessage';
 export { Divider } from './components/layout/Divider/Divider';
 export type { DividerProps } from './components/layout/Divider/Divider';
 export { FormInset } from './components/layout/FormInset/index';

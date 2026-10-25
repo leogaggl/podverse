@@ -1,8 +1,8 @@
 'use client';
 
 import classNames from 'classnames';
-import type { ReactNode } from 'react';
-import { useLayoutEffect, useRef } from 'react';
+import type { MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { getChipRevealOffset } from '@podverse/helpers/chipRowReveal';
 
@@ -31,6 +31,9 @@ export type ChipRowProps<T extends string> = {
   testId?: string;
 };
 
+/** Movement below this stays a click. Past it, the gesture scrolls and the click is swallowed. */
+const DRAG_START_PX = 5;
+
 function prefersReducedMotion(): boolean {
   return (
     typeof window.matchMedia === 'function' &&
@@ -38,11 +41,25 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+function scrollerOverflows(scroller: HTMLElement): boolean {
+  return scroller.scrollWidth - scroller.clientWidth > 1;
+}
+
+type ChipRowDrag = {
+  pointerId: number;
+  startX: number;
+  startScrollLeft: number;
+  moved: boolean;
+  removeWindowListeners: () => void;
+};
+
 /**
  * One line of pill chips that scrolls sideways when it does not fit, with the trailing controls
  * after the chips inside the same scroller. The selected chip is scrolled fully into view on mount
  * (a jump) and on every selection change (animated unless reduced motion is requested). A swipe
- * afterwards is left alone.
+ * afterwards is left alone. The scrollbar is hidden, so a mouse or pen drag scrolls the row. The
+ * chips keep the pointer cursor. A drag past a few pixels does not activate the chip or a trailing
+ * control; a short press still does. Touch scrolling stays with the browser.
  */
 export function ChipRow<T extends string>({
   items,
@@ -56,6 +73,86 @@ export function ChipRow<T extends string>({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const chipRefs = useRef(new Map<T, HTMLButtonElement>());
   const hasRevealedRef = useRef(false);
+  const dragRef = useRef<ChipRowDrag | null>(null);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      dragRef.current?.removeWindowListeners();
+    };
+  }, []);
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch' || event.button !== 0) {
+      return;
+    }
+    const scroller = scrollerRef.current;
+    if (scroller === null || !scrollerOverflows(scroller) || dragRef.current !== null) {
+      return;
+    }
+
+    const pointerId = event.pointerId;
+    const onMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) {
+        return;
+      }
+      const drag = dragRef.current;
+      const node = scrollerRef.current;
+      if (drag === null || node === null) {
+        return;
+      }
+      const delta = moveEvent.clientX - drag.startX;
+      if (!drag.moved) {
+        if (Math.abs(delta) < DRAG_START_PX) {
+          return;
+        }
+        drag.moved = true;
+        suppressClickRef.current = true;
+      }
+      moveEvent.preventDefault();
+      node.scrollLeft = drag.startScrollLeft - delta;
+    };
+    const onUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) {
+        return;
+      }
+      const drag = dragRef.current;
+      drag?.removeWindowListeners();
+      dragRef.current = null;
+      if (drag === null || !drag.moved) {
+        return;
+      }
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    };
+    const listen = { capture: true } as const;
+    const removeWindowListeners = () => {
+      window.removeEventListener('pointermove', onMove, listen);
+      window.removeEventListener('pointerup', onUp, listen);
+      window.removeEventListener('pointercancel', onUp, listen);
+    };
+    dragRef.current = {
+      pointerId,
+      startX: event.clientX,
+      startScrollLeft: scroller.scrollLeft,
+      moved: false,
+      removeWindowListeners,
+    };
+    window.addEventListener('pointermove', onMove, { capture: true, passive: false });
+    window.addEventListener('pointerup', onUp, listen);
+    window.addEventListener('pointercancel', onUp, listen);
+  };
+
+  const onClickCapture = (event: MouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) {
+      return;
+    }
+    suppressClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   useLayoutEffect(() => {
     const animated = hasRevealedRef.current;
@@ -95,7 +192,12 @@ export function ChipRow<T extends string>({
 
   return (
     <div className={classNames(styles.chipRow, className)} data-testid={testId}>
-      <div className={styles.scroller} ref={scrollerRef}>
+      <div
+        className={styles.scroller}
+        ref={scrollerRef}
+        onPointerDown={onPointerDown}
+        onClickCapture={onClickCapture}
+      >
         <div
           role="group"
           aria-label={ariaLabel}

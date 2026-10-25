@@ -33,6 +33,12 @@
   margin: var(--spacing-none);
 }
 
+.pageNotice {
+  align-self: stretch;
+  margin-bottom: 0;
+  text-align: center;
+}
+
 .successDetail {
   font-size: var(--font-size-lg);
 }

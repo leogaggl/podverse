@@ -58,7 +58,7 @@ export function AgreementScreen({
   accordionTitle,
   testId,
 }: AgreementScreenProps) {
-  const showCopy = introMarkdown !== null && errorMessage === null && !isLoading;
+  const showCopy = introMarkdown !== null && errorMessage === null;
   const showAccordion = showCopy && fullMarkdown !== null;
   const accordionHeader =
     dateLabel === null ? (
@@ -91,43 +91,46 @@ export function AgreementScreen({
       data-testid={testId}
       surface="primary"
     >
-      <div className={styles.panel}>
-        <h1 className={styles.title}>{title}</h1>
-        {showCopy && introMarkdown !== null ? (
-          <div className={styles.intro}>
-            <CopyMarkdown markdown={introMarkdown} />
-          </div>
-        ) : null}
-        {errorMessage !== null ? (
-          <div className={styles.error}>
-            <p>{errorMessage}</p>
-            <Button onClick={onRetry} type="button" variant="secondary">
-              {retryLabel}
+      {isLoading ? (
+        <WebLoadingSpinnerOverlay isLoading />
+      ) : (
+        <div className={styles.panel}>
+          <h1 className={styles.title}>{title}</h1>
+          {showCopy && introMarkdown !== null ? (
+            <div className={styles.intro}>
+              <CopyMarkdown markdown={introMarkdown} />
+            </div>
+          ) : null}
+          {errorMessage !== null ? (
+            <div className={styles.error}>
+              <p>{errorMessage}</p>
+              <Button onClick={onRetry} type="button" variant="secondary">
+                {retryLabel}
+              </Button>
+            </div>
+          ) : null}
+          {showAccordion && fullMarkdown !== null ? (
+            <Accordion header={accordionHeader}>
+              <CopyMarkdown markdown={fullMarkdown} />
+            </Accordion>
+          ) : null}
+          {!showAccordion && dateLabel !== null ? <p className={styles.date}>{dateLabel}</p> : null}
+          {checkbox}
+          <FormPrimaryActions>
+            <Button disabled={pending} onClick={onReject} type="button" variant="secondary">
+              {rejectLabel}
             </Button>
-          </div>
-        ) : null}
-        {showAccordion && fullMarkdown !== null ? (
-          <Accordion header={accordionHeader}>
-            <CopyMarkdown markdown={fullMarkdown} />
-          </Accordion>
-        ) : null}
-        {!showAccordion && dateLabel !== null ? <p className={styles.date}>{dateLabel}</p> : null}
-        {checkbox}
-        <FormPrimaryActions>
-          <Button disabled={pending} onClick={onReject} type="button" variant="secondary">
-            {rejectLabel}
-          </Button>
-          <Button
-            disabled={acceptDisabled || pending}
-            onClick={onAccept}
-            type="button"
-            variant="primary"
-          >
-            {acceptLabel}
-          </Button>
-        </FormPrimaryActions>
-        <WebLoadingSpinnerOverlay isLoading={isLoading} />
-      </div>
+            <Button
+              disabled={acceptDisabled || pending}
+              onClick={onAccept}
+              type="button"
+              variant="primary"
+            >
+              {acceptLabel}
+            </Button>
+          </FormPrimaryActions>
+        </div>
+      )}
     </CenterContainer>
   );
 }

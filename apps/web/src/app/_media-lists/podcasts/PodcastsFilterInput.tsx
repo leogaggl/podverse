@@ -17,14 +17,15 @@ interface PodcastsFilterInputProps {
 /**
  * The subscribed list's title filter.
  *
- * Carries a visible label rather than leaning on the placeholder, which disappears at the first
- * keystroke and takes the field's only description with it.
+ * The placeholder is the visible hint. The accessible name stays on the input so the field
+ * remains named after the placeholder disappears.
  */
 export const PodcastsFilterInput: React.FC<PodcastsFilterInputProps> = ({ onChange, value }) => {
   const tSubscriptions = useTranslations('subscriptions');
 
   return (
     <TextInput
+      aria-label={tSubscriptions('filter.label')}
       button={
         value === ''
           ? undefined
@@ -34,7 +35,6 @@ export const PodcastsFilterInput: React.FC<PodcastsFilterInputProps> = ({ onChan
             }
       }
       id={FILTER_INPUT_ID}
-      eyebrow={tSubscriptions('filter.label')}
       maxLength={PODCASTS_FILTER_MAX_LENGTH}
       name={FILTER_INPUT_ID}
       placeholder={tSubscriptions('filter.by_title')}

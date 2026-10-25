@@ -3,20 +3,12 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-import {
-  FormErrorMessageText,
-  FormInfoMessageText,
-  MainColumnStack,
-  MainHeader,
-  MainSidebarLayout,
-} from '@podverse/ui';
+import { CenteredMessage, MainColumnStack, MainHeader, MainSidebarLayout } from '@podverse/ui';
 
 import { WebLoadingSpinnerDecorativeMedium } from '../../components/LoadingSpinner/WebLoadingSpinnerDecorative';
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { handleRateLimitAlert } from '../../utils/rateLimit/rateLimitAlert';
-
-import styles from '../../styles/app/verify-email/VerifyEmailClient.module.scss';
 
 type VerifyEmailPageClientProps = {
   token?: string;
@@ -73,25 +65,23 @@ export function VerifyEmailPageClient({ token }: VerifyEmailPageClientProps) {
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            <div className={styles.contentWrapper}>
-              {isVerifying && (
-                <div className={styles.messageSection}>
-                  <FormInfoMessageText message={tAuthentication('verifying_email_address')} />
-                  <WebLoadingSpinnerDecorativeMedium />
-                </div>
-              )}
-              {!isVerifying && isSuccess && (
-                <div className={styles.messageSection}>
-                  <FormInfoMessageText message={tAuthentication('email_verified')} />
-                  <FormInfoMessageText message={tMisc('redirecting')} />
-                </div>
-              )}
-              {!isVerifying && isError && (
-                <div className={styles.messageSection}>
-                  <FormErrorMessageText message={tAuthentication('verification_failed')} />
-                </div>
-              )}
-            </div>
+            {isVerifying ? (
+              <CenteredMessage live="status">
+                <span>{tAuthentication('verifying_email_address')}</span>
+                <WebLoadingSpinnerDecorativeMedium />
+              </CenteredMessage>
+            ) : null}
+            {!isVerifying && isSuccess ? (
+              <CenteredMessage live="status">
+                <span>{tAuthentication('email_verified')}</span>
+                <span>{tMisc('redirecting')}</span>
+              </CenteredMessage>
+            ) : null}
+            {!isVerifying && isError ? (
+              <CenteredMessage live="alert" tone="danger">
+                {tAuthentication('verification_failed')}
+              </CenteredMessage>
+            ) : null}
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

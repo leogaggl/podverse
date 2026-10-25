@@ -140,6 +140,14 @@ export function listChipRowBottomGap(spacing: ThemeTokens['spacing']): number {
 }
 
 /**
+ * Horizontal space between chips in a row (`SectionChip`, `MenuSelectChip`, `OptionChipGroup`).
+ * Between `spacing.sm` (4) and `spacing.md` (8), so it is not a scale step.
+ */
+export function chipRowGap(): number {
+  return 6;
+}
+
+/**
  * `marginBottom` for a `ListFilterHeader` so the visual gap from the field to the first row or tile
  * equals `listFilterContentGap`, after subtracting top padding the next content already carries.
  * Put it on the header wrapper, not the field. The header's own `paddingBottom` (only when content

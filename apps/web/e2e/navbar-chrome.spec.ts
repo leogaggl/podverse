@@ -51,6 +51,63 @@ test.describe('Main layout navbar chrome', () => {
     );
   });
 
+  test('the sidebar marks the page you are on and stays unmarked on a podcast page', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const subscribed = page.locator('#sidebar a[href="/"]');
+    const browse = page.locator('#sidebar a[href="/browse"]');
+
+    await test.step('The home page marks Subscribed as the current page.', async () => {
+      await actionAndCapture(
+        page,
+        testInfo,
+        'The home page marks Subscribed in the sidebar as the current page.',
+        async () => {
+          await page.goto('/');
+          await expect(page).toHaveURL(/\/$/);
+          await expect(subscribed).toHaveAttribute('aria-current', 'page');
+          await expect(browse).not.toHaveAttribute('aria-current', 'page');
+        },
+        subscribed
+      );
+    });
+
+    await test.step('The Browse page marks Browse as the current page.', async () => {
+      await actionAndCapture(
+        page,
+        testInfo,
+        'The Browse page marks Browse in the sidebar as the current page.',
+        async () => {
+          await page.goto('/browse');
+          await expect(page).toHaveURL(/\/browse$/);
+          await expect(browse).toHaveAttribute('aria-current', 'page');
+          await expect(subscribed).not.toHaveAttribute('aria-current', 'page');
+        },
+        browse
+      );
+    });
+
+    await test.step('A podcast page leaves every sidebar row unmarked.', async () => {
+      const podcastHeading = page.getByRole('heading', {
+        level: 1,
+        name: E2E_PODCAST_CHANNEL_TITLE,
+      });
+      await actionAndCapture(
+        page,
+        testInfo,
+        'The seeded podcast page leaves the sidebar without a current page.',
+        async () => {
+          await page.goto(`/podcast/${E2E_PODCAST_CHANNEL_ID_TEXT}`);
+          await expect(page).toHaveURL(new RegExp(`/podcast/${E2E_PODCAST_CHANNEL_ID_TEXT}`));
+          await expect(podcastHeading).toBeVisible();
+          await expect(page.locator('#sidebar [aria-current="page"]')).toHaveCount(0);
+        },
+        page.locator('#sidebar')
+      );
+    });
+  });
+
   test('a narrow viewport shows search, the mobile menu toggle in its closed state', async ({
     page,
   }, testInfo) => {

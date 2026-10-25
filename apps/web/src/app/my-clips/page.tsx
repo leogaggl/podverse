@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
-import { MainHeader } from '@podverse/ui';
+import { CenteredMessage, MainHeader } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { buildNoindexMetadata } from '../../lib/seo/buildNoindexMetadata';
@@ -17,7 +17,7 @@ export default async function MyClipsPage() {
     <>
       <MainHeader title={tFeatures('my_clips')} />
       <MainWrapper>
-        <p>{tPlayer('coming_soon')}</p>
+        <CenteredMessage live="status">{tPlayer('coming_soon')}</CenteredMessage>
       </MainWrapper>
     </>
   );

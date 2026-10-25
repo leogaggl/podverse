@@ -84,8 +84,13 @@ test.describe('Taste Profile consent', () => {
     const screen = page.getByRole('main', { name: TASTE_PROFILE_SCREEN_NAME });
     await expect(screen).toBeVisible();
     await expect(screen.getByLabel('Loading…')).toBeVisible();
+    await expect(screen.getByRole('heading', { name: TASTE_PROFILE_SCREEN_NAME })).toHaveCount(0);
+    await expect(screen.getByRole('button', { name: 'Yes, Build My Taste Profile' })).toHaveCount(
+      0
+    );
     await expect(screen.getByText('Taste Profile is optional')).toBeVisible();
     await expect(screen.getByLabel('Loading…')).toBeHidden();
+    await expect(screen.getByRole('heading', { name: TASTE_PROFILE_SCREEN_NAME })).toBeVisible();
     await expect(page.getByRole('main', { name: TERMS_SCREEN_NAME })).toHaveCount(0);
   });
 

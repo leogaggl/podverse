@@ -17,6 +17,10 @@ export type MobileThemeStyles = {
     backgroundColor: string;
     color: string;
   };
+  buttonSuccess: {
+    backgroundColor: string;
+    color: string;
+  };
   screen: {
     backgroundColor: string;
   };
@@ -53,6 +57,10 @@ export const createStyles = (theme: UITheme): MobileThemeStyles => {
     buttonDanger: {
       backgroundColor: tokens.button.dangerBg,
       color: tokens.button.dangerColor,
+    },
+    buttonSuccess: {
+      backgroundColor: tokens.button.successBg,
+      color: tokens.button.successColor,
     },
     // Dark full-bleed chrome matches the tab bar (`background.secondary`). Other themes
     // keep `background.primary` so cards (`background.secondary`) sit on a distinct page.

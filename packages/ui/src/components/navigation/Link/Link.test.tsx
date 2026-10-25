@@ -116,6 +116,7 @@ describe('Link', () => {
         href="https://example.com"
         rel="noopener noreferrer"
         style={{ marginTop: 4 }}
+        aria-current="page"
         tabIndex={0}
         target="_blank"
         title="Docs"
@@ -129,6 +130,7 @@ describe('Link', () => {
     expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(anchor?.getAttribute('tabindex')).toBe('0');
     expect(anchor?.getAttribute('aria-label')).toBe('Open docs');
+    expect(anchor?.getAttribute('aria-current')).toBe('page');
     expect(anchor?.getAttribute('title')).toBe('Docs');
     expect(anchor?.getAttribute('style')).toContain('margin-top');
   });

@@ -83,7 +83,8 @@ export function ImageViewerScreen({ navigation, route }: ImageViewerScreenProps)
   return (
     <View style={styles.root} testID="image-viewer">
       <HeaderBarChrome
-        backAccessibilityLabel={t('misc.go_back')}
+        backAccessibilityLabel={t('misc.dismiss')}
+        backIcon="chevron-down"
         backTestID="image-viewer-back"
         onBack={() => {
           navigation.goBack();

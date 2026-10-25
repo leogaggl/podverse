@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { chipRowGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import type { MoreMenuItem, MoreMenuSection } from '../primitives';
 import { MoreMenu } from '../primitives';
@@ -79,7 +80,7 @@ export function MenuSelectChip<T extends string>({
         alignItems: 'center',
         borderWidth: 1,
         flexDirection: 'row',
-        marginRight: tokens.spacing.sm,
+        marginRight: chipRowGap(),
         opacity: disabled ? 0.5 : 1,
         ...chipFacePadding(tokens.spacing),
         ...chrome.chip,

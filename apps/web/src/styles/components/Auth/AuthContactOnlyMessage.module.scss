@@ -1,9 +1,3 @@
-@use '../../mixins/form' as *;
-
-.authContactOnlyMessage {
-  max-width: var(--form-max-width);
-}
-
 .message {
   color: var(--text-color-primary);
   font-size: var(--font-size-lg);

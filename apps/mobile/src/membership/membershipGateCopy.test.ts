@@ -6,6 +6,7 @@ import {
   membershipGateConfirmDestination,
   membershipGateConfirmLabelKey,
   membershipGateConfirmTestID,
+  membershipGateConfirmVariant,
   membershipGateMessageKeys,
   membershipGateNoticeActionKey,
 } from './membershipGateCopy';
@@ -85,6 +86,19 @@ describe('membershipGateConfirmLabelKey', () => {
     expect(membershipGateConfirmLabelKey('limit_reached', signedOut)).toBe(
       'membership.gate.sign_up'
     );
+  });
+});
+
+describe('membershipGateConfirmVariant', () => {
+  it('uses success for Buy Membership and Extend Membership, and primary for Login and Sign Up', () => {
+    expect(membershipGateConfirmVariant('needs_account', signedOut)).toBe('primary');
+    expect(membershipGateConfirmVariant('needs_account', premium)).toBe('primary');
+    expect(membershipGateConfirmVariant('limit_reached', signedOut)).toBe('primary');
+    expect(membershipGateConfirmVariant('membership_expired', premium)).toBe('success');
+    expect(membershipGateConfirmVariant('membership_expired', trial)).toBe('success');
+    expect(membershipGateConfirmVariant('needs_membership', premium)).toBe('success');
+    expect(membershipGateConfirmVariant('needs_membership', trial)).toBe('success');
+    expect(membershipGateConfirmVariant('limit_reached', premium)).toBe('success');
   });
 });
 

@@ -7,10 +7,17 @@
   padding: var(--spacing-base);
   margin: var(--spacing-sm) var(--spacing-md);
   font-size: var(--font-size-base);
+  border-radius: var(--border-radius);
 }
 
 .link:hover {
   background: var(--background-color-opaque);
+  text-decoration: none;
+}
+
+.current,
+.current:hover {
+  background: color-mix(in srgb, var(--text-color-primary) 24%, transparent);
   text-decoration: none;
 }
 

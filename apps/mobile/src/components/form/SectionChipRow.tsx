@@ -12,7 +12,7 @@ import { getChipRevealOffset } from '@podverse/helpers/chipRowReveal';
 
 import { notePerfTouch, stampPerfFrame } from '../../lib/perf/perfFrames';
 import { perfMark } from '../../lib/perf/perfSpans';
-import { listChipRowBottomGap } from '../../theme/screenLayout';
+import { chipRowGap, listChipRowBottomGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { chipFacePadding, chipLabelTypography, filterChipChrome } from './chipChrome';
 
@@ -82,7 +82,7 @@ export function SectionChip({
           borderColor: themeStyles.border.borderColor,
           borderRadius: tokens.radii.round,
           borderWidth: 1,
-          marginRight: tokens.spacing.sm,
+          marginRight: chipRowGap(),
           ...chipFacePadding(tokens.spacing),
         },
         chipActive: {

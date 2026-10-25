@@ -11,6 +11,7 @@ import {
 } from '@podverse/helpers-validation/client';
 import {
   Button,
+  CenteredMessage,
   FormInfoMessageText,
   MainColumnStack,
   MainHeader,
@@ -146,35 +147,42 @@ export function SetPasswordPageClient({ token }: SetPasswordPageClientProps) {
       <MainWrapper>
         <MainSidebarLayout>
           <MainColumnStack>
-            <div className={styles.authResetPasswordForm}>
-              {!isComplete && showOtherSessionBanner && (
-                <div className={styles.sessionBanner}>
-                  <FormInfoMessageText
-                    message={tAuthentication('set_password_other_session_banner', {
-                      sessionLabel: sessionBannerLabel,
-                    })}
-                  />
-                  <div className={styles.buttons}>
-                    <Button
-                      type="button"
-                      disabled={isSigningOut}
-                      onClick={() => setOtherSessionBannerDismissed(true)}
-                      variant="secondary"
-                    >
-                      {tAuthentication('set_password_continue_without_signing_out')}
-                    </Button>
-                    <Button
-                      type="button"
-                      isLoading={isSigningOut}
-                      onClick={() => void handleSignOutAndContinue()}
-                      variant="primary"
-                    >
-                      {tAuthentication('set_password_sign_out_to_continue')}
-                    </Button>
+            {isComplete ? (
+              <CenteredMessage>
+                <span role="status">{tAuthentication('set_password_complete_message')}</span>
+                <Button type="button" onClick={() => router.push('/login')} variant="primary">
+                  {tAuthentication('login')}
+                </Button>
+              </CenteredMessage>
+            ) : (
+              <div className={styles.authResetPasswordForm}>
+                {showOtherSessionBanner ? (
+                  <div className={styles.sessionBanner}>
+                    <FormInfoMessageText
+                      message={tAuthentication('set_password_other_session_banner', {
+                        sessionLabel: sessionBannerLabel,
+                      })}
+                    />
+                    <div className={styles.buttons}>
+                      <Button
+                        type="button"
+                        disabled={isSigningOut}
+                        onClick={() => setOtherSessionBannerDismissed(true)}
+                        variant="secondary"
+                      >
+                        {tAuthentication('set_password_continue_without_signing_out')}
+                      </Button>
+                      <Button
+                        type="button"
+                        isLoading={isSigningOut}
+                        onClick={() => void handleSignOutAndContinue()}
+                        variant="primary"
+                      >
+                        {tAuthentication('set_password_sign_out_to_continue')}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-              {!isComplete && (
+                ) : null}
                 <StackForm onSubmit={handleSubmit}>
                   <TextInput
                     type="email"
@@ -211,18 +219,8 @@ export function SetPasswordPageClient({ token }: SetPasswordPageClientProps) {
                     </Button>
                   </div>
                 </StackForm>
-              )}
-              {isComplete && (
-                <>
-                  <FormInfoMessageText message={tAuthentication('set_password_complete_message')} />
-                  <div className={styles.completePrimaryAction}>
-                    <Button type="button" onClick={() => router.push('/login')} variant="primary">
-                      {tAuthentication('login')}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
+              </div>
+            )}
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

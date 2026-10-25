@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import React, { useState } from 'react';
 
 import { getEmailErrorKey } from '@podverse/helpers-validation/client';
-import { Button, FormInfoMessageText, StackForm, TextInput } from '@podverse/ui';
+import { Button, CenteredMessage, StackForm, TextInput } from '@podverse/ui';
 
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { handleRateLimitAlert } from '../../utils/rateLimit/rateLimitAlert';
@@ -63,39 +63,42 @@ export const AuthForgotPasswordForm: React.FC = () => {
 
   const isFormValid = !getEmailErrorKey(email) && !!email;
 
+  if (isEmailSent) {
+    return (
+      <CenteredMessage live="status">
+        {tAuthentication('forgot_password_email_sent_message')}
+      </CenteredMessage>
+    );
+  }
+
   return (
     <div className={styles.authForgotPasswordForm}>
-      {!isEmailSent && (
-        <StackForm onSubmit={handleSubmit}>
-          <TextInput
-            type="email"
-            name="email"
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-            onBlur={handleEmailBlur}
-            autoFocus
-            placeholder={tAuthentication('email_example')}
-            eyebrow={tAuthentication('email')}
-            infoError={emailErrorKey ? tAuthentication(emailErrorKey) : undefined}
-          />
-          <div className={styles.buttons}>
-            <Button type="button" onClick={() => router.push('/')} variant="secondary">
-              {tMisc('cancel')}
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!isFormValid || isLoading}
-              isLoading={isLoading}
-            >
-              {tMisc('submit')}
-            </Button>
-          </div>
-        </StackForm>
-      )}
-      {isEmailSent && (
-        <FormInfoMessageText message={tAuthentication('forgot_password_email_sent_message')} />
-      )}
+      <StackForm onSubmit={handleSubmit}>
+        <TextInput
+          type="email"
+          name="email"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          onBlur={handleEmailBlur}
+          autoFocus
+          placeholder={tAuthentication('email_example')}
+          eyebrow={tAuthentication('email')}
+          infoError={emailErrorKey ? tAuthentication(emailErrorKey) : undefined}
+        />
+        <div className={styles.buttons}>
+          <Button type="button" onClick={() => router.push('/')} variant="secondary">
+            {tMisc('cancel')}
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={!isFormValid || isLoading}
+            isLoading={isLoading}
+          >
+            {tMisc('submit')}
+          </Button>
+        </div>
+      </StackForm>
     </div>
   );
 };

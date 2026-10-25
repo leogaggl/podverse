@@ -10,7 +10,7 @@ import {
   getPasswordErrorKey,
   getPasswordRequirementsInfoKey,
 } from '@podverse/helpers-validation/client';
-import { Button, FormInfoMessageText, StackForm, TextInput } from '@podverse/ui';
+import { Button, CenteredMessage, StackForm, TextInput } from '@podverse/ui';
 
 import { ROUTES } from '../../constants/routes';
 import { useConfig } from '../../contexts/Config';
@@ -137,68 +137,69 @@ export const AuthSignUpForm = () => {
     !!password1 &&
     termsAgreed;
 
+  if (isAccountCreated) {
+    return (
+      <CenteredMessage live="status">{tAuthentication('account_created_message')}</CenteredMessage>
+    );
+  }
+
   return (
     <div className={styles.authSignUpForm}>
-      {!isAccountCreated && (
-        <StackForm onSubmit={handleSubmit}>
-          <TextInput
-            type="email"
-            name="email"
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-            onBlur={handleEmailBlur}
-            autoFocus
-            placeholder={tAuthentication('email_example')}
-            eyebrow={tAuthentication('email')}
-            infoError={emailErrorKey ? tAuthentication(emailErrorKey) : undefined}
-          />
-          <TextInput
-            type="password"
-            name="password1"
-            value={password1}
-            onChange={(e) => onPassword1Change(e.target.value)}
-            onBlur={handlePassword1Blur}
-            placeholder={tAuthentication('password_hint')}
-            eyebrow={tAuthentication('password')}
-            infoError={password1ErrorKey ? tAuthentication(password1ErrorKey) : undefined}
-          />
-          <div className={styles.passwordInfo}>
-            {tAuthentication(getPasswordRequirementsInfoKey())}
-          </div>
-          <div className={styles.consentCheckboxes}>
-            <label className={styles.consentOption}>
-              <input
-                type="checkbox"
-                checked={termsAgreed}
-                onChange={(event) => setTermsAgreed(event.target.checked)}
-                className={styles.consentCheckbox}
-              />
-              <span className={styles.consentLabel}>
-                {tMisc('i_have_read_and_agree')} <Link href={ROUTES.TERMS}>{tMisc('terms')}</Link>
-              </span>
-            </label>
-            {termsVersionError !== undefined && (
-              <p className={styles.termsVersionError}>{termsVersionError}</p>
-            )}
-          </div>
-          <div className={styles.buttons}>
-            <Button type="button" onClick={() => router.push('/')} variant="secondary">
-              {tMisc('cancel')}
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!isFormValid || isLoading}
-              isLoading={isLoading}
-            >
-              {tMisc('submit')}
-            </Button>
-          </div>
-        </StackForm>
-      )}
-      {isAccountCreated && (
-        <FormInfoMessageText message={tAuthentication('account_created_message')} />
-      )}
+      <StackForm onSubmit={handleSubmit}>
+        <TextInput
+          type="email"
+          name="email"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          onBlur={handleEmailBlur}
+          autoFocus
+          placeholder={tAuthentication('email_example')}
+          eyebrow={tAuthentication('email')}
+          infoError={emailErrorKey ? tAuthentication(emailErrorKey) : undefined}
+        />
+        <TextInput
+          type="password"
+          name="password1"
+          value={password1}
+          onChange={(e) => onPassword1Change(e.target.value)}
+          onBlur={handlePassword1Blur}
+          placeholder={tAuthentication('password_hint')}
+          eyebrow={tAuthentication('password')}
+          infoError={password1ErrorKey ? tAuthentication(password1ErrorKey) : undefined}
+        />
+        <div className={styles.passwordInfo}>
+          {tAuthentication(getPasswordRequirementsInfoKey())}
+        </div>
+        <div className={styles.consentCheckboxes}>
+          <label className={styles.consentOption}>
+            <input
+              type="checkbox"
+              checked={termsAgreed}
+              onChange={(event) => setTermsAgreed(event.target.checked)}
+              className={styles.consentCheckbox}
+            />
+            <span className={styles.consentLabel}>
+              {tMisc('i_have_read_and_agree')} <Link href={ROUTES.TERMS}>{tMisc('terms')}</Link>
+            </span>
+          </label>
+          {termsVersionError !== undefined && (
+            <p className={styles.termsVersionError}>{termsVersionError}</p>
+          )}
+        </div>
+        <div className={styles.buttons}>
+          <Button type="button" onClick={() => router.push('/')} variant="secondary">
+            {tMisc('cancel')}
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={!isFormValid || isLoading}
+            isLoading={isLoading}
+          >
+            {tMisc('submit')}
+          </Button>
+        </div>
+      </StackForm>
       <VerificationEmailNotSentModal
         isOpen={verificationEmailNotSent}
         onClose={() => {

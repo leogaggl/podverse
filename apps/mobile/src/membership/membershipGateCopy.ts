@@ -3,6 +3,9 @@ import { membershipPurchaseAction, membershipPurchaseMessageKey } from '@podvers
 
 export type MembershipGateConfirmDestination = 'login' | 'membership';
 
+/** Filled color for a gate confirm. Buy and Extend use the green success button. */
+export type MembershipGateConfirmVariant = 'primary' | 'success';
+
 export type MembershipGateMessageKeys = {
   bodyKey: string;
   titleKey: string;
@@ -67,6 +70,28 @@ export function membershipGateConfirmLabelKey(
     case 'membership_expired':
     case 'needs_membership':
       return purchaseLabelKey(membership);
+  }
+}
+
+/**
+ * Buy Membership and Extend Membership use the success button. Login and Sign Up stay primary.
+ */
+export function membershipGateConfirmVariant(
+  reason: AccessDenialReason,
+  membership: PurchaseLabelMembership
+): MembershipGateConfirmVariant {
+  switch (reason) {
+    case 'needs_account':
+      return 'primary';
+    case 'limit_reached':
+    case 'membership_expired':
+    case 'needs_membership': {
+      const action = membershipPurchaseAction(membership);
+      if (action === 'buy' || action === 'extend') {
+        return 'success';
+      }
+      return 'primary';
+    }
   }
 }
 

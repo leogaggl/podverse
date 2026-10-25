@@ -2,6 +2,8 @@
 
 .mainSidebarLayout {
   display: flex;
+  /* Short pages fill the space under the header so a centered message can sit in the middle. */
+  flex: 1 1 auto;
   flex-direction: row-reverse;
   /* Horizontal inset matches the web NavBar title inset (`--spacing-2xl`). */
   margin: var(--spacing-xl) var(--spacing-2xl) var(--spacing-4xl) var(--spacing-2xl);

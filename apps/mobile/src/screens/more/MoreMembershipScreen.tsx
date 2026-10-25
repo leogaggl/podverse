@@ -220,7 +220,7 @@ export function MoreMembershipScreen() {
             }}
             size="form"
             testID="more-membership-cta"
-            variant="primary"
+            variant="success"
           />
         </View>
       ) : (

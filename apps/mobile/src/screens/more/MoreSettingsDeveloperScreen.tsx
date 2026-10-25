@@ -25,6 +25,7 @@ import { ListEmpty } from '../../components/state/ListEmpty';
 import { getMobileConfig } from '../../config';
 import { apiDocsUrl, apiDocsYamlUrl } from '../../config/apiDocsUrl';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import { membershipGateConfirmVariant } from '../../membership/membershipGateCopy';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { useMembership } from '../../membership/useMembership';
@@ -495,6 +496,7 @@ export function MoreSettingsDeveloperScreen() {
         cancelTestID="more-settings-developer-membership-cancel"
         confirmLabel={membershipConfirmLabel()}
         confirmTestID="more-settings-developer-membership-confirm"
+        confirmVariant={membershipGateConfirmVariant('needs_membership', membership)}
         onCancel={() => {
           setMembershipDialogOpen(false);
         }}

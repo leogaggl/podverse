@@ -3,6 +3,8 @@
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
+import { CenteredMessage } from '@podverse/ui';
+
 import styles from '../../styles/components/Auth/AuthContactOnlyMessage.module.scss';
 
 type Props = {
@@ -13,13 +15,13 @@ export const AuthContactOnlyMessage: React.FC<Props> = ({ contactEmail }) => {
   const t = useTranslations('authentication');
 
   return (
-    <div className={styles.authContactOnlyMessage}>
+    <CenteredMessage live="status">
       <p className={styles.message}>
         {t('contact_only_text_before')}{' '}
         <a href={`mailto:${contactEmail}`} className={styles.emailLink}>
           {contactEmail}
         </a>
       </p>
-    </div>
+    </CenteredMessage>
   );
 };

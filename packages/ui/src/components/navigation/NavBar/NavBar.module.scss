@@ -145,13 +145,23 @@
   display: inline-block;
 }
 
-.accountTrigger {
+button.accountTrigger {
   display: flex;
   align-items: center;
   background: none;
   border: none;
+  box-shadow: none;
+  outline: none;
   padding: var(--spacing-form-input);
   cursor: pointer;
+
+  &:hover,
+  &:focus,
+  &:focus-visible {
+    border: none;
+    box-shadow: none;
+    outline: none;
+  }
 }
 
 .profileInfo {

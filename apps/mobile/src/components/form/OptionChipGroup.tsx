@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { chipRowGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
 import { chipFacePadding, chipLabelTypography } from './chipChrome';
 
@@ -54,7 +55,7 @@ export function OptionChipGroup<T extends string | number>({
           alignItems: 'center',
           flexDirection: 'row',
           flexWrap: 'wrap',
-          gap: tokens.spacing.sm,
+          gap: chipRowGap(),
         },
       }),
     [themeStyles, tokens]

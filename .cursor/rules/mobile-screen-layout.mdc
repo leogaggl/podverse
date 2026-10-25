@@ -102,7 +102,8 @@ Settings density (2–3 chips vs option-list screen) is **mobile-settings-option
 
 Standalone cover art uses **`CoverImage`** (`expo-image`, memory+disk cache). A stationary tap
 opens the **`ImageViewer`** root screen (`ROOT_SLIDE_UP_SCREEN_OPTIONS`): it slides up and
-dismisses from the top edge. Pass **`viewerUri`** from **`primaryLightboxArtworkUrl`** (or the
+dismisses from the top edge. The header control is a down chevron
+(`HeaderBarChrome` `backIcon="chevron-down"`, `misc.dismiss`). Pass **`viewerUri`** from **`primaryLightboxArtworkUrl`** (or the
 channel variant) so the screen loads the largest original, not the list thumb. Pass
 **`addByRssFeedUrl`** when the artwork belongs to an Add by RSS feed. The route never carries
 an `Authorization` value; the screen resolves those headers from the feed URL. Do not add a
@@ -216,6 +217,10 @@ screen with this stack uses these helpers. Screens that already exist keep their
 spacing and type.
 
 ## Chip row → next block
+
+Space **between** chips in a row is **`chipRowGap()`** (6).
+**`SectionChip`** and **`MenuSelectChip`** apply it as `marginRight`. **`OptionChipGroup`**
+applies it as the row `gap`.
 
 Space **below** chips that sit above a list is **`listChipRowBottomGap(tokens.spacing)`**
 (`spacing.base`, the same value as `listFilterContentGap`). **`SectionChipRow`** applies it as

@@ -11,6 +11,7 @@ import {
   membershipGateConfirmDestination,
   membershipGateConfirmLabelKey,
   membershipGateConfirmTestID,
+  membershipGateConfirmVariant,
   membershipGateMessageKeys,
 } from './membershipGateCopy';
 import { useMembership } from './useMembership';
@@ -127,6 +128,7 @@ export function MembershipGateProvider({
         cancelTestID="premium-gate-cancel"
         confirmLabel={confirmLabel}
         confirmTestID={membershipGateConfirmTestID(gate.reason)}
+        confirmVariant={membershipGateConfirmVariant(gate.reason, membership)}
         onCancel={closeGate}
         onConfirm={onConfirm}
         testID="premium-gate-modal"

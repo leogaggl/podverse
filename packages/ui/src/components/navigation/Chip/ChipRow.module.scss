@@ -18,6 +18,7 @@
   padding: var(--spacing-sm);
   margin: calc(-1 * var(--spacing-sm));
   scroll-padding-inline: var(--spacing-sm);
+  user-select: none;
 
   &::-webkit-scrollbar {
     display: none;

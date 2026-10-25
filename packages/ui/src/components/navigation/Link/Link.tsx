@@ -11,6 +11,7 @@ export type LinkRenderProps = {
   className?: string;
   title?: string;
   'aria-label'?: string;
+  'aria-current'?: 'page';
   tabIndex?: number;
   style?: CSSProperties;
   target?: '_blank';
@@ -25,6 +26,7 @@ export type LinkProps = {
   type?: 'button' | 'submit' | 'reset';
   tabIndex?: number;
   'aria-label'?: string;
+  'aria-current'?: 'page';
   disabled?: boolean;
   style?: CSSProperties;
   color?: 'primary' | 'secondary';
@@ -42,6 +44,7 @@ function DefaultPlainAnchor({
   className,
   title,
   'aria-label': ariaLabel,
+  'aria-current': ariaCurrent,
   tabIndex,
   style,
   target,
@@ -49,6 +52,7 @@ function DefaultPlainAnchor({
 }: LinkRenderProps): ReactElement {
   return (
     <a
+      aria-current={ariaCurrent}
       aria-label={ariaLabel}
       className={className}
       href={href}
@@ -71,6 +75,7 @@ export function Link({
   type = 'button',
   tabIndex,
   'aria-label': ariaLabel,
+  'aria-current': ariaCurrent,
   disabled = false,
   style,
   color = 'primary',
@@ -88,6 +93,7 @@ export function Link({
     if (disabled) {
       return (
         <span
+          aria-current={ariaCurrent}
           aria-disabled="true"
           className={classNames(linkClassName, className, styles.disabled)}
           style={style}
@@ -99,6 +105,7 @@ export function Link({
     }
 
     const anchorProps: LinkRenderProps = {
+      'aria-current': ariaCurrent,
       'aria-label': ariaLabel,
       children,
       className: mergedLinkClasses,

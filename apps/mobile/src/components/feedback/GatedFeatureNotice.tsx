@@ -6,6 +6,7 @@ import type { FeatureAccess } from '@podverse/helpers';
 
 import {
   membershipGateConfirmDestination,
+  membershipGateConfirmVariant,
   membershipGateMessageKeys,
   membershipGateNoticeActionKey,
 } from '../../membership/membershipGateCopy';
@@ -88,7 +89,7 @@ export function GatedFeatureNotice({
         onPress={onPress}
         size="sm"
         testID={testID === undefined ? undefined : `${testID}-action`}
-        variant="primary"
+        variant={membershipGateConfirmVariant(reason, membership)}
       />
     </View>
   );

@@ -8,7 +8,7 @@ import {
   getPasswordErrorKey,
   getPasswordRequirementsInfoKey,
 } from '@podverse/helpers-validation/client';
-import { Button, FormInfoMessageText, StackForm, TextInput } from '@podverse/ui';
+import { Button, CenteredMessage, StackForm, TextInput } from '@podverse/ui';
 
 import { getApiRequestService } from '../../factories/apiRequestService';
 import { handleRateLimitAlert } from '../../utils/rateLimit/rateLimitAlert';
@@ -83,41 +83,44 @@ export const AuthResetPasswordForm: React.FC<AuthResetPasswordFormProps> = ({ to
     return null;
   }
 
+  if (isPasswordResetComplete) {
+    return (
+      <CenteredMessage live="status">
+        {tAuthentication('reset_password_complete_message')}
+      </CenteredMessage>
+    );
+  }
+
   return (
     <div className={styles.authResetPasswordForm}>
-      {!isPasswordResetComplete && (
-        <StackForm onSubmit={handleSubmit}>
-          <TextInput
-            type="password"
-            name="password1"
-            value={password1}
-            onChange={(e) => onPassword1Change(e.target.value)}
-            onBlur={handlePassword1Blur}
-            placeholder={tAuthentication('password_hint')}
-            eyebrow={tAuthentication('password')}
-            infoError={password1ErrorKey ? tAuthentication(password1ErrorKey) : undefined}
-          />
-          <div className={styles.passwordInfo}>
-            {tAuthentication(getPasswordRequirementsInfoKey())}
-          </div>
-          <div className={styles.buttons}>
-            <Button type="button" onClick={() => router.push('/')} variant="secondary">
-              {tMisc('cancel')}
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!isFormValid || isLoading}
-              isLoading={isLoading}
-            >
-              {tMisc('submit')}
-            </Button>
-          </div>
-        </StackForm>
-      )}
-      {isPasswordResetComplete && (
-        <FormInfoMessageText message={tAuthentication('reset_password_complete_message')} />
-      )}
+      <StackForm onSubmit={handleSubmit}>
+        <TextInput
+          type="password"
+          name="password1"
+          value={password1}
+          onChange={(e) => onPassword1Change(e.target.value)}
+          onBlur={handlePassword1Blur}
+          placeholder={tAuthentication('password_hint')}
+          eyebrow={tAuthentication('password')}
+          infoError={password1ErrorKey ? tAuthentication(password1ErrorKey) : undefined}
+        />
+        <div className={styles.passwordInfo}>
+          {tAuthentication(getPasswordRequirementsInfoKey())}
+        </div>
+        <div className={styles.buttons}>
+          <Button type="button" onClick={() => router.push('/')} variant="secondary">
+            {tMisc('cancel')}
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={!isFormValid || isLoading}
+            isLoading={isLoading}
+          >
+            {tMisc('submit')}
+          </Button>
+        </div>
+      </StackForm>
     </div>
   );
 };

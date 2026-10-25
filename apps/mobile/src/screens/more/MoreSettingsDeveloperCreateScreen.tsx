@@ -36,6 +36,7 @@ import { AuthAwareLoadState } from '../../components/state/AuthAwareLoadState';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { handleRateLimitMessage } from '../../lib/rateLimit/handleRateLimitMessage';
+import { membershipGateConfirmVariant } from '../../membership/membershipGateCopy';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { useMembership } from '../../membership/useMembership';
@@ -599,6 +600,7 @@ export function MoreSettingsDeveloperCreateScreen({ navigation, route }: Props) 
         cancelTestID="more-settings-developer-create-membership-cancel"
         confirmLabel={membershipConfirmLabel()}
         confirmTestID="more-settings-developer-create-membership-confirm"
+        confirmVariant={membershipGateConfirmVariant('needs_membership', membership)}
         onCancel={() => {
           setMembershipDialogVisible(false);
         }}

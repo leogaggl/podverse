@@ -145,7 +145,7 @@ export function MembershipExpiredBanner({ onRenew }: MembershipExpiredBannerProp
         onPress={onRenew}
         size="sm"
         testID="membership-expired-banner-renew"
-        variant="primary"
+        variant="success"
       />
       <Pressable
         accessibilityLabel={t('membership.gate.banner_dismiss')}

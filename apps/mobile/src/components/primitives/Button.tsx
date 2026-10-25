@@ -13,7 +13,8 @@ import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 
-export type ButtonVariant = 'outline' | 'primary' | 'secondary' | 'danger' | 'play' | 'ghost';
+export type ButtonVariant =
+  'outline' | 'primary' | 'secondary' | 'danger' | 'success' | 'play' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'form';
 
 export type ButtonProps = {
@@ -110,6 +111,8 @@ const createStyles = ({ tokens }: ThemedStylesTheme) =>
  * - `play` — media-row Play circle: accent border, semi-transparent accent fill (`opaqueBg`), and a
  *   light/dark-friendly glyph color. Matches the legacy TimeRemainingWidget play chrome.
  * - `ghost` — bare icon (More): no border or fill; accent glyph. Matches legacy MoreButton.
+ * - `success` — filled purchase control (Buy Membership, Extend Membership). Uses the theme
+ *   success button tokens, the same greens as web `variant="success"`.
  *
  * `sm` is compact inline chrome (Subscribe, banners). `md` is the default labeled control on a
  * display page. `form` is the decision button on a form, dialog, checkout, or other page and
@@ -148,20 +151,22 @@ export const Button = memo(function Button({
         ? themeStyles.buttonSecondary
         : variant === 'danger'
           ? themeStyles.buttonDanger
-          : variant === 'play'
-            ? {
-                backgroundColor: tokens.button.opaqueBg,
-                color: tokens.button.secondaryColor,
-              }
-            : variant === 'ghost'
+          : variant === 'success'
+            ? themeStyles.buttonSuccess
+            : variant === 'play'
               ? {
-                  backgroundColor: 'transparent',
+                  backgroundColor: tokens.button.opaqueBg,
                   color: tokens.button.secondaryColor,
                 }
-              : {
-                  backgroundColor: 'transparent',
-                  color: tokens.text.accent,
-                };
+              : variant === 'ghost'
+                ? {
+                    backgroundColor: 'transparent',
+                    color: tokens.button.secondaryColor,
+                  }
+                : {
+                    backgroundColor: 'transparent',
+                    color: tokens.text.accent,
+                  };
   const isDisabled = disabled || loading;
   const isOutline = variant === 'outline' || variant === 'play';
   const isForm = size === 'form';

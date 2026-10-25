@@ -6,7 +6,14 @@ import { useEffect, useState } from 'react';
 
 import type { DTOBillingStatus } from '@podverse/helpers';
 import { formatDateAbbrev } from '@podverse/helpers';
-import { Alert, MainColumnStack, MainHeader, MainSidebarLayout, SideContent } from '@podverse/ui';
+import {
+  Alert,
+  CenteredMessage,
+  MainColumnStack,
+  MainHeader,
+  MainSidebarLayout,
+  SideContent,
+} from '@podverse/ui';
 
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import { ROUTES } from '../../../constants/routes';
@@ -107,18 +114,22 @@ export function CheckoutSuccessPageClient() {
         <MainSidebarLayout>
           <SideContent />
           <MainColumnStack>
-            {phase === 'waiting' ? <p>{t('success_waiting')}</p> : null}
-            {phase === 'active' && billingStatus !== null ? (
-              <Alert
-                className={styles.successDetail}
-                testId="checkout-success-detail"
-                variant="success"
-              >
-                {activeSuccessMessage(billingStatus, locale, t)}
-                <span className={styles.successContinue}>{t('success_opening_membership')}</span>
-              </Alert>
-            ) : null}
-            {phase === 'timeout' ? <Alert>{t('success_timeout')}</Alert> : null}
+            <CenteredMessage live={phase === 'timeout' ? 'alert' : 'status'}>
+              {phase === 'waiting' ? <span>{t('success_waiting')}</span> : null}
+              {phase === 'active' && billingStatus !== null ? (
+                <Alert
+                  className={`${styles.pageNotice} ${styles.successDetail}`}
+                  testId="checkout-success-detail"
+                  variant="success"
+                >
+                  {activeSuccessMessage(billingStatus, locale, t)}
+                  <span className={styles.successContinue}>{t('success_opening_membership')}</span>
+                </Alert>
+              ) : null}
+              {phase === 'timeout' ? (
+                <Alert className={styles.pageNotice}>{t('success_timeout')}</Alert>
+              ) : null}
+            </CenteredMessage>
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

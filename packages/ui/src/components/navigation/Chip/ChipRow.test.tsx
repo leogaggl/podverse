@@ -195,6 +195,136 @@ describe('ChipRow', () => {
     expect(screen.getByTestId('row-podcasts').hasAttribute('data-hide-desktop')).toBe(false);
   });
 
+  function trackScrollLeft(element: HTMLElement) {
+    let value = 0;
+    Object.defineProperty(element, 'scrollLeft', {
+      configurable: true,
+      get: () => value,
+      set: (next: number) => {
+        value = next;
+      },
+    });
+    return {
+      read: () => value,
+    };
+  }
+
+  function pointer(
+    phase: 'pointerDown' | 'pointerMove' | 'pointerUp',
+    target: Element,
+    clientX: number,
+    pointerType: 'mouse' | 'touch'
+  ) {
+    fireEvent[phase](target, {
+      button: 0,
+      buttons: phase === 'pointerUp' ? 0 : 1,
+      clientX,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType,
+    });
+  }
+
+  it('scrolls on a mouse drag and does not select the chip under the pointer', () => {
+    stubRowLayout();
+    const onSelect = vi.fn();
+    render(<ChipRow items={ITEMS} selectedKey="podcasts" onSelect={onSelect} testId="row" />);
+
+    const scroller = screen.getByTestId('row-items').parentElement;
+    expect(scroller).not.toBeNull();
+    if (scroller === null) {
+      return;
+    }
+    const scrollLeft = trackScrollLeft(scroller);
+    const podcasts = screen.getByRole('button', { name: 'Podcasts' });
+
+    pointer('pointerDown', podcasts, 80, 'mouse');
+    pointer('pointerMove', podcasts, 20, 'mouse');
+    pointer('pointerUp', podcasts, 20, 'mouse');
+    fireEvent.click(podcasts);
+
+    expect(scrollLeft.read()).toBe(60);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('does not activate a trailing control when the drag starts on it', () => {
+    stubRowLayout();
+    const onSort = vi.fn();
+    render(
+      <ChipRow
+        items={ITEMS}
+        selectedKey="podcasts"
+        onSelect={() => {}}
+        testId="row"
+        trailing={
+          <button type="button" onClick={onSort}>
+            Sort
+          </button>
+        }
+      />
+    );
+
+    const scroller = screen.getByTestId('row-items').parentElement;
+    expect(scroller).not.toBeNull();
+    if (scroller === null) {
+      return;
+    }
+    trackScrollLeft(scroller);
+    const sort = screen.getByRole('button', { name: 'Sort' });
+
+    pointer('pointerDown', sort, 80, 'mouse');
+    pointer('pointerMove', sort, 20, 'mouse');
+    pointer('pointerUp', sort, 20, 'mouse');
+    fireEvent.click(sort);
+
+    expect(onSort).not.toHaveBeenCalled();
+  });
+
+  it('keeps a short mouse movement as a click', () => {
+    stubRowLayout();
+    const onSelect = vi.fn();
+    render(<ChipRow items={ITEMS} selectedKey="podcasts" onSelect={onSelect} testId="row" />);
+
+    const scroller = screen.getByTestId('row-items').parentElement;
+    expect(scroller).not.toBeNull();
+    if (scroller === null) {
+      return;
+    }
+    const scrollLeft = trackScrollLeft(scroller);
+    const clips = screen.getByRole('button', { name: 'Clips' });
+
+    pointer('pointerDown', clips, 80, 'mouse');
+    pointer('pointerMove', clips, 82, 'mouse');
+    pointer('pointerUp', clips, 82, 'mouse');
+    fireEvent.click(clips);
+
+    expect(scrollLeft.read()).toBe(0);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith('clips');
+  });
+
+  it('leaves touch scrolling to the browser and still selects on tap', () => {
+    stubRowLayout();
+    const onSelect = vi.fn();
+    render(<ChipRow items={ITEMS} selectedKey="podcasts" onSelect={onSelect} testId="row" />);
+
+    const scroller = screen.getByTestId('row-items').parentElement;
+    expect(scroller).not.toBeNull();
+    if (scroller === null) {
+      return;
+    }
+    const scrollLeft = trackScrollLeft(scroller);
+    const clips = screen.getByRole('button', { name: 'Clips' });
+
+    pointer('pointerDown', clips, 80, 'touch');
+    pointer('pointerMove', clips, 20, 'touch');
+    pointer('pointerUp', clips, 20, 'touch');
+    fireEvent.click(clips);
+
+    expect(scrollLeft.read()).toBe(0);
+    expect(onSelect).toHaveBeenCalledWith('clips');
+  });
+
   it('does not scroll to a selected chip that has no box', () => {
     const { scrollTo } = stubRowLayout({ hiddenKey: 'clips' });
     render(<ChipRow items={ITEMS} selectedKey="clips" onSelect={() => {}} testId="row" />);

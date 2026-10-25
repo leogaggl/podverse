@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import type { DTOClip } from '@podverse/helpers';
-import { Button, MainColumnStack } from '@podverse/ui';
+import { Button, CenteredMessage, MainColumnStack } from '@podverse/ui';
 
 import { useConfig } from '../../contexts/Config';
 import { getApiRequestService } from '../../factories/apiRequestService';
@@ -34,7 +34,7 @@ export function RemovedClipPage(props: RemovedClipPageProps) {
     return (
       <MainWrapper>
         <MainColumnStack>
-          <p>{sentence}</p>
+          <CenteredMessage live="status">{sentence}</CenteredMessage>
         </MainColumnStack>
       </MainWrapper>
     );
