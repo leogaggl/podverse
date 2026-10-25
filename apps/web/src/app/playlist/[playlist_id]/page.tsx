@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 
 import { buildPlaylistPath, SharableStatusEnum } from '@podverse/helpers';
 
@@ -38,16 +37,7 @@ export async function generateMetadata({ params }: PlaylistPageProps): Promise<M
 
 export default async function PlaylistPage({ params }: PlaylistPageProps) {
   const { playlist_id } = await params;
-
-  let ssrPlaylist;
-  try {
-    ssrPlaylist = await getPlaylistForSeoPage(playlist_id);
-    if (!ssrPlaylist) {
-      return notFound();
-    }
-  } catch {
-    return notFound();
-  }
+  const ssrPlaylist = await getPlaylistForSeoPage(playlist_id);
 
   return <PlaylistPageClient ssrPlaylist={ssrPlaylist} />;
 }

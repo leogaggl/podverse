@@ -54,16 +54,7 @@ export default async function OfficialClipPage({ params }: OfficialClipPageProps
   }
 
   const ssrItem = await getItemForSeoPage(ssrItemSoundbite.item.id_text);
-
-  if (!ssrItem) {
-    return notFound();
-  }
-
   const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
-
-  if (!ssrChannel) {
-    return notFound();
-  }
 
   return (
     <OfficialClipClient

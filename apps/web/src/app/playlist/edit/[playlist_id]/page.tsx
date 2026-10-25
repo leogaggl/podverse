@@ -1,7 +1,5 @@
-import { notFound } from 'next/navigation';
-
 import { buildNoindexMetadata } from '../../../../lib/seo/buildNoindexMetadata';
-import { getSSRAuthService } from '../../../../utils/auth/ssrAuth';
+import { getPlaylistForSeoPage } from '../../../../lib/seo/fetchers';
 import { PlaylistEditPageClient } from './PlaylistEditPageClient';
 
 type PlaylistEditPageProps = {
@@ -14,17 +12,7 @@ export async function generateMetadata() {
 
 export default async function PlaylistEditPage({ params }: PlaylistEditPageProps) {
   const { playlist_id } = await params;
-  const { ssrApiRequestService } = await getSSRAuthService();
-
-  let ssrPlaylist;
-  try {
-    ssrPlaylist = await ssrApiRequestService.reqPlaylistGet(playlist_id);
-    if (!ssrPlaylist) {
-      return notFound();
-    }
-  } catch {
-    return notFound();
-  }
+  const ssrPlaylist = await getPlaylistForSeoPage(playlist_id);
 
   return <PlaylistEditPageClient ssrPlaylist={ssrPlaylist} />;
 }

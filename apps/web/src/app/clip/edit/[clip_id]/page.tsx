@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
 import { z } from 'zod';
 
+import { RemovedClipPage } from '../../../../components/Clip/RemovedClipPage';
+import { isRemovedClipHttpError } from '../../../../lib/clip/removedClip';
 import { buildNoindexMetadata } from '../../../../lib/seo/buildNoindexMetadata';
-import { getSSRAuthService } from '../../../../utils/auth/ssrAuth';
+import { getClipForSeoPage } from '../../../../lib/seo/fetchers';
 import { ClipEditPageClient } from './ClipEditPageClient';
 
 const searchParamsSchema = z.object({
@@ -32,16 +33,15 @@ export default async function ClipEditPage({ params, searchParams }: ClipEditPag
   const { clip_id } = await params;
   const qp = searchParams ? await searchParams : {};
   const { ssrEnclosureRowSelected, ssrEnclosureTypeSelected } = parseSearchParams(qp);
-  const { ssrApiRequestService } = await getSSRAuthService();
 
   let ssrClip;
   try {
-    ssrClip = await ssrApiRequestService.reqClipGet(clip_id);
-    if (!ssrClip) {
-      return notFound();
+    ssrClip = await getClipForSeoPage(clip_id);
+  } catch (error) {
+    if (isRemovedClipHttpError(error)) {
+      return <RemovedClipPage kind="visitor" />;
     }
-  } catch {
-    return notFound();
+    throw error;
   }
 
   return (

@@ -41,6 +41,9 @@ const REPLAY_BODY: Record<string, unknown> = {
 
 const CREATED_TITLE = 'API key playlist';
 const UPDATED_TITLE = 'API key playlist renamed';
+const OTHER_PUBLIC_TITLE = 'Other public playlist';
+const OTHER_UNLISTED_TITLE = 'Other unlisted playlist';
+const OTHER_PRIVATE_TITLE = 'Other private playlist';
 const CREATE_PLAYLIST_BODY = {
   title: CREATED_TITLE,
   description: 'Created with an API key',
@@ -486,6 +489,77 @@ describe('API key access on playlist, queue, and clip routes', () => {
       .get(`${apiBase}/playlist/${idText}`)
       .set(apiKeyHeaders(playlistsToken));
     expect(missing.status).toBe(404);
+  });
+
+  it("a playlists read key can read another account's public and unlisted playlists but not a private one", async () => {
+    const otherAccount = await createApiKeyTestAccount('api-key-routes-pqc-other-');
+    const otherToken = await createTestApiKey(
+      otherAccount.id,
+      permissionsWithOnly([playlistsCreate, playlistsRead, playlistsDelete])
+    );
+
+    const createdPublic = await request(app)
+      .post(`${apiBase}/playlist`)
+      .set(apiKeyHeaders(otherToken))
+      .send({
+        ...CREATE_PLAYLIST_BODY,
+        title: OTHER_PUBLIC_TITLE,
+        sharable_status_id: SharableStatusEnum.Public,
+      });
+    expect(createdPublic.status).toBe(201);
+    const publicIdText = playlistIdText(createdPublic.body);
+
+    const createdUnlisted = await request(app)
+      .post(`${apiBase}/playlist`)
+      .set(apiKeyHeaders(otherToken))
+      .send({
+        ...CREATE_PLAYLIST_BODY,
+        title: OTHER_UNLISTED_TITLE,
+        sharable_status_id: SharableStatusEnum.Unlisted,
+      });
+    expect(createdUnlisted.status).toBe(201);
+    const unlistedIdText = playlistIdText(createdUnlisted.body);
+
+    const createdPrivate = await request(app)
+      .post(`${apiBase}/playlist`)
+      .set(apiKeyHeaders(otherToken))
+      .send({
+        ...CREATE_PLAYLIST_BODY,
+        title: OTHER_PRIVATE_TITLE,
+        sharable_status_id: SharableStatusEnum.Private,
+      });
+    expect(createdPrivate.status).toBe(201);
+    const privateIdText = playlistIdText(createdPrivate.body);
+
+    const readPublic = await request(app)
+      .get(`${apiBase}/playlist/${publicIdText}`)
+      .set(apiKeyHeaders(playlistsReadToken));
+    expect(readPublic.status).toBe(200);
+    expect(playlistTitle(readPublic.body)).toBe(OTHER_PUBLIC_TITLE);
+
+    const readUnlisted = await request(app)
+      .get(`${apiBase}/playlist/${unlistedIdText}`)
+      .set(apiKeyHeaders(playlistsReadToken));
+    expect(readUnlisted.status).toBe(200);
+    expect(playlistTitle(readUnlisted.body)).toBe(OTHER_UNLISTED_TITLE);
+
+    const readPrivate = await request(app)
+      .get(`${apiBase}/playlist/${privateIdText}`)
+      .set(apiKeyHeaders(playlistsReadToken));
+    expect(readPrivate.status).toBe(404);
+
+    const ownerReadPrivate = await request(app)
+      .get(`${apiBase}/playlist/${privateIdText}`)
+      .set(apiKeyHeaders(otherToken));
+    expect(ownerReadPrivate.status).toBe(200);
+    expect(playlistTitle(ownerReadPrivate.body)).toBe(OTHER_PRIVATE_TITLE);
+
+    for (const idText of [publicIdText, unlistedIdText, privateIdText]) {
+      const deleted = await request(app)
+        .delete(`${apiBase}/playlist/${idText}`)
+        .set(apiKeyHeaders(otherToken));
+      expect(deleted.status).toBe(204);
+    }
   });
 
   it('a playlists read key cannot create a playlist', async () => {

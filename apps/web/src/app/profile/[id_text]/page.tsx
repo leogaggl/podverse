@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
+import {
+  getAccessFallbackHTTPStatus,
+  isHTTPAccessFallbackError,
+} from 'next/dist/client/components/http-access-fallback/http-access-fallback';
 import { redirect } from 'next/navigation';
 
 import { buildProfilePath, SharableStatusEnum } from '@podverse/helpers';
 
+import { ROUTES } from '../../../constants/routes';
 import { buildNoindexMetadata } from '../../../lib/seo/buildNoindexMetadata';
 import { buildStaticPageMetadata } from '../../../lib/seo/buildStaticPageMetadata';
 import { getAccountForSeoPage } from '../../../lib/seo/fetchers';
@@ -25,6 +30,22 @@ const resolveProfileTitle = (idText: string, displayName?: string | null): strin
   }
 
   return `Profile ${idText}`;
+};
+
+/**
+ * A missing account, or one private to the viewer, sends the visitor to the profiles list.
+ * `getAccountForSeoPage` turns the API 404 into the Next.js not-found signal; every other failure
+ * propagates to the error page.
+ */
+const getAccountOrRedirectToProfiles = async (idText: string) => {
+  try {
+    return await getAccountForSeoPage(idText);
+  } catch (error) {
+    if (isHTTPAccessFallbackError(error) && getAccessFallbackHTTPStatus(error) === 404) {
+      redirect(ROUTES.PROFILES);
+    }
+    throw error;
+  }
 };
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
@@ -54,43 +75,17 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   const { id_text } = await params;
 
   const { isValidAuthSession, ssrApiRequestService } = await getSSRAuthService();
+  const ssrAccount = await getAccountOrRedirectToProfiles(id_text);
 
-  try {
-    const ssrAccount = await getAccountForSeoPage(id_text);
-
-    if (!ssrAccount) {
-      // Account not found or not accessible
-      redirect('/profiles');
-      return;
+  if (isValidAuthSession) {
+    const ssrLoggedInAccount = await ssrApiRequestService.reqAuthMe();
+    if (ssrLoggedInAccount.id === ssrAccount.id) {
+      redirect(ROUTES.MY_PROFILE);
     }
-
-    // Check if user is viewing their own profile
-    if (isValidAuthSession) {
-      const ssrLoggedInAccount = await ssrApiRequestService.reqAuthMe();
-
-      if (ssrLoggedInAccount) {
-        if (ssrLoggedInAccount.id === ssrAccount.id) {
-          // Redirect to my-profile if user views their own profile via public link
-          redirect('/my-profile');
-          return;
-        }
-      }
-    }
-
-    // Import ProfileClient dynamically to avoid circular dependencies
-    const { ProfilePageClient } = await import('./ProfilePageClient');
-
-    return <ProfilePageClient ssrAccount={ssrAccount} />;
-  } catch (error) {
-    // Check if this is a Next.js redirect error - if so, re-throw it
-    if (error && typeof error === 'object') {
-      const errorDigest = Reflect.get(error, 'digest');
-      if (typeof errorDigest === 'string' && errorDigest.includes('NEXT_REDIRECT')) {
-        throw error;
-      }
-    }
-
-    // Account not found or error accessing account
-    redirect('/profiles');
   }
+
+  // Import ProfileClient dynamically to avoid circular dependencies
+  const { ProfilePageClient } = await import('./ProfilePageClient');
+
+  return <ProfilePageClient ssrAccount={ssrAccount} />;
 }

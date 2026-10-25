@@ -16386,9 +16386,10 @@ paths:
         - playlist
       summary: GET /playlist/{playlist_id_text}
       description: >
-        Returns a playlist. With no credentials, a public playlist is returned. The owner,
-        signed in or using a key with playlists read, can read a private playlist. A key that
-        lacks playlists read is refused rather than treated as anonymous.
+        Returns a playlist. Every caller, signed in or not, gets a public or unlisted playlist.
+        Only the owner, signed in or using a key with playlists read, gets a private playlist;
+        every other caller gets 404. A key that lacks playlists read is refused rather than
+        treated as anonymous.
       security:
         - {}
         - bearerAuth: []

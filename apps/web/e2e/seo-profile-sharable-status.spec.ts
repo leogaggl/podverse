@@ -4,7 +4,7 @@ import {
   E2E_SEO_PRIVATE_PROFILE_PLACEHOLDER_ID_TEXT,
   E2E_SEO_PUBLIC_PROFILE_ID_TEXT,
 } from './helpers/seedConstants';
-import { expectRobotsIndexable, expectRobotsNoindex, fetchSsrHtml } from './helpers/seoHtml';
+import { expectRobotsIndexable, fetchSsrHtml } from './helpers/seoHtml';
 
 test.describe('Web SEO profile sharable-status behavior', () => {
   test('a discoverable public profile remains indexable', async ({ request }) => {
@@ -18,19 +18,14 @@ test.describe('Web SEO profile sharable-status behavior', () => {
     expectRobotsIndexable(publicProfileHtml);
   });
 
-  test('a non-public or missing profile remains non-indexable via noindex or redirect', async ({
-    request,
-  }) => {
+  test('a non-public or missing profile redirects to the profiles list', async ({ request }) => {
     const response = await request.get(`/profile/${E2E_SEO_PRIVATE_PROFILE_PLACEHOLDER_ID_TEXT}`, {
       maxRedirects: 0,
     });
 
-    if (response.status() >= 300 && response.status() < 400) {
-      expect(response.headers().location).toContain('/profiles');
-      return;
-    }
-
-    const html = await response.text();
-    expectRobotsNoindex(html);
+    expect(response.status()).toBe(307);
+    const location = response.headers().location;
+    expect(location).toBeDefined();
+    expect(new URL(location, 'http://localhost').pathname).toBe('/profiles');
   });
 });

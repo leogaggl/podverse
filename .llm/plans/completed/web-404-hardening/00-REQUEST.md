@@ -151,3 +151,16 @@ Settle from the code. The old route list is a starting point.
 3. Apply it everywhere the re-check finds a page body that awaits a throwing API fetch for a missing entity. Drop routes that no longer do that. Add routes the old audit missed.
 4. Remove only the null `notFound()` checks that cannot run after a throwing fetch. Keep redirects and 200-plus-null handling.
 5. Tests: unit coverage for 404 mapped and non-404 rethrown, plus focused page behavior for a representative route. Guidance: one rule or skill note that new dynamic detail pages use the shared boundary.
+
+### Review of the first planning pass
+
+Answers to `## Decisions to review` in `00-SUMMARY.md`. Every item below is settled.
+
+- **D1 — accepted as planned.** The loader reuses `getErrorResponseStatus` from `@podverse/helpers`. No new status reader in `helpers-requests`. The operator chose "Reuse getErrorResponseStatus from @podverse/helpers".
+- **D2 — accepted as planned.** All 11 request-sending fetchers in `apps/web/src/lib/seo/fetchers.ts` go through `loadOrNotFound`, including the two Podcast Index lookups that answer 200 with null. The operator chose "All 11, including the two that answer 200 with null".
+- **D3 — accepted as planned.** Plan 10 does not edit the profile or playlist pages. Those edits stay in plans 40 and 41. The operator chose "Leave the profile and playlist page edits to plans 40 and 41".
+- **D4 — accepted as planned.** An unknown artist id stays on the error page. Do not map the 200-with-null publisher feed to `notFound()`. The operator chose "Keep the error page for an unknown artist".
+- **D5 — changed.** A missing or private profile keeps the redirect to `/profiles` when the account load is a 404, and every other error is rethrown. Opening your own profile still redirects to `/my-profile`. The operator chose "Keep the /profiles redirect for a 404 only, and rethrow other errors". This reverses plan 41's Not Found outcome and needs an exception in plan 11's rule. `getAccountForSeoPage` stays wrapped by `loadOrNotFound` (D2). Planning step 06 revises plans 11 and 41.
+- **D6 — accepted as planned.** On `/playlist/<id>`, `/playlist/edit/<id>`, and `/clip/edit/<id>`, a 5xx, network, or auth failure shows the error page. A real 404 still shows Not Found. The operator chose "Show the error page for a 5xx, network, or auth failure".
+- **D7 — accepted as planned.** A signed-out visitor opening `/clip/edit/<id>` for a clip whose episode was removed sees the visitor removed-clip page, matching `/clip/<id>`. The owner still gets the edit page. The operator chose "Show the visitor removed-clip page, matching /clip/<id>".
+- **Playlist API — new plan.** A signed-in user can open someone else's public playlist. The operator chose "Add an API plan so a signed-in user can open that public playlist". A signed-in `GET /playlist/:id` returns the same non-private playlist a signed-out caller already gets, and the owner still gets their own playlist, including a private one. A private playlist the viewer does not own stays 404. Planning step 07 writes that plan. Plan 40 does not change the API.
