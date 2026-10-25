@@ -43,9 +43,11 @@ playback, CarPlay, Android Auto, or the lock screen need something different.
 - **Order against `cross-device-playback`.** `realtime-banner-notifications` and `auth-sessions`
   are on `develop` (account event stream, `accountSessionStore`). `cross-device-playback` is
   planned but not implemented: all 42 prompts are unticked and none of its new files exist on any
-  branch. Its plans touch mobile skip next/previous (its 33 and 34) and the web track-button hooks
-  (its 23), the same code this set changes. Which set runs first is pending the operator's answer;
-  until then, anchor by symbol and do not edit that set's plans.
+  branch. Both sets run in parallel worktrees. Cross-device starts after
+  `auth-sessions-stream-close` merges. This set should merge first; whichever merges second
+  rebases. Cross-device's plans 23, 25, 33, and 34 touch the same mobile skip next/previous code
+  and web track-button hooks this set changes, so anchor by symbol and do not edit that set's
+  plans.
 
 ## Glossary
 
