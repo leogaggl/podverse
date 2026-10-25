@@ -32,7 +32,7 @@ const sectionCounts: Record<ApiKeyResource, number> = {
   add_by_rss: 9,
   playlists: 31,
   queue: 32,
-  history: 5,
+  history: 7,
   clips: 5,
   notifications: 33,
 };
@@ -417,9 +417,9 @@ function hasEmptyRequirement(operation: string): boolean {
 describe('OpenAPI API key permissions', () => {
   const rows = operationRows();
 
-  it('expands to 161 operations with the section counts', () => {
-    expect(rows).toHaveLength(161);
-    expect(new Set(rows.map((row) => `${row.method} ${row.path}`)).size).toBe(161);
+  it('expands to 163 operations with the section counts', () => {
+    expect(rows).toHaveLength(163);
+    expect(new Set(rows.map((row) => `${row.method} ${row.path}`)).size).toBe(163);
     for (const resource of API_KEY_RESOURCES) {
       expect(rows.filter((row) => row.resource === resource)).toHaveLength(sectionCounts[resource]);
     }
@@ -487,7 +487,7 @@ describe('OpenAPI API key permissions', () => {
         failures.push(`closed operation accepts a key: ${key}`);
       }
     }
-    if (permissionCount !== 161) {
+    if (permissionCount !== 163) {
       failures.push(`x-api-key-permission count ${permissionCount}`);
     }
 

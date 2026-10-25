@@ -278,6 +278,8 @@ describe('account data export includes listening data (real database)', () => {
         recent_score: 4,
         long_term_score: 7,
         scores_updated_at: TASTE_UPDATED_AT,
+        weight_override: null,
+        weight_override_at: null,
       },
     ]);
     expect(result.listening_data.hidden_from_taste_profile).toEqual([
