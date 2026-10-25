@@ -1,10 +1,10 @@
 # Content Lifecycle 4: One Show, Not Two
 
-- **Version:** 2026-10-19T00:13-05:00
+- **Version:** 2026-10-24T22:07-05:00
 - **Episode ID:** duplicate-feed-merge
-- **Changed:** Moved from a standalone cast into Content Lifecycle as part four. The opening,
-  the line on retired feeds without a replacement, and the closing changed. Previous title:
-  "One Show, Not Two: Following Podcast Index Merges". Regenerate the audio.
+- **Changed:** Popularity data on a merge now matches the rebuilt stats: same-day listener overlap
+  is counted once, Taste Profile rows merge, and an undo leaves listening data on the survivor.
+  Regenerate the audio.
 - **Description:** How Podverse records duplicate feed pairs from Podcast Index, checks that
   their episodes match, folds the copies into one show, and keeps old links, phones, and
   downloads working.
@@ -14,8 +14,9 @@
   `apps/workers/src/commands/podcastIndex/deadFeeds/`,
   `packages/orm/src/lib/duplicateFeedMatch.ts`,
   `packages/orm/src/services/channel/applyChannelMerge.ts`, `apps/api/src/routes/identity.ts`,
-  `apps/mobile/src/data/identityRemap.ts`
-- **Length:** about 9 minutes (1,330 words)
+  `apps/mobile/src/data/identityRemap.ts`, `docs/features/POPULARITY-AND-TASTE-PROFILE.md`
+  (Channel Merge)
+- **Length:** about 10 minutes (1,453 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -83,7 +84,11 @@ CLAIRE: There are two modes. If Podverse only has the old feed, it re-points it.
 
 TOM: And if we have both feeds?
 
-CLAIRE: It absorbs the old show into the survivor. Follows move over, and someone who followed both ends up with one. Notification settings, auto-download rules, and pending follows move too. Queue progress moves, keeping whichever copy was finished, or else the further position. Clips and playlist entries move to the matching episode. Stats are added together.
+CLAIRE: It absorbs the old show into the survivor. Follows move over, and someone who followed both ends up with one. Notification settings, auto-download rules, and pending follows move too. Queue progress moves, keeping whichever copy was finished, or else the further position. Clips and playlist entries move to the matching episode.
+
+TOM: And the popularity numbers?
+
+CLAIRE: They move too. Daily listener totals are added into the survivor's. On days recent enough that listen records still exist, a listener who played both copies that day counts once. Listen records follow their matched episodes, and every listen to the old show now counts toward the survivor. A listener's two Taste Profile rows become one, and if they hid either copy, the survivor is hidden.
 
 TOM: What about an episode that only matched on the fuzzy tier? The audio could be different.
 
@@ -91,7 +96,11 @@ CLAIRE: Then a saved position goes back to the start, unless it was finished. Cl
 
 TOM: Undo how?
 
-CLAIRE: Each pair applies in its own transaction, and every row it touches goes into a journal with its before and after. Undo walks the journal backwards and restores each row.
+CLAIRE: Each pair applies in its own transaction, and the rows it changes go into a journal with their before and after. Undo walks the journal backwards and restores each row.
+
+TOM: Listening data included?
+
+CLAIRE: Daily totals, yes. Listen records and Taste Profile rows, no. The journal is kept forever, so journaling them would keep someone's listening past retention, and past an opt-out. After an undo they stay on the survivor, and the old show's recent counts start again from new listens.
 
 (pause)
 
@@ -129,6 +138,6 @@ CLAIRE: One setting with three values: off, dry run, and apply. Off does nothing
 
 (pause)
 
-TOM: To remember. One: Podcast Index decides the pair, and Podverse only checks it. Two: a pair is verified by matching episodes, eighty percent and at least three, or one episode plus a shared identifier. Three: re-point when we have one feed, absorb when we have both, and every change is journaled and reversible. Four: old links redirect, phones remap in place, and downloads are never fetched again.
+TOM: To remember. One: Podcast Index decides the pair, and Podverse only checks it. Two: a pair is verified by matching episodes, eighty percent and at least three, or one episode plus a shared identifier. Three: re-point when we have one feed, absorb when we have both, and every change except listen records and Taste Profile rows is journaled and reversible. Four: old links redirect, phones remap in place, and downloads are never fetched again.
 
 CLAIRE: And none of it notifies listeners about episodes they already had. Next part: feeds Podcast Index retires with no replacement.

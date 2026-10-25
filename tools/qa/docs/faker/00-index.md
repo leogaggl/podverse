@@ -75,15 +75,13 @@ Follow these files in order when implementing:
 | [06f-item-value.md](./06f-item-value.md)         | Value with TimeSplits                | ~220  |
 | [06g-live-item.md](./06g-live-item.md)           | LiveItem                             | ~80   |
 
-### Phase 6: User Content & Stats
+### Phase 6: User Content
 
 | File                                                 | Description                               | Lines |
 | ---------------------------------------------------- | ----------------------------------------- | ----- |
 | [07a-clips.md](./07a-clips.md)                       | Clip generator                            | ~100  |
 | [07b-playlists.md](./07b-playlists.md)               | Playlist, PlaylistResource                | ~180  |
 | [07c-queues.md](./07c-queues.md)                     | Queue, QueueResource                      | ~140  |
-| [07d-stats-aggregated.md](./07d-stats-aggregated.md) | All aggregated stats                      | ~150  |
-| [07e-stats-events.md](./07e-stats-events.md)         | Track events                              | ~180  |
 | [07f-misc.md](./07f-misc.md)                         | MembershipClaimToken, OnDemandParserEvent | ~100  |
 
 ### Phase 7: LLM Integration
@@ -102,8 +100,7 @@ Follow these files in order when implementing:
 | Feeds/Channels | 100 + ~1,800 related rows              |
 | Items          | 200 + ~4,500 related rows              |
 | User Content   | ~4,500 rows (clips, playlists, queues) |
-| Stats          | ~4,000 rows                            |
-| **Total**      | **~17,500 rows**                       |
+| **Total**      | **~13,500 rows**                       |
 
 ### Key Dependencies
 
@@ -111,7 +108,6 @@ Follow these files in order when implementing:
 Phase 1 → Phase 2 (media URLs needed)
 Phase 2 → Phase 3, 4, 5 (accounts, channels, items)
 Phase 3 + 4 + 5 → Phase 6 (user content needs content IDs)
-Phase 6 → Phase 6 stats (stats need all entity IDs)
 ```
 
 ### Getting Started
