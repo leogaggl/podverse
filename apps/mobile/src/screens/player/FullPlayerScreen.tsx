@@ -1757,8 +1757,8 @@ export function FullPlayerScreen({
               onOpenSpeed={() => {
                 handleOpenSheet('speed');
               }}
-              onToggleRepeat={handleToggleRepeat}
-              onToggleShuffle={handleToggleShuffle}
+              onToggleRepeat={toggleRepeat}
+              onToggleShuffle={toggleShuffle}
               playbackRate={playbackRate}
             />
           </View>

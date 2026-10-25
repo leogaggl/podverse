@@ -3388,14 +3388,16 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
         setPlaybackDurationSeconds(event.durationSeconds);
       }
 
+      const activeTarget = activeTargetRef.current;
       const identityMatches = engineSourceMatchesTarget(
         engineSourceIdTextRef.current,
-        activeTargetRef.current
+        activeTarget
       );
       if (!identityMatches) {
         return;
       }
 
+      const activeId = activeTarget === null ? null : playbackTargetRowMediaId(activeTarget);
       const armed = commandedStartGuardRef.current;
       if (armed !== null && armed.targetMediaId === activeId) {
         const action = resolveCommandedStartOnProgress({

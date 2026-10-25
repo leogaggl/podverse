@@ -538,3 +538,20 @@
   the other device.
 - Who notices: members signed in on more than one device
 - Operator steps: none
+
+## Mobile music shuffle and repeat
+
+- Surfaces: mobile
+- Change: Shuffle and Repeat on the full player, shown while music is playing, call the playback
+  session toggles.
+- Who notices: listeners playing music
+- Operator steps: none
+
+## Mobile commanded start applies on progress
+
+- Surfaces: mobile
+- Change: progress ticks resolve the playing item's id before applying a commanded start (resume
+  at a position another device asked for). That id existed only in the ended handler, so those
+  ticks threw once the engine source matched and never sought or cleared the start guard.
+- Who notices: listeners resuming at a position sent from another device
+- Operator steps: none

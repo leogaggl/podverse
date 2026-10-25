@@ -4,10 +4,10 @@ import { expect, test } from '@playwright/test';
 import { MEDIA_JUMP_BACK_SECONDS, MEDIA_JUMP_FORWARD_SECONDS } from '@podverse/helpers';
 
 import {
-  CROSS_DEVICE_MOBILE_VIEWPORT,
   allowAutoplay,
   audioState,
   closeSignedInDevices,
+  CROSS_DEVICE_MOBILE_VIEWPORT,
   openSignedInDevice,
   playerButton,
   playerDeviceCaption,
@@ -53,12 +53,20 @@ const expectHomeLoaded = async (page: Page): Promise<void> => {
   await expect(page.locator('main')).toBeVisible();
 };
 
-const expectEpisodeLoaded = async (page: Page, itemIdText: string, heading: string): Promise<void> => {
+const expectEpisodeLoaded = async (
+  page: Page,
+  itemIdText: string,
+  heading: string
+): Promise<void> => {
   await expect(page).toHaveURL(new RegExp(`/episode/${itemIdText}(?:\\?.*)?$`));
   await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
 };
 
-const expectTrackLoaded = async (page: Page, itemIdText: string, heading: string): Promise<void> => {
+const expectTrackLoaded = async (
+  page: Page,
+  itemIdText: string,
+  heading: string
+): Promise<void> => {
   await expect(page).toHaveURL(new RegExp(`/track/${itemIdText}(?:\\?.*)?$`));
   await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
 };
@@ -111,7 +119,11 @@ test.describe('Media player across two signed-in browsers', () => {
 
       await test.step('When browser A opens the seeded episode and presses Play, the persistent player starts locally.', async () => {
         await openEpisodeAndPlay(deviceA.page, E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT, EPISODE_TITLE);
-        await expectEpisodeLoaded(deviceA.page, E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT, EPISODE_TITLE);
+        await expectEpisodeLoaded(
+          deviceA.page,
+          E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT,
+          EPISODE_TITLE
+        );
         await expectPersistentPlayerPlaying(deviceA.page, true);
         await expect(playerButton(deviceA.page, 'Share')).toBeVisible();
         await expect(playerDevicesButton(deviceA.page)).toHaveCount(0);
@@ -137,13 +149,20 @@ test.describe('Media player across two signed-in browsers', () => {
       });
 
       await test.step('When browser B stays open on Home, the remote progress bar advances.', async () => {
-        const firstValueRaw = await playerRemoteProgress(deviceB.page).getAttribute('aria-valuenow');
+        const firstValueRaw = await playerRemoteProgress(deviceB.page).getAttribute(
+          'aria-valuenow'
+        );
         const firstValue = Number(firstValueRaw ?? '0');
         await expect
-          .poll(async () => {
-            const valueRaw = await playerRemoteProgress(deviceB.page).getAttribute('aria-valuenow');
-            return Number(valueRaw ?? '0');
-          }, { timeout: 20_000 })
+          .poll(
+            async () => {
+              const valueRaw = await playerRemoteProgress(deviceB.page).getAttribute(
+                'aria-valuenow'
+              );
+              return Number(valueRaw ?? '0');
+            },
+            { timeout: 20_000 }
+          )
           .toBeGreaterThan(firstValue);
       });
 
@@ -173,10 +192,13 @@ test.describe('Media player across two signed-in browsers', () => {
         }
         await playerButton(deviceB.page, JUMP_FORWARD_LABEL).click();
         await expect
-          .poll(async () => {
-            const state = await audioState(deviceA.page);
-            return state?.currentTime ?? -1;
-          }, { timeout: 20_000 })
+          .poll(
+            async () => {
+              const state = await audioState(deviceA.page);
+              return state?.currentTime ?? -1;
+            },
+            { timeout: 20_000 }
+          )
           .toBeGreaterThanOrEqual(beforeJump.currentTime + 25);
 
         const progressBar = playerRemoteProgress(deviceB.page);
@@ -189,13 +211,16 @@ test.describe('Media player across two signed-in browsers', () => {
           position: { x: progressBox.width * 0.25, y: progressBox.height / 2 },
         });
         await expect
-          .poll(async () => {
-            const state = await audioState(deviceA.page);
-            if (state === null) {
-              return false;
-            }
-            return state.currentTime >= 12 && state.currentTime <= 20;
-          }, { timeout: 20_000 })
+          .poll(
+            async () => {
+              const state = await audioState(deviceA.page);
+              if (state === null) {
+                return false;
+              }
+              return state.currentTime >= 12 && state.currentTime <= 20;
+            },
+            { timeout: 20_000 }
+          )
           .toBe(true);
       });
 
@@ -207,10 +232,13 @@ test.describe('Media player across two signed-in browsers', () => {
         await expect(speedButton).toBeVisible();
         await speedButton.click();
         await expect
-          .poll(async () => {
-            const state = await audioState(deviceA.page);
-            return state?.playbackRate ?? 1;
-          }, { timeout: 20_000 })
+          .poll(
+            async () => {
+              const state = await audioState(deviceA.page);
+              return state?.playbackRate ?? 1;
+            },
+            { timeout: 20_000 }
+          )
           .toBeGreaterThan(1);
       });
     } finally {
@@ -395,7 +423,11 @@ test.describe('Media player across two signed-in browsers', () => {
       const deviceA = await openSignedInDevice(browser);
       devicesToClose.push(deviceA);
       await clearSeededPodcastQueueResources(deviceA.page);
-      await openLivestreamAndPlay(deviceA.page, E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT, E2E_LIVE_AV_AUDIO_ITEM_TITLE);
+      await openLivestreamAndPlay(
+        deviceA.page,
+        E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT,
+        E2E_LIVE_AV_AUDIO_ITEM_TITLE
+      );
       await expect(deviceA.page).toHaveURL(
         new RegExp(`/podcast/livestream/${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}(?:\\?.*)?$`)
       );
@@ -522,15 +554,25 @@ test.describe('Media player across two signed-in browsers', () => {
       const deviceA = await openSignedInDevice(browser);
       devicesToClose.push(deviceA);
       await clearSeededPodcastQueueResources(deviceA.page);
-      await openEpisodeAndPlay(deviceA.page, E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT, CHAPTERED_EPISODE_TITLE);
-      await expectEpisodeLoaded(deviceA.page, E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT, CHAPTERED_EPISODE_TITLE);
+      await openEpisodeAndPlay(
+        deviceA.page,
+        E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT,
+        CHAPTERED_EPISODE_TITLE
+      );
+      await expectEpisodeLoaded(
+        deviceA.page,
+        E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT,
+        CHAPTERED_EPISODE_TITLE
+      );
       await expectPersistentPlayerPlaying(deviceA.page, true);
 
       const deviceB = await openSignedInDevice(browser);
       devicesToClose.push(deviceB);
       await deviceB.page.goto('/');
       await expectHomeLoaded(deviceB.page);
-      await expectMediaPlayerTitleVisible(deviceB.page, CHAPTERED_EPISODE_TITLE, { timeout: 20_000 });
+      await expectMediaPlayerTitleVisible(deviceB.page, CHAPTERED_EPISODE_TITLE, {
+        timeout: 20_000,
+      });
       await expect
         .poll(async () => (await playerSegmentStripTitle(deviceB.page).textContent()) ?? '', {
           timeout: 20_000,
@@ -539,10 +581,13 @@ test.describe('Media player across two signed-in browsers', () => {
 
       await playerButton(deviceB.page, 'Skip to Next').click();
       await expect
-        .poll(async () => {
-          const state = await audioState(deviceA.page);
-          return state?.currentTime ?? -1;
-        }, { timeout: 20_000 })
+        .poll(
+          async () => {
+            const state = await audioState(deviceA.page);
+            return state?.currentTime ?? -1;
+          },
+          { timeout: 20_000 }
+        )
         .toBeGreaterThanOrEqual(E2E_CHAPTER_TWO_START_SECONDS);
       await expect(playerSegmentStripTitle(deviceB.page)).toContainText('Topic A');
       await capturePageLoad(
@@ -553,7 +598,11 @@ test.describe('Media player across two signed-in browsers', () => {
       );
 
       await deviceB.page.goto(`/episode/${E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT}`);
-      await expectEpisodeLoaded(deviceB.page, E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT, CHAPTERED_EPISODE_TITLE);
+      await expectEpisodeLoaded(
+        deviceB.page,
+        E2E_PODCAST_ITEM_CHAPTERED_ID_TEXT,
+        CHAPTERED_EPISODE_TITLE
+      );
       await deviceB.page.getByText('Chapters', { exact: true }).click();
       const introHeading = deviceB.page.getByRole('heading', { name: 'Intro', exact: true });
       const topicHeading = deviceB.page.getByRole('heading', { name: 'Topic A', exact: true });
@@ -611,10 +660,15 @@ test.describe('Media player across two signed-in browsers', () => {
       await expect(shareDialog).toHaveCount(0);
 
       await deviceB.page.locator('#media-player').getByRole('button').first().click();
-      const fullscreenDialog = deviceB.page.getByRole('dialog', { name: 'Fullscreen Media Player' });
+      const fullscreenDialog = deviceB.page.getByRole('dialog', {
+        name: 'Fullscreen Media Player',
+      });
       await expect(fullscreenDialog).toBeVisible();
       const titleLink = fullscreenDialog.getByRole('link', { name: EPISODE_TITLE, exact: true });
-      await expect(titleLink).toHaveAttribute('href', `/episode/${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}`);
+      await expect(titleLink).toHaveAttribute(
+        'href',
+        `/episode/${E2E_PODCAST_ITEM_RESUME_NONE_ID_TEXT}`
+      );
       await captureVerifiedElement(
         deviceB.page,
         testInfo,

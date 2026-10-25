@@ -306,13 +306,13 @@ durable storage lands (12.2–12.3) and the JS write path is wired (12.4).
 TypeScript source of truth: `apps/mobile/src/data/nativeCache/projection.ts` (envelope +
 `NATIVE_CACHE_SCHEMA_VERSION`, currently `2`). Do not invent a competing schema here.
 
-| Method (JS → native)      | Payload (schema owned by 12.1 / detail 380)                       | Reader                        |
-| ------------------------- | ----------------------------------------------------------------- | ----------------------------- |
-| `writeQueueSnapshotAv`    | podcast and video now-playing + upcoming item ids / titles / urls | car skip/advance, now-playing |
-| `writeQueueSnapshotMusic` | music now-playing + upcoming                                      | same reader                   |
-| `writeAdvanceWindow` | play order after the playing item: manual upcoming, then resolved automatic rows (kind, clip range); anchor kind + id + medium | app-closed advance |
-| `writeDownloadsIndex`     | local `file://` paths + metadata                                  | offline car browse            |
-| `writeLibraryBrowseIndex` | podcast / playlist list for templates                             | car browse roots              |
+| Method (JS → native)      | Payload (schema owned by 12.1 / detail 380)                                                                                    | Reader                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `writeQueueSnapshotAv`    | podcast and video now-playing + upcoming item ids / titles / urls                                                              | car skip/advance, now-playing |
+| `writeQueueSnapshotMusic` | music now-playing + upcoming                                                                                                   | same reader                   |
+| `writeAdvanceWindow`      | play order after the playing item: manual upcoming, then resolved automatic rows (kind, clip range); anchor kind + id + medium | app-closed advance            |
+| `writeDownloadsIndex`     | local `file://` paths + metadata                                                                                               | offline car browse            |
+| `writeLibraryBrowseIndex` | podcast / playlist list for templates                                                                                          | car browse roots              |
 
 Each takes a single JSON-string payload and returns `Promise<void>`. Every payload carries a
 `schemaVersion` + `updatedAtMs` envelope (see `build*Payload` in `projection.ts`). Native stores an
@@ -326,10 +326,10 @@ car surfaces (CarPlay scene 12.7+, Android Auto `MediaLibraryService` 12.11+) an
 (12.5–12.6) load these files **with the JS runtime not running**. Writes are atomic (temp + rename)
 and best-effort — a failed write never rolls back the phone-side mutation.
 
-| Platform | Module (read/write API)                                               | Location                                                                                                                         | Filenames                                                                                           |
-| -------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Platform | Module (read/write API)                                               | Location                                                                                                                         | Filenames                                                                                                                  |
+| -------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | iOS      | `PodverseNativeCache.write(_:json:)` / `read(_:)`                     | App Group container for `group.com.podverse.app.next` when that container resolves, otherwise Application Support `native-cache` | `queue-snapshot-av.json`, `queue-snapshot-music.json`, `downloads-index.json`, `library-index.json`, `advance-window.json` |
-| Android  | `PodverseNativeCache.write(context,kind,json)` / `read(context,kind)` | `context.filesDir/native-cache/`                                                                                                 | same filenames                                                                                      |
+| Android  | `PodverseNativeCache.write(context,kind,json)` / `read(context,kind)` | `context.filesDir/native-cache/`                                                                                                 | same filenames                                                                                                             |
 
 - `PodverseNativeCache.appGroupIdentifier` is `group.com.podverse.app.next`, and `baseDirectory()`
   prefers that container, falling back to Application Support `native-cache` when the group

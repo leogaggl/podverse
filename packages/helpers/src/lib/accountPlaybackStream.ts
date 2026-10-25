@@ -316,7 +316,11 @@ export function isDTOPlaybackDevice(value: unknown): value is DTOPlaybackDevice 
 }
 
 export function isDTOPlaybackDevices(value: unknown): value is DTOPlaybackDevices {
-  if (!isRecord(value) || !isNonNegativeSafeInteger(value.revision) || !Array.isArray(value.devices)) {
+  if (
+    !isRecord(value) ||
+    !isNonNegativeSafeInteger(value.revision) ||
+    !Array.isArray(value.devices)
+  ) {
     return false;
   }
 

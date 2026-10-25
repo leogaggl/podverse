@@ -398,9 +398,9 @@ describe('autoQueue policy helpers', () => {
     };
 
     expect(countAutoQueueRowsAhead(resourcesWithGap, 0)).toBe(1);
-    expect(selectAutoQueueRowsAhead(resourcesWithGap, 0, 5).map((row) => row.item.id_text)).toEqual([
-      'item-1',
-    ]);
+    expect(selectAutoQueueRowsAhead(resourcesWithGap, 0, 5).map((row) => row.item.id_text)).toEqual(
+      ['item-1']
+    );
     expect(hasAutoQueueRowAfter(resourcesWithGap, 1)).toBe(false);
 
     const contiguous: AutoQueueResourcesMap = {
@@ -441,14 +441,16 @@ describe('autoQueue policy helpers', () => {
       shuffleHash: 'hash-seed',
     });
 
-    expect(resolveAutoQueueConfigForExplicitPlay(current, 'playlist-new', nextShuffleHash)).toEqual({
-      playlist_id_text: 'playlist-new',
-      disabled: false,
-      random: true,
-      repeat: true,
-      nextPage: 1,
-      shuffleHash: 'hash-2',
-    });
+    expect(resolveAutoQueueConfigForExplicitPlay(current, 'playlist-new', nextShuffleHash)).toEqual(
+      {
+        playlist_id_text: 'playlist-new',
+        disabled: false,
+        random: true,
+        repeat: true,
+        nextPage: 1,
+        shuffleHash: 'hash-2',
+      }
+    );
 
     expect(toggleAutoQueueShuffle(current, nextShuffleHash)).toEqual({
       playlist_id_text: 'playlist-old',

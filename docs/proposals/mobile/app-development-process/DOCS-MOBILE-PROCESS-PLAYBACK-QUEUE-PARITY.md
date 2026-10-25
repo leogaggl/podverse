@@ -65,16 +65,16 @@ Both clients call the **same** decision functions; only the binding to a media e
 The policy is keyed on `PlaybackTarget.kind` (from
 `apps/web/src/lib/playback/playbackTarget.ts`). Mobile must handle every variant identically:
 
-| `PlaybackTarget.kind` | Meaning                     | Mobile handling                                                                                        |
-| --------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `item-podcast`        | Standard podcast episode    | Resume from abridged position; auto-play per policy                                                    |
-| `item-video`          | Video episode               | Same resume; native video surface                                                                      |
-| `item-music`          | Music track (with `intent`) | Music forces `currentTime = 0`; honor `session_restore`/`explicit_play`/`fresh_transition`             |
-| `clip`                | Clip within an item         | Start at clip start; `pauseAt` clip end                                                                |
-| `soundbite`           | Soundbite                   | Start/`pauseAt` soundbite bounds                                                                       |
-| `chapter`             | Chapter                     | Seek to chapter start                                                                                  |
-| `add-by-rss`          | Ad-hoc RSS resource         | Load from `AddByRSSResourceData`; no server queue id; next and previous walk the feed (newer / older)  |
-| `livestream`          | Live                        | Deferred (native HLS, separate effort)                                                                 |
+| `PlaybackTarget.kind` | Meaning                     | Mobile handling                                                                                       |
+| --------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `item-podcast`        | Standard podcast episode    | Resume from abridged position; auto-play per policy                                                   |
+| `item-video`          | Video episode               | Same resume; native video surface                                                                     |
+| `item-music`          | Music track (with `intent`) | Music forces `currentTime = 0`; honor `session_restore`/`explicit_play`/`fresh_transition`            |
+| `clip`                | Clip within an item         | Start at clip start; `pauseAt` clip end                                                               |
+| `soundbite`           | Soundbite                   | Start/`pauseAt` soundbite bounds                                                                      |
+| `chapter`             | Chapter                     | Seek to chapter start                                                                                 |
+| `add-by-rss`          | Ad-hoc RSS resource         | Load from `AddByRSSResourceData`; no server queue id; next and previous walk the feed (newer / older) |
+| `livestream`          | Live                        | Deferred (native HLS, separate effort)                                                                |
 
 The `intent` discriminator (`MusicItemPlaybackIntent`) must be preserved for stats/side effects, per
 the decision matrix doc.

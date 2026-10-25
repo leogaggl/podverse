@@ -9,7 +9,8 @@ export const CROSS_DEVICE_MOBILE_VIEWPORT = { width: 390, height: 844 };
 
 export type SignedInDevice = { context: BrowserContext; page: Page };
 
-const visiblePlayerLocator = (page: Page): Locator => page.locator('aside#media-player:visible').first();
+const visiblePlayerLocator = (page: Page): Locator =>
+  page.locator('aside#media-player:visible').first();
 
 /** New browser context signed in as the seed user (its own login session). */
 export async function openSignedInDevice(

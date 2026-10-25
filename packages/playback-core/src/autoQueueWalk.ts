@@ -92,7 +92,10 @@ function getRowCount(resources: AutoQueueResourcesMap): number {
   return Object.keys(resources).length;
 }
 
-function seedResources(resources: AutoQueueResourcesMap, seed: AutoQueueSeed): AutoQueueResourcesMap {
+function seedResources(
+  resources: AutoQueueResourcesMap,
+  seed: AutoQueueSeed
+): AutoQueueResourcesMap {
   const seededResources: AutoQueueResourcesMap = { ...resources };
   if (seededResources[0] === undefined) {
     seededResources[0] = {
@@ -224,7 +227,9 @@ async function fetchForwardRows(
   };
 }
 
-export async function fillAutoQueueForward(input: AutoQueueFillInput): Promise<AutoQueueFillResult> {
+export async function fillAutoQueueForward(
+  input: AutoQueueFillInput
+): Promise<AutoQueueFillResult> {
   if (input.seed === null) {
     return {
       resources: {},
@@ -296,7 +301,9 @@ export async function fillAutoQueueForward(input: AutoQueueFillInput): Promise<A
   };
 }
 
-export async function fillAutoQueueAhead(input: AutoQueueFillAheadInput): Promise<AutoQueueFillResult> {
+export async function fillAutoQueueAhead(
+  input: AutoQueueFillAheadInput
+): Promise<AutoQueueFillResult> {
   const maxFetches = input.maxFetches ?? 3;
   const existingRowsAhead = countAutoQueueRowsAhead(input.resources, input.activeRow);
   if (existingRowsAhead >= input.minRowsAhead) {
@@ -394,7 +401,10 @@ export async function resolveAutoQueuePrevious(
   }
 
   if (source.kind === 'channel-season') {
-    const previousItems = await input.fetchers.fetchItemsBySeason(input.seed.item.id_text, 'backward');
+    const previousItems = await input.fetchers.fetchItemsBySeason(
+      input.seed.item.id_text,
+      'backward'
+    );
     const previousItem = previousItems[0];
     if (previousItem === undefined) {
       return { kind: 'restart' };
@@ -413,7 +423,10 @@ export async function resolveAutoQueuePrevious(
   }
 
   if (source.kind === 'channel-pub-date') {
-    const previousItems = await input.fetchers.fetchItemsByPubDate(input.seed.item.id_text, 'backward');
+    const previousItems = await input.fetchers.fetchItemsByPubDate(
+      input.seed.item.id_text,
+      'backward'
+    );
     const previousItem = previousItems[0];
     if (previousItem === undefined) {
       return { kind: 'restart' };

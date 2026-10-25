@@ -77,12 +77,12 @@ Follow these files in order when implementing:
 
 ### Phase 6: User Content
 
-| File                                                 | Description                               | Lines |
-| ---------------------------------------------------- | ----------------------------------------- | ----- |
-| [07a-clips.md](./07a-clips.md)                       | Clip generator                            | ~100  |
-| [07b-playlists.md](./07b-playlists.md)               | Playlist, PlaylistResource                | ~180  |
-| [07c-queues.md](./07c-queues.md)                     | Queue, QueueResource                      | ~140  |
-| [07f-misc.md](./07f-misc.md)                         | MembershipClaimToken, OnDemandParserEvent | ~100  |
+| File                                   | Description                               | Lines |
+| -------------------------------------- | ----------------------------------------- | ----- |
+| [07a-clips.md](./07a-clips.md)         | Clip generator                            | ~100  |
+| [07b-playlists.md](./07b-playlists.md) | Playlist, PlaylistResource                | ~180  |
+| [07c-queues.md](./07c-queues.md)       | Queue, QueueResource                      | ~140  |
+| [07f-misc.md](./07f-misc.md)           | MembershipClaimToken, OnDemandParserEvent | ~100  |
 
 ### Phase 7: LLM Integration
 

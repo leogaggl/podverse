@@ -106,7 +106,10 @@ export function selectAutoQueueRowsAhead(
   return rows;
 }
 
-export function hasAutoQueueRowAfter(resources: AutoQueueResourcesMap, activeRow: number | null): boolean {
+export function hasAutoQueueRowAfter(
+  resources: AutoQueueResourcesMap,
+  activeRow: number | null
+): boolean {
   return countAutoQueueRowsAhead(resources, activeRow) > 0;
 }
 
@@ -155,7 +158,9 @@ export function toggleAutoQueueRepeat(current: AutoQueueConfig): AutoQueueConfig
   };
 }
 
-export function autoQueueSeedFromPlaybackTarget(target: PlaybackTarget | null): AutoQueueSeed | null {
+export function autoQueueSeedFromPlaybackTarget(
+  target: PlaybackTarget | null
+): AutoQueueSeed | null {
   if (target === null || target.kind === 'add-by-rss' || target.kind === 'livestream') {
     return null;
   }
@@ -263,7 +268,10 @@ export function dedupeAutoQueueResources(resources: AutoQueueResourcesMap): Auto
   return deduped;
 }
 
-export function resolveAutoQueueSource(config: AutoQueueConfig, seed: AutoQueueSeed): AutoQueueSource | null {
+export function resolveAutoQueueSource(
+  config: AutoQueueConfig,
+  seed: AutoQueueSeed
+): AutoQueueSource | null {
   if (config.disabled) {
     return null;
   }

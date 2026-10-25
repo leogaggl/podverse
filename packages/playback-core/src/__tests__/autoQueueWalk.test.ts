@@ -719,7 +719,9 @@ describe('resolveAutoQueuePrevious', () => {
   it('loads backward season and publish-date rows', async () => {
     const seasonHarness = createFetchHarness();
     const seasonSeed = createSeed(MediumEnum.Music);
-    seasonHarness.responses.itemsBySeason.push([createQueueItem('item-season-prev', seasonSeed.channel)]);
+    seasonHarness.responses.itemsBySeason.push([
+      createQueueItem('item-season-prev', seasonSeed.channel),
+    ]);
     const seasonResult = await resolveAutoQueuePrevious({
       config: createConfig(),
       seed: seasonSeed,
@@ -731,7 +733,9 @@ describe('resolveAutoQueuePrevious', () => {
 
     const pubDateHarness = createFetchHarness();
     const pubDateSeed = createSeed(MediumEnum.Podcast);
-    pubDateHarness.responses.itemsByPubDate.push([createQueueItem('item-pubdate-prev', pubDateSeed.channel)]);
+    pubDateHarness.responses.itemsByPubDate.push([
+      createQueueItem('item-pubdate-prev', pubDateSeed.channel),
+    ]);
     const pubDateResult = await resolveAutoQueuePrevious({
       config: createConfig(),
       seed: pubDateSeed,

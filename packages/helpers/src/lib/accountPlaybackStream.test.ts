@@ -7,8 +7,8 @@ import {
   isDTOPlaybackSnapshot,
   isDTOPlaybackStartFailed,
   isDTOPlaybackState,
-  toPlaybackMedium,
   parseAccountPlaybackStreamEvent,
+  toPlaybackMedium,
 } from './accountPlaybackStream.js';
 import { MediumEnum } from './medium.js';
 
@@ -62,7 +62,10 @@ describe('parseAccountPlaybackStreamEvent', () => {
     });
 
     expect(
-      parseAccountPlaybackStreamEvent(ACCOUNT_PLAYBACK_STREAM_EVENT.state, JSON.stringify(baseState))
+      parseAccountPlaybackStreamEvent(
+        ACCOUNT_PLAYBACK_STREAM_EVENT.state,
+        JSON.stringify(baseState)
+      )
     ).toEqual({
       type: ACCOUNT_PLAYBACK_STREAM_EVENT.state,
       data: baseState,

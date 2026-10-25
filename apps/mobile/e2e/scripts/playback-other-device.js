@@ -118,9 +118,7 @@ const postJson = (url, body, headers) =>
 
 const failOn = (label, response) => {
   if (!response.ok) {
-    throw new Error(
-      `playback-other-device: ${label} failed (${response.status}) ${response.body}`
-    );
+    throw new Error(`playback-other-device: ${label} failed (${response.status}) ${response.body}`);
   }
 };
 
