@@ -322,15 +322,23 @@ kubectl wait -n argocd application/podverse-alpha-db application/podverse-alpha-
 
 ```bash
 kubectl -n podverse-alpha create job --from=cronjob/ops-db-verify-bootstrap-contract ops-db-verify-bootstrap-contract-manual
-kubectl -n podverse-alpha logs -f --pod-running-timeout=5m job/ops-db-verify-bootstrap-contract-manual
 ```
+
+```bash
+kubectl wait -n podverse-alpha --for=condition=complete job/ops-db-verify-bootstrap-contract-manual --timeout=20m
+```
+
+```bash
+kubectl -n podverse-alpha logs job/ops-db-verify-bootstrap-contract-manual
+```
+
+`logs` returns `waiting to start: ContainerCreating` if it runs while the new pod is still
+starting. `--pod-running-timeout` does not prevent that. Wait for the Job `complete` condition,
+which is true only after the container has finished successfully, then read the log. A timeout
+means stop. Read the log and do not create the Job again.
 
 Expect `Bootstrap contract verification passed for app and management databases.` If it fails,
 the deploy is not done. Do not delete the PVC as the next step.
-
-Every `logs -f` right after `create job` passes `--pod-running-timeout=5m`. The default is 20s,
-and a pod still in `ContainerCreating` makes `logs` exit with `is waiting to start`. When that
-happens anyway, the job is fine. Rerun the same `logs -f`.
 
 #### App and management migrations (when the range adds them)
 
@@ -353,12 +361,26 @@ wipe. Do not re-run one after a failure; stop and read the log.
 
 ```bash
 kubectl -n podverse-alpha create job --from=cronjob/ops-db-migrate-app ops-db-migrate-app-manual
-kubectl -n podverse-alpha logs -f --pod-running-timeout=5m job/ops-db-migrate-app-manual
+```
+
+```bash
+kubectl wait -n podverse-alpha --for=condition=complete job/ops-db-migrate-app-manual --timeout=20m
+```
+
+```bash
+kubectl -n podverse-alpha logs job/ops-db-migrate-app-manual
 ```
 
 ```bash
 kubectl -n podverse-alpha create job --from=cronjob/ops-db-migrate-management ops-db-migrate-management-manual
-kubectl -n podverse-alpha logs -f --pod-running-timeout=5m job/ops-db-migrate-management-manual
+```
+
+```bash
+kubectl wait -n podverse-alpha --for=condition=complete job/ops-db-migrate-management-manual --timeout=20m
+```
+
+```bash
+kubectl -n podverse-alpha logs job/ops-db-migrate-management-manual
 ```
 
 Expect `Linear migration run completed.` with an `APPLY <file>` line for each new migration.
