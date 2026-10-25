@@ -66,3 +66,30 @@
   catalog page leaves the sidebar unmarked. My Clips lights up only while the profile clips tab
   is in the URL.
 - Who notices: someone using the sidebar to tell which section they are in
+
+## Ending a session closes its live account event streams
+
+- Surfaces: api, management-api, helpers, orm
+- Change: when a session ends (sign out of one device, Sign Out of All Other Devices, a password
+  change or reset, admin Force Logout, admin password set, or a reused refresh token), every open
+  `GET /account/events` stream of that session closes at once on every API pod. Before closing,
+  the stream sends a last `session.ended` event with `{ notice }`: the same notice the
+  session-ended 401 carries, or null when the device signed itself out. Revocations publish a
+  `session.ended` event on the Redis channel `podverse:account-events` after they commit. A
+  session-ended 401 on `GET /account/events` no longer clears the `jwt` cookie, so the browser's
+  next request can report why the session ended. The 30-minute stream lifetime stays as the
+  backstop when an event is lost during a Redis outage, and for deleted accounts. API key streams
+  name no session and are unaffected.
+- Who notices: web users see the signed-out dialog right away (separate entry); mobile apps sign
+  out with the reason within about a second instead of on their next request
+- Operator steps: none
+
+## Web signs out at once when a session is ended elsewhere
+
+- Surfaces: web
+- Change: an open web page whose session is ended from another device, by an administrator, by a
+  password change, or as suspected theft now signs out and shows the "You've Been Signed Out"
+  dialog with the reason within a second or two, in every open tab of that browser. It no longer
+  waits for the page's next request. The live account event stream delivers it.
+- Who notices: web users who keep a tab open while signed out from elsewhere
+- Operator steps: none

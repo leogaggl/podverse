@@ -72,17 +72,24 @@ async function defaultSessionEndedHandler(notice: AuthSessionEndedNotice): Promi
 }
 
 /**
- * `onRequestError` for the browser's ApiRequestService. Acts once per page: the first refused
- * request with a signed-out notice signs the page out; later ones are ignored.
+ * Signs the page out with this notice. Acts once per page, shared with `reportSessionEndedError`.
  */
-export function reportSessionEndedError(error: unknown): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  const notice = parseAuthSessionEndedError(error);
-  if (notice === null || isHandlingSessionEnded) {
+export function reportSessionEnded(notice: AuthSessionEndedNotice): void {
+  if (typeof window === 'undefined' || isHandlingSessionEnded) {
     return;
   }
   isHandlingSessionEnded = true;
   void (sessionEndedHandler ?? defaultSessionEndedHandler)(notice);
+}
+
+/**
+ * `onRequestError` for the browser's ApiRequestService. Acts once per page: the first refused
+ * request with a signed-out notice signs the page out; later ones are ignored.
+ */
+export function reportSessionEndedError(error: unknown): void {
+  const notice = parseAuthSessionEndedError(error);
+  if (notice === null) {
+    return;
+  }
+  reportSessionEnded(notice);
 }

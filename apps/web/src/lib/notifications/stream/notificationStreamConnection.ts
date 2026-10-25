@@ -1,10 +1,17 @@
-import { ACCOUNT_NOTIFICATION_STREAM_EVENT } from '@podverse/helpers';
+import {
+  ACCOUNT_NOTIFICATION_STREAM_EVENT,
+  ACCOUNT_SESSION_STREAM_EVENT,
+  parseAccountSessionStreamEvent,
+} from '@podverse/helpers';
 
 import { buildNotificationStreamUrl, readSseLastEventId } from './notificationStreamUrl';
 
 export type NotificationStreamStatus = 'off' | 'connecting' | 'open' | 'down';
 
-/** One received SSE event, before parsing. `lastEventId` is set only on `notification.created`. */
+/**
+ * One received SSE event, before parsing. Carries every `notification.*` and `session.*` event
+ * the stream sends. `lastEventId` is set only on `notification.created`.
+ */
 export type RawNotificationStreamEvent = {
   eventName: string;
   rawData: string;
@@ -87,6 +94,23 @@ export function openNotificationStreamConnection(
     }, delayMs);
   };
 
+  const close = () => {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    if (retryTimer !== null) {
+      clearTimer(retryTimer);
+      retryTimer = null;
+    }
+    if (source !== null) {
+      const current = source;
+      source = null;
+      detach(current);
+    }
+    onStatus('off');
+  };
+
   const connect = () => {
     const next = createEventSource(buildNotificationStreamUrl(apiBaseUrl, lastEventId));
     source = next;
@@ -129,27 +153,26 @@ export function openNotificationStreamConnection(
         onRawEvent({ eventName, rawData: event.data, lastEventId: eventLastId });
       });
     }
+
+    // A notice means this browser's session was ended elsewhere, so close before the browser
+    // reconnects into a refusal. A null notice is this browser ending or replacing its own session.
+    next.addEventListener(ACCOUNT_SESSION_STREAM_EVENT.ended, (event) => {
+      if (source !== next) {
+        return;
+      }
+      const eventName = ACCOUNT_SESSION_STREAM_EVENT.ended;
+      onRawEvent({ eventName, rawData: event.data, lastEventId: null });
+      const parsed = parseAccountSessionStreamEvent(eventName, event.data);
+      if (parsed !== null && parsed.data.notice !== null) {
+        close();
+      }
+    });
   };
 
   connect();
 
   return {
     getLastEventId: () => lastEventId,
-    close: () => {
-      if (closed) {
-        return;
-      }
-      closed = true;
-      if (retryTimer !== null) {
-        clearTimer(retryTimer);
-        retryTimer = null;
-      }
-      if (source !== null) {
-        const current = source;
-        source = null;
-        detach(current);
-      }
-      onStatus('off');
-    },
+    close,
   };
 }

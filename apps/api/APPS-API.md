@@ -102,10 +102,16 @@ The API exposes endpoints at `{host}:{port}/api/v2/`:
 ### Account event stream
 
 `GET /api/v2/account/events` is the account's one server-sent events stream, with cookie or bearer
-auth. Event names are namespaced: `notification.*` is in use, and `playback.*` is reserved for
-cross-device playback state and control commands, which carry no SSE id. Only events that carry an
-SSE id replay from `Last-Event-ID`. API pods receive account changes from the Redis channel
-`podverse:account-events` and fan them out to the streams they hold.
+auth. Event names are namespaced: `notification.*` and `session.*` are in use, and `playback.*` is
+reserved for cross-device playback state and control commands, which carry no SSE id. Only events
+that carry an SSE id replay from `Last-Event-ID`. API pods receive account changes from the Redis
+channel `podverse:account-events` and fan them out to the streams they hold.
+
+Ending a session from anywhere closes that session's streams on every pod at once, through a
+`session.ended` event on `podverse:account-events`. The stream sends `session.ended` with the
+signed-out notice and then ends. Streams still end after 30 minutes; that is the backstop when the
+event is lost (a Redis outage) and when an account is deleted. A session-ended 401 on this route
+keeps the `jwt` cookie, because `EventSource` cannot read the body.
 
 A proxy in front of the API must:
 

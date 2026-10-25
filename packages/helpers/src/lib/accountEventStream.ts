@@ -1,10 +1,13 @@
 import type { DTOAccountNotification } from '../dtos/account/accountNotification.js';
+import type { AuthSessionEndedNotice } from './authSessionNotice.js';
+import { isAuthSessionEndedNotice } from './authSessionNotice.js';
 
 /**
  * The account's one event stream, relative to the versioned API base
- * (`${API_PREFIX}${API_VERSION}`). Event names are namespaced: `notification.*` is in use and
- * `playback.*` is reserved for cross-device playback state and control commands. Only events
- * that carry an SSE `id:` replay; latest-value state and one-shot commands never carry one.
+ * (`${API_PREFIX}${API_VERSION}`). Event names are namespaced: `notification.*` and `session.*`
+ * are in use, and `playback.*` is reserved for cross-device playback state and control commands.
+ * Only events that carry an SSE `id:` replay; latest-value state and one-shot commands never
+ * carry one.
  */
 export const ACCOUNT_EVENTS_STREAM_API_PATH = '/account/events';
 
@@ -80,6 +83,24 @@ export type AccountNotificationStreamEvent =
       data: DTOAccountNotificationStreamResync;
     };
 
+export const ACCOUNT_SESSION_STREAM_EVENT = {
+  ended: 'session.ended',
+} as const;
+
+/**
+ * Last event on a stream whose session was ended; the server closes the stream after it. A null
+ * notice means this device signed itself out, and the client reconnects as usual. With a notice
+ * the client stops reconnecting and signs out with that reason.
+ */
+export interface DTOAccountSessionStreamEnded {
+  notice: AuthSessionEndedNotice | null;
+}
+
+export type AccountSessionStreamEvent = {
+  type: typeof ACCOUNT_SESSION_STREAM_EVENT.ended;
+  data: DTOAccountSessionStreamEnded;
+};
+
 /** The server sends an SSE comment at this interval so proxies keep the connection open. */
 export const ACCOUNT_EVENTS_STREAM_HEARTBEAT_MS = 25_000;
 
@@ -118,6 +139,36 @@ export function parseAccountNotificationStreamEvent(
     default:
       return null;
   }
+}
+
+/** Parses one received `session.*` event, or returns null for any other name or invalid data. */
+export function parseAccountSessionStreamEvent(
+  eventName: string,
+  rawData: string
+): AccountSessionStreamEvent | null {
+  if (eventName !== ACCOUNT_SESSION_STREAM_EVENT.ended) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawData);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed) || !('notice' in parsed)) {
+    return null;
+  }
+  const notice = parsed.notice;
+  if (notice === null) {
+    return { type: ACCOUNT_SESSION_STREAM_EVENT.ended, data: { notice: null } };
+  }
+  if (!isAuthSessionEndedNotice(notice)) {
+    return null;
+  }
+
+  return { type: ACCOUNT_SESSION_STREAM_EVENT.ended, data: { notice } };
 }
 
 function parseState(value: unknown): AccountNotificationStreamEvent | null {

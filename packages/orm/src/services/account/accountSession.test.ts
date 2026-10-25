@@ -2,10 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DATABASE_CONSTANTS, sha256Hex } from '@podverse/helpers';
 
-const { query, transaction } = vi.hoisted(() => ({
-  query: vi.fn(async (_sql: string, _parameters?: readonly unknown[]): Promise<unknown> => []),
-  transaction: vi.fn(),
-}));
+import type { AccountSessionEndedSignal } from './accountSessionSignal.js';
+
+const { publishAccountSessionsEnded, query, steps, transaction } = vi.hoisted(() => {
+  const steps: string[] = [];
+  return {
+    publishAccountSessionsEnded: vi.fn(async (_signal: AccountSessionEndedSignal) => {
+      steps.push('published');
+    }),
+    query: vi.fn(async (_sql: string, _parameters?: readonly unknown[]): Promise<unknown> => []),
+    steps,
+    transaction: vi.fn(),
+  };
+});
 
 vi.mock('@orm/db/index.js', () => ({
   AppDataSourceReadWrite: {
@@ -14,9 +23,12 @@ vi.mock('@orm/db/index.js', () => ({
   },
 }));
 
+vi.mock('./accountSessionSignal.js', () => ({ publishAccountSessionsEnded }));
+
 import {
   createAccountSession,
   getAccountSessionStatus,
+  revokeAccountSession,
   revokeAccountSessions,
   rotateAccountSessionRefreshToken,
 } from './accountSession.js';
@@ -81,9 +93,15 @@ function answerRotation(locked: Record<string, unknown> | undefined) {
 beforeEach(() => {
   query.mockReset();
   query.mockResolvedValue([]);
+  publishAccountSessionsEnded.mockClear();
+  steps.length = 0;
   transaction.mockReset();
-  transaction.mockImplementation(async (run: (manager: { query: typeof query }) => unknown) =>
-    run({ query })
+  transaction.mockImplementation(
+    async (run: (manager: { query: typeof query }) => Promise<unknown>) => {
+      const result = await run({ query });
+      steps.push('committed');
+      return result;
+    }
   );
 });
 
@@ -205,6 +223,7 @@ describe('rotateAccountSessionRefreshToken', () => {
     expect(update[2]).toBe(sha256Hex(CURRENT_ID));
     expect(update[3]).toBe(NOW);
     expect(update[4]).toBe(LATER);
+    expect(publishAccountSessionsEnded).not.toHaveBeenCalled();
   });
 
   it('rotates the previous id at any delay, keeping previous', async () => {
@@ -230,6 +249,20 @@ describe('rotateAccountSessionRefreshToken', () => {
     expect(paramsOf(1)).toEqual(['41', NOW]);
   });
 
+  it('publishes refresh_reuse for the reused session after the transaction resolves', async () => {
+    answerRotation(sessionRow());
+
+    await rotate('some-other-token-id');
+
+    expect(publishAccountSessionsEnded).toHaveBeenCalledTimes(1);
+    expect(publishAccountSessionsEnded).toHaveBeenCalledWith({
+      account_id: 7,
+      session_id_texts: ['sess12345a'],
+      reason: 'refresh_reuse',
+    });
+    expect(steps).toEqual(['committed', 'published']);
+  });
+
   it('returns the status of revoked, expired, and other-account rows without writing', async () => {
     answerRotation(sessionRow({ revoked_reason: 'signed_out_elsewhere' }));
     expect(await rotate(CURRENT_ID)).toEqual({
@@ -250,9 +283,44 @@ describe('rotateAccountSessionRefreshToken', () => {
   });
 });
 
+describe('revokeAccountSession', () => {
+  it('publishes the ended session once when a row changed', async () => {
+    query.mockResolvedValue([[], 1]);
+
+    const revoked = await revokeAccountSession({
+      accountId: 7,
+      sessionIdText: 'sess12345a',
+      reason: 'signed_out_elsewhere',
+      now: NOW,
+    });
+
+    expect(revoked).toBe(true);
+    expect(publishAccountSessionsEnded).toHaveBeenCalledTimes(1);
+    expect(publishAccountSessionsEnded).toHaveBeenCalledWith({
+      account_id: 7,
+      session_id_texts: ['sess12345a'],
+      reason: 'signed_out_elsewhere',
+    });
+  });
+
+  it('publishes nothing when no row changed', async () => {
+    query.mockResolvedValue([[], 0]);
+
+    const revoked = await revokeAccountSession({
+      accountId: 7,
+      sessionIdText: 'sess12345a',
+      reason: 'signed_out_elsewhere',
+      now: NOW,
+    });
+
+    expect(revoked).toBe(false);
+    expect(publishAccountSessionsEnded).not.toHaveBeenCalled();
+  });
+});
+
 describe('revokeAccountSessions', () => {
   it('passes the except id through only when it is given', async () => {
-    query.mockResolvedValue([[], 3]);
+    query.mockResolvedValue([[{ id_text: 'sessaaaaa1' }, { id_text: 'sessbbbbb2' }], 2]);
 
     const all = await revokeAccountSessions({
       accountId: 7,
@@ -267,11 +335,46 @@ describe('revokeAccountSessions', () => {
       now: NOW,
     });
 
-    expect(all).toBe(3);
-    expect(others).toBe(3);
+    expect(all).toBe(2);
+    expect(others).toBe(2);
     expect(paramsOf(0)).toEqual([7, 'admin_force_logout', NOW]);
     expect(sqlOf(0)).not.toContain('id_text <>');
+    expect(sqlOf(0)).toContain('RETURNING id_text');
     expect(paramsOf(1)).toEqual([7, 'password_changed', NOW, 'keep12345a']);
     expect(sqlOf(1)).toContain('id_text <> $4');
+    expect(sqlOf(1)).toContain('RETURNING id_text');
+  });
+
+  it('publishes exactly the returned session ids and returns their count', async () => {
+    query.mockResolvedValue([[{ id_text: 'sessaaaaa1' }, { id_text: 'sessbbbbb2' }], 2]);
+
+    const count = await revokeAccountSessions({
+      accountId: 7,
+      reason: 'password_changed',
+      exceptSessionIdText: 'keep12345a',
+      now: NOW,
+    });
+
+    expect(count).toBe(2);
+    expect(publishAccountSessionsEnded).toHaveBeenCalledTimes(1);
+    expect(publishAccountSessionsEnded).toHaveBeenCalledWith({
+      account_id: 7,
+      session_id_texts: ['sessaaaaa1', 'sessbbbbb2'],
+      reason: 'password_changed',
+    });
+  });
+
+  it('returns 0 and publishes no event when no row changed', async () => {
+    query.mockResolvedValue([[], 0]);
+
+    const count = await revokeAccountSessions({
+      accountId: 7,
+      reason: 'admin_force_logout',
+      exceptSessionIdText: null,
+      now: NOW,
+    });
+
+    expect(count).toBe(0);
+    expect(publishAccountSessionsEnded).not.toHaveBeenCalled();
   });
 });
