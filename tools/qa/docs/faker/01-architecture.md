@@ -26,7 +26,6 @@ flowchart TD
         CHAN[ChannelGenerators]
         ITEM[ItemGenerators]
         UGC[UserContentGenerators]
-        STATS[StatsGenerators]
     end
 
     subgraph Media [Media Server]
@@ -115,15 +114,11 @@ podverse-qa/
 │       │   │   ├── itemValue.ts
 │       │   │   ├── liveItem.ts
 │       │   │   └── ... (other item entities)
-│       │   ├── userContent/      # User-generated content
-│       │   │   ├── index.ts
-│       │   │   ├── clip.ts
-│       │   │   ├── playlist.ts
-│       │   │   └── queue.ts
-│       │   └── stats/            # Statistics generators
+│       │   └── userContent/      # User-generated content
 │       │       ├── index.ts
-│       │       ├── statsAggregated.ts
-│       │       └── statsTrackEvent.ts
+│       │       ├── clip.ts
+│       │       ├── playlist.ts
+│       │       └── queue.ts
 │       │
 │       └── utils/                # Utility functions
 │           ├── index.ts
@@ -211,7 +206,6 @@ class DataOrchestrator {
   private async generateChannels(feeds: Feed[]): Promise<Channel[]>;
   private async generateItems(channels: Channel[]): Promise<Item[]>;
   private async generateUserContent(accounts: Account[], items: Item[]): Promise<void>;
-  private async generateStats(channels: Channel[], items: Item[]): Promise<void>;
 
   // Utility methods
   private async startMediaServer(): Promise<void>;
@@ -337,16 +331,7 @@ The data must be generated in a specific order to satisfy foreign key constraint
    └── AccountNotificationChannel
        └── AccountNotificationChannelType
 
-8. Statistics
-   ├── StatsAggregatedAccount
-   ├── StatsAggregatedChannel
-   ├── StatsAggregatedItem
-   ├── StatsAggregatedClip
-   ├── StatsAggregatedPlaylist
-   ├── StatsTrackAccountGuid
-   └── StatsTrackEvent* tables
-
-9. Miscellaneous
+8. Miscellaneous
    ├── MembershipClaimToken
    └── OnDemandParserEvent
 ```
@@ -452,5 +437,5 @@ See the following documentation files for detailed implementation:
 - [04-account-generators.md](./04-account-generators.md) - Account generation
 - [05-feed-channel-generators.md](./05-feed-channel-generators.md) - Feed/Channel generation
 - [06-item-generators.md](./06-item-generators.md) - Item generation
-- [07-user-content-stats-generators.md](./07-user-content-stats-generators.md) - UGC and stats
+- [07a-clips.md](./07a-clips.md) through [07f-misc.md](./07f-misc.md) - User content generation
 - [08-llm-skills.md](./08-llm-skills.md) - LLM integration skills

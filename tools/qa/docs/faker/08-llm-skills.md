@@ -40,7 +40,6 @@ When modifying database entities in `podverse-orm`, you MUST also update the cor
 | `podverse-orm/src/entities/playlist/*.ts` | `podverse-qa/src/faker/generators/userContent/playlist*.ts` |
 | `podverse-orm/src/entities/queue/*.ts`    | `podverse-qa/src/faker/generators/userContent/queue*.ts`    |
 | `podverse-orm/src/entities/clip.ts`       | `podverse-qa/src/faker/generators/userContent/clip.ts`      |
-| `podverse-orm/src/entities/stats/*.ts`    | `podverse-qa/src/faker/generators/stats/`                   |
 
 ## When to Update Faker
 
@@ -207,22 +206,6 @@ rules:
 | PlaylistResource | `userContent/playlistResource.ts` | Playlist items |
 | Queue            | `userContent/queue.ts`            | Play queue     |
 | QueueResource    | `userContent/queueResource.ts`    | Queue items    |
-
-### Stats Entities
-
-| Entity                  | Generator File             | Notes           |
-| ----------------------- | -------------------------- | --------------- |
-| StatsAggregatedAccount  | `stats/statsAggregated.ts` | Account stats   |
-| StatsAggregatedChannel  | `stats/statsAggregated.ts` | Channel stats   |
-| StatsAggregatedClip     | `stats/statsAggregated.ts` | Clip stats      |
-| StatsAggregatedItem     | `stats/statsAggregated.ts` | Item stats      |
-| StatsAggregatedPlaylist | `stats/statsAggregated.ts` | Playlist stats  |
-| StatsTrackAccountGuid   | `stats/statsTrackEvent.ts` | Tracking IDs    |
-| StatsTrackEventAccount  | `stats/statsTrackEvent.ts` | Account events  |
-| StatsTrackEventChannel  | `stats/statsTrackEvent.ts` | Channel events  |
-| StatsTrackEventClip     | `stats/statsTrackEvent.ts` | Clip events     |
-| StatsTrackEventItem     | `stats/statsTrackEvent.ts` | Item events     |
-| StatsTrackEventPlaylist | `stats/statsTrackEvent.ts` | Playlist events |
 
 ### Miscellaneous Entities
 
