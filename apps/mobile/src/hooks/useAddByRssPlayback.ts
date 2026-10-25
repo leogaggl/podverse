@@ -4,11 +4,8 @@ import type { AddByRSSResourceData } from '@podverse/helpers';
 import { toNonEmptyTrimmedString } from '@podverse/helpers/guards';
 import type { AddByRSSMappedFeed } from '@podverse/parser-mapping';
 
-import {
-  toAddByRssItemPlaybackResourceData,
-  toAddByRssLiveItemPlaybackResourceData,
-} from '../lib/addByRss/domain';
-import { addByRssDownloadItemIdText } from '../lib/addByRss/downloadIdText';
+import { toAddByRssLiveItemPlaybackResourceData } from '../lib/addByRss/domain';
+import { addByRssEpisodePlayEntry } from '../lib/addByRss/feedWalk';
 import { addByRssPlaybackMediaId } from '../lib/addByRss/resourceData';
 import { playbackTargetRowMediaId } from '../lib/playback/buildPlaybackTarget';
 import { usePlaybackIsPlaying, usePlaybackSession } from '../playback/PlaybackProvider';
@@ -58,16 +55,13 @@ export function useAddByRssPlayback({ onNotice }: UseAddByRssPlaybackOptions) {
       itemBundle: AddByRSSMappedFeed['items'][number],
       itemIndex: number
     ) => {
-      const enclosureUrl = itemBundle.enclosures[0]?.item_enclosure_sources[0]?.uri ?? null;
-      if (enclosureUrl === null) {
+      const entry = addByRssEpisodePlayEntry(feed, mappedFeed, itemBundle, itemIndex);
+      if (entry === null) {
         onNotice('features.add_by_rss.status_processing');
         return;
       }
 
-      await playLoadedResource(
-        toAddByRssItemPlaybackResourceData(feed, mappedFeed, itemBundle, itemIndex),
-        addByRssDownloadItemIdText(feed.feedUrl, itemBundle.item, itemIndex)
-      );
+      await playLoadedResource(entry.resourceData, entry.localDownloadItemIdText);
     },
     [onNotice, playLoadedResource]
   );

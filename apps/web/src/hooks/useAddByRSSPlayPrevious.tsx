@@ -2,6 +2,8 @@
 
 import { useCallback } from 'react';
 
+import { resolveAddByRSSAdjacentStep } from '@podverse/playback-core';
+
 import type { AddByRSSListContextState } from '../contexts/AddByRSSListContext';
 import { useAddByRSSListContext } from '../contexts/AddByRSSListContext';
 import { getAddByRSSItemByIdText, getAddByRSSLivestreamByIdText } from '../utils/addByRSS/storage';
@@ -20,40 +22,20 @@ export function useAddByRSSPlayPrevious() {
   return useCallback(
     async (fallbackContext?: AddByRSSListContextState | null): Promise<boolean> => {
       const effectiveContext = listContext ?? fallbackContext ?? null;
-      const sortOrder = effectiveContext?.sortOrder ?? 'recent';
-      if (!effectiveContext || effectiveContext.itemIdTexts.length === 0) {
+      const step = resolveAddByRSSAdjacentStep(effectiveContext, 'previous');
+      if (step.kind === 'none') {
+        if (step.clearContext) {
+          setAddByRSSListContext(null);
+        }
         return false;
       }
-      const previousIndex =
-        sortOrder === 'oldest'
-          ? effectiveContext.currentIndex - 1
-          : effectiveContext.currentIndex + 1;
-      if (previousIndex < 0 || previousIndex >= effectiveContext.itemIdTexts.length) {
-        return false;
-      }
-      const previousIdText = effectiveContext.itemIdTexts[previousIndex];
-      if (!previousIdText || typeof previousIdText !== 'string') {
-        return false;
-      }
-      const item = await getAddByRSSItemByIdText(previousIdText);
-      const indexItem = item ?? (await getAddByRSSLivestreamByIdText(previousIdText));
+      const item = await getAddByRSSItemByIdText(step.idText);
+      const indexItem = item ?? (await getAddByRSSLivestreamByIdText(step.idText));
       if (!indexItem) {
         return false;
       }
       await playAddByRSS(indexItem);
-      const isFirstInDirection =
-        sortOrder === 'oldest'
-          ? previousIndex <= 0
-          : previousIndex >= effectiveContext.itemIdTexts.length - 1;
-      if (isFirstInDirection) {
-        setAddByRSSListContext(null);
-      } else {
-        setAddByRSSListContext({
-          ...effectiveContext,
-          currentIndex: previousIndex,
-          sortOrder,
-        });
-      }
+      setAddByRSSListContext(step.nextContext);
       return true;
     },
     [listContext, setAddByRSSListContext, playAddByRSS]

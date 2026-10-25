@@ -49,6 +49,38 @@ playback, CarPlay, Android Auto, or the lock screen need something different.
   and web track-button hooks this set changes, so anchor by symbol and do not edit that set's
   plans.
 
+### Review of the first planning pass
+
+Answers to the decisions D1–D20 listed under "Decisions to review" in `00-SUMMARY.md`.
+
+- **Accepted as the plans wrote them:** D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D15,
+  D16, D17, D19, D20.
+- **D7 confirmed.** "for Add by RSS, Next checks the manual queue first, the same as the end of an
+  item, so the phone, the lock screen, CarPlay, and Android Auto share one advance path."
+- **D13 changed (R29).** "Include clip and soundbite rows in the advance window, with their start
+  and end times, so iOS and Android play that range. Do not end the window at the first clip or
+  soundbite. Both engines already honor clipStartSeconds and clipEndSeconds."
+- **D14 changed (R30).** "While JavaScript is running, pre-resolve the next Add by RSS episodes
+  into the window as plain media URLs, using the shared walk. Livestreams stay manual-queue only.
+  Do not copy feed passwords into the native cache. An enclosure that will not play as a plain URL
+  ends the window."
+- **D18 changed (R31).** "While the app is closed, an item the car starts that is not in the
+  window still falls back to the account queue snapshot. When JavaScript returns, continue the
+  saved playlist, album, or podcast if the playing item belongs to that source. Otherwise refill
+  from that item own podcast or album."
+
+### Review of the second planning pass
+
+Answers after Close. The first-pass answers still stand.
+
+- **R32.** When the app reopens on a manual-queue item the car started, keep the saved playlist
+  behind that queue, the same as on the phone. A same-podcast episode outside the saved rows, and
+  not in that manual queue, still refills from its own channel.
+- **R33.** The chapter-end id mismatch gets a plan in this set. When an item ends, the phone
+  compares the engine id with `playbackTargetRowMediaId`. For a chapter that is the chapter id,
+  and the engine reports the item id, so the comparison never matches and `advance('complete')`
+  does not run.
+
 ## Glossary
 
 - **forward fill** — the auto-queue loading the next items after the one playing, so Next has

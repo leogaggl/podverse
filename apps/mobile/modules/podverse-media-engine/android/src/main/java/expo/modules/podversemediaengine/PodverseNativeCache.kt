@@ -18,6 +18,7 @@ import org.json.JSONObject
 enum class PodverseNativeCacheKind(val fileName: String) {
   QUEUE_AV("queue-snapshot-av.json"),
   QUEUE_MUSIC("queue-snapshot-music.json"),
+  ADVANCE_WINDOW("advance-window.json"),
   DOWNLOADS("downloads-index.json"),
   LIBRARY_BROWSE("library-index.json"),
   HISTORY("history-index.json"),
@@ -206,6 +207,7 @@ object PodverseNativeCache {
       listOf(
         PodverseNativeCacheKind.QUEUE_AV,
         PodverseNativeCacheKind.QUEUE_MUSIC,
+        PodverseNativeCacheKind.ADVANCE_WINDOW,
         PodverseNativeCacheKind.HISTORY,
         PodverseNativeCacheKind.LIVE,
         PodverseNativeCacheKind.LIBRARY_BROWSE,

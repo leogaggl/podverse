@@ -74,11 +74,42 @@ export type ItemPlaybackProgress = {
   played: boolean;
 };
 
-export type ItemProgressLookup = (item: DTOItem) => ItemPlaybackProgress | null;
+export type ItemProgressLookup = (
+  item: Pick<DTOItem, 'id' | 'id_text'>
+) => ItemPlaybackProgress | null;
 
 const positiveSeconds = (value: number | string | null | undefined): number => {
   const seconds = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+};
+
+/** What this device recorded for the account's resources of one kind, keyed by resource id. */
+const readLocalProgressByResourceIdText = async (
+  accountIdText: string,
+  resourceKind: 'item' | 'add_by_rss'
+): Promise<Map<string, ItemPlaybackProgress>> => {
+  await initializeDatabase();
+  const localRows = await getDb()
+    .select({
+      completed: schema.playbackLocalState.completed,
+      playbackPosition: schema.playbackLocalState.playbackPosition,
+      resourceIdText: schema.playbackLocalState.resourceIdText,
+    })
+    .from(schema.playbackLocalState)
+    .where(
+      and(
+        eq(schema.playbackLocalState.accountIdText, accountIdText),
+        eq(schema.playbackLocalState.resourceKind, resourceKind)
+      )
+    );
+  const byResourceIdText = new Map<string, ItemPlaybackProgress>();
+  for (const row of localRows) {
+    byResourceIdText.set(row.resourceIdText, {
+      played: row.completed === 1,
+      positionSeconds: positiveSeconds(row.playbackPosition),
+    });
+  }
+  return byResourceIdText;
 };
 
 /**
@@ -90,7 +121,6 @@ export const readItemProgressForProjection = async (
   accountIdText: string | null
 ): Promise<ItemProgressLookup> => {
   const byItemId = new Map<number, ItemPlaybackProgress>();
-  const byItemIdText = new Map<string, ItemPlaybackProgress>();
   if (accountIdText === null) {
     return () => null;
   }
@@ -104,27 +134,23 @@ export const readItemProgressForProjection = async (
     byItemId.set(row.t, { played: row.z === true, positionSeconds: positiveSeconds(row.p) });
   }
 
-  const localRows = await getDb()
-    .select({
-      completed: schema.playbackLocalState.completed,
-      playbackPosition: schema.playbackLocalState.playbackPosition,
-      resourceIdText: schema.playbackLocalState.resourceIdText,
-    })
-    .from(schema.playbackLocalState)
-    .where(
-      and(
-        eq(schema.playbackLocalState.accountIdText, accountIdText),
-        eq(schema.playbackLocalState.resourceKind, 'item')
-      )
-    );
-  for (const row of localRows) {
-    byItemIdText.set(row.resourceIdText, {
-      played: row.completed === 1,
-      positionSeconds: positiveSeconds(row.playbackPosition),
-    });
-  }
+  const byItemIdText = await readLocalProgressByResourceIdText(accountIdText, 'item');
 
   return (item) => byItemIdText.get(item.id_text) ?? byItemId.get(item.id) ?? null;
+};
+
+/**
+ * Where the account left off in each Add by RSS episode on this device, keyed by its playback
+ * media id. Signed out, every episode reads as unplayed.
+ */
+export const readAddByRssProgressForProjection = async (
+  accountIdText: string | null
+): Promise<(mediaId: string) => ItemPlaybackProgress | null> => {
+  if (accountIdText === null) {
+    return () => null;
+  }
+  const byMediaId = await readLocalProgressByResourceIdText(accountIdText, 'add_by_rss');
+  return (mediaId) => byMediaId.get(mediaId) ?? null;
 };
 
 const isQueueResource = (value: unknown): value is DTOQueueResource =>

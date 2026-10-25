@@ -1,20 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AutoQueueConfig } from './autoQueue';
-import {
-  createDefaultAutoQueueConfig,
-  resolveAutoQueueConfigAfterDirective,
-  toggleAutoQueueShuffle,
-} from './autoQueue';
+import type { AutoQueueConfig } from '@podverse/playback-core/autoQueue';
+import { createDefaultAutoQueueConfig } from '@podverse/playback-core/autoQueue';
+
+import { resolveAutoQueueConfigAfterDirective } from './autoQueue';
 
 const configWith = (overrides: Partial<AutoQueueConfig>): AutoQueueConfig => ({
-  ...createDefaultAutoQueueConfig(),
+  ...createDefaultAutoQueueConfig(() => 'default-hash'),
   ...overrides,
 });
 
 describe('resolveAutoQueueConfigAfterDirective', () => {
-  it('rotates shuffleHash on clear and keeps random and repeat', () => {
+  it('starts a fresh channel source on clear and keeps random and repeat', () => {
     const current = configWith({
+      disabled: true,
       nextPage: 4,
       playlist_id_text: 'pl-keep-out',
       random: true,
@@ -28,49 +27,56 @@ describe('resolveAutoQueueConfigAfterDirective', () => {
       () => 'fresh-hash'
     );
 
-    expect(next.shuffleHash).toBe('fresh-hash');
-    expect(next.nextPage).toBe(1);
-    expect(next.playlist_id_text).toBeNull();
-    expect(next.random).toBe(true);
-    expect(next.repeat).toBe(true);
-    expect(next.disabled).toBe(current.disabled);
+    expect(next).toEqual({
+      disabled: false,
+      nextPage: 1,
+      playlist_id_text: null,
+      random: true,
+      repeat: true,
+      shuffleHash: 'fresh-hash',
+    });
   });
 
-  it('seeds a playlist source without rotating the hash', () => {
+  it('points the source at the playlist on seed-playlist with a new shuffle hash', () => {
     const current = configWith({
+      disabled: true,
       nextPage: 3,
-      random: true,
-      shuffleHash: 'keep-hash',
+      random: false,
+      repeat: true,
+      shuffleHash: 'stale-hash',
     });
 
     const next = resolveAutoQueueConfigAfterDirective(
       current,
       { mode: 'seed-playlist', playlistIdText: 'pl-1' },
-      () => 'must-not-use'
+      () => 'fresh-hash'
     );
 
-    expect(next.shuffleHash).toBe('keep-hash');
-    expect(next.playlist_id_text).toBe('pl-1');
-    expect(next.nextPage).toBe(1);
-    expect(next.disabled).toBe(false);
-    expect(next.random).toBe(true);
-  });
-});
-
-describe('toggleAutoQueueShuffle', () => {
-  it('flips random, rotates the hash, and restarts paging', () => {
-    const current = configWith({
-      nextPage: 3,
+    expect(next).toEqual({
+      disabled: false,
+      nextPage: 1,
+      playlist_id_text: 'pl-1',
       random: false,
       repeat: true,
-      shuffleHash: 'hash-a',
+      shuffleHash: 'fresh-hash',
+    });
+  });
+
+  it('keeps the same config on clear-buffer', () => {
+    const current = configWith({
+      nextPage: 3,
+      playlist_id_text: 'pl-1',
+      random: false,
+      repeat: true,
+      shuffleHash: 'kept-hash',
     });
 
-    const next = toggleAutoQueueShuffle(current, () => 'hash-b');
+    const next = resolveAutoQueueConfigAfterDirective(
+      current,
+      { mode: 'clear-buffer' },
+      () => 'fresh-hash'
+    );
 
-    expect(next.random).toBe(true);
-    expect(next.shuffleHash).toBe('hash-b');
-    expect(next.nextPage).toBe(1);
-    expect(next.repeat).toBe(true);
+    expect(next).toBe(current);
   });
 });

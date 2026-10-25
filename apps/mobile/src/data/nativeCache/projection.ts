@@ -24,9 +24,15 @@ export type NativeCacheSchemaVersion = typeof NATIVE_CACHE_SCHEMA_VERSION;
 
 export type NativeCacheMediumBucket = 'av' | 'music';
 
+/** Engine meta `kind` values a queue entry can carry. Missing means `item`. */
+export type NativeCacheQueueEntryKind = 'item' | 'clip' | 'item_soundbite' | 'add_by_rss';
+
+/** Engine meta `kind` of the item a window continues from. */
+export type AdvanceWindowAnchorKind = NativeCacheQueueEntryKind | 'livestream';
+
 /**
  * Denormalized queue entry for car/watch now-playing + skip/advance. Required fields must always be
- * present; optional fields are additive.
+ * present; optional fields are additive. Native identifies a row by `kind` plus `idText`.
  */
 export type NativeCacheQueueEntry = {
   idText: string;
@@ -39,13 +45,34 @@ export type NativeCacheQueueEntry = {
   /** Verified artist names; when set, `podcastTitle` is the album. */
   artist?: string | null;
   startPositionSeconds?: number | null;
-  kind?: string | null;
+  kind?: NativeCacheQueueEntryKind | null;
+  /** Range a clip or soundbite plays, the same values the engine meta carries. */
+  clipStartSeconds?: number | null;
+  clipEndSeconds?: number | null;
+  /** Completed download native prefers over `mediaUrl` when the file exists. */
+  downloadFileName?: string | null;
 };
 
 export type QueueSnapshotProjection = {
   nowPlayingIdText: string | null;
   entries: NativeCacheQueueEntry[];
   mediumBucket?: NativeCacheMediumBucket;
+};
+
+/**
+ * The play order after the playing item: the manual queue for its medium, then the automatic
+ * rows JS already resolved. Native steps through it while JS is not running and makes no queue
+ * choice of its own.
+ */
+export type AdvanceWindowProjection = {
+  /** Must equal the engine meta's `queueMedium` for native to use the window. */
+  mediumBucket: NativeCacheMediumBucket;
+  /** Engine `meta.idText` of the item the window continues from. Null: nothing playing. */
+  anchorIdText: string | null;
+  /** Engine `meta.kind` of that item. Null exactly when `anchorIdText` is null. */
+  anchorKind: AdvanceWindowAnchorKind | null;
+  /** Play order after the anchor. Never contains the anchor. */
+  entries: NativeCacheQueueEntry[];
 };
 
 export type NativeCacheDownloadEntry = {
@@ -146,6 +173,7 @@ type NativeCacheEnvelope = {
 };
 
 export type QueueSnapshotCachePayload = NativeCacheEnvelope & QueueSnapshotProjection;
+export type AdvanceWindowCachePayload = NativeCacheEnvelope & AdvanceWindowProjection;
 export type DownloadsIndexCachePayload = NativeCacheEnvelope & DownloadsIndexProjection;
 export type LibraryBrowseIndexCachePayload = NativeCacheEnvelope & LibraryBrowseIndexProjection;
 export type LibraryChildrenCachePayload = NativeCacheEnvelope & LibraryChildrenProjection;
@@ -170,6 +198,12 @@ export const buildQueueSnapshotPayload = (
   snapshot: QueueSnapshotProjection,
   updatedAtMs?: number
 ): QueueSnapshotCachePayload => withEnvelope(snapshot, updatedAtMs);
+
+/** Wrap an advance window in the versioned native-cache envelope (pure). */
+export const buildAdvanceWindowPayload = (
+  window: AdvanceWindowProjection,
+  updatedAtMs?: number
+): AdvanceWindowCachePayload => withEnvelope(window, updatedAtMs);
 
 /** Wrap a downloads index in the versioned native-cache envelope (pure). */
 export const buildDownloadsIndexPayload = (
@@ -206,6 +240,7 @@ export const buildAccountContextPayload = (
 type NativeCacheWriteMethod =
   | 'writeQueueSnapshotAv'
   | 'writeQueueSnapshotMusic'
+  | 'writeAdvanceWindow'
   | 'writeDownloadsIndex'
   | 'writeLibraryBrowseIndex'
   | 'writeHistoryIndex'
@@ -256,6 +291,12 @@ export const projectQueueSnapshotMusicToNativeCache = async (
     'writeQueueSnapshotMusic',
     buildQueueSnapshotPayload({ ...snapshot, mediumBucket: 'music' })
   );
+};
+
+export const projectAdvanceWindowToNativeCache = async (
+  window: AdvanceWindowProjection
+): Promise<void> => {
+  await writeToNativeCache('writeAdvanceWindow', buildAdvanceWindowPayload(window));
 };
 
 export const projectDownloadsIndexToNativeCache = async (

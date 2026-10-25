@@ -97,7 +97,14 @@ export const buildChannelFromEngineMeta = (meta: MediaEngineSourceMeta): DTOChan
   title: nonEmptyMetaString(meta.albumTitle) ?? nonEmptyMetaString(meta.subtitle),
 });
 
-/** The phone target for an adopted source. Car plays are whole items, never clips or chapters. */
+/** Whether the engine's id for this kind is an item id the device stores can look up. */
+export const engineKindPlaysWholeItem = (kind: MediaEngineSourceMeta['kind']): boolean =>
+  kind === 'item' || kind === 'livestream';
+
+/**
+ * The phone target for an adopted whole item. A clip, soundbite, or Add by RSS source gets it
+ * only until its own target is known.
+ */
 export const buildAdoptedPlaybackTarget = (
   item: DTOItem,
   channel: DTOChannel,

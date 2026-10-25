@@ -8,6 +8,7 @@ import {
   buildAdoptedPlaybackTarget,
   buildChannelFromEngineMeta,
   buildItemFromEngineMeta,
+  engineKindPlaysWholeItem,
 } from './engineSourceAdoption';
 
 const baseMeta: MediaEngineSourceMeta = {
@@ -82,5 +83,13 @@ describe('engine source adoption', () => {
     const channel = { ...buildChannelFromEngineMeta(meta), id_text: 'channel1' };
 
     expect(adoptedItemNeedsEnrichment({ builtFromMeta: false, channel, item })).toBe(false);
+  });
+
+  it('treats only item and livestream engine ids as whole items', () => {
+    expect(engineKindPlaysWholeItem('item')).toBe(true);
+    expect(engineKindPlaysWholeItem('livestream')).toBe(true);
+    expect(engineKindPlaysWholeItem('clip')).toBe(false);
+    expect(engineKindPlaysWholeItem('item_soundbite')).toBe(false);
+    expect(engineKindPlaysWholeItem('add_by_rss')).toBe(false);
   });
 });

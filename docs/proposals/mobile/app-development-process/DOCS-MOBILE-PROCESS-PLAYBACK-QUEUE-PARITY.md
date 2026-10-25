@@ -10,8 +10,9 @@ first: [DOCS-MOBILE-PROCESS-OVERVIEW.md](DOCS-MOBILE-PROCESS-OVERVIEW.md) and th
 - **Reuse the pure policy.** The web playback **decision engine** is platform-agnostic and should be
   extracted to `@podverse/playback-core` (see
   [DOCS-MOBILE-MONOREPO-TARGET-STRUCTURE.md](/docs/proposals/mobile/monorepo-llm-setup/DOCS-MOBILE-MONOREPO-TARGET-STRUCTURE.md)).
-- **Reuse the same API sequences.** Manual queue and auto-queue call the **same** `req*` wrappers and
-  endpoints as web.
+- **Reuse the same API sequences.** The manual queue calls the same `req*` wrappers and endpoints
+  as web. Auto-queue source choice and walks are shared code in `@podverse/playback-core`
+  (`./autoQueue`, `./autoQueueWalk`, `./addByRSSListWalk`); each client passes its own fetchers.
 - **Replace only the transport.** Swap the DOM `useMediaElementBridge` for a **native** audio bridge,
   and feed a **native cache** so CarPlay/Android Auto work with the app closed.
 
@@ -48,13 +49,14 @@ The mobile hook layer and native bridge are new; the **policy** is shared.
 
 ## 4. `packages/playback-core` role
 
-| Moves to `playback-core`                              | Stays in `apps/web`           | New in `apps/mobile`   |
-| ----------------------------------------------------- | ----------------------------- | ---------------------- |
-| `resolvePlaybackLoadDecision.ts` + types              | `useMediaElementBridge` (DOM) | Native playback bridge |
-| `playbackTarget.ts`, `playbackLoadRequest.ts`         | `MediaPlayerControls` context | RN controls/store      |
-| `resumeSeekFromAbridged.ts`, `clampNearEndSeconds.ts` | `NonLiveMediaMount` (portal)  | RN player UI           |
-| `combineQueueNowPlayingAndUpcoming.ts`                | orchestrator DOM binding      | RN orchestration hook  |
-| enclosure-switch decision helpers                     | `parsePlaybackSeconds` wiring | —                      |
+| Moves to `playback-core`                              | Stays in `apps/web`                | New in `apps/mobile`                                           |
+| ----------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------- |
+| `resolvePlaybackLoadDecision.ts` + types              | `useMediaElementBridge` (DOM)      | Native playback bridge                                         |
+| `playbackTarget.ts`, `playbackLoadRequest.ts`         | `MediaPlayerControls` context      | RN controls/store                                              |
+| `resumeSeekFromAbridged.ts`, `clampNearEndSeconds.ts` | `NonLiveMediaMount` (portal)       | RN player UI                                                   |
+| `combineQueueNowPlayingAndUpcoming.ts`                | orchestrator DOM binding           | RN orchestration hook                                          |
+| enclosure-switch decision helpers                     | `parsePlaybackSeconds` wiring      | —                                                              |
+| `autoQueue`, `autoQueueWalk`, `addByRSSListWalk`      | `createWebAutoQueueSourceFetchers` | `autoQueueRepository.createSourceFetchers`, `useAutoQueueFill` |
 
 Both clients call the **same** decision functions; only the binding to a media engine differs.
 
@@ -63,16 +65,16 @@ Both clients call the **same** decision functions; only the binding to a media e
 The policy is keyed on `PlaybackTarget.kind` (from
 `apps/web/src/lib/playback/playbackTarget.ts`). Mobile must handle every variant identically:
 
-| `PlaybackTarget.kind` | Meaning                     | Mobile handling                                                                            |
-| --------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
-| `item-podcast`        | Standard podcast episode    | Resume from abridged position; auto-play per policy                                        |
-| `item-video`          | Video episode               | Same resume; native video surface                                                          |
-| `item-music`          | Music track (with `intent`) | Music forces `currentTime = 0`; honor `session_restore`/`explicit_play`/`fresh_transition` |
-| `clip`                | Clip within an item         | Start at clip start; `pauseAt` clip end                                                    |
-| `soundbite`           | Soundbite                   | Start/`pauseAt` soundbite bounds                                                           |
-| `chapter`             | Chapter                     | Seek to chapter start                                                                      |
-| `add-by-rss`          | Ad-hoc RSS resource         | Load from `AddByRSSResourceData`; no server queue id                                       |
-| `livestream`          | Live                        | Deferred (native HLS, separate effort)                                                     |
+| `PlaybackTarget.kind` | Meaning                     | Mobile handling                                                                                        |
+| --------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `item-podcast`        | Standard podcast episode    | Resume from abridged position; auto-play per policy                                                    |
+| `item-video`          | Video episode               | Same resume; native video surface                                                                      |
+| `item-music`          | Music track (with `intent`) | Music forces `currentTime = 0`; honor `session_restore`/`explicit_play`/`fresh_transition`             |
+| `clip`                | Clip within an item         | Start at clip start; `pauseAt` clip end                                                                |
+| `soundbite`           | Soundbite                   | Start/`pauseAt` soundbite bounds                                                                       |
+| `chapter`             | Chapter                     | Seek to chapter start                                                                                  |
+| `add-by-rss`          | Ad-hoc RSS resource         | Load from `AddByRSSResourceData`; no server queue id; next and previous walk the feed (newer / older)  |
+| `livestream`          | Live                        | Deferred (native HLS, separate effort)                                                                 |
 
 The `intent` discriminator (`MusicItemPlaybackIntent`) must be preserved for stats/side effects, per
 the decision matrix doc.
@@ -114,24 +116,46 @@ changes — same DTO shape, same resume math.
 
 ## 8. Auto-queue parity
 
-Auto-queue is a **client-only prefetch buffer** — `apps/web/src/contexts/AutoQueue.tsx` +
-`apps/web/src/hooks/useAutoQueueLoadResources.tsx`. Sources:
+Auto-queue is a **client-only prefetch buffer**. Web holds it in
+`apps/web/src/contexts/AutoQueue.tsx` and fills it from
+`apps/web/src/hooks/useAutoQueueLoadResources.tsx`. Mobile holds the rows in `AutoQueueProvider`,
+with synchronous refs in `useAutoQueueFill`. `writeAutoQueueState` is the only writer.
 
-- **Playlist mode** (`autoQueueConfig.playlist_id_text` set):
-  - Sequential: `reqPlaylistResourceGetManyForQueueByListPosition`
-  - Random: `reqPlaylistResourceGetManyByShuffle`
-- **Channel mode** (no playlist):
-  - Podcast: `reqItemGetManyForQueueByPubDate(item_id_text, 'forward')`
-  - Music album: `reqItemGetManyForQueueBySeason`
-  - Random: `reqItemGetManyByChannelShuffle`
+The shared helper owns source choice, the forward fill, repeat wrap, paging, dedupe, the
+playable-row check, and the backward walk (`fillAutoQueueForward`, `fillAutoQueueAhead`,
+`resolveAutoQueuePrevious` in `@podverse/playback-core`). Web and mobile call it with their own
+fetchers: `createWebAutoQueueSourceFetchers` on web, and `autoQueueRepository.createSourceFetchers`
+on mobile. Those fetchers call:
 
-Repeat/shuffle prefs persist to the web cookie as `aqc.rd` / `aqc.rp`; **mobile stores these in
-device prefs** (AsyncStorage/MMKV). Row 0 is the current item; later rows are prefetched. Advance on
-ended is driven by the orchestrator → `queueResourcesLoadActive` → if manual upcoming is empty,
-increment the auto-queue active row and load the next resource.
+- **Playlist** (`playlist_id_text` set): list position, or shuffle.
+- **Channel** (no playlist): publish date for a podcast, season order for an album, or shuffle.
 
-**Mobile:** replicate the same source logic and `req*` calls; replace cookie prefs with device prefs;
-drive advance from the native bridge's "ended" event into the same load path.
+Repeat and shuffle persist on web as the `aqc.rd` / `aqc.rp` cookies, and on mobile as the same
+keys in device prefs (AsyncStorage). Row 0 is the item playing. Later rows are the fill ahead of
+it.
+
+Mobile fills right after every load that has a seed (`refillAutoQueueAhead` in `playTarget`),
+after Shuffle or Repeat, and on a Next press or `ended` when no next row is loaded. One gate keeps
+one fill in flight per playing item and drops a result for an item that is not the one playing.
+
+**Agreed difference — Next.** Web never disables Next. Mobile turns Next on once the manual queue
+for the playing medium, a found auto-queue row, or a newer Add by RSS feed item exists, and keeps
+it off at the true end.
+
+**Previous.** Chapters come first. Inside a chapter, a tap past 3 seconds returns to that
+chapter's start, and a tap inside 3 seconds steps to the previous chapter. With no chapter left,
+or with no chapters, a tap past 3 seconds restarts the item. The hold and the remote command skip
+that restart and leave the item. Previous then steps back through played auto-queue rows. Before
+row 0 it loads the previous playlist row, album track (season order), or episode (publish date),
+with the buffer cleared and the config kept. With shuffle on, that walk only restarts. Account
+queue history is not used.
+
+**Add by RSS.** Next and Previous walk the playing item's feed on this device. Episodes are newest
+first by publish date. Livestreams follow the feed page's channel order. Next is the newer item
+and Previous is the older one. Mobile rebuilds the walk from the playing item after each load
+(`useAddByRssFeedWalk`, `buildAddByRssFeedWalk`). Web keeps the list context from the play
+that loaded the item.
+Next and `ended` both check the manual queue first.
 
 ## 9. Playlist integration
 
@@ -159,14 +183,39 @@ state changes. Full design:
 [DOCS-MOBILE-CARPLAY-ANDROID-AUTO.md](/docs/proposals/mobile/initial-decisions/DOCS-MOBILE-CARPLAY-ANDROID-AUTO.md).
 The JS write-path is the auto-queue/queue store from sections 6–8; the read-path is native.
 
+The native advance window (`advance-window.json`) carries the play order after the playing item:
+manual upcoming for that medium, then up to 10 automatic rows. Those are auto-queue rows resolved
+by the shared helper (items, clips, and soundbites with their ranges), or the next Add by RSS
+episodes from the shared feed walk as plain media URLs. JS rewrites it after every load, refill,
+and queue change, and the in-app fill keeps 10 rows ahead for it.
+
+With JS gone, the engine steps through the list and makes no choices of its own.
+
+When JS returns it adopts the playing item. If the item is in the device's copy of the account
+queue, the whole saved auto-queue buffer is restored with its active row, the same as the
+`preserve` directive a manual-queue load (`playQueueResource`) uses. Otherwise, if the item is one
+of the rows the window was built from, the saved auto-queue buffer (or Add by RSS feed) continues
+from it with the same settings; otherwise JS refills from the item's own podcast or album.
+
+**Agreed difference:** a car Queue tab start keeps the saved source, while a tap on the phone's
+queue screen clears the auto-queue. The car start behaves as a manual-queue play.
+
+**Agreed difference:** web has no native window; mobile needs one because native code cannot run
+the TypeScript walk. Another client reuses `fillAutoQueueAhead` with its own fetchers; a native
+client reads the advance window.
+
 ## 12. Testing parity
 
-- **Unit:** move the web policy tests with `playback-core` (`apps/web/src/lib/playback/__tests__/`,
-  `apps/web/src/lib/queue/__tests__/`); they validate decisions independent of platform.
+- **Unit:** playback-core tests under `packages/playback-core/src/__tests__/` validate decisions
+  independent of platform, including `autoQueueWalk.test.ts` and `addByRSSListWalk.test.ts`.
+  Mobile covers the fill gate in `apps/mobile/src/playback/autoQueueFillGate.test.ts` and the Add
+  by RSS feed order in `apps/mobile/src/lib/addByRss/feedWalk.test.ts`.
 - **API integration:** the queue/playlist endpoints already have API coverage; mobile reuses the
   same server, so no new API tests are required for reuse.
 - **Mobile E2E:** Maestro/Detox flows mirroring web E2E areas (`apps/web/e2e/media-player-*.spec.ts`
   as **reference**, not reuse): play, resume, queue add/next, auto-queue advance, playlist play.
+  `apps/mobile/e2e/auto-queue-advance.yaml` waits until full-player Next is enabled
+  (`full-player-skip-next`), then skips.
 
 ## 13. Known deferrals
 
@@ -174,6 +223,8 @@ The JS write-path is the auto-queue/queue store from sections 6–8; the read-pa
   (`MediaPlayerControllerLiveStream*`); native HLS is a
   separate effort (parallels the web livestream HLS migration).
 - **Embed mode:** web-only chromeless player; out of scope for mobile.
+- Car-started items outside the advance window get no app-closed automatic continuation, and
+  livestreams stay manual-queue only.
 
 ## Diagram: web vs mobile playback stack
 
@@ -202,12 +253,18 @@ flowchart TD
   Ended[Track ended or skip] --> MoveHist[Move now-playing to history]
   MoveHist --> CheckManual{Manual upcoming has items?}
   CheckManual -- yes --> LoadNext[Load next manual item]
-  CheckManual -- no --> IncRow[Increment auto-queue active row]
-  IncRow --> HaveRow{Auto-queue row available?}
-  HaveRow -- yes --> LoadAuto[Load auto-queue resource]
-  HaveRow -- no --> Prefetch[Fetch more via playlist/channel source]
-  Prefetch --> LoadAuto
+  CheckManual -- no --> AddByRss{Add by RSS item?}
+  AddByRss -- yes --> Newer{Newer feed item?}
+  Newer -- yes --> LoadFeed[Load newer feed item]
+  Newer -- no --> StopOrStay[Stop on complete, or stay on skip]
+  AddByRss -- no --> HaveRow{Next auto-queue row loaded?}
+  HaveRow -- yes --> LoadAuto[Load auto-queue row]
+  HaveRow -- no --> Refill[refillAutoQueueAhead]
+  Refill --> Found{Row found?}
+  Found -- yes --> LoadAuto
+  Found -- no --> StopOrStay
   LoadNext --> Decide[playback-core decision]
+  LoadFeed --> Decide
   LoadAuto --> Decide
   Decide --> Bridge[Native bridge loadAndStart]
 ```

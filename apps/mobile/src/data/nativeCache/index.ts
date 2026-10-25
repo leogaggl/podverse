@@ -10,6 +10,7 @@ export {
 } from './carCacheReproject';
 export {
   buildAccountContextPayload,
+  buildAdvanceWindowPayload,
   buildDownloadsIndexPayload,
   buildHistoryIndexPayload,
   buildLibraryBrowseIndexPayload,
@@ -18,6 +19,7 @@ export {
   buildQueueSnapshotPayload,
   NATIVE_CACHE_SCHEMA_VERSION,
   projectAccountContextToNativeCache,
+  projectAdvanceWindowToNativeCache,
   projectDownloadsIndexToNativeCache,
   projectHistoryIndexToNativeCache,
   projectLibraryBrowseIndexToNativeCache,
@@ -30,6 +32,9 @@ export {
 export type {
   AccountContextCachePayload,
   AccountContextProjection,
+  AdvanceWindowAnchorKind,
+  AdvanceWindowCachePayload,
+  AdvanceWindowProjection,
   DownloadsIndexCachePayload,
   DownloadsIndexProjection,
   HistoryIndexCachePayload,
@@ -47,6 +52,7 @@ export type {
   NativeCacheLiveEntry,
   NativeCacheMediumBucket,
   NativeCacheQueueEntry,
+  NativeCacheQueueEntryKind,
   NativeCacheSchemaVersion,
   QueueSnapshotCachePayload,
   QueueSnapshotProjection,

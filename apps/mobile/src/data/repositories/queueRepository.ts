@@ -1,6 +1,5 @@
 import { eq, like } from 'drizzle-orm';
 
-import { primaryListArtworkUrl } from '@podverse/helpers';
 import type {
   DTOQueue,
   DTOQueueResource,
@@ -13,17 +12,13 @@ import { isMusicMediumId } from '@podverse/helpers/medium';
 // data-layer module graph.
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
 import { withCanonicalAddByRssFeedUrl } from '../../lib/addByRss/resourceData';
-import {
-  buildItemLabeledEnclosures,
-  DEFAULT_ENCLOSURE_SELECTED_PARAMS,
-  resolveItemEnclosureUrl,
-} from '../../lib/playback/resolveEnclosureUrl';
-import { itemArtistNames } from '../../lib/playback/verifiedArtists';
 import { publishQueueDataChanged } from '../../sync/queueDataRevision';
 import { getDb, initializeDatabase, safeJsonParse, schema } from '../db';
 import type { NativeCacheQueueEntry } from '../nativeCache';
 import { projectQueueSnapshotToNativeCache } from '../nativeCache';
+import { nativeQueueEntryFromQueueResource } from '../nativeCache/queueEntryMapping';
 import { readThroughOrFetch, shouldSkipOpportunisticRemoteFetch } from '../sync';
+import { nativeAdvanceSourceRepository } from './nativeAdvanceSourceRepository';
 import type { MobileAuthRequestContext } from './types';
 
 const QUEUE_TTL_MS = 5 * 60 * 1000;
@@ -113,34 +108,6 @@ export const selectPrimaryQueue = (queues: DTOQueue[]): DTOQueue | null => {
   return queues[0] ?? null;
 };
 
-const toNativeCacheEntry = (resource: DTOQueueResource): NativeCacheQueueEntry | null => {
-  const item = resource.item;
-  if (item === null || item === undefined) {
-    return null;
-  }
-  const labeled = buildItemLabeledEnclosures(item);
-  const mediaUrl = resolveItemEnclosureUrl({
-    labeledItemEnclosures: labeled,
-    selectedParams: DEFAULT_ENCLOSURE_SELECTED_PARAMS,
-  });
-  const positionSeconds = Number(resource.playback_position);
-  const durationSeconds = Number(resource.media_file_duration);
-  return {
-    idText: item.id_text,
-    title: item.title ?? item.id_text,
-    artworkUrl: primaryListArtworkUrl(item.item_images, item.channel?.channel_images),
-    mediaUrl,
-    podcastTitle: item.channel?.title ?? null,
-    artist: itemArtistNames(item),
-    startPositionSeconds:
-      Number.isFinite(positionSeconds) && positionSeconds > 0 ? positionSeconds : null,
-    durationMs:
-      Number.isFinite(durationSeconds) && durationSeconds > 0
-        ? Math.round(durationSeconds * 1000)
-        : null,
-  };
-};
-
 /**
  * Project the current now-playing + upcoming snapshot to the native cache. Repositories call this
  * after every successful queue sync/mutation — CarPlay / Android Auto / watch complications read
@@ -160,13 +127,13 @@ const projectQueueForQueue = async (queueIdText: string): Promise<void> => {
 
   const entries: NativeCacheQueueEntry[] = [];
   if (nowPlaying !== null) {
-    const nowPlayingEntry = toNativeCacheEntry(nowPlaying);
+    const nowPlayingEntry = nativeQueueEntryFromQueueResource(nowPlaying);
     if (nowPlayingEntry !== null) {
       entries.push(nowPlayingEntry);
     }
   }
   for (const resource of upcoming) {
-    const entry = toNativeCacheEntry(resource);
+    const entry = nativeQueueEntryFromQueueResource(resource);
     if (entry !== null && entry.idText !== nowPlaying?.item?.id_text) {
       entries.push(entry);
     }
@@ -847,19 +814,30 @@ export const queueRepository = {
     }
   },
 
-  /** Drop every cached queue row and empty both car queue snapshots plus history. */
+  /**
+   * Drop every cached queue row and empty both car queue snapshots, the advance window (it holds
+   * manual queue rows), its saved source (it holds auto-queue rows), and history.
+   */
   clearAll: async (): Promise<void> => {
     queueCacheGeneration += 1;
     await initializeDatabase();
     await getDb().delete(schema.queueCache);
     const empty = { nowPlayingIdText: null, entries: [] };
     const {
+      projectAdvanceWindowToNativeCache,
       projectHistoryIndexToNativeCache,
       projectQueueSnapshotAvToNativeCache,
       projectQueueSnapshotMusicToNativeCache,
     } = await import('../nativeCache/projection');
     await projectQueueSnapshotAvToNativeCache(empty);
     await projectQueueSnapshotMusicToNativeCache(empty);
+    await projectAdvanceWindowToNativeCache({
+      mediumBucket: 'av',
+      anchorIdText: null,
+      anchorKind: null,
+      entries: [],
+    });
+    await nativeAdvanceSourceRepository.clear();
     await projectHistoryIndexToNativeCache({ entries: [] });
   },
 };

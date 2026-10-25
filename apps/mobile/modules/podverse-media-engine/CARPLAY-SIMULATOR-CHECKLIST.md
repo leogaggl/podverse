@@ -8,7 +8,7 @@ dev client built after cache v2 + tab IA landed; phone app opened once while sig
 out) so JS wrote `library-index`, `library-children/*`, dual queues, `history-index`, `live-index`,
 `downloads-index`, and `account-context` under the App Group `native-cache` directory.
 
-## Scenarios (15)
+## Scenarios (18)
 
 Mark each pass/fail. Force-quit means swipe away from app switcher; reboot means restart the phone
 before connecting CarPlay; locked means phone locked in a pocket.
@@ -30,6 +30,9 @@ before connecting CarPlay; locked means phone locked in a pocket.
 | 13  | Unknown item adopted                   | Force-quit; play a channel episode never opened on the phone; airplane mode; open phone | Mini-player shows the car's title, show, and artwork at once; Summary, chapters, and channel link fill in after going back online, with no audio reload                                                   |
 | 14  | Progress in car lists                  | Listen partway on phone; finish another; reconnect car; open that channel               | Partial episode reads "In progress" and resumes at its position; finished one reads "Played" and starts over                                                                                              |
 | 15  | Music track skips                      | Play a Music queue track from the car                                                   | Now-playing shows next/previous track (not 15/30 s skips); next plays the following track (app open and force-quit); previous restarts after 3 s, otherwise plays the previous track when the app is open |
+| 16  | Auto-queue continues, app closed       | Empty the queue; on the phone play the second-newest episode of a podcast with at least three episodes, seek to about 30 seconds before the end, and pause; force-quit; in the car play the same episode from Podcasts → channel (it resumes near the end); let it finish | The newest episode starts without the phone opening; opening the phone later shows it in the mini-player, and the up-next rows refill |
+| 17  | Clip in the auto-queue, app closed     | Empty the queue; on the phone play a playlist whose first row is an episode and whose second row is a clip; seek the episode to about 30 seconds before its end and pause; force-quit; in the car play the same episode from Podcasts → its channel; let it finish | The clip starts at its start time and stops at its end, then the playlist's third row starts; opening the phone shows that row in the mini-player, and up next continues the same playlist |
+| 18  | Queue item keeps the playlist behind it | Add an episode that is not in the playlist to the queue; on the phone play the first row of a playlist with at least three episode rows and pause; force-quit; in the car start the queued episode from Queue/Recent; open the phone while it plays | The mini-player shows the queued episode and Next is enabled; when it ends, the playlist's second row starts |
 
 ## Quick seed
 

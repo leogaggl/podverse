@@ -2,15 +2,8 @@
 
 import { useCallback } from 'react';
 
-import type {
-  DTOChannel,
-  DTOClip,
-  DTOItem,
-  DTOItemQueueItem,
-  DTOItemSoundbite,
-  DTOPlaylistResource,
-} from '@podverse/helpers';
-import { MediumEnum } from '@podverse/helpers';
+import type { DTOItem } from '@podverse/helpers';
+import { resolveAutoQueuePrevious } from '@podverse/playback-core';
 
 import { useAddByRSSListContext } from '../contexts/AddByRSSListContext';
 import { useAutoQueue } from '../contexts/AutoQueue';
@@ -18,8 +11,8 @@ import { useMediaPlayer } from '../contexts/MediaPlayer';
 import { useMediaPlayerControls } from '../contexts/MediaPlayerControls';
 import { useMediaPlayerCurrentTime } from '../contexts/MediaPlayerCurrentTime';
 import { getApiRequestService } from '../factories/apiRequestService';
+import { createWebAutoQueueSourceFetchers } from '../lib/autoQueue/webAutoQueueSourceFetchers';
 import { playbackTargetFromStandardLoad } from '../lib/playback';
-import { isPlayablePlaylistResource } from '../lib/playlist/playablePlaylistResource';
 import { resolveAddByRSSListContextFromCurrentItem } from '../utils/addByRSS/resolveListContextFromCurrentItem';
 import { useAddByRSSPlayPrevious } from './useAddByRSSPlayPrevious';
 import { useEpisodeChapterNavigation } from './useEpisodeChapterNavigation';
@@ -36,7 +29,6 @@ export function useTrackPreviousButtonActions(): {
     onPointerCancel: () => void;
   };
 } {
-  const apiRequestService = getApiRequestService();
   const { mpChannel, mpItem, mpClip, mpItemSoundbite, setMPShouldPlay, mpIsPlaying, mpAddByRSS } =
     useMediaPlayer();
   const { seek } = useMediaPlayerControls();
@@ -75,88 +67,56 @@ export function useTrackPreviousButtonActions(): {
     if (!mpChannel || !mpItem) {
       return;
     }
-    if (autoQueueActiveRow > 0) {
-      const previousAutoQueueActiveRow = autoQueueActiveRow - 1;
+
+    const seed = {
+      item: mpItem,
+      channel: mpChannel,
+      clip: mpClip,
+      item_soundbite: mpItemSoundbite,
+    };
+    const decision = await resolveAutoQueuePrevious({
+      config: { ...autoQueueConfig, disabled: false },
+      seed,
+      activeRow: autoQueueActiveRow,
+      fetchers: createWebAutoQueueSourceFetchers(getApiRequestService()),
+    });
+
+    if (decision.kind === 'step-back-row') {
       setMPShouldPlay(mpIsPlaying);
-      setAutoQueueActiveRow(previousAutoQueueActiveRow);
+      setAutoQueueActiveRow(decision.row);
       return;
     }
-    if (autoQueueConfig.random) {
+
+    if (decision.kind === 'restart') {
       seekToStart();
       return;
     }
 
-    let channel: DTOChannel | null = null;
-    let clip: DTOClip | null = null;
-    let item_soundbite: DTOItemSoundbite | null = null;
-    let item: DTOItem | null = null;
-
-    if (autoQueueConfig.playlist_id_text) {
-      const response = await apiRequestService.reqPlaylistResourceGetManyForQueueByListPosition(
-        autoQueueConfig.playlist_id_text,
-        {
-          clip_id_text: mpClip?.id_text,
-          item_soundbite_id_text: mpItemSoundbite?.id_text,
-          item_id_text: mpItem.id_text,
-        },
-        'backward'
-      );
-      const playlistResources: DTOPlaylistResource[] = response.data;
-      const previousRow = playlistResources.find((row) => isPlayablePlaylistResource(row)) ?? null;
-      if (previousRow) {
-        if (previousRow.clip) {
-          clip = previousRow.clip;
-          item = previousRow.clip.item || null;
-          channel = item?.channel || null;
-        } else if (previousRow.item_soundbite) {
-          item_soundbite = previousRow.item_soundbite;
-          item = previousRow.item_soundbite.item || null;
-          channel = item?.channel || null;
-        } else if (previousRow.item) {
-          item = previousRow.item;
-          channel = previousRow.item.channel || null;
-        }
-      }
-    } else {
-      const itemsResponse: DTOItemQueueItem[] =
-        mpChannel?.medium_id === MediumEnum.Music
-          ? await apiRequestService.reqItemGetManyForQueueBySeason(mpItem.id_text, 'backward')
-          : await apiRequestService.reqItemGetManyForQueueByPubDate(mpItem.id_text, 'backward');
-      const previousItem = itemsResponse.length > 0 ? itemsResponse[0] : null;
-      item = (previousItem ?? null) as DTOItem | null;
-      channel = previousItem?.channel || null;
-      clip = null;
-      item_soundbite = null;
-    }
-
-    if (item && channel) {
-      mediaPlayerResourceUpdate({
-        target: playbackTargetFromStandardLoad({
-          channel,
-          clip,
-          item,
-          itemChapter: null,
-          itemSoundbite: item_soundbite,
-          musicIntent: 'explicit_play',
-        }),
-        itemChapterShouldSeek: false,
-        shouldPlay: mpIsPlaying,
-        enclosureSelectedParams: 'use-active-item-or-default',
-        isPlaying: mpIsPlaying,
-        skipMoveNowPlayingToHistory: false,
-        newAutoQueueConfig: {
-          playlist_id_text: autoQueueConfig.playlist_id_text,
-          disabled: false,
-          random: autoQueueConfig.random,
-          repeat: autoQueueConfig.repeat,
-          nextPage: autoQueueConfig.nextPage || 1,
-          shuffleHash: autoQueueConfig.shuffleHash,
-        },
-        autoQueueShouldClear: true,
-      });
-    } else {
-      seekToStart();
-    }
+    mediaPlayerResourceUpdate({
+      target: playbackTargetFromStandardLoad({
+        channel: decision.resource.channel,
+        clip: decision.resource.clip,
+        // The queue row's item is DTOItemQueueItem. This load takes DTOItem.
+        item: decision.resource.item as DTOItem,
+        itemChapter: null,
+        itemSoundbite: decision.resource.item_soundbite,
+        musicIntent: 'explicit_play',
+      }),
+      itemChapterShouldSeek: false,
+      shouldPlay: mpIsPlaying,
+      enclosureSelectedParams: 'use-active-item-or-default',
+      isPlaying: mpIsPlaying,
+      skipMoveNowPlayingToHistory: false,
+      newAutoQueueConfig: {
+        playlist_id_text: autoQueueConfig.playlist_id_text,
+        disabled: false,
+        random: autoQueueConfig.random,
+        repeat: autoQueueConfig.repeat,
+        nextPage: autoQueueConfig.nextPage || 1,
+        shuffleHash: autoQueueConfig.shuffleHash,
+      },
+      autoQueueShouldClear: true,
+    });
   }, [
     mpChannel,
     mpItem,
@@ -169,7 +129,6 @@ export function useTrackPreviousButtonActions(): {
     setAutoQueueActiveRow,
     mediaPlayerResourceUpdate,
     seekToStart,
-    apiRequestService,
   ]);
 
   const runPreviousTrack = useCallback(async () => {

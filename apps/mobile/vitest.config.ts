@@ -97,7 +97,18 @@ import { defineConfig } from 'vitest/config';
  * now-playing bar names (`src/playback/nowPlayingSegment.ts`), the Add by RSS chapters and
  * transcript kept for the item now playing
  * (`src/playback/addByRssNowPlayingSectionsStore.ts` — one item, dropped on reset, nothing on
- * disk), reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
+ * disk), the auto-queue config after an explicit or playlist play
+ * (`src/lib/autoQueue/autoQueue.ts`) and the single-flight fill gate that drops a fill for an
+ * item already left (`src/playback/autoQueueFillGate.ts` — the React hook that drives it stays
+ * out of this suite), the Add by RSS feed order that Next and Previous step through
+ * (`src/lib/addByRss/feedWalk.ts` — the React hook that loads the feed stays out of this suite),
+ * the native advance window's row mapping and builder (`src/data/nativeCache/queueEntryMapping.ts`,
+ * `src/data/nativeCache/advanceWindow.ts` — the store readers are mocked; the writer hook stays
+ * out of this suite), the source saved beside the window and how adoption continues it
+ * (`src/lib/playback/nativeAdvanceSource.ts` — the SQLite half stays in
+ * `nativeAdvanceSourceRepository.ts`), and the Add by RSS media URL the player loads
+ * (`src/lib/addByRss/playbackUrl.ts`),
+ * reading a 404 as an empty list (`src/lib/apiErrorStatus.ts`),
  * and whether a server refresh should replace what a cache-first screen already painted
  * (`src/lib/cachedValue.ts`), the E2E-gated perf mark/counter buffer
  * (`src/lib/perf/perfSpans.ts` — env is mocked so both flag states are reachable in node), the
@@ -143,7 +154,9 @@ export default defineConfig({
       'src/data/repositories/channelItemWindow.test.ts',
       'src/data/repositories/channelLiveStatus.test.ts',
       'src/data/repositories/channelSeenSync.test.ts',
+      'src/data/nativeCache/advanceWindow.test.ts',
       'src/data/nativeCache/projection.test.ts',
+      'src/data/nativeCache/queueEntryMapping.test.ts',
       'src/data/repositories/libraryBrowseProjection.test.ts',
       'src/playback/drainPlaybackJournal.test.ts',
       'src/data/repositories/playbackOutbox.test.ts',
@@ -160,6 +173,7 @@ export default defineConfig({
       'src/lib/addByRss/addByRssErrorLog.test.ts',
       'src/lib/addByRss/credentials.test.ts',
       'src/lib/addByRss/domain.test.ts',
+      'src/lib/addByRss/feedWalk.test.ts',
       'src/lib/addByRss/publisherRefs.test.ts',
       'src/lib/addByRss/downloadIdText.test.ts',
       'src/lib/addByRss/downloadItem.test.ts',
@@ -168,8 +182,10 @@ export default defineConfig({
       'src/lib/addByRss/liveRows.test.ts',
       'src/lib/addByRss/localResourceData.test.ts',
       'src/lib/addByRss/mediaAuth.test.ts',
+      'src/lib/addByRss/playbackUrl.test.ts',
       'src/lib/addByRss/resourceData.test.ts',
       'src/lib/apiErrorStatus.test.ts',
+      'src/lib/autoQueue/autoQueue.test.ts',
       'src/lib/cachedValue.test.ts',
       'src/lib/device/deviceModel.test.ts',
       'src/lib/home/homeFeedRefresh.test.ts',
@@ -180,6 +196,7 @@ export default defineConfig({
       'src/lib/playback/lastPlaybackStorage.test.ts',
       'src/lib/playback/lineArtist.test.ts',
       'src/lib/playback/mediaEngineSourceMeta.test.ts',
+      'src/lib/playback/nativeAdvanceSource.test.ts',
       'src/lib/playback/planDownloadCompletePlaybackHandoff.test.ts',
       'src/lib/playback/resolvePlaybackUrl.test.ts',
       'src/lib/playback/verifiedArtists.test.ts',
@@ -201,6 +218,7 @@ export default defineConfig({
       'src/notifications/sseEventParser.test.ts',
       'src/net/connectivityMachine.test.ts',
       'src/playback/addByRssNowPlayingSectionsStore.test.ts',
+      'src/playback/autoQueueFillGate.test.ts',
       'src/playback/nowPlayingSegment.test.ts',
       'src/playback/playbackErrorLog.test.ts',
       'src/playback/playbackEventSource.test.ts',

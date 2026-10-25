@@ -102,6 +102,30 @@ export async function withAddByRssPlaybackAuth(
 }
 
 /**
+ * Whether a load of a media URL would go out without the feed's credentials: the decision
+ * {@link withAddByRssPlaybackAuth} makes, for a URL the app has not loaded. The credentials are
+ * read once for the feed and stay inside the closure; it never returns or stores them.
+ * `feedUrl: null` (no feed to protect) passes every URL.
+ */
+export async function createAddByRssPlainUrlCheck(
+  feedUrl: string | null
+): Promise<(mediaUrl: string) => boolean> {
+  if (feedUrl === null) {
+    return () => true;
+  }
+  const credentials = await readCredentials(feedUrl);
+  const allowInsecure = isAddByRssInsecureCredentialsAllowedFromEnv();
+  const resolvedFeedUrl = resolveE2eMediaUrl(feedUrl);
+  return (mediaUrl) =>
+    decideAddByRssPlaybackAuth({
+      allowInsecure,
+      credentials: isRemoteHttpUrl(mediaUrl) ? credentials : null,
+      feedUrl: resolvedFeedUrl,
+      mediaUrl,
+    }).basicAuth === null;
+}
+
+/**
  * `Authorization` header for a download or artwork request against an add-by-RSS feed's host.
  * `feedUrl: null` (not an add-by-RSS item) yields no header.
  */
