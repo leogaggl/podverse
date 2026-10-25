@@ -72,10 +72,6 @@ export default async function ClipPage({ params }: ClipPageProps) {
   try {
     const ssrClip = await getClipForSeoPage(clip_id);
 
-    if (!ssrClip) {
-      return notFound();
-    }
-
     if (isRemovedSource(ssrClip)) {
       return <RemovedClipPage kind="owner" clip={ssrClip} />;
     }
@@ -85,16 +81,7 @@ export default async function ClipPage({ params }: ClipPageProps) {
     }
 
     const ssrItem = await getItemForSeoPage(ssrClip.item.id_text);
-
-    if (!ssrItem) {
-      return notFound();
-    }
-
     const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
-
-    if (!ssrChannel) {
-      return notFound();
-    }
 
     return <ClipPageClient ssrChannel={ssrChannel} ssrItem={ssrItem} ssrClip={ssrClip} />;
   } catch (error) {

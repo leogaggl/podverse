@@ -876,24 +876,19 @@ class PlaylistController {
               const playlist_id_text = getParamRequired(req, 'playlist_id_text');
               const account = req.user;
 
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              let playlist: any | null = null;
+              const ownedPlaylist =
+                account !== undefined
+                  ? await playlistService.getOnePrivate(account.id_text, playlist_id_text)
+                  : null;
+              const playlist =
+                ownedPlaylist ?? (await playlistService.getOnePublic(playlist_id_text));
 
-              if (account) {
-                playlist = await playlistService.getOnePrivate(account.id_text, playlist_id_text);
-              } else {
-                playlist = await playlistService.getOnePublic(playlist_id_text);
-              }
-
-              if (playlist !== null) {
-                omitAccountNumericId(playlist);
-              }
-
-              if (playlist) {
-                res.status(200).json(preparePlaylistForJson(playlist));
-              } else {
+              if (playlist === null) {
                 res.status(404).json({ message: 'Playlist not found' });
+                return;
               }
+
+              res.status(200).json(preparePlaylistForJson(omitAccountNumericId(playlist)));
             } catch (err) {
               handleGenericErrorResponse(res, err);
             }

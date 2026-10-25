@@ -506,6 +506,7 @@ describe('playlist routes', () => {
         TEST_USER_ACCOUNT_ID_TEXT,
         PLAYLIST_ID_TEXT
       );
+      expect(playlistGetOnePublicMock).not.toHaveBeenCalled();
     });
 
     it('returns 404 for private playlist when not the owner', async () => {
@@ -521,6 +522,77 @@ describe('playlist routes', () => {
         .set(authHeaders(TEST_USER_ID));
 
       expect(res.status).toBe(404);
+      expect(playlistGetOnePrivateMock).not.toHaveBeenCalled();
+      expect(playlistGetOnePublicMock).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 for another account's public playlist when signed in", async () => {
+      playlistGetByIdTextMock.mockResolvedValue({
+        id: 1,
+        playlist_id_text: PLAYLIST_ID_TEXT,
+        account: { id: OTHER_USER_ID },
+        sharable_status: { id: 1 },
+      } as never);
+      playlistGetOnePrivateMock.mockResolvedValue(null as never);
+      playlistGetOnePublicMock.mockResolvedValue({
+        id: 1,
+        id_text: PLAYLIST_ID_TEXT,
+        title: 'Theirs',
+        sharable_status: { id: 1 },
+        account: { id: OTHER_USER_ID, id_text: 'other-account' },
+      } as never);
+
+      const res = await request(app)
+        .get(`${playlistBase}/${PLAYLIST_ID_TEXT}`)
+        .set(authHeaders(TEST_USER_ID));
+
+      expect(res.status).toBe(200);
+      expect(res.body.title).toBe('Theirs');
+      expect(res.body.sharable_status_id).toBe(1);
+      expect(res.body.sharable_status).toBeUndefined();
+      expect(res.body.account.id_text).toBe('other-account');
+      expect(res.body.account.id).toBeUndefined();
+      expect(playlistGetOnePrivateMock).toHaveBeenCalledWith(
+        TEST_USER_ACCOUNT_ID_TEXT,
+        PLAYLIST_ID_TEXT
+      );
+      expect(playlistGetOnePublicMock).toHaveBeenCalledWith(PLAYLIST_ID_TEXT);
+    });
+
+    it("returns 200 for another account's unlisted playlist when signed in", async () => {
+      playlistGetByIdTextMock.mockResolvedValue({
+        id: 1,
+        playlist_id_text: PLAYLIST_ID_TEXT,
+        account: { id: OTHER_USER_ID },
+        sharable_status: { id: 2 },
+      } as never);
+      playlistGetOnePrivateMock.mockResolvedValue(null as never);
+      playlistGetOnePublicMock.mockResolvedValue({
+        id: 1,
+        id_text: PLAYLIST_ID_TEXT,
+        title: 'Theirs',
+        sharable_status: { id: 2 },
+        account: { id: OTHER_USER_ID, id_text: 'other-account' },
+      } as never);
+
+      const res = await request(app)
+        .get(`${playlistBase}/${PLAYLIST_ID_TEXT}`)
+        .set(authHeaders(TEST_USER_ID));
+
+      expect(res.status).toBe(200);
+      expect(res.body.sharable_status_id).toBe(2);
+    });
+
+    it('returns 404 when signed in and the playlist does not exist', async () => {
+      playlistGetByIdTextMock.mockResolvedValue(null as never);
+
+      const res = await request(app)
+        .get(`${playlistBase}/${PLAYLIST_ID_TEXT}`)
+        .set(authHeaders(TEST_USER_ID));
+
+      expect(res.status).toBe(404);
+      expect(playlistGetOnePrivateMock).not.toHaveBeenCalled();
+      expect(playlistGetOnePublicMock).not.toHaveBeenCalled();
     });
 
     it('returns 404 for private playlist when anonymous', async () => {

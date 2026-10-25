@@ -30,3 +30,5 @@ file of theirs is in context.
 - Adding or changing an authenticated API route, or a rate-limit wrapper that authenticates →
   `api-key-route-access`
 - Stacked headings, paragraphs, buttons, dividers, or other block copy → `even-content-spacing`
+- A new dynamic detail page in `apps/web`, or a server fetch for the entity a page renders →
+  `web-detail-route-not-found`

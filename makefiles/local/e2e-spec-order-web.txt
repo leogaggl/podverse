@@ -23,6 +23,8 @@ apps/web/e2e/playlist-edit-play.spec.ts
 apps/web/e2e/download-affordance.spec.ts
 apps/web/e2e/media-player-seek-after-video.spec.ts
 apps/web/e2e/medium-canonical-route-redirect.spec.ts
+apps/web/e2e/detail-route-not-found.spec.ts
+apps/web/e2e/playlist-and-edit-route-not-found.spec.ts
 apps/web/e2e/artist-page-albums-and-tracks.spec.ts
 apps/web/e2e/add-by-rss-artist-albums.spec.ts
 apps/web/e2e/artist-unsubscribe-albums-prompt.spec.ts

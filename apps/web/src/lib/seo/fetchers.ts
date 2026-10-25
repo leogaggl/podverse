@@ -7,6 +7,7 @@ import {
 } from '@podverse/helpers';
 
 import { getSSRAuthService } from '../../utils/auth/ssrAuth';
+import { loadOrNotFound } from '../ssr/loadOrNotFound';
 
 const getSsrApiRequestService = cache(async () => {
   const { ssrApiRequestService } = await getSSRAuthService();
@@ -15,12 +16,12 @@ const getSsrApiRequestService = cache(async () => {
 
 export const getChannelForSeoPage = cache(async (idOrIdText: string | number) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqChannelGetByIdOrIdText(idOrIdText);
+  return loadOrNotFound(() => ssrApiRequestService.reqChannelGetByIdOrIdText(idOrIdText));
 });
 
 export const getItemForSeoPage = cache(async (idOrIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqItemGetByIdOrIdText(idOrIdText);
+  return loadOrNotFound(() => ssrApiRequestService.reqItemGetByIdOrIdText(idOrIdText));
 });
 
 /** Prefer the channel carried on an unmatched episode whose show was absorbed. */
@@ -33,47 +34,49 @@ export const getChannelForItemPage = async (item: DTOItem) => {
 
 export const getPodcastIndexFeedForSeoPage = cache(async (podcastIndexId: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqPodcastIndexFeedById(podcastIndexId);
+  return loadOrNotFound(() => ssrApiRequestService.reqPodcastIndexFeedById(podcastIndexId));
 });
 
 export const getInternalFeedForSeoPage = cache(async (podcastIndexId: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqFeedGetByPodcastIndexId(podcastIndexId);
+  return loadOrNotFound(() => ssrApiRequestService.reqFeedGetByPodcastIndexId(podcastIndexId));
 });
 
 export const getChannelByPodcastIndexIdForSeoPage = cache(async (podcastIndexId: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqChannelGetByPodcastIndexId(podcastIndexId);
+  return loadOrNotFound(() => ssrApiRequestService.reqChannelGetByPodcastIndexId(podcastIndexId));
 });
 
 export const getPublisherRemoteItemsForChannelSeoPage = cache(async (idOrIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqPublisherFeedGetRemoteItemsForChannel(idOrIdText);
+  return loadOrNotFound(() =>
+    ssrApiRequestService.reqPublisherFeedGetRemoteItemsForChannel(idOrIdText)
+  );
 });
 
 export const getClipForSeoPage = cache(async (clipIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqClipGet(clipIdText);
+  return loadOrNotFound(() => ssrApiRequestService.reqClipGet(clipIdText));
 });
 
 export const getItemChapterForSeoPage = cache(async (itemChapterIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqItemChapterGetByIdText(itemChapterIdText);
+  return loadOrNotFound(() => ssrApiRequestService.reqItemChapterGetByIdText(itemChapterIdText));
 });
 
 export const getItemSoundbiteForSeoPage = cache(async (itemSoundbiteIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqItemSoundbiteGet(itemSoundbiteIdText);
+  return loadOrNotFound(() => ssrApiRequestService.reqItemSoundbiteGet(itemSoundbiteIdText));
 });
 
 export const getAccountForSeoPage = cache(async (idText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqAccountGetByIdText({ id_text: idText });
+  return loadOrNotFound(() => ssrApiRequestService.reqAccountGetByIdText({ id_text: idText }));
 });
 
 export const getPlaylistForSeoPage = cache(async (playlistIdText: string) => {
   const ssrApiRequestService = await getSsrApiRequestService();
-  return ssrApiRequestService.reqPlaylistGet(playlistIdText);
+  return loadOrNotFound(() => ssrApiRequestService.reqPlaylistGet(playlistIdText));
 });
 
 const findFirstAbsoluteImageUrl = (urls: string[]): string | undefined => {

@@ -56,16 +56,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   }
 
   const ssrItem = await getItemForSeoPage(ssrItemChapter.item_chapters_feed.item.id_text);
-
-  if (!ssrItem) {
-    return notFound();
-  }
-
   const ssrChannel = await getChannelForSeoPage(ssrItem.channel_id);
-
-  if (!ssrChannel) {
-    return notFound();
-  }
 
   return (
     <ChapterClient ssrChannel={ssrChannel} ssrItem={ssrItem} ssrItemChapter={ssrItemChapter} />
