@@ -45,10 +45,11 @@ describe('API health routes', () => {
 
   it(`GET ${apiBase}/health returns 200 with generic running message`, async () => {
     const res = await request(app).get(`${apiBase}/health`).expect(200);
+    // startTestApp re-imports config, so this matches the env that import reads.
     expect(res.body).toEqual({
       status: 'ok',
       message: 'The server is running.',
-      fixturesEnabled: config.e2e.fixturesEnabled,
+      fixturesEnabled: process.env.PODVERSE_E2E_FIXTURES === '1',
     });
   });
 

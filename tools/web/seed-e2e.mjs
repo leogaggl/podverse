@@ -468,6 +468,57 @@ async function clearOpmlImportKeyvalState(accountId) {
   }
 }
 
+// Playback keys name account sessions. Seeding replaces those rows, so a leftover
+// active session would make the next client treat playback as happening elsewhere.
+async function clearPlaybackKeyvalState(accountId) {
+  const redis = new Redis({
+    host: KEYVALDB_HOST,
+    port: KEYVALDB_PORT,
+    password: KEYVALDB_PASSWORD || undefined,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    lazyConnect: true,
+  });
+
+  try {
+    await redis.connect();
+
+    const accountKeys = await scanKeysByMatch(redis, `podverse:playback:${accountId}:*`);
+    const commandKeys = await scanKeysByMatch(redis, 'podverse:playback:command:*');
+    const accountCommandKeys = [];
+    for (const key of commandKeys) {
+      const raw = await redis.get(key);
+      if (!raw) {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          'account_id' in parsed &&
+          parsed.account_id === accountId
+        ) {
+          accountCommandKeys.push(key);
+        }
+      } catch {
+        // Non-JSON / unexpected shape: ignore.
+      }
+    }
+
+    const keys = [...accountKeys, ...accountCommandKeys];
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+
+    console.log(
+      `Cleared playback Valkey state for account ${accountId} (account=${accountKeys.length}, commands=${accountCommandKeys.length})`
+    );
+  } finally {
+    redis.disconnect();
+  }
+}
+
 async function resolveSeedAccountId(client, passwordHash, invitePlaceholderPasswordHash) {
   if (SEED_MEDIA_FIXTURES_ONLY) {
     const existing = await client.query(
@@ -3438,6 +3489,7 @@ async function main() {
   await seedBillingTestCheckout(client);
   const accountId = await resolveSeedAccountId(client, passwordHash, invitePlaceholderPasswordHash);
   await clearOpmlImportKeyvalState(accountId);
+  await clearPlaybackKeyvalState(accountId);
   await seedMediaPlayerAndEmbedFixtures(client, accountId);
   await seedMergedChannelRedirect(client);
   await seedRemovedContentFixtures(client, accountId);
