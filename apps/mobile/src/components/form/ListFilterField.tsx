@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { listFilterContentGap } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
-import { Button } from '../primitives';
 import { TextField } from './TextField';
 
 export type ListFilterHeaderProps = {
@@ -45,8 +45,6 @@ export function ListFilterHeader({ children, hasItemsBelow, style }: ListFilterH
 }
 
 export type ListFilterFieldProps = {
-  /** Already-localized label for the control that empties the term. */
-  clearLabel: string;
   /** Already-localized. Doubles as the accessible name, so a placeholder is not the label. */
   label: string;
   onChangeTerm: (term: string) => void;
@@ -64,15 +62,12 @@ export type ListFilterFieldProps = {
 };
 
 /**
- * Free-text filter over a list already on screen. Uses compact `TextField` (no eyebrow) so the
- * pill matches `SearchField`.
- *
- * Narrows what is rendered rather than requesting anything, so it stays responsive with no debounce
- * and belongs above the list it filters. The clear control appears only once there is a term to
- * clear, keeping an empty field from carrying a control that would do nothing.
+ * Free-text filter over a list already on screen. Compact pill matching `SearchField`, with no
+ * debounce, so it stays responsive above the list it narrows. The X is inside the pill and mounted
+ * only while `term.length > 0`. Its accessible name is the shared Clear Filter string. Pressing it
+ * clears the term and leaves the field focused. There is no visible word.
  */
 export function ListFilterField({
-  clearLabel,
   label,
   onChangeTerm,
   placeholder,
@@ -80,47 +75,20 @@ export function ListFilterField({
   term,
   testID,
 }: ListFilterFieldProps) {
-  const { tokens } = useTheme();
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        field: {
-          flex: 1,
-        },
-        row: {
-          alignItems: 'center',
-          flexDirection: 'row',
-          gap: tokens.spacing.sm,
-        },
-      }),
-    [tokens]
-  );
+  const { t } = useTranslation();
 
   return (
-    <View style={[styles.row, style]}>
-      <TextField
-        accessibilityLabel={label}
-        autoCapitalize="none"
-        autoCorrect={false}
-        onChangeText={onChangeTerm}
-        placeholder={placeholder ?? label}
-        style={styles.field}
-        testID={`${testID}-input`}
-        value={term}
-      />
-      {term.length > 0 ? (
-        <Button
-          accessibilityLabel={clearLabel}
-          label={clearLabel}
-          onPress={() => {
-            onChangeTerm('');
-          }}
-          size="sm"
-          testID={`${testID}-clear`}
-          variant="outline"
-        />
-      ) : null}
-    </View>
+    <TextField
+      accessibilityLabel={label}
+      autoCapitalize="none"
+      autoCorrect={false}
+      clearAccessibilityLabel={t('misc.clear_filter')}
+      clearTestID={`${testID}-clear`}
+      onChangeText={onChangeTerm}
+      placeholder={placeholder ?? label}
+      style={style}
+      testID={`${testID}-input`}
+      value={term}
+    />
   );
 }

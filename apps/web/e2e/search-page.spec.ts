@@ -62,5 +62,20 @@ test.describe('Search page', () => {
       },
       fixtureRow
     );
+
+    const clearSearchButton = page.getByRole('button', { name: 'Clear Search', exact: true });
+    await actionAndCapture(
+      page,
+      testInfo,
+      'Pressing the X in the search field clears the term and the results.',
+      async () => {
+        await clearSearchButton.click();
+        await expect(searchField).toHaveValue('');
+        await expect(searchField).toBeFocused();
+        await expect(fixtureRow).toHaveCount(0);
+        await expect(clearSearchButton).toHaveCount(0);
+      },
+      searchField
+    );
   });
 });

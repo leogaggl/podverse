@@ -48,6 +48,7 @@ export type TableWithFilterPaginationLabels = {
 };
 
 export type TableWithFilterFilterBag = {
+  clearSearch: () => void;
   handleColumnSelectionChange: (columnIds: string[]) => void;
   search: string;
   selectedColumnIds: string[];
@@ -82,6 +83,7 @@ type TableWithFilterSharedProps<TRow> = {
   filter: TableWithFilterFilterBag;
   filterableColumnIds?: string[];
   labels: {
+    clearFilterAriaLabel: string;
     filterColumnsLabel: string;
     funnelAriaLabel: string;
     searchPlaceholder: string;
@@ -159,10 +161,12 @@ export function TableWithFilter<TRow>(props: TableWithFilterProps<TRow>) {
           <div className={styles.filterRow}>
             <div className={styles.filterBar}>
               <TableFilterBar
+                clearFilterAriaLabel={labels.clearFilterAriaLabel}
                 columns={filterColumns}
                 filterColumnsLabel={labels.filterColumnsLabel}
                 funnelAriaLabel={labels.funnelAriaLabel}
                 onSearchChange={filter.setSearch}
+                onSearchClear={filter.clearSearch}
                 onSelectedColumnIdsChange={filter.handleColumnSelectionChange}
                 searchPlaceholder={labels.searchPlaceholder}
                 searchValue={filter.search}
@@ -256,10 +260,12 @@ export function TableWithFilter<TRow>(props: TableWithFilterProps<TRow>) {
         <div className={styles.filterRow}>
           <div className={styles.filterBar}>
             <TableFilterBar
+              clearFilterAriaLabel={labels.clearFilterAriaLabel}
               columns={filterColumns}
               filterColumnsLabel={labels.filterColumnsLabel}
               funnelAriaLabel={labels.funnelAriaLabel}
               onSearchChange={filter.setSearch}
+              onSearchClear={filter.clearSearch}
               onSelectedColumnIdsChange={filter.handleColumnSelectionChange}
               searchPlaceholder={labels.searchPlaceholder}
               searchValue={filter.search}

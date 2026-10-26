@@ -184,19 +184,26 @@ name: Home Media Types
 # The Filter input sits above the list.
 - assertVisible:
     id: home-filter-input
+- assertNotVisible:
+    id: home-filter-clear
 - tapOn:
     id: home-filter-input
 - inputText: "seed"
+- assertVisible:
+    id: home-filter-clear
 - assertVisible:
     id: home-feed-row-e2ePodChnl001
 - assertNotVisible:
     id: home-list-no-filter-matches
 - tapOn:
     id: home-filter-clear
+- assertNotVisible:
+    id: home-filter-clear
 
 # Episodes
-# iOS can consume the first control tap to dismiss the focused filter keyboard. Selecting the same
-# media type twice is idempotent, so the second tap completes the transition in either state.
+# The X leaves the filter focused and the keyboard up. iOS consumes the first tap
+# on the Episodes chip to dismiss that keyboard. The second tap selects Episodes.
+# Selecting the same media type twice is idempotent.
 - tapOn:
     id: home-media-type-episodes
 - tapOn:

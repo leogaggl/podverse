@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Table } from '../Table/Table';
@@ -21,6 +21,7 @@ describe('TableWithFilter', () => {
         ]}
         emptyState={{ message: 'Nothing here', mode: 'filtered-empty' }}
         filter={{
+          clearSearch: vi.fn(),
           handleColumnSelectionChange: vi.fn(),
           search: '',
           selectedColumnIds: ['a'],
@@ -28,6 +29,7 @@ describe('TableWithFilter', () => {
         }}
         getRowKey={(row: { id: string }) => row.id}
         labels={{
+          clearFilterAriaLabel: 'Clear Filter',
           filterColumnsLabel: 'Columns',
           funnelAriaLabel: 'Filter columns',
           searchPlaceholder: 'Search',
@@ -56,6 +58,7 @@ describe('TableWithFilter', () => {
           },
         ]}
         filter={{
+          clearSearch: vi.fn(),
           handleColumnSelectionChange: vi.fn(),
           search: '',
           selectedColumnIds: ['a'],
@@ -63,6 +66,7 @@ describe('TableWithFilter', () => {
         }}
         getRowKey={(row: { id: string }) => row.id}
         labels={{
+          clearFilterAriaLabel: 'Clear Filter',
           filterColumnsLabel: 'Columns',
           funnelAriaLabel: 'Filter columns',
           searchPlaceholder: 'Search',
@@ -89,6 +93,7 @@ describe('TableWithFilter', () => {
 
   it('renders bodyRender instead of default table body when provided', () => {
     const filter = {
+      clearSearch: vi.fn(),
       handleColumnSelectionChange: vi.fn(),
       search: '',
       selectedColumnIds: ['a'],
@@ -107,6 +112,7 @@ describe('TableWithFilter', () => {
         ]}
         filter={filter}
         labels={{
+          clearFilterAriaLabel: 'Clear Filter',
           filterColumnsLabel: 'Columns',
           funnelAriaLabel: 'Filter columns',
           searchPlaceholder: 'Search',
@@ -135,6 +141,7 @@ describe('TableWithFilter', () => {
           mode: 'system-empty',
         }}
         filter={{
+          clearSearch: vi.fn(),
           handleColumnSelectionChange: vi.fn(),
           search: '',
           selectedColumnIds: ['a'],
@@ -142,6 +149,7 @@ describe('TableWithFilter', () => {
         }}
         getRowKey={(row: { id: string }) => row.id}
         labels={{
+          clearFilterAriaLabel: 'Clear Filter',
           filterColumnsLabel: 'Columns',
           funnelAriaLabel: 'Filter columns',
           searchPlaceholder: 'Search',
@@ -182,6 +190,7 @@ describe('TableWithFilter', () => {
           mode: 'filtered-empty',
         }}
         filter={{
+          clearSearch: vi.fn(),
           handleColumnSelectionChange: vi.fn(),
           search: '',
           selectedColumnIds: ['a'],
@@ -189,6 +198,7 @@ describe('TableWithFilter', () => {
         }}
         getRowKey={(row: { id: string }) => row.id}
         labels={{
+          clearFilterAriaLabel: 'Clear Filter',
           filterColumnsLabel: 'Columns',
           funnelAriaLabel: 'Filter columns',
           searchPlaceholder: 'Search',
@@ -203,5 +213,46 @@ describe('TableWithFilter', () => {
 
     expect(screen.getByPlaceholderText('Search')).toBeTruthy();
     expect(screen.getByText('No matches')).toBeTruthy();
+  });
+
+  it('calls clearSearch when the in-field clear control is pressed', () => {
+    const clearSearch = vi.fn();
+    const setSearch = vi.fn();
+
+    render(
+      <TableWithFilter
+        columns={[
+          {
+            header: 'A',
+            id: 'a',
+            label: 'A',
+          },
+        ]}
+        filter={{
+          clearSearch,
+          handleColumnSelectionChange: vi.fn(),
+          search: 'abc',
+          selectedColumnIds: ['a'],
+          setSearch,
+        }}
+        getRowKey={(row: { id: string }) => row.id}
+        labels={{
+          clearFilterAriaLabel: 'Clear Filter',
+          filterColumnsLabel: 'Columns',
+          funnelAriaLabel: 'Filter columns',
+          searchPlaceholder: 'Search',
+        }}
+        onSortChange={vi.fn()}
+        renderCells={() => <Table.Cell>x</Table.Cell>}
+        rows={[{ id: '1' }]}
+        sortBy={undefined}
+        sortOrder="asc"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Filter' }));
+
+    expect(clearSearch).toHaveBeenCalledTimes(1);
+    expect(setSearch).not.toHaveBeenCalled();
   });
 });

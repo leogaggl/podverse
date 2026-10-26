@@ -34,6 +34,8 @@
     "faq": "FAQ",
     "try_again": "Réessayez",
     "reload_page": "Recharger la page",
-    "return_to_home_page": "Aller à l'accueil"
+    "return_to_home_page": "Aller à l'accueil",
+    "clear_search": "Effacer la recherche",
+    "clear_filter": "Effacer le filtre"
   }
 }

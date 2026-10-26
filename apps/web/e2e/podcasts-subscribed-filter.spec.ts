@@ -23,6 +23,9 @@ async function loginSeedUser(page: Page): Promise<void> {
 
 const filterInput = (page: Page) => page.getByLabel('Filter', { exact: true });
 
+const clearFilterButton = (page: Page) =>
+  page.getByRole('button', { name: 'Clear Filter', exact: true });
+
 // Unseen badges are also announced as status regions, so the count is addressed directly rather
 // than by role.
 const resultsCount = (page: Page) => page.getByTestId('podcasts-filter-results-count');
@@ -50,6 +53,7 @@ test.describe('Subscribed podcasts filter', () => {
       await expect(channelRow(page, E2E_PODCAST_CHANNEL_ID_TEXT).first()).toBeVisible();
       await expect(channelRow(page, E2E_LIVESTREAM_CHANNEL_ID_TEXT).first()).toBeVisible();
       await expect(filterInput(page)).toBeVisible();
+      await expect(clearFilterButton(page)).toHaveCount(0);
     });
 
     await test.step('Typing a title narrows the list and reports how much is left', async () => {
@@ -58,11 +62,12 @@ test.describe('Subscribed podcasts filter', () => {
       await expect(channelRow(page, E2E_LIVESTREAM_CHANNEL_ID_TEXT).first()).toBeVisible();
       await expect(channelRow(page, E2E_PODCAST_CHANNEL_ID_TEXT)).toHaveCount(0);
       await expect(resultsCount(page)).toHaveText('Showing 1');
+      await expect(clearFilterButton(page)).toBeVisible();
 
       await captureVerifiedElement(
         page,
         testInfo,
-        channelRow(page, E2E_LIVESTREAM_CHANNEL_ID_TEXT).first(),
+        filterInput(page),
         'Filtering by title leaves only the matching subscription.'
       );
     });
@@ -88,12 +93,15 @@ test.describe('Subscribed podcasts filter', () => {
       await capturePageLoad(page, testInfo, 'An unmatched filter says so in its own words.');
     });
 
-    await test.step('Clearing the term restores the list and the plain URL', async () => {
-      await page.getByRole('button', { name: 'Clear' }).click();
+    await test.step('Pressing the X in the filter clears the term and restores the list and the plain URL', async () => {
+      await clearFilterButton(page).click();
 
       await expect(channelRow(page, E2E_PODCAST_CHANNEL_ID_TEXT).first()).toBeVisible();
       await expect(channelRow(page, E2E_LIVESTREAM_CHANNEL_ID_TEXT).first()).toBeVisible();
       await expect(page).not.toHaveURL(/filter=/);
+      await expect(filterInput(page)).toHaveValue('');
+      await expect(filterInput(page)).toBeFocused();
+      await expect(clearFilterButton(page)).toHaveCount(0);
     });
 
     await test.step('Nothing typed into the filter reached the search API', async () => {

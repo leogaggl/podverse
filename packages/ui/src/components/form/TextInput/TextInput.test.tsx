@@ -117,4 +117,57 @@ describe('TextInput', () => {
     expect(root?.contains(label)).toBe(true);
     expect(wrapper?.contains(label)).toBe(false);
   });
+
+  it('does not render the clear button while the value is empty', () => {
+    render(
+      <TextInput
+        clearButton={{ ariaLabel: 'Clear Search', onClear: vi.fn() }}
+        value=""
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Clear Search' })).toBeNull();
+  });
+
+  it('calls onClear and focuses the input when the clear button is clicked', () => {
+    const onClear = vi.fn();
+    render(
+      <TextInput
+        clearButton={{ ariaLabel: 'Clear Search', onClear }}
+        value="abc"
+        onChange={vi.fn()}
+      />
+    );
+
+    const input = screen.getByRole('textbox');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Search' }));
+
+    expect(onClear).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('does not render the clear button when the field is disabled or read-only', () => {
+    const { rerender } = render(
+      <TextInput
+        clearButton={{ ariaLabel: 'Clear Search', onClear: vi.fn() }}
+        disabled
+        value="abc"
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Clear Search' })).toBeNull();
+
+    rerender(
+      <TextInput
+        clearButton={{ ariaLabel: 'Clear Search', onClear: vi.fn() }}
+        readOnly
+        value="abc"
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Clear Search' })).toBeNull();
+  });
 });

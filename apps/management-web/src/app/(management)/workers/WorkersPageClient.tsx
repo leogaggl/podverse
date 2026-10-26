@@ -310,6 +310,7 @@ export function WorkersPageClient({ initialUser }: WorkersPageClientProps) {
               <div className={styles.filterRow}>
                 <div className={styles.filterBar}>
                   <TableFilterBar
+                    clearFilterAriaLabel={chrome.filterLabels.clearFilterAriaLabel}
                     columns={filterBarColumns}
                     filterColumnsLabel={chrome.filterLabels.filterColumnsLabel}
                     funnelAriaLabel={chrome.filterLabels.funnelAriaLabel}
@@ -317,6 +318,7 @@ export function WorkersPageClient({ initialUser }: WorkersPageClientProps) {
                     searchValue={filter.search}
                     selectedColumnIds={filter.selectedColumnIds}
                     onSearchChange={filter.setSearch}
+                    onSearchClear={filter.clearSearch}
                     onSelectedColumnIdsChange={filter.handleColumnSelectionChange}
                   />
                 </div>

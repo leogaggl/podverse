@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 export function useManagementTableChrome() {
   const t = useTranslations('tableShared');
   const tc = useTranslations('common');
+  const tMisc = useTranslations('misc');
 
   return {
     bulkAria: {
@@ -20,6 +21,7 @@ export function useManagementTableChrome() {
       modalAriaLabel: t('confirmDelete.aria'),
     },
     filterLabels: {
+      clearFilterAriaLabel: tMisc('clear_filter'),
       filterColumnsLabel: t('filterColumnsLabel'),
       funnelAriaLabel: t('filterColumnsAriaLabel'),
       searchPlaceholder: t('searchPlaceholder'),

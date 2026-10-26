@@ -42,7 +42,6 @@
   "tableShared": {
     "searchPlaceholder": "Αναζήτηση",
     "searchSubmitLabel": "Αναζήτηση",
-    "searchClearLabel": "Εκκαθάριση αναζήτησης",
     "filterColumnsLabel": "Αναζήτηση στις στήλες",
     "filterColumnsAriaLabel": "Φιλτράρισμα στηλών που περιλαμβάνει η αναζήτηση",
     "sortAscLabel": "Αύξουσα ταξινόμηση",

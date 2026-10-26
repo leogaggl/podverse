@@ -75,12 +75,13 @@ not add a second `<Text>` label above it. The placeholder must **differ** from t
 (example, `Optional` / `Required`, default-if-blank, or a short instruction) —
 **form-eyebrow-placeholder**. Eyebrow fields are taller than the compact pill.
 **Omit `eyebrow` only** for directory search and on-screen list filters (`SearchField`,
-`ListFilterField`). Search adds the leading glass; filter adds a clear `Button`. `TextField`
-owns the hit-target contract and blurs when the host screen loses focus. Do not wrap a thin
-input in a padded `View`, and do not grow `TextInput` padding to fake a larger target. Field,
-chips, and the list rule share one column `gap` (`spacing.base`) so the space above and below
-the chips is equal. Prefer that symmetry whenever two sides of a control are the same
-relationship. See **mobile-screen-layout**.
+`ListFilterField`). Both search and list filters add an X inside the pill while the value is
+non-empty. Each field reads its own shared accessible name. Pressing the X clears the value and
+keeps the keyboard up. Form fields omit it. `TextField` owns the focus target and the X, and
+blurs when the host screen loses focus. Do not wrap a thin input in a padded `View`, and do
+not grow `TextInput` padding to fake a larger target. Field, chips, and the list rule share one
+column `gap` (`spacing.base`) so the space above and below the chips is equal. Prefer that
+symmetry whenever two sides of a control are the same relationship. See **mobile-screen-layout**.
 
 **Settings option density:** Settings root is a group list (`MenuListScreen`) that pushes
 Appearance, Tab bar, Playback, and Notifications. 2–3 choices → `OptionChipGroup`; 4+ → push
@@ -235,7 +236,8 @@ link switch under Submit. See **mobile-screen-layout**.
 - [ ] New shared UI gets a stable `testID` where E2E will assert it.
 - [ ] Boxed fields use `TextField` / `SearchField` / `ListFilterField` so the painted chrome
       is the hit target. Forms pass `eyebrow` + a **distinct** `placeholder`
-      (**form-eyebrow-placeholder**); search and list filters omit `eyebrow`. Do not wrap a
+      (**form-eyebrow-placeholder**); search and list filters omit `eyebrow` and show the X
+      only while the value is non-empty. Do not wrap a
       `TextInput` in a padded `View`, and do not grow `TextInput` padding to enlarge the
       target.
 - [ ] If you duplicated JSX that already exists on another screen, stop and extract.

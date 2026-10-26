@@ -187,14 +187,14 @@ Primitives and composites for admin-style list pages. Apps pass **localized stri
 
 ### Hooks (phase 02)
 
-- **`useTableFilterState`** — debounced search, URL or cookie sync, optional funnel columns.
+- **`useTableFilterState`** — debounced search, URL or cookie sync, optional funnel columns; **`clearSearch`** empties the term and applies it at once.
 - **`useDeleteModal`** — open/close delete confirmation target id.
 - **`useAsyncPageLoading`**, **`useCookieModeListRefresh`** — list refresh after mutations when using cookie-mode filters.
 - **`useCursorPagination`** — cursor next/prev for **`CursorPagination`**.
 
 ### Composites
 
-- **`TableFilterBar`** — search field + funnel (**`PopoverIcon`**) with per-column “search here” toggles from **`columns`**.
+- **`TableFilterBar`** — search field with an in-field clear X (**`clearFilterAriaLabel`**, **`onSearchClear`**; `TableWithFilter` passes `labels.clearFilterAriaLabel` and `filter.clearSearch`) + funnel (**`PopoverIcon`**) with per-column “search here” toggles from **`columns`**.
 - **`TableWithSort`** — renders **`<thead>`** from typed **`columns`**; sortable headers use **`Table.SortableHeaderCell`**; optional **`sortPrefsCookieName`** / **`sortPrefsListKey`** merge sort into the browser cookie; body is **`children`** (caller supplies **`<tbody>`**).
 - **`TableWithFilter`** — **`TableFilterBar`** + **`TableWithSort`** + optional **`Pagination`**; **`paginationMode`**
   **`'page'`** | **`'none'`**; **`renderCells`**; optional **`bulkSelect`** (prepends select header/cells only). When
