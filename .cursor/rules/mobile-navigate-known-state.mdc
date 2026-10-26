@@ -13,7 +13,10 @@ the destination's first frame uses that value.
 
 This is the same first-paint habit as **mobile-image-loading** (artwork) and
 **mobile-section-chrome-cache** (section chips), applied to controls that flip meaning when they
-are wrong: Subscribe vs Unsubscribe, the notification bell, download vs delete.
+are wrong: Subscribe vs Unsubscribe, the notification bell, download vs delete. That bell is
+the channel on/off control, the `notifications` prop on `ChannelHeader` for podcast, album, and
+artist detail. `HomeNotificationsBell` shows the unread count on Home and does not read this
+cache.
 
 ## Do
 
@@ -25,7 +28,7 @@ are wrong: Subscribe vs Unsubscribe, the notification bell, download vs delete.
   Browse read it on first paint; do not wait for `isSubscribed()` or `GET /channel/:id`.
 - Seed `useState` from preview params or that cache. An async SQLite confirm is allowed only when
   it will not change the first frame.
-- Resolve the notification bell by `channelIdText` (cached numeric id + account rows), not by
+- Resolve that channel bell by `channelIdText` (cached numeric id + account rows), not by
   waiting for the channel DTO's numeric `id`.
 - Hydrate `downloadStore` at bootstrap so list-row download/delete icons read the real status on
   the first frame of the destination, including during the push transition.

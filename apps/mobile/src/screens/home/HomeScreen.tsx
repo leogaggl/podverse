@@ -12,6 +12,7 @@ import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
 import { ListFilterField, ListFilterHeader } from '../../components/form';
 import { FillList, SwipeActionRow, VerticalCenter } from '../../components/primitives';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
@@ -116,6 +117,7 @@ import {
 import { HomeFeedRow } from './HomeFeedRow';
 import { readHomeFilterTerm, writeHomeFilterTerm } from './homeFilterSession';
 import { homeItemDownloadItem, homeItemShareResource } from './homeItemRowActions';
+import { HomeNotificationsBell } from './HomeNotificationsBell';
 import { HomeOverflowMenu } from './HomeOverflowMenu';
 import { mergeDownloadedCountsIntoHomeRows } from './homeRowMetadata';
 import { HomeSortChip } from './HomeSortChip';
@@ -1093,13 +1095,16 @@ export function HomeScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <HomeOverflowMenu
-          canMarkAllSeen={canMarkAllSeen}
-          onMarkAllSeen={handleMarkAllSeen}
-          onViewModeChange={handleViewModeChange}
-          showMarkAllSeen={showMarkAllSeen}
-          viewMode={resolvedPrefs.viewMode}
-        />
+        <HeaderBarActions>
+          <HomeNotificationsBell />
+          <HomeOverflowMenu
+            canMarkAllSeen={canMarkAllSeen}
+            onMarkAllSeen={handleMarkAllSeen}
+            onViewModeChange={handleViewModeChange}
+            showMarkAllSeen={showMarkAllSeen}
+            viewMode={resolvedPrefs.viewMode}
+          />
+        </HeaderBarActions>
       ),
     });
   }, [

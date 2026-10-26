@@ -164,6 +164,8 @@ export default defineConfig({
       'src/components/overlay/overlayTransitions.test.ts',
       'src/components/player/MediaRowActions.test.ts',
       'src/components/primitives/FillList.test.ts',
+      'src/components/primitives/countBadgeFace.test.ts',
+      'src/lib/notifications/notificationsBellPress.test.ts',
       'src/components/primitives/coverThumbnailCache.test.ts',
       'src/components/screen/headerBackChoice.test.ts',
       'src/components/player/fullPlayerRows.test.ts',

@@ -815,18 +815,6 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
             />
           ) : null}
           <HeaderBarAction
-            accessibilityLabel={t(
-              notificationsEnabled
-                ? 'features.notifications.disable_notifications_for_this_album'
-                : 'features.notifications.enable_notifications_for_this_album'
-            )}
-            icon={notificationsEnabled ? 'notifications' : 'notifications-off-outline'}
-            onPress={() => {
-              void toggleNotifications();
-            }}
-            testID="album-detail-notifications-toggle"
-          />
-          <HeaderBarAction
             accessibilityLabel={t('features.share')}
             icon="share-outline"
             onPress={handleShare}
@@ -835,17 +823,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         </HeaderBarActions>
       ),
     });
-  }, [
-    canShowBoost,
-    channel,
-    handleShare,
-    navigation,
-    notificationsEnabled,
-    openBoost,
-    t,
-    tokens.text.warning,
-    toggleNotifications,
-  ]);
+  }, [canShowBoost, channel, handleShare, navigation, openBoost, t, tokens.text.warning]);
 
   const handleGoToChannel = useCallback(
     (nextRow: HomeFeedRowData) => {
@@ -1087,6 +1065,18 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       }
       artworkUri={channelArtworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      notifications={{
+        accessibilityLabel: t(
+          notificationsEnabled
+            ? 'features.notifications.disable_notifications_for_this_album'
+            : 'features.notifications.enable_notifications_for_this_album'
+        ),
+        enabled: notificationsEnabled,
+        onPress: () => {
+          void toggleNotifications();
+        },
+        testID: 'album-detail-notifications-toggle',
+      }}
       settings={{
         accessibilityLabel: t('settings.settings'),
         onPress: handleSettingsPress,

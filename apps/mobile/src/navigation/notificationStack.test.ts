@@ -93,6 +93,7 @@ describe('applyHomeContentStackToState', () => {
 describe('resolveMobileDeepLinkAction', () => {
   const options = {
     screens: {
+      NotificationsInbox: 'notifications',
       MainTabs: {
         screens: {
           Home: {
@@ -115,5 +116,14 @@ describe('resolveMobileDeepLinkAction', () => {
     );
 
     expect(action).toMatchObject({ payload: { name: 'MainTabs' }, type: 'NAVIGATE' });
+  });
+
+  it('navigates a notifications path to the inbox screen', () => {
+    const action = resolveMobileDeepLinkAction('/notifications', options);
+
+    expect(action).toMatchObject({
+      payload: { name: 'NotificationsInbox' },
+      type: 'NAVIGATE',
+    });
   });
 });

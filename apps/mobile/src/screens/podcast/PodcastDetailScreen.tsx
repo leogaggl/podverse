@@ -126,8 +126,9 @@ const SECTION_COMPONENTS: Record<PodcastTab, ComponentType<PodcastSectionPanePro
  * would branch on section in every callback.
  *
  * Subscribe lives on the channel identity block. RSS and website URLs live on About. Funding is
- * its own chip. Share and notifications live in the stack title bar. Channel settings are the
- * gear at the top right of the channel header (`mobile-screen-layout`).
+ * its own chip. Share stays in the stack title bar. The notification bell is the trailing
+ * control on the channel header action row. Channel settings are the gear at the top right of
+ * that header (`mobile-screen-layout`).
  */
 export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenProps) {
   const { t } = useTranslation();
@@ -466,18 +467,6 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
             />
           ) : null}
           <HeaderBarAction
-            accessibilityLabel={t(
-              notificationsEnabled
-                ? 'features.notifications.disable_notifications_for_this_podcast'
-                : 'features.notifications.enable_notifications_for_this_podcast'
-            )}
-            icon={notificationsEnabled ? 'notifications' : 'notifications-off-outline'}
-            onPress={() => {
-              void toggleNotifications();
-            }}
-            testID="podcast-detail-notifications-toggle"
-          />
-          <HeaderBarAction
             accessibilityLabel={t('features.share')}
             icon="share-outline"
             onPress={handleShare}
@@ -486,17 +475,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
         </HeaderBarActions>
       ),
     });
-  }, [
-    canShowBoost,
-    channel,
-    handleShare,
-    navigation,
-    notificationsEnabled,
-    openBoost,
-    t,
-    tokens.text.warning,
-    toggleNotifications,
-  ]);
+  }, [canShowBoost, channel, handleShare, navigation, openBoost, t, tokens.text.warning]);
 
   /**
    * Subscribing has three behaviors and unsubscribing has one.
@@ -694,6 +673,18 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       }
       artworkUri={artworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      notifications={{
+        accessibilityLabel: t(
+          notificationsEnabled
+            ? 'features.notifications.disable_notifications_for_this_podcast'
+            : 'features.notifications.enable_notifications_for_this_podcast'
+        ),
+        enabled: notificationsEnabled,
+        onPress: () => {
+          void toggleNotifications();
+        },
+        testID: 'podcast-detail-notifications-toggle',
+      }}
       settings={{
         accessibilityLabel: t('settings.settings'),
         onPress: handleSettingsPress,

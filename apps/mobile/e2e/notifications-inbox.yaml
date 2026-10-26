@@ -1,7 +1,9 @@
 appId: com.podverse.app.next
 name: Notifications Inbox
 ---
-# Guest fill is a centered login CTA. After seed login, the inbox shell is reachable from More.
+# Signed out, the Home bell opens the login gate, and a /notifications link still reaches the
+# inbox's login fill. Signed in, the bell opens the inbox, which slides up over Home; the down
+# chevron returns to Home.
 
 - runFlow: shared/launch-and-connect.yaml
 
@@ -10,19 +12,43 @@ name: Notifications Inbox
     id: notification-stream-e2e
     text: idle
 
-- tapOn:
-    id: tab-more
-- tapOn:
-    id: more-nav-notifications
 - assertVisible:
+    id: home-notifications-bell
+- tapOn:
+    id: home-notifications-bell
+- extendedWaitUntil:
+    visible:
+      id: premium-gate-modal
+    timeout: ${TIMEOUT_FASTER}
+- assertVisible:
+    id: premium-gate-login
+- takeScreenshot: notifications-bell-login-gate
+- tapOn:
+    id: premium-gate-cancel
+- assertNotVisible:
     id: notifications-inbox-screen
+
+- openLink: podverse-next://notifications
+- runFlow: shared/confirm-ios-open-dialog.yaml
+- extendedWaitUntil:
+    visible:
+      id: notifications-inbox-screen
+    timeout: ${TIMEOUT_SLOW}
 - assertVisible:
-    id: stack-header-back
+    id: notifications-inbox-dismiss
 - assertVisible:
     id: notifications-inbox-auth-required
 - assertVisible:
     id: notifications-inbox-auth-required-action
 - takeScreenshot: notifications-inbox-login-required
+- tapOn:
+    id: notifications-inbox-dismiss
+- extendedWaitUntil:
+    notVisible:
+      id: notifications-inbox-screen
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: home-screen
 
 - runFlow: shared/login-seeded-user.yaml
 
@@ -45,27 +71,31 @@ name: Notifications Inbox
 - takeScreenshot: notifications-inbox-stream-reopened
 
 - tapOn:
-    id: tab-more
+    id: tab-home
+- assertVisible:
+    id: home-notifications-bell
 - tapOn:
-    id: more-nav-notifications
-- assertVisible:
-    id: notifications-inbox-screen
-- assertVisible:
-    id: stack-header-back
-- tapOn:
-    id: stack-header-back
-- assertVisible:
-    id: more-screen
-- tapOn:
-    id: more-nav-notifications
-- assertVisible:
-    id: notifications-inbox-screen
+    id: home-notifications-bell
+- extendedWaitUntil:
+    visible:
+      id: notifications-inbox-screen
+    timeout: ${TIMEOUT_SLOW}
+- assertNotVisible:
+    id: premium-gate-modal
 - takeScreenshot: notifications-inbox-initial
-
-# Account-level subscribe defaults live under Settings, not the inbox. Back returns to
-# the More menu.
 - tapOn:
-    id: stack-header-back
+    id: notifications-inbox-dismiss
+- extendedWaitUntil:
+    notVisible:
+      id: notifications-inbox-screen
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: home-screen
+- takeScreenshot: notifications-bell-home
+
+# Account-level subscribe defaults live under More > Settings, not the inbox.
+- tapOn:
+    id: tab-more
 - tapOn:
     id: more-settings
 - assertVisible:

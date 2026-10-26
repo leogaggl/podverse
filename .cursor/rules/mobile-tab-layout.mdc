@@ -14,7 +14,10 @@ The bottom tab bar (and tablet left rail) is a stored, device-local order. **Mor
 Hidden content tabs stay registered in the navigator and appear as rows on More.
 
 Factory visible order is **Home, Browse, Search, My Library** (`DEFAULT_VISIBLE_TABS`).
-Notifications overflows to More until the user adds it.
+Notifications is not a content tab. It is not in `CONTENT_TAB_IDS`, not a More overflow row,
+and not a row on Settings > Tab Bar. The Home bell is the in-app control that opens the inbox.
+A link or push whose path is `notifications` opens root route `NotificationsInbox`. The unread
+count is that bell's badge, not a tab badge.
 
 English bottom-tab labels follow **ui-copy-casing** (`nav.tab.my_library` → `My Library`), the
 same title case as other chrome. Stack body copy stays sentence case.
@@ -28,12 +31,12 @@ same title case as other chrome. Stack body copy stays sentence case.
 - Cap visible content tabs at `MAX_VISIBLE_CONTENT_TABS` (4). Adding a fifth replaces the last slot.
 - List overflow tabs on More (`more-nav-<slug>`). Opening a row pushes that tab's stack on the
   More stack (`MoreOverflowHome`, `MoreOverflowSearch`, `MoreOverflowLibrary`,
-  `MoreOverflowBrowse`, `MoreOverflowNotifications`). More stays selected and Back returns to
+  `MoreOverflowBrowse`, `MoreOverflowRecommendations`). More stays selected and Back returns to
   More.
 
 ## Do not
 
-- Unmount a tab to hide it (breaks `navigate('Notifications')` and deep links).
+- Unmount a tab to hide it (breaks `navigate('Search')` and deep links).
 - Open an overflow row with `tabNavigation.navigate(tabId)`. That focuses a tab whose button is
   hidden, highlights Home, and shows no Back control.
 - Paint the default bar and then swap after AsyncStorage (FOUC).
