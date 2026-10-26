@@ -5,14 +5,14 @@ import { moveItem } from '../lib/reorder/moveItem';
 /**
  * Device-local tab bar layout. More is always last and is not stored. Hidden content tabs stay
  * registered in the navigator so deep links still resolve, and they appear as rows on More.
- * Opening a row pushes that tab's stack on the More navigator.
+ * Opening a row pushes that tab's stack on the More navigator. An unknown stored id is dropped
+ * when the bar is read.
  */
 export const CONTENT_TAB_IDS = [
   'Home',
   'Browse',
   'Search',
   'My Library',
-  'Notifications',
   'Recommendations',
 ] as const;
 
@@ -43,7 +43,6 @@ export const TAB_TEST_ID_SLUG: Record<ContentTabId, string> = {
   Browse: 'browse',
   Home: 'home',
   'My Library': 'my-library',
-  Notifications: 'notifications',
   Recommendations: 'recommendations',
   Search: 'search',
 };
@@ -64,9 +63,6 @@ export const tabLabelKey = (tabId: ContentTabId | 'More'): string => {
   }
   if (tabId === 'Browse') {
     return 'nav.tab.browse';
-  }
-  if (tabId === 'Notifications') {
-    return 'nav.tab.notifications';
   }
   if (tabId === 'Recommendations') {
     return 'nav.tab.recommendations';

@@ -715,18 +715,6 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
             />
           ) : null}
           <HeaderBarAction
-            accessibilityLabel={t(
-              notificationsEnabled
-                ? 'features.notifications.disable_notifications_for_this_artist'
-                : 'features.notifications.enable_notifications_for_this_artist'
-            )}
-            icon={notificationsEnabled ? 'notifications' : 'notifications-off-outline'}
-            onPress={() => {
-              void toggleNotifications();
-            }}
-            testID="artist-detail-notifications-toggle"
-          />
-          <HeaderBarAction
             accessibilityLabel={t('features.share')}
             icon="share-outline"
             onPress={handleShare}
@@ -735,17 +723,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         </HeaderBarActions>
       ),
     });
-  }, [
-    canShowBoost,
-    channel,
-    handleShare,
-    navigation,
-    notificationsEnabled,
-    openBoost,
-    t,
-    tokens.text.warning,
-    toggleNotifications,
-  ]);
+  }, [canShowBoost, channel, handleShare, navigation, openBoost, t, tokens.text.warning]);
 
   const handleGoToChannel = useCallback(
     (nextRow: HomeFeedRowData) => {
@@ -894,6 +872,18 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
       }
       artworkUri={channelArtworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      notifications={{
+        accessibilityLabel: t(
+          notificationsEnabled
+            ? 'features.notifications.disable_notifications_for_this_artist'
+            : 'features.notifications.enable_notifications_for_this_artist'
+        ),
+        enabled: notificationsEnabled,
+        onPress: () => {
+          void toggleNotifications();
+        },
+        testID: 'artist-detail-notifications-toggle',
+      }}
       settings={{
         accessibilityLabel: t('settings.settings'),
         onPress: handleSettingsPress,

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
+import { formatCountBadgeFace } from './countBadgeFace';
 
 /** Edge length of a one-digit badge, so `minWidth === height` and `borderRadius` make a circle. */
 const BADGE_SIZE = 20;
@@ -46,6 +47,11 @@ export type CountBadgeTone = 'accent' | 'muted';
 export type CountBadgeProps = {
   count: number;
   /**
+   * When set, a count above it is shown as that max followed by "+". When omitted, the badge
+   * shows the full count. There is no default. `ListRow` and `HomeFeedGridCell` omit it.
+   */
+  max?: number;
+  /**
    * `accent` is the default list-row / tab count. `muted` is the gray overlay on artwork
    * (downloaded count) so it does not compete with the unseen indicator on the same tile.
    */
@@ -57,11 +63,12 @@ export type CountBadgeProps = {
 /**
  * Circular numeric badge that widens horizontally when the count needs more than one digit.
  * Hidden at zero. Decorative on its own — the parent row or tile folds the count into its
- * accessibility label. Unseen presence uses `UnseenIndicator`, not this chip.
+ * accessibility label. Unseen presence uses `UnseenIndicator`, not this chip. An optional `max`
+ * replaces a higher count with that max followed by "+".
  */
-export function CountBadge({ count, style, testID, tone = 'accent' }: CountBadgeProps) {
+export function CountBadge({ count, max, style, testID, tone = 'accent' }: CountBadgeProps) {
   const styles = useThemedStyles(createStyles);
-  const face = String(count);
+  const face = formatCountBadgeFace(count, max);
   const stretches = count >= 10;
 
   if (count <= 0) {

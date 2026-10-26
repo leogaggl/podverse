@@ -2,6 +2,9 @@
 description: Channel About and item Summary carry the same information on web and mobile
 globs:
   - "apps/web/src/components/Content/About/**"
+  - "apps/web/src/components/NavBar/NotificationBellButton.tsx"
+  - "apps/web/src/components/Media/Header/NotificationIconButton.tsx"
+  - "apps/web/src/components/Media/Header/HeaderButtons.tsx"
   - "apps/web/src/components/Media/Livestream/LivestreamSummary.tsx"
   - "apps/web/src/components/Core/Podcast/Episodes/CoreEpisodeSummary.tsx"
   - "apps/mobile/src/components/content/**"
@@ -64,7 +67,8 @@ detail (podcast, album, artist), Settings is the gear at the top right of the ch
 signed in or not. People, when that channel has people, is the last section chip, after Funding.
 With no people, Funding is the last content chip. Only the optional sort / category trailing chip
 may follow. Episode, track, and full-player screens have no channel-header gear, so People follows
-Funding there.
+Funding there. Those screens also have no channel notification bell. On podcast, album, and artist
+the bell is the trailing control on the channel header action row.
 
 | Field | Web | Mobile |
 | ----- | --- | ------ |
@@ -72,11 +76,19 @@ Funding there.
 | People | People tab. On podcast, album, and artist it is hidden on desktop the same way About is, and the side column shows people as their own block. Episode, track, and livestream keep the tab on every viewport. | People chip after Funding |
 | RSS, website | Header icons | About body links |
 | Funding | Header icon | Funding chip (before People when the channel has people) |
-| Share, subscribe, notifications, boost | Header / actions | Header / actions — not About body |
+| Share, boost | Header actions | Stack title bar (`headerRight`). Not About body |
+| Subscribe | Header actions, leading | `ChannelHeader` action row, leading. Not About body |
+| Channel notifications on/off | `NotificationIconButton` in `HeaderButtons`, immediately to the right of Subscribe, including where episode, track, livestream, clip, chapter, and official-clip pages mount the parent channel header. Item headers and Add by RSS headers have no bell | `ChannelHeader` `notifications`, trailing edge of the action row, on podcast, album, and artist detail only. Not on an item screen. Not on Add by RSS. Not About body |
+| Inbox | `NotificationBellButton` in the nav bar, signed-in only | Home title bar only (`HomeNotificationsBell`), to the left of the ellipsis, signed out or signed in. Not a tab. Not About body |
 | Shortened notes | A link after the prose: the item link on Summary, the website on About | Summary: the same link after the expanded prose. About: the sentence only, because the website link is already in About |
 
 Do **not** “fix” mobile by copying web header icons for RSS or website, and do **not** drop
 those links from mobile About. Do **not** put funding links back into About.
+
+- Do not remove `NotificationIconButton` from a web page that mounts the parent channel header.
+- Do not restyle the web header row so the toggle sits at the trailing edge.
+- Do not add a mobile inbox bell off Home, or a mobile channel bell on an item screen, to match
+  web.
 
 ## Adding fields
 

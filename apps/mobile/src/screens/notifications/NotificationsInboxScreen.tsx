@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TextStyle, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { DTOAccountNotification } from '@podverse/helpers';
 import { getRelativeTimeParts, NotificationCategoryEnum } from '@podverse/helpers';
@@ -13,13 +14,15 @@ import { useAuth } from '../../auth/AuthProvider';
 import { Card } from '../../components/primitives/Card';
 import { FillList } from '../../components/primitives/FillList';
 import { VerticalCenter } from '../../components/primitives/VerticalCenter';
+import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
 import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { RetryableError } from '../../components/state/RetryableError';
 import { notificationsRepository } from '../../data/repositories';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
-import type { NotificationsStackParamList } from '../../navigation';
+import type { RootStackParamList } from '../../navigation';
+import { ROOT_STACK_ROUTES } from '../../navigation';
 import { markNotificationReadById } from '../../notifications/notificationReadActions';
 import {
   getNotificationsInboxCache,
@@ -48,7 +51,7 @@ const CATEGORY_LABEL_KEYS: Record<NotificationCategoryEnum, string> = {
 };
 
 type NotificationsInboxScreenProps = NativeStackScreenProps<
-  NotificationsStackParamList,
+  RootStackParamList,
   'NotificationsInbox'
 >;
 
@@ -109,8 +112,9 @@ function InboxNotificationRow({
   );
 }
 
-export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) {
+export function NotificationsInboxScreen({ navigation }: NotificationsInboxScreenProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { onRequestLogin } = useAuthPrompt();
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const { enabled: offlineModeEnabled } = useOfflineMode();
@@ -167,7 +171,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         },
         content: {
           ...screenBodyInsets(tokens.spacing),
-          paddingBottom: tokens.spacing.lg,
+          paddingBottom: tokens.spacing.lg + insets.bottom,
         },
         listFooter: {
           marginTop: tokens.spacing.lg,
@@ -211,8 +215,16 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
           fontWeight: '600',
         },
       }),
-    [themeStyles, tokens]
+    [insets.bottom, themeStyles, tokens]
   );
+
+  const handleDismiss = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate(ROOT_STACK_ROUTES.MainTabs);
+  }, [navigation]);
 
   const loadPage = useCallback(
     async (nextPage: number, mode: 'replace' | 'append') => {
@@ -536,6 +548,13 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
 
   return (
     <View style={styles.container} testID="notifications-inbox-screen">
+      <HeaderBarChrome
+        backAccessibilityLabel={t('misc.dismiss')}
+        backIcon="chevron-down"
+        backTestID="notifications-inbox-dismiss"
+        onBack={handleDismiss}
+        title={t('nav.tab.notifications')}
+      />
       <FillList
         ListEmptyComponent={listEmpty}
         ListFooterComponent={listFooter}

@@ -40,7 +40,6 @@ import { buildMobileLinkPrefixes } from '../config/deepLinkSchemes';
 import { isMobileE2eFromEnv } from '../config/env';
 import { sumBadgeCounts } from '../downloads/inProgressDownloadCount';
 import { useInProgressDownloadCount } from '../downloads/useDownloads';
-import { useNotificationsUnreadCount } from '../hooks/useNotificationsUnreadCount';
 import { isMobileE2eHarnessEnabled } from '../lib/e2e/e2eHarness';
 import { PerfE2eReport } from '../lib/perf/PerfE2eReport';
 import { useMembership } from '../membership/useMembership';
@@ -154,7 +153,6 @@ const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 const BrowseStack = createNativeStackNavigator<BrowseStackParamList>();
-const NotificationsStack = createNativeStackNavigator<NotificationsStackParamList>();
 const LibraryStack = createNativeStackNavigator<LibraryStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -237,10 +235,6 @@ export const BROWSE_STACK_ROUTES = {
   Profile: 'Profile',
 } as const;
 
-export const NOTIFICATIONS_STACK_ROUTES = {
-  NotificationsInbox: 'NotificationsInbox',
-} as const;
-
 export const MORE_STACK_ROUTES = {
   MoreAbout: 'MoreAbout',
   MoreE2ePlayback: 'MoreE2ePlayback',
@@ -252,7 +246,6 @@ export const MORE_STACK_ROUTES = {
   MoreOverflowBrowse: 'MoreOverflowBrowse',
   MoreOverflowHome: 'MoreOverflowHome',
   MoreOverflowLibrary: 'MoreOverflowLibrary',
-  MoreOverflowNotifications: 'MoreOverflowNotifications',
   MoreOverflowRecommendations: 'MoreOverflowRecommendations',
   MoreOverflowSearch: 'MoreOverflowSearch',
   MorePublicProfile: 'MorePublicProfile',
@@ -290,6 +283,7 @@ export const ROOT_STACK_ROUTES = {
   ImageViewer: 'ImageViewer',
   MakeClip: 'MakeClip',
   MainTabs: 'MainTabs',
+  NotificationsInbox: 'NotificationsInbox',
   V4vInfo: 'V4vInfo',
 } as const;
 
@@ -416,10 +410,6 @@ const recommendationsTabLinkScreens = {
   TrackDetail: `recommendations${APP_ROUTES.TRACK}/:trackId`,
 } as const;
 
-const notificationsTabLinkScreens = {
-  NotificationsInbox: 'notifications',
-} as const;
-
 const searchTabLinkScreens = {
   AddByRssCredentials: 'search/add-by-rss/credentials/:feedIdText',
   AddByRssEpisodeDetail: 'search/add-by-rss/:feedIdText/item/:itemKey',
@@ -438,6 +428,7 @@ const searchTabLinkScreens = {
 
 const mobileNavigationScreens = {
   FullPlayer: 'player',
+  NotificationsInbox: 'notifications',
   V4vInfo: 'v4v',
   MainTabs: {
     screens: {
@@ -451,8 +442,7 @@ const mobileNavigationScreens = {
       More: {
         screens: {
           ...moreTabLinkScreens,
-          // Overflow copies of each content-tab stack. `/notifications` still targets the
-          // Notifications tab.
+          // Overflow copies of each content-tab stack.
           MoreOverflowBrowse: {
             screens: prefixScreenPaths(browseTabLinkScreens, OVERFLOW_LINK_PREFIX),
           },
@@ -461,9 +451,6 @@ const mobileNavigationScreens = {
           },
           MoreOverflowLibrary: {
             screens: prefixScreenPaths(libraryTabLinkScreens, OVERFLOW_LINK_PREFIX),
-          },
-          MoreOverflowNotifications: {
-            screens: prefixScreenPaths(notificationsTabLinkScreens, OVERFLOW_LINK_PREFIX),
           },
           MoreOverflowRecommendations: {
             screens: prefixScreenPaths(recommendationsTabLinkScreens, OVERFLOW_LINK_PREFIX),
@@ -478,9 +465,6 @@ const mobileNavigationScreens = {
       },
       Browse: {
         screens: browseTabLinkScreens,
-      },
-      Notifications: {
-        screens: notificationsTabLinkScreens,
       },
       Recommendations: {
         screens: recommendationsTabLinkScreens,
@@ -600,10 +584,6 @@ export type BrowseStackParamList = ChannelBrowseStackParamList &
     Profile: { accountIdText: string };
   };
 
-export type NotificationsStackParamList = {
-  NotificationsInbox: undefined;
-};
-
 export type MoreStackParamList = {
   MoreAbout: undefined;
   MoreE2ePlayback: undefined;
@@ -615,7 +595,6 @@ export type MoreStackParamList = {
   MoreOverflowBrowse: NavigatorScreenParams<BrowseStackParamList> | undefined;
   MoreOverflowHome: NavigatorScreenParams<HomeStackParamList> | undefined;
   MoreOverflowLibrary: NavigatorScreenParams<LibraryStackParamList> | undefined;
-  MoreOverflowNotifications: NavigatorScreenParams<NotificationsStackParamList> | undefined;
   MoreOverflowRecommendations: NavigatorScreenParams<BrowseStackParamList> | undefined;
   MoreOverflowSearch: NavigatorScreenParams<SearchStackParamList> | undefined;
   MorePublicProfile: { accountIdText: string };
@@ -662,6 +641,7 @@ export type RootStackParamList = {
   // Nested params so the global membership gate/banner (mounted above the navigator) can deep-navigate
   // to More ▸ Membership via `navigateToMembershipScreen()`.
   MainTabs: NavigatorScreenParams<MobileTabParamList> | undefined;
+  NotificationsInbox: undefined;
   V4vInfo: undefined;
 };
 
@@ -670,7 +650,6 @@ export type MobileTabParamList = {
   Home: NavigatorScreenParams<HomeStackParamList> | undefined;
   Search: NavigatorScreenParams<SearchStackParamList> | undefined;
   Browse: NavigatorScreenParams<BrowseStackParamList> | undefined;
-  Notifications: undefined;
   Recommendations: NavigatorScreenParams<BrowseStackParamList> | undefined;
   'My Library': NavigatorScreenParams<LibraryStackParamList> | undefined;
   More: NavigatorScreenParams<MoreStackParamList> | undefined;
@@ -1087,6 +1066,13 @@ export function navigateToImageViewerScreen(params: RootStackParamList['ImageVie
   rootNavigationRef.navigate(ROOT_STACK_ROUTES.ImageViewer, params);
 }
 
+export function navigateToNotificationsInboxScreen(): void {
+  if (!rootNavigationRef.isReady()) {
+    return;
+  }
+  rootNavigationRef.navigate(ROOT_STACK_ROUTES.NotificationsInbox);
+}
+
 function HomeStackNavigator() {
   const { t } = useTranslation();
   const screenOptions = useThemedNativeStackScreenOptions();
@@ -1472,21 +1458,6 @@ function RecommendationsStackNavigator() {
   return <BrowseStackNavigator root="recommendations" />;
 }
 
-function NotificationsStackNavigator() {
-  const { t } = useTranslation();
-  const screenOptions = useThemedNativeStackScreenOptions();
-
-  return (
-    <NotificationsStack.Navigator screenOptions={screenOptions}>
-      <NotificationsStack.Screen
-        component={NotificationsInboxScreen}
-        name={NOTIFICATIONS_STACK_ROUTES.NotificationsInbox}
-        options={{ title: t('nav.tab.notifications') }}
-      />
-    </NotificationsStack.Navigator>
-  );
-}
-
 type MoreStackNavigatorProps = {
   onRequestLogin: () => void;
   onRequestLogout: () => Promise<void>;
@@ -1536,11 +1507,6 @@ function MoreStackNavigator({
       <MoreStack.Screen
         component={BrowseTabStackNavigator}
         name={MORE_STACK_ROUTES.MoreOverflowBrowse}
-        options={moreOverflowScreenOptions}
-      />
-      <MoreStack.Screen
-        component={NotificationsStackNavigator}
-        name={MORE_STACK_ROUTES.MoreOverflowNotifications}
         options={moreOverflowScreenOptions}
       />
       <MoreStack.Screen
@@ -1817,7 +1783,6 @@ function MoreRootScreen({
   const { status } = useAuth();
   const membership = useMembership();
   const { overflowTabIds } = useTabLayout();
-  const notificationsUnreadCount = useNotificationsUnreadCount();
   const isAuthenticated = status === 'authenticated';
 
   const openOverflowTab = (tabId: ContentTabId): void => {
@@ -1831,9 +1796,6 @@ function MoreRootScreen({
       case 'My Library':
         navigation.navigate(MORE_STACK_ROUTES.MoreOverflowLibrary);
         return;
-      case 'Notifications':
-        navigation.navigate(MORE_STACK_ROUTES.MoreOverflowNotifications);
-        return;
       case 'Recommendations':
         navigation.navigate(MORE_STACK_ROUTES.MoreOverflowRecommendations);
         return;
@@ -1844,7 +1806,6 @@ function MoreRootScreen({
   };
 
   const overflowItems: MenuListItem[] = overflowTabIds.map((tabId) => ({
-    badgeCount: tabId === 'Notifications' ? notificationsUnreadCount : undefined,
     onPress: () => {
       openOverflowTab(tabId);
     },
@@ -2023,8 +1984,6 @@ function TabScaffold({
   const overlayHeight = useBottomChromeOverlayInsetSource();
   const { visibleTabIds } = useTabLayout();
   const visibleTabSet = useMemo(() => new Set(visibleTabIds), [visibleTabIds]);
-  const notificationsUnreadCount = useNotificationsUnreadCount();
-  const moreTabBadgeCount = visibleTabSet.has('Notifications') ? 0 : notificationsUnreadCount;
   const inProgressDownloadCount = useInProgressDownloadCount();
   const libraryTabBadgeCount = sumBadgeCounts([inProgressDownloadCount]);
   const insets = useSafeAreaInsets();
@@ -2192,17 +2151,6 @@ function TabScaffold({
         }}
       />
       <Tab.Screen
-        component={NotificationsStackNavigator}
-        name="Notifications"
-        options={{
-          tabBarBadge: notificationsUnreadCount > 0 ? notificationsUnreadCount : undefined,
-          tabBarButton: tabBarButtonFor('Notifications'),
-          tabBarButtonTestID: visibleTabSet.has('Notifications') ? 'tab-notifications' : undefined,
-          tabBarIcon: tabBarIcon('notifications'),
-          tabBarLabel: t('nav.tab.notifications'),
-        }}
-      />
-      <Tab.Screen
         component={RecommendationsStackNavigator}
         name="Recommendations"
         options={{
@@ -2217,7 +2165,6 @@ function TabScaffold({
       <Tab.Screen
         name="More"
         options={{
-          tabBarBadge: moreTabBadgeCount > 0 ? moreTabBadgeCount : undefined,
           tabBarButton: tabBarButtonFor('More'),
           tabBarButtonTestID: 'tab-more',
           tabBarIcon: tabBarIcon('more'),
@@ -2375,6 +2322,11 @@ export function MobileTabNavigator({
         <RootStack.Screen
           component={ImageViewerScreen}
           name={ROOT_STACK_ROUTES.ImageViewer}
+          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+        />
+        <RootStack.Screen
+          component={NotificationsInboxScreen}
+          name={ROOT_STACK_ROUTES.NotificationsInbox}
           options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
         />
       </RootStack.Navigator>

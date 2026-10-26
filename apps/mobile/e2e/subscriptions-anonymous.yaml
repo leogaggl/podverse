@@ -56,9 +56,9 @@ name: Anonymous Subscriptions Persist
     id: podcast-detail-screen
 - takeScreenshot: subscriptions-anonymous-detail-before
 
-# Header actions, signed out: share and the bell are unconditional, so a visitor can pass the show
-# on and can find out what following it would give them. Settings is the gear on the channel
-# header. A row that needs an account explains that on press.
+# Signed out, share stays in the stack title bar and the bell stays on the channel header, so a
+# visitor can pass the show on and can find out what following it would give them. Settings is
+# the gear at the top right of that header. A row that needs an account explains that on press.
 - assertVisible:
     id: podcast-detail-share
 - assertVisible:
@@ -111,7 +111,8 @@ name: Anonymous Subscriptions Persist
 - assertNotVisible:
     id: podcast-detail-settings-auto-download-unavailable
 
-# Notifications need an account, so the bell explains that rather than failing silently or hiding.
+# Notifications need an account, so the channel-header bell explains that rather than failing
+# silently or hiding.
 - tapOn:
     id: podcast-detail-notifications-toggle
 - extendedWaitUntil:

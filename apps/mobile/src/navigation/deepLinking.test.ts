@@ -48,6 +48,12 @@ describe('mapIncomingPathToScopedPath', () => {
     );
   });
 
+  it('maps notification paths to the inbox path', () => {
+    expect(mapIncomingPathToScopedPath('/notifications')).toBe('/notifications');
+    expect(mapIncomingPathToScopedPath('/notifications/anything')).toBe('/notifications');
+    expect(mapIncomingPathToScopedPath('podverse-next://notifications')).toBe('/notifications');
+  });
+
   it('keeps nav-scoped paths unchanged', () => {
     expect(mapIncomingPathToScopedPath(`/more${APP_ROUTES.SETTINGS}`)).toBe(
       `/more${APP_ROUTES.SETTINGS}`
