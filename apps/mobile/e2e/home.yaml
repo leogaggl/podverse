@@ -29,9 +29,10 @@ name: Home Media Types
 - takeScreenshot: home-media-type-podcasts
 
 # Home's sort chip trails the media-type row when the type can sort. Type chips stay in place.
-# The face shows the current order; the caret opens
-# A-Z, Recent, and Popularity. Popularity opens a second sheet for the listen-count window, and
-# the chip then shows that window. A-Z is the default. There is no Categories chip here.
+# The face shows the current order. Podcasts, Episodes, Artists, Albums, and Tracks offer A-Z,
+# Recent, and Popularity, and A-Z is the default. Clips offers Recent and Popularity. Popularity
+# opens a second sheet for the listen-count window, and the chip then shows that window. There
+# is no Categories chip here.
 # The chip starts past the trailing edge of the phone row, so scroll it into view first.
 - runFlow:
     file: shared/reveal-chip-row-trailing.yaml
@@ -183,19 +184,26 @@ name: Home Media Types
 # The Filter input sits above the list.
 - assertVisible:
     id: home-filter-input
+- assertNotVisible:
+    id: home-filter-clear
 - tapOn:
     id: home-filter-input
 - inputText: "seed"
+- assertVisible:
+    id: home-filter-clear
 - assertVisible:
     id: home-feed-row-e2ePodChnl001
 - assertNotVisible:
     id: home-list-no-filter-matches
 - tapOn:
     id: home-filter-clear
+- assertNotVisible:
+    id: home-filter-clear
 
 # Episodes
-# iOS can consume the first control tap to dismiss the focused filter keyboard. Selecting the same
-# media type twice is idempotent, so the second tap completes the transition in either state.
+# The X leaves the filter focused and the keyboard up. iOS consumes the first tap
+# on the Episodes chip to dismiss that keyboard. The second tap selects Episodes.
+# Selecting the same media type twice is idempotent.
 - tapOn:
     id: home-media-type-episodes
 - tapOn:
@@ -255,6 +263,71 @@ name: Home Media Types
 - assertNotVisible:
     id: home-list-empty-search
 - takeScreenshot: home-media-type-clips
+
+# Clips sorts by Recent or Popularity and opens on Recent. It never offers A-Z.
+- runFlow:
+    file: shared/reveal-chip-row-trailing.yaml
+    env:
+      CHIP_ROW_ID: home-media-type-selector
+      TRAILING_ID: home-sort-button
+- assertVisible:
+    id: home-sort-button
+- assertVisible: "Sort: Recent"
+# The sort chip counts as visible while its center is still past the trailing edge, so a tap
+# there never opens the sheet.
+- swipe:
+    from:
+      id: home-media-type-selector
+    direction: LEFT
+- tapOn:
+    id: home-sort-button
+- assertVisible:
+    id: home-sort-menu
+- assertVisible:
+    id: home-sort-recent
+- assertVisible:
+    id: home-sort-popularity
+- assertNotVisible:
+    id: home-sort-alphabetical
+- takeScreenshot: home-sort-clips
+- tapOn:
+    id: home-sort-menu-cancel
+# Changing the Clips order fetches the first page again right away. The old rows leave on the tap
+# and the list reads back the new page.
+- tapOn:
+    id: home-sort-button
+- tapOn:
+    id: home-sort-popularity
+- extendedWaitUntil:
+    visible:
+      id: home-sort-range-menu
+    timeout: ${TIMEOUT_FAST}
+- tapOn:
+    id: home-sort-range-week
+- assertVisible: "Sort: Week"
+- extendedWaitUntil:
+    notVisible:
+      id: home-feed-loading
+    timeout: ${TIMEOUT_SLOW}
+- assertNotVisible:
+    id: home-list-error
+- takeScreenshot: home-clips-sort-popularity
+- tapOn:
+    id: home-sort-button
+- tapOn:
+    id: home-sort-recent
+- assertVisible: "Sort: Recent"
+- extendedWaitUntil:
+    visible:
+      id: home-feed-row-e2eClip00000001
+    timeout: ${TIMEOUT_SLOW}
+- assertNotVisible:
+    id: home-list-error
+- takeScreenshot: home-clips-sort-recent
+- runFlow:
+    file: shared/restore-chip-row-start.yaml
+    env:
+      CHIP_ROW_ID: home-media-type-selector
 
 # Artists is the next chip and sits just off the trailing edge on a phone.
 - swipe:
@@ -372,6 +445,10 @@ name: Home Media Types
     visible:
       text: "E2E Livestream Item"
     timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    id: home-feed-row-live-e2eLiveStrm01
+    rightOf:
+      id: home-row-play-e2eLiveStrm01
 - assertNotVisible:
     id: home-sort-button
 - assertNotVisible:

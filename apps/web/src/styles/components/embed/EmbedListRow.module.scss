@@ -18,7 +18,8 @@
 }
 
 .rowActive .title,
-.rowActive .meta {
+.rowActive .meta,
+.rowActive .metaLive {
   color: var(--text-color-highlighted);
 }
 
@@ -70,6 +71,24 @@
   font-size: var(--font-size-xs);
   max-width: 100%;
   min-height: var(--embed-meta-line-min-height);
+}
+
+.metaLive {
+  align-items: center;
+  display: flex;
+  font-size: var(--font-size-xs);
+  gap: var(--spacing-xs);
+  max-width: 100%;
+  min-height: var(--embed-meta-line-min-height);
+  min-width: 0;
+}
+
+.metaText {
+  @include ellipsisSingleLineChild;
+
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .groupTitle {

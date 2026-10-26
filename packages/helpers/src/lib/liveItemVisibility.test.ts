@@ -5,9 +5,12 @@ import {
   compareChannelLiveItems,
   compareUpcomingLiveItems,
   getEndedLiveItemVisibilityCutoff,
+  getPendingLiveItemVisibilityCutoff,
   isLiveItemEndedAndStale,
+  isPendingLiveItemStale,
   isUpcomingLiveItemStatus,
   LIVE_ITEM_ENDED_VISIBILITY_MAX_AGE_MS,
+  LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS,
 } from './liveItemVisibility.js';
 
 const NOW = new Date('2026-06-13T12:00:00.000Z');
@@ -104,7 +107,78 @@ describe('isLiveItemEndedAndStale', () => {
   });
 });
 
+describe('LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS', () => {
+  it('is exactly one day in milliseconds', () => {
+    expect(LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS).toBe(ONE_DAY_MS);
+  });
+});
+
+describe('getPendingLiveItemVisibilityCutoff', () => {
+  it('returns now minus one day', () => {
+    const cutoff = getPendingLiveItemVisibilityCutoff(NOW);
+    expect(cutoff.getTime()).toBe(NOW.getTime() - ONE_DAY_MS);
+  });
+});
+
+describe('isPendingLiveItemStale', () => {
+  const cutoffMs = NOW.getTime() - ONE_DAY_MS;
+
+  it('is true for a scheduled item that starts one millisecond before the cutoff', () => {
+    expect(
+      isPendingLiveItemStale(
+        { statusId: LiveItemStatusEnum.Pending, startTimeMs: cutoffMs - 1 },
+        NOW
+      )
+    ).toBe(true);
+  });
+
+  it('is false for a scheduled item that starts exactly at the cutoff', () => {
+    expect(
+      isPendingLiveItemStale({ statusId: LiveItemStatusEnum.Pending, startTimeMs: cutoffMs }, NOW)
+    ).toBe(false);
+  });
+
+  it('is false for a scheduled item that starts in the future', () => {
+    expect(
+      isPendingLiveItemStale(
+        { statusId: LiveItemStatusEnum.Pending, startTimeMs: NOW.getTime() + ONE_DAY_MS },
+        NOW
+      )
+    ).toBe(false);
+  });
+
+  it('is false for live and ended items at any age', () => {
+    const longAgo = NOW.getTime() - 10 * ONE_DAY_MS;
+    expect(
+      isPendingLiveItemStale({ statusId: LiveItemStatusEnum.Live, startTimeMs: longAgo }, NOW)
+    ).toBe(false);
+    expect(
+      isPendingLiveItemStale({ statusId: LiveItemStatusEnum.Ended, startTimeMs: longAgo }, NOW)
+    ).toBe(false);
+  });
+
+  it('is false for a scheduled item with no start time', () => {
+    expect(
+      isPendingLiveItemStale({ statusId: LiveItemStatusEnum.Pending, startTimeMs: null }, NOW)
+    ).toBe(false);
+  });
+});
+
 describe('compareUpcomingLiveItems', () => {
+  it('sorts two live items with the latest start first', () => {
+    const liveEarlier = { statusId: LiveItemStatusEnum.Live, startTimeMs: 1_000 };
+    const liveLater = { statusId: LiveItemStatusEnum.Live, startTimeMs: 3_000 };
+    expect(compareUpcomingLiveItems(liveLater, liveEarlier)).toBeLessThan(0);
+    expect(compareUpcomingLiveItems(liveEarlier, liveLater)).toBeGreaterThan(0);
+  });
+
+  it('sorts a live item with no start after a dated live item', () => {
+    const dated = { statusId: LiveItemStatusEnum.Live, startTimeMs: 1_000 };
+    const missing = { statusId: LiveItemStatusEnum.Live, startTimeMs: null };
+    expect(compareUpcomingLiveItems(missing, dated)).toBeGreaterThan(0);
+    expect(compareUpcomingLiveItems(dated, missing)).toBeLessThan(0);
+  });
+
   it('sorts a live item before a scheduled item even when the live item starts later', () => {
     const liveLater = { statusId: LiveItemStatusEnum.Live, startTimeMs: 2_000 };
     const scheduledEarlier = { statusId: LiveItemStatusEnum.Pending, startTimeMs: 1_000 };
@@ -159,6 +233,21 @@ describe('compareChannelLiveItems', () => {
       statusId: LiveItemStatusEnum.Ended,
     };
     expect(compareChannelLiveItems(endedLaterEnd, endedEarlierEnd)).toBeLessThan(0);
+  });
+
+  it('puts the soonest scheduled start first', () => {
+    const scheduledSooner = {
+      endTimeMs: null,
+      startTimeMs: 2_000,
+      statusId: LiveItemStatusEnum.Pending,
+    };
+    const scheduledLater = {
+      endTimeMs: null,
+      startTimeMs: 6_000,
+      statusId: LiveItemStatusEnum.Pending,
+    };
+    expect(compareChannelLiveItems(scheduledSooner, scheduledLater)).toBeLessThan(0);
+    expect(compareChannelLiveItems(scheduledLater, scheduledSooner)).toBeGreaterThan(0);
   });
 
   it('puts a missing start or end after a dated item of that status', () => {

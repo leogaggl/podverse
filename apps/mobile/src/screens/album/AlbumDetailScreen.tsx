@@ -29,17 +29,23 @@ import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
 import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { channelItemsRepository } from '../../data/repositories/channelItemsRepository';
 import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChromeFlagsRepository';
 import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscriptionsMerge';
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { useChannelNotifications } from '../../hooks/useChannelNotifications';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
-import { toChannelLiveRow } from '../../lib/rows/liveItemRows';
+import {
+  canLoadNextPage,
+  LIST_END_REACHED_THRESHOLD,
+  listResponseHasMore,
+} from '../../lib/pagination/pagedList';
 import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
@@ -69,11 +75,11 @@ import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from '../home/homeFeedData';
-import { mapItemToHomeFeedRow } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { channelHasFunding, channelHasPeople, channelHasPodroll } from '../podcast/podcastSections';
+import { isAlbumLivestreamRow, toAlbumTrackRows } from './albumTrackRows';
 
 type AlbumDetailScreenProps = NativeStackScreenProps<ChannelBrowseStackParamList, 'AlbumDetail'>;
 
@@ -98,23 +104,44 @@ const createContentListRowStyles = ({ styles: themeStyles }: ThemedStylesTheme) 
   },
 });
 
+/** An album track, or a livestream on the same row a podcast's livestream uses. */
 function AlbumTrackRow({
   index,
   onGoToChannel,
   onGoToTrack,
+  onOpenLivestream,
   onPlay,
   onQueue,
+  onShareLivestream,
   row,
   track,
 }: {
   index: number;
   onGoToChannel: (row: HomeFeedRowData) => void;
   onGoToTrack: (row: HomeFeedRowData) => void;
+  onOpenLivestream: (row: HomeFeedRowData) => void;
   onPlay: (row: HomeFeedRowData) => void;
   onQueue: (row: HomeFeedRowData, position: QueueActionPosition) => void;
+  onShareLivestream: (row: HomeFeedRowData) => void;
   row: HomeFeedRowData;
   track: DTOItem | undefined;
 }) {
+  if (isAlbumLivestreamRow(row)) {
+    return (
+      <HomeFeedRow
+        downloadItem={track}
+        downloadTestID={`album-track-download-${index}`}
+        mediaType="episodes"
+        onPlayPress={onPlay}
+        onPress={onOpenLivestream}
+        onSharePress={onShareLivestream}
+        row={row}
+        showChannelContext={false}
+        testID={`album-livestream-row-${index}`}
+      />
+    );
+  }
+
   return (
     <HomeFeedRow
       downloadItem={track}
@@ -177,25 +204,6 @@ const RANGE_LABEL_KEYS: Record<AlbumDetailRange, string> = {
   day: 'filters.range.day',
   month: 'filters.range.month',
   week: 'filters.range.week',
-};
-
-const toTrackRows = (
-  items: DTOItem[],
-  albumId: string,
-  albumTitle: string | null
-): HomeFeedRowData[] => {
-  return items
-    .map((item) => {
-      const compact = mapItemToHomeFeedRow(item, { compact: true });
-      const base = {
-        ...compact,
-        channelId: compact.channelId ?? albumId,
-        channelKind: compact.channelKind ?? 'albums',
-        subtitle: albumTitle,
-      };
-      return item.live_item ? toChannelLiveRow(base, item.live_item.live_item_status_id) : base;
-    })
-    .filter((row) => row.id.length > 0);
 };
 
 const toPodrollEntries = (response: RemoteItemsResponse): PodrollEntry[] => {
@@ -289,6 +297,9 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const [sort, setSort] = useState<AlbumTrackSort>(DEFAULT_ALBUM_TRACK_SORT);
   const [range, setRange] = useState<AlbumDetailRange>(DEFAULT_ALBUM_DETAIL_RANGE);
   const [trackRows, setTrackRows] = useState<HomeFeedRowData[]>([]);
+  const [tracksHasMore, setTracksHasMore] = useState<boolean>(false);
+  const [isTracksLoadingMore, setIsTracksLoadingMore] = useState<boolean>(false);
+  const [tracksLoadMoreErrorKey, setTracksLoadMoreErrorKey] = useState<string | null>(null);
   const [tracksById, setTracksById] = useState<Map<string, DTOItem>>(new Map());
   const [trackErrorKey, setTrackErrorKey] = useState<string | null>(null);
   const [isTracksLoading, setIsTracksLoading] = useState<boolean>(true);
@@ -298,6 +309,9 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   const [isPodrollLoading, setIsPodrollLoading] = useState<boolean>(false);
   const [isPodrollRefreshing, setIsPodrollRefreshing] = useState<boolean>(false);
   const channelTitleRef = useRef<string | null>(null);
+  const trackItemsRef = useRef<DTOItem[]>([]);
+  const tracksPageRef = useRef<number>(FIRST_PAGE);
+  const tracksGenerationRef = useRef<number>(0);
   channelTitleRef.current = channel?.title ?? channelTitleRef.current;
 
   const notifications = useChannelNotifications({
@@ -464,6 +478,10 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
 
   const loadTracks = useCallback(
     async ({ source }: { source: 'initial' | 'refresh' | 'retry' }): Promise<void> => {
+      tracksGenerationRef.current += 1;
+      const generation = tracksGenerationRef.current;
+      setIsTracksLoadingMore(false);
+      setTracksLoadMoreErrorKey(null);
       if (source === 'refresh') {
         setIsTracksRefreshing(true);
       } else {
@@ -472,8 +490,13 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       setTrackErrorKey(null);
       try {
         const storedItems = await readStoredTracks();
+        if (generation !== tracksGenerationRef.current) {
+          return;
+        }
         if (offlineModeEnabled) {
-          setTrackRows(toTrackRows(storedItems, albumId, channelTitleRef.current));
+          trackItemsRef.current = storedItems;
+          setTracksHasMore(false);
+          setTrackRows(toAlbumTrackRows(storedItems, albumId, channelTitleRef.current));
           setTracksById(new Map(storedItems.map((item) => [item.id_text, item])));
           return;
         }
@@ -490,19 +513,86 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
           api.reqLiveItemGetManyByChannel(albumId)
         );
         const merged = removeDuplicateItems([...liveItems, ...seasonResponse.data]);
-        setTrackRows(toTrackRows(merged, albumId, channelTitleRef.current));
+        if (generation !== tracksGenerationRef.current) {
+          return;
+        }
+        trackItemsRef.current = merged;
+        tracksPageRef.current = FIRST_PAGE;
+        setTracksHasMore(listResponseHasMore(seasonResponse.meta, seasonResponse.data.length));
+        setTrackRows(toAlbumTrackRows(merged, albumId, channelTitleRef.current));
         setTracksById(new Map(merged.map((item) => [item.id_text, item])));
       } catch {
+        if (generation !== tracksGenerationRef.current) {
+          return;
+        }
         setTrackErrorKey('errors.generic');
         setTrackRows([]);
         setTracksById(new Map());
+        trackItemsRef.current = [];
+        setTracksHasMore(false);
       } finally {
-        setIsTracksRefreshing(false);
-        setIsTracksLoading(false);
+        if (generation === tracksGenerationRef.current) {
+          setIsTracksRefreshing(false);
+          setIsTracksLoading(false);
+        }
       }
     },
     [albumId, authContext, offlineModeEnabled, range, readStoredTracks, sort]
   );
+
+  const loadNextTracksPage = useCallback(async (): Promise<void> => {
+    if (offlineModeEnabled) {
+      return;
+    }
+    const generation = tracksGenerationRef.current;
+    const nextPage = tracksPageRef.current + 1;
+    setIsTracksLoadingMore(true);
+    setTracksLoadMoreErrorKey(null);
+    try {
+      const response = await requestWithMobileAuthRefresh(authContext, async (api) =>
+        api.reqItemGetManyByChannelBySeason({
+          idOrIdText: albumId,
+          page: nextPage,
+          range: sort === 'top' ? range : null,
+          sort,
+        })
+      );
+      if (generation !== tracksGenerationRef.current) {
+        return;
+      }
+      const joined = removeDuplicateItems([...trackItemsRef.current, ...response.data]);
+      trackItemsRef.current = joined;
+      tracksPageRef.current = nextPage;
+      setTrackRows(toAlbumTrackRows(joined, albumId, channelTitleRef.current));
+      setTracksById(new Map(joined.map((item) => [item.id_text, item])));
+      setTracksHasMore(listResponseHasMore(response.meta, response.data.length));
+    } catch {
+      if (generation !== tracksGenerationRef.current) {
+        return;
+      }
+      setTracksLoadMoreErrorKey('errors.generic');
+    } finally {
+      if (generation === tracksGenerationRef.current) {
+        setIsTracksLoadingMore(false);
+      }
+    }
+  }, [albumId, authContext, offlineModeEnabled, range, sort]);
+
+  const handleTracksEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      !offlineModeEnabled &&
+      canLoadNextPage({
+        hasError: trackErrorKey !== null || tracksLoadMoreErrorKey !== null,
+        hasMore: tracksHasMore,
+        isLoading: isTracksLoading || isTracksRefreshing,
+        isLoadingMore: isTracksLoadingMore,
+      }),
+    loadMore: loadNextTracksPage,
+  });
+
+  const handleRetryTracksPage = useCallback(() => {
+    void loadNextTracksPage();
+  }, [loadNextTracksPage]);
 
   useEffect(() => {
     if (!isSectionHydrated || section !== 'tracks') {
@@ -725,18 +815,6 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
             />
           ) : null}
           <HeaderBarAction
-            accessibilityLabel={t(
-              notificationsEnabled
-                ? 'features.notifications.disable_notifications_for_this_album'
-                : 'features.notifications.enable_notifications_for_this_album'
-            )}
-            icon={notificationsEnabled ? 'notifications' : 'notifications-off-outline'}
-            onPress={() => {
-              void toggleNotifications();
-            }}
-            testID="album-detail-notifications-toggle"
-          />
-          <HeaderBarAction
             accessibilityLabel={t('features.share')}
             icon="share-outline"
             onPress={handleShare}
@@ -745,17 +823,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         </HeaderBarActions>
       ),
     });
-  }, [
-    canShowBoost,
-    channel,
-    handleShare,
-    navigation,
-    notificationsEnabled,
-    openBoost,
-    t,
-    tokens.text.warning,
-    toggleNotifications,
-  ]);
+  }, [canShowBoost, channel, handleShare, navigation, openBoost, t, tokens.text.warning]);
 
   const handleGoToChannel = useCallback(
     (nextRow: HomeFeedRowData) => {
@@ -796,6 +864,17 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     },
     [navigation]
   );
+
+  const handleOpenLivestream = useCallback(
+    (nextRow: HomeFeedRowData) => {
+      navigation.navigate(CHANNEL_BROWSE_STACK_ROUTES.EpisodeDetail, { episodeId: nextRow.id });
+    },
+    [navigation]
+  );
+
+  const handleShareLivestream = useCallback((nextRow: HomeFeedRowData) => {
+    shareResolvedUrl(buildPublicShareUrl('episode', nextRow.id));
+  }, []);
 
   const handlePlayTrack = useCallback(
     (nextRow: HomeFeedRowData) => {
@@ -870,9 +949,30 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
   );
 
   const tracksFooter = useMemo(
-    () =>
-      playbackNoticeKey !== null ? <Text style={styles.notice}>{t(playbackNoticeKey)}</Text> : null,
-    [playbackNoticeKey, styles.notice, t]
+    () => (
+      <>
+        {isTracksLoadingMore ? (
+          <ListLoading testID="album-detail-track-loading-more" />
+        ) : tracksLoadMoreErrorKey !== null ? (
+          <ListError
+            messageKey={tracksLoadMoreErrorKey}
+            onRetry={handleRetryTracksPage}
+            testID="album-detail-track-load-more-error"
+          />
+        ) : null}
+        {playbackNoticeKey !== null ? (
+          <Text style={styles.notice}>{t(playbackNoticeKey)}</Text>
+        ) : null}
+      </>
+    ),
+    [
+      handleRetryTracksPage,
+      isTracksLoadingMore,
+      playbackNoticeKey,
+      styles.notice,
+      t,
+      tracksLoadMoreErrorKey,
+    ]
   );
 
   const tracksRefreshControl = useMemo(
@@ -892,13 +992,23 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         index={index}
         onGoToChannel={handleGoToChannel}
         onGoToTrack={handleGoToTrack}
+        onOpenLivestream={handleOpenLivestream}
         onPlay={handlePlayTrack}
         onQueue={handleQueueTrack}
+        onShareLivestream={handleShareLivestream}
         row={row}
         track={tracksById.get(row.id)}
       />
     ),
-    [handleGoToChannel, handleGoToTrack, handlePlayTrack, handleQueueTrack, tracksById]
+    [
+      handleGoToChannel,
+      handleGoToTrack,
+      handleOpenLivestream,
+      handlePlayTrack,
+      handleQueueTrack,
+      handleShareLivestream,
+      tracksById,
+    ]
   );
 
   const podrollEmpty = useMemo(
@@ -955,6 +1065,18 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       }
       artworkUri={channelArtworkUri}
       notice={subscriptionNoticeKey === null ? null : t(subscriptionNoticeKey)}
+      notifications={{
+        accessibilityLabel: t(
+          notificationsEnabled
+            ? 'features.notifications.disable_notifications_for_this_album'
+            : 'features.notifications.enable_notifications_for_this_album'
+        ),
+        enabled: notificationsEnabled,
+        onPress: () => {
+          void toggleNotifications();
+        },
+        testID: 'album-detail-notifications-toggle',
+      }}
       settings={{
         accessibilityLabel: t('settings.settings'),
         onPress: handleSettingsPress,
@@ -974,6 +1096,8 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       contentContainerStyle={styles.listContent}
       data={trackRows}
       keyExtractor={albumTrackKeyExtractor}
+      onEndReached={handleTracksEndReached}
+      onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
       refreshControl={tracksRefreshControl}
       renderItem={renderTrackItem}
       style={styles.list}

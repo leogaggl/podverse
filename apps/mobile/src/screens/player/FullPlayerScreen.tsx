@@ -77,6 +77,7 @@ import { HEADER_BAR_HEIGHT } from '../../components/screen/HeaderBar';
 import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { getMobileConfig } from '../../config';
 import { useAutoQueue } from '../../contexts/AutoQueueProvider';
@@ -87,6 +88,7 @@ import { subscriptionsRepository } from '../../data/repositories/subscriptionsRe
 import { useActionError } from '../../feedback/ActionErrorProvider';
 import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
 import { useItemDescription } from '../../hooks/useItemDescription';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueMutations } from '../../hooks/useQueueMutations';
 import { useQueueResources } from '../../hooks/useQueueResources';
@@ -99,6 +101,7 @@ import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
 } from '../../lib/offlineModeViews';
+import { canLoadNextPage, LIST_END_REACHED_THRESHOLD } from '../../lib/pagination/pagedList';
 import { playbackTargetRowMediaId } from '../../lib/playback/buildPlaybackTarget';
 import { isMusicPlaybackTarget } from '../../lib/playback/engineAudioProfile';
 import type { LineArtist } from '../../lib/playback/lineArtist';
@@ -594,6 +597,7 @@ export function FullPlayerScreen({
     activeTab,
     chapterRows,
     clipHasMore,
+    clipLoadMoreErrorKey,
     clipRows,
     clipSort,
     isLoadingMoreClips,
@@ -637,6 +641,22 @@ export function FullPlayerScreen({
           offlineModeEnabled,
           snapshot: addByRssSections,
         });
+  const handleClipsEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      activeTab === 'clips' &&
+      addByRssPaneState === null &&
+      !offlineModeEnabled &&
+      canLoadNextPage({
+        hasError: tabErrorKey !== null || clipLoadMoreErrorKey !== null,
+        hasMore: clipHasMore,
+        isLoading: isTabLoading,
+        isLoadingMore: isLoadingMoreClips,
+      }),
+    loadMore: loadMoreClips,
+  });
+  const handleRetryClipsPage = useCallback(() => {
+    void loadMoreClips();
+  }, [loadMoreClips]);
   const addByRssSummary = useMemo(
     () => addByRssPaneSummary(addByRssSource?.itemBundle ?? null),
     [addByRssSource]
@@ -875,14 +895,6 @@ export function FullPlayerScreen({
           flex: 1,
           minHeight: 0,
           paddingVertical: tokens.spacing.base,
-        },
-        loadMore: {
-          marginTop: tokens.spacing.md,
-        },
-        loadMoreLabel: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 14,
-          fontWeight: '600',
         },
         outerScroll: {
           flex: 1,
@@ -1480,23 +1492,22 @@ export function FullPlayerScreen({
           </View>
         </View>
       );
-    } else if (body === null && activeTab === 'clips' && clipHasMore) {
+    } else if (body === null && activeTab === 'clips' && isLoadingMoreClips) {
       body = (
         <View style={styles.pane}>
           <View style={styles.column}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                void loadMoreClips();
-              }}
-              style={styles.loadMore}
-              testID="full-player-clip-load-more"
-            >
-              <Text style={styles.loadMoreLabel}>
-                {isLoadingMoreClips ? t('misc.loading') : t('info.show_more')}
-              </Text>
-            </Pressable>
+            <ListLoading testID="full-player-clip-loading-more" />
           </View>
+        </View>
+      );
+    } else if (body === null && activeTab === 'clips' && clipLoadMoreErrorKey !== null) {
+      body = (
+        <View style={styles.paneError}>
+          <ListError
+            messageKey={clipLoadMoreErrorKey}
+            onRetry={handleRetryClipsPage}
+            testID="full-player-clip-load-more-error"
+          />
         </View>
       );
     }
@@ -1511,15 +1522,15 @@ export function FullPlayerScreen({
     addByRssSummary.html,
     addByRssSummary.truncation,
     chapterRows.length,
-    clipHasMore,
+    clipLoadMoreErrorKey,
     clipRows.length,
     currentItem,
     handleAddByRssDescriptionClock,
+    handleRetryClipsPage,
     hasSections,
     isLoadingMoreClips,
     isPrefsHydrated,
     isTabLoading,
-    loadMoreClips,
     loadTab,
     offlineModeEnabled,
     onDescriptionClock,
@@ -1531,8 +1542,6 @@ export function FullPlayerScreen({
     soundbiteRows.length,
     styles.actionNotice,
     styles.column,
-    styles.loadMore,
-    styles.loadMoreLabel,
     styles.pane,
     styles.paneError,
     styles.paneProse,
@@ -1831,6 +1840,8 @@ export function FullPlayerScreen({
                   extraData={paneListExtraData}
                   keyExtractor={(row) => row.id}
                   nestedScrollEnabled
+                  onEndReached={activeTab === 'clips' ? handleClipsEndReached : undefined}
+                  onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
                   overScrollMode="never"
                   ref={paneListRef}
                   removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}

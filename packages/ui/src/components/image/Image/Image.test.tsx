@@ -6,7 +6,10 @@ vi.mock('next/image', () => ({
   default: function MockNextImage(props: {
     alt: string;
     className?: string;
+    decoding?: string;
+    loading?: string;
     onError?: () => void;
+    priority?: boolean;
     src: string;
     unoptimized?: boolean;
   }) {
@@ -14,6 +17,9 @@ vi.mock('next/image', () => ({
       <img
         alt={props.alt}
         className={props.className}
+        data-decoding={props.decoding}
+        data-loading={props.loading}
+        data-priority={props.priority === true ? 'true' : 'false'}
         data-testid="next-image"
         data-unoptimized={props.unoptimized === true ? 'true' : 'false'}
         onError={props.onError}
@@ -88,6 +94,27 @@ describe('Image', () => {
     expect(screen.getByTestId('next-image').getAttribute('src')).toBe(
       'https://cdn.example.com/a.jpg'
     );
+  });
+
+  it('loads remote artwork lazily and decodes it asynchronously when priority is not set', () => {
+    renderWithRuntime(
+      <Image alt="Episode" height={64} src="https://cdn.example.com/a.gif" width={64} />
+    );
+
+    const image = screen.getByTestId('next-image');
+    expect(image.getAttribute('data-loading')).toBe('lazy');
+    expect(image.getAttribute('data-decoding')).toBe('async');
+  });
+
+  it('does not ask for lazy loading when priority is set', () => {
+    renderWithRuntime(
+      <Image alt="Episode" height={64} priority src="https://cdn.example.com/a.gif" width={64} />
+    );
+
+    const image = screen.getByTestId('next-image');
+    expect(image.getAttribute('data-priority')).toBe('true');
+    expect(image.getAttribute('data-loading')).toBeNull();
+    expect(image.getAttribute('data-decoding')).toBe('async');
   });
 
   it('sets unoptimized when Next image optimization is disabled in runtime', () => {

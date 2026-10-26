@@ -5,6 +5,7 @@ import { useCallback, useMemo } from 'react';
 import type { DTOClip } from '@podverse/helpers';
 import type { ApiRequestService } from '@podverse/helpers-requests';
 
+import { listResponseHasMore } from '../../../lib/pagination/pagedList';
 import { clipToHomeRow } from '../../../lib/rows/homeRowMappers';
 import type { ChannelBrowseStackParamList } from '../../../navigation';
 import { CHANNEL_BROWSE_STACK_ROUTES } from '../../../navigation';
@@ -15,7 +16,7 @@ import { useHomeRowPlayback } from '../../home/useHomeRowPlayback';
 import { PodcastSectionList } from './PodcastSectionList';
 import type { PodcastSectionPaneProps } from './podcastSectionPane';
 import type { PodcastSectionPage } from './usePodcastSectionRows';
-import { sectionResponseHasMore, usePodcastSectionRows } from './usePodcastSectionRows';
+import { usePodcastSectionRows } from './usePodcastSectionRows';
 
 const clipRowKeyExtractor = (row: HomeFeedRowData): string => row.id;
 
@@ -50,7 +51,7 @@ export function PodcastClipsSection({
       });
 
       return {
-        hasMore: sectionResponseHasMore(response.meta, response.data.length),
+        hasMore: listResponseHasMore(response.meta, response.data.length),
         rows: response.data,
       };
     },

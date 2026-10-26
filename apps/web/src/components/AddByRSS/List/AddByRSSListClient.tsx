@@ -35,9 +35,9 @@ import type {
   AddByRSSParsedFeed,
   AddByRSSResourceType,
 } from '../../../utils/addByRSS/types';
-import { WebLoadingSpinnerOverlay } from '../../LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../Main/MainWrapper';
 import type { MediaListChipsConfig } from '../../MediaListChips/MediaListChips';
+import { MediaListLoadingSpinner } from '../../MediaListChips/MediaListLoadingSpinner';
 import { NoResults } from '../../NoResults/NoResults';
 import { dismissToast, showToast, showToastLoading } from '../../Toast/Toast';
 import { AddByRSSArtistNodes } from '../Artist/AddByRSSArtistNodes';
@@ -382,7 +382,7 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
             )}
 
             {isLoading && !isUpdating ? (
-              <WebLoadingSpinnerOverlay isLoading />
+              <MediaListLoadingSpinner />
             ) : readyFeeds.length === 0 &&
               (!showsNeedsCredentialsSection || needsCredentials.length === 0) ? (
               <NoResults

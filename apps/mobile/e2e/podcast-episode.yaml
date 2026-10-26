@@ -179,7 +179,8 @@ name: Podcast Episode Flow
       - assertVisible:
           id: "podcast-detail-funding-link-.*"
 
-# Boost opens from the gold donate icon left of the notification bell when the channel is eligible.
+# Boost opens from the gold donate icon in the stack title bar when the channel is eligible.
+# The notification bell is the trailing control on the channel header.
 - runFlow:
     when:
       visible:
@@ -257,7 +258,8 @@ name: Podcast Episode Flow
     timeout: ${TIMEOUT_FASTER}
 
 # --- Header actions and podcast settings, signed in ---
-# Share and the bell stay in the stack title bar. Settings is the gear on the channel header.
+# Share stays in the stack title bar. The bell is the trailing control on the channel header
+# action row, to the right of Subscribe. Settings is the gear at the top right of that header.
 - assertVisible:
     id: podcast-detail-share
 - assertVisible:
@@ -318,8 +320,8 @@ name: Podcast Episode Flow
     id: podcast-detail-settings-notifications-error
 - takeScreenshot: podcast-settings-notifications-on
 
-# The header bell and these switches read the same account row, so turning it off from the header
-# hides the type rows rather than leaving the two disagreeing.
+# The channel-header bell and these switches read the same account row, so turning it off from
+# that bell hides the type rows rather than leaving the two disagreeing.
 - tapOn:
     id: podcast-detail-notifications-toggle
 - extendedWaitUntil:

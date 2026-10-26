@@ -19,7 +19,7 @@ import {
 
 const MOBILE_MORE_TAB_PATH = '/more';
 const MOBILE_LIBRARY_TAB_PATH = '/my-library';
-const MOBILE_NOTIFICATIONS_TAB_PATH = '/notifications';
+const MOBILE_NOTIFICATIONS_PATH = '/notifications';
 const MOBILE_SEARCH_TAB_PATH = '/search';
 const MOBILE_MORE_TAB_SEGMENT = MOBILE_MORE_TAB_PATH.slice(1);
 const MOBILE_LIBRARY_TAB_SEGMENT = MOBILE_LIBRARY_TAB_PATH.slice(1);
@@ -28,7 +28,7 @@ const NAV_SCOPED_PREFIXES = [
   MOBILE_HOME_TAB_PATH,
   MOBILE_MORE_TAB_PATH,
   MOBILE_LIBRARY_TAB_PATH,
-  MOBILE_NOTIFICATIONS_TAB_PATH,
+  MOBILE_NOTIFICATIONS_PATH,
   MOBILE_SEARCH_TAB_PATH,
 ];
 
@@ -96,7 +96,7 @@ export const mapIncomingPathToScopedPath = (input: string): string => {
   }
 
   if (segments.length >= 1 && segments[0] === 'notifications') {
-    return MOBILE_NOTIFICATIONS_TAB_PATH;
+    return MOBILE_NOTIFICATIONS_PATH;
   }
 
   if (

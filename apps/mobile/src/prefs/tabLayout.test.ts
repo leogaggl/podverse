@@ -27,17 +27,19 @@ describe('tabLayout', () => {
   });
 
   it('keeps a valid unique order and drops unknown ids', () => {
-    expect(parseVisibleTabs('["Notifications","Home","Browse","Search","My Library"]')).toEqual([
-      'Notifications',
+    expect(parseVisibleTabs('["Recommendations","Home","Browse","Search","My Library"]')).toEqual([
+      'Recommendations',
       'Home',
       'Browse',
       'Search',
     ]);
+    expect(parseVisibleTabs('["Home","Notifications","Search"]')).toEqual(['Home', 'Search']);
+    expect(parseVisibleTabs('["Notifications"]')).toEqual([...DEFAULT_VISIBLE_TABS]);
     expect(parseVisibleTabs('["Home","Home","Wizard"]')).toEqual(['Home']);
   });
 
   it('treats tabs not on the bar as More overflow', () => {
-    expect(overflowTabs([...DEFAULT_VISIBLE_TABS])).toEqual(['Notifications', 'Recommendations']);
+    expect(overflowTabs([...DEFAULT_VISIBLE_TABS])).toEqual(['Recommendations']);
   });
 
   it('reorders, adds (replacing the last when full), and refuses to empty the bar', () => {
@@ -46,19 +48,19 @@ describe('tabLayout', () => {
       'Browse',
       'Search',
     ]);
-    expect(addVisibleTab([...DEFAULT_VISIBLE_TABS], 'Notifications')).toEqual([
+    expect(addVisibleTab([...DEFAULT_VISIBLE_TABS], 'Recommendations')).toEqual([
       'Home',
       'Browse',
       'Search',
-      'Notifications',
+      'Recommendations',
     ]);
     expect(removeVisibleTab(['Home'], 'Home')).toEqual(['Home']);
     expect(removeVisibleTab(['Home', 'Search'], 'Search')).toEqual(['Home']);
   });
 
   it('inserts a tab at an index and drops the last other tab when the bar is full', () => {
-    expect(addVisibleTabAt([...DEFAULT_VISIBLE_TABS], 'Notifications', 0)).toEqual([
-      'Notifications',
+    expect(addVisibleTabAt([...DEFAULT_VISIBLE_TABS], 'Recommendations', 0)).toEqual([
+      'Recommendations',
       'Home',
       'Browse',
       'Search',
@@ -88,10 +90,10 @@ describe('tabLayout', () => {
       applyTabBarDrop(['Home', 'Search', 'Browse'], {
         fromIndex: 0,
         fromSection: 'overflow',
-        id: 'Notifications',
+        id: 'Recommendations',
         toIndex: 1,
         toSection: 'visible',
       })
-    ).toEqual(['Home', 'Notifications', 'Search', 'Browse']);
+    ).toEqual(['Home', 'Recommendations', 'Search', 'Browse']);
   });
 });

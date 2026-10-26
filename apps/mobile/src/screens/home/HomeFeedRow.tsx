@@ -25,7 +25,6 @@ import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLab
 import { perfCount } from '../../lib/perf/perfSpans';
 import { playbackTargetRowMediaId } from '../../lib/playback/buildPlaybackTarget';
 import { clipListTimeRangeLabel } from '../../lib/rows/homeRowMappers';
-import { liveStatusWordKey } from '../../lib/rows/liveItemRows';
 import { usePlaybackRow } from '../../playback/PlaybackProvider';
 import {
   LIST_ROW_ARTWORK_SIZE,
@@ -40,6 +39,7 @@ import type { DirectoryMediaType } from '../browse/browseTypes';
 import { isPlayableDirectoryMediaType } from '../browse/browseTypes';
 import type { HomeFeedRowData } from './homeFeedData';
 import { resolveHomeFeedRowDownload } from './homeFeedRowDownload';
+import { isShareOnlyLivestreamRow, resolveItemRowLiveStatus } from './homeFeedRowLiveStatus';
 import type { HomeRowMetadata } from './homeRowMetadata';
 import { epochMsFromRowUpdatedAt, itemRowShowsUnseenDot } from './itemUnseen';
 import type { QueueActionPosition } from './useHomeRowPlayback';
@@ -307,18 +307,18 @@ const useUpdatedLabel = (
   }, [fallbackMs, i18n.language, updatedAt]);
 };
 
-const useDurationLabel = (duration: string | null | undefined, isLive: boolean): string | null => {
+const useDurationLabel = (duration: string | null | undefined, hidden: boolean): string | null => {
   const { t } = useTranslation();
 
   return useMemo(() => {
-    if (isLive) {
+    if (hidden) {
       return null;
     }
     if (duration === undefined || duration === null || duration.length === 0) {
       return null;
     }
     return formatPlaybackDurationLabel(Number(duration), t);
-  }, [duration, isLive, t]);
+  }, [duration, hidden, t]);
 };
 
 const useClipRangeLabel = (row: HomeFeedRowData): string | null => {
@@ -347,9 +347,10 @@ const useClipRangeLabel = (row: HomeFeedRowData): string | null => {
  * the description share `textGroup` (`spacing.xs`). The play, duration, and progress band stays
  * under that group. `showContextLine` keeps a parent title when that artwork stays hidden.
  * Track rows omit the play band: More sits in the identity row, vertically centered with the
- * artwork and text. The row press still starts playback. A livestream row states Scheduled or
- * Ended in its context line, or at the start of its date line when that line is hidden, where
- * the Live badge sits inside a channel.
+ * artwork and text. The row press still starts playback. A livestream item row states Live,
+ * Scheduled, or Ended in the play band where an episode row shows its duration: beside Play, or
+ * at the band's leading edge when the row has no Play. Channel rows keep Live on the artwork. A
+ * livestream row's More menu is Share only.
  */
 export const HomeFeedRow = memo(function HomeFeedRow({
   mediaType,
@@ -388,12 +389,25 @@ export const HomeFeedRow = memo(function HomeFeedRow({
   const unseenBadge = row.metadata?.unseenBadge ?? null;
   const updatedLabel = useUpdatedLabel(row.updatedAt, row.metadata?.latestItemPubDateMs);
   const isLive = row.metadata?.isLive === true;
+  const isChannelList = isChannelListMediaType(mediaType);
+  const showItemDot = itemRowShowsUnseenDot(isChannelList, row.updatedAt, itemLastSeenAtMs);
+  const showArtwork = showChannelContext && row.removed !== true;
+  const contextLineVisible = showContextLine ?? showChannelContext;
+  const itemLiveStatus = useMemo(
+    () => resolveItemRowLiveStatus(isChannelList, isLive, row.liveStatusId),
+    [isChannelList, isLive, row.liveStatusId]
+  );
+  const itemLiveStatusLabel = itemLiveStatus === null ? null : t(itemLiveStatus.labelKey);
+  const contextSubtitle = row.subtitle !== null && row.subtitle.length > 0 ? row.subtitle : null;
+  const channelLabel = isChannelList || !contextLineVisible ? null : contextSubtitle;
+  /** A channel row with no artwork states Live on its date line. */
+  const dateLineLiveLabel = isChannelList && !showArtwork ? liveLabel : null;
   const clipRangeLabel = useClipRangeLabel(row);
   const episodeDurationLabel = useDurationLabel(
     clipRangeLabel !== null ? null : row.duration,
-    isLive
+    itemLiveStatus !== null
   );
-  const durationLabel = clipRangeLabel ?? episodeDurationLabel;
+  const durationLabel = itemLiveStatus !== null ? null : (clipRangeLabel ?? episodeDurationLabel);
   const { activeTarget, enclosureSelectedParams } = usePlaybackRow();
   const download = resolveHomeFeedRowDownload(downloadItem, downloadTestID);
   const activeMediaId = activeTarget !== null ? playbackTargetRowMediaId(activeTarget) : null;
@@ -411,25 +425,6 @@ export const HomeFeedRow = memo(function HomeFeedRow({
     row.description !== undefined && row.description !== null && row.description.length > 0
       ? row.description
       : null;
-  const isChannelList = isChannelListMediaType(mediaType);
-  const showItemDot = itemRowShowsUnseenDot(isChannelList, row.updatedAt, itemLastSeenAtMs);
-  const showArtwork = showChannelContext && row.removed !== true;
-  const contextLineVisible = showContextLine ?? showChannelContext;
-  const liveStatusWord = useMemo(() => {
-    const key = liveStatusWordKey(row.liveStatusId);
-    return key === null ? null : t(key);
-  }, [row.liveStatusId, t]);
-  const contextSubtitle = row.subtitle !== null && row.subtitle.length > 0 ? row.subtitle : null;
-  const channelLabel =
-    isChannelList || !contextLineVisible
-      ? null
-      : liveStatusWord === null
-        ? contextSubtitle
-        : contextSubtitle === null
-          ? liveStatusWord
-          : `${liveStatusWord} • ${contextSubtitle}`;
-  /** Inside a channel the context line is hidden, so the date line states the status instead. */
-  const dateLineStatus = !isChannelList && !contextLineVisible ? liveStatusWord : null;
   const channelFooter = isChannelList
     ? channelListFooter(mediaType, row, (count) =>
         t('subscriptions.row.downloaded_count', { count })
@@ -442,7 +437,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
 
   const moreActions = useMemo(() => {
     // A livestream has no fixed length to queue behind or finish. Share is the only more action.
-    const isLivestreamRow = mediaType === 'livestreams';
+    const isLivestreamRow = isShareOnlyLivestreamRow(mediaType, row.liveStatusId);
     const standardActions = buildMediaRowMoreActions(
       t,
       {
@@ -542,19 +537,13 @@ export const HomeFeedRow = memo(function HomeFeedRow({
   const showPlayBand = mediaType !== 'tracks' && isPlayable;
   const showScheduledLivestreamMore =
     mediaType === 'livestreams' && !isPlayable && moreActions.length > 0;
+  const showLiveStatusBand = itemLiveStatus !== null && mediaType !== 'tracks';
 
   const dateLine = (dateStyle: TextStyle) =>
-    updatedLabel !== null || (!showArtwork && liveLabel !== null) || dateLineStatus !== null ? (
+    updatedLabel !== null || dateLineLiveLabel !== null ? (
       <View style={styles.dateRow}>
-        {!showArtwork && liveLabel !== null ? (
-          <Badge label={liveLabel} testID={`home-feed-row-live-${row.id}`} tone="danger" />
-        ) : null}
-        {dateLineStatus !== null ? (
-          <Badge
-            label={dateLineStatus}
-            testID={`home-feed-row-live-status-${row.id}`}
-            tone="neutral"
-          />
+        {dateLineLiveLabel !== null ? (
+          <Badge label={dateLineLiveLabel} testID={`home-feed-row-live-${row.id}`} tone="danger" />
         ) : null}
         {updatedLabel !== null ? (
           <Text numberOfLines={1} style={dateStyle} testID={`home-feed-row-updated-${row.id}`}>
@@ -574,8 +563,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
           : [channelLabel, removedLabel, row.title, updatedLabel]),
         description,
         durationLabel,
-        liveLabel,
-        dateLineStatus,
+        isChannelList ? liveLabel : itemLiveStatusLabel,
         unseenSpoken,
         showItemDot ? t('subscriptions.row.unseen_indicator_aria') : null,
       ]
@@ -599,7 +587,7 @@ export const HomeFeedRow = memo(function HomeFeedRow({
                   style={styles.image}
                   uri={row.imageUrl}
                 />
-                {liveLabel !== null ? (
+                {isChannelList && liveLabel !== null ? (
                   <View pointerEvents="none" style={styles.liveOnArtwork}>
                     <Badge
                       label={liveLabel}
@@ -711,8 +699,13 @@ export const HomeFeedRow = memo(function HomeFeedRow({
 
         {customActions !== undefined ? (
           customActions
-        ) : showPlayBand || showScheduledLivestreamMore ? (
-          <View style={[styles.rowActions, showPlayBand ? null : styles.rowActionsEnd]}>
+        ) : showPlayBand || showScheduledLivestreamMore || showLiveStatusBand ? (
+          <View
+            style={[
+              styles.rowActions,
+              showPlayBand || showLiveStatusBand ? null : styles.rowActionsEnd,
+            ]}
+          >
             <MediaRowActions
               appearance="icons"
               durationLabel={durationLabel}
@@ -727,6 +720,11 @@ export const HomeFeedRow = memo(function HomeFeedRow({
               playLabel={t('media_player.play')}
               playTestID={playTestID ?? `home-row-play-${row.id}`}
               showPlayButton={showPlayBand}
+              statusLabel={showLiveStatusBand ? itemLiveStatusLabel : null}
+              statusTestID={
+                itemLiveStatus === null ? undefined : `${itemLiveStatus.testIDPrefix}-${row.id}`
+              }
+              statusTone={itemLiveStatus?.tone}
             />
           </View>
         ) : null}

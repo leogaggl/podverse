@@ -6,6 +6,7 @@ import { matchesTitleFilter } from '@podverse/helpers';
 import type { ApiRequestService } from '@podverse/helpers-requests';
 
 import { getItemPrimaryImageUrl } from '../../../data/repositories/channelItemWindow';
+import { listResponseHasMore } from '../../../lib/pagination/pagedList';
 import { usePlaybackSession } from '../../../playback/PlaybackProvider';
 import type { HomeFeedRowData } from '../../home/homeFeedData';
 import { HomeFeedRow } from '../../home/HomeFeedRow';
@@ -14,7 +15,7 @@ import { useHomeRowPlayback } from '../../home/useHomeRowPlayback';
 import { PodcastSectionList } from './PodcastSectionList';
 import type { PodcastSectionPaneProps } from './podcastSectionPane';
 import type { PodcastSectionPage } from './usePodcastSectionRows';
-import { sectionResponseHasMore, usePodcastSectionRows } from './usePodcastSectionRows';
+import { usePodcastSectionRows } from './usePodcastSectionRows';
 
 /** A soundbite and the row it draws as, kept together so a tap can reach the DTO playback needs. */
 type SoundbiteEntry = {
@@ -96,7 +97,7 @@ export function PodcastOfficialClipsSection({
       });
 
       return {
-        hasMore: sectionResponseHasMore(response.meta, response.data.length),
+        hasMore: listResponseHasMore(response.meta, response.data.length),
         rows: response.data,
       };
     },
@@ -182,6 +183,7 @@ export function PodcastOfficialClipsSection({
       keyExtractor={officialClipKeyExtractor}
       listHeader={listHeader}
       noticeKey={playbackNoticeKey}
+      autoLoadMore={filterTerm.trim().length === 0}
       onLoadMore={loadMore}
       onRefresh={handleRefresh}
       onRetry={retry}

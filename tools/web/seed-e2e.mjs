@@ -334,6 +334,10 @@ const E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT = 'e2eLiveHlsV01';
 const E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE = 'E2E Live HLS Video Stream';
 const E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched01';
 const E2E_LIVE_AV_SCHEDULED_ITEM_TITLE = 'E2E Scheduled Livestream';
+const E2E_LIVE_AV_LATER_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched02';
+const E2E_LIVE_AV_LATER_SCHEDULED_ITEM_TITLE = 'E2E Later Scheduled Livestream';
+const E2E_LIVE_AV_STALE_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveStale01';
+const E2E_LIVE_AV_STALE_SCHEDULED_ITEM_TITLE = 'E2E Stale Scheduled Livestream';
 
 const E2E_EMBED_VIDEO_ITEM_ID_TEXT = 'e2eEmbVidItem01';
 
@@ -458,6 +462,57 @@ async function clearOpmlImportKeyvalState(accountId) {
 
     console.log(
       `Cleared OPML Valkey state for account ${accountId} (hourly=${hourlyKeys.length}, reports=${accountScopedReportKeys.length})`
+    );
+  } finally {
+    redis.disconnect();
+  }
+}
+
+// Playback keys name account sessions. Seeding replaces those rows, so a leftover
+// active session would make the next client treat playback as happening elsewhere.
+async function clearPlaybackKeyvalState(accountId) {
+  const redis = new Redis({
+    host: KEYVALDB_HOST,
+    port: KEYVALDB_PORT,
+    password: KEYVALDB_PASSWORD || undefined,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    lazyConnect: true,
+  });
+
+  try {
+    await redis.connect();
+
+    const accountKeys = await scanKeysByMatch(redis, `podverse:playback:${accountId}:*`);
+    const commandKeys = await scanKeysByMatch(redis, 'podverse:playback:command:*');
+    const accountCommandKeys = [];
+    for (const key of commandKeys) {
+      const raw = await redis.get(key);
+      if (!raw) {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          'account_id' in parsed &&
+          parsed.account_id === accountId
+        ) {
+          accountCommandKeys.push(key);
+        }
+      } catch {
+        // Non-JSON / unexpected shape: ignore.
+      }
+    }
+
+    const keys = [...accountKeys, ...accountCommandKeys];
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+
+    console.log(
+      `Cleared playback Valkey state for account ${accountId} (account=${accountKeys.length}, commands=${accountCommandKeys.length})`
     );
   } finally {
     redis.disconnect();
@@ -2618,6 +2673,7 @@ async function seedLiveAvFixtures(client) {
     enclosureUrl,
     statusName = 'live',
     startsInDays = 0,
+    startsInHours = 0,
   }) {
     const itemResult = await client.query(
       `INSERT INTO item (
@@ -2648,8 +2704,8 @@ async function seedLiveAvFixtures(client) {
     await client.query(
       `INSERT INTO live_item (item_id, live_item_status_id, start_time)
        VALUES ($1, (SELECT id FROM live_item_status WHERE status = $2 LIMIT 1),
-               NOW() + ($3::int * INTERVAL '1 day'))`,
-      [itemId, statusName, startsInDays]
+               NOW() + ($3::int * INTERVAL '1 day') + ($4::int * INTERVAL '1 hour'))`,
+      [itemId, statusName, startsInDays, startsInHours]
     );
 
     const enclosureResult = await client.query(
@@ -2694,6 +2750,7 @@ async function seedLiveAvFixtures(client) {
     title: E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE,
     enclosureType: 'video/mp4',
     enclosureUrl: E2E_HLS_VIDEO_EVENT_PLAYLIST_URL,
+    startsInHours: -2,
   });
   await insertLiveItem({
     idText: E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT,
@@ -2704,11 +2761,29 @@ async function seedLiveAvFixtures(client) {
     statusName: 'pending',
     startsInDays: 1,
   });
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_LATER_SCHEDULED_ITEM_ID_TEXT,
+    guidSlug: 'scheduled-later',
+    title: E2E_LIVE_AV_LATER_SCHEDULED_ITEM_TITLE,
+    enclosureType: 'audio/mpeg',
+    enclosureUrl: E2E_PODCAST_SHORT_ENCLOSURE_URL,
+    statusName: 'pending',
+    startsInDays: 3,
+  });
+  await insertLiveItem({
+    idText: E2E_LIVE_AV_STALE_SCHEDULED_ITEM_ID_TEXT,
+    guidSlug: 'scheduled-stale',
+    title: E2E_LIVE_AV_STALE_SCHEDULED_ITEM_TITLE,
+    enclosureType: 'audio/mpeg',
+    enclosureUrl: E2E_PODCAST_SHORT_ENCLOSURE_URL,
+    statusName: 'pending',
+    startsInDays: -3,
+  });
 
   await client.query(`UPDATE channel SET may_have_live_items = true WHERE id = $1`, [channelId]);
 
   console.log(
-    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, hls audio ${E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT}, hls video ${E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT})`
+    `Seeded playable live E2E channel ${E2E_LIVE_AV_CHANNEL_ID_TEXT} (audio ${E2E_LIVE_AV_AUDIO_ITEM_ID_TEXT}, video ${E2E_LIVE_AV_VIDEO_ITEM_ID_TEXT}, hls audio ${E2E_LIVE_AV_HLS_AUDIO_ITEM_ID_TEXT}, hls video ${E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT}, scheduled ${E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT}, later scheduled ${E2E_LIVE_AV_LATER_SCHEDULED_ITEM_ID_TEXT}, stale scheduled ${E2E_LIVE_AV_STALE_SCHEDULED_ITEM_ID_TEXT})`
   );
 }
 
@@ -3414,6 +3489,7 @@ async function main() {
   await seedBillingTestCheckout(client);
   const accountId = await resolveSeedAccountId(client, passwordHash, invitePlaceholderPasswordHash);
   await clearOpmlImportKeyvalState(accountId);
+  await clearPlaybackKeyvalState(accountId);
   await seedMediaPlayerAndEmbedFixtures(client, accountId);
   await seedMergedChannelRedirect(client);
   await seedRemovedContentFixtures(client, accountId);

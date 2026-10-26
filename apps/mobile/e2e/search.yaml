@@ -12,6 +12,8 @@ name: Search Flow
     id: search-screen
 - assertVisible:
     id: search-input
+- assertNotVisible:
+    id: search-input-clear
 - assertVisible:
     id: search-medium-all
 - assertVisible:
@@ -31,8 +33,25 @@ name: Search Flow
     id: search-input
 - inputText: podcast
 - assertVisible:
+    id: search-input-clear
+- assertVisible:
     id: search-result-row-0
 - takeScreenshot: search-screen-results
+
+- tapOn:
+    id: search-input-clear
+- assertNotVisible:
+    id: search-input-clear
+- extendedWaitUntil:
+    notVisible:
+      id: search-result-row-0
+    timeout: ${TIMEOUT_FASTEST}
+# The X leaves search-input focused, so the next text does not tap the field first.
+- inputText: podcast
+- assertVisible:
+    id: search-input-clear
+- assertVisible:
+    id: search-result-row-0
 
 - tapOn:
     id: search-result-row-0

@@ -15,6 +15,7 @@ globs:
   - apps/mobile/src/screens/podcast/sections/PodcastSectionList.tsx
   - apps/mobile/src/screens/home/HomeFeedRow.tsx
   - apps/mobile/src/components/primitives/MoreMenu.tsx
+  - apps/mobile/src/components/channel/ChannelHeader.tsx
   - apps/mobile/App.tsx
 alwaysApply: false
 ---
@@ -32,22 +33,44 @@ per-screen inset under the title bar.
   **`HeaderBarChrome`**). Trailing header actions use **`HeaderBarAction`** in `headerRight` —
   do not invent a one-off top-right `Pressable`. When that slot has more than one action, wrap
   them in **`HeaderBarActions`**, which spaces siblings by `spacing.md`.
-  **Share and the notification (bell)** on
-  podcast, album, artist, episode, and track detail belong in that title-bar slot. **Channel
-  settings** are a gear on the title row of `ChannelHeader` (podcast, album, and artist),
-  top-aligned with the title. The glyph is **`CHANNEL_HEADER_SETTINGS_ICON_SIZE`** (22), one
-  step under the stack-header icons. The title is at most two lines, then an ellipsis, and stops
-  `spacing.md` short of the gear. The action row (subscribe, and any sibling) sits on the bottom
-  edge of the 78pt artwork, so a one-line title and a two-line title keep that row in place. A
-  subtitle under the title shares that top group, and the title is then one line, so the action
-  row still lands on the artwork edge. The gear stays visible when signed out. It is not a
-  section chip and not a stack-title control. Pressing it shows the settings pane; pressing it
-  again, or choosing a section chip, returns to that section. Do **not** place share or
-  the bell in **`ChannelHeader`** to match web `HeaderButtons` — web has no stack title bar;
-  mobile does.
-  `ChannelHeader` `actions` is that bottom row. RSS and website stay on About. **Header
-  icons and header action labels use `tokens.text.primary`** (same as the title) — never
-  `tokens.text.accent` / link blue. That color lives in **`HeaderBarAction`**; do not
+  **Share**, and **Boost** on screens that offer it, on podcast, album, artist, episode, and
+  track detail, belong in the stack title-bar slot (`HeaderBarAction` in `headerRight`, wrapped
+  in `HeaderBarActions` when there is more than one). **Checking all notifications** is Home
+  only. `HomeNotificationsBell` is the first control in Home's `headerRight`
+  (`HeaderBarActions`), to the left of `HomeOverflowMenu`. testIDs `home-notifications-bell` and
+  `home-notifications-bell-badge`. The same `HomeScreen` mounts under `MoreOverflowHome`, so the
+  bell is there too. No other screen gets this bell. It stays visible signed out and without
+  notifications access. Press goes through `resolveNotificationsBellPress`, then
+  `navigateToNotificationsInboxScreen()` or `openGate`. Signed out, that press calls
+  `openGate('needs_account')`. Signed in with notifications access denied, it calls `openGate`
+  with that reason. While `isTierKnown === false`, press opens the inbox. The inbox is root
+  route `NotificationsInbox` with `ROOT_SLIDE_UP_SCREEN_OPTIONS`. Dismiss testID
+  `notifications-inbox-dismiss`. Link path `notifications` (a link, push tap, or banner tap
+  opens this route; signed out, that path opens the inbox login fill). The unread count is this
+  bell's badge. The More tab does not show it. **Turning notifications on or off for a channel**
+  is podcast, album, and artist detail only. Prop `notifications` on `ChannelHeader`, trailing
+  on the action row, `layout="inline"`, `CHANNEL_HEADER_SETTINGS_ICON_SIZE`. testIDs
+  `podcast-detail-notifications-toggle`, `album-detail-notifications-toggle`, and
+  `artist-detail-notifications-toggle`. The bell stays visible when signed out.
+  `useChannelNotifications` and the settings-pane switches stay. Do not put this bell in the
+  stack title bar. Do not put it on episode, track, livestream, clip, or any other item screen.
+  Add by RSS channel pages have no bell. **Channel settings** are a gear on the title row of
+  `ChannelHeader` (podcast, album, and artist), top-aligned with the title. The glyph is
+  **`CHANNEL_HEADER_SETTINGS_ICON_SIZE`** (22), one step under the stack-header icons. The title
+  is at most two lines, then an ellipsis, and stops `spacing.md` short of the gear. Subscribe
+  packs at the leading edge of the action row. The channel bell is the trailing edge of that
+  same row, in line with the gear, and is not a node inside `actions`. The row sits on the
+  bottom edge of the 78pt artwork, so a one-line title and a two-line title keep that row in
+  place. A subtitle under the title shares that top group, and the title is then one line, so
+  the action row still lands on the artwork edge. The gear stays visible when signed out. It is
+  not a section chip and not a stack-title control. Pressing it shows the settings pane;
+  pressing it again, or choosing a section chip, returns to that section. Do not place share in
+  `ChannelHeader`. Do not add the Home inbox bell anywhere but Home. Web keeps its header row;
+  see **about-summary-web-mobile-alignment**. Do not restyle that row, and do not remove
+  `NotificationIconButton` from a page that mounts the parent channel header.
+  `ChannelHeader` `actions` is the leading cluster of that bottom row. RSS and website stay on
+  About. **Header icons and header action labels use `tokens.text.primary`** (same as the title) —
+  never `tokens.text.accent` / link blue. That color lives in **`HeaderBarAction`**; do not
   reintroduce accent tint on back, overflow, or trailing header controls. Stack header action
   icons use that component's **26pt** default. The back glyph stays 28. Do not pass a smaller
   icon size on a stack header action. The channel gear is the smaller glyph. A header More opens
@@ -85,12 +108,17 @@ replace the page gutter.
 border that becomes `tokens.border.primary` on focus. Form fields pass **`eyebrow` + a
 distinct `placeholder`** (web inset caption; taller pill) —
 **form-eyebrow-placeholder**. **`SearchField`** and **`ListFilterField`** omit `eyebrow` and
-stay compact — search adds the leading magnifying-glass and a search return key; filter adds a
-clear `Button`. Do not restyle a bare `TextInput` with a perimeter stroke, and do not put a
-second label above an eyebrow field.
+stay compact. Search adds the leading magnifying glass and a search return key. Both paint an X
+at the right edge of the pill while the value is non-empty. The X is icon-only. **`SearchField`**
+names it with the shared Clear Search string. **`ListFilterField`** names it with the shared Clear
+Filter string. Neither field takes a label prop for the X. Pressing it sets the value to an empty
+string through the same change handler as typing, then focuses the field so the keyboard stays up.
+It does not submit. Form **`TextField`**s omit it. Do not restyle a bare `TextInput` with a
+perimeter stroke, and do not put a second label above an eyebrow field.
 
-The painted pill is the hit target. A tap anywhere inside it — padding, empty space, or the
-leading glass — focuses the input. `TextField` implements that; do not rebuild it per screen.
+The pill stays the hit target. A tap on the padding, the empty space, or the leading glass
+focuses the input. A tap on the X clears the value and leaves the field focused. `TextField`
+implements both. Do not rebuild that per screen.
 Do not enlarge the area by adding padding on the `TextInput` (that moves the placeholder).
 Submit stays on the keyboard return key. Leaving the screen blurs the field — do not keep a
 caret or focus ring across a tab switch. Focus again only when the user taps or a screen
@@ -103,7 +131,9 @@ Settings density (2–3 chips vs option-list screen) is **mobile-settings-option
 Standalone cover art uses **`CoverImage`** (`expo-image`, memory+disk cache). A stationary tap
 opens the **`ImageViewer`** root screen (`ROOT_SLIDE_UP_SCREEN_OPTIONS`): it slides up and
 dismisses from the top edge. The header control is a down chevron
-(`HeaderBarChrome` `backIcon="chevron-down"`, `misc.dismiss`). Pass **`viewerUri`** from **`primaryLightboxArtworkUrl`** (or the
+(`HeaderBarChrome` `backIcon="chevron-down"`, `misc.dismiss`). `NotificationsInbox` is a root
+screen on `ROOT_SLIDE_UP_SCREEN_OPTIONS`, with the same down-chevron dismiss
+(`notifications-inbox-dismiss`). Pass **`viewerUri`** from **`primaryLightboxArtworkUrl`** (or the
 channel variant) so the screen loads the largest original, not the list thumb. Pass
 **`addByRssFeedUrl`** when the artwork belongs to an Add by RSS feed. The route never carries
 an `Authorization` value; the screen resolves those headers from the feed URL. Do not add a
@@ -174,13 +204,18 @@ play, duration, and progress band keeps the wider gap below that text. An Add by
 has the date and the title and no download count, and it does not reserve that line.
 
 Home subscription markers stay on those shared row/cell components: list live is centered on
-the artwork, the downloaded count is the line under the title, and unseen on a channel row is a
-numberless `UnseenIndicator` in a slim full-height rail at the far right of the row (dot
-centered on the whole row height). On a channel-detail item row the same indicator sits at the
-trailing top of the title line. Grid is live top-right, unseen bottom-right, downloaded
-bottom-left. Inside a channel (no artwork) a livestream row's status starts the date line, the
-Live badge while on the air and a neutral Scheduled or Ended badge otherwise. Outside a channel
-Scheduled leads the context line. See **mobile-reusable-components**.
+a channel row's artwork, the downloaded count is the line under the title, and unseen on a
+channel row is a numberless `UnseenIndicator` in a slim full-height rail at the far right of
+the row (dot centered on the whole row height). On a channel-detail item row the same
+indicator sits at the trailing top of the title line. Grid is live top-right, unseen
+bottom-right, downloaded bottom-left. A livestream item row states its status in the play
+band, in the slot where an episode row shows its duration: the Live badge while on the air
+and a neutral Scheduled or Ended badge otherwise. The badge replaces the duration. Only a
+Live row has Play, with the badge beside it. A Scheduled or Ended row has no Play: the badge
+starts the band and More sits at the far end. Pressing any livestream row opens its livestream
+page. The date stays on the date line under the title, and the context line carries only the
+show name. A livestream inside an album uses this same episode row, never the compact track
+row. Channel rows keep Live on the artwork. See **mobile-reusable-components**.
 
 Icon-only controls share **`LIST_ROW_ACTION_SIZE`** (44) and bare glyphs use
 **`LIST_ROW_ACTION_ICON_SIZE`** (26); Play’s triangle uses **`LIST_ROW_PLAY_ICON_SIZE`** (16)
@@ -293,8 +328,9 @@ Podcast section lists use **`PodcastSectionList`**, which already composes **`Fi
 **`ChannelHeader`** and the section chip row stay **outside** the section list so they remain
 visible while the rows scroll. **`ListFilterField`** stays in that list's `ListHeaderComponent` —
 it is not pinned. Pull-to-refresh belongs on **`PodcastSectionList`** (the list below the chips),
-so the spinner appears above the filter. Share and the notification bell stay in
-the stack `headerRight`. Channel settings are the gear at the top right of `ChannelHeader`.
+so the spinner appears above the filter. Share and Boost stay in the stack `headerRight`.
+The channel notification bell is the trailing control on `ChannelHeader`'s action row. Channel
+settings are the gear at the top right of `ChannelHeader`.
 
 ## Podcast detail filter visibility
 
@@ -448,6 +484,10 @@ the same reason. Do not rely on the root provider alone for full-screen Modals.
   `scrollEnabled` / `bounces` at the screen.
 - Add a standalone divider under chips or a filter. A podcast, album, or artist row uses
   `LIST_ROW_SHOW_VERTICAL_INSET`, not `spacing.lg` or `spacing.md`.
+- Do not add a Notifications tab, a More row that opens the inbox, or an inbox bell on any
+  screen but Home.
+- Do not put the channel on/off bell in a stack title bar, on an item screen, or inside
+  `ChannelHeader` `actions`.
 
 ## Related
 

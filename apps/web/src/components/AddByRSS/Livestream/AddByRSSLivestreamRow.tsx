@@ -112,9 +112,11 @@ export const AddByRSSLivestreamRow: React.FC<AddByRSSLivestreamRowProps> = ({
                 onClick={playButtonOnClick}
               />
             )}
-            <LiveItemStatus live_item={liveItemDto} />
+            <div className={styles.statusSlot} data-testid="live-item-row-status">
+              <LiveItemStatus live_item={liveItemDto} />
+            </div>
             {startTimeIso !== null && (
-              <div className={styles.timeSection}>
+              <div className={styles.timeSection} data-testid="live-item-row-date">
                 <ReadableDate date={startTimeIso} />
                 {' • '}
                 <ReadableTime start={startTimeIso} end={endTimeIso} />

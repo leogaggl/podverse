@@ -1,10 +1,10 @@
 # Livestreams 1: A Flag, Not a Kind of Show
 
-- **Version:** 2026-10-23T21:34-05:00
+- **Version:** 2026-10-25T19:36-05:00
 - **Episode ID:** livestreams-a-flag-not-a-kind-of-show
-- **Changed:** Sources no longer cite `0021_channel_may_have_live_items.sql`, and the script no
-  longer says migration twenty-one backfills channels or that phone migration twenty-four seeds
-  stored feeds. Regenerate the audio.
+- **Changed:** Spoken order is now live items latest start first and scheduled items soonest start
+  first. A scheduled item more than a day past its start is hidden, and a scheduled Add by RSS
+  item with no start time stays. Regenerate the audio.
 - **Description:** Why a livestream in Podverse is a flag on top of a show's medium, how channels
   and Add by RSS feeds remember that they may have livestreams, and how the Livestreams chip
   lists what is live now and what is scheduled, on the website and the phone.
@@ -23,7 +23,7 @@
   `apps/mobile/src/lib/addByRss/liveRows.ts`,
   `apps/mobile/src/screens/home/AddByRssLivestreamDetailScreen.tsx`,
   `apps/mobile/src/screens/player/fullPlayerContentLink.ts`
-- **Length:** about 9 minutes (1,369 words)
+- **Length:** about 10 minutes (1,428 words)
 
 ## Directions for the voice service (do not read aloud)
 
@@ -79,7 +79,7 @@ CLAIRE: On the server, nobody yet. Channel responses carry it, and it's there fo
 
 TOM: Through what?
 
-CLAIRE: Two new API routes. One lists upcoming livestreams across public channels. The other lists them from the channels a signed-in person follows. Both take a medium and a page, and nothing else. They return only live and scheduled items, live first, then by start time with the earliest first, then by item id, so page boundaries stay stable. A page holds sixty items. Ended items never appear, however recent.
+CLAIRE: Two new API routes. One lists upcoming livestreams across public channels. The other lists them from the channels a signed-in person follows. Both take a medium and a page, and nothing else. They return only live and scheduled items. Live items come first, latest start first, then scheduled items, soonest start first, then by item id, so page boundaries stay stable. A page holds sixty items. A scheduled item whose start is more than a day in the past is hidden. A live item stays listed with no time window. Ended items never appear, however recent.
 
 (pause)
 
@@ -125,7 +125,7 @@ CLAIRE: The phone has a new Add by RSS livestream page, on Home and in the Libra
 
 TOM: What about a feed's own page?
 
-CLAIRE: On the phone, an Add by RSS feed's page now lists its livestreams above Episodes or Tracks, the way a directory podcast page does. Inside a channel the order is different from the chip. Live first, then scheduled, then ended. Live and scheduled show the latest start first. Ended shows the latest end first. An ended item more than a day old is hidden. The website's Add by RSS pages use that same order and the same one-day rule. The episode sort chip doesn't reorder the livestream block.
+CLAIRE: On the phone, an Add by RSS feed's page now lists its livestreams above Episodes or Tracks, the way a directory podcast page does. Inside a channel the order differs from the chip. Live first, latest start first, then scheduled, soonest start first, then ended, latest end first. An ended item more than a day old is hidden, and a scheduled item is hidden once its start is more than a day past. Live items have no time window. A scheduled Add by RSS item with no start time stays and sorts last among scheduled items. The website's Add by RSS pages use that same order and the same one-day rules. The episode sort chip doesn't reorder the livestream block.
 
 TOM: How do I tell a scheduled row from an ended one inside a channel?
 

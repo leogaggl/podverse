@@ -87,10 +87,14 @@ const toAddByRssLiveBaseRow = (
   };
 };
 
-/** Upcoming live rows of one stored feed, unsorted; ended and unreadable items are skipped. */
+/**
+ * Upcoming live rows of one stored feed, unsorted; ended items, scheduled items more than a day
+ * past, and unreadable items are skipped.
+ */
 export const toAddByRssLiveRows = (
   feed: MobileAddByRSSFeedRecord,
-  mappedFeed: AddByRSSMappedFeed
+  mappedFeed: AddByRSSMappedFeed,
+  now: Date = new Date()
 ): AddByRssLiveRow[] => {
   const rows: AddByRssLiveRow[] = [];
   for (let liveIndex = 0; liveIndex < mappedFeed.liveItems.length; liveIndex += 1) {
@@ -108,7 +112,8 @@ export const toAddByRssLiveRows = (
     const upcoming = toUpcomingLiveRow(
       row,
       liveBundle.liveItem.live_item_status,
-      liveBundle.liveItem.start_time
+      liveBundle.liveItem.start_time,
+      now
     );
     if (upcoming === null) {
       continue;
@@ -133,7 +138,7 @@ const toChannelSortKey = (
 
 /**
  * The feed page's live rows, in the channel order: live, scheduled, then ended within a day.
- * Older ended items and unknown statuses are skipped.
+ * Older ended items, scheduled items more than a day past, and unknown statuses are skipped.
  */
 export const toAddByRssFeedLiveRows = (
   feed: MobileAddByRSSFeedRecord,
@@ -174,20 +179,22 @@ export const toAddByRssFeedLiveRows = (
 
     const key = toChannelSortKey(liveItem);
     if (statusId === LiveItemStatusEnum.Ended) {
+      const startTimeMs = toRowStartTimeMs(liveItem.start_time);
       pairs.push({
         key,
         row: {
           ...base,
           liveStatusId: LiveItemStatusEnum.Ended,
           playable: false,
-          startTimeMs: toRowStartTimeMs(liveItem.start_time),
+          startTimeMs,
+          updatedAt: startTimeMs,
         },
       });
       continue;
     }
 
     const { target, ...row } = base;
-    const upcoming = toUpcomingLiveRow(row, statusId, liveItem.start_time);
+    const upcoming = toUpcomingLiveRow(row, statusId, liveItem.start_time, now);
     if (upcoming === null) {
       continue;
     }

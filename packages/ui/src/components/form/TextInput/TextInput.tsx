@@ -11,9 +11,10 @@ import type {
   WheelEvent,
 } from 'react';
 import { useRef } from 'react';
-import { FaCalendarDays, FaCircleQuestion, FaClock } from 'react-icons/fa6';
+import { FaCalendarDays, FaCircleQuestion, FaClock, FaXmark } from 'react-icons/fa6';
 
 import { Button } from '../../button/Button/Button';
+import { IconButton } from '../../button/IconButton/IconButton';
 import { PopoverIcon } from '../../feedback/PopoverIcon/PopoverIcon';
 import { TextInputNumberIncrement } from '../TextInputNumberIncrement/TextInputNumberIncrement';
 
@@ -37,6 +38,11 @@ export type TextInputButtonIcon = {
   position: 'start' | 'end';
 };
 
+export type TextInputClearButton = {
+  ariaLabel: string;
+  onClear: () => void;
+};
+
 export type TextInputProps = {
   autoComplete?: string;
   'aria-describedby'?: string;
@@ -47,6 +53,11 @@ export type TextInputProps = {
   button?: TextInputButton;
   buttonIcon?: TextInputButtonIcon;
   className?: string;
+  /**
+   * Icon-only clear control at the end of the field, shown while `value` is non-empty and the
+   * field is editable.
+   */
+  clearButton?: TextInputClearButton;
   disabled?: boolean;
   eyebrow?: string;
   /**
@@ -119,6 +130,7 @@ export function TextInput({
   'aria-invalid': ariaInvalid,
   button,
   buttonIcon,
+  clearButton,
   onWheel,
   min,
   max,
@@ -141,6 +153,8 @@ export function TextInput({
   const hasSuffix = suffix !== undefined && suffix !== '';
   const hasPrefix = prefix !== undefined && prefix !== '';
   const hasAffixes = hasPrefix || hasSuffix;
+  const activeClearButton =
+    clearButton !== undefined && value !== '' && !disabled && !readOnly ? clearButton : undefined;
   const suffixInputWidthCh = hasSuffix ? Math.max(2, (value === '' ? '0' : value).length) : null;
 
   const pickerAffixAriaLabel = nativePickerAffixAriaLabel ?? ariaLabel;
@@ -329,6 +343,7 @@ export function TextInput({
                 </div>
               ) : (
                 <input
+                  ref={inputRef}
                   aria-describedby={describedBy}
                   aria-invalid={ariaInvalid}
                   aria-label={ariaLabel}
@@ -355,6 +370,19 @@ export function TextInput({
             </>
           )}
         </div>
+        {activeClearButton !== undefined ? (
+          <IconButton
+            appearance="ghost"
+            aria-label={activeClearButton.ariaLabel}
+            className={styles.clearButton}
+            onClick={() => {
+              activeClearButton.onClear();
+              inputRef.current?.focus();
+            }}
+          >
+            <FaXmark aria-hidden className={styles.clearButtonIcon} />
+          </IconButton>
+        ) : null}
         {useEyebrowNativePickerRow ? (
           <button
             aria-label={pickerAffixAriaLabel}

@@ -12,6 +12,7 @@ import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
 import { ListFilterField, ListFilterHeader } from '../../components/form';
 import { FillList, SwipeActionRow, VerticalCenter } from '../../components/primitives';
+import { HeaderBarActions } from '../../components/screen/HeaderBarActions';
 import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
@@ -19,11 +20,13 @@ import { ListLoading } from '../../components/state/ListLoading';
 import {
   channelSeenRepository,
   downloadsRepository,
+  homeClipsCacheRepository,
   subscriptionsRepository,
 } from '../../data/repositories';
 import { downloadManager } from '../../downloads/downloadManager';
 import { downloadStore } from '../../downloads/downloadStore';
 import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { addByRssLiveItemKey } from '../../lib/addByRss/liveItemDetail';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import {
@@ -32,6 +35,7 @@ import {
   isHomeLivestreamsUnavailableOffline,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
 } from '../../lib/offlineModeViews';
+import { canLoadNextPage, LIST_END_REACHED_THRESHOLD } from '../../lib/pagination/pagedList';
 import { beginPerfChipSample, endPerfChipSample, stampPerfFrame } from '../../lib/perf/perfFrames';
 import { perfMark } from '../../lib/perf/perfSpans';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
@@ -47,15 +51,25 @@ import {
   SEARCH_STACK_ROUTES,
 } from '../../navigation';
 import { useTabLayout } from '../../navigation/TabLayoutProvider';
-import type { HomeRangeOption, HomeSortOption, HomeViewMode } from '../../prefs/homeListPrefs';
+import type {
+  HomeClipsQuery,
+  HomeListPrefs,
+  HomeRangeOption,
+  HomeSortOption,
+  HomeViewMode,
+} from '../../prefs/homeListPrefs';
 import {
   DEFAULT_HOME_RANGE,
-  DEFAULT_HOME_SORT,
   DEFAULT_HOME_VIEW_MODE,
+  defaultHomeSortFor,
+  homeClipsPrefsChangeRefetches,
+  homeClipsQueryFromPrefs,
+  homeSortOptionsFor,
   isHomeFilterMediaType,
   isHomeSortableMediaType,
   isHomeViewModeMediaType,
   readHomeListPrefs,
+  resolveHomeSort,
   subscribeHomeListPrefs,
   writeHomeRange,
   writeHomeSort,
@@ -84,6 +98,7 @@ import {
   EMPTY_HOME_ADD_BY_RSS_ITEMS,
   EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
   EMPTY_HOME_DIRECTORY_ITEMS,
+  extendHomeFeed,
   fetchHomeFeed,
   fetchUnsubscribedDownloadHomeRows,
   isHomeFeedStaleRead,
@@ -102,6 +117,7 @@ import {
 import { HomeFeedRow } from './HomeFeedRow';
 import { readHomeFilterTerm, writeHomeFilterTerm } from './homeFilterSession';
 import { homeItemDownloadItem, homeItemShareResource } from './homeItemRowActions';
+import { HomeNotificationsBell } from './HomeNotificationsBell';
 import { HomeOverflowMenu } from './HomeOverflowMenu';
 import { mergeDownloadedCountsIntoHomeRows } from './homeRowMetadata';
 import { HomeSortChip } from './HomeSortChip';
@@ -291,6 +307,9 @@ export function HomeScreen() {
   const pendingSwitchFrameRef = useRef<number | null>(null);
   const [listPrefs, setListPrefs] = useState<HomeListPrefsState | null>(null);
   const [feedRows, setFeedRows] = useState<HomeFeedRowData[]>([]);
+  const [feedHasMore, setFeedHasMore] = useState<boolean>(false);
+  const [isFeedExtending, setIsFeedExtending] = useState<boolean>(false);
+  const [feedExtendErrorKey, setFeedExtendErrorKey] = useState<string | null>(null);
   const [addByRssItemsById, setAddByRssItemsById] = useState(EMPTY_HOME_ADD_BY_RSS_ITEMS);
   const [addByRssLiveItemsById, setAddByRssLiveItemsById] = useState(
     EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS
@@ -305,6 +324,16 @@ export function HomeScreen() {
   const [feedErrorKey, setFeedErrorKey] = useState<string | null>(null);
   const [actionErrorKey, setActionErrorKey] = useState<string | null>(null);
   const feedRequestIdRef = useRef<number>(0);
+  // Advanced by each extend and by a chip change, so a superseded extend does not set the loading
+  // row, the end of the list, or an error on the list that replaced it.
+  const extendRequestIdRef = useRef<number>(0);
+  // Set when a Clips sort or window change leaves the saved list in an order the user turned away
+  // from. Every Clips read fetches page 1 first while it is set, so Retry and returning to the chip
+  // both finish the job.
+  const pendingClipsRefetchRef = useRef<{
+    prefsWritten: Promise<void>;
+    query: HomeClipsQuery;
+  } | null>(null);
   const hasLoadedFeedOnceRef = useRef(false);
   const isFeedRefreshingRef = useRef(false);
   const unsubscribingIdsRef = useRef<Set<string>>(new Set());
@@ -334,7 +363,7 @@ export function HomeScreen() {
       : {
           mediaType: selectedMediaType,
           range: DEFAULT_HOME_RANGE,
-          sort: DEFAULT_HOME_SORT,
+          sort: defaultHomeSortFor(selectedMediaType),
           viewMode: listPrefs?.viewMode ?? DEFAULT_HOME_VIEW_MODE,
         };
 
@@ -458,7 +487,7 @@ export function HomeScreen() {
           setListPrefs({
             mediaType: selectedMediaType,
             range: DEFAULT_HOME_RANGE,
-            sort: DEFAULT_HOME_SORT,
+            sort: defaultHomeSortFor(selectedMediaType),
             viewMode: DEFAULT_HOME_VIEW_MODE,
           });
         }
@@ -482,12 +511,16 @@ export function HomeScreen() {
     // Advancing here rather than in loadFeed is what makes rapid taps coalesce: the read for the
     // chip the user just left is abandoned mid-flight instead of finishing and being discarded.
     feedRequestIdRef.current += 1;
+    extendRequestIdRef.current += 1;
 
     // Tearing down the old rows is the expensive part of a switch; it runs under the pending
     // spinner, and the pending state hands off to the busy spinner in this same commit.
     setPendingMediaType(null);
     setSelectedMediaType(mediaType);
     setFeedRows([]);
+    setFeedHasMore(false);
+    setIsFeedExtending(false);
+    setFeedExtendErrorKey(null);
     setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
     setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
     setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
@@ -521,14 +554,48 @@ export function HomeScreen() {
     [commitMediaTypeChange, selectedMediaType]
   );
 
+  // The saved clips are in the order the user just turned away from, so they leave with the tap
+  // and the list spins until loadFeed has fetched page 1 in the new order and read it back.
+  const startClipsRefetchIfNeeded = useCallback(
+    (next: Pick<HomeListPrefs, 'range' | 'sort'>, prefsWritten: Promise<void>) => {
+      if (
+        !homeClipsPrefsChangeRefetches({
+          isAuthenticated: status === 'authenticated',
+          mediaType: selectedMediaType,
+          next,
+          offlineModeEnabled,
+          previous: { range: resolvedPrefs.range, sort: resolvedPrefs.sort },
+        })
+      ) {
+        return;
+      }
+      feedRequestIdRef.current += 1;
+      extendRequestIdRef.current += 1;
+      // A failed preference write costs only the remembered choice on relaunch; the refetch uses
+      // the query in hand.
+      pendingClipsRefetchRef.current = {
+        prefsWritten: prefsWritten.catch(() => undefined),
+        query: homeClipsQueryFromPrefs(next),
+      };
+      setFeedRows([]);
+      setFeedErrorKey(null);
+      setHasCompletedFeedRead(false);
+      setFeedHasMore(false);
+      setIsFeedExtending(false);
+      setFeedExtendErrorKey(null);
+    },
+    [offlineModeEnabled, resolvedPrefs.range, resolvedPrefs.sort, selectedMediaType, status]
+  );
+
   const handleSortChange = useCallback(
     (sort: HomeSortOption) => {
       // Applied here as well as written, so the list redraws on the tap rather than after the
       // storage round trip. The write is still what a relaunch reads.
       setListPrefs((current) => (current === null ? current : { ...current, sort }));
-      void writeHomeSort(selectedMediaType, sort);
+      const prefsWritten = writeHomeSort(selectedMediaType, sort);
+      startClipsRefetchIfNeeded({ range: resolvedPrefs.range, sort }, prefsWritten);
     },
-    [selectedMediaType]
+    [resolvedPrefs.range, selectedMediaType, startClipsRefetchIfNeeded]
   );
 
   const handleRangeChange = useCallback(
@@ -536,9 +603,10 @@ export function HomeScreen() {
       setListPrefs((current) =>
         current === null ? current : { ...current, range, sort: 'popularity' }
       );
-      void writeHomeRange(selectedMediaType, range);
+      const prefsWritten = writeHomeRange(selectedMediaType, range);
+      startClipsRefetchIfNeeded({ range, sort: 'popularity' }, prefsWritten);
     },
-    [selectedMediaType]
+    [selectedMediaType, startClipsRefetchIfNeeded]
   );
 
   const handleViewModeChange = useCallback(
@@ -613,12 +681,59 @@ export function HomeScreen() {
             return;
           }
           setFeedRows([]);
+          setFeedHasMore(false);
           setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
           setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
           setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
           setUnsubscribedDownloadRows([]);
           setHasCompletedFeedRead(true);
         } else {
+          // The refetch is a network request, so it runs outside the local read budget under the
+          // request helper's own timeout. A failure shows the error for every source: the rows
+          // left with the tap, and an empty list without the error would read as "no clips".
+          // `'stale'` keeps the entry, so the next Clips read fetches again if this query is still
+          // the one waiting.
+          const pendingClipsRefetch = pendingClipsRefetchRef.current;
+          if (selectedMediaType === 'clips' && pendingClipsRefetch !== null) {
+            if (status !== 'authenticated') {
+              pendingClipsRefetchRef.current = null;
+            } else {
+              let outcome: 'replaced' | 'stale';
+              try {
+                await pendingClipsRefetch.prefsWritten;
+                outcome = await homeClipsCacheRepository.refreshFromAccount(
+                  { accessToken, clearSession, refreshToken, setTokens },
+                  pendingClipsRefetch.query
+                );
+              } catch (error) {
+                if (requestId !== feedRequestIdRef.current) {
+                  return;
+                }
+                appendHomeFeedReadFailure({
+                  error,
+                  mediaType: selectedMediaType,
+                  source: `${source}-clips-refetch`,
+                });
+                setFeedRows([]);
+                setFeedHasMore(false);
+                setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
+                setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
+                setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
+                setHasCompletedFeedRead(true);
+                setFeedErrorKey('errors.generic');
+                return;
+              }
+              if (
+                outcome === 'replaced' &&
+                pendingClipsRefetchRef.current === pendingClipsRefetch
+              ) {
+                pendingClipsRefetchRef.current = null;
+              }
+              if (requestId !== feedRequestIdRef.current) {
+                return;
+              }
+            }
+          }
           const read = await withHomeFeedReadBudget(
             offlineModeEnabled && isHomeDownloadedItemsOnly(selectedMediaType)
               ? readDownloadedHomeItemFeed(selectedMediaType)
@@ -636,6 +751,7 @@ export function HomeScreen() {
           }
           perfMark('home.rows.set', selectedMediaType);
           setFeedRows(read.rows);
+          setFeedHasMore(read.hasMore);
           setAddByRssItemsById(read.addByRssItemsById);
           setAddByRssLiveItemsById(read.addByRssLiveItemsById);
           setDirectoryItemsById(read.directoryItemsById);
@@ -683,6 +799,7 @@ export function HomeScreen() {
           return;
         }
         setFeedRows([]);
+        setFeedHasMore(false);
         setAddByRssItemsById(EMPTY_HOME_ADD_BY_RSS_ITEMS);
         setAddByRssLiveItemsById(EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS);
         setDirectoryItemsById(EMPTY_HOME_DIRECTORY_ITEMS);
@@ -697,11 +814,91 @@ export function HomeScreen() {
         }
       }
     },
-    [offlineModeEnabled, requestSync, resolvedPrefs.range, resolvedPrefs.sort, selectedMediaType]
+    [
+      accessToken,
+      clearSession,
+      offlineModeEnabled,
+      refreshToken,
+      requestSync,
+      resolvedPrefs.range,
+      resolvedPrefs.sort,
+      selectedMediaType,
+      setTokens,
+      status,
+    ]
   );
 
   const loadFeedRef = useRef(loadFeed);
   loadFeedRef.current = loadFeed;
+
+  // Scrolling near the bottom deepens the stored snapshot, then rereads it. The network page never
+  // goes into screen state, so the deeper list is the same one Home shows offline.
+  const extendFeed = useCallback(async () => {
+    if (
+      status !== 'authenticated' ||
+      offlineModeEnabled ||
+      (selectedMediaType !== 'clips' && selectedMediaType !== 'livestreams')
+    ) {
+      return;
+    }
+    const mediaType = selectedMediaType;
+    const extendRequestId = extendRequestIdRef.current + 1;
+    extendRequestIdRef.current = extendRequestId;
+    setIsFeedExtending(true);
+    setFeedExtendErrorKey(null);
+    try {
+      const outcome = await extendHomeFeed(mediaType, {
+        accessToken,
+        clearSession,
+        refreshToken,
+        setTokens,
+      });
+      if (outcome === 'end') {
+        if (extendRequestId === extendRequestIdRef.current) {
+          setFeedHasMore(false);
+        }
+        return;
+      }
+      // A stale outcome means a sync or sign-out rewrote the snapshot; the reread shows that.
+      // loadFeed checks its own request id, so it reads whichever chip is selected by then.
+      await loadFeedRef.current('synced');
+    } catch {
+      if (extendRequestId === extendRequestIdRef.current) {
+        setFeedExtendErrorKey('errors.generic');
+      }
+    } finally {
+      if (extendRequestId === extendRequestIdRef.current) {
+        setIsFeedExtending(false);
+      }
+    }
+  }, [
+    accessToken,
+    clearSession,
+    offlineModeEnabled,
+    refreshToken,
+    selectedMediaType,
+    setTokens,
+    status,
+  ]);
+
+  const handleFeedEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      (selectedMediaType === 'clips' || selectedMediaType === 'livestreams') &&
+      status === 'authenticated' &&
+      !offlineModeEnabled &&
+      pendingMediaType === null &&
+      canLoadNextPage({
+        hasError: feedErrorKey !== null || feedExtendErrorKey !== null,
+        hasMore: feedHasMore,
+        isLoading: isFeedRefreshing,
+        isLoadingMore: isFeedExtending,
+      }),
+    loadMore: extendFeed,
+  });
+
+  const handleRetryExtend = useCallback(() => {
+    void extendFeed();
+  }, [extendFeed]);
 
   useEffect(() => {
     if (hasLoadedFeedOnceRef.current && !arePrefsHydrated) {
@@ -898,13 +1095,16 @@ export function HomeScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <HomeOverflowMenu
-          canMarkAllSeen={canMarkAllSeen}
-          onMarkAllSeen={handleMarkAllSeen}
-          onViewModeChange={handleViewModeChange}
-          showMarkAllSeen={showMarkAllSeen}
-          viewMode={resolvedPrefs.viewMode}
-        />
+        <HeaderBarActions>
+          <HomeNotificationsBell />
+          <HomeOverflowMenu
+            canMarkAllSeen={canMarkAllSeen}
+            onMarkAllSeen={handleMarkAllSeen}
+            onViewModeChange={handleViewModeChange}
+            showMarkAllSeen={showMarkAllSeen}
+            viewMode={resolvedPrefs.viewMode}
+          />
+        </HeaderBarActions>
       ),
     });
   }, [
@@ -1389,7 +1589,6 @@ export function HomeScreen() {
         {showFilterField ? (
           <ListFilterHeader hasItemsBelow={visibleRows.length > 0} style={styles.filterRow}>
             <ListFilterField
-              clearLabel={t('subscriptions.filter.clear')}
               label={t('subscriptions.filter.placeholder')}
               onChangeTerm={handleFilterTermChange}
               term={filterTerm}
@@ -1506,6 +1705,15 @@ export function HomeScreen() {
   const listFooter = useMemo(
     () => (
       <>
+        {isFeedExtending ? (
+          <ListLoading testID="home-feed-loading-more" />
+        ) : feedExtendErrorKey !== null ? (
+          <ListError
+            messageKey={feedExtendErrorKey}
+            onRetry={handleRetryExtend}
+            testID="home-feed-load-more-error"
+          />
+        ) : null}
         {showFeedRows && selectedMediaType === 'podcasts' && unsubscribedDownloadCount > 0 ? (
           <View
             style={[
@@ -1560,12 +1768,15 @@ export function HomeScreen() {
     ),
     [
       deleteAllAction,
+      feedExtendErrorKey,
       feedRows.length,
       handleDeleteUnsubscribedDownloads,
       handlePodcastPlayPress,
       handlePodcastQueuePress,
+      handleRetryExtend,
       handleRowPress,
       homeNoticeKey,
+      isFeedExtending,
       isGridView,
       selectedMediaType,
       showFeedRows,
@@ -1672,6 +1883,8 @@ export function HomeScreen() {
         key={`cols-${columns}`}
         keyExtractor={homeFeedRowKeyExtractor}
         numColumns={columns}
+        onEndReached={handleFeedEndReached}
+        onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
         onLayout={onListLayout}
         refreshControl={refreshControl}
         renderItem={renderItem}
@@ -1681,6 +1894,7 @@ export function HomeScreen() {
     [
       columns,
       gridViewLabel,
+      handleFeedEndReached,
       listData,
       listEmpty,
       listFooter,
@@ -1721,8 +1935,9 @@ export function HomeScreen() {
                 <HomeSortChip
                   onRangeChange={handleRangeChange}
                   onSortChange={handleSortChange}
+                  options={homeSortOptionsFor(displayedMediaType)}
                   range={resolvedPrefs.range}
-                  sort={resolvedPrefs.sort}
+                  sort={resolveHomeSort(displayedMediaType, resolvedPrefs.sort)}
                 />
               ) : undefined
             }

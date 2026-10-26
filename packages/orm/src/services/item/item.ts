@@ -16,7 +16,11 @@ import {
   mergeFindOptionsRelations,
 } from '@orm/lib/findOptionsRelationsFromPaths.js';
 import { resolveIdListFilter } from '@orm/lib/listIdFilter.js';
-import { buildEndedLiveItemTimeVariants } from '@orm/lib/liveItemWhere.js';
+import {
+  buildEndedLiveItemTimeVariants,
+  buildPendingLiveItemTimeWhere,
+} from '@orm/lib/liveItemWhere.js';
+import { splitUpcomingLiveItemsPage } from '@orm/lib/upcomingLiveItemsPage.js';
 import type { FindManyOptions, FindOptionsRelations, FindOptionsWhere, Repository } from 'typeorm';
 import { Brackets, Equal, In, IsNull, LessThan, MoreThan, Not } from 'typeorm';
 
@@ -362,7 +366,9 @@ export class ItemService {
         ? buildEndedLiveItemTimeVariants().map((variant) =>
             buildWhere({ ...liveItemWhere, ...variant })
           )
-        : buildWhere(liveItemWhere);
+        : liveItemType === 'pending'
+          ? buildWhere({ ...liveItemWhere, ...buildPendingLiveItemTimeWhere() })
+          : buildWhere(liveItemWhere);
 
     if (idFilter.id !== undefined) {
       const id = idFilter.id;
@@ -904,7 +910,9 @@ export class ItemService {
         ? buildEndedLiveItemTimeVariants().map((variant) =>
             buildWhere({ ...liveItemWhere, ...variant })
           )
-        : buildWhere(liveItemWhere);
+        : liveItemType === 'pending'
+          ? buildWhere({ ...liveItemWhere, ...buildPendingLiveItemTimeWhere() })
+          : buildWhere(liveItemWhere);
 
     if (idFilter.id !== undefined) {
       const id = idFilter.id;
@@ -924,7 +932,8 @@ export class ItemService {
   }
 
   /**
-   * Live and scheduled live items, live first. `channelIds` null lists public channels;
+   * Live items, latest start first, then scheduled items, soonest start first. Scheduled items
+   * whose start is more than a day past are left out. `channelIds` null lists public channels;
    * an empty array lists nothing.
    */
   async getManyUpcomingLiveItems(
@@ -950,21 +959,47 @@ export class ItemService {
             id: In(channelIds),
           };
 
-    return this.repositoryRead.find({
-      ...config,
-      where: {
-        channel: channelWhere,
-        live_item: {
-          live_item_status_id: In([LiveItemStatusEnum.Live, LiveItemStatusEnum.Pending]),
-        },
-        item_flag_status: { id: ItemFlagStatusStatusEnum.Active },
+    const liveWhere: FindOptionsWhere<Item> = {
+      channel: channelWhere,
+      live_item: { live_item_status_id: Equal(LiveItemStatusEnum.Live) },
+      item_flag_status: { id: ItemFlagStatusStatusEnum.Active },
+    };
+    const pendingWhere: FindOptionsWhere<Item> = {
+      channel: channelWhere,
+      live_item: {
+        live_item_status_id: Equal(LiveItemStatusEnum.Pending),
+        ...buildPendingLiveItemTimeWhere(),
       },
-      // Live (2) sorts before Pending (1).
-      order: {
-        live_item: { live_item_status_id: 'DESC', start_time: 'ASC' },
-        id: 'ASC',
-      },
+      item_flag_status: { id: ItemFlagStatusStatusEnum.Active },
+    };
+
+    const liveCount = await this.repositoryRead.count({ where: liveWhere });
+    const segments = splitUpcomingLiveItemsPage({
+      skip: config.skip ?? 0,
+      take: config.take ?? PAGINATION.DEFAULT_LIMIT,
+      liveCount,
     });
+
+    const liveItems = segments.live
+      ? await this.repositoryRead.find({
+          ...config,
+          where: liveWhere,
+          order: { live_item: { start_time: 'DESC' }, id: 'ASC' },
+          skip: segments.live.skip,
+          take: segments.live.take,
+        })
+      : [];
+    const pendingItems = segments.pending
+      ? await this.repositoryRead.find({
+          ...config,
+          where: pendingWhere,
+          order: { live_item: { start_time: 'ASC' }, id: 'ASC' },
+          skip: segments.pending.skip,
+          take: segments.pending.take,
+        })
+      : [];
+
+    return [...liveItems, ...pendingItems];
   }
 
   async getManyByChannelsWithLiveItem(

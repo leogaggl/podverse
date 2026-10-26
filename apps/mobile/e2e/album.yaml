@@ -26,6 +26,8 @@ name: Album flow
     id: album-detail-section-tracks
 - assertVisible:
     id: album-detail-header-settings
+- assertVisible:
+    id: album-detail-notifications-toggle
 - assertNotVisible:
     id: album-detail-section-settings
 - takeScreenshot: album-detail-tracks

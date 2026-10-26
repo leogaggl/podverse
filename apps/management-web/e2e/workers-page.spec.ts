@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { ROUTES } from './helpers/routes';
-import { capturePageLoad } from './helpers/stepScreenshots';
+import { actionAndCapture, capturePageLoad } from './helpers/stepScreenshots';
 
 /**
  * E2E seed: superuser e2e-superadmin@example.com / Test!1Aa
@@ -40,6 +40,26 @@ test.describe('Management-web workers page', () => {
       testInfo,
       'The workers page shows the Message queue category with mqRSSAdd command.',
       mqRss.first()
+    );
+
+    const clearFilterButton = page.getByRole('button', { name: 'Clear Filter', exact: true });
+    await workerSearch.fill('zzz-no-such-command');
+    await expect(page.getByText('No commands match the filter.')).toBeVisible();
+    await expect(page).toHaveURL(/search=zzz-no-such-command/);
+    await expect(clearFilterButton).toBeVisible();
+    await actionAndCapture(
+      page,
+      testInfo,
+      'Pressing the X in the workers filter clears the term and the no-match message.',
+      async () => {
+        await clearFilterButton.click();
+        await expect(workerSearch).toHaveValue('');
+        await expect(workerSearch).toBeFocused();
+        await expect(clearFilterButton).toHaveCount(0);
+        await expect(page.getByText('No commands match the filter.')).toHaveCount(0);
+        await expect(page).not.toHaveURL(/search=/);
+      },
+      workerSearch
     );
   });
 

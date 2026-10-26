@@ -20,6 +20,8 @@ name: Artist flow
 # Albums, Tracks, and About are always in the chip row. Settings is the channel-header gear.
 - assertVisible:
     id: artist-detail-header-settings
+- assertVisible:
+    id: artist-detail-notifications-toggle
 - assertNotVisible:
     id: artist-detail-section-settings
 - extendedWaitUntil:

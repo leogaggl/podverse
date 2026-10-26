@@ -86,4 +86,117 @@ describe('useTableFilterState', () => {
 
     vi.useRealTimers();
   });
+
+  it('clearSearch applies the empty filter at once and nothing fires afterwards', async () => {
+    vi.useFakeTimers();
+
+    const { result } = renderHook(() =>
+      useTableFilterState({
+        allColumnIds: ['title'],
+        basePath: '/feeds',
+        currentQueryParams: {},
+        initialColumns: ['title'],
+        initialSearch: 'rss',
+      })
+    );
+
+    act(() => {
+      result.current.clearSearch();
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith('/feeds');
+    expect(result.current.search).toBe('');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TABLE_SEARCH_DEBOUNCE_MS * 2);
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.setSearch('news');
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TABLE_SEARCH_DEBOUNCE_MS);
+    });
+
+    expect(mockPush).toHaveBeenLastCalledWith('/feeds?search=news');
+
+    vi.useRealTimers();
+  });
+
+  it('clearSearch cancels a pending delayed apply', async () => {
+    vi.useFakeTimers();
+
+    const { result } = renderHook(() =>
+      useTableFilterState({
+        allColumnIds: ['title'],
+        basePath: '/feeds',
+        currentQueryParams: {},
+        initialColumns: ['title'],
+        initialSearch: '',
+      })
+    );
+
+    act(() => {
+      result.current.setSearch('rss');
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TABLE_SEARCH_DEBOUNCE_MS / 2);
+    });
+
+    act(() => {
+      result.current.clearSearch();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TABLE_SEARCH_DEBOUNCE_MS * 2);
+    });
+
+    expect(mockPush.mock.calls).toEqual([['/feeds']]);
+
+    vi.useRealTimers();
+  });
+
+  it('clearSearch writes the cookie and refreshes at once in cookie mode', async () => {
+    vi.useFakeTimers();
+
+    const cookieName = 'test_table_state_clear';
+    const listKey = 'feeds';
+
+    const { result } = renderHook(() =>
+      useTableFilterState({
+        allColumnIds: ['title'],
+        basePath: '/feeds',
+        currentQueryParams: {},
+        initialColumns: ['title'],
+        initialSearch: 'podcast',
+        tableListStateCookieName: cookieName,
+        tableListStateListKey: listKey,
+      })
+    );
+
+    act(() => {
+      result.current.clearSearch();
+    });
+
+    const match = document.cookie.match(
+      new RegExp(`(?:^|;\\s*)${encodeURIComponent(cookieName)}=([^;]*)`)
+    );
+    expect(match?.[1]).toBeDefined();
+    const decoded = decodeURIComponent(match?.[1] ?? '');
+    expect(decoded).toContain('"search":""');
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TABLE_SEARCH_DEBOUNCE_MS * 2);
+    });
+
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
 });

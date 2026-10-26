@@ -23,7 +23,7 @@ export type PodcastSectionRows<TRow> = {
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
-  loadMore: () => void;
+  loadMore: () => Promise<void>;
   refresh: () => void;
   retry: () => void;
   rows: TRow[];
@@ -36,8 +36,6 @@ export type PodcastSectionRows<TRow> = {
  * connection rather than about the podcast — and it must not read like an empty list.
  */
 export const PODCAST_SECTION_OFFLINE_MESSAGE_KEY = 'features.channel.section_requires_connection';
-
-export { sectionResponseHasMore } from './sectionResponseHasMore';
 
 /**
  * Rows for a podcast section that only exists on the server.
@@ -61,6 +59,12 @@ export function usePodcastSectionRows<TRow>(
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const loadedPageRef = useRef<number>(0);
+  /** Bumps when the section starts again at page 1, so an older page cannot write over that restart. */
+  const generationRef = useRef<number>(0);
+  /** Set for the duration of a next-page read, including one whose result is dropped. */
+  const isLoadingMoreRef = useRef<boolean>(false);
+  /** Which read failed, so Retry repeats that read instead of always restarting at page 1. */
+  const failedLoadRef = useRef<'first' | 'more' | null>(null);
 
   const authContext = useMemo(
     () => ({ accessToken, clearSession, refreshToken, setTokens }),
@@ -69,6 +73,8 @@ export function usePodcastSectionRows<TRow>(
 
   const loadFirstPage = useCallback(
     async (isPullToRefresh: boolean) => {
+      generationRef.current += 1;
+      const generation = generationRef.current;
       if (isPullToRefresh) {
         setIsRefreshing(true);
       } else {
@@ -81,14 +87,24 @@ export function usePodcastSectionRows<TRow>(
           async () => requestWithMobileAuthRefresh(authContext, async (api) => fetchPage(api, 1)),
           { hasMore: false, rows: [] }
         );
+        if (generationRef.current !== generation) {
+          return;
+        }
         loadedPageRef.current = 1;
         setRows(page.rows);
         setHasMore(page.hasMore);
+        failedLoadRef.current = null;
       } catch {
+        if (generationRef.current !== generation) {
+          return;
+        }
+        failedLoadRef.current = 'first';
         setErrorKey(PODCAST_SECTION_OFFLINE_MESSAGE_KEY);
       } finally {
-        setIsInitialLoading(false);
-        setIsRefreshing(false);
+        if (generationRef.current === generation) {
+          setIsInitialLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
     [authContext, fetchPage]
@@ -98,9 +114,18 @@ export function usePodcastSectionRows<TRow>(
    * Append the next page, leaving what is already on screen alone.
    *
    * The page number is held in a ref rather than in state so reaching further cannot look like a new
-   * request to the effect below, which would send the section back to the first page.
+   * request to the effect below, which would send the section back to the first page. A second call
+   * while one page is in flight returns at once. A page that belongs to an earlier channel or sort
+   * is dropped, so it cannot land after the section has started again at the first page. The footer
+   * spinner is cleared either way, so a dropped page does not leave it on.
    */
   const loadMore = useCallback(async () => {
+    if (isLoadingMoreRef.current) {
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    const generation = generationRef.current;
     const nextPage = loadedPageRef.current + 1;
     setIsLoadingMore(true);
     try {
@@ -109,12 +134,22 @@ export function usePodcastSectionRows<TRow>(
           requestWithMobileAuthRefresh(authContext, async (api) => fetchPage(api, nextPage)),
         { hasMore: false, rows: [] }
       );
+      if (generationRef.current !== generation) {
+        return;
+      }
       loadedPageRef.current = nextPage;
       setRows((current) => [...current, ...page.rows]);
       setHasMore(page.hasMore);
+      setErrorKey(null);
+      failedLoadRef.current = null;
     } catch {
+      if (generationRef.current !== generation) {
+        return;
+      }
+      failedLoadRef.current = 'more';
       setErrorKey(PODCAST_SECTION_OFFLINE_MESSAGE_KEY);
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
   }, [authContext, fetchPage]);
@@ -130,13 +165,16 @@ export function usePodcastSectionRows<TRow>(
     isInitialLoading,
     isLoadingMore,
     isRefreshing,
-    loadMore: () => {
-      void loadMore();
-    },
+    loadMore,
     refresh: () => {
       void loadFirstPage(true);
     },
     retry: () => {
+      if (failedLoadRef.current === 'more') {
+        setErrorKey(null);
+        void loadMore();
+        return;
+      }
       void loadFirstPage(false);
     },
     rows,

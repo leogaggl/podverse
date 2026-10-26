@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { DTOQueueResource } from '@podverse/helpers/dto';
 import type { QueueListMedium } from '@podverse/helpers/medium';
 import { DEFAULT_QUEUE_LIST_MEDIUM, getQueueMediumIdFromType } from '@podverse/helpers/medium';
 
@@ -14,11 +15,19 @@ import { FillList, VerticalCenter } from '../../components/primitives';
 import { AuthAwareLoadState } from '../../components/state/AuthAwareLoadState';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { LoadingSection } from '../../components/state/LoadingSection';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueDataRevision } from '../../hooks/useQueueDataRevision';
 import { useQueueResources } from '../../hooks/useQueueResources';
 import { resolveListFill } from '../../lib/listFill';
+import {
+  appendUniqueBy,
+  canLoadNextPage,
+  fullPageHasMore,
+  LIST_END_REACHED_THRESHOLD,
+} from '../../lib/pagination/pagedList';
 import type { QueueResourceHomeRow } from '../../lib/rows/homeRowMappers';
 import { queueResourceToHomeRow } from '../../lib/rows/homeRowMappers';
 import type { LibraryStackParamList } from '../../navigation';
@@ -28,6 +37,7 @@ import type { HomeFeedRowData } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
+import { readHistoryPages } from './historyPages';
 
 type LibraryHistoryScreenProps = NativeStackScreenProps<LibraryStackParamList, 'LibraryHistory'>;
 
@@ -38,6 +48,11 @@ const FIRST_PAGE = 1;
 const noopPress = (): void => undefined;
 
 const historyRowKeyExtractor = (row: HistoryRow): string => row.id;
+
+const historyResourceToRows = (resource: DTOQueueResource): HistoryRow[] => {
+  const row = queueResourceToHomeRow(resource, 'history');
+  return row === null ? [] : [row];
+};
 
 type HistoryFeedRowProps = {
   onPlay: (nextRow: HomeFeedRowData, mediaType: HistoryRow['mediaType']) => void;
@@ -88,7 +103,14 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [loadMoreErrorKey, setLoadMoreErrorKey] = useState<string | null>(null);
   const historyRequestIdRef = useRef(0);
+  /** Pages merged into `historyRows`. */
+  const loadedPageCountRef = useRef<number>(0);
+  /** Queue the merged pages came from. */
+  const historyQueueIdTextRef = useRef<string | null>(null);
   const settledMediumRef = useRef<QueueListMedium | null>(null);
   const { playbackNoticeKey, runPlayAction, runQueueAction } = useHomeRowPlayback();
 
@@ -106,9 +128,14 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
         setSelectedMedium((previousMedium) => {
           if (previousMedium !== nextMedium) {
             historyRequestIdRef.current += 1;
+            loadedPageCountRef.current = 0;
+            historyQueueIdTextRef.current = null;
             setHistoryRows([]);
             setIsInitialLoading(true);
             setErrorKey(null);
+            setHasMore(false);
+            setIsLoadingMore(false);
+            setLoadMoreErrorKey(null);
           }
           return nextMedium;
         });
@@ -163,11 +190,20 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
     historyRequestIdRef.current = requestId;
     const isCurrent = () => historyRequestIdRef.current === requestId;
     const isSoftReload = settledMediumRef.current === selectedMedium;
+    setIsLoadingMore(false);
+    setLoadMoreErrorKey(null);
+
+    const resetPaging = () => {
+      loadedPageCountRef.current = 0;
+      historyQueueIdTextRef.current = null;
+      setHasMore(false);
+    };
 
     if (status !== 'authenticated') {
       if (!isCurrent()) {
         return;
       }
+      resetPaging();
       setHistoryRows([]);
       setErrorKey(null);
       setIsInitialLoading(false);
@@ -183,6 +219,7 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
     try {
       const mediumId = getQueueMediumIdFromType(selectedMedium);
       if (mediumId === null) {
+        resetPaging();
         setHistoryRows([]);
         setSettledMedium(selectedMedium);
         setIsInitialLoading(false);
@@ -194,23 +231,30 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
         return;
       }
       if (selectedQueue === null) {
+        resetPaging();
         setHistoryRows([]);
         setSettledMedium(selectedMedium);
         setIsInitialLoading(false);
         return;
       }
 
-      const historyResources = await fetchHistoryPage(selectedQueue.id_text, FIRST_PAGE);
+      // A soft reload re-reads every page already merged so a queue change keeps the reader's depth.
+      const pageCount =
+        isSoftReload && historyQueueIdTextRef.current === selectedQueue.id_text
+          ? loadedPageCountRef.current
+          : FIRST_PAGE;
+      const read = await readHistoryPages(
+        async (page) => fetchHistoryPage(selectedQueue.id_text, page),
+        pageCount
+      );
       if (!isCurrent()) {
         return;
       }
 
-      setHistoryRows(
-        historyResources.flatMap((resource) => {
-          const row = queueResourceToHomeRow(resource, 'history');
-          return row === null ? [] : [row];
-        })
-      );
+      setHistoryRows(read.resources.flatMap(historyResourceToRows));
+      loadedPageCountRef.current = read.pagesRead;
+      historyQueueIdTextRef.current = selectedQueue.id_text;
+      setHasMore(read.hasMore);
       setErrorKey(null);
       setSettledMedium(selectedMedium);
     } catch {
@@ -220,6 +264,7 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
       if (!isSoftReload) {
         setErrorKey('errors.generic');
         setHistoryRows([]);
+        setHasMore(false);
       }
       setSettledMedium(selectedMedium);
     } finally {
@@ -237,6 +282,40 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
     void loadHistory();
   }, [loadHistory, queueDataRevision]);
 
+  // Shares the request id with loadHistory without advancing it: a reload, medium change, or queue
+  // action supersedes this page, and whichever did so already cleared the footer state.
+  const loadNextHistoryPage = useCallback(async () => {
+    const queueIdText = historyQueueIdTextRef.current;
+    if (status !== 'authenticated' || queueIdText === null) {
+      return;
+    }
+
+    const requestId = historyRequestIdRef.current;
+    const isCurrent = () => historyRequestIdRef.current === requestId;
+    const nextPage = loadedPageCountRef.current + 1;
+    setIsLoadingMore(true);
+    setLoadMoreErrorKey(null);
+
+    try {
+      const resources = await fetchHistoryPage(queueIdText, nextPage);
+      if (!isCurrent()) {
+        return;
+      }
+      const mapped = resources.flatMap(historyResourceToRows);
+      setHistoryRows((rows) => appendUniqueBy(rows, mapped, historyRowKeyExtractor));
+      loadedPageCountRef.current = nextPage;
+      setHasMore(fullPageHasMore(resources.length));
+    } catch {
+      if (isCurrent()) {
+        setLoadMoreErrorKey('errors.generic');
+      }
+    } finally {
+      if (isCurrent()) {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [fetchHistoryPage, status]);
+
   const handleMediumChange = useCallback(
     (nextMedium: QueueListMedium) => {
       if (nextMedium === selectedMedium) {
@@ -246,10 +325,15 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
       // Invalidate in-flight loads for the medium the user just left. Leave settledMedium stale so
       // ListEmpty cannot treat the cleared list as a settled empty for the new chip.
       historyRequestIdRef.current += 1;
+      loadedPageCountRef.current = 0;
+      historyQueueIdTextRef.current = null;
       setSelectedMedium(nextMedium);
       setHistoryRows([]);
       setIsInitialLoading(true);
       setErrorKey(null);
+      setHasMore(false);
+      setIsLoadingMore(false);
+      setLoadMoreErrorKey(null);
     },
     [selectedMedium]
   );
@@ -272,6 +356,7 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
           return;
         }
         historyRequestIdRef.current += 1;
+        setIsLoadingMore(false);
         setHistoryRows((rows) => rows.filter((row) => row.id !== nextRow.id));
       })();
     },
@@ -286,6 +371,21 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
     isSettled: !isInitialLoading && settledMedium === selectedMedium,
     rowCount: historyRows.length,
   });
+  const handleEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      status === 'authenticated' &&
+      historyFill === 'ready' &&
+      canLoadNextPage({
+        hasError: errorKey !== null || loadMoreErrorKey !== null,
+        hasMore,
+        isLoading: isInitialLoading,
+        isLoadingMore,
+      }),
+    loadMore: loadNextHistoryPage,
+  });
+  const handleRetryNextPage = useCallback(() => {
+    void loadNextHistoryPage();
+  }, [loadNextHistoryPage]);
   const listEmpty = useMemo(() => {
     if (historyFill === 'loading') {
       return <LoadingSection testID="library-history-loading" />;
@@ -308,9 +408,23 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
   }, [errorKey, handleRetry, historyFill]);
 
   const listFooter = useMemo(
-    () =>
-      playbackNoticeKey !== null ? <Text style={styles.notice}>{t(playbackNoticeKey)}</Text> : null,
-    [playbackNoticeKey, styles.notice, t]
+    () => (
+      <>
+        {isLoadingMore ? (
+          <ListLoading testID="library-history-loading-more" />
+        ) : loadMoreErrorKey !== null ? (
+          <ListError
+            messageKey={loadMoreErrorKey}
+            onRetry={handleRetryNextPage}
+            testID="library-history-load-more-error"
+          />
+        ) : null}
+        {playbackNoticeKey !== null ? (
+          <Text style={styles.notice}>{t(playbackNoticeKey)}</Text>
+        ) : null}
+      </>
+    ),
+    [handleRetryNextPage, isLoadingMore, loadMoreErrorKey, playbackNoticeKey, styles.notice, t]
   );
 
   const listHeader = useMemo(
@@ -354,6 +468,8 @@ export function LibraryHistoryScreen(_props: LibraryHistoryScreenProps) {
           data={showHistoryRows ? historyRows : []}
           keyExtractor={historyRowKeyExtractor}
           keyboardShouldPersistTaps="handled"
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
           renderItem={renderItem}
           testID="library-history-list"
         />

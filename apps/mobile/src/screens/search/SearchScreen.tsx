@@ -159,6 +159,7 @@ export function SearchScreen({ navigation, route }: SearchScreenProps) {
     }
 
     if (debouncedQuery.length === 0) {
+      searchRequestIdRef.current += 1;
       setFeeds([]);
       setErrorKey(null);
       setIsLoading(false);

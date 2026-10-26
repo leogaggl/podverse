@@ -75,12 +75,13 @@ not add a second `<Text>` label above it. The placeholder must **differ** from t
 (example, `Optional` / `Required`, default-if-blank, or a short instruction) —
 **form-eyebrow-placeholder**. Eyebrow fields are taller than the compact pill.
 **Omit `eyebrow` only** for directory search and on-screen list filters (`SearchField`,
-`ListFilterField`). Search adds the leading glass; filter adds a clear `Button`. `TextField`
-owns the hit-target contract and blurs when the host screen loses focus. Do not wrap a thin
-input in a padded `View`, and do not grow `TextInput` padding to fake a larger target. Field,
-chips, and the list rule share one column `gap` (`spacing.base`) so the space above and below
-the chips is equal. Prefer that symmetry whenever two sides of a control are the same
-relationship. See **mobile-screen-layout**.
+`ListFilterField`). Both search and list filters add an X inside the pill while the value is
+non-empty. Each field reads its own shared accessible name. Pressing the X clears the value and
+keeps the keyboard up. Form fields omit it. `TextField` owns the focus target and the X, and
+blurs when the host screen loses focus. Do not wrap a thin input in a padded `View`, and do
+not grow `TextInput` padding to fake a larger target. Field, chips, and the list rule share one
+column `gap` (`spacing.base`) so the space above and below the chips is equal. Prefer that
+symmetry whenever two sides of a control are the same relationship. See **mobile-screen-layout**.
 
 **Settings option density:** Settings root is a group list (`MenuListScreen`) that pushes
 Appearance, Tab bar, Playback, and Notifications. 2–3 choices → `OptionChipGroup`; 4+ → push
@@ -155,13 +156,18 @@ padding is `spacing.base`. A numeric `badgeCount` renders `CountBadge` left of `
 **Home subscription markers:** live, unseen, and downloaded each have one home. Do not reuse the
 count chip for unseen presence.
 
-- **List (`HomeFeedRow`):** live `Badge` is centered on the artwork; downloaded count is the
-  line under the title; unseen on a channel row is `UnseenIndicator` (accent circle, no number)
-  in a slim full-height rail at the far right of the row, with the dot vertically centered on
-  the whole row. On a channel-detail item row the same indicator sits at the trailing top of
-  the title line. Inside a channel (no artwork) a livestream row's status starts the date line,
-  the Live badge while on the air and a neutral Scheduled or Ended badge otherwise. Outside a
-  channel Scheduled leads the context line.
+- **List (`HomeFeedRow`):** a channel row's live `Badge` is centered on the artwork; downloaded
+  count is the line under the title; unseen on a channel row is `UnseenIndicator` (accent
+  circle, no number) in a slim full-height rail at the far right of the row, with the dot
+  vertically centered on the whole row. On a channel-detail item row the same indicator sits
+  at the trailing top of the title line. A livestream item row states its status in the play
+  band, in the slot where an episode row shows its duration: the Live badge while on the air
+  and a neutral Scheduled or Ended badge otherwise. The badge replaces the duration. Only a
+  Live row has Play, with the badge beside it. A Scheduled or Ended row has no Play: the
+  badge starts the band and More sits at the far end. Pressing any livestream row opens its
+  livestream page. The date stays on the date line under the title, and the context line
+  carries only the show name. A livestream inside an album uses this same episode row, never
+  the compact track row. Channel rows keep Live on the artwork.
 - **Grid (`HomeFeedGridCell`):** live top-right, unseen indicator bottom-right, downloaded
   `CountBadge` bottom-left.
 
@@ -230,7 +236,8 @@ link switch under Submit. See **mobile-screen-layout**.
 - [ ] New shared UI gets a stable `testID` where E2E will assert it.
 - [ ] Boxed fields use `TextField` / `SearchField` / `ListFilterField` so the painted chrome
       is the hit target. Forms pass `eyebrow` + a **distinct** `placeholder`
-      (**form-eyebrow-placeholder**); search and list filters omit `eyebrow`. Do not wrap a
+      (**form-eyebrow-placeholder**); search and list filters omit `eyebrow` and show the X
+      only while the value is non-empty. Do not wrap a
       `TextInput` in a padded `View`, and do not grow `TextInput` padding to enlarge the
       target.
 - [ ] If you duplicated JSX that already exists on another screen, stop and extract.

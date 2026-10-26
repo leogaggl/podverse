@@ -11,7 +11,6 @@ export type { PodcastSectionListProps } from './PodcastSectionList';
 export type { PodcastSectionPaneProps } from './podcastSectionPane';
 export {
   PODCAST_SECTION_OFFLINE_MESSAGE_KEY,
-  sectionResponseHasMore,
   usePodcastSectionRows,
 } from './usePodcastSectionRows';
 export type {

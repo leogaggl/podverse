@@ -26,6 +26,13 @@ type ChannelHeaderSettings = {
   testID: string;
 };
 
+type ChannelHeaderNotifications = {
+  accessibilityLabel: string;
+  enabled: boolean;
+  onPress: () => void;
+  testID: string;
+};
+
 /** Turns the subtitle into a link, e.g. a track's verified artists. */
 export type ChannelHeaderSubtitleLink = {
   accessibilityLabel: string;
@@ -44,7 +51,7 @@ export type ChannelHeaderProps = {
   description?: string | null;
   /** Lines of description before truncation. */
   descriptionLines?: number;
-  /** Renders in the action row — typically subscribe. RSS and website live on About. */
+  /** Leading controls in the action row — typically subscribe. RSS and website live on About. */
   actions?: ReactNode;
   /** Already-localized status text under the actions, e.g. a failed follow. */
   notice?: string | null;
@@ -54,6 +61,11 @@ export type ChannelHeaderProps = {
   subtitleLink?: ChannelHeaderSubtitleLink;
   /** Opens the linked channel when the title is pressed. */
   onTitlePress?: () => void;
+  /**
+   * Bell at the trailing end of the action row, in line with the gear. Podcast, album, and
+   * artist use it to turn notifications for that channel on or off. Omit it on item headers.
+   */
+  notifications?: ChannelHeaderNotifications;
   /**
    * Gear at the top right of the title row. Podcast, album, and artist use it for channel
    * settings. Omit it on item headers.
@@ -195,26 +207,77 @@ function ChannelHeaderTitleRow({
 }
 
 /**
- * Action row under the title. Subscribe is the first control. A sibling passed beside it sits on
- * the right with the same gap.
+ * Action row under the title. Subscribe stays packed at the leading edge, and any sibling the
+ * caller puts beside it uses the same gap. The notification bell, when set, is the trailing
+ * control on this row so it lines up with the gear.
  */
-function ChannelHeaderActionRow({ children }: { children: ReactNode }) {
+function ChannelHeaderActionRow({
+  actions,
+  notifications,
+}: {
+  actions: ReactNode;
+  notifications?: ChannelHeaderNotifications;
+}) {
   const { tokens } = useTheme();
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        bell: {
+          flexShrink: 0,
+        },
+        leading: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          flexShrink: 1,
+          gap: tokens.spacing.md,
+          minWidth: 0,
+        },
         row: {
           alignItems: 'center',
           flexDirection: 'row',
           flexShrink: 0,
           gap: tokens.spacing.md,
         },
+        rowBetween: {
+          justifyContent: 'space-between',
+        },
+        rowEnd: {
+          justifyContent: 'flex-end',
+        },
       }),
     [tokens]
   );
 
-  return <View style={styles.row}>{children}</View>;
+  const hasActions = actions !== undefined && actions !== null;
+  const bell =
+    notifications !== undefined ? (
+      <View style={styles.bell}>
+        <HeaderBarAction
+          accessibilityLabel={notifications.accessibilityLabel}
+          icon={notifications.enabled ? 'notifications' : 'notifications-off-outline'}
+          iconSize={CHANNEL_HEADER_SETTINGS_ICON_SIZE}
+          layout="inline"
+          onPress={notifications.onPress}
+          testID={notifications.testID}
+        />
+      </View>
+    ) : null;
+
+  if (notifications !== undefined && hasActions) {
+    return (
+      <View style={[styles.row, styles.rowBetween]}>
+        <View style={styles.leading}>{actions}</View>
+        {bell}
+      </View>
+    );
+  }
+
+  if (notifications !== undefined) {
+    return <View style={[styles.row, styles.rowEnd]}>{bell}</View>;
+  }
+
+  return <View style={styles.row}>{actions}</View>;
 }
 
 /**
@@ -224,8 +287,8 @@ function ChannelHeaderActionRow({ children }: { children: ReactNode }) {
  * episode list — the reason the screen was opened — stays closer to the top of the page than a
  * stacked 120px cover would allow.
  *
- * When `actions` is set, the column is the artwork's height. The title row stays at the top and
- * the action row stays on the bottom edge, so a one-line title and a two-line title keep
+ * When the action row is present, the column is the artwork's height. The title row stays at the
+ * top and the action row stays on the bottom edge, so a one-line title and a two-line title keep
  * subscribe in the same place. A subtitle shares the title row's height, and the title is then
  * one line, so the action row still lands on that edge.
  *
@@ -234,7 +297,8 @@ function ChannelHeaderActionRow({ children }: { children: ReactNode }) {
  *
  * Unboxed on purpose: the gutter comes from the host (pinned chrome or a list), so the block reads
  * as the top of the page rather than as a card sitting on it, and the stack title above it is the
- * only chrome. When `settings` is set, the gear sits at the top right of the title row.
+ * only chrome. When `settings` is set, the gear sits at the top right of the title row. When
+ * `notifications` is set, the bell sits at the trailing end of the action row.
  */
 export function ChannelHeader({
   actions,
@@ -244,6 +308,7 @@ export function ChannelHeader({
   description,
   descriptionLines = 4,
   notice,
+  notifications,
   onTitlePress,
   settings,
   subtitle,
@@ -293,7 +358,8 @@ export function ChannelHeader({
   const hasSubtitle = (subtitle ?? '').length > 0;
   const hasNotice = (notice ?? '').length > 0;
   const hasActions = actions !== undefined && actions !== null;
-  const titleLines = hasActions && hasSubtitle ? 1 : CHANNEL_HEADER_TITLE_MAX_LINES;
+  const lockTextColumn = hasActions || notifications !== undefined;
+  const titleLines = lockTextColumn && hasSubtitle ? 1 : CHANNEL_HEADER_TITLE_MAX_LINES;
 
   return (
     <View testID={testID}>
@@ -307,7 +373,9 @@ export function ChannelHeader({
           uri={artworkUri}
           viewerUri={viewerUri}
         />
-        <View style={hasActions ? [styles.textColumn, styles.textColumnLocked] : styles.textColumn}>
+        <View
+          style={lockTextColumn ? [styles.textColumn, styles.textColumnLocked] : styles.textColumn}
+        >
           <ChannelHeaderTitleRow
             onTitlePress={onTitlePress}
             settings={settings}
@@ -316,7 +384,9 @@ export function ChannelHeader({
             title={title}
             titleLines={titleLines}
           />
-          {hasActions ? <ChannelHeaderActionRow>{actions}</ChannelHeaderActionRow> : null}
+          {lockTextColumn ? (
+            <ChannelHeaderActionRow actions={actions} notifications={notifications} />
+          ) : null}
         </View>
       </View>
       {hasDescription ? (

@@ -5,11 +5,16 @@ import {
   DEFAULT_HOME_RANGE,
   DEFAULT_HOME_SORT,
   DEFAULT_HOME_VIEW_MODE,
+  homeClipSortToApiSort,
+  homeClipsPrefsChangeRefetches,
+  homeClipsQueryFromPrefs,
+  homeSortOptionsFor,
   homeSortToApiRange,
   isHomeFilterMediaType,
   isHomeSortableMediaType,
   isHomeViewModeMediaType,
   readHomeListPrefs,
+  resolveHomeSort,
   subscribeHomeListPrefs,
   writeHomeRange,
   writeHomeSort,
@@ -43,6 +48,14 @@ describe('homeListPrefs', () => {
     await expect(readHomeListPrefs('podcasts')).resolves.toEqual({
       range: DEFAULT_HOME_RANGE,
       sort: DEFAULT_HOME_SORT,
+      viewMode: DEFAULT_HOME_VIEW_MODE,
+    });
+  });
+
+  it('opens Clips on Recent when nothing is stored', async () => {
+    await expect(readHomeListPrefs('clips')).resolves.toEqual({
+      range: DEFAULT_HOME_RANGE,
+      sort: 'recent',
       viewMode: DEFAULT_HOME_VIEW_MODE,
     });
   });
@@ -113,6 +126,19 @@ describe('homeListPrefs', () => {
     });
   });
 
+  it('reads a stored A-Z on Clips as Recent', async () => {
+    inMemoryStore.set('sort.clips', JSON.stringify({ sort: 'alphabetical' }));
+
+    await expect(readHomeListPrefs('clips')).resolves.toMatchObject({ sort: 'recent' });
+  });
+
+  it('does not store an A-Z choice on Clips', async () => {
+    await writeHomeSort('clips', 'popularity');
+    await writeHomeSort('clips', 'alphabetical');
+
+    await expect(readHomeListPrefs('clips')).resolves.toMatchObject({ sort: 'popularity' });
+  });
+
   it('remembers popularity per media type', async () => {
     await writeHomeSort('podcasts', 'popularity');
 
@@ -134,6 +160,15 @@ describe('homeListPrefs', () => {
     });
   });
 
+  it('remembers Popularity and its window on Clips', async () => {
+    await writeHomeRange('clips', 'month');
+
+    await expect(readHomeListPrefs('clips')).resolves.toMatchObject({
+      range: 'month',
+      sort: 'popularity',
+    });
+  });
+
   it('ignores a stored range it does not recognise', async () => {
     inMemoryStore.set('sort.podcasts', JSON.stringify({ range: 'fortnight', sort: 'popularity' }));
 
@@ -148,6 +183,102 @@ describe('homeListPrefs', () => {
     expect(homeSortToApiRange('recent', 'day')).toBeNull();
     expect(homeSortToApiRange('popularity', 'all-time')).toBe('all-time');
     expect(homeSortToApiRange('popularity')).toBe(DEFAULT_HOME_RANGE);
+  });
+
+  it('offers Recent and Popularity on Clips, and A-Z on the other sortable lists', () => {
+    expect(homeSortOptionsFor('clips')).toEqual(['recent', 'popularity']);
+    expect(homeSortOptionsFor('podcasts')).toEqual(['alphabetical', 'recent', 'popularity']);
+    expect(homeSortOptionsFor('episodes')).toEqual(['alphabetical', 'recent', 'popularity']);
+    expect(homeSortOptionsFor('artists')).toEqual(['alphabetical', 'recent', 'popularity']);
+    expect(homeSortOptionsFor('albums')).toEqual(['alphabetical', 'recent', 'popularity']);
+    expect(homeSortOptionsFor('tracks')).toEqual(['alphabetical', 'recent', 'popularity']);
+  });
+
+  it('reads a Clips A-Z token as Recent and keeps A-Z on the other lists', () => {
+    expect(resolveHomeSort('clips', 'alphabetical')).toBe('recent');
+    expect(resolveHomeSort('podcasts', 'alphabetical')).toBe('alphabetical');
+    expect(resolveHomeSort('episodes', undefined)).toBe(DEFAULT_HOME_SORT);
+  });
+
+  it('maps a Home clips order onto the clip endpoint sort', () => {
+    expect(homeClipSortToApiSort('recent')).toBe('recent');
+    expect(homeClipSortToApiSort('popularity')).toBe('top');
+    expect(homeClipSortToApiSort('alphabetical')).toBe('recent');
+  });
+
+  it('builds the Home clips request from the order and window', () => {
+    expect(homeClipsQueryFromPrefs({ range: 'week', sort: 'recent' })).toEqual({
+      range: null,
+      sort: 'recent',
+    });
+    expect(homeClipsQueryFromPrefs({ range: 'month', sort: 'popularity' })).toEqual({
+      range: 'month',
+      sort: 'top',
+    });
+    expect(homeClipsQueryFromPrefs({ range: 'week', sort: 'alphabetical' })).toEqual({
+      range: null,
+      sort: 'recent',
+    });
+  });
+
+  describe('homeClipsPrefsChangeRefetches', () => {
+    const signedInClips = {
+      isAuthenticated: true,
+      mediaType: 'clips' as const,
+      offlineModeEnabled: false,
+    };
+    const recentToPopularity = {
+      next: { range: 'week' as const, sort: 'popularity' as const },
+      previous: { range: 'week' as const, sort: 'recent' as const },
+    };
+
+    it('refetches when Clips moves from Recent to Popularity', () => {
+      expect(homeClipsPrefsChangeRefetches({ ...signedInClips, ...recentToPopularity })).toBe(true);
+    });
+
+    it('refetches when the Popularity window changes', () => {
+      expect(
+        homeClipsPrefsChangeRefetches({
+          ...signedInClips,
+          next: { range: 'month', sort: 'popularity' },
+          previous: { range: 'week', sort: 'popularity' },
+        })
+      ).toBe(true);
+    });
+
+    it('does not refetch when only a window Recent never sends changes', () => {
+      expect(
+        homeClipsPrefsChangeRefetches({
+          ...signedInClips,
+          next: { range: 'month', sort: 'recent' },
+          previous: { range: 'week', sort: 'recent' },
+        })
+      ).toBe(false);
+    });
+
+    it('does not refetch off the Clips chip, signed out, or with Offline Mode on', () => {
+      expect(
+        homeClipsPrefsChangeRefetches({
+          ...signedInClips,
+          ...recentToPopularity,
+          mediaType: 'podcasts',
+        })
+      ).toBe(false);
+      expect(
+        homeClipsPrefsChangeRefetches({
+          ...signedInClips,
+          ...recentToPopularity,
+          isAuthenticated: false,
+        })
+      ).toBe(false);
+      expect(
+        homeClipsPrefsChangeRefetches({
+          ...signedInClips,
+          ...recentToPopularity,
+          offlineModeEnabled: true,
+        })
+      ).toBe(false);
+    });
   });
 
   it('does not notify a podcasts watcher when artists view mode changes', async () => {

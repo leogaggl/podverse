@@ -1,8 +1,5 @@
-import {
-  DATABASE_CONSTANTS,
-  getLiveItemStatusEnumValue,
-  LiveItemStatusEnum,
-} from '@podverse/helpers';
+import type { LiveItemStatusEnum } from '@podverse/helpers';
+import { DATABASE_CONSTANTS, getLiveItemStatusEnumValue } from '@podverse/helpers';
 import { isValidHttpUrl } from '@podverse/helpers-validation';
 
 import type { Phase4PodcastLiveItem } from '../../types/partytime.js';
@@ -26,12 +23,16 @@ function getChatWebUrl(chat: Phase4PodcastLiveItem['chat']): string | null {
 }
 
 export const compatLiveItemsDtos = (parsedLiveItems: Phase4PodcastLiveItem[]) => {
-  const dtos = [];
+  const dtos: CompatLiveItemDto[] = [];
   for (const parsedLiveItem of parsedLiveItems) {
+    const liveItemStatus = getLiveItemStatusEnumValue(parsedLiveItem.status ?? null);
+    if (liveItemStatus === null) {
+      continue;
+    }
+
     dtos.push({
       liveItem: {
-        live_item_status:
-          getLiveItemStatusEnumValue(parsedLiveItem.status ?? null) ?? LiveItemStatusEnum.Pending,
+        live_item_status: liveItemStatus,
         start_time: parsedLiveItem.start,
         end_time: parsedLiveItem.end || null,
         chat_web_url: getChatWebUrl(parsedLiveItem.chat),

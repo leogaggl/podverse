@@ -14,6 +14,7 @@ export function SearchPageListHeader() {
   const tFeatures = useTranslations('features');
   const tFilters = useTranslations('filters');
   const tMedia = useTranslations('media');
+  const tMisc = useTranslations('misc');
 
   const handleSearch = useCallback(
     (value: string) => {
@@ -40,6 +41,7 @@ export function SearchPageListHeader() {
       <SearchInput
         aria-label={tFeatures('search.search_by_title')}
         autoFocus
+        clearButtonAriaLabel={tMisc('clear_search')}
         id="search-input"
         onSearch={handleSearch}
         placeholder={tFeatures('search.search_by_title')}

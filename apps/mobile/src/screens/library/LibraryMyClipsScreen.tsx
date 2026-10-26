@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -13,6 +13,15 @@ import type { MediaRowMoreAction } from '../../components/player/MediaRowActions
 import { FillList } from '../../components/primitives';
 import { AuthAwareLoadState } from '../../components/state/AuthAwareLoadState';
 import { ListEmpty } from '../../components/state/ListEmpty';
+import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
+import {
+  appendUniqueBy,
+  canLoadNextPage,
+  LIST_END_REACHED_THRESHOLD,
+  listResponseHasMore,
+} from '../../lib/pagination/pagedList';
 import { clipToHomeRow, MIXED_SOURCE_CLIP_ROW_OPTIONS } from '../../lib/rows/homeRowMappers';
 import type { LibraryStackParamList } from '../../navigation';
 import { LIBRARY_STACK_ROUTES, navigateToMakeClipScreen } from '../../navigation';
@@ -97,6 +106,11 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
   const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
   const { activeTarget, loadItemPausedAt } = usePlaybackSession();
   const [clips, setClips] = useState<DTOClip[]>([]);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [loadMoreErrorKey, setLoadMoreErrorKey] = useState<string | null>(null);
+  const pageRef = useRef<number>(FIRST_PAGE);
+  const generationRef = useRef<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const { playbackNoticeKey, runPlayAction, runQueueAction } = useHomeRowPlayback();
@@ -123,9 +137,15 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
   }, [themeStyles, tokens]);
 
   const loadClips = useCallback(async () => {
+    generationRef.current += 1;
+    const generation = generationRef.current;
+    setLoadMoreErrorKey(null);
+    setIsLoadingMore(false);
+
     if (status !== 'authenticated') {
       setClips([]);
       setErrorKey(null);
+      setHasMore(false);
       setIsLoading(false);
       return;
     }
@@ -145,12 +165,63 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
             page: FIRST_PAGE,
           })
       );
+      if (generation !== generationRef.current) {
+        return;
+      }
       setClips(response.data);
+      setHasMore(listResponseHasMore(response.meta, response.data.length));
+      pageRef.current = FIRST_PAGE;
     } catch {
+      if (generation !== generationRef.current) {
+        return;
+      }
       setErrorKey('errors.generic');
       setClips([]);
+      setHasMore(false);
     } finally {
-      setIsLoading(false);
+      if (generation === generationRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [accessToken, clearSession, refreshToken, setTokens, status]);
+
+  const loadNextClipsPage = useCallback(async () => {
+    if (status !== 'authenticated') {
+      return;
+    }
+
+    const generation = generationRef.current;
+    const nextPage = pageRef.current + 1;
+    setIsLoadingMore(true);
+    setLoadMoreErrorKey(null);
+    try {
+      const response = await requestWithMobileAuthRefresh(
+        {
+          accessToken,
+          clearSession,
+          refreshToken,
+          setTokens,
+        },
+        async (api) =>
+          api.reqMyProfileClipsRecent({
+            page: nextPage,
+          })
+      );
+      if (generation !== generationRef.current) {
+        return;
+      }
+      setClips((current) => appendUniqueBy(current, response.data, myClipKeyExtractor));
+      pageRef.current = nextPage;
+      setHasMore(listResponseHasMore(response.meta, response.data.length));
+    } catch {
+      if (generation !== generationRef.current) {
+        return;
+      }
+      setLoadMoreErrorKey('errors.generic');
+    } finally {
+      if (generation === generationRef.current) {
+        setIsLoadingMore(false);
+      }
     }
   }, [accessToken, clearSession, refreshToken, setTokens, status]);
 
@@ -184,6 +255,20 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
   const handleRetry = useCallback(() => {
     void loadClips();
   }, [loadClips]);
+  const handleEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      status === 'authenticated' &&
+      canLoadNextPage({
+        hasError: errorKey !== null || loadMoreErrorKey !== null,
+        hasMore,
+        isLoading,
+        isLoadingMore,
+      }),
+    loadMore: loadNextClipsPage,
+  });
+  const handleRetryNextPage = useCallback(() => {
+    void loadNextClipsPage();
+  }, [loadNextClipsPage]);
 
   const activeItemId = itemFromTarget(activeTarget)?.id_text ?? null;
   const prepareClipForEdit = useCallback(
@@ -204,11 +289,28 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
     () => <ListEmpty messageKey="features.clip.empty" testID="library-my-clips-empty" />,
     []
   );
-  const listFooter = useMemo(
-    () =>
-      playbackNoticeKey !== null ? <Text style={styles.notice}>{t(playbackNoticeKey)}</Text> : null,
-    [playbackNoticeKey, styles.notice, t]
-  );
+  const listFooter = useMemo(() => {
+    const pageStatus = isLoadingMore ? (
+      <ListLoading testID="library-my-clips-loading-more" />
+    ) : loadMoreErrorKey !== null ? (
+      <ListError
+        messageKey={loadMoreErrorKey}
+        onRetry={handleRetryNextPage}
+        testID="library-my-clips-load-more-error"
+      />
+    ) : null;
+    const playbackNotice =
+      playbackNoticeKey !== null ? <Text style={styles.notice}>{t(playbackNoticeKey)}</Text> : null;
+    if (pageStatus === null && playbackNotice === null) {
+      return null;
+    }
+    return (
+      <>
+        {pageStatus}
+        {playbackNotice}
+      </>
+    );
+  }, [handleRetryNextPage, isLoadingMore, loadMoreErrorKey, playbackNoticeKey, styles.notice, t]);
 
   const renderItem = useCallback(
     ({ item: clip }: { item: DTOClip }) => (
@@ -235,6 +337,8 @@ export function LibraryMyClipsScreen({ navigation }: LibraryMyClipsScreenProps) 
           data={clips}
           keyExtractor={myClipKeyExtractor}
           keyboardShouldPersistTaps="handled"
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
           renderItem={renderItem}
         />
       ) : (

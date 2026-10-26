@@ -389,9 +389,10 @@ const liveQ = (extra: string) => `medium=podcasts&page=1&liveItemType=${extra}`;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Build a channel live item with relative start/end ages so stale-ended visibility
- * filtering (LiveItemController.getManyByChannel) can be asserted. `endAgoMs: null`
- * leaves end_time unset so the cutoff falls back to start_time.
+ * Build a channel live item with relative start/end ages so the stale ended and stale scheduled
+ * filtering (LiveItemController.getManyByChannel) can be asserted. A negative `startAgoMs`
+ * starts in the future. `endAgoMs: null` leaves end_time unset so the ended cutoff falls back
+ * to start_time.
  */
 const buildLiveItemMock = (
   id: number,
@@ -940,7 +941,7 @@ describe('category, channel, item, chapters, soundbites, transcripts, live, podr
       expect(ids).not.toContain(201);
     });
 
-    it('GET /live-item/channel/:id always returns live and pending items regardless of age', async () => {
+    it('GET /live-item/channel/:id keeps an old live item and drops a long-past scheduled item', async () => {
       itemGetManyByChannelWithLiveItemMock.mockResolvedValueOnce([
         buildLiveItemMock(301, LiveItemStatusEnum.Live, {
           startAgoMs: 10 * ONE_DAY_MS,
@@ -960,8 +961,27 @@ describe('category, channel, item, chapters, soundbites, transcripts, live, podr
       expect(res.status).toBe(200);
       const ids: number[] = res.body.map((entry: { id: number }) => entry.id);
       expect(ids).toContain(301);
-      expect(ids).toContain(302);
+      expect(ids).not.toContain(302);
       expect(ids).not.toContain(303);
+    });
+
+    it('GET /live-item/channel/:id lists two scheduled items soonest start first', async () => {
+      const hourMs = 60 * 60 * 1000;
+      itemGetManyByChannelWithLiveItemMock.mockResolvedValueOnce([
+        buildLiveItemMock(352, LiveItemStatusEnum.Pending, {
+          startAgoMs: -5 * hourMs,
+          endAgoMs: null,
+        }),
+        buildLiveItemMock(351, LiveItemStatusEnum.Pending, {
+          startAgoMs: -hourMs,
+          endAgoMs: null,
+        }),
+      ]);
+
+      const res = await request(app).get(`${liveItemBase}/channel/ch-1`);
+      expect(res.status).toBe(200);
+      const ids: number[] = res.body.map((entry: { id: number }) => entry.id);
+      expect(ids).toEqual([351, 352]);
     });
 
     it('GET /live-item/channel/:id orders live, then scheduled, then ended', async () => {
