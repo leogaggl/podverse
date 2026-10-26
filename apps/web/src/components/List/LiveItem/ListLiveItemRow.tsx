@@ -110,8 +110,12 @@ export const ListLiveItemRow: React.FC<Props> = ({
             {live_item.live_item_status.id === LiveItemStatusEnum.Live && (
               <PlayButtonRow item={item} onClick={playButtonOnClick} />
             )}
-            {showLiveItemStatus && <LiveItemStatus live_item={live_item} />}
-            <div className={styles.timeSection}>
+            {showLiveItemStatus && (
+              <div className={styles.statusSlot} data-testid="live-item-row-status">
+                <LiveItemStatus live_item={live_item} />
+              </div>
+            )}
+            <div className={styles.timeSection} data-testid="live-item-row-date">
               <ReadableDate date={live_item.start_time} />
               {' • '}
               <ReadableTime start={live_item.start_time} end={live_item.end_time || null} />

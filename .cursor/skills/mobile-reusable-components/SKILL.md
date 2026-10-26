@@ -155,13 +155,18 @@ padding is `spacing.base`. A numeric `badgeCount` renders `CountBadge` left of `
 **Home subscription markers:** live, unseen, and downloaded each have one home. Do not reuse the
 count chip for unseen presence.
 
-- **List (`HomeFeedRow`):** live `Badge` is centered on the artwork; downloaded count is the
-  line under the title; unseen on a channel row is `UnseenIndicator` (accent circle, no number)
-  in a slim full-height rail at the far right of the row, with the dot vertically centered on
-  the whole row. On a channel-detail item row the same indicator sits at the trailing top of
-  the title line. Inside a channel (no artwork) a livestream row's status starts the date line,
-  the Live badge while on the air and a neutral Scheduled or Ended badge otherwise. Outside a
-  channel Scheduled leads the context line.
+- **List (`HomeFeedRow`):** a channel row's live `Badge` is centered on the artwork; downloaded
+  count is the line under the title; unseen on a channel row is `UnseenIndicator` (accent
+  circle, no number) in a slim full-height rail at the far right of the row, with the dot
+  vertically centered on the whole row. On a channel-detail item row the same indicator sits
+  at the trailing top of the title line. A livestream item row states its status in the play
+  band, in the slot where an episode row shows its duration: the Live badge while on the air
+  and a neutral Scheduled or Ended badge otherwise. The badge replaces the duration. Only a
+  Live row has Play, with the badge beside it. A Scheduled or Ended row has no Play: the
+  badge starts the band and More sits at the far end. Pressing any livestream row opens its
+  livestream page. The date stays on the date line under the title, and the context line
+  carries only the show name. A livestream inside an album uses this same episode row, never
+  the compact track row. Channel rows keep Live on the artwork.
 - **Grid (`HomeFeedGridCell`):** live top-right, unseen indicator bottom-right, downloaded
   `CountBadge` bottom-left.
 

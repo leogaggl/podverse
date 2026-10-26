@@ -17,7 +17,13 @@ type EmbedListRowProps = {
   onSelect: () => void;
 };
 
-function EmbedListRowMeta({ row }: { row: EmbedListRow }) {
+function EmbedListRowMeta({
+  row,
+  isCurrentlyLive,
+}: {
+  row: EmbedListRow;
+  isCurrentlyLive: boolean;
+}) {
   const publishDate = row.item.pub_date;
   const hasPublishDate = publishDate !== null && publishDate !== undefined && publishDate !== '';
 
@@ -39,6 +45,10 @@ function EmbedListRowMeta({ row }: { row: EmbedListRow }) {
         <ReadableTimeRange startTime={String(row.clip.start_time)} endTime={row.clip.end_time} />
       </>
     );
+  }
+
+  if (isCurrentlyLive) {
+    return hasPublishDate ? <ReadableDate date={publishDate} /> : null;
   }
 
   const durationRaw = row.item.item_about?.duration;
@@ -79,11 +89,22 @@ export function EmbedListRow({ row, isActive, isLastRow = false, onSelect }: Emb
       </div>
       <button className={styles.contentButton} onClick={onSelect} type="button">
         <span className={styles.titleRow}>
-          {isCurrentlyLive ? <EmbedLiveItemStatus /> : null}
           <span className={styles.title}>{row.listLabel}</span>
         </span>
-        <span className={styles.meta} data-testid="embed-list-row-meta">
-          <EmbedListRowMeta row={row} />
+        <span
+          className={isCurrentlyLive ? styles.metaLive : styles.meta}
+          data-testid="embed-list-row-meta"
+        >
+          {isCurrentlyLive ? (
+            <>
+              <EmbedLiveItemStatus />
+              <span className={styles.metaText}>
+                <EmbedListRowMeta row={row} isCurrentlyLive />
+              </span>
+            </>
+          ) : (
+            <EmbedListRowMeta row={row} isCurrentlyLive={false} />
+          )}
         </span>
       </button>
     </div>

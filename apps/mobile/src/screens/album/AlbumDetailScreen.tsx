@@ -46,7 +46,6 @@ import {
   LIST_END_REACHED_THRESHOLD,
   listResponseHasMore,
 } from '../../lib/pagination/pagedList';
-import { toChannelLiveRow } from '../../lib/rows/liveItemRows';
 import { getCachedChannelSectionFlags } from '../../lib/sectionChromeFlags';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
@@ -76,11 +75,11 @@ import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { HomeFeedRowData } from '../home/homeFeedData';
-import { mapItemToHomeFeedRow } from '../home/homeFeedData';
 import { HomeFeedRow } from '../home/HomeFeedRow';
 import type { QueueActionPosition } from '../home/useHomeRowPlayback';
 import { useHomeRowPlayback } from '../home/useHomeRowPlayback';
 import { channelHasFunding, channelHasPeople, channelHasPodroll } from '../podcast/podcastSections';
+import { isAlbumLivestreamRow, toAlbumTrackRows } from './albumTrackRows';
 
 type AlbumDetailScreenProps = NativeStackScreenProps<ChannelBrowseStackParamList, 'AlbumDetail'>;
 
@@ -105,23 +104,44 @@ const createContentListRowStyles = ({ styles: themeStyles }: ThemedStylesTheme) 
   },
 });
 
+/** An album track, or a livestream on the same row a podcast's livestream uses. */
 function AlbumTrackRow({
   index,
   onGoToChannel,
   onGoToTrack,
+  onOpenLivestream,
   onPlay,
   onQueue,
+  onShareLivestream,
   row,
   track,
 }: {
   index: number;
   onGoToChannel: (row: HomeFeedRowData) => void;
   onGoToTrack: (row: HomeFeedRowData) => void;
+  onOpenLivestream: (row: HomeFeedRowData) => void;
   onPlay: (row: HomeFeedRowData) => void;
   onQueue: (row: HomeFeedRowData, position: QueueActionPosition) => void;
+  onShareLivestream: (row: HomeFeedRowData) => void;
   row: HomeFeedRowData;
   track: DTOItem | undefined;
 }) {
+  if (isAlbumLivestreamRow(row)) {
+    return (
+      <HomeFeedRow
+        downloadItem={track}
+        downloadTestID={`album-track-download-${index}`}
+        mediaType="episodes"
+        onPlayPress={onPlay}
+        onPress={onOpenLivestream}
+        onSharePress={onShareLivestream}
+        row={row}
+        showChannelContext={false}
+        testID={`album-livestream-row-${index}`}
+      />
+    );
+  }
+
   return (
     <HomeFeedRow
       downloadItem={track}
@@ -184,25 +204,6 @@ const RANGE_LABEL_KEYS: Record<AlbumDetailRange, string> = {
   day: 'filters.range.day',
   month: 'filters.range.month',
   week: 'filters.range.week',
-};
-
-const toTrackRows = (
-  items: DTOItem[],
-  albumId: string,
-  albumTitle: string | null
-): HomeFeedRowData[] => {
-  return items
-    .map((item) => {
-      const compact = mapItemToHomeFeedRow(item, { compact: true });
-      const base = {
-        ...compact,
-        channelId: compact.channelId ?? albumId,
-        channelKind: compact.channelKind ?? 'albums',
-        subtitle: albumTitle,
-      };
-      return item.live_item ? toChannelLiveRow(base, item.live_item.live_item_status_id) : base;
-    })
-    .filter((row) => row.id.length > 0);
 };
 
 const toPodrollEntries = (response: RemoteItemsResponse): PodrollEntry[] => {
@@ -495,7 +496,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         if (offlineModeEnabled) {
           trackItemsRef.current = storedItems;
           setTracksHasMore(false);
-          setTrackRows(toTrackRows(storedItems, albumId, channelTitleRef.current));
+          setTrackRows(toAlbumTrackRows(storedItems, albumId, channelTitleRef.current));
           setTracksById(new Map(storedItems.map((item) => [item.id_text, item])));
           return;
         }
@@ -518,7 +519,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         trackItemsRef.current = merged;
         tracksPageRef.current = FIRST_PAGE;
         setTracksHasMore(listResponseHasMore(seasonResponse.meta, seasonResponse.data.length));
-        setTrackRows(toTrackRows(merged, albumId, channelTitleRef.current));
+        setTrackRows(toAlbumTrackRows(merged, albumId, channelTitleRef.current));
         setTracksById(new Map(merged.map((item) => [item.id_text, item])));
       } catch {
         if (generation !== tracksGenerationRef.current) {
@@ -562,7 +563,7 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
       const joined = removeDuplicateItems([...trackItemsRef.current, ...response.data]);
       trackItemsRef.current = joined;
       tracksPageRef.current = nextPage;
-      setTrackRows(toTrackRows(joined, albumId, channelTitleRef.current));
+      setTrackRows(toAlbumTrackRows(joined, albumId, channelTitleRef.current));
       setTracksById(new Map(joined.map((item) => [item.id_text, item])));
       setTracksHasMore(listResponseHasMore(response.meta, response.data.length));
     } catch {
@@ -886,6 +887,17 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
     [navigation]
   );
 
+  const handleOpenLivestream = useCallback(
+    (nextRow: HomeFeedRowData) => {
+      navigation.navigate(CHANNEL_BROWSE_STACK_ROUTES.EpisodeDetail, { episodeId: nextRow.id });
+    },
+    [navigation]
+  );
+
+  const handleShareLivestream = useCallback((nextRow: HomeFeedRowData) => {
+    shareResolvedUrl(buildPublicShareUrl('episode', nextRow.id));
+  }, []);
+
   const handlePlayTrack = useCallback(
     (nextRow: HomeFeedRowData) => {
       runPlayAction(nextRow, 'tracks');
@@ -1002,13 +1014,23 @@ export function AlbumDetailScreen({ navigation, route }: AlbumDetailScreenProps)
         index={index}
         onGoToChannel={handleGoToChannel}
         onGoToTrack={handleGoToTrack}
+        onOpenLivestream={handleOpenLivestream}
         onPlay={handlePlayTrack}
         onQueue={handleQueueTrack}
+        onShareLivestream={handleShareLivestream}
         row={row}
         track={tracksById.get(row.id)}
       />
     ),
-    [handleGoToChannel, handleGoToTrack, handlePlayTrack, handleQueueTrack, tracksById]
+    [
+      handleGoToChannel,
+      handleGoToTrack,
+      handleOpenLivestream,
+      handlePlayTrack,
+      handleQueueTrack,
+      handleShareLivestream,
+      tracksById,
+    ]
   );
 
   const podrollEmpty = useMemo(

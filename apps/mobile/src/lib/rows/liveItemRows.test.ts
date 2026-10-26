@@ -34,32 +34,76 @@ describe('liveStatusWordKey', () => {
 
 describe('toChannelLiveRow', () => {
   it('sets the Live badge only while the stream is on the air', () => {
-    const live = toChannelLiveRow(baseRow('live'), LiveItemStatusEnum.Live);
+    const live = toChannelLiveRow(baseRow('live'), LiveItemStatusEnum.Live, null);
     expect(live.metadata).toBe(LIVE_ROW_METADATA);
     expect(live.liveStatusId).toBe(LiveItemStatusEnum.Live);
 
-    const pending = toChannelLiveRow(baseRow('pending'), LiveItemStatusEnum.Pending);
+    const pending = toChannelLiveRow(baseRow('pending'), LiveItemStatusEnum.Pending, null);
     expect(pending.liveStatusId).toBe(LiveItemStatusEnum.Pending);
     expect(pending.metadata).toBeUndefined();
 
-    const ended = toChannelLiveRow(baseRow('ended'), LiveItemStatusEnum.Ended);
+    const ended = toChannelLiveRow(baseRow('ended'), LiveItemStatusEnum.Ended, null);
     expect(ended.liveStatusId).toBe(LiveItemStatusEnum.Ended);
     expect(ended.metadata).toBeUndefined();
 
     const carried = toChannelLiveRow(
       baseRow('ended-carried', { metadata: LIVE_ROW_METADATA }),
-      LiveItemStatusEnum.Ended
+      LiveItemStatusEnum.Ended,
+      null
     );
     expect(carried.liveStatusId).toBe(LiveItemStatusEnum.Ended);
     expect(carried.metadata).toBe(LIVE_ROW_METADATA);
 
-    const missing = toChannelLiveRow(baseRow('missing'), null);
+    const missing = toChannelLiveRow(baseRow('missing'), null, null);
     expect(missing.liveStatusId).toBeNull();
     expect(missing.metadata).toBeUndefined();
 
-    const missingUndefined = toChannelLiveRow(baseRow('missing-undefined'), undefined);
+    const missingUndefined = toChannelLiveRow(baseRow('missing-undefined'), undefined, null);
     expect(missingUndefined.liveStatusId).toBeNull();
     expect(missingUndefined.metadata).toBeUndefined();
+  });
+
+  it('dates a row by its start time only when it has no publish date', () => {
+    const start = '2026-01-15T18:30:00.000Z';
+    const publishedAt = '2020-01-01T00:00:00.000Z';
+
+    expect(
+      toChannelLiveRow(baseRow('start-only'), LiveItemStatusEnum.Pending, start).updatedAt
+    ).toBe(Date.parse(start));
+    expect(
+      toChannelLiveRow(
+        baseRow('published', { updatedAt: publishedAt }),
+        LiveItemStatusEnum.Pending,
+        start
+      ).updatedAt
+    ).toBe(publishedAt);
+    expect(
+      toChannelLiveRow(baseRow('zero-start'), LiveItemStatusEnum.Pending, 0).updatedAt
+    ).toBeUndefined();
+    expect(
+      toChannelLiveRow(baseRow('missing-start'), LiveItemStatusEnum.Pending, null).updatedAt
+    ).toBeUndefined();
+  });
+
+  it('lets only a stream on the air start from the list', () => {
+    expect(
+      toChannelLiveRow(baseRow('live'), LiveItemStatusEnum.Live, null).playable
+    ).toBeUndefined();
+    expect(toChannelLiveRow(baseRow('pending'), LiveItemStatusEnum.Pending, null).playable).toBe(
+      false
+    );
+    expect(toChannelLiveRow(baseRow('ended'), LiveItemStatusEnum.Ended, null).playable).toBe(false);
+    expect(toChannelLiveRow(baseRow('missing'), null, null).playable).toBeUndefined();
+    expect(
+      toChannelLiveRow(baseRow('missing-undefined'), undefined, null).playable
+    ).toBeUndefined();
+    expect(
+      toChannelLiveRow(
+        baseRow('live-unplayable', { playable: false }),
+        LiveItemStatusEnum.Live,
+        null
+      ).playable
+    ).toBe(false);
   });
 });
 

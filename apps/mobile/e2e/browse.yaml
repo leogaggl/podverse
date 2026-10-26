@@ -101,6 +101,17 @@ name: Browse Tab And Tab Bar Pref
     timeout: ${TIMEOUT_SLOWER}
 - assertVisible:
     text: "E2E Scheduled Livestream"
+- assertVisible:
+    id: home-feed-row-live-e2eLiveStrm01
+    rightOf:
+      id: home-row-play-e2eLiveStrm01
+- assertVisible:
+    id: home-feed-row-live-status-e2eLiveSched01
+    text: Scheduled
+- assertNotVisible:
+    id: home-row-play-e2eLiveSched01
+- assertNotVisible:
+    text: "Scheduled • .*"
 - assertNotVisible:
     id: browse-sort-button
 - assertNotVisible:

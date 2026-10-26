@@ -438,6 +438,10 @@ name: Home Media Types
     visible:
       text: "E2E Livestream Item"
     timeout: ${TIMEOUT_SLOWEST}
+- assertVisible:
+    id: home-feed-row-live-e2eLiveStrm01
+    rightOf:
+      id: home-row-play-e2eLiveStrm01
 - assertNotVisible:
     id: home-sort-button
 - assertNotVisible:

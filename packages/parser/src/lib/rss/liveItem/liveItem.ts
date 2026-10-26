@@ -5,6 +5,7 @@ import type { ItemTimerAccumulator } from '@parser/lib/rss/item/item.js';
 import { createItemTimerAccumulator, handleParsedItem } from '@parser/lib/rss/item/item.js';
 import { dedupeByStableKey, getParsedItemStableKey } from '@parser/lib/rss/itemStableKey.js';
 import { markChannelMayHaveLiveItems } from '@parser/lib/rss/liveItem/channelLiveItemFlag.js';
+import { liveItemIdsToArchive } from '@parser/lib/rss/liveItem/liveItemArchive.js';
 import type { Episode } from 'podverse-partytime';
 import type { Phase4PodcastLiveItem } from 'podverse-partytime/dist/parser/phase/phase-4.js';
 
@@ -122,7 +123,6 @@ export const handleParsedLiveItems = async (
       .filter((live_item) => live_item.item.guid !== null)
       .map((live_item) => [live_item.item.guid ?? '', live_item])
   );
-  const existingLiveItemItemIds = existingLiveItems.map((live_item) => live_item.item.id);
   const updatedLiveItemItemIds: number[] = [];
   const pendingItemGuids: string[] = [];
   const liveItemGuids: string[] = [];
@@ -133,7 +133,7 @@ export const handleParsedLiveItems = async (
 
   const timerAccumulator = createItemTimerAccumulator();
 
-  await markChannelMayHaveLiveItems(channel, parsedLiveItems.length, new ChannelService());
+  await markChannelMayHaveLiveItems(channel, liveItemObjDtos.length, new ChannelService());
 
   const liveItemObjDtosBatchs = chunkArray(liveItemObjDtos, 50);
   for (const liveItemObjDtosBatch of liveItemObjDtosBatchs) {
@@ -156,13 +156,28 @@ export const handleParsedLiveItems = async (
 
   logTimerAccumulator(timerAccumulator);
 
-  const itemIdsToDelete = existingLiveItemItemIds.filter(
-    (id) => !updatedLiveItemItemIds.includes(id)
+  const skippedGuids = new Set<string>();
+  for (const parsedLiveItem of parsedLiveItems) {
+    if (getLiveItemStatusEnumValue(parsedLiveItem.status ?? null) !== null) {
+      continue;
+    }
+    if (parsedLiveItem.guid.length > 0) {
+      skippedGuids.add(parsedLiveItem.guid);
+    }
+  }
+
+  const itemIdsToArchive = liveItemIdsToArchive(
+    existingLiveItems.map((liveItem) => ({
+      guid: liveItem.item.guid ?? null,
+      itemId: liveItem.item.id,
+    })),
+    updatedLiveItemItemIds,
+    skippedGuids
   );
-  const itemsToDelete = existingLiveItems
-    .filter((liveItem) => itemIdsToDelete.includes(liveItem.item.id))
+  const itemsToArchive = existingLiveItems
+    .filter((liveItem) => itemIdsToArchive.includes(liveItem.item.id))
     .map((liveItem) => liveItem.item);
-  await itemService.updateManyFlagStatus(itemsToDelete, ItemFlagStatusStatusEnum.PendingArchive);
+  await itemService.updateManyFlagStatus(itemsToArchive, ItemFlagStatusStatusEnum.PendingArchive);
 
   return { pendingItemGuids, liveItemGuids };
 };

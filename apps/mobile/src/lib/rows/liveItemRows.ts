@@ -57,15 +57,29 @@ export const liveStatusWordKey = (
   return null;
 };
 
-/** A live row inside a channel: the Live badge only while on the air; the row keeps the status. */
+/**
+ * A live row inside a channel: the Live badge only while on the air, and only a stream on the air
+ * can start from the list. The row keeps the status, and dates itself by the start time when it
+ * has no publish date.
+ */
 export const toChannelLiveRow = (
   row: HomeFeedRowData,
-  statusId: LiveItemStatusEnum | null | undefined
-): HomeFeedRowData & { liveStatusId: LiveItemStatusEnum | null } => ({
-  ...row,
-  liveStatusId: statusId ?? null,
-  metadata: statusId === LiveItemStatusEnum.Live ? LIVE_ROW_METADATA : row.metadata,
-});
+  statusId: LiveItemStatusEnum | null | undefined,
+  startTime: Date | string | number | null | undefined
+): HomeFeedRowData & { liveStatusId: LiveItemStatusEnum | null } => {
+  const startTimeMs = startTimeMsFrom(startTime);
+  return {
+    ...row,
+    liveStatusId: statusId ?? null,
+    metadata: statusId === LiveItemStatusEnum.Live ? LIVE_ROW_METADATA : row.metadata,
+    playable:
+      statusId === LiveItemStatusEnum.Pending || statusId === LiveItemStatusEnum.Ended
+        ? false
+        : row.playable,
+    updatedAt:
+      !rowHasUpdatedAt(row.updatedAt) && startTimeMs !== null ? startTimeMs : row.updatedAt,
+  };
+};
 
 /**
  * Marks a row live or scheduled; null when the status is not upcoming, or when a scheduled start

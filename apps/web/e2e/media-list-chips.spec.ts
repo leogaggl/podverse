@@ -277,6 +277,24 @@ const capturePageLoadKeepingScroll = async (
   }
 };
 
+const expectStatusLeftOfDate = async (row: Locator, statusLabel: string): Promise<void> => {
+  const date = row.getByTestId('live-item-row-date');
+  const status = row.getByTestId('live-item-row-status');
+  await expect(date).toBeVisible();
+  await expect(status.getByText(statusLabel, { exact: true })).toBeVisible();
+  const dateBox = await date.boundingBox();
+  const statusBox = await status.boundingBox();
+  expect(dateBox, 'date line is in the layout').not.toBeNull();
+  expect(statusBox, 'status slot is in the layout').not.toBeNull();
+  if (dateBox === null || statusBox === null) {
+    return;
+  }
+  expect(dateBox.x).toBeGreaterThanOrEqual(statusBox.x + statusBox.width - 1);
+  const statusCenterY = statusBox.y + statusBox.height / 2;
+  expect(statusCenterY).toBeGreaterThan(dateBox.y);
+  expect(statusCenterY).toBeLessThan(dateBox.y + dateBox.height);
+};
+
 test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
   test('Browse chips keep the chosen chip in the URL and in this browser', async ({
     page,
@@ -788,7 +806,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
   test('When Browse Livestreams is opened signed out, live streams are listed latest start first, then scheduled streams soonest start first, and a long-past scheduled stream is hidden', async ({
     page,
   }, testInfo) => {
-    await test.step('Browse Livestreams is pressed, live streams are listed latest start first, then scheduled streams soonest start first, a long-past scheduled stream is hidden, and the page has no Ended label, Global header, or view selector', async () => {
+    await test.step('Browse Livestreams is pressed, live streams are listed latest start first, then scheduled streams soonest start first, a long-past scheduled stream is hidden, each status sits on the date line to the left of the date, and the page has no Ended label, Global header, or view selector', async () => {
       await page.goto('/browse?tab=livestreams');
       await expectAppPath(page, '/browse?tab=livestreams');
       await expectPressedChip(page, 'Livestreams');
@@ -808,6 +826,10 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await expect(followedLiveRow.getByText('Live', { exact: true })).toBeVisible();
       await expect(scheduledRow.getByText('Scheduled', { exact: true })).toBeVisible();
       await expect(laterScheduledRow.getByText('Scheduled', { exact: true })).toBeVisible();
+      await expectStatusLeftOfDate(audioRow, 'Live');
+      await expectStatusLeftOfDate(followedLiveRow, 'Live');
+      await expectStatusLeftOfDate(scheduledRow, 'Scheduled');
+      await expectStatusLeftOfDate(laterScheduledRow, 'Scheduled');
 
       const scheduledTop = await rowTop(scheduledRow);
       expect(scheduledTop).toBeGreaterThan(await rowTop(audioRow));
@@ -1195,7 +1217,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         );
       });
 
-      await test.step('The podcast page lists the live item, then the scheduled item, then the item that ended within the day', async () => {
+      await test.step('The podcast page lists the live item, then the scheduled item, then the item that ended within the day, and each status sits on the date line to the left of the date', async () => {
         const liveRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_LIVESTREAM_TITLE);
         const scheduledRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_SCHEDULED_TITLE);
         const endedRecentRow = addByRssLivestreamRow(page, E2E_CHIPS_ADD_BY_RSS_ENDED_RECENT_TITLE);
@@ -1207,6 +1229,9 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         await expect(scheduledRow.getByText('Scheduled', { exact: true })).toBeVisible();
         await expect(endedRecentRow).toBeVisible();
         await expect(endedRecentRow.getByText('Ended', { exact: true })).toBeVisible();
+        await expectStatusLeftOfDate(liveRow, 'Live');
+        await expectStatusLeftOfDate(scheduledRow, 'Scheduled');
+        await expectStatusLeftOfDate(endedRecentRow, 'Ended');
 
         const liveTop = await rowTop(liveRow);
         const scheduledTop = await rowTop(scheduledRow);
