@@ -19,6 +19,7 @@ interface ItemTranscriptProps {
 
 export const ItemTranscript = ({ rows, autoScrollOn }: ItemTranscriptProps) => {
   const tInfo = useTranslations('info');
+  const tMisc = useTranslations('misc');
   const { seek } = useMediaPlayerControls();
   const { mpCurrentTime, setMPCurrentTime } = useMediaPlayerCurrentTime();
 
@@ -52,6 +53,8 @@ export const ItemTranscript = ({ rows, autoScrollOn }: ItemTranscriptProps) => {
     <div className={styles.transcriptWrapper}>
       <div className={styles.transcriptSearch}>
         <SearchInput
+          aria-label={tInfo('transcript.search_transcript')}
+          clearButtonAriaLabel={tMisc('clear_search')}
           onSearch={(value) => setSearchTerm(value)}
           placeholder={tInfo('transcript.search_transcript')}
         />

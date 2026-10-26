@@ -200,6 +200,13 @@
   &:focus-visible {
     outline: none;
   }
+
+  &::-webkit-search-cancel-button,
+  &::-webkit-search-decoration {
+    appearance: none;
+    display: none;
+    -webkit-appearance: none;
+  }
 }
 
 /*
@@ -364,4 +371,20 @@
 
 .buttonIconEnd {
   margin-left: var(--spacing-md);
+}
+
+.textInputWrapper .clearButton {
+  color: var(--text-color-secondary);
+  height: 28px;
+  margin-left: var(--spacing-md);
+  width: 28px;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--text-color-primary);
+  }
+}
+
+.clearButtonIcon {
+  font-size: var(--font-size-md);
 }

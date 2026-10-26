@@ -7,6 +7,7 @@ import { FaMagnifyingGlass } from 'react-icons/fa6';
 import { TextInput } from '../TextInput/TextInput';
 
 export type SearchInputProps = {
+  clearButtonAriaLabel: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   onSearch: (value: string) => void;
   placeholder?: string;
@@ -23,6 +24,7 @@ export type SearchInputProps = {
 };
 
 export function SearchInput({
+  clearButtonAriaLabel,
   onChange,
   onSearch,
   placeholder,
@@ -39,11 +41,12 @@ export function SearchInput({
 }: SearchInputProps) {
   const [inputValue, setInputValue] = useState<string | null>(null);
   const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSearchedRef = useRef<string | null>(null);
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
 
   useEffect(() => {
-    if (inputValue === null) {
+    if (inputValue === null || inputValue === lastSearchedRef.current) {
       return;
     }
 
@@ -51,6 +54,7 @@ export function SearchInput({
       clearTimeout(debounceTimeout.current);
     }
     debounceTimeout.current = setTimeout(() => {
+      lastSearchedRef.current = inputValue;
       onSearchRef.current(inputValue);
     }, 1000);
     return () => {
@@ -72,8 +76,18 @@ export function SearchInput({
     if (inputValue === null) {
       return;
     }
+    lastSearchedRef.current = inputValue;
     onSearchRef.current(inputValue);
   }, [inputValue]);
+
+  const handleClear = useCallback(() => {
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    lastSearchedRef.current = '';
+    setInputValue('');
+    onSearchRef.current('');
+  }, []);
 
   return (
     <TextInput
@@ -90,6 +104,7 @@ export function SearchInput({
       tabIndex={tabIndex}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
+      clearButton={{ ariaLabel: clearButtonAriaLabel, onClear: handleClear }}
       buttonIcon={{
         position: 'start',
         icon: <FaMagnifyingGlass />,

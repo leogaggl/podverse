@@ -719,7 +719,6 @@
     "list": {
       "title_label": "Filter by Title",
       "placeholder": "Filter...",
-      "clear": "Clear",
       "no_matches": "No results match your filter."
     },
     "screen": {
@@ -916,7 +915,6 @@
       "label": "Filter",
       "placeholder": "Filter...",
       "by_title": "Type a Title",
-      "clear": "Clear",
       "results_count": "Showing {count}"
     },
     "row": {

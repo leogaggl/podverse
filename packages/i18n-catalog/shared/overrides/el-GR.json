@@ -34,6 +34,8 @@
     "faq": "",
     "try_again": "",
     "reload_page": "",
-    "return_to_home_page": ""
+    "return_to_home_page": "",
+    "clear_search": "",
+    "clear_filter": ""
   }
 }

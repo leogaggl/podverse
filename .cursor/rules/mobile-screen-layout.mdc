@@ -85,12 +85,17 @@ replace the page gutter.
 border that becomes `tokens.border.primary` on focus. Form fields pass **`eyebrow` + a
 distinct `placeholder`** (web inset caption; taller pill) —
 **form-eyebrow-placeholder**. **`SearchField`** and **`ListFilterField`** omit `eyebrow` and
-stay compact — search adds the leading magnifying-glass and a search return key; filter adds a
-clear `Button`. Do not restyle a bare `TextInput` with a perimeter stroke, and do not put a
-second label above an eyebrow field.
+stay compact. Search adds the leading magnifying glass and a search return key. Both paint an X
+at the right edge of the pill while the value is non-empty. The X is icon-only. **`SearchField`**
+names it with the shared Clear Search string. **`ListFilterField`** names it with the shared Clear
+Filter string. Neither field takes a label prop for the X. Pressing it sets the value to an empty
+string through the same change handler as typing, then focuses the field so the keyboard stays up.
+It does not submit. Form **`TextField`**s omit it. Do not restyle a bare `TextInput` with a
+perimeter stroke, and do not put a second label above an eyebrow field.
 
-The painted pill is the hit target. A tap anywhere inside it — padding, empty space, or the
-leading glass — focuses the input. `TextField` implements that; do not rebuild it per screen.
+The pill stays the hit target. A tap on the padding, the empty space, or the leading glass
+focuses the input. A tap on the X clears the value and leaves the field focused. `TextField`
+implements both. Do not rebuild that per screen.
 Do not enlarge the area by adding padding on the `TextInput` (that moves the placeholder).
 Submit stays on the keyboard return key. Leaving the screen blurs the field — do not keep a
 caret or focus ring across a tab switch. Focus again only when the user taps or a screen

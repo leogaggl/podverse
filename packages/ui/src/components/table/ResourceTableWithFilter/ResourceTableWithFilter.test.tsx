@@ -50,6 +50,7 @@ describe('ResourceTableWithFilter', () => {
         initialSearch=""
         labels={{
           actionsColumn: 'Actions',
+          clearFilterAriaLabel: 'Clear Filter',
           filterColumnsLabel: 'Cols',
           funnelAriaLabel: 'Funnel',
           searchPlaceholder: 'Search',

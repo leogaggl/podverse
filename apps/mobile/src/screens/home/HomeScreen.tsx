@@ -1389,7 +1389,6 @@ export function HomeScreen() {
         {showFilterField ? (
           <ListFilterHeader hasItemsBelow={visibleRows.length > 0} style={styles.filterRow}>
             <ListFilterField
-              clearLabel={t('subscriptions.filter.clear')}
               label={t('subscriptions.filter.placeholder')}
               onChangeTerm={handleFilterTermChange}
               term={filterTerm}

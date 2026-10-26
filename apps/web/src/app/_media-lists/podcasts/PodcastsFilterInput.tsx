@@ -22,18 +22,12 @@ interface PodcastsFilterInputProps {
  */
 export const PodcastsFilterInput: React.FC<PodcastsFilterInputProps> = ({ onChange, value }) => {
   const tSubscriptions = useTranslations('subscriptions');
+  const tMisc = useTranslations('misc');
 
   return (
     <TextInput
       aria-label={tSubscriptions('filter.label')}
-      button={
-        value === ''
-          ? undefined
-          : {
-              label: tSubscriptions('filter.clear'),
-              onClick: () => onChange(''),
-            }
-      }
+      clearButton={{ ariaLabel: tMisc('clear_filter'), onClear: () => onChange('') }}
       id={FILTER_INPUT_ID}
       maxLength={PODCASTS_FILTER_MAX_LENGTH}
       name={FILTER_INPUT_ID}

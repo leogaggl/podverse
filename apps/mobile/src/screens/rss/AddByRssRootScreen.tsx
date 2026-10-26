@@ -666,7 +666,6 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
         {showFilterField ? (
           <ListFilterHeader hasItemsBelow={visibleRows.length > 0} style={styles.filterRow}>
             <ListFilterField
-              clearLabel={t('subscriptions.filter.clear')}
               label={t('subscriptions.filter.placeholder')}
               onChangeTerm={setFilterTerm}
               term={filterTerm}

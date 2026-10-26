@@ -708,7 +708,6 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
 
   const listHeader = isFilterableSection(deferredSection) ? (
     <ListFilterField
-      clearLabel={t('filters.list.clear')}
       label={t('filters.list.title_label')}
       onChangeTerm={setFilterTerm}
       placeholder={t('filters.list.placeholder')}

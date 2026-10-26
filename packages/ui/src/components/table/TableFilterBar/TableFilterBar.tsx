@@ -18,6 +18,8 @@ export type TableFilterBarColumn = {
 };
 
 export type TableFilterBarProps = {
+  clearFilterAriaLabel: string;
+  onSearchClear: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   columns: TableFilterBarColumn[];
@@ -29,6 +31,8 @@ export type TableFilterBarProps = {
 };
 
 export function TableFilterBar({
+  clearFilterAriaLabel,
+  onSearchClear,
   searchValue,
   onSearchChange,
   columns,
@@ -79,6 +83,7 @@ export function TableFilterBar({
       <div className={styles.searchWrap}>
         <TextInput
           aria-label={searchPlaceholder}
+          clearButton={{ ariaLabel: clearFilterAriaLabel, onClear: onSearchClear }}
           onChange={(e) => {
             onSearchChange(e.target.value);
           }}

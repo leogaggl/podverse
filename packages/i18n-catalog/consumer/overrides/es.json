@@ -719,7 +719,6 @@
     "list": {
       "title_label": "",
       "placeholder": "",
-      "clear": "",
       "no_matches": ""
     },
     "screen": {
@@ -916,7 +915,6 @@
       "label": "",
       "placeholder": "",
       "by_title": "",
-      "clear": "",
       "results_count": ""
     },
     "row": {

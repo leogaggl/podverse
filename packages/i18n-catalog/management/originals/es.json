@@ -42,7 +42,6 @@
   "tableShared": {
     "searchPlaceholder": "Buscar",
     "searchSubmitLabel": "Buscar",
-    "searchClearLabel": "Borrar búsqueda",
     "filterColumnsLabel": "Buscar en columnas",
     "filterColumnsAriaLabel": "Filtrar en qué columnas se incluye la búsqueda",
     "sortAscLabel": "Orden ascendente",

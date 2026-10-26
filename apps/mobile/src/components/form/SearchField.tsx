@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '../../theme/useTheme';
 import type { TextFieldRef } from './TextField';
@@ -15,9 +16,10 @@ export type SearchFieldProps = {
 };
 
 /**
- * Directory search on top of `TextField`: compact pill (no eyebrow), plus a leading
- * magnifying-glass and a search return key, matching web `SearchInput`. The whole pill focuses,
- * including the glass.
+ * Directory search on top of `TextField`: compact pill, a leading magnifying glass, a search
+ * return key, and an X at the right edge while `value` is non-empty. The X is named with the
+ * shared Clear Search string. Pressing it clears the value and leaves the field focused. The
+ * whole pill focuses, including the glass.
  */
 export function SearchField({
   accessibilityLabel,
@@ -28,6 +30,7 @@ export function SearchField({
   testID,
   value,
 }: SearchFieldProps) {
+  const { t } = useTranslation();
   const { styles: themeStyles } = useTheme();
 
   return (
@@ -35,6 +38,8 @@ export function SearchField({
       accessibilityLabel={accessibilityLabel}
       autoCapitalize="none"
       autoCorrect={false}
+      clearAccessibilityLabel={t('misc.clear_search')}
+      clearTestID={testID !== undefined ? `${testID}-clear` : undefined}
       inputRef={inputRef}
       leading={<Ionicons color={themeStyles.textSecondary.color} name="search" size={18} />}
       onChangeText={onChangeText}

@@ -387,6 +387,7 @@ export { TextInput } from './components/form/TextInput/TextInput';
 export type {
   TextInputButton,
   TextInputButtonIcon,
+  TextInputClearButton,
   TextInputProps,
 } from './components/form/TextInput/TextInput';
 export { TextInputHHMMSS } from './components/form/TextInputHHMMSS/TextInputHHMMSS';
