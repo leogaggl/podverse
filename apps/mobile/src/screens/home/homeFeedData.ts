@@ -1,12 +1,12 @@
-import {
-  articleStrippedTitle,
-  getDescriptionPreviewText,
-  primaryListArtworkUrl,
-} from '@podverse/helpers';
+import { getDescriptionPreviewText, primaryListArtworkUrl } from '@podverse/helpers';
 import type { DTOItem, LiveItemStatusEnum } from '@podverse/helpers/dto';
 import { getNonEmptyTrimmedStringProperty, isObjectLike } from '@podverse/helpers/guards';
 
-import type { SubscribedChannel, SubscriptionSource } from '../../data/repositories';
+import type {
+  MobileAuthRequestContext,
+  SubscribedChannel,
+  SubscriptionSource,
+} from '../../data/repositories';
 import {
   addByRssRepository,
   channelItemsRepository,
@@ -142,7 +142,10 @@ type HomeFeedOptions = {
   isCurrent?: () => boolean;
   /** Listen-count window, stored with the Home sort chip. Channel/item order reads it from SQLite. */
   range?: HomeRangeOption;
-  /** List order. Channel and item chips apply it locally; clips apply A-Z on the cached page. */
+  /**
+   * List order. Channel and item chips apply it locally. Clips keep the server order the stored
+   * pages were fetched in.
+   */
   sort?: HomeSortOption;
 };
 
@@ -479,15 +482,6 @@ export const mapItemsToUpcomingLiveRows = (items: readonly DTOItem[]): UpcomingL
   );
 };
 
-const applyHomeSort = (rows: HomeFeedRowData[], sort: HomeSortOption): HomeFeedRowData[] => {
-  if (sort !== 'alphabetical') {
-    return rows;
-  }
-  return [...rows].sort((a, b) =>
-    articleStrippedTitle(a.title).localeCompare(articleStrippedTitle(b.title))
-  );
-};
-
 const mapSubscribedChannelToRow = (
   channel: SubscribedChannel,
   metadata: HomeRowMetadata | undefined
@@ -623,6 +617,8 @@ export type HomeFeedRead = {
   addByRssLiveItemsById: ReadonlyMap<string, AddByRssLiveTarget>;
   /** Stored directory items on Episodes and Tracks, by row id, for the download control. */
   directoryItemsById: ReadonlyMap<string, DTOItem>;
+  /** The stored window has another page the screen may extend into. */
+  hasMore: boolean;
   rows: HomeFeedRowData[];
 };
 
@@ -636,6 +632,7 @@ export const homeFeedReadFromRows = (rows: HomeFeedRowData[]): HomeFeedRead => (
   addByRssItemsById: EMPTY_HOME_ADD_BY_RSS_ITEMS,
   addByRssLiveItemsById: EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
   directoryItemsById: EMPTY_HOME_DIRECTORY_ITEMS,
+  hasMore: false,
   rows,
 });
 
@@ -658,6 +655,7 @@ export const readDownloadedHomeItemFeed = async (
     addByRssItemsById: EMPTY_HOME_ADD_BY_RSS_ITEMS,
     addByRssLiveItemsById: EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
     directoryItemsById,
+    hasMore: false,
     rows,
   };
 };
@@ -745,22 +743,27 @@ export const fetchHomeFeed = async (
       addByRssItemsById: new Map(items.map((item) => [item.id, item])),
       addByRssLiveItemsById: EMPTY_HOME_ADD_BY_RSS_LIVE_ITEMS,
       directoryItemsById,
+      hasMore: false,
       rows: mergeHomeItemRows({ addByRss, directory, sort }),
     };
   }
 
   if (mediaType === 'clips') {
-    // Account-backed clips land in kv via the home-clips job. Signed-out and pre-sync reads
-    // are empty; the screen chooses Login vs Browse from that.
-    const stored = await homeClipsCacheRepository.listPayload();
+    // Account-backed clips land in kv via the home-clips job, and later pages via
+    // `extendHomeFeed`. Signed-out and pre-sync reads are empty; the screen chooses Login vs
+    // Browse from that.
+    const snapshot = await homeClipsCacheRepository.readSnapshot();
     ensureCurrent();
-    return homeFeedReadFromRows(applyHomeSort(normalizeClipRows(stored), sort));
+    return {
+      ...homeFeedReadFromRows(normalizeClipRows(snapshot.items)),
+      hasMore: snapshot.window?.hasMore === true,
+    };
   }
 
   if (mediaType === 'livestreams') {
-    // The directory half comes from the home-livestreams job's cache, and nothing here waits
-    // on the network.
-    const stored = await homeLivestreamsCacheRepository.listItems();
+    // The directory half comes from the home-livestreams job's cache, plus any pages
+    // `extendHomeFeed` appended. Nothing here waits on the network.
+    const snapshot = await homeLivestreamsCacheRepository.readSnapshot();
     ensureCurrent();
     const { ready } = await addByRssRepository.listFeedsByCredentials();
     ensureCurrent();
@@ -770,9 +773,28 @@ export const fetchHomeFeed = async (
       addByRssItemsById: EMPTY_HOME_ADD_BY_RSS_ITEMS,
       addByRssLiveItemsById: new Map(addByRss.map((row) => [row.id, row.target])),
       directoryItemsById: EMPTY_HOME_DIRECTORY_ITEMS,
-      rows: sortUpcomingLiveRows([...mapItemsToUpcomingLiveRows(stored), ...addByRss]),
+      hasMore: snapshot.window?.hasMore === true,
+      rows: sortUpcomingLiveRows([...mapItemsToUpcomingLiveRows(snapshot.items), ...addByRss]),
     };
   }
 
   return homeFeedReadFromRows([]);
+};
+
+/**
+ * Fetch the next page of a paginated Home chip into its stored snapshot. The screen rereads
+ * storage afterwards; no network page goes into screen state. Chips that read whole device
+ * tables have no next page.
+ */
+export const extendHomeFeed = async (
+  mediaType: HomeMediaType,
+  context: MobileAuthRequestContext
+): Promise<'end' | 'extended' | 'stale'> => {
+  if (mediaType === 'clips') {
+    return homeClipsCacheRepository.extendFromAccount(context);
+  }
+  if (mediaType === 'livestreams') {
+    return homeLivestreamsCacheRepository.extendFromAccount(context);
+  }
+  return 'end';
 };

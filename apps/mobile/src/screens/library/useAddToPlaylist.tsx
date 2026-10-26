@@ -1,7 +1,7 @@
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text } from 'react-native';
 
@@ -11,8 +11,17 @@ import { useAuth } from '../../auth/AuthProvider';
 import type { FormAction } from '../../components/form';
 import { FormActions } from '../../components/form';
 import { AppOverlay, OverlayPanel, OverlayScrim } from '../../components/overlay';
+import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { playlistRepository } from '../../data';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { stopPropagation } from '../../lib/gesture/stopPropagation';
+import {
+  appendUniqueBy,
+  canLoadNextPage,
+  LIST_END_REACHED_THRESHOLD,
+  listResponseHasMore,
+} from '../../lib/pagination/pagedList';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import { useAccessTier } from '../../membership/useAccessTier';
 import { LIBRARY_STACK_ROUTES } from '../../navigation';
@@ -36,7 +45,7 @@ type UseAddToPlaylist = {
 };
 
 /**
- * Shared "Add to playlist" affordance (9d.4). Returns an imperative opener plus a bottom-sheet
+ * Shared "Add to playlist" affordance. Returns an imperative opener plus a bottom-sheet
  * element the caller renders once. The sheet lists owned playlists for the target medium and adds
  * the resource to the top of the selected playlist.
  */
@@ -50,6 +59,11 @@ export function useAddToPlaylist(): UseAddToPlaylist {
 
   const [target, setTarget] = useState<AddToPlaylistTarget | null>(null);
   const [playlists, setPlaylists] = useState<DTOPlaylist[]>([]);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [hasLoadMoreError, setHasLoadMoreError] = useState<boolean>(false);
+  const pageRef = useRef<number>(FIRST_PAGE);
+  const generationRef = useRef<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [noticeKey, setNoticeKey] = useState<string | null>(null);
@@ -61,6 +75,7 @@ export function useAddToPlaylist(): UseAddToPlaylist {
 
   const loadPlaylists = useCallback(
     async (nextTarget: AddToPlaylistTarget) => {
+      const generation = generationRef.current;
       setIsLoading(true);
       setNoticeKey(null);
       try {
@@ -74,22 +89,76 @@ export function useAddToPlaylist(): UseAddToPlaylist {
           },
           { refresh: true }
         );
+        if (generation !== generationRef.current) {
+          return;
+        }
         setPlaylists(response.data);
+        setHasMore(listResponseHasMore(response.meta, response.data.length));
       } catch {
+        if (generation !== generationRef.current) {
+          return;
+        }
         setPlaylists([]);
         setNoticeKey('errors.generic');
       } finally {
-        setIsLoading(false);
+        if (generation === generationRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [authArgs]
   );
+
+  const loadNextPlaylistsPage = useCallback(async () => {
+    if (target === null) {
+      return;
+    }
+
+    const generation = generationRef.current;
+    const nextPage = pageRef.current + 1;
+    setIsLoadingMore(true);
+    setHasLoadMoreError(false);
+    try {
+      const response = await playlistRepository.listOwned(
+        authArgs,
+        {
+          medium: target.medium,
+          page: nextPage,
+          range: null,
+          sort: 'a_z',
+        },
+        { refresh: true }
+      );
+      if (generation !== generationRef.current) {
+        return;
+      }
+      setPlaylists((current) =>
+        appendUniqueBy(current, response.data, (playlist) => playlist.id_text)
+      );
+      pageRef.current = nextPage;
+      setHasMore(listResponseHasMore(response.meta, response.data.length));
+    } catch {
+      if (generation !== generationRef.current) {
+        return;
+      }
+      setHasLoadMoreError(true);
+    } finally {
+      if (generation === generationRef.current) {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [authArgs, target]);
 
   const requestAddToPlaylist = useCallback(
     (next: AddToPlaylistTarget) => {
       if (status !== 'authenticated') {
         return;
       }
+      generationRef.current += 1;
+      setHasMore(false);
+      setIsLoadingMore(false);
+      setHasLoadMoreError(false);
+      pageRef.current = FIRST_PAGE;
       setTarget(next);
       setNoticeKey(null);
       setPlaylists([]);
@@ -100,9 +169,26 @@ export function useAddToPlaylist(): UseAddToPlaylist {
   );
 
   const closeSheet = useCallback(() => {
+    generationRef.current += 1;
+    setHasMore(false);
+    setIsLoadingMore(false);
+    setHasLoadMoreError(false);
+    pageRef.current = FIRST_PAGE;
     setTarget(null);
     setNoticeKey(null);
   }, []);
+
+  const handleEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      target !== null &&
+      canLoadNextPage({
+        hasError: hasLoadMoreError,
+        hasMore,
+        isLoading,
+        isLoadingMore,
+      }),
+    loadMore: loadNextPlaylistsPage,
+  });
 
   const addToPlaylist = useCallback(
     async (playlist: DTOPlaylist) => {
@@ -212,6 +298,24 @@ export function useAddToPlaylist(): UseAddToPlaylist {
     [themeStyles, tokens]
   );
 
+  const playlistListFooter = useMemo(() => {
+    if (isLoadingMore) {
+      return <ListLoading testID="add-to-playlist-loading-more" />;
+    }
+    if (hasLoadMoreError) {
+      return (
+        <ListError
+          messageKey="errors.generic"
+          onRetry={() => {
+            void loadNextPlaylistsPage();
+          }}
+          testID="add-to-playlist-load-more-error"
+        />
+      );
+    }
+    return undefined;
+  }, [hasLoadMoreError, isLoadingMore, loadNextPlaylistsPage]);
+
   const showEmpty = !isLoading && noticeKey === null && playlists.length === 0;
   const closeSheetAction: FormAction = {
     label: t('misc.close'),
@@ -255,8 +359,11 @@ export function useAddToPlaylist(): UseAddToPlaylist {
             ) : null}
             {!isLoading && playlists.length > 0 ? (
               <FlatList
+                ListFooterComponent={playlistListFooter}
                 data={playlists}
                 keyExtractor={(playlist) => playlist.id_text}
+                onEndReached={handleEndReached}
+                onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
                 renderItem={({ item: playlist }) => (
                   <Pressable
                     accessibilityRole="button"

@@ -6,7 +6,7 @@ import { MenuSelectChip } from '../../components/form';
 import type { MoreMenuItem, MoreMenuSection } from '../../components/primitives';
 import { MoreMenu } from '../../components/primitives';
 import type { HomeRangeOption, HomeSortOption } from '../../prefs/homeListPrefs';
-import { HOME_RANGE_OPTIONS, HOME_SORT_OPTIONS } from '../../prefs/homeListPrefs';
+import { HOME_RANGE_OPTIONS } from '../../prefs/homeListPrefs';
 import { BROWSE_RANGE_LABEL_KEYS, BROWSE_RANGE_MENU_LABEL_KEYS } from '../browse/browseTypes';
 
 const SORT_LABEL_KEYS: Record<HomeSortOption, string> = {
@@ -18,22 +18,29 @@ const SORT_LABEL_KEYS: Record<HomeSortOption, string> = {
 type HomeSortChipProps = {
   onRangeChange: (range: HomeRangeOption) => void;
   onSortChange: (sort: HomeSortOption) => void;
+  options: readonly HomeSortOption[];
   range: HomeRangeOption;
   sort: HomeSortOption;
 };
 
 /**
  * Home list order. The face shows the current choice — the listen-count window while popularity
- * is selected, otherwise A-Z or Recent. Popularity opens a second sheet so the window is chosen
+ * is selected, otherwise the order's name. Popularity opens a second sheet so the window is chosen
  * before the list is reordered.
  */
-export function HomeSortChip({ onRangeChange, onSortChange, range, sort }: HomeSortChipProps) {
+export function HomeSortChip({
+  onRangeChange,
+  onSortChange,
+  options,
+  range,
+  sort,
+}: HomeSortChipProps) {
   const { t } = useTranslation();
   const [isRangeOpen, setIsRangeOpen] = useState<boolean>(false);
 
-  const options = useMemo<MenuSelectChipOption<HomeSortOption>[]>(
+  const menuOptions = useMemo<MenuSelectChipOption<HomeSortOption>[]>(
     () =>
-      HOME_SORT_OPTIONS.map((option) => ({
+      options.map((option) => ({
         label: t(SORT_LABEL_KEYS[option]),
         shortLabel:
           option === 'popularity' && sort === 'popularity'
@@ -42,7 +49,7 @@ export function HomeSortChip({ onRangeChange, onSortChange, range, sort }: HomeS
         testID: `home-sort-${option}`,
         value: option,
       })),
-    [range, sort, t]
+    [options, range, sort, t]
   );
 
   const rangeSections = useMemo<MoreMenuSection[]>(() => {
@@ -71,7 +78,7 @@ export function HomeSortChip({ onRangeChange, onSortChange, range, sort }: HomeS
           }
           onSortChange(nextSort);
         }}
-        options={options}
+        options={menuOptions}
         testID="home-sort"
         value={sort}
       />

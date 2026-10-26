@@ -29,6 +29,38 @@ export type HomeSortOption = (typeof HOME_SORT_OPTIONS)[number];
 export const DEFAULT_HOME_SORT: HomeSortOption = 'alphabetical';
 
 /**
+ * Clips order by Recent or Popularity. The clip endpoints have no title order, and a page window
+ * sorted by title on the device would reshuffle as more pages arrive.
+ */
+export const HOME_CLIP_SORT_OPTIONS = [
+  'recent',
+  'popularity',
+] as const satisfies readonly HomeSortOption[];
+
+export const DEFAULT_HOME_CLIP_SORT: HomeSortOption = 'recent';
+
+/** The orders the sort chip offers for this media type. */
+export const homeSortOptionsFor = (mediaType: HomeMediaType): readonly HomeSortOption[] => {
+  return mediaType === 'clips' ? HOME_CLIP_SORT_OPTIONS : HOME_SORT_OPTIONS;
+};
+
+/** The order this media type opens on when nothing usable is stored. */
+export const defaultHomeSortFor = (mediaType: HomeMediaType): HomeSortOption => {
+  return mediaType === 'clips' ? DEFAULT_HOME_CLIP_SORT : DEFAULT_HOME_SORT;
+};
+
+/**
+ * A stored or carried order, or this media type's default when the token is missing or not one
+ * the chip offers for it. A Clips A-Z written by an older build reads as Recent.
+ */
+export const resolveHomeSort = (
+  mediaType: HomeMediaType,
+  sort: string | undefined
+): HomeSortOption => {
+  return pickSortPrefToken(sort, homeSortOptionsFor(mediaType), defaultHomeSortFor(mediaType));
+};
+
+/**
  * The listen-count window popularity ranks within. Carried for every Home list, not only while
  * popularity is selected, so returning to it opens on the window the user last chose.
  */
@@ -38,15 +70,9 @@ export type HomeRangeOption = QueryParamsStatsRange;
 
 export const DEFAULT_HOME_RANGE: HomeRangeOption = 'week';
 
-/** API `sort` for a Home preference. Popularity is the directory's `top` ranking. */
-export const homeSortToApiSort = (sort: HomeSortOption): 'a_z' | 'recent' | 'top' => {
-  if (sort === 'alphabetical') {
-    return 'a_z';
-  }
-  if (sort === 'popularity') {
-    return 'top';
-  }
-  return 'recent';
+/** API `sort` for the Home clips request. Popularity is the directory's `top` ranking. */
+export const homeClipSortToApiSort = (sort: HomeSortOption): 'recent' | 'top' => {
+  return sort === 'popularity' ? 'top' : 'recent';
 };
 
 /** Popularity is the only Home order that needs a stats window. */
@@ -69,7 +95,10 @@ export type HomeViewMode = (typeof HOME_VIEW_MODES)[number];
  */
 export const DEFAULT_HOME_VIEW_MODE: HomeViewMode = 'list';
 
-/** Every Home list except Livestreams offers the same three orders. */
+/**
+ * Every Home list except Livestreams has a sort chip. Clips offers Recent and Popularity; the
+ * others add A-Z.
+ */
 export const isHomeSortableMediaType = (mediaType: HomeMediaType): boolean => {
   return mediaType !== 'livestreams';
 };
@@ -96,10 +125,6 @@ const buildScope = (mediaType: HomeMediaType): SortPrefScope => {
   return { kind: 'list', name: mediaType };
 };
 
-const isHomeSortOption = (value: string): value is HomeSortOption => {
-  return HOME_SORT_OPTIONS.some((option) => option === value);
-};
-
 const isHomeViewMode = (value: string): value is HomeViewMode => {
   return HOME_VIEW_MODES.some((mode) => mode === value);
 };
@@ -108,6 +133,40 @@ export type HomeListPrefs = {
   range: HomeRangeOption;
   sort: HomeSortOption;
   viewMode: HomeViewMode;
+};
+
+/** The request that fills the saved Home clips list for a sort and window. */
+export type HomeClipsQuery = {
+  range: QueryParamsStatsRange | null;
+  sort: 'recent' | 'top';
+};
+
+export const homeClipsQueryFromPrefs = (
+  prefs: Pick<HomeListPrefs, 'range' | 'sort'>
+): HomeClipsQuery => {
+  return {
+    range: homeSortToApiRange(prefs.sort, prefs.range),
+    sort: homeClipSortToApiSort(prefs.sort),
+  };
+};
+
+/**
+ * Whether a Home sort or window change has to fetch the saved clips list again. Only the Clips
+ * chip, only signed in with Offline Mode off, and only when the request itself changes.
+ */
+export const homeClipsPrefsChangeRefetches = (input: {
+  isAuthenticated: boolean;
+  mediaType: HomeMediaType;
+  next: Pick<HomeListPrefs, 'range' | 'sort'>;
+  offlineModeEnabled: boolean;
+  previous: Pick<HomeListPrefs, 'range' | 'sort'>;
+}): boolean => {
+  if (input.mediaType !== 'clips' || !input.isAuthenticated || input.offlineModeEnabled) {
+    return false;
+  }
+  const previous = homeClipsQueryFromPrefs(input.previous);
+  const next = homeClipsQueryFromPrefs(input.next);
+  return previous.sort !== next.sort || previous.range !== next.range;
 };
 
 /**
@@ -142,8 +201,7 @@ export const readHomeListPrefs = async (mediaType: HomeMediaType): Promise<HomeL
   const stored = await readSortPref(buildScope(mediaType));
   const viewMode = await readHomeViewMode(mediaType);
 
-  const sort =
-    stored?.sort !== undefined && isHomeSortOption(stored.sort) ? stored.sort : DEFAULT_HOME_SORT;
+  const sort = resolveHomeSort(mediaType, stored?.sort);
   const range = pickSortPrefToken(stored?.range, HOME_RANGE_OPTIONS, DEFAULT_HOME_RANGE);
 
   return { range, sort, viewMode };
@@ -153,6 +211,10 @@ export const writeHomeSort = async (
   mediaType: HomeMediaType,
   sort: HomeSortOption
 ): Promise<void> => {
+  if (!homeSortOptionsFor(mediaType).includes(sort)) {
+    return;
+  }
+
   await writeSortPref(buildScope(mediaType), { sort });
 };
 

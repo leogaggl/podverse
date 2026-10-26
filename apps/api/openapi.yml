@@ -16231,7 +16231,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/category/recent
-      description: Public endpoint returning recent live items for a category and medium. When liveItemType is "ended", only live items that ended within the last day are returned.
+      description: Public endpoint returning recent live items for a category and medium. When liveItemType is "ended", only live items that ended within the last day are returned. When liveItemType is "pending", only live items whose start time is within the last day or later are returned.
       security: []
       parameters:
         - in: query
@@ -16307,7 +16307,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/category/top
-      description: Public endpoint returning top live items for a category, medium, and stats range. When liveItemType is "ended", only live items that ended within the last day are returned.
+      description: Public endpoint returning top live items for a category, medium, and stats range. When liveItemType is "ended", only live items that ended within the last day are returned. When liveItemType is "pending", only live items whose start time is within the last day or later are returned.
       security: []
       parameters:
         - in: query
@@ -16384,7 +16384,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/channel/{channel_id_or_id_text}
-      description: Public endpoint returning live, pending, and ended channel items sorted by timeline. Ended live items that ended more than a day ago are omitted; live and pending are always returned.
+      description: Public endpoint returning a channel's live items, live by latest start, then pending by soonest start, then ended by latest end. Ended items that ended more than a day ago and pending items whose start is more than a day past are omitted; live items are always returned.
       security: []
       parameters:
         - in: path
@@ -16451,7 +16451,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/global/recent
-      description: Public endpoint returning recent live items globally by medium. When liveItemType is "ended", only live items that ended within the last day are returned.
+      description: Public endpoint returning recent live items globally by medium. When liveItemType is "ended", only live items that ended within the last day are returned. When liveItemType is "pending", only live items whose start time is within the last day or later are returned.
       security: []
       parameters:
         - in: query
@@ -16522,7 +16522,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/global/top
-      description: Public endpoint returning top live items globally by medium and stats range. When liveItemType is "ended", only live items that ended within the last day are returned.
+      description: Public endpoint returning top live items globally by medium and stats range. When liveItemType is "ended", only live items that ended within the last day are returned. When liveItemType is "pending", only live items whose start time is within the last day or later are returned.
       security: []
       parameters:
         - in: query
@@ -16594,7 +16594,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/global/upcoming
-      description: Live items on the air now, then scheduled ones, by start time. Ended live items are never listed.
+      description: Live items on the air now, latest start first, then scheduled ones, soonest start first. Scheduled items whose start time is more than a day in the past are omitted. Ended live items are never listed.
       security: []
       parameters:
         - in: query
@@ -16811,7 +16811,7 @@ paths:
       tags:
         - live-item
       summary: GET /live-item/subscribed/upcoming
-      description: Live items on the air now, then scheduled ones, by start time, from channels the account follows. Ended live items are never listed. An API key needs subscriptions read.
+      description: Live items on the air now, latest start first, then scheduled ones, soonest start first, from channels the account follows. Scheduled items whose start time is more than a day in the past are omitted. Ended live items are never listed. An API key needs subscriptions read.
       security:
         - bearerAuth: []
         - cookieAuth: []

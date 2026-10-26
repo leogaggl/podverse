@@ -52,7 +52,7 @@ describe('toAddByRssLiveRows', () => {
       title: 'Show Name',
     });
 
-    const rows = toAddByRssLiveRows(record, mappedFeed);
+    const rows = toAddByRssLiveRows(record, mappedFeed, new Date('2026-06-01T12:00:00.000Z'));
     const live = rows.find((row) => row.target.liveIndex === 0);
     const pending = rows.find((row) => row.target.liveIndex === 1);
     const liveBundle = mappedFeed.liveItems[0];
@@ -143,9 +143,28 @@ describe('toAddByRssFeedLiveRows', () => {
       expect(mappedFeed.liveItems[row.target.liveIndex]).toBe(row.target.liveBundle);
     }
 
-    const upcomingIndexes = toAddByRssLiveRows(record, mappedFeed).map(
+    const upcomingIndexes = toAddByRssLiveRows(record, mappedFeed, now).map(
       (row) => row.target.liveIndex
     );
     expect(upcomingIndexes).toEqual([1, 3]);
+  });
+
+  it('returns only the live row when a scheduled item started two days before now', () => {
+    const record = feed();
+    const mappedFeed = convertParsedRSSFeedToCompat({
+      explicit: false,
+      items: [],
+      link: 'https://example.com',
+      podcastLiveItems: [
+        liveItem('on-air', 'On Air', Phase4LiveStatus.Live, iso(-hourMs)),
+        liveItem('old-scheduled', 'Old Scheduled', Phase4LiveStatus.Pending, iso(-2 * dayMs)),
+      ],
+      title: 'Show Name',
+    });
+
+    const rows = toAddByRssFeedLiveRows(record, mappedFeed, now);
+
+    expect(rows.map((row) => row.title)).toEqual(['On Air']);
+    expect(rows[0]?.liveStatusId).toBe(LiveItemStatusEnum.Live);
   });
 });

@@ -331,4 +331,88 @@ describe('ChipRow', () => {
 
     expect(scrollTo).not.toHaveBeenCalled();
   });
+
+  it('resumes the remembered offset when a row with the same memoryKey mounts again', () => {
+    const { scrollTo } = stubRowLayout();
+    const setScrollLeft = vi.fn();
+    vi.spyOn(Element.prototype, 'scrollLeft', 'get').mockReturnValue(120);
+    vi.spyOn(Element.prototype, 'scrollLeft', 'set').mockImplementation(setScrollLeft);
+
+    const { unmount } = render(
+      <ChipRow
+        items={ITEMS}
+        memoryKey="test-resume"
+        onSelect={() => {}}
+        selectedKey="podcasts"
+        testId="row"
+      />
+    );
+    const scroller = screen.getByTestId('row-items').parentElement;
+    expect(scroller).not.toBeNull();
+    if (scroller === null) {
+      return;
+    }
+    fireEvent.scroll(scroller);
+    unmount();
+
+    setScrollLeft.mockClear();
+    scrollTo.mockClear();
+    render(
+      <ChipRow
+        items={ITEMS}
+        memoryKey="test-resume"
+        onSelect={() => {}}
+        selectedKey="podcasts"
+        testId="row"
+      />
+    );
+
+    expect(setScrollLeft).toHaveBeenCalledWith(120);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('gives focus back to the pressed chip when the row mounts again', () => {
+    const { unmount } = render(
+      <ChipRow items={ITEMS} memoryKey="test-focus" onSelect={() => {}} selectedKey="podcasts" />
+    );
+    const clips = screen.getByRole('button', { name: 'Clips' });
+    clips.focus();
+    fireEvent.click(clips);
+    unmount();
+
+    render(
+      <ChipRow items={ITEMS} memoryKey="test-focus" onSelect={() => {}} selectedKey="clips" />
+    );
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Clips' }));
+  });
+
+  it('keeps hidden trailing controls in place and out of the focus order', () => {
+    const { rerender } = render(
+      <ChipRow
+        items={ITEMS}
+        onSelect={() => {}}
+        selectedKey="podcasts"
+        testId="row"
+        trailing={<button type="button">Sort</button>}
+        trailingHidden
+      />
+    );
+
+    const trailing = screen.getByTestId('row-trailing');
+    expect(trailing.hasAttribute('inert')).toBe(true);
+    expect(trailing.textContent).toBe('Sort');
+
+    rerender(
+      <ChipRow
+        items={ITEMS}
+        onSelect={() => {}}
+        selectedKey="podcasts"
+        testId="row"
+        trailing={<button type="button">Sort</button>}
+      />
+    );
+
+    expect(screen.getByTestId('row-trailing').hasAttribute('inert')).toBe(false);
+  });
 });

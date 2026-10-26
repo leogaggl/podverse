@@ -1,6 +1,6 @@
 import type { Server } from 'http';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ORMContext } from '@podverse/orm';
 
@@ -632,6 +632,28 @@ describe('clip routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([]);
       expect(statsPopularityClipGetManyByChannelsAndCountPublicMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('No A-Z order for clips', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it.each([
+      '/public/az?medium=all&page=1',
+      '/public/category/az?medium=all&page=1',
+      `/public/channel/az/${CHANNEL_ID_TEXT}?page=1`,
+      `/public/item/az/${ITEM_ID_TEXT}?page=1`,
+      '/public/subscribed/az?medium=all&page=1',
+    ])('answers 404 for GET %s and reads no clips', async (path) => {
+      const res = await request(app).get(`${clipBase}${path}`);
+
+      expect(res.status).toBe(404);
+      expect(clipGetManyPublicMock).not.toHaveBeenCalled();
+      expect(clipGetManyByChannelAndCountPublicMock).not.toHaveBeenCalled();
+      expect(clipGetManyByItemAndCountPublicMock).not.toHaveBeenCalled();
+      expect(clipGetManyByChannelsMock).not.toHaveBeenCalled();
     });
   });
 });

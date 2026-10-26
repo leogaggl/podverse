@@ -140,6 +140,10 @@ export function PodcastEpisodesSection({
   // alongside episodes that are already being fetched.
   const channelTitleRef = useRef<string | null>(channel?.title ?? null);
   channelTitleRef.current = channel?.title ?? channelTitleRef.current;
+  /** Set for the duration of a next-page read so a second reach-further cannot start one. */
+  const isLoadingMoreRef = useRef<boolean>(false);
+  /** Which read failed, so Retry repeats that read instead of always reloading the section. */
+  const failedLoadRef = useRef<'first' | 'more' | null>(null);
 
   /**
    * Read the stored window in the order the caller settled on.
@@ -206,6 +210,7 @@ export function PodcastEpisodesSection({
             setHasMorePages(false);
             setLiveItems([]);
             await readStoredEpisodes();
+            failedLoadRef.current = null;
             return;
           }
           setHasMorePages(outcome.result.hasMore);
@@ -217,12 +222,15 @@ export function PodcastEpisodesSection({
             api.reqLiveItemGetManyByChannel(channelIdText)
           );
           setLiveItems(liveResponse);
+          failedLoadRef.current = null;
         } catch (error) {
           if (storedCount === 0 || source !== 'initial') {
             throw error;
           }
+          failedLoadRef.current = null;
         }
       } catch {
+        failedLoadRef.current = 'first';
         setErrorKey('errors.generic');
       } finally {
         setIsRefreshing(false);
@@ -239,6 +247,11 @@ export function PodcastEpisodesSection({
    * showing what is stored.
    */
   const loadMoreEpisodes = useCallback(async () => {
+    if (isLoadingMoreRef.current) {
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
       const outcome = await extendDirectoryChannelOrDropGone(authContext, channelIdText, {
@@ -247,13 +260,17 @@ export function PodcastEpisodesSection({
       if (outcome.kind === 'gone' || outcome.kind === 'remapped') {
         setHasMorePages(false);
         await readStoredEpisodes();
+        failedLoadRef.current = null;
         return;
       }
       setHasMorePages(outcome.result.hasMore);
       await readStoredEpisodes();
+      failedLoadRef.current = null;
     } catch {
+      failedLoadRef.current = 'more';
       setErrorKey('errors.generic');
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
   }, [authContext, channelIdText, readStoredEpisodes]);
@@ -310,9 +327,7 @@ export function PodcastEpisodesSection({
     [runQueueAction]
   );
 
-  const handleLoadMore = useCallback(() => {
-    void loadMoreEpisodes();
-  }, [loadMoreEpisodes]);
+  const handleLoadMore = useCallback(() => loadMoreEpisodes(), [loadMoreEpisodes]);
 
   const handleRefresh = useCallback(() => {
     void onRefreshChannel();
@@ -320,8 +335,13 @@ export function PodcastEpisodesSection({
   }, [loadEpisodes, onRefreshChannel]);
 
   const handleRetry = useCallback(() => {
+    if (failedLoadRef.current === 'more') {
+      setErrorKey(null);
+      void loadMoreEpisodes();
+      return;
+    }
     void loadEpisodes({ source: 'retry' });
-  }, [loadEpisodes]);
+  }, [loadEpisodes, loadMoreEpisodes]);
 
   const renderRow = useCallback(
     ({ index, row }: { index: number; row: HomeFeedRowData }) => (
@@ -385,6 +405,7 @@ export function PodcastEpisodesSection({
         keyExtractor={episodeRowKeyExtractor}
         listHeader={listHeader}
         noticeKey={playbackNoticeKey}
+        autoLoadMore={filterTerm.trim().length === 0}
         onLoadMore={handleLoadMore}
         onRefresh={handleRefresh}
         onRetry={handleRetry}

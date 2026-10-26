@@ -15,10 +15,18 @@ import { FillList } from '../../components/primitives/FillList';
 import { VerticalCenter } from '../../components/primitives/VerticalCenter';
 import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
+import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { RetryableError } from '../../components/state/RetryableError';
 import { notificationsRepository } from '../../data/repositories';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import {
+  appendUniqueBy,
+  canLoadNextPage,
+  LIST_END_REACHED_THRESHOLD,
+} from '../../lib/pagination/pagedList';
 import type { NotificationsStackParamList } from '../../navigation';
 import { markNotificationReadById } from '../../notifications/notificationReadActions';
 import {
@@ -121,6 +129,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
   const [isLoading, setIsLoading] = useState(() => getNotificationsInboxCache() === null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [loadMoreErrorKey, setLoadMoreErrorKey] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(
     () => getNotificationsInboxCache()?.unreadCount ?? 0
   );
@@ -143,6 +152,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
   const requestContextRef = useRef(requestContext);
   const isFirstPageLoadingRef = useRef(false);
   const liveRowsDuringLoadRef = useRef<DTOAccountNotification[]>([]);
+  const inboxGenerationRef = useRef(0);
   statusRef.current = status;
   offlineModeEnabledRef.current = offlineModeEnabled;
   requestContextRef.current = requestContext;
@@ -171,19 +181,6 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         },
         listFooter: {
           marginTop: tokens.spacing.lg,
-        },
-        loadMoreButton: {
-          alignItems: 'center',
-          borderColor: themeStyles.border.borderColor,
-          borderRadius: tokens.radii.sm,
-          borderWidth: 1,
-          paddingHorizontal: tokens.spacing.md,
-          paddingVertical: tokens.spacing.sm,
-        },
-        loadMoreLabel: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 14,
-          fontWeight: '600',
         },
         recentActivityNote: {
           color: themeStyles.textSecondary.color,
@@ -222,6 +219,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         setPage(FIRST_PAGE);
         setTotalPages(FIRST_PAGE);
         setErrorKey(null);
+        setLoadMoreErrorKey(null);
         setIsLoading(false);
         setIsLoadingMore(false);
         return;
@@ -236,22 +234,33 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
           setTotalPages(cached.totalPages);
         }
         setErrorKey(null);
+        setLoadMoreErrorKey(null);
         setIsLoading(false);
         setIsLoadingMore(false);
         return;
       }
 
       if (mode === 'replace') {
+        inboxGenerationRef.current += 1;
+        setLoadMoreErrorKey(null);
         setIsLoading(true);
+        setErrorKey(null);
       } else {
         setIsLoadingMore(true);
+        setLoadMoreErrorKey(null);
       }
-      setErrorKey(null);
+
+      const generation = inboxGenerationRef.current;
 
       try {
         const nextData = await notificationsRepository.list(requestContext, { page: nextPage });
+        if (mode === 'append' && generation !== inboxGenerationRef.current) {
+          return;
+        }
         setNotifications((previous) =>
-          mode === 'replace' ? nextData.items : [...previous, ...nextData.items]
+          mode === 'replace'
+            ? nextData.items
+            : appendUniqueBy(previous, nextData.items, inboxRowKeyExtractor)
         );
         setUnreadCount(nextData.unreadCount);
         setPage(nextData.page);
@@ -266,7 +275,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
           });
         } else {
           setNotificationsInboxCache({
-            items: [...(cached?.items ?? []), ...nextData.items],
+            items: appendUniqueBy(cached?.items ?? [], nextData.items, inboxRowKeyExtractor),
             page: nextData.page,
             totalPages: nextData.totalPages,
             unreadCount: nextData.unreadCount,
@@ -274,10 +283,15 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         }
       } catch (error) {
         console.warn('Could not load notifications page', error);
-        if (mode === 'replace') {
+        if (mode === 'append') {
+          if (generation !== inboxGenerationRef.current) {
+            return;
+          }
+          setLoadMoreErrorKey('errors.generic');
+        } else {
           setNotifications([]);
+          setErrorKey('errors.generic');
         }
-        setErrorKey('errors.generic');
       } finally {
         if (mode === 'replace') {
           setIsLoading(false);
@@ -290,12 +304,16 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
   );
 
   const loadFirstPageAndMarkRead = useCallback(async () => {
+    inboxGenerationRef.current += 1;
+    setLoadMoreErrorKey(null);
+
     if (status !== 'authenticated') {
       setNotifications([]);
       setUnreadCount(0);
       setPage(FIRST_PAGE);
       setTotalPages(FIRST_PAGE);
       setErrorKey(null);
+      setLoadMoreErrorKey(null);
       setIsLoading(false);
       return;
     }
@@ -309,6 +327,7 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         setTotalPages(cached.totalPages);
       }
       setErrorKey(null);
+      setLoadMoreErrorKey(null);
       setIsLoading(false);
       return;
     }
@@ -418,11 +437,22 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
   const hasEarlierSection = notifications.length > earlierSectionStartIndex;
   const hasRows = notifications.length > 0;
 
-  const handleLoadMore = useCallback(() => {
-    if (!isLoadingMore) {
-      void loadPage(page + 1, 'append');
-    }
-  }, [isLoadingMore, loadPage, page]);
+  const handleEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      status === 'authenticated' &&
+      !offlineModeEnabled &&
+      canLoadNextPage({
+        hasError: errorKey !== null || loadMoreErrorKey !== null,
+        hasMore: canLoadMore,
+        isLoading,
+        isLoadingMore,
+      }),
+    loadMore: () => loadPage(page + 1, 'append'),
+  });
+
+  const handleRetryNextPage = useCallback(() => {
+    void loadPage(page + 1, 'append');
+  }, [loadPage, page]);
 
   const handleRetryInbox = useCallback(() => {
     void loadFirstPageAndMarkRead();
@@ -475,33 +505,36 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
     [errorKey, handleRetryInbox, isLoading, offlineModeEnabled, onRequestLogin, status]
   );
 
-  const listFooter = useMemo(
-    () =>
-      canLoadMore && errorKey === null && !offlineModeEnabled ? (
+  const listFooter = useMemo(() => {
+    if (isLoadingMore) {
+      return (
         <View style={styles.listFooter}>
-          <Pressable
-            onPress={handleLoadMore}
-            style={styles.loadMoreButton}
-            testID="notifications-inbox-load-more"
-          >
-            <Text style={styles.loadMoreLabel}>
-              {isLoadingMore ? t('misc.loading') : t('info.show_more')}
-            </Text>
-          </Pressable>
+          <ListLoading testID="notifications-inbox-loading-more" />
         </View>
-      ) : null,
-    [
-      canLoadMore,
-      errorKey,
-      handleLoadMore,
-      isLoadingMore,
-      offlineModeEnabled,
-      styles.listFooter,
-      styles.loadMoreButton,
-      styles.loadMoreLabel,
-      t,
-    ]
-  );
+      );
+    }
+
+    if (loadMoreErrorKey !== null && hasRows && !offlineModeEnabled) {
+      return (
+        <View style={styles.listFooter}>
+          <ListError
+            messageKey={loadMoreErrorKey}
+            onRetry={handleRetryNextPage}
+            testID="notifications-inbox-load-more-error"
+          />
+        </View>
+      );
+    }
+
+    return null;
+  }, [
+    handleRetryNextPage,
+    hasRows,
+    isLoadingMore,
+    loadMoreErrorKey,
+    offlineModeEnabled,
+    styles.listFooter,
+  ]);
 
   const inboxRowStyles = useMemo<InboxRowStyles>(
     () => ({
@@ -544,6 +577,8 @@ export function NotificationsInboxScreen(_props: NotificationsInboxScreenProps) 
         data={notifications}
         extraData={`${earlierSectionStartIndex}:${hasEarlierSection}`}
         keyExtractor={inboxRowKeyExtractor}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
         renderItem={renderItem}
       />
     </View>

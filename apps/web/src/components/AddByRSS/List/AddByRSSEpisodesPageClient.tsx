@@ -11,6 +11,7 @@ import { AddByRSSEpisodesListNodes } from '../../../components/AddByRSS/Podcast/
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
+import { MediaListLoadingSpinner } from '../../../components/MediaListChips/MediaListLoadingSpinner';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { Pagination } from '../../../components/Pagination/Pagination';
 import { dismissToast, showToast, showToastLoading } from '../../../components/Toast/Toast';
@@ -317,7 +318,8 @@ export const AddByRSSEpisodesPageClient: React.FC<AddByRSSEpisodesPageClientProp
             ) : isLoading ? null : (
               <NoResults message={tFeatures('add_by_rss.no_feeds_podcast')} />
             )}
-            <WebLoadingSpinnerOverlay isLoading={isLoading} />
+            {isLoading && items.length === 0 ? <MediaListLoadingSpinner /> : null}
+            <WebLoadingSpinnerOverlay isLoading={isLoading && items.length > 0} />
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

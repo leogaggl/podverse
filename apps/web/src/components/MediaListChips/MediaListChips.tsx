@@ -1,9 +1,10 @@
 'use client';
 
+import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useOptimistic, useTransition } from 'react';
 
 import { ChipRow } from '@podverse/ui';
 
@@ -13,6 +14,7 @@ import {
   MEDIA_LIST_CHIP_LABEL_KEYS,
   writeMediaListChip,
 } from '../../utils/mediaListChips';
+import { MediaListLoadingSpinner } from './MediaListLoadingSpinner';
 
 import styles from '../../styles/components/MediaListChips/MediaListChips.module.scss';
 
@@ -33,12 +35,17 @@ type MediaListChipsProps = MediaListChipsConfig & {
 };
 
 /**
- * Media chips plus the trailing controls for Subscribed, Browse, Add by RSS, and
- * Recommendations.
+ * Media chips for Subscribed, Browse, Add by RSS, and Recommendations. The pressed chip follows
+ * the click at once. Everything after the row in its column is the list area, hidden behind one
+ * spinner until the new chip's render commits. The old trailing controls keep their space but
+ * stay hidden. The row keeps its horizontal offset and focus across that render. The last chip
+ * clicked wins.
  */
 export function MediaListChips({ page, chips, selected, urlChip, trailing }: MediaListChipsProps) {
   const t = useTranslations();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [shownChip, setShownChip] = useOptimistic(selected);
 
   useEffect(() => {
     // A chip named in the URL is remembered once, when this row mounts.
@@ -48,27 +55,38 @@ export function MediaListChips({ page, chips, selected, urlChip, trailing }: Med
   }, []);
 
   const onSelect = (chip: MediaListChip) => {
-    if (chip === selected) {
+    if (chip === shownChip) {
       return;
     }
     writeMediaListChip(page, chip);
     const path = buildMediaListChipPath(page, chip);
     const current = `${window.location.pathname}${window.location.search}`;
-    if (path === current) {
-      router.refresh();
-      return;
-    }
-    router.replace(path);
+    startTransition(() => {
+      setShownChip(chip);
+      // The address updates when a chip's render commits. Until then, replace the in-flight
+      // navigation, including when the path is the address already shown. A refresh waits behind
+      // that navigation.
+      if (path === current && !isPending) {
+        router.refresh();
+        return;
+      }
+      router.replace(path, { scroll: false });
+    });
   };
 
   return (
-    <ChipRow
-      className={styles.chipRow}
-      items={chips.map((chip) => ({ key: chip, label: t(MEDIA_LIST_CHIP_LABEL_KEYS[chip]) }))}
-      onSelect={onSelect}
-      selectedKey={selected}
-      testId="media-list-chips"
-      trailing={trailing}
-    />
+    <>
+      <ChipRow
+        className={classNames(styles.chipRow, isPending && styles.chipRowPending)}
+        items={chips.map((chip) => ({ key: chip, label: t(MEDIA_LIST_CHIP_LABEL_KEYS[chip]) }))}
+        memoryKey={`media-list-chips-${page}`}
+        onSelect={onSelect}
+        selectedKey={shownChip}
+        testId="media-list-chips"
+        trailing={trailing}
+        trailingHidden={isPending}
+      />
+      {isPending ? <MediaListLoadingSpinner className={styles.pendingLoading} /> : null}
+    </>
   );
 }

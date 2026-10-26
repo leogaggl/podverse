@@ -36,10 +36,31 @@ export function isLiveItemEndedAndStale(
   return toTime(reference) < cutoff;
 }
 
+// Scheduled livestreams (pending live items) whose start is further in the past than this are
+// hidden from list endpoints. Hardcoded by product decision (no env); detail endpoints stay
+// unfiltered.
+export const LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS = ONE_DAY_MS;
+
+export function getPendingLiveItemVisibilityCutoff(now: Date = new Date()): Date {
+  return new Date(now.getTime() - LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS);
+}
+
 export type UpcomingLiveItemSortKey = {
   statusId: LiveItemStatusEnum | null | undefined;
   startTimeMs: number | null;
 };
+
+/**
+ * True for a scheduled item whose start is before the pending visibility cutoff. The cutoff
+ * instant itself is kept, and a scheduled item with no start time is never stale.
+ */
+export const isPendingLiveItemStale = (
+  key: UpcomingLiveItemSortKey,
+  now: Date = new Date()
+): boolean =>
+  key.statusId === LiveItemStatusEnum.Pending &&
+  key.startTimeMs !== null &&
+  key.startTimeMs < getPendingLiveItemVisibilityCutoff(now).getTime();
 
 /** On the air now or scheduled; ended items are not upcoming. */
 export const isUpcomingLiveItemStatus = (
@@ -57,8 +78,9 @@ function upcomingLiveItemRank(statusId: LiveItemStatusEnum | null | undefined): 
 }
 
 /**
- * The upcoming-livestreams order: live before scheduled; within each, the earliest start first,
- * and no start time after every dated one. Matches `ItemService.getManyUpcomingLiveItems`.
+ * The upcoming-livestreams order: live items first, latest start first; then scheduled items,
+ * soonest start first. Within each group an item with no start time sorts after every dated one.
+ * Matches `ItemService.getManyUpcomingLiveItems`.
  */
 export const compareUpcomingLiveItems = (
   a: UpcomingLiveItemSortKey,
@@ -76,6 +98,9 @@ export const compareUpcomingLiveItems = (
   }
   if (b.startTimeMs === null) {
     return -1;
+  }
+  if (a.statusId === LiveItemStatusEnum.Live && b.statusId === LiveItemStatusEnum.Live) {
+    return b.startTimeMs - a.startTimeMs;
   }
   return a.startTimeMs - b.startTimeMs;
 };
@@ -100,8 +125,8 @@ const channelLiveItemRank = (statusId: LiveItemStatusEnum | null | undefined): n
 };
 
 /**
- * A channel's livestream order: live, then scheduled, then ended. Live and scheduled show the
- * latest start first; ended shows the latest end first. A missing time sorts last.
+ * A channel's livestream order: live items, latest start first; then scheduled items, soonest
+ * start first; then ended items, latest end first. A missing time sorts last in its group.
  */
 export const compareChannelLiveItems = (
   a: ChannelLiveItemSortKey,
@@ -114,5 +139,5 @@ export const compareChannelLiveItems = (
   if (a.statusId === LiveItemStatusEnum.Ended) {
     return (b.endTimeMs ?? 0) - (a.endTimeMs ?? 0);
   }
-  return (b.startTimeMs ?? 0) - (a.startTimeMs ?? 0);
+  return compareUpcomingLiveItems(a, b);
 };

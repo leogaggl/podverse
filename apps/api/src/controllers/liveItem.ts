@@ -12,6 +12,7 @@ import type { ChannelLiveItemSortKey, QueryParamsMedium } from '@podverse/helper
 import {
   compareChannelLiveItems,
   isLiveItemEndedAndStale,
+  isPendingLiveItemStale,
   LIVE_ITEM_STATUSES,
 } from '@podverse/helpers';
 import type { ApiListResponse } from '@podverse/helpers-requests';
@@ -211,9 +212,13 @@ export class LiveItemController {
       relations: itemGetManyRelations,
     });
 
-    // Hide livestreams that ended more than a day ago; live/pending are unaffected.
+    // Hide livestreams that ended more than a day ago, and scheduled ones whose start is more
+    // than a day past. Live items stay listed at any age.
     const items = allItems.filter(
-      (item) => !item.live_item || !isLiveItemEndedAndStale(item.live_item)
+      (item) =>
+        !item.live_item ||
+        (!isLiveItemEndedAndStale(item.live_item) &&
+          !isPendingLiveItemStale(toChannelLiveItemSortKey(item)))
     );
 
     const sorted = items

@@ -1,7 +1,7 @@
 import { FindOperator } from 'typeorm';
 import { describe, expect, it } from 'vitest';
 
-import { buildEndedLiveItemTimeVariants } from './liveItemWhere.js';
+import { buildEndedLiveItemTimeVariants, buildPendingLiveItemTimeWhere } from './liveItemWhere.js';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const CUTOFF = new Date('2026-06-12T12:00:00.000Z');
@@ -66,6 +66,34 @@ describe('buildEndedLiveItemTimeVariants', () => {
     expect(endTime).toBeInstanceOf(FindOperator);
     if (endTime instanceof FindOperator) {
       const value = endTime.value;
+      expect(value).toBeInstanceOf(Date);
+      if (value instanceof Date) {
+        expect(value.getTime()).toBeGreaterThanOrEqual(before);
+        expect(value.getTime()).toBeLessThanOrEqual(after);
+      }
+    }
+  });
+});
+
+describe('buildPendingLiveItemTimeWhere', () => {
+  it('keeps items whose start_time is at or after the cutoff', () => {
+    const startTime = buildPendingLiveItemTimeWhere(CUTOFF).start_time;
+
+    expect(startTime).toBeInstanceOf(FindOperator);
+    if (startTime instanceof FindOperator) {
+      expect(startTime.type).toBe('moreThanOrEqual');
+      expect(startTime.value).toBe(CUTOFF);
+    }
+  });
+
+  it('defaults the cutoff to roughly one day before now', () => {
+    const before = Date.now() - ONE_DAY_MS;
+    const startTime = buildPendingLiveItemTimeWhere().start_time;
+    const after = Date.now() - ONE_DAY_MS;
+
+    expect(startTime).toBeInstanceOf(FindOperator);
+    if (startTime instanceof FindOperator) {
+      const value = startTime.value;
       expect(value).toBeInstanceOf(Date);
       if (value instanceof Date) {
         expect(value.getTime()).toBeGreaterThanOrEqual(before);

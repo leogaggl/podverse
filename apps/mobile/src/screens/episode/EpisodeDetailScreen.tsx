@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FlatList } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type {
   DTOChannel,
@@ -29,6 +29,7 @@ import { FillList } from '../../components/primitives';
 import { HeaderBarAction } from '../../components/screen/HeaderBarAction';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { channelItemsRepository } from '../../data/repositories/channelItemsRepository';
 import { getItemPrimaryImageUrl } from '../../data/repositories/channelItemWindow';
@@ -36,6 +37,7 @@ import { downloadsRepository } from '../../data/repositories/downloadsRepository
 import { playbackContentRepository } from '../../data/repositories/playbackContentRepository';
 import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChromeFlagsRepository';
 import { useItemDescription } from '../../hooks/useItemDescription';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
 import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
@@ -43,6 +45,7 @@ import {
   isEpisodeTabNetworkBody,
   OFFLINE_UNAVAILABLE_MESSAGE_KEY,
 } from '../../lib/offlineModeViews';
+import { canLoadNextPage, LIST_END_REACHED_THRESHOLD } from '../../lib/pagination/pagedList';
 import { clipToHomeRow } from '../../lib/rows/homeRowMappers';
 import type { ItemSectionChromeFlags } from '../../lib/sectionChromeFlags';
 import { getCachedItemSectionFlags } from '../../lib/sectionChromeFlags';
@@ -212,14 +215,6 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           paddingBottom: tokens.spacing['2xl'],
           paddingHorizontal: screenBodyInsets(tokens.spacing).paddingHorizontal,
           paddingTop: screenBodyInsets(tokens.spacing).paddingTop,
-        },
-        loadMore: {
-          marginTop: tokens.spacing.md,
-        },
-        loadMoreLabel: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 14,
-          fontWeight: '600',
         },
         notice: {
           ...typography.caption,
@@ -404,6 +399,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     activeTab,
     chapterRows,
     clipHasMore,
+    clipLoadMoreErrorKey,
     clipRows,
     clipSort,
     isLoadingMoreClips,
@@ -596,7 +592,19 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     void loadTab(activeTab);
   }, [activeTab, loadTab]);
 
-  const handleLoadMoreClipsPress = useCallback(() => {
+  const handleClipsEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      activeTab === 'clips' &&
+      !offlineModeEnabled &&
+      canLoadNextPage({
+        hasError: tabErrorKey !== null || clipLoadMoreErrorKey !== null,
+        hasMore: clipHasMore,
+        isLoading: isTabLoading,
+        isLoadingMore: isLoadingMoreClips,
+      }),
+    loadMore: handleLoadMoreClips,
+  });
+  const handleRetryClipsPage = useCallback(() => {
     void handleLoadMoreClips();
   }, [handleLoadMoreClips]);
 
@@ -779,18 +787,17 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
       );
     }
 
-    if (activeTab === 'clips' && clipHasMore) {
+    if (activeTab === 'clips' && isLoadingMoreClips) {
+      return <ListLoading testID="episode-detail-clip-loading-more" />;
+    }
+
+    if (activeTab === 'clips' && clipLoadMoreErrorKey !== null) {
       return (
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleLoadMoreClipsPress}
-          style={styles.loadMore}
-          testID="episode-detail-clip-load-more"
-        >
-          <Text style={styles.loadMoreLabel}>
-            {isLoadingMoreClips ? t('misc.loading') : t('info.show_more')}
-          </Text>
-        </Pressable>
+        <ListError
+          messageKey={clipLoadMoreErrorKey}
+          onRetry={handleRetryClipsPage}
+          testID="episode-detail-clip-load-more-error"
+        />
       );
     }
 
@@ -798,13 +805,13 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
   }, [
     activeTab,
     chapterRows.length,
-    clipHasMore,
+    clipLoadMoreErrorKey,
     clipRows.length,
     description,
     descriptionHtml,
     episode,
     episodeId,
-    handleLoadMoreClipsPress,
+    handleRetryClipsPage,
     handleRetryTab,
     isLoadingMoreClips,
     isTabLoading,
@@ -812,8 +819,6 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     onDescriptionClock,
     soundbiteRows.length,
     styles.description,
-    styles.loadMore,
-    styles.loadMoreLabel,
     styles.showMore,
     styles.transcript,
     t,
@@ -894,6 +899,8 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           data={listRows}
           extraData={listExtraData}
           keyExtractor={episodePaneRowKeyExtractor}
+          onEndReached={activeTab === 'clips' ? handleClipsEndReached : undefined}
+          onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
           ref={listRef}
           renderItem={renderItem}
           style={styles.list}

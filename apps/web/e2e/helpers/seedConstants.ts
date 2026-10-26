@@ -315,6 +315,10 @@ export const E2E_LIVE_AV_HLS_VIDEO_ITEM_ID_TEXT = 'e2eLiveHlsV01';
 export const E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE = 'E2E Live HLS Video Stream';
 export const E2E_LIVE_AV_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched01';
 export const E2E_LIVE_AV_SCHEDULED_ITEM_TITLE = 'E2E Scheduled Livestream';
+export const E2E_LIVE_AV_LATER_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveSched02';
+export const E2E_LIVE_AV_LATER_SCHEDULED_ITEM_TITLE = 'E2E Later Scheduled Livestream';
+export const E2E_LIVE_AV_STALE_SCHEDULED_ITEM_ID_TEXT = 'e2eLiveStale01';
+export const E2E_LIVE_AV_STALE_SCHEDULED_ITEM_TITLE = 'E2E Stale Scheduled Livestream';
 
 /** Embed player E2E fixtures — sync with `tools/web/seed-e2e.mjs`. */
 export const E2E_EMBED_VIDEO_CHANNEL_ID_TEXT = 'e2eEmbedVidCh01';

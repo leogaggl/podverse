@@ -2,7 +2,10 @@ import type { LiveItem } from '@orm/entities/liveItem/liveItem.js';
 import type { FindOptionsWhere } from 'typeorm';
 import { IsNull, MoreThanOrEqual } from 'typeorm';
 
-import { getEndedLiveItemVisibilityCutoff } from '@podverse/helpers';
+import {
+  getEndedLiveItemVisibilityCutoff,
+  getPendingLiveItemVisibilityCutoff,
+} from '@podverse/helpers';
 
 /**
  * For ended live items, returns the two live_item time-window variants that keep only
@@ -19,4 +22,11 @@ export function buildEndedLiveItemTimeVariants(
     { end_time: MoreThanOrEqual(cutoff) },
     { end_time: IsNull(), start_time: MoreThanOrEqual(cutoff) },
   ];
+}
+
+/** Keeps scheduled live items whose start is at or after the cutoff. */
+export function buildPendingLiveItemTimeWhere(
+  cutoff: Date = getPendingLiveItemVisibilityCutoff()
+): FindOptionsWhere<LiveItem> {
+  return { start_time: MoreThanOrEqual(cutoff) };
 }

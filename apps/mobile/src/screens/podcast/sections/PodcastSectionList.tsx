@@ -7,7 +7,10 @@ import { ListFilterHeader } from '../../../components/form';
 import { FillList, VerticalCenter } from '../../../components/primitives';
 import { ListEmpty } from '../../../components/state/ListEmpty';
 import { ListError } from '../../../components/state/ListError';
+import { ListLoading } from '../../../components/state/ListLoading';
 import { LoadingSection } from '../../../components/state/LoadingSection';
+import { useLoadMoreOnEndReached } from '../../../hooks/useLoadMoreOnEndReached';
+import { canLoadNextPage, LIST_END_REACHED_THRESHOLD } from '../../../lib/pagination/pagedList';
 import { listFilterFieldBottomMargin, screenBodyInsets } from '../../../theme/screenLayout';
 import { useTheme } from '../../../theme/useTheme';
 
@@ -31,7 +34,9 @@ export type PodcastSectionListProps<TRow> = {
    * contains a space) is already translated, which is how a rate-limit line arrives.
    */
   noticeKey?: string | null;
-  onLoadMore?: () => void;
+  /** Load the next page on reaching the bottom. When false, a Show more button is offered instead. */
+  autoLoadMore?: boolean;
+  onLoadMore?: () => Promise<void> | void;
   onRefresh?: () => void;
   onRetry: () => void;
   renderRow: (params: { index: number; row: TRow }) => ReactElement;
@@ -51,9 +56,15 @@ export type PodcastSectionListProps<TRow> = {
  * is what keeps a section switch feeling like the same screen changing its contents rather than five
  * screens taking turns.
  *
+ * Reaching the bottom loads the next page. While a filter is narrowing the list, a Show more button
+ * is offered instead, and only while the feed still has another page, so a short list of matches
+ * does not keep requesting pages.
+ *
  * A failure while reaching further does not discard what is already on screen: the message goes below
  * the rows, because the rows are still true and the reader was looking at them.
  */
+const noopLoadMore = (): void => {};
+
 export function PodcastSectionList<TRow>({
   accessibilityLabel,
   emptyMessageKey,
@@ -66,6 +77,7 @@ export function PodcastSectionList<TRow>({
   keyExtractor,
   listHeader,
   noticeKey,
+  autoLoadMore = true,
   onLoadMore,
   onRefresh,
   onRetry,
@@ -112,6 +124,19 @@ export function PodcastSectionList<TRow>({
   const showBlockingError = errorKey !== null && rows.length === 0;
   const isSettled = !isInitialLoading && !showBlockingError;
   const listData = isSettled ? rows : [];
+  const canLoadMore = isSettled && hasMore && onLoadMore !== undefined;
+  const handleEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      autoLoadMore &&
+      canLoadMore &&
+      canLoadNextPage({
+        hasError: errorKey !== null,
+        hasMore,
+        isLoading: isInitialLoading || isRefreshing,
+        isLoadingMore,
+      }),
+    loadMore: onLoadMore ?? noopLoadMore,
+  });
 
   // Two empty lists, two different problems. Nothing here is answered by a refresh; nothing matching
   // is answered by editing the term, and the two must not be worded the same way.
@@ -146,14 +171,17 @@ export function PodcastSectionList<TRow>({
       ListEmptyComponent={listStatus}
       ListFooterComponent={
         <>
-          {isSettled && hasMore && onLoadMore !== undefined ? (
+          {canLoadMore && autoLoadMore && isLoadingMore ? (
+            <ListLoading testID={`${prefix}-loading-more`} />
+          ) : null}
+          {canLoadMore && !autoLoadMore && onLoadMore !== undefined ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                if (isLoadingMore) {
+                if (isLoadingMore || onLoadMore === undefined) {
                   return;
                 }
-                onLoadMore();
+                void onLoadMore();
               }}
               style={styles.loadMore}
               testID={`${prefix}-load-more`}
@@ -185,6 +213,8 @@ export function PodcastSectionList<TRow>({
       data={listData}
       keyboardShouldPersistTaps="handled"
       keyExtractor={keyExtractor}
+      onEndReached={autoLoadMore && onLoadMore !== undefined ? handleEndReached : undefined}
+      onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
       refreshControl={refreshControl}
       renderItem={({ index, item: row }) => renderRow({ index, row })}
       style={styles.list}

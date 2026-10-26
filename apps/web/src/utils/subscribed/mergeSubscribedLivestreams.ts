@@ -1,5 +1,9 @@
 import type { DTOItem, UpcomingLiveItemSortKey } from '@podverse/helpers';
-import { compareUpcomingLiveItems, isUpcomingLiveItemStatus } from '@podverse/helpers';
+import {
+  compareUpcomingLiveItems,
+  isPendingLiveItemStale,
+  isUpcomingLiveItemStatus,
+} from '@podverse/helpers';
 
 import type { AddByRSSLivestreamIndexItem } from '../addByRSS/types';
 import { toEpochMsOrNull } from './mergeSubscribedChannels';
@@ -19,17 +23,20 @@ const serverUpcomingSortKey = (item: DTOItem): UpcomingLiveItemSortKey => ({
 });
 
 /**
- * Upcoming live items of the flagged feeds: on the air first, then scheduled.
- * An item from an unflagged feed, and an ended item, are left out.
+ * Upcoming live items of the flagged feeds, live by latest start, then scheduled by soonest
+ * start. An item from an unflagged feed, an ended item, and a scheduled item whose start is
+ * more than a day past are left out.
  */
 export const selectUpcomingAddByRSSLivestreams = (
   items: readonly AddByRSSLivestreamIndexItem[],
-  flaggedFeedIdTexts: ReadonlySet<string>
+  flaggedFeedIdTexts: ReadonlySet<string>,
+  now: Date = new Date()
 ): AddByRSSLivestreamIndexItem[] => {
   const upcoming = items.filter(
     (item) =>
       flaggedFeedIdTexts.has(item.channelIdText) &&
-      isUpcomingLiveItemStatus(item.liveItem.live_item_status)
+      isUpcomingLiveItemStatus(item.liveItem.live_item_status) &&
+      !isPendingLiveItemStale(addByRSSUpcomingSortKey(item), now)
   );
   upcoming.sort((a, b) =>
     compareUpcomingLiveItems(addByRSSUpcomingSortKey(a), addByRSSUpcomingSortKey(b))
@@ -38,7 +45,8 @@ export const selectUpcomingAddByRSSLivestreams = (
 };
 
 /**
- * Page 1 mixes server livestreams with Add by RSS livestreams in the upcoming order.
+ * Page 1 mixes server livestreams with Add by RSS livestreams in the upcoming order (live
+ * latest start first, then scheduled soonest start first).
  * Equal sort keys keep the server row, because server rows are listed first and the sort is
  * stable. Any later page, and a page with no Add by RSS items, is the server rows in the order
  * they were given.

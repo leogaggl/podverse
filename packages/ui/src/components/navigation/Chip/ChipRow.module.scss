@@ -34,6 +34,10 @@
   gap: var(--spacing-md);
 }
 
+.trailingHidden {
+  visibility: hidden;
+}
+
 .chipRow [data-hide-desktop='true'] {
   @media (min-width: breakpoints.$breakpoint-xl-min) {
     display: none;

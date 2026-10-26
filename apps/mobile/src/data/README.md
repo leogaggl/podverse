@@ -79,7 +79,8 @@ Screen / hook  →  repository  →  SQLite (source of truth for phone UI)
   live items are excluded from every regular item query; directory statuses come from one queued
   call to the subscribed live-item endpoint, add-by-RSS from the parsed bundle already on disk, with
   the trust window and status-ranking rules in `channelLiveStatus.ts`). `homeClipsCacheRepository`
-  (last subscribed-clips page in `kv_meta` so Home Clips can paint without waiting on the network).
+  (last subscribed-clips page in `kv_meta` so Home Clips can paint without waiting on the network;
+  sign-out deletes the key, because the snapshot is account data).
   `syncEventLogRepository`
   (capped diagnostic record of sync-job failures, Home cache-read
   failures, playback failures, add-by-RSS failures, and directory follows dropped after an
