@@ -36,6 +36,26 @@ name: Add By RSS Livestream Flow
     timeout: ${TIMEOUT_SLOWER}
 - assertVisible:
     text: "E2E Add-by-RSS Scheduled Live"
+# A livestream row states its status where an episode shows its duration, and keeps its date
+# under the title.
+- assertVisible:
+    id: "home-feed-row-live-.*live-guid/now"
+    rightOf:
+      id: "home-row-play-.*live-guid/now"
+- assertVisible:
+    id: "home-feed-row-updated-.*live-guid/scheduled"
+    below:
+      id: "home-feed-row-title-.*live-guid/scheduled"
+# A scheduled row has no Play, so its status starts the band under the date.
+- assertVisible:
+    id: "home-feed-row-live-status-.*live-guid/scheduled"
+    text: Scheduled
+    below:
+      id: "home-feed-row-updated-.*live-guid/scheduled"
+- assertNotVisible:
+    id: "home-row-play-.*live-guid/scheduled"
+- assertNotVisible:
+    text: "Scheduled • .*"
 - assertNotVisible:
     id: "home-row-more-.*"
 - takeScreenshot: add-by-rss-livestream-rows
@@ -132,10 +152,16 @@ name: Add By RSS Livestream Flow
     id: "add-by-rss-home-live-.*live-guid/scheduled"
     below:
       id: "add-by-rss-home-live-.*live-guid/now"
-# Inside a channel the scheduled row states its status on the date line.
+# Inside a channel the status also sits in the play band, below the date.
 - assertVisible:
     id: "home-feed-row-live-status-.*live-guid/scheduled"
     text: Scheduled
+    below:
+      id: "home-feed-row-updated-.*live-guid/scheduled"
+- assertVisible:
+    id: "home-feed-row-live-.*live-guid/now"
+    rightOf:
+      id: "add-by-rss-home-play-live-.*live-guid/now"
 - assertNotVisible:
     id: "home-feed-row-live-status-.*live-guid/now"
 - assertVisible:

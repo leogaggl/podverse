@@ -57,8 +57,15 @@
   align-items: center;
 }
 
+.statusSlot {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .timeSection {
   display: flex;
+  min-width: 0;
   @include time-text-row();
 }
 

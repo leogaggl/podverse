@@ -93,7 +93,11 @@ function PodcastEpisodeRow({
 const toLiveRows = (items: DTOItem[]): PodcastLiveRow[] => {
   return items
     .map((item) =>
-      toChannelLiveRow(mapItemToHomeFeedRow(item), item.live_item?.live_item_status_id)
+      toChannelLiveRow(
+        mapItemToHomeFeedRow(item),
+        item.live_item?.live_item_status_id,
+        item.live_item?.start_time
+      )
     )
     .filter((row) => row.id.length > 0);
 };
@@ -103,8 +107,8 @@ const toLiveRows = (items: DTOItem[]): PodcastLiveRow[] => {
  *
  * Anything the podcast is broadcasting sits at the top of the same list rather than under a heading of
  * its own: a live episode is the most current episode, and the reader came here for the newest thing
- * first. A stream on the air carries the Live badge; a scheduled or ended one states its status
- * on the row.
+ * first. Every livestream row states Live, Scheduled, or Ended. Only a stream on the air can
+ * start from the list, and pressing any livestream row opens its page.
  */
 export function PodcastEpisodesSection({
   channel,
@@ -329,7 +333,7 @@ export function PodcastEpisodesSection({
         channel={channel}
         index={index}
         item={itemsById.get(row.id)}
-        itemLastSeenAtMs={visitLastSeenAtMs}
+        itemLastSeenAtMs={row.liveStatusId === undefined ? visitLastSeenAtMs : null}
         onAddToPlaylist={handleAddToPlaylist}
         onMarkAsPlayed={handleMarkAsPlayed}
         onPlay={handlePlayPress}
@@ -354,8 +358,8 @@ export function PodcastEpisodesSection({
 
   /**
    * A live episode already written to the device would appear twice, so stored ids are subtracted.
-   * Only a stream on the air gets the Live badge, and a scheduled or ended one states its status
-   * on its row.
+   * Only a stream on the air can start from the list; a scheduled or ended row has no Play. Live
+   * rows carry no new-content dot: a scheduled start lies in the future.
    */
   const liveDisplayRows = useMemo<HomeFeedRowData[]>(() => {
     const storedIds = new Set(episodeRows.map((row) => row.id));

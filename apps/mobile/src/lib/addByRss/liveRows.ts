@@ -174,13 +174,15 @@ export const toAddByRssFeedLiveRows = (
 
     const key = toChannelSortKey(liveItem);
     if (statusId === LiveItemStatusEnum.Ended) {
+      const startTimeMs = toRowStartTimeMs(liveItem.start_time);
       pairs.push({
         key,
         row: {
           ...base,
           liveStatusId: LiveItemStatusEnum.Ended,
           playable: false,
-          startTimeMs: toRowStartTimeMs(liveItem.start_time),
+          startTimeMs,
+          updatedAt: startTimeMs,
         },
       });
       continue;

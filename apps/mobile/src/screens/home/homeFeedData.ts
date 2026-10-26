@@ -108,7 +108,7 @@ export type HomeFeedRowData = {
   /** Which go-to label and destination to use for `channelId`. */
   channelKind?: 'albums' | 'artists';
   /**
-   * Set on livestream rows. Drives the Scheduled prefix on the context line.
+   * Set on livestream rows. Picks the Scheduled or Ended badge in the row's duration slot.
    */
   liveStatusId?: LiveItemStatusEnum | null;
 };

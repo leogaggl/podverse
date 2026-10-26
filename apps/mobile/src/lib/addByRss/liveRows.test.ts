@@ -139,6 +139,7 @@ describe('toAddByRssFeedLiveRows', () => {
     expect(pending?.playable).toBe(false);
     expect(ended?.playable).toBe(false);
     expect(ended?.liveStatusId).toBe(LiveItemStatusEnum.Ended);
+    expect(ended?.updatedAt).toBe(Date.parse(iso(-3 * hourMs)));
     for (const row of rows) {
       expect(mappedFeed.liveItems[row.target.liveIndex]).toBe(row.target.liveBundle);
     }

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
@@ -19,8 +20,8 @@ import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
-import type { ButtonSize, ButtonVariant } from '../primitives';
-import { Button, MoreMenu, ProgressTrack } from '../primitives';
+import type { BadgeTone, ButtonSize, ButtonVariant } from '../primitives';
+import { Badge, Button, MoreMenu, ProgressTrack } from '../primitives';
 import { EnclosureSourcePickerSheet } from './EnclosureSourcePickerSheet';
 import { shouldMountRowMoreMenu } from './rowMoreMenuMount';
 
@@ -62,9 +63,19 @@ export type MediaRowActionsProps = {
    * the trailing edge. `labels` keeps the labeled pills in a tight cluster.
    */
   appearance?: 'icons' | 'labels';
-  /** Already-formatted duration shown beside Play when `appearance` is `icons`. */
+  /**
+   * Already-formatted duration shown beside Play when `appearance` is `icons`. A set `statusLabel`
+   * takes this slot instead.
+   */
   durationLabel?: string | null;
   durationTestID?: string;
+  /**
+   * Already-localized livestream status (Live, Scheduled, Ended) for `appearance` `icons`. It takes
+   * the duration slot beside Play, or the leading edge of the band when Play is hidden.
+   */
+  statusLabel?: string | null;
+  statusTestID?: string;
+  statusTone?: BadgeTone;
   /**
    * When set (icons appearance), match against the active playback target so this row can show
    * pause + an in-row progress track. Prefer a content `id_text` (or a home-feed prefixed id).
@@ -77,8 +88,10 @@ export type MediaRowActionsProps = {
    */
   showActiveProgress?: boolean;
   /**
-   * When false, omit Play/Pause, duration, and in-row progress and render only More. The container
-   * stays compact (no flex grow) so it can sit inline in a row and stay vertically centered.
+   * When false, omit Play/Pause, duration, and in-row progress. Without a `statusLabel` only More
+   * renders, and the container stays compact (no flex grow) so it can sit inline in a row and stay
+   * vertically centered. With one, the status sits at the leading edge and More at the trailing
+   * edge.
    */
   showPlayButton?: boolean;
 };
@@ -267,6 +280,9 @@ export const MediaRowActions = memo(function MediaRowActions({
   appearance = 'labels',
   durationLabel = null,
   durationTestID,
+  statusLabel = null,
+  statusTestID,
+  statusTone = 'neutral',
   playbackMediaId = null,
   showActiveProgress = true,
   showPlayButton = true,
@@ -283,7 +299,9 @@ export const MediaRowActions = memo(function MediaRowActions({
   const [hasOpenedSheet, setHasOpenedSheet] = useState(false);
   const [isSourcePickerVisible, setIsSourcePickerVisible] = useState(false);
   const useIcons = appearance === 'icons';
-  const hasDuration = durationLabel !== null && durationLabel.length > 0;
+  const hasStatus = useIcons && statusLabel !== null && statusLabel.length > 0;
+  const hasDuration = !hasStatus && durationLabel !== null && durationLabel.length > 0;
+  const statusText = hasStatus && statusLabel !== null ? statusLabel : null;
   // Icon rows follow legacy: Play is the glowing ring; More is a bare ellipsis (no outline).
   const playButtonVariant: ButtonVariant = useIcons ? 'play' : playVariant;
   const moreButtonVariant: ButtonVariant = useIcons ? 'ghost' : playVariant;
@@ -322,7 +340,7 @@ export const MediaRowActions = memo(function MediaRowActions({
 
   const styles = useThemedStyles(
     useIcons
-      ? showPlayButton
+      ? showPlayButton || hasStatus
         ? createIconPlayStyles
         : createIconMoreOnlyStyles
       : createLabelStyles
@@ -333,6 +351,10 @@ export const MediaRowActions = memo(function MediaRowActions({
   };
 
   const moreIconColor = tokens.button.secondaryColor;
+  const statusBadge =
+    statusText === null ? null : (
+      <Badge label={statusText} testID={statusTestID} tone={statusTone} />
+    );
 
   const moreButton = hasMoreActions ? (
     <Button
@@ -377,6 +399,7 @@ export const MediaRowActions = memo(function MediaRowActions({
             playbackMediaId={playbackMediaId}
             showActiveProgress={showActiveProgress}
             size={size}
+            statusBadge={statusBadge}
           />
         ) : (
           <View style={styles.leading}>
@@ -390,11 +413,12 @@ export const MediaRowActions = memo(function MediaRowActions({
               size={size}
               useIcons={useIcons}
             />
-            {hasDuration ? (
-              <Text style={styles.duration} testID={durationTestID}>
-                {durationLabel}
-              </Text>
-            ) : null}
+            {statusBadge ??
+              (hasDuration ? (
+                <Text style={styles.duration} testID={durationTestID}>
+                  {durationLabel}
+                </Text>
+              ) : null)}
           </View>
         )
       ) : (
@@ -411,9 +435,12 @@ export const MediaRowActions = memo(function MediaRowActions({
       )
     ) : null;
 
+  const leadingControl =
+    playControl ?? (hasStatus ? <View style={styles.leading}>{statusBadge}</View> : null);
+
   return (
     <View style={styles.container}>
-      {playControl}
+      {leadingControl}
       {moreButton}
 
       {shouldMountRowMoreMenu(hasMoreActions, hasOpenedSheet) ? (
@@ -525,6 +552,7 @@ type MediaRowIconsLeadingProps = {
   leadingStyle: StyleProp<ViewStyle>;
   durationStyle: StyleProp<TextStyle>;
   showActiveProgress: boolean;
+  statusBadge: ReactNode;
 };
 
 /**
@@ -545,6 +573,7 @@ function MediaRowIconsLeading({
   leadingStyle,
   durationStyle,
   showActiveProgress,
+  statusBadge,
 }: MediaRowIconsLeadingProps) {
   const { activeMediaId, isPlaying, isRemote } = usePlaybackRowDisplay();
   const resolvedPlaybackMediaId = normalizeHomeFeedPlaybackMediaId(playbackMediaId);
@@ -568,11 +597,12 @@ function MediaRowIconsLeading({
           testID={durationTestID !== undefined ? `${durationTestID}-progress` : undefined}
         />
       ) : null}
-      {hasDuration ? (
-        <Text style={durationStyle} testID={durationTestID}>
-          {durationLabel}
-        </Text>
-      ) : null}
+      {statusBadge ??
+        (hasDuration ? (
+          <Text style={durationStyle} testID={durationTestID}>
+            {durationLabel}
+          </Text>
+        ) : null)}
     </View>
   );
 }
