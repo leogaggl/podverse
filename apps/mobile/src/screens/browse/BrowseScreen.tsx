@@ -14,8 +14,11 @@ import { SectionChip } from '../../components/form';
 import { FillList } from '../../components/primitives';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
+import { ListLoading } from '../../components/state/ListLoading';
 import { LoadingSection } from '../../components/state/LoadingSection';
+import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
+import { canLoadNextPage, LIST_END_REACHED_THRESHOLD } from '../../lib/pagination/pagedList';
 import { stampPerfFrame } from '../../lib/perf/perfFrames';
 import { perfMark } from '../../lib/perf/perfSpans';
 import { buildPublicShareUrl, shareResolvedUrl } from '../../lib/share/shareNowPlaying';
@@ -49,6 +52,7 @@ import {
 import { BrowseCategoryRow } from './BrowseCategoryRow';
 import type { BrowseFeedResult } from './browseFeedData';
 import { emptyBrowseFeed, fetchBrowseFeedRows } from './browseFeedData';
+import { appendBrowseFeedPage } from './browseFeedPages';
 import type { BrowseListPrefs } from './browseListPrefs';
 import {
   isBrowseViewModeMediaType,
@@ -277,6 +281,11 @@ export function BrowseScreen() {
   const [isFeedLoading, setIsFeedLoading] = useState<boolean>(true);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState<boolean>(false);
   const [feedErrorKey, setFeedErrorKey] = useState<string | null>(null);
+  const [feedHasMore, setFeedHasMore] = useState<boolean>(false);
+  const [isFeedLoadingMore, setIsFeedLoadingMore] = useState<boolean>(false);
+  const [feedLoadMoreErrorKey, setFeedLoadMoreErrorKey] = useState<string | null>(null);
+  // The last page merged into `directoryFeed`.
+  const feedPageRef = useRef<number>(1);
   const feedRequestIdRef = useRef<number>(0);
   const categoryRequestIdRef = useRef<number>(0);
   const isFeedRefreshingRef = useRef(false);
@@ -375,6 +384,10 @@ export function BrowseScreen() {
     setSelectedMediaType(mediaType);
     setIsCategoryView(false);
     setDirectoryFeed(emptyBrowseFeed(mediaType));
+    setFeedHasMore(false);
+    setIsFeedLoadingMore(false);
+    setFeedLoadMoreErrorKey(null);
+    feedPageRef.current = 1;
     setFeedErrorKey(null);
     setIsFeedLoading(true);
     void (async () => {
@@ -509,6 +522,9 @@ export function BrowseScreen() {
       perfMark('browse.load.start', source);
       const requestId = feedRequestIdRef.current + 1;
       feedRequestIdRef.current = requestId;
+      // A next page still in flight is now stale and skips its own cleanup.
+      setIsFeedLoadingMore(false);
+      setFeedLoadMoreErrorKey(null);
 
       if (source === 'refresh') {
         if (isFeedRefreshingRef.current) {
@@ -534,20 +550,23 @@ export function BrowseScreen() {
             refreshToken,
             setTokens,
           },
-          { category: activePrefs.category, range: activePrefs.range }
+          { category: activePrefs.category, page: 1, range: activePrefs.range }
         );
         perfMark('browse.repo.end', selectedMediaType);
         if (requestId !== feedRequestIdRef.current) {
           return;
         }
         perfMark('browse.rows.set', selectedMediaType);
-        setDirectoryFeed(result);
+        setDirectoryFeed(result.feed);
+        setFeedHasMore(result.hasMore);
+        feedPageRef.current = 1;
       } catch {
         if (requestId !== feedRequestIdRef.current) {
           return;
         }
         if (source === 'initial' || source === 'retry') {
           setDirectoryFeed(emptyBrowseFeed(selectedMediaType));
+          setFeedHasMore(false);
         }
         setFeedErrorKey('errors.generic');
       } finally {
@@ -571,6 +590,67 @@ export function BrowseScreen() {
       setTokens,
     ]
   );
+
+  const loadNextFeedPage = useCallback(async () => {
+    if (offlineModeEnabled || activePrefs === null || isCategoryView) {
+      return;
+    }
+    // A next page belongs to the current list generation, so it does not advance the request id.
+    const requestId = feedRequestIdRef.current;
+    const nextPage = feedPageRef.current + 1;
+
+    setIsFeedLoadingMore(true);
+    setFeedLoadMoreErrorKey(null);
+    try {
+      const result = await fetchBrowseFeedRows(
+        selectedMediaType,
+        {
+          accessToken,
+          clearSession,
+          refreshToken,
+          setTokens,
+        },
+        { category: activePrefs.category, page: nextPage, range: activePrefs.range }
+      );
+      if (requestId !== feedRequestIdRef.current) {
+        return;
+      }
+      setDirectoryFeed((current) => appendBrowseFeedPage(current, result.feed));
+      feedPageRef.current = nextPage;
+      setFeedHasMore(result.hasMore);
+    } catch {
+      if (requestId !== feedRequestIdRef.current) {
+        return;
+      }
+      setFeedLoadMoreErrorKey('errors.generic');
+    } finally {
+      if (requestId === feedRequestIdRef.current) {
+        setIsFeedLoadingMore(false);
+      }
+    }
+  }, [
+    accessToken,
+    activePrefs,
+    clearSession,
+    isCategoryView,
+    offlineModeEnabled,
+    refreshToken,
+    selectedMediaType,
+    setTokens,
+  ]);
+
+  const handleFeedEndReached = useLoadMoreOnEndReached({
+    canLoadMore:
+      !isCategoryView &&
+      !offlineModeEnabled &&
+      canLoadNextPage({
+        hasError: feedErrorKey !== null || feedLoadMoreErrorKey !== null,
+        hasMore: feedHasMore,
+        isLoading: isFeedLoading || isFeedRefreshing,
+        isLoadingMore: isFeedLoadingMore,
+      }),
+    loadMore: loadNextFeedPage,
+  });
 
   const loadCategoriesRef = useRef(loadCategories);
   loadCategoriesRef.current = loadCategories;
@@ -907,6 +987,11 @@ export function BrowseScreen() {
     void loadFeed('retry');
   }, [loadFeed]);
 
+  const handleRetryFeedPage = useCallback(() => {
+    setFeedLoadMoreErrorKey(null);
+    void loadNextFeedPage();
+  }, [loadNextFeedPage]);
+
   const handleRetryCategories = useCallback(() => {
     void loadCategories('initial');
   }, [loadCategories]);
@@ -969,10 +1054,31 @@ export function BrowseScreen() {
 
   const listFooter = useMemo(
     () =>
-      !isCategoryView && playbackNoticeKey !== null ? (
-        <Text style={styles.feedNotice}>{t(playbackNoticeKey)}</Text>
-      ) : null,
-    [isCategoryView, playbackNoticeKey, styles.feedNotice, t]
+      isCategoryView ? null : (
+        <>
+          {isFeedLoadingMore ? (
+            <ListLoading testID="browse-list-loading-more" />
+          ) : feedLoadMoreErrorKey !== null ? (
+            <ListError
+              messageKey={feedLoadMoreErrorKey}
+              onRetry={handleRetryFeedPage}
+              testID="browse-list-load-more-error"
+            />
+          ) : null}
+          {playbackNoticeKey !== null ? (
+            <Text style={styles.feedNotice}>{t(playbackNoticeKey)}</Text>
+          ) : null}
+        </>
+      ),
+    [
+      feedLoadMoreErrorKey,
+      handleRetryFeedPage,
+      isCategoryView,
+      isFeedLoadingMore,
+      playbackNoticeKey,
+      styles.feedNotice,
+      t,
+    ]
   );
 
   const refreshControl = useMemo(
@@ -1109,6 +1215,8 @@ export function BrowseScreen() {
         key={`cols-${listColumns}-${isCategoryView ? 'cat' : 'feed'}`}
         keyExtractor={browseListRowKeyExtractor}
         numColumns={listColumns}
+        onEndReached={isCategoryView ? undefined : handleFeedEndReached}
+        onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
         onLayout={onListLayout}
         refreshControl={refreshControl}
         renderItem={renderItem}
@@ -1117,6 +1225,7 @@ export function BrowseScreen() {
     ),
     [
       gridViewLabel,
+      handleFeedEndReached,
       isCategoryView,
       listColumns,
       listData,

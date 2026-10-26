@@ -29,10 +29,23 @@ export type ChipRowProps<T extends string> = {
   className?: string;
   /** Root gets it; items get `${testId}-items`, each chip `${testId}-${key}`, trailing `${testId}-trailing`. */
   testId?: string;
+  /**
+   * Rows with the same key share one remembered horizontal offset in this tab. A row that mounts
+   * with a remembered offset resumes it, and a chip pressed with keyboard focus just before the
+   * row remounts gets focus back.
+   */
+  memoryKey?: string;
+  /** Keeps the trailing controls' space but hides them and takes them out of the focus order. */
+  trailingHidden?: boolean;
 };
 
 /** Movement below this stays a click. Past it, the gesture scrolls and the click is swallowed. */
 const DRAG_START_PX = 5;
+
+type ChipRowMemory = { scrollLeft: number; focusKey: string | null };
+
+/** Read and written only in effects and event handlers, so a server render never touches it. */
+const chipRowMemory = new Map<string, ChipRowMemory>();
 
 function prefersReducedMotion(): boolean {
   return (
@@ -56,10 +69,12 @@ type ChipRowDrag = {
 /**
  * One line of pill chips that scrolls sideways when it does not fit, with the trailing controls
  * after the chips inside the same scroller. The selected chip is scrolled fully into view on mount
- * (a jump) and on every selection change (animated unless reduced motion is requested). A swipe
- * afterwards is left alone. The scrollbar is hidden, so a mouse or pen drag scrolls the row. The
- * chips keep the pointer cursor. A drag past a few pixels does not activate the chip or a trailing
- * control; a short press still does. Touch scrolling stays with the browser.
+ * (a jump) and on every selection change (animated unless reduced motion is requested). With a
+ * `memoryKey`, a remounted row resumes its remembered offset and focus, and the reveal on that
+ * mount is animated. A swipe afterwards is left alone. The scrollbar is hidden, so a mouse or pen
+ * drag scrolls the row. The chips keep the pointer cursor. A drag past a few pixels does not
+ * activate the chip or a trailing control; a short press still does. Touch scrolling stays with
+ * the browser.
  */
 export function ChipRow<T extends string>({
   items,
@@ -69,6 +84,8 @@ export function ChipRow<T extends string>({
   ariaLabel,
   className,
   testId,
+  memoryKey,
+  trailingHidden,
 }: ChipRowProps<T>) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const chipRefs = useRef(new Map<T, HTMLButtonElement>());
@@ -154,14 +171,44 @@ export function ChipRow<T extends string>({
     event.stopPropagation();
   };
 
+  const onScroll = () => {
+    const scroller = scrollerRef.current;
+    if (memoryKey === undefined || scroller === null) {
+      return;
+    }
+    chipRowMemory.set(memoryKey, {
+      scrollLeft: scroller.scrollLeft,
+      focusKey: chipRowMemory.get(memoryKey)?.focusKey ?? null,
+    });
+  };
+
   useLayoutEffect(() => {
-    const animated = hasRevealedRef.current;
+    const isMount = !hasRevealedRef.current;
     hasRevealedRef.current = true;
+    const scroller = scrollerRef.current;
+
+    let resumed = false;
+    if (isMount && memoryKey !== undefined && scroller !== null) {
+      const remembered = chipRowMemory.get(memoryKey);
+      if (remembered !== undefined) {
+        scroller.scrollLeft = remembered.scrollLeft;
+        resumed = true;
+        chipRowMemory.set(memoryKey, { scrollLeft: remembered.scrollLeft, focusKey: null });
+        const active = document.activeElement;
+        if (
+          selectedKey !== null &&
+          remembered.focusKey === selectedKey &&
+          (active === null || active === document.body)
+        ) {
+          chipRefs.current.get(selectedKey)?.focus({ preventScroll: true });
+        }
+      }
+    }
+    const animated = !isMount || resumed;
 
     if (selectedKey === null) {
       return;
     }
-    const scroller = scrollerRef.current;
     const chip = chipRefs.current.get(selectedKey);
     if (scroller === null || chip === undefined || chip.getClientRects().length === 0) {
       return;
@@ -197,6 +244,7 @@ export function ChipRow<T extends string>({
         ref={scrollerRef}
         onPointerDown={onPointerDown}
         onClickCapture={onClickCapture}
+        onScroll={onScroll}
       >
         <div
           role="group"
@@ -219,7 +267,15 @@ export function ChipRow<T extends string>({
                 variant="pill"
                 selected={isSelected}
                 pressed={isSelected}
-                onClick={() => onSelect(item.key)}
+                onClick={(event) => {
+                  if (memoryKey !== undefined) {
+                    chipRowMemory.set(memoryKey, {
+                      scrollLeft: scrollerRef.current?.scrollLeft ?? 0,
+                      focusKey: document.activeElement === event.currentTarget ? item.key : null,
+                    });
+                  }
+                  onSelect(item.key);
+                }}
                 data-testid={testId !== undefined ? `${testId}-${item.key}` : undefined}
                 {...(item.hideDesktop === true ? { 'data-hide-desktop': 'true' } : {})}
               >
@@ -230,8 +286,12 @@ export function ChipRow<T extends string>({
         </div>
         {trailing ? (
           <div
-            className={styles.trailing}
+            className={classNames(
+              styles.trailing,
+              trailingHidden === true && styles.trailingHidden
+            )}
             data-testid={testId !== undefined ? `${testId}-trailing` : undefined}
+            inert={trailingHidden === true}
           >
             {trailing}
           </div>

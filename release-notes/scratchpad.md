@@ -1,0 +1,150 @@
+## Mobile Home Clips no longer offers an A-Z sort
+
+- Surfaces: mobile
+- Change: Home's Clips chip sorts by Recent or Popularity only, and opens on Recent. A-Z is gone
+  from its sort menu. A Clips A-Z choice saved by an earlier build reads as Recent. Clips now show
+  in the server's order instead of being re-sorted by title on the device. Podcasts, Episodes,
+  Artists, Albums, and Tracks keep A-Z as their default.
+- Who notices: signed-in users who had Home Clips set to A-Z (it opens on Recent), and anyone who
+  opens the Clips sort menu
+- Operator steps: none
+
+## Mobile Home Clips reloads when its sort changes
+
+- Surfaces: mobile
+- Change: switching Home's Clips chip between Recent and Popularity, or picking a different
+  Popularity window, fetches the first page in the new order right away and saves it on the
+  device in place of the old list. Before, the list kept the old order until the next background
+  sync. The old rows clear on the tap and a spinner shows until the new page arrives; a failed
+  fetch shows the list error with Retry. Background sync still starts the saved list over from
+  page 1. Offline Mode and signed-out Home Clips are unchanged.
+- Who notices: signed-in users who change the Home Clips sort
+- Operator steps: none
+
+## Media list chips respond on click and the list shows a spinner while it loads
+
+- Surfaces: web (shared `ChipRow` in `@podverse/ui` gains two opt-in props)
+- Change: On Browse, Subscribed (Home), Add by RSS, and Recommendations, a media chip (Podcasts,
+  Episodes, Tracks, …) shows as selected the moment it is clicked. The old list disappears at once
+  and a spinner takes its place in the list area until the new list arrives. The chip row does not
+  move: it keeps its horizontal scroll position and keyboard focus when the new list arrives, and
+  the page keeps its vertical scroll position. While the new list loads, the old list's Category,
+  Sort, and gear controls are hidden but keep their space. Clicking another chip while one is
+  loading goes to the chip clicked last, including going back to the chip the page started on.
+  Add by RSS and Recommendations show the same in-list spinner while their own lists load, instead
+  of a spinner centered on the screen (Add by RSS) or a "Loading…" line (Recommendations).
+  Before, the chip stayed unselected and the old list stayed on screen until the server finished
+  rendering the new list, which could take seconds on a slow API response, and the chip row could
+  jump sideways when the new list arrived.
+- Who notices: every web user who switches media chips, most on slow connections, slow lists, or
+  narrow screens where the chip row scrolls sideways
+- Operator steps: none
+
+## Livestream lists: newest live first, soonest scheduled first, long-past scheduled hidden
+
+- Surfaces: api, web, mobile
+- Change: `GET /live-item/global/upcoming` and `GET /live-item/subscribed/upcoming` list live
+  items latest start first, then scheduled items soonest start first. Before, both groups came
+  back oldest start first. Scheduled items whose start time is more than a day in the past are
+  left out of these lists, of the per-status live-item lists with `liveItemType=pending`, and of
+  `GET /live-item/channel/:id`. Channel livestream lists also show scheduled items soonest start
+  first. Detail pages still open long-past scheduled items. Web and mobile use the same order
+  through the shared `compareUpcomingLiveItems`.
+- Who notices: everyone on Browse and Home Livestreams; API consumers of the live-item list routes
+- Operator steps: none
+
+## Web: long-past scheduled Add by RSS livestreams are hidden
+
+- Surfaces: web
+- Change: Home Subscribed Livestreams, the Add by RSS library Livestreams tab, and Add by RSS
+  podcast, album, and artist pages leave out scheduled livestreams whose start time is more than a
+  day in the past, matching the server lists. Add by RSS channel pages list scheduled livestreams
+  soonest start first.
+- Who notices: web listeners with Add by RSS feeds that carry livestreams
+- Operator steps: none
+
+## Mobile: livestream rows follow the new order and hide long-past scheduled streams
+
+- Surfaces: mobile
+- Change: Browse, Home, and the Add by RSS library Livestreams lists show live streams latest
+  start first, then scheduled streams soonest start first. Scheduled streams whose start time is
+  more than a day in the past are hidden, including ones already sitting in the cached Home list
+  and Add by RSS feeds parsed on the device. Add by RSS podcast pages list scheduled streams
+  soonest start first.
+- Who notices: mobile listeners who open Livestreams on Browse, Home, or the Add by RSS library
+- Operator steps: none
+
+## Mobile Browse loads more rows as you scroll
+
+- Surfaces: mobile
+- Change: every Browse chip (Podcasts, Episodes, Clips, Livestreams, Artists, Albums, Tracks,
+  Playlists, Users) used to stop at the first 60 rows. Scrolling near the bottom now loads the next
+  page and appends it, with a loading row while it reads and a Retry row if that page fails. Rows
+  already shown stay. Pull to refresh and chip, range, or category changes start again from page 1.
+  Livestream pages keep the server order (live first, then scheduled soonest first).
+- Who notices: anyone browsing past the first screenful on the mobile app
+- Operator steps: none
+
+## Mobile podcast Episodes, Clips, and Official Clips load more as you scroll
+
+- Surfaces: mobile
+- Change: on a podcast's screen, the Episodes, Clips, and Official Clips sections now load their next page when you scroll near the bottom, with a loading row while it reads. The Show more button is gone, except while a title filter is typed: then the section keeps the button so a narrow filter does not pull the whole feed. A failed next page shows Retry under the rows and retries that page instead of reloading the section.
+- Who notices: anyone scrolling a long podcast on the mobile app
+- Operator steps: none
+
+## Mobile episode and full player Clips load more as you scroll
+
+- Surfaces: mobile
+- Change: the Clips tab on an episode's screen and on the full player now loads the next page of clips when you scroll near the bottom, replacing the Show more button. A failed page shows Retry under the clips already loaded, and Retry now reloads that page (before, retry after a failed Show more did nothing). Changing the clip sort while a page is loading no longer mixes in clips from the old sort.
+- Who notices: anyone reading clips on a well-clipped episode in the mobile app
+- Operator steps: none
+
+## Mobile notifications inbox loads more as you scroll
+
+- Surfaces: mobile
+- Change: the notifications inbox now loads older notifications when you scroll near the bottom, replacing the Show more button. A failed page shows Retry under the rows (before, it failed silently and the inbox stopped paging). A notification that arrives live while you scroll no longer shows up twice, and returning to the inbox while a page loads no longer mixes that page into the fresh list.
+- Who notices: signed-in users with a long notification history on the mobile app
+- Operator steps: none
+
+## Mobile My Clips and Add to Playlist load more as you scroll
+
+- Surfaces: mobile
+- Change: My Clips in the Library and the playlist picker in the Add to Playlist sheet used to show only the first 60 entries. Both now load the next page when you scroll near the bottom, with a loading row while it reads and a Retry row if the page fails.
+- Who notices: signed-in users with more than 60 clips, or more than 60 playlists for one medium
+- Operator steps: none
+
+## Mobile History loads more as you scroll
+
+- Surfaces: mobile
+- Change: History in the Library used to show only the 60 most recent plays. It now loads older plays when you scroll near the bottom, with a loading row while it reads and a Retry row if a page fails. Adding a history row back to the queue, or a listen syncing in the background, no longer resets a long scrolled list to the first 60 rows.
+- Who notices: signed-in users with a long play history on the mobile app
+- Operator steps: none
+
+## Mobile album tracks load more as you scroll
+
+- Surfaces: mobile
+- Change: an album's Tracks list used to stop at the first 60 tracks. It now loads the next page when you scroll near the bottom, with a loading row while it reads and a Retry row if the page fails. Changing the sort or range starts again from the top. Offline mode still shows the stored tracks only.
+- Who notices: listeners opening large albums or music channels on the mobile app
+- Operator steps: none
+
+## Mobile Home Clips and Livestreams load more as you scroll
+
+- Surfaces: mobile
+- Change: Home's Clips and Livestreams chips used to show only the first 60 rows saved by
+  background sync. Scrolling near the bottom now fetches the next page, saves it on the device with
+  the rest, and redraws the list, so the deeper list also stays readable offline. A loading row
+  shows while it reads and a Retry row if it fails. Clips extend under Recent and Popularity. The
+  next background sync starts the saved list over from page 1.
+  Livestreams stay in live-first, then soonest-scheduled order across pages.
+- Who notices: signed-in users following many clip-heavy podcasts or many livestreaming channels
+- Operator steps: none
+
+## Sign-out drops the saved Home clips list
+
+- Surfaces: mobile
+- Change: signing out deletes the Home Clips list saved on the phone (`home.clips.subscribed`),
+  the same way it already deletes the saved Home Livestreams list. The next account on that phone
+  starts with an empty saved Home Clips list. A page that was still loading when sign-out started
+  is dropped.
+- Who notices: someone who signs out, and the next person who signs in on the same phone
+- Operator steps: none

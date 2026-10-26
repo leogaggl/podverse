@@ -2,6 +2,7 @@ import type { DTOAccount, DTOPlaylist, QueryParamsMedium } from '@podverse/helpe
 
 import { createMobileApiRequestService, requestWithMobileAuthRefresh } from '../../auth';
 import type { MobileAuthRequestContext } from '../../data/repositories';
+import { listResponseHasMore } from '../../lib/pagination/pagedList';
 import type { HomeFeedRowData } from '../home/homeFeedData';
 import {
   mapItemsToHomeFeedRows,
@@ -12,12 +13,11 @@ import {
 import type { BrowseMediaType, BrowseRangeOption } from './browseTypes';
 import { isBrowseCategoryMediaType } from './browseTypes';
 
-const BROWSE_FEED_PAGE = 1;
-
 type BrowseFeedAuthDeps = MobileAuthRequestContext;
 
 export type BrowseFeedOptions = {
   category: string | null;
+  page: number;
   range: BrowseRangeOption;
 };
 
@@ -25,6 +25,8 @@ export type BrowseFeedResult =
   | { kind: 'media'; rows: HomeFeedRowData[] }
   | { kind: 'playlists'; playlists: DTOPlaylist[] }
   | { kind: 'users'; accounts: DTOAccount[] };
+
+export type BrowseFeedPage = { feed: BrowseFeedResult; hasMore: boolean };
 
 export const emptyBrowseFeed = (mediaType: BrowseMediaType): BrowseFeedResult => {
   if (mediaType === 'playlists') {
@@ -51,13 +53,25 @@ const channelMedium = (mediaType: BrowseMediaType): QueryParamsMedium => {
   return 'av';
 };
 
+const browseFeedPage = (
+  feed: BrowseFeedResult,
+  response: {
+    data: readonly unknown[];
+    meta: { count: number | null; limit: number; page: number };
+  }
+): BrowseFeedPage => ({
+  feed,
+  hasMore: listResponseHasMore(response.meta, response.data.length),
+});
+
 const itemMedium = (mediaType: BrowseMediaType): QueryParamsMedium => {
   return mediaType === 'tracks' ? 'music' : 'av';
 };
 
 /**
  * Directory lists are online-only. Home reads subscriptions from the device; Browse asks the
- * global (or category) endpoints instead.
+ * global (or category) endpoints instead. Each call reads one page. `hasMore` comes from the raw
+ * response, before mapping, because livestream mapping drops stale rows from a full page.
  *
  * Playlists and users stay as their DTOs so the catalog rows can show item count, description,
  * creator, and bio. Those types have no artwork.
@@ -66,10 +80,10 @@ export const fetchBrowseFeedRows = async (
   mediaType: BrowseMediaType,
   authDeps: BrowseFeedAuthDeps,
   options: BrowseFeedOptions
-): Promise<BrowseFeedResult> => {
+): Promise<BrowseFeedPage> => {
   const apiRequestService = createMobileApiRequestService(authDeps.accessToken);
   if (apiRequestService === null) {
-    return emptyBrowseFeed(mediaType);
+    return { feed: emptyBrowseFeed(mediaType), hasMore: false };
   }
 
   const category =
@@ -81,25 +95,25 @@ export const fetchBrowseFeedRows = async (
     const response = await requestWithMobileAuthRefresh(authDeps, async (api) =>
       api.reqPlaylistGetMany({
         medium: 'all',
-        page: BROWSE_FEED_PAGE,
+        page: options.page,
         range,
         sort: 'top',
         type: 'public',
       })
     );
-    return { kind: 'playlists', playlists: response.data };
+    return browseFeedPage({ kind: 'playlists', playlists: response.data }, response);
   }
 
   if (mediaType === 'users') {
     const response = await requestWithMobileAuthRefresh(authDeps, async (api) =>
       api.reqAccountGetMany({
-        page: BROWSE_FEED_PAGE,
+        page: options.page,
         range,
         sort: 'top',
         type: 'global',
       })
     );
-    return { kind: 'users', accounts: response.data };
+    return browseFeedPage({ kind: 'users', accounts: response.data }, response);
   }
 
   if (mediaType === 'clips') {
@@ -107,24 +121,27 @@ export const fetchBrowseFeedRows = async (
       api.reqClipGetManyPublic({
         category,
         medium: 'av',
-        page: BROWSE_FEED_PAGE,
+        page: options.page,
         range,
         sort: 'top',
         type,
       })
     );
-    return { kind: 'media', rows: normalizeClipRows(response.data) };
+    return browseFeedPage({ kind: 'media', rows: normalizeClipRows(response.data) }, response);
   }
 
   if (mediaType === 'livestreams') {
     const response = await requestWithMobileAuthRefresh(authDeps, async (api) =>
       api.reqLiveItemGetManyUpcoming({
         medium: 'all',
-        page: BROWSE_FEED_PAGE,
+        page: options.page,
         type: 'global',
       })
     );
-    return { kind: 'media', rows: mapItemsToUpcomingLiveRows(response.data) };
+    return browseFeedPage(
+      { kind: 'media', rows: mapItemsToUpcomingLiveRows(response.data) },
+      response
+    );
   }
 
   if (mediaType === 'episodes' || mediaType === 'tracks') {
@@ -132,32 +149,41 @@ export const fetchBrowseFeedRows = async (
       api.reqItemGetMany({
         category,
         medium: itemMedium(mediaType),
-        page: BROWSE_FEED_PAGE,
+        page: options.page,
         range,
         sort: 'top',
         type,
       })
     );
     if (mediaType === 'episodes') {
-      return { kind: 'media', rows: mapItemsToHomeFeedRows(response.data) };
+      return browseFeedPage(
+        { kind: 'media', rows: mapItemsToHomeFeedRows(response.data) },
+        response
+      );
     }
-    return { kind: 'media', rows: mapItemsToHomeFeedRows(response.data, { compact: true }) };
+    return browseFeedPage(
+      { kind: 'media', rows: mapItemsToHomeFeedRows(response.data, { compact: true }) },
+      response
+    );
   }
 
   const response = await requestWithMobileAuthRefresh(authDeps, async (api) =>
     api.reqChannelGetMany({
       category,
       medium: channelMedium(mediaType),
-      page: BROWSE_FEED_PAGE,
+      page: options.page,
       range,
       sort: 'top',
       type,
     })
   );
-  return {
-    kind: 'media',
-    rows: normalizeChannelRows(response.data, {
-      includeAuthor: mediaType === 'podcasts' || mediaType === 'albums',
-    }),
-  };
+  return browseFeedPage(
+    {
+      kind: 'media',
+      rows: normalizeChannelRows(response.data, {
+        includeAuthor: mediaType === 'podcasts' || mediaType === 'albums',
+      }),
+    },
+    response
+  );
 };

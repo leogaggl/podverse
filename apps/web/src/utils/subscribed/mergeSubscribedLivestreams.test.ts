@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DTOItem } from '@podverse/helpers';
-import { LiveItemStatusEnum } from '@podverse/helpers';
+import { LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS, LiveItemStatusEnum } from '@podverse/helpers';
 
 import type { AddByRSSLivestreamIndexItem } from '../addByRSS/types';
 import type { SubscribedLivestreamEntry } from './mergeSubscribedLivestreams';
@@ -68,7 +68,8 @@ describe('selectUpcomingAddByRSSLivestreams', () => {
         rssItem('scheduled', 'flagged', LiveItemStatusEnum.Pending, 5000),
         rssItem('live', 'flagged', LiveItemStatusEnum.Live, 9000),
       ],
-      new Set(['flagged'])
+      new Set(['flagged']),
+      new Date(10_000)
     );
 
     expect(selected.map((item) => item.id)).toEqual([
@@ -78,10 +79,28 @@ describe('selectUpcomingAddByRSSLivestreams', () => {
       'scheduled-zero',
     ]);
   });
+
+  it('leaves out a scheduled item whose start is more than a day before now, keeps one at the cutoff, and keeps an old live item', () => {
+    const now = new Date('2026-06-13T12:00:00.000Z');
+    const cutoffMs = now.getTime() - LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS;
+    const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+
+    const selected = selectUpcomingAddByRSSLivestreams(
+      [
+        rssItem('stale', 'flagged', LiveItemStatusEnum.Pending, cutoffMs - 1),
+        rssItem('at-cutoff', 'flagged', LiveItemStatusEnum.Pending, cutoffMs),
+        rssItem('old-live', 'flagged', LiveItemStatusEnum.Live, now.getTime() - tenDaysMs),
+      ],
+      new Set(['flagged']),
+      now
+    );
+
+    expect(selected.map((item) => item.id)).toEqual(['old-live', 'at-cutoff']);
+  });
 });
 
 describe('mergeSubscribedLivestreamEntries', () => {
-  it('orders page 1 live before scheduled, and keeps the server row when the keys match', () => {
+  it('orders page 1 live by latest start, then scheduled, and keeps the server row when the keys match', () => {
     const merged = mergeSubscribedLivestreamEntries({
       serverItems: [
         serverItem(1, LiveItemStatusEnum.Live, 3000),
@@ -96,10 +115,10 @@ describe('mergeSubscribedLivestreamEntries', () => {
     });
 
     expect(labels(merged)).toEqual([
-      'add-by-rss:rss-live-earlier',
+      'server:1',
       'server:2',
       'add-by-rss:rss-live-same',
-      'server:1',
+      'add-by-rss:rss-live-earlier',
       'add-by-rss:rss-scheduled',
     ]);
   });

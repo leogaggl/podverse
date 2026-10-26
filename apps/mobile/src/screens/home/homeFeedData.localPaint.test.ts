@@ -34,6 +34,7 @@ vi.mock('../../data/repositories', () => ({
   },
   homeClipsCacheRepository: {
     listPayload: vi.fn(),
+    readSnapshot: vi.fn(),
   },
   subscriptionsRepository: {
     hasPopularityRanks: vi.fn(),
@@ -73,6 +74,7 @@ describe('fetchHomeFeed local paint', () => {
     vi.mocked(channelSeenRepository.listUnseen).mockReset();
     vi.mocked(downloadsRepository.countCompletedByChannel).mockReset();
     vi.mocked(homeClipsCacheRepository.listPayload).mockReset();
+    vi.mocked(homeClipsCacheRepository.readSnapshot).mockReset();
     vi.mocked(syncEventLogRepository.append).mockReset();
   });
 
@@ -110,9 +112,10 @@ describe('fetchHomeFeed local paint', () => {
   });
 
   it('reads clips from the local snapshot only', async () => {
-    vi.mocked(homeClipsCacheRepository.listPayload).mockResolvedValue([
-      { id_text: 'clip-1', title: 'A clip', podcast_title: 'Example Show' },
-    ]);
+    vi.mocked(homeClipsCacheRepository.readSnapshot).mockResolvedValue({
+      items: [{ id_text: 'clip-1', title: 'A clip', podcast_title: 'Example Show' }],
+      window: null,
+    });
 
     const read = await fetchHomeFeed('clips');
 
@@ -123,6 +126,40 @@ describe('fetchHomeFeed local paint', () => {
         title: 'A clip',
       }),
     ]);
+    expect(read.hasMore).toBe(false);
+  });
+
+  it.each(['recent', 'popularity'] as const)(
+    'offers the next stored clip page under the %s sort',
+    async (sort) => {
+      vi.mocked(homeClipsCacheRepository.readSnapshot).mockResolvedValue({
+        items: [{ id_text: 'clip-1', title: 'A clip', podcast_title: 'Example Show' }],
+        window: {
+          hasMore: true,
+          pageCount: 1,
+          range: 'week',
+          sort: sort === 'popularity' ? 'top' : 'recent',
+        },
+      });
+
+      const read = await fetchHomeFeed('clips', { sort });
+
+      expect(read.hasMore).toBe(true);
+    }
+  );
+
+  it('keeps clips in the stored order even when the carried sort is A-Z', async () => {
+    vi.mocked(homeClipsCacheRepository.readSnapshot).mockResolvedValue({
+      items: [
+        { id_text: 'clip-z', title: 'Zebra clip', podcast_title: 'Show' },
+        { id_text: 'clip-a', title: 'Apple clip', podcast_title: 'Show' },
+      ],
+      window: null,
+    });
+
+    const read = await fetchHomeFeed('clips', { sort: 'alphabetical' });
+
+    expect(read.rows.map((row) => row.id)).toEqual(['clip-z', 'clip-a']);
   });
 
   it('paints follow titles when badge queries hang and records home_feed_metadata_timeout', async () => {

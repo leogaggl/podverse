@@ -2,6 +2,7 @@ import type { ChannelLiveItemSortKey } from '@podverse/helpers';
 import {
   compareChannelLiveItems,
   isLiveItemEndedAndStale,
+  isPendingLiveItemStale,
   LiveItemStatusEnum,
 } from '@podverse/helpers';
 
@@ -27,9 +28,9 @@ const toFiniteTimeMs = (value: string | Date | null | undefined): number | null 
 };
 
 /**
- * Livestreams on a channel page: live, then scheduled, then ended within a day.
- * An ended item whose end (or start, when it has no end) is before the one-day
- * cutoff is omitted. The instant of the cutoff is kept.
+ * Livestreams on a channel page: live, then scheduled, then ended within a day. A scheduled
+ * item whose start is before the one-day cutoff is omitted, as is an ended item whose end (or
+ * start, when it has no end) is before the one-day cutoff. The cutoff instant is kept.
  */
 export const selectChannelOrderedLiveItems = <T extends ChannelOrderedLiveItem>(
   items: readonly T[],
@@ -48,6 +49,9 @@ export const selectChannelOrderedLiveItems = <T extends ChannelOrderedLiveItem>(
     }
     const rawStart = liveItem?.start_time;
     const rawEnd = liveItem?.end_time ?? null;
+    if (isPendingLiveItemStale({ statusId, startTimeMs: toFiniteTimeMs(rawStart) }, now)) {
+      continue;
+    }
     let startForStale: string | Date | null = null;
     if (hasTime(rawStart)) {
       startForStale = rawStart;

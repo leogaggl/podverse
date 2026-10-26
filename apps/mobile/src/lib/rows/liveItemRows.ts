@@ -1,5 +1,6 @@
 import {
   compareUpcomingLiveItems,
+  isPendingLiveItemStale,
   isUpcomingLiveItemStatus,
   LiveItemStatusEnum,
 } from '@podverse/helpers';
@@ -66,17 +67,25 @@ export const toChannelLiveRow = (
   metadata: statusId === LiveItemStatusEnum.Live ? LIVE_ROW_METADATA : row.metadata,
 });
 
-/** Marks a row live or scheduled; null when the status is not upcoming. */
+/**
+ * Marks a row live or scheduled; null when the status is not upcoming, or when a scheduled start
+ * is more than a day past.
+ */
 export const toUpcomingLiveRow = (
   row: HomeFeedRowData,
   statusId: LiveItemStatusEnum | null | undefined,
-  startTime: Date | string | number | null | undefined
+  startTime: Date | string | number | null | undefined,
+  now: Date = new Date()
 ): UpcomingLiveRow | null => {
   if (statusId === null || statusId === undefined || !isUpcomingLiveItemStatus(statusId)) {
     return null;
   }
 
   const startTimeMs = startTimeMsFrom(startTime);
+  if (isPendingLiveItemStale({ startTimeMs, statusId }, now)) {
+    return null;
+  }
+
   return {
     ...row,
     liveStatusId: statusId,
@@ -88,7 +97,10 @@ export const toUpcomingLiveRow = (
   };
 };
 
-/** Live first, then scheduled, by start time (`compareUpcomingLiveItems`); stable. */
+/**
+ * Live first by latest start, then scheduled by soonest start (`compareUpcomingLiveItems`);
+ * stable.
+ */
 export const sortUpcomingLiveRows = <T extends UpcomingLiveRow>(rows: readonly T[]): T[] => {
   return [...rows].sort((left, right) =>
     compareUpcomingLiveItems(

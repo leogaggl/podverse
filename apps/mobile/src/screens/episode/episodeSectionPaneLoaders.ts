@@ -1,7 +1,7 @@
 import type { DTOClip, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers/dto';
 
 import { emptyIfNotFound } from '../../lib/apiErrorStatus';
-import { sectionResponseHasMore } from '../podcast/sections/sectionResponseHasMore';
+import { listResponseHasMore } from '../../lib/pagination/pagedList';
 
 const EMPTY_CLIP_PAGE = {
   data: [] as DTOClip[],
@@ -41,7 +41,7 @@ export const loadEpisodeClipsPane = async (
   });
   const rows = Array.isArray(response.data) ? response.data : EMPTY_CLIP_PAGE.data;
   return {
-    hasMore: sectionResponseHasMore(response.meta, rows.length),
+    hasMore: listResponseHasMore(response.meta, rows.length),
     rows,
   };
 };

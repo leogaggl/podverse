@@ -32,6 +32,7 @@ type UseEpisodeSectionPanesResult = {
   activeTab: EpisodeTab;
   chapterRows: DTOItemChapter[];
   clipHasMore: boolean;
+  clipLoadMoreErrorKey: string | null;
   clipRows: DTOClip[];
   clipSort: EpisodeClipSort;
   isLoadingMoreClips: boolean;
@@ -64,13 +65,16 @@ export function useEpisodeSectionPanes({
   previewFlags,
 }: UseEpisodeSectionPanesParams): UseEpisodeSectionPanesResult {
   const { accessToken, clearSession, refreshToken, setTokens } = useAuth();
+  const clipGenerationRef = useRef(0);
   const clipPageRef = useRef(0);
+  const isLoadingMoreClipsRef = useRef(false);
   const [activeTab, setActiveTab] = useState<EpisodeTab>(DEFAULT_EPISODE_TAB);
   const [clipSort, setClipSort] = useState<EpisodeClipSort>(DEFAULT_EPISODE_CLIP_SORT);
   const [isPrefsHydrated, setIsPrefsHydrated] = useState(false);
   const [isTabFetching, setIsTabFetching] = useState(false);
   const [isLoadingMoreClips, setIsLoadingMoreClips] = useState(false);
   const [clipHasMore, setClipHasMore] = useState(false);
+  const [clipLoadMoreErrorKey, setClipLoadMoreErrorKey] = useState<string | null>(null);
   const [tabErrorKey, setTabErrorKey] = useState<string | null>(null);
   const [chapterRows, setChapterRows] = useState<DTOItemChapter[]>([]);
   const [soundbiteRows, setSoundbiteRows] = useState<DTOItemSoundbite[]>([]);
@@ -90,12 +94,14 @@ export function useEpisodeSectionPanes({
     setIsTabFetching(false);
     setIsLoadingMoreClips(false);
     setClipHasMore(false);
+    setClipLoadMoreErrorKey(null);
     setTabErrorKey(null);
     setChapterRows([]);
     setSoundbiteRows([]);
     setClipRows([]);
     setTranscriptText('');
     setLoadedTabs(createLoadedTabs());
+    clipGenerationRef.current += 1;
     clipPageRef.current = 0;
 
     if (itemIdText === null) {
@@ -187,6 +193,7 @@ export function useEpisodeSectionPanes({
           );
           setSoundbiteRows(soundbites);
         } else if (tab === 'clips') {
+          clipGenerationRef.current += 1;
           const clips = await loadEpisodeClipsPane(
             async () =>
               requestWithMobileAuthRefresh(
@@ -271,6 +278,8 @@ export function useEpisodeSectionPanes({
       }
       setClipRows([]);
       setClipHasMore(false);
+      setClipLoadMoreErrorKey(null);
+      clipGenerationRef.current += 1;
       clipPageRef.current = 0;
       setLoadedTabs((previous) => ({ ...previous, clips: false }));
       if (!offlineModeEnabled) {
@@ -281,11 +290,19 @@ export function useEpisodeSectionPanes({
   );
 
   const loadMoreClips = useCallback(async () => {
-    if (itemIdText === null || isLoadingMoreClips || !clipHasMore || offlineModeEnabled) {
+    if (
+      itemIdText === null ||
+      isLoadingMoreClipsRef.current ||
+      !clipHasMore ||
+      offlineModeEnabled
+    ) {
       return;
     }
 
+    const generation = clipGenerationRef.current;
+    isLoadingMoreClipsRef.current = true;
     setIsLoadingMoreClips(true);
+    setClipLoadMoreErrorKey(null);
     try {
       const nextPage = clipPageRef.current + 1;
       const next = await loadEpisodeClipsPane(
@@ -307,12 +324,19 @@ export function useEpisodeSectionPanes({
           ),
         nextPage
       );
+      if (generation !== clipGenerationRef.current) {
+        return;
+      }
       clipPageRef.current = nextPage;
       setClipRows((current) => [...current, ...next.rows]);
       setClipHasMore(next.hasMore);
     } catch {
-      setTabErrorKey('errors.generic');
+      if (generation !== clipGenerationRef.current) {
+        return;
+      }
+      setClipLoadMoreErrorKey('errors.generic');
     } finally {
+      isLoadingMoreClipsRef.current = false;
       setIsLoadingMoreClips(false);
     }
   }, [
@@ -320,7 +344,6 @@ export function useEpisodeSectionPanes({
     clearSession,
     clipHasMore,
     clipSort,
-    isLoadingMoreClips,
     itemIdText,
     offlineModeEnabled,
     refreshToken,
@@ -341,6 +364,7 @@ export function useEpisodeSectionPanes({
     activeTab,
     chapterRows,
     clipHasMore,
+    clipLoadMoreErrorKey,
     clipRows,
     clipSort,
     isLoadingMoreClips,

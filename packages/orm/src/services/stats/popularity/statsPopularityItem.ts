@@ -3,7 +3,10 @@ import type { LiveItem } from '@orm/entities/liveItem/liveItem.js';
 import { StatsPopularityItem } from '@orm/entities/stats/statsPopularityItem.js';
 import { getLiveItemStatusEnumValue } from '@orm/index.js';
 import { getActiveFeedWhere } from '@orm/lib/feedFlagHelpers.js';
-import { buildEndedLiveItemTimeVariants } from '@orm/lib/liveItemWhere.js';
+import {
+  buildEndedLiveItemTimeVariants,
+  buildPendingLiveItemTimeWhere,
+} from '@orm/lib/liveItemWhere.js';
 import type { FindManyOptions, FindOptionsWhere } from 'typeorm';
 import { Equal, IsNull, MoreThan, Not } from 'typeorm';
 
@@ -57,7 +60,9 @@ export class StatsPopularityItemService {
       ? buildEndedLiveItemTimeVariants().map((variant) =>
           buildWhere({ ...liveItemWhere, ...variant })
         )
-      : buildWhere(liveItemWhere);
+      : liveItemType === 'pending'
+        ? buildWhere({ ...liveItemWhere, ...buildPendingLiveItemTimeWhere() })
+        : buildWhere(liveItemWhere);
   }
 
   async getMany(

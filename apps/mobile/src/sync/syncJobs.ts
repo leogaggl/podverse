@@ -33,8 +33,8 @@ import { runAutoDownloadRegistration } from '../downloads/autoDownloadRegistrati
 import { readIsPlayingLocallyForSync } from '../playback/playbackSyncState';
 import {
   DEFAULT_HOME_RANGE,
+  homeClipsQueryFromPrefs,
   homeSortToApiRange,
-  homeSortToApiSort,
   readHomeListPrefs,
 } from '../prefs/homeListPrefs';
 import { publishPlaybackPositionAdoptions } from './playbackPositionAdoption';
@@ -361,11 +361,10 @@ const createLibraryBrowseProjectionJob = (
 const createHomeClipsJob = (deps: SyncJobDeps, priority: SyncJobPriority): SyncJob => {
   return buildJob('home-clips', priority, 'home-clips', async () => {
     const clipsPrefs = await readHomeListPrefs('clips');
-    const apiSort = homeSortToApiSort(clipsPrefs.sort);
-    await homeClipsCacheRepository.refreshFromAccount(deps.getAuthContext(), {
-      range: homeSortToApiRange(clipsPrefs.sort, clipsPrefs.range),
-      sort: apiSort === 'a_z' ? 'recent' : apiSort,
-    });
+    await homeClipsCacheRepository.refreshFromAccount(
+      deps.getAuthContext(),
+      homeClipsQueryFromPrefs(clipsPrefs)
+    );
   });
 };
 

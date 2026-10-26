@@ -30,6 +30,10 @@ export interface ImageProps {
   height?: number;
   className?: string;
   skipProxy?: boolean;
+  /**
+   * Without it, the image loads lazily and decodes asynchronously, so remote artwork never holds
+   * up input or the frame that paints it. Set it only for above-the-fold branding.
+   */
   priority?: boolean;
   /**
    * Brief skeleton tint behind the image box until load (see SkeletonFlashImage).
@@ -200,6 +204,8 @@ export const Image: React.FC<ImageProps> = ({
       onError={onLoadFailure}
       onLoad={handleLoad}
       priority={priority}
+      loading={priority === true ? undefined : 'lazy'}
+      decoding="async"
       unoptimized={nextImageUnoptimized}
     />
   );

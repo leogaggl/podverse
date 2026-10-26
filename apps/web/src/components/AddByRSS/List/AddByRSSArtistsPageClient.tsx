@@ -13,6 +13,7 @@ import { AddByRSSArtistNodes } from '../../../components/AddByRSS/Artist/AddByRS
 import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
+import { MediaListLoadingSpinner } from '../../../components/MediaListChips/MediaListLoadingSpinner';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { Pagination } from '../../../components/Pagination/Pagination';
 import { dismissToast, showToast, showToastLoading } from '../../../components/Toast/Toast';
@@ -256,7 +257,8 @@ export const AddByRSSArtistsPageClient: React.FC<AddByRSSArtistsPageClientProps>
             ) : isLoading ? null : (
               <NoResults message={tFeatures('add_by_rss.no_feeds_music')} />
             )}
-            <WebLoadingSpinnerOverlay isLoading={isLoading} />
+            {isLoading && pagedFeeds.length === 0 ? <MediaListLoadingSpinner /> : null}
+            <WebLoadingSpinnerOverlay isLoading={isLoading && pagedFeeds.length > 0} />
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

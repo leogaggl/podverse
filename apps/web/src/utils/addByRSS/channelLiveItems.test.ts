@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { LIVE_ITEM_ENDED_VISIBILITY_MAX_AGE_MS, LiveItemStatusEnum } from '@podverse/helpers';
+import {
+  LIVE_ITEM_ENDED_VISIBILITY_MAX_AGE_MS,
+  LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS,
+  LiveItemStatusEnum,
+} from '@podverse/helpers';
 
 import { selectChannelOrderedLiveItems } from './channelLiveItems';
 
@@ -67,7 +71,7 @@ describe('selectChannelOrderedLiveItems', () => {
     ]);
   });
 
-  it('drops an ended item one millisecond before the cutoff and keeps the cutoff, plus old live and scheduled items', () => {
+  it('drops an ended item one millisecond before the cutoff and keeps the cutoff and an old live item, and drops a scheduled item that started ten days ago', () => {
     const cutoffMs = NOW.getTime() - LIVE_ITEM_ENDED_VISIBILITY_MAX_AGE_MS;
     const beforeCutoff = row('before-cutoff', {
       live_item_status: LiveItemStatusEnum.Ended,
@@ -92,7 +96,44 @@ describe('selectChannelOrderedLiveItems', () => {
 
     expect(
       ids(selectChannelOrderedLiveItems([beforeCutoff, atCutoff, oldLive, oldPending], NOW))
-    ).toEqual(['old-live', 'old-pending', 'at-cutoff']);
+    ).toEqual(['old-live', 'at-cutoff']);
+  });
+
+  it('lists two scheduled items soonest start first when the later one is given first', () => {
+    const inFiveHours = row('in-five-hours', {
+      live_item_status: LiveItemStatusEnum.Pending,
+      start_time: iso(5 * HOUR_MS),
+    });
+    const inOneHour = row('in-one-hour', {
+      live_item_status: LiveItemStatusEnum.Pending,
+      start_time: iso(HOUR_MS),
+    });
+
+    expect(ids(selectChannelOrderedLiveItems([inFiveHours, inOneHour], NOW))).toEqual([
+      'in-one-hour',
+      'in-five-hours',
+    ]);
+  });
+
+  it('drops a scheduled item one millisecond before the pending cutoff, keeps one at the cutoff, and keeps a scheduled item with no start', () => {
+    const cutoffMs = NOW.getTime() - LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS;
+    const beforeCutoff = row('before-cutoff', {
+      live_item_status: LiveItemStatusEnum.Pending,
+      start_time: new Date(cutoffMs - 1).toISOString(),
+    });
+    const atCutoff = row('at-cutoff', {
+      live_item_status: LiveItemStatusEnum.Pending,
+      start_time: new Date(cutoffMs).toISOString(),
+    });
+    const noStart = row('no-start', {
+      live_item_status: LiveItemStatusEnum.Pending,
+      start_time: null,
+    });
+
+    expect(ids(selectChannelOrderedLiveItems([beforeCutoff, atCutoff, noStart], NOW))).toEqual([
+      'at-cutoff',
+      'no-start',
+    ]);
   });
 
   it('drops an ended item with no end time when its start is two days old, and keeps one that started within the hour', () => {

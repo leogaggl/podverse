@@ -7,9 +7,9 @@ import type { AddByRSSParseStatus } from '@podverse/helpers';
 import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { AddByRSSLivestreamNodes } from '../../../components/AddByRSS/Livestream/AddByRSSLivestreamNodes';
-import { WebLoadingSpinnerOverlay } from '../../../components/LoadingSpinner/WebLoadingSpinnerOverlay';
 import { MainWrapper } from '../../../components/Main/MainWrapper';
 import type { MediaListChipsConfig } from '../../../components/MediaListChips/MediaListChips';
+import { MediaListLoadingSpinner } from '../../../components/MediaListChips/MediaListLoadingSpinner';
 import { NoResults } from '../../../components/NoResults/NoResults';
 import { dismissToast, showToast, showToastLoading } from '../../../components/Toast/Toast';
 import { useAccount } from '../../../contexts/Account';
@@ -123,7 +123,7 @@ export const AddByRSSLivestreamsPageClient: React.FC<AddByRSSLivestreamsPageClie
             ) : isReady ? (
               <NoResults message={tMedia('livestream.no_livestreams_found')} />
             ) : null}
-            <WebLoadingSpinnerOverlay isLoading={!!loggedInAccount && !isReady} />
+            {loggedInAccount && !isReady ? <MediaListLoadingSpinner /> : null}
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

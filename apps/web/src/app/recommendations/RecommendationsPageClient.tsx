@@ -23,6 +23,7 @@ import {
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { MediaListChips } from '../../components/MediaListChips/MediaListChips';
+import { MediaListLoadingSpinner } from '../../components/MediaListChips/MediaListLoadingSpinner';
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
 import { useConfig } from '../../contexts/Config';
@@ -34,9 +35,9 @@ import styles from './RecommendationsPage.module.scss';
 
 type LoadState =
   | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; items: DTOAccountRecommendation[] };
+  | { status: 'loading'; chip: RecommendationChip }
+  | { status: 'error'; chip: RecommendationChip }
+  | { status: 'ready'; chip: RecommendationChip; items: DTOAccountRecommendation[] };
 
 type RecommendationsPageClientProps = {
   chip: RecommendationChip;
@@ -74,17 +75,17 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
       return;
     }
     let cancelled = false;
-    setState({ status: 'loading' });
+    setState({ status: 'loading', chip });
     getApiRequestService()
       .reqAccountRecommendations({ chip })
       .then((items) => {
         if (!cancelled) {
-          setState({ status: 'ready', items });
+          setState({ status: 'ready', chip, items });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setState({ status: 'error' });
+          setState({ status: 'error', chip });
         }
       });
     return () => {
@@ -92,7 +93,11 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
     };
   }, [chip, signedIn, loggedInAccount?.id_text]);
 
-  const items = state.status === 'ready' ? state.items : [];
+  const shown: LoadState =
+    signedIn && (state.status === 'idle' || state.chip !== chip)
+      ? { status: 'loading', chip }
+      : state;
+  const items = shown.status === 'ready' ? shown.items : [];
   const openSettings = () => {
     router.push(`${ROUTES.SETTINGS}?tab=recommendations`);
   };
@@ -119,7 +124,7 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
                 }}
               />
             ) : null}
-            {signedIn && !trackingAllowed && state.status === 'ready' && items.length === 0 ? (
+            {signedIn && !trackingAllowed && shown.status === 'ready' && items.length === 0 ? (
               <CallToActionMessage
                 buttonLabel={t('enable')}
                 message={t('need_taste_profile')}
@@ -134,17 +139,15 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
                 </Button>
               </div>
             ) : null}
-            {signedIn && trackingAllowed && state.status === 'ready' && items.length === 0 ? (
+            {signedIn && trackingAllowed && shown.status === 'ready' && items.length === 0 ? (
               <p className={styles.status}>{t('check_back')}</p>
             ) : null}
-            {signedIn && state.status === 'error' ? (
+            {signedIn && shown.status === 'error' ? (
               <p className={styles.status} role="alert">
                 {t('load_error')}
               </p>
             ) : null}
-            {signedIn && state.status === 'loading' ? (
-              <p className={styles.status}>{tMisc('loading')}</p>
-            ) : null}
+            {signedIn && shown.status === 'loading' ? <MediaListLoadingSpinner /> : null}
             {items.length > 0 ? (
               <ul className={styles.list}>
                 {items.map((item) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { LiveItemStatusEnum } from '@podverse/helpers';
+import { LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS, LiveItemStatusEnum } from '@podverse/helpers';
 
 import type { HomeFeedRowData } from '../../screens/home/homeFeedData';
 import {
@@ -94,7 +94,8 @@ describe('toUpcomingLiveRow', () => {
     const row = toUpcomingLiveRow(
       baseRow('scheduled', { playable: true }),
       LiveItemStatusEnum.Pending,
-      start
+      start,
+      new Date('2026-01-15T12:00:00.000Z')
     );
 
     expect(row?.liveStatusId).toBe(LiveItemStatusEnum.Pending);
@@ -107,6 +108,46 @@ describe('toUpcomingLiveRow', () => {
   it('treats a non-positive start as missing', () => {
     expect(toUpcomingLiveRow(baseRow('zero'), LiveItemStatusEnum.Live, 0)?.startTimeMs).toBeNull();
   });
+
+  it('drops a scheduled row one millisecond before the pending cutoff and keeps the cutoff', () => {
+    const now = new Date('2026-06-01T12:00:00.000Z');
+    const cutoffMs = now.getTime() - LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS;
+
+    expect(
+      toUpcomingLiveRow(baseRow('before-cutoff'), LiveItemStatusEnum.Pending, cutoffMs - 1, now)
+    ).toBeNull();
+
+    const atCutoff = toUpcomingLiveRow(
+      baseRow('at-cutoff'),
+      LiveItemStatusEnum.Pending,
+      cutoffMs,
+      now
+    );
+    expect(atCutoff?.liveStatusId).toBe(LiveItemStatusEnum.Pending);
+    expect(atCutoff?.startTimeMs).toBe(cutoffMs);
+  });
+
+  it('keeps a live row that started ten days before now', () => {
+    const now = new Date('2026-06-01T12:00:00.000Z');
+    const tenDaysBefore = now.getTime() - 10 * LIVE_ITEM_PENDING_VISIBILITY_MAX_AGE_MS;
+    const oldLive = toUpcomingLiveRow(
+      baseRow('old-live'),
+      LiveItemStatusEnum.Live,
+      tenDaysBefore,
+      now
+    );
+
+    expect(oldLive?.liveStatusId).toBe(LiveItemStatusEnum.Live);
+    expect(oldLive?.startTimeMs).toBe(tenDaysBefore);
+  });
+
+  it('keeps a scheduled row with no start', () => {
+    const now = new Date('2026-06-01T12:00:00.000Z');
+    const noStart = toUpcomingLiveRow(baseRow('no-start'), LiveItemStatusEnum.Pending, null, now);
+
+    expect(noStart?.liveStatusId).toBe(LiveItemStatusEnum.Pending);
+    expect(noStart?.startTimeMs).toBeNull();
+  });
 });
 
 describe('sortUpcomingLiveRows', () => {
@@ -115,7 +156,7 @@ describe('sortUpcomingLiveRows', () => {
     statusId: LiveItemStatusEnum.Live | LiveItemStatusEnum.Pending,
     startTimeMs: number
   ) => {
-    const row = toUpcomingLiveRow(baseRow(id), statusId, startTimeMs);
+    const row = toUpcomingLiveRow(baseRow(id), statusId, startTimeMs, new Date(10_000));
     if (row === null) {
       throw new Error(`expected an upcoming row for ${id}`);
     }
@@ -129,6 +170,15 @@ describe('sortUpcomingLiveRows', () => {
     expect(sortUpcomingLiveRows([scheduledEarlier, liveLater]).map((row) => row.id)).toEqual([
       'live-later',
       'scheduled-earlier',
+    ]);
+  });
+
+  it('sorts live rows by the latest start first', () => {
+    const earlier = upcoming('live-earlier', LiveItemStatusEnum.Live, 1_000);
+    const later = upcoming('live-later-start', LiveItemStatusEnum.Live, 3_000);
+
+    expect(sortUpcomingLiveRows([earlier, later]).map((row) => row.startTimeMs)).toEqual([
+      3_000, 1_000,
     ]);
   });
 

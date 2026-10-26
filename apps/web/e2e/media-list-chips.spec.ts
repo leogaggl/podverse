@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, TestInfo } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 import {
@@ -12,7 +12,10 @@ import {
   E2E_ADD_BY_RSS_TEST_ASSETS_FEED_URL,
   E2E_DIRECTORY_ARTIST_TITLE,
   E2E_LIVE_AV_AUDIO_ITEM_TITLE,
+  E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE,
+  E2E_LIVE_AV_LATER_SCHEDULED_ITEM_TITLE,
   E2E_LIVE_AV_SCHEDULED_ITEM_TITLE,
+  E2E_LIVE_AV_STALE_SCHEDULED_ITEM_TITLE,
   E2E_LIVESTREAM_ITEM_TITLE,
   E2E_PODCAST_CHANNEL_ID_TEXT,
   E2E_PODCAST_CHANNEL_TITLE,
@@ -180,6 +183,100 @@ const rowTop = async (row: Locator): Promise<number> => {
   return box.y;
 };
 
+/**
+ * Holds the server render of one chip on one page until the returned function runs. Only the RSC
+ * request is held; a full document load of the same URL passes.
+ */
+const holdChipRender = async (page: Page, pathname: string, tab: string): Promise<() => void> => {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === pathname && url.searchParams.get('tab') === tab,
+    async (route) => {
+      if (route.request().headers()['rsc'] !== '1') {
+        await route.fallback();
+        return;
+      }
+      await gate;
+      await route.continue();
+    }
+  );
+  return release;
+};
+
+const listLoading = (page: Page) => page.getByTestId('media-list-loading');
+
+/** Scrolls the chip row so the chip sits in the middle of it. */
+const centerChipInRow = async (page: Page, chipKey: string): Promise<void> => {
+  await chipRow(page).evaluate((items, key) => {
+    const scroller = items.parentElement;
+    const chip = items.querySelector(`[data-testid="media-list-chips-${key}"]`);
+    if (scroller === null || chip === null) {
+      throw new Error('The chip row or the chip is not in the layout.');
+    }
+    const scrollerRect = scroller.getBoundingClientRect();
+    const chipRect = chip.getBoundingClientRect();
+    scroller.scrollLeft +=
+      chipRect.left - scrollerRect.left - (scroller.clientWidth - chipRect.width) / 2;
+  }, chipKey);
+};
+
+const chipBox = async (page: Page, name: string): Promise<{ x: number; y: number }> => {
+  const box = await chipButton(page, name).boundingBox();
+  expect(box, `${name} chip is in the layout`).not.toBeNull();
+  return { x: box?.x ?? 0, y: box?.y ?? 0 };
+};
+
+const expectChipStill = async (
+  page: Page,
+  name: string,
+  before: { x: number; y: number }
+): Promise<void> => {
+  const after = await chipBox(page, name);
+  expect(after.x, `${name} chip did not move sideways`).toBeCloseTo(before.x, 0);
+  expect(after.y, `${name} chip did not move up or down`).toBeCloseTo(before.y, 0);
+};
+
+type ChipStepScroll = { windowY: number; rowLeft: number };
+
+const readChipStepScroll = async (page: Page): Promise<ChipStepScroll> => {
+  const windowY = await page.evaluate(() => window.scrollY);
+  const rowLeft = await chipRow(page).evaluate((items) => items.parentElement?.scrollLeft ?? 0);
+  return { windowY, rowLeft };
+};
+
+const restoreChipStepScroll = async (page: Page, saved: ChipStepScroll): Promise<void> => {
+  await page.evaluate((top) => {
+    window.scrollTo({ top, left: 0, behavior: 'auto' });
+  }, saved.windowY);
+  await chipRow(page).evaluate((items, left) => {
+    const scroller = items.parentElement;
+    if (scroller !== null) {
+      scroller.scrollLeft = left;
+    }
+  }, saved.rowLeft);
+};
+
+/**
+ * Centers the verified element for the step screenshot, then puts the window and the chip row
+ * back. These tests read chip positions as viewport boxes, and centering scrolls the page.
+ */
+const capturePageLoadKeepingScroll = async (
+  page: Page,
+  testInfo: TestInfo,
+  label: string,
+  element: Locator
+): Promise<void> => {
+  const saved = await readChipStepScroll(page);
+  try {
+    await capturePageLoad(page, testInfo, label, element);
+  } finally {
+    await restoreChipStepScroll(page, saved);
+  }
+};
+
 test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
   test('Browse chips keep the chosen chip in the URL and in this browser', async ({
     page,
@@ -244,6 +341,158 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         testInfo,
         'Podcasts is pressed again and the URL has no tab.',
         chipButton(page, 'Podcasts')
+      );
+    });
+  });
+
+  test('On a narrow Browse, a clicked chip is pressed at once, a spinner replaces the old list, the chip row does not move, and the chip clicked last wins', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const artistTitle = page.getByRole('heading', { name: E2E_DIRECTORY_ARTIST_TITLE, level: 3 });
+    let tracksBefore: { x: number; y: number } = { x: 0, y: 0 };
+    let releaseTracks: () => void = () => undefined;
+
+    await test.step('Browse Artists lists the directory artist, and the Tracks chip sits in the middle of the row', async () => {
+      await page.goto('/browse?tab=artists');
+      await expectAppPath(page, '/browse?tab=artists');
+      await expectPressedChip(page, 'Artists');
+      await expect(artistTitle).toBeVisible();
+      await centerChipInRow(page, 'tracks');
+      tracksBefore = await chipBox(page, 'Tracks');
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'Browse Artists lists the directory artist, and the Tracks chip sits in the middle of the row.',
+        chipButton(page, 'Tracks')
+      );
+    });
+
+    await test.step('While the Tracks list is held, Tracks is pressed, the artist is hidden, a spinner shows, and the row has not moved', async () => {
+      releaseTracks = await holdChipRender(page, '/browse', 'tracks');
+      await chipButton(page, 'Tracks').click();
+      await expect(chipButton(page, 'Tracks')).toHaveAttribute('aria-pressed', 'true');
+      await expect(chipButton(page, 'Artists')).toHaveAttribute('aria-pressed', 'false');
+      await expectAppPath(page, '/browse?tab=artists');
+      await expect(artistTitle).toBeHidden();
+      await expect(listLoading(page)).toBeVisible();
+      await expect(sortChip(page)).toBeHidden();
+      await expectChipStill(page, 'Tracks', tracksBefore);
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'While the Tracks list is held, Tracks is pressed, the artist is hidden, a spinner shows, and the row has not moved.',
+        listLoading(page)
+      );
+    });
+
+    await test.step('When the Tracks list arrives, the spinner is gone, Tracks keeps focus, and the row has not moved', async () => {
+      releaseTracks();
+      await expectAppPath(page, '/browse?tab=tracks');
+      await expectPressedChip(page, 'Tracks');
+      await expect(listLoading(page)).toHaveCount(0);
+      await expect(sortChip(page)).toBeVisible();
+      await expect(chipButton(page, 'Tracks')).toBeFocused();
+      await expectChipStill(page, 'Tracks', tracksBefore);
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'When the Tracks list arrives, the spinner is gone, Tracks keeps focus, and the row has not moved.',
+        chipButton(page, 'Tracks')
+      );
+    });
+
+    await test.step('Clicking Albums and then Artists before Albums loads ends on Artists', async () => {
+      const releaseAlbums = await holdChipRender(page, '/browse', 'albums');
+      await chipButton(page, 'Albums').click();
+      await expect(chipButton(page, 'Albums')).toHaveAttribute('aria-pressed', 'true');
+      await expect(listLoading(page)).toBeVisible();
+      await chipButton(page, 'Artists').click();
+      await expectAppPath(page, '/browse?tab=artists');
+      await expectPressedChip(page, 'Artists');
+      await expect(artistTitle).toBeVisible();
+      await expect(listLoading(page)).toHaveCount(0);
+      releaseAlbums();
+      await expectAppPath(page, '/browse?tab=artists');
+      await expectPressedChip(page, 'Artists');
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'Clicking Albums and then Artists before Albums loads ends on Artists.',
+        artistTitle
+      );
+    });
+
+    await test.step('Clicking Episodes and then Artists again before Episodes loads stays on Artists', async () => {
+      const releaseEpisodes = await holdChipRender(page, '/browse', 'episodes');
+      await chipButton(page, 'Episodes').click();
+      await expect(chipButton(page, 'Episodes')).toHaveAttribute('aria-pressed', 'true');
+      await expect(artistTitle).toBeHidden();
+      await chipButton(page, 'Artists').click();
+      await expectPressedChip(page, 'Artists');
+      releaseEpisodes();
+      await expectAppPath(page, '/browse?tab=artists');
+      await expectPressedChip(page, 'Artists');
+      await expect(artistTitle).toBeVisible();
+      await expect(listLoading(page)).toHaveCount(0);
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'Clicking Episodes and then Artists again before Episodes loads stays on Artists.',
+        chipButton(page, 'Artists')
+      );
+    });
+  });
+
+  test('On signed-out Subscribed, a clicked chip hides the getting-started message behind a spinner until its list arrives', async ({
+    page,
+  }, testInfo) => {
+    const gettingStarted = page.getByText('Your subscriptions will appear here.');
+    let podcastsBefore: { x: number; y: number } = { x: 0, y: 0 };
+    let releaseEpisodes: () => void = () => undefined;
+
+    await test.step('While the Episodes list is held, Episodes is pressed and a spinner replaces the getting-started message', async () => {
+      await page.goto('/');
+      await expectAppPath(page, '/');
+      await expect(gettingStarted).toBeVisible();
+      await expectPressedChip(page, 'Podcasts');
+      podcastsBefore = await chipBox(page, 'Podcasts');
+      releaseEpisodes = await holdChipRender(page, '/', 'episodes');
+      await chipButton(page, 'Episodes').click();
+      await expectPressedChip(page, 'Episodes');
+      await expect(gettingStarted).toBeHidden();
+      await expect(listLoading(page)).toBeVisible();
+      await expectChipStill(page, 'Podcasts', podcastsBefore);
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'While the Episodes list is held, Episodes is pressed and a spinner replaces the getting-started message.',
+        listLoading(page)
+      );
+    });
+
+    await test.step('When the Episodes list arrives, the URL names episodes and the spinner is gone', async () => {
+      releaseEpisodes();
+      await expectAppPath(page, '/?tab=episodes');
+      await expectPressedChip(page, 'Episodes');
+      await expect(listLoading(page)).toHaveCount(0);
+      await expectChipStill(page, 'Podcasts', podcastsBefore);
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+      await capturePageLoadKeepingScroll(
+        page,
+        testInfo,
+        'When the Episodes list arrives, the URL names episodes and the spinner is gone.',
+        chipButton(page, 'Episodes')
       );
     });
   });
@@ -456,28 +705,116 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
     });
   });
 
-  test('When Browse Livestreams is opened signed out, live streams are listed before scheduled ones', async ({
+  test('Clip lists sort by Recent or Top, never A-Z, and a saved A-Z for clips opens on Recent', async ({
     page,
   }, testInfo) => {
-    await test.step('Browse Livestreams is pressed, live rows come before the scheduled row, and the page has no Ended label, Global header, or view selector', async () => {
+    await test.step('Browse Clips opens on Recent and its Sort menu offers Recent and Top but not A-Z', async () => {
+      await page.goto('/browse?tab=clips');
+      await expectAppPath(page, '/browse?tab=clips');
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Recent');
+      await sortChip(page).click();
+      const sortMenu = page.getByRole('menu', { name: 'Sort' });
+      await expect(sortMenu).toBeVisible();
+      await expect(
+        sortMenu.getByRole('menuitemradio', { name: 'Recent', exact: true })
+      ).toBeVisible();
+      await expect(sortMenu.getByRole('menuitemradio', { name: 'Top', exact: true })).toBeVisible();
+      await expect(sortMenu.getByRole('menuitemradio', { name: 'A-Z', exact: true })).toHaveCount(
+        0
+      );
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'The Browse Clips sort menu lists Recent and Top only.',
+        sortMenu
+      );
+      await page.keyboard.press('Escape');
+      await expect(sortMenu).toHaveCount(0);
+    });
+
+    await test.step('Signed-out Subscribed Clips also offers Recent and Top but not A-Z', async () => {
+      await page.goto('/?tab=clips');
+      await expectAppPath(page, '/?tab=clips');
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Recent');
+      await sortChip(page).click();
+      const sortMenu = page.getByRole('menu', { name: 'Sort' });
+      await expect(sortMenu).toBeVisible();
+      await expect(
+        sortMenu.getByRole('menuitemradio', { name: 'Recent', exact: true })
+      ).toBeVisible();
+      await expect(sortMenu.getByRole('menuitemradio', { name: 'Top', exact: true })).toBeVisible();
+      await expect(sortMenu.getByRole('menuitemradio', { name: 'A-Z', exact: true })).toHaveCount(
+        0
+      );
+      await page.keyboard.press('Escape');
+      await expect(sortMenu).toHaveCount(0);
+    });
+
+    await test.step('A saved A-Z for Browse Clips in this browser opens on Recent', async () => {
+      const baseURL =
+        typeof testInfo.project.use.baseURL === 'string'
+          ? testInfo.project.use.baseURL
+          : 'http://localhost:4032';
+      const settings = {
+        uit: 'dark',
+        vs: 'grid',
+        seda: false,
+        aqc: { rp: false, rd: false },
+        fd: { clips: { type: 'global', sort: 'a_z', range: null, category: null } },
+        sp: [],
+      };
+      await page.context().addCookies([
+        {
+          name: 'local-settings',
+          value: encodeURIComponent(JSON.stringify(settings)),
+          url: baseURL,
+        },
+      ]);
+
+      await page.goto('/browse?tab=clips');
+      await expectAppPath(page, '/browse?tab=clips');
+      await expect(sortChip(page)).toHaveAccessibleName('Sort: Recent');
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'Browse Clips reads Recent even when this browser saved A-Z for clips.',
+        sortChip(page)
+      );
+    });
+  });
+
+  test('When Browse Livestreams is opened signed out, live streams are listed latest start first, then scheduled streams soonest start first, and a long-past scheduled stream is hidden', async ({
+    page,
+  }, testInfo) => {
+    await test.step('Browse Livestreams is pressed, live streams are listed latest start first, then scheduled streams soonest start first, a long-past scheduled stream is hidden, and the page has no Ended label, Global header, or view selector', async () => {
       await page.goto('/browse?tab=livestreams');
       await expectAppPath(page, '/browse?tab=livestreams');
       await expectPressedChip(page, 'Livestreams');
       await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
 
       const audioRow = liveItemRow(page, E2E_LIVE_AV_AUDIO_ITEM_TITLE);
+      const hlsVideoRow = liveItemRow(page, E2E_LIVE_AV_HLS_VIDEO_ITEM_TITLE);
       const followedLiveRow = liveItemRow(page, E2E_LIVESTREAM_ITEM_TITLE);
       const scheduledRow = liveItemRow(page, E2E_LIVE_AV_SCHEDULED_ITEM_TITLE);
+      const laterScheduledRow = liveItemRow(page, E2E_LIVE_AV_LATER_SCHEDULED_ITEM_TITLE);
       await expect(audioRow).toBeVisible();
+      await expect(hlsVideoRow).toBeVisible();
       await expect(followedLiveRow).toBeVisible();
       await expect(scheduledRow).toBeVisible();
+      await expect(laterScheduledRow).toBeVisible();
       await expect(audioRow.getByText('Live', { exact: true })).toBeVisible();
       await expect(followedLiveRow.getByText('Live', { exact: true })).toBeVisible();
       await expect(scheduledRow.getByText('Scheduled', { exact: true })).toBeVisible();
+      await expect(laterScheduledRow.getByText('Scheduled', { exact: true })).toBeVisible();
 
       const scheduledTop = await rowTop(scheduledRow);
       expect(scheduledTop).toBeGreaterThan(await rowTop(audioRow));
       expect(scheduledTop).toBeGreaterThan(await rowTop(followedLiveRow));
+      expect(await rowTop(hlsVideoRow)).toBeGreaterThan(await rowTop(audioRow));
+      expect(await rowTop(laterScheduledRow)).toBeGreaterThan(scheduledTop);
+      await expect(liveItemRow(page, E2E_LIVE_AV_STALE_SCHEDULED_ITEM_TITLE)).toHaveCount(0);
 
       await expect(
         page.locator('#mainOuterWrapper').getByText('Ended', { exact: true })
@@ -490,7 +827,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await capturePageLoad(
         page,
         testInfo,
-        'Browse Livestreams lists live streams above the scheduled stream.',
+        'Browse Livestreams lists live streams latest start first, then scheduled streams soonest start first, without the long-past scheduled stream.',
         scheduledRow
       );
     });
