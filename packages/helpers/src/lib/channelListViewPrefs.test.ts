@@ -11,6 +11,8 @@ import {
   HOME_LIST_VIEW_MODE_SCOPE_PODCASTS,
   homeListViewModeScopeForMedium,
   isChannelListViewModeType,
+  RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS,
+  recommendationsListViewModeScope,
 } from './channelListViewPrefs.js';
 import { buildSortPrefScopeKey } from './sortPrefs.js';
 
@@ -28,11 +30,25 @@ describe('channel list view-mode scopes', () => {
     expect(buildSortPrefScopeKey(HOME_LIST_VIEW_MODE_SCOPE_PODCASTS)).not.toBe(
       buildSortPrefScopeKey(DIRECTORY_LIST_VIEW_MODE_SCOPE_PODCASTS)
     );
+    expect(buildSortPrefScopeKey(RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS)).toBe(
+      'recommendations-podcasts'
+    );
+    expect(buildSortPrefScopeKey(RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS)).not.toBe(
+      buildSortPrefScopeKey(BROWSE_LIST_VIEW_MODE_SCOPE_PODCASTS)
+    );
+    expect(buildSortPrefScopeKey(RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS)).not.toBe(
+      buildSortPrefScopeKey(HOME_LIST_VIEW_MODE_SCOPE_PODCASTS)
+    );
   });
 
   it('looks up Browse and directory scopes without inventing a second podcasts key', () => {
     expect(browseListViewModeScope('podcasts')).toEqual(BROWSE_LIST_VIEW_MODE_SCOPE_PODCASTS);
     expect(directoryListViewModeScope('podcasts')).toEqual(DIRECTORY_LIST_VIEW_MODE_SCOPE_PODCASTS);
+    expect(recommendationsListViewModeScope('podcasts')).toEqual(
+      RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS
+    );
+    expect(recommendationsListViewModeScope('artists').name).toBe('recommendations-artists');
+    expect(recommendationsListViewModeScope('albums').name).toBe('recommendations-albums');
   });
 
   it('maps a Home medium chip onto the Home view-mode scope', () => {

@@ -5,10 +5,18 @@ import { useTranslation } from 'react-i18next';
 import type { FlatList } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { TranscriptRow } from '@podverse/helpers/dto';
+
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
 import { ChannelHeader } from '../../components/channel';
-import { ArtistChooserSheet, DescriptionText, PeoplePane } from '../../components/content';
+import {
+  ArtistChooserSheet,
+  DescriptionText,
+  PeoplePane,
+  TranscriptFollowBar,
+  TranscriptListRow,
+} from '../../components/content';
 import type { SectionChipItem } from '../../components/form';
 import { SectionChipRow } from '../../components/form';
 import { FillList } from '../../components/primitives';
@@ -19,13 +27,18 @@ import { LoadingSection } from '../../components/state/LoadingSection';
 import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
 import { useAddByRssArtworkHeaders } from '../../hooks/useAddByRssArtworkHeaders';
 import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
+import { useTranscriptFollowControls } from '../../hooks/useTranscriptFollowControls';
+import { useTranscriptListAutoscroll } from '../../hooks/useTranscriptListAutoscroll';
 import { addByRssAlbumArtists } from '../../lib/addByRss/addByRssArtistIndex';
+import { toAddByRssItemPlaybackResourceData } from '../../lib/addByRss/domain';
 import { addByRssItemSectionUrls } from '../../lib/addByRss/itemSections';
+import { addByRssPlaybackMediaId } from '../../lib/addByRss/resourceData';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import type { LineArtist } from '../../lib/playback/lineArtist';
 import { joinLineArtistTitles } from '../../lib/playback/lineArtist';
 import type { ChannelBrowseStackParamList } from '../../navigation';
 import { buildArtistDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../navigation';
+import { usePlayingTranscriptIndex } from '../../playback/usePlayingTranscriptIndex';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { listHeaderStackGap, screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -46,11 +59,13 @@ type AddByRssTrackDetailScreenProps = NativeStackScreenProps<
   'AddByRssTrackDetail'
 >;
 
-const EMPTY_ADD_BY_RSS_TRACK_ROWS: never[] = [];
+type AddByRssTrackPaneRow =
+  | { id: string; type: 'follow-bar' }
+  | { id: string; index: number; row: TranscriptRow; type: 'transcript' };
 
-function renderAddByRssTrackDetailRow(): null {
-  return null;
-}
+const EMPTY_ADD_BY_RSS_TRACK_ROWS: AddByRssTrackPaneRow[] = [];
+const TRANSCRIPT_FOLLOW_BAR_ID = 'transcript-follow-bar';
+const addByRssTrackPaneKeyExtractor = (row: AddByRssTrackPaneRow): string => row.id;
 
 /**
  * The Add by RSS counterpart of `TrackDetailScreen`, built from the parsed feed on the device.
@@ -73,7 +88,7 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
   const { styles: themeStyles, tokens } = useTheme();
   const [tab, setTab] = useState<AddByRssTrackTab>('summary');
   const [playbackNoticeKey, setPlaybackNoticeKey] = useState<string | null>(null);
-  const listRef = useRef<FlatList<never>>(null);
+  const listRef = useRef<FlatList<AddByRssTrackPaneRow>>(null);
   const routeKey = `${route.params.feedIdText}\n${route.params.itemKey}`;
   const [loadedKey, setLoadedKey] = useState(routeKey);
   if (loadedKey !== routeKey) {
@@ -113,10 +128,6 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
           ...typography.caption,
           color: tokens.text.link,
           marginTop: tokens.spacing.sm,
-        },
-        transcript: {
-          ...typography.body,
-          color: themeStyles.textPrimary.color,
         },
       }),
     [themeStyles, tokens]
@@ -171,6 +182,87 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
     itemBundle: track?.itemBundle ?? null,
     itemIdText: track?.id ?? null,
   });
+
+  const transcriptRows = sections?.transcriptRows ?? [];
+  const itemMediaId = useMemo(() => {
+    if (feed === null || mappedFeed === null || track === null) {
+      return null;
+    }
+    return addByRssPlaybackMediaId(
+      toAddByRssItemPlaybackResourceData(feed, mappedFeed, track.itemBundle, track.itemIndex)
+    );
+  }, [feed, mappedFeed, track]);
+  const {
+    autoScrollOn,
+    filteredRows: filteredTranscriptRows,
+    filterTerm,
+    setFilterTerm,
+    toggleAutoScroll,
+  } = useTranscriptFollowControls({
+    itemMediaId,
+    rows: transcriptRows,
+  });
+  const playingTranscriptIndex = usePlayingTranscriptIndex({
+    itemMediaId,
+    rows: filteredTranscriptRows,
+  });
+  const transcriptStickyOffset = activeTab === 'transcript' && transcriptRows.length > 0 ? 1 : 0;
+  const {
+    onScrollToIndexFailed: onTranscriptScrollToIndexFailed,
+    onViewableItemsChanged: onTranscriptViewableItemsChanged,
+    viewabilityConfig: transcriptViewabilityConfig,
+  } = useTranscriptListAutoscroll({
+    activeIndex: playingTranscriptIndex,
+    autoScrollOn: autoScrollOn && activeTab === 'transcript',
+    dataIndexOffset: transcriptStickyOffset,
+    listRef,
+  });
+
+  const listRows = useMemo((): AddByRssTrackPaneRow[] => {
+    if (activeTab !== 'transcript' || sections === null || transcriptRows.length === 0) {
+      return EMPTY_ADD_BY_RSS_TRACK_ROWS;
+    }
+    return [
+      { id: TRANSCRIPT_FOLLOW_BAR_ID, type: 'follow-bar' as const },
+      ...filteredTranscriptRows.map((row, index) => ({
+        id: `transcript-${index}`,
+        index,
+        row,
+        type: 'transcript' as const,
+      })),
+    ];
+  }, [activeTab, filteredTranscriptRows, sections, transcriptRows.length]);
+
+  const renderPaneRow = useCallback(
+    ({ item }: { item: AddByRssTrackPaneRow }) => {
+      if (item.type === 'follow-bar') {
+        return (
+          <TranscriptFollowBar
+            autoScrollOn={autoScrollOn}
+            filterTestID="add-by-rss-track-detail-transcript-filter"
+            onChangeFilterTerm={setFilterTerm}
+            onToggleAutoScroll={toggleAutoScroll}
+            term={filterTerm}
+            toggleTestID="add-by-rss-track-detail-transcript-autoscroll"
+          />
+        );
+      }
+      return (
+        <TranscriptListRow
+          body={item.row.body}
+          highlighted={item.index === playingTranscriptIndex}
+          speaker={item.row.speaker}
+          startTimeFormatted={item.row.startTimeFormatted}
+          testID={
+            item.index === 0
+              ? 'add-by-rss-track-detail-tab-transcript-content'
+              : `add-by-rss-track-detail-transcript-row-${item.index}`
+          }
+        />
+      );
+    },
+    [autoScrollOn, filterTerm, playingTranscriptIndex, setFilterTerm, toggleAutoScroll]
+  );
 
   useEffect(() => {
     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
@@ -303,16 +395,12 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
     listFooter = <LoadingSection testID="add-by-rss-track-detail-tab-loading-transcript" />;
   } else if (activeTab === 'transcript' && sections !== null) {
     listFooter =
-      sections.transcriptText === '' ? (
+      sections.transcriptRows.length === 0 ? (
         <ListEmpty
           messageKey="info.transcript.no_transcript"
           testID="add-by-rss-track-detail-tab-empty-transcript"
         />
-      ) : (
-        <Text style={styles.transcript} testID="add-by-rss-track-detail-tab-transcript-content">
-          {sections.transcriptText}
-        </Text>
-      );
+      ) : null;
   } else if (activeTab === 'people') {
     listFooter = (
       <PeoplePane
@@ -412,11 +500,24 @@ export function AddByRssTrackDetailScreen({ navigation, route }: AddByRssTrackDe
             </View>
           }
           contentContainerStyle={styles.content}
-          data={EMPTY_ADD_BY_RSS_TRACK_ROWS}
-          extraData={`${activeTab}:${sections === null ? 'none' : 'loaded'}`}
+          data={listRows}
+          extraData={`${activeTab}:${sections === null ? 'none' : 'loaded'}:${playingTranscriptIndex}:${autoScrollOn}:${filterTerm}`}
+          keyExtractor={addByRssTrackPaneKeyExtractor}
+          onScrollToIndexFailed={
+            activeTab === 'transcript' ? onTranscriptScrollToIndexFailed : undefined
+          }
+          onViewableItemsChanged={
+            activeTab === 'transcript' ? onTranscriptViewableItemsChanged : undefined
+          }
           ref={listRef}
-          renderItem={renderAddByRssTrackDetailRow}
-          testID="add-by-rss-track-detail-list"
+          renderItem={renderPaneRow}
+          stickyHeaderIndices={transcriptStickyOffset > 0 ? [0] : undefined}
+          testID={
+            activeTab === 'transcript'
+              ? 'add-by-rss-track-detail-transcript-list'
+              : 'add-by-rss-track-detail-list'
+          }
+          viewabilityConfig={activeTab === 'transcript' ? transcriptViewabilityConfig : undefined}
         />
       ) : null}
       {addToPlaylistSheet}

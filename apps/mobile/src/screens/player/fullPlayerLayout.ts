@@ -111,6 +111,13 @@ export const FULL_PLAYER_REGION_TOP_PADDING = 16;
  */
 export const FULL_PLAYER_REGION_BOTTOM_PADDING = 24;
 
+/**
+ * How far the resting fold sits below the top of the home-indicator inset. The chips and the pane
+ * under them move down by this much; the inset that remains is the pane color at the bottom edge.
+ * One page gutter (`spacing.lg`).
+ */
+export const FULL_PLAYER_FOLD_DROP = spacing.lg;
+
 /** Glyph size for the skip and jump controls, sized to read as a primary transport target. */
 export const FULL_PLAYER_TRANSPORT_ICON_SIZE = 34;
 
@@ -171,7 +178,10 @@ export const resolveFullPlayerPeekHeight = (
   if (!hasSections) {
     return 0;
   }
-  return resolveFullPlayerChipStripHeight(chipStripHeight) + asNonNegative(safeAreaBottom);
+  // The drop lowers the chips into the inset. A shorter inset clamps the reveal to zero so the
+  // strip stays on screen; a taller inset keeps that remainder as the pane color at the edge.
+  const paneReveal = Math.max(0, asNonNegative(safeAreaBottom) - FULL_PLAYER_FOLD_DROP);
+  return resolveFullPlayerChipStripHeight(chipStripHeight) + paneReveal;
 };
 
 const fixedChromeHeight =

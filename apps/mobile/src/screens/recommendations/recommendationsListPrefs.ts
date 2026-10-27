@@ -1,6 +1,8 @@
 import type { RecommendationChip, SortPrefScope } from '@podverse/helpers';
-import { pickSortPrefToken } from '@podverse/helpers';
+import { pickSortPrefToken, recommendationsListViewModeScope } from '@podverse/helpers';
 
+import type { HomeViewMode } from '../../prefs/homeListPrefs';
+import { DEFAULT_HOME_VIEW_MODE, HOME_VIEW_MODES } from '../../prefs/homeListPrefs';
 import { readSortPref, writeSortPref } from '../../prefs/sortPrefs';
 
 /** Same scope web uses for the Recommendations chip (`mediaType` on list `recommendations`). */
@@ -20,4 +22,26 @@ export const writeRecommendationChip = async (chip: RecommendationChip): Promise
   await writeSortPref(RECOMMENDATIONS_SCOPE, {
     mediaType: chip === DEFAULT_CHIP ? undefined : chip,
   });
+};
+
+const isHomeViewMode = (value: string): value is HomeViewMode => {
+  return HOME_VIEW_MODES.some((mode) => mode === value);
+};
+
+/** List vs grid for one Recommendations chip. Podcasts on Home and Browse stay on their own keys. */
+export const readRecommendationViewMode = async (
+  chip: RecommendationChip
+): Promise<HomeViewMode> => {
+  const stored = await readSortPref(recommendationsListViewModeScope(chip));
+  if (stored?.viewMode !== undefined && isHomeViewMode(stored.viewMode)) {
+    return stored.viewMode;
+  }
+  return DEFAULT_HOME_VIEW_MODE;
+};
+
+export const writeRecommendationViewMode = async (
+  chip: RecommendationChip,
+  viewMode: HomeViewMode
+): Promise<void> => {
+  await writeSortPref(recommendationsListViewModeScope(chip), { viewMode });
 };

@@ -99,6 +99,18 @@ class NativePlaybackBridgeAdapter implements PodversePlaybackBridge {
     getPodverseMediaEngineModule().setVideoSurfaceVisible(visible);
   }
 
+  setVideoFullscreen(enabled: boolean): void {
+    getPodverseMediaEngineModule().setVideoFullscreen(enabled);
+  }
+
+  isPhysicalDeviceLandscape(): boolean {
+    return getPodverseMediaEngineModule().isPhysicalDeviceLandscape();
+  }
+
+  isVideoPresented(): boolean {
+    return getPodverseMediaEngineModule().isVideoPresented();
+  }
+
   writeQueueSnapshotAv(payloadJson: string): Promise<void> {
     return getPodverseMediaEngineModule().writeQueueSnapshotAv(payloadJson);
   }

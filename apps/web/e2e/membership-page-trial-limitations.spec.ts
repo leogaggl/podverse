@@ -16,6 +16,19 @@ test.describe('Web membership page trial limitations and renew route', () => {
     await expect(page.getByTestId('membership-contact')).toContainText(
       'To get a membership, please contact us at'
     );
+    const content = page.getByTestId('membership-content');
+    const centered = await content.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const main = element.closest('main');
+      if (main === null) {
+        return false;
+      }
+      const mainBox = main.getBoundingClientRect();
+      const contentMid = box.left + box.width / 2;
+      const mainMid = mainBox.left + mainBox.width / 2;
+      return Math.abs(contentMid - mainMid) < 4 && box.width < mainBox.width - 32;
+    });
+    expect(centered).toBe(true);
     await expect(page.getByRole('link', { name: 'contact-e2e@example.com' })).toBeVisible();
     await expect(page.getByText('If you have questions, please contact us at')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Extend Membership' })).toHaveCount(0);

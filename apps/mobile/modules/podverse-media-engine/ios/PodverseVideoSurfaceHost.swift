@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import Foundation
 import UIKit
 
@@ -15,11 +16,12 @@ import UIKit
 enum PodverseVideoTargetId: String {
   case mini
   case full
+  case fullscreen
 }
 
 /// Owns the one `AVPlayerLayer`, bound to `PodverseAudioEngine.shared`'s single player. Access via
 /// `PodverseVideoSurfaceHost.shared`.
-public final class PodverseVideoSurfaceHost: NSObject {
+public final class PodverseVideoSurfaceHost: NSObject, AVPictureInPictureControllerDelegate {
   /// The one and only video surface host for the process.
   @objc public static let shared = PodverseVideoSurfaceHost()
 
@@ -61,6 +63,27 @@ public final class PodverseVideoSurfaceHost: NSObject {
   /// `setVideoSurfaceVisible`). Final visibility = `desiredVisible && currentItemHasVideo`.
   private var desiredVisible = false
 
+  /// Video fullscreen is the active surface. Picture-in-picture starts from that state when the
+  /// viewer leaves the app.
+  private var fullscreenActive = false
+
+  /// Keep the player on the layer across a background transition so the system can move it into
+  /// picture-in-picture. Cleared when that window does not start.
+  private var keepPlayerAttachedForPictureInPicture = false
+
+  /// The viewer tapped the picture-in-picture window to return, as opposed to closing it.
+  private var restoringFromPictureInPicture = false
+
+  private var pipController: AVPictureInPictureController?
+
+  /// Fired when the surface's presented state changes (`desiredVisible &&` video frames `&&` a host).
+  var onVideoPresentedChanged: ((Bool) -> Void)?
+
+  /// Fired when the system picture-in-picture window starts or stops.
+  var onPictureInPictureChanged: ((Bool, Bool) -> Void)?
+
+  private var lastPresented: Bool?
+
   private override init() {
     super.init()
     containerView.isUserInteractionEnabled = false
@@ -89,7 +112,11 @@ public final class PodverseVideoSurfaceHost: NSObject {
     }
 
     PodverseAudioEngine.shared.onPlayerReplaced = { [weak self] _ in
-      self?.onMain { self?.bindPlayerLayer() }
+      self?.onMain {
+        self?.pipController = nil
+        self?.bindPlayerLayer()
+        self?.configurePictureInPicture()
+      }
     }
 
     let center = NotificationCenter.default
@@ -105,14 +132,28 @@ public final class PodverseVideoSurfaceHost: NSObject {
 
   /// iOS pauses an `AVPlayer` that is attached to an `AVPlayerLayer` once the app leaves the
   /// foreground (including a screen lock). Detaching the layer in the background lets a video
-  /// item keep playing as audio; the layer is rebound when the app returns.
+  /// item keep playing as audio. The layer stays attached when fullscreen picture-in-picture can
+  /// take it; if that window has not started a moment later, the layer detaches.
   private var isInBackground = false
 
   @objc private func handleDidEnterBackground() {
     onMain { [weak self] in
       guard let self = self else { return }
       self.isInBackground = true
+      let pipActive = self.pipController?.isPictureInPictureActive == true
+      let pipPossible =
+        self.fullscreenActive && self.pipController?.isPictureInPicturePossible == true
+      self.keepPlayerAttachedForPictureInPicture = pipActive || pipPossible
       self.bindPlayerLayer()
+      guard pipPossible && !pipActive else { return }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+        guard let self = self else { return }
+        guard self.isInBackground, self.pipController?.isPictureInPictureActive != true else {
+          return
+        }
+        self.keepPlayerAttachedForPictureInPicture = false
+        self.bindPlayerLayer()
+      }
     }
   }
 
@@ -124,10 +165,38 @@ public final class PodverseVideoSurfaceHost: NSObject {
     }
   }
 
-  /// Main-thread only. Attach the layer to the engine's current player while foregrounded.
+  /// Main-thread only. Attach the layer to the engine's current player while foregrounded, and
+  /// while picture-in-picture is taking the layer.
   private func bindPlayerLayer() {
-    containerView.playerLayer.player =
-      isInBackground ? nil : PodverseAudioEngine.shared.sharedPlayer
+    let attach = !isInBackground || keepPlayerAttachedForPictureInPicture
+    containerView.playerLayer.player = attach ? PodverseAudioEngine.shared.sharedPlayer : nil
+  }
+
+  /// True when the surface is actually showing frames.
+  func isVideoPresented() -> Bool {
+    desiredVisible && currentItemHasVideo && activeTarget.flatMap { targetViews[$0]?.view } != nil
+  }
+
+  /// Video fullscreen changed. Picture-in-picture is offered only from that surface.
+  func setFullscreenActive(_ active: Bool) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      self.fullscreenActive = active
+      self.configurePictureInPicture()
+    }
+  }
+
+  /// Main-thread only. One controller for the single player layer.
+  private func configurePictureInPicture() {
+    guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
+    if pipController == nil {
+      let source = AVPictureInPictureController.ContentSource(
+        playerLayer: containerView.playerLayer)
+      let controller = AVPictureInPictureController(contentSource: source)
+      controller.delegate = self
+      pipController = controller
+    }
+    pipController?.canStartPictureInPictureAutomaticallyFromInline = fullscreenActive
   }
 
   // MARK: - RN-facing API (called by PodverseVideoSurfaceView + the Expo module)
@@ -226,8 +295,49 @@ public final class PodverseVideoSurfaceHost: NSObject {
 
   /// Recompute surface visibility from JS intent + native capability + placement. Main-thread only.
   private func updateVisibility() {
-    let hasHost = activeTarget.flatMap { targetViews[$0]?.view } != nil
-    containerView.isHidden = !(desiredVisible && currentItemHasVideo && hasHost)
+    let presented = isVideoPresented()
+    containerView.isHidden = !presented
+    guard lastPresented != presented else { return }
+    lastPresented = presented
+    onVideoPresentedChanged?(presented)
+  }
+
+  // MARK: - Picture in picture
+
+  public func pictureInPictureControllerDidStartPictureInPicture(
+    _ pictureInPictureController: AVPictureInPictureController
+  ) {
+    keepPlayerAttachedForPictureInPicture = true
+    onPictureInPictureChanged?(true, false)
+  }
+
+  public func pictureInPictureController(
+    _ pictureInPictureController: AVPictureInPictureController,
+    failedToStartPictureInPictureWithError error: Error
+  ) {
+    guard isInBackground else { return }
+    keepPlayerAttachedForPictureInPicture = false
+    bindPlayerLayer()
+  }
+
+  public func pictureInPictureController(
+    _ pictureInPictureController: AVPictureInPictureController,
+    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler:
+      @escaping (Bool) -> Void
+  ) {
+    restoringFromPictureInPicture = true
+    completionHandler(true)
+  }
+
+  public func pictureInPictureControllerDidStopPictureInPicture(
+    _ pictureInPictureController: AVPictureInPictureController
+  ) {
+    let restore = restoringFromPictureInPicture
+    restoringFromPictureInPicture = false
+    onPictureInPictureChanged?(false, restore)
+    guard !restore, isInBackground else { return }
+    keepPlayerAttachedForPictureInPicture = false
+    bindPlayerLayer()
   }
 
   private func onMain(_ work: @escaping () -> Void) {

@@ -1,4 +1,25 @@
 .transcriptWrapper {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  gap: var(--spacing-lg);
+  min-height: 0;
+}
+
+.transcriptToolbar {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--spacing-base);
+  min-width: 0;
+}
+
+.transcriptSearch {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.transcriptListSlot {
+  flex: 1 1 auto;
+  min-height: 400px;
 }

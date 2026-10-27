@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useRef } from 'react';
-import { FaPlus } from 'react-icons/fa6';
+import { FaCirclePlus } from 'react-icons/fa6';
 
 import { useMediaPlayer } from '../../../contexts/MediaPlayer';
 import { useModals } from '../../../contexts/Modals';
@@ -106,7 +106,7 @@ export const PlaylistAddToButton = () => {
       onClick={onClick}
       type="button"
     >
-      <FaPlus aria-hidden />
+      <FaCirclePlus aria-hidden />
     </button>
   );
 };

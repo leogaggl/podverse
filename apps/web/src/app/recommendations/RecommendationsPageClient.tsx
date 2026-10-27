@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
@@ -9,8 +8,10 @@ import type { DTOAccountRecommendation, RecommendationChip } from '@podverse/hel
 import {
   buildAlbumPath,
   buildArtistPath,
+  buildDTOChannelImageLoadCandidates,
   buildPodcastPath,
   isTasteProfileTrackingAllowed,
+  recommendationsListViewModeScope,
 } from '@podverse/helpers';
 import {
   Button,
@@ -18,17 +19,23 @@ import {
   MainColumnStack,
   MainHeader,
   MainSidebarLayout,
-  SideContent,
 } from '@podverse/ui';
 
+import { CommonAlbumListNodes } from '../../components/Common/Artist/Album/CommonAlbumNodes';
+import { CommonArtistListNodes } from '../../components/Common/Artist/CommonArtistNodes';
+import { CommonPodcastListNodes } from '../../components/Common/Podcast/CommonPodcastNodes';
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { MediaListChips } from '../../components/MediaListChips/MediaListChips';
 import { MediaListLoadingSpinner } from '../../components/MediaListChips/MediaListLoadingSpinner';
+import type { ViewSelectedOption } from '../../components/ViewSelector/ViewSelector';
+import { ViewSelector } from '../../components/ViewSelector/ViewSelector';
+import { IMAGES } from '../../constants/images';
 import { ROUTES } from '../../constants/routes';
 import { useAccount } from '../../contexts/Account';
 import { useConfig } from '../../contexts/Config';
 import { useModals } from '../../contexts/Modals';
 import { getApiRequestService } from '../../factories/apiRequestService';
+import { useListViewMode } from '../../hooks/useListViewMode';
 import { RECOMMENDATION_CHIPS } from '../../utils/mediaListChips';
 
 import styles from './RecommendationsPage.module.scss';
@@ -54,6 +61,68 @@ function showPath(chip: RecommendationChip, idText: string): string {
   return buildPodcastPath(idText);
 }
 
+function listImageCandidates(item: DTOAccountRecommendation): string[] {
+  return buildDTOChannelImageLoadCandidates(
+    item.channel.channel_images,
+    IMAGES.LIST.PODCASTS.SIZE_FIND_TARGET,
+    'lesser'
+  );
+}
+
+function RecommendationNodes({
+  chip,
+  items,
+  untitled,
+  viewSelected,
+}: {
+  chip: RecommendationChip;
+  items: DTOAccountRecommendation[];
+  untitled: string;
+  viewSelected: ViewSelectedOption;
+}) {
+  if (chip === 'albums') {
+    return (
+      <CommonAlbumListNodes
+        items={items.map((item) => ({
+          href: showPath(chip, item.channel.id_text),
+          id: item.channel.id_text,
+          imageCandidates: listImageCandidates(item),
+          subtitle: null,
+          title: item.channel.title?.trim() || untitled,
+        }))}
+        viewSelected={viewSelected}
+      />
+    );
+  }
+
+  if (chip === 'artists') {
+    return (
+      <CommonArtistListNodes
+        items={items.map((item) => ({
+          href: showPath(chip, item.channel.id_text),
+          id: item.channel.id_text,
+          imageCandidates: listImageCandidates(item),
+          showSubtitle: false,
+          title: item.channel.title?.trim() || untitled,
+        }))}
+        viewSelected={viewSelected}
+      />
+    );
+  }
+
+  return (
+    <CommonPodcastListNodes
+      items={items.map((item) => ({
+        href: showPath(chip, item.channel.id_text),
+        id: item.channel.id_text,
+        imageCandidates: listImageCandidates(item),
+        title: item.channel.title?.trim() || untitled,
+      }))}
+      viewSelected={viewSelected}
+    />
+  );
+}
+
 export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPageClientProps) {
   const t = useTranslations('features.recommendations');
   const tAuth = useTranslations('authentication');
@@ -62,6 +131,7 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
   const { loggedInAccount } = useAccount();
   const config = useConfig();
   const { setModalAuthLogin } = useModals();
+  const { setViewSelected, viewSelected } = useListViewMode(recommendationsListViewModeScope(chip));
   const [state, setState] = useState<LoadState>({ status: 'idle' });
   const signedIn = loggedInAccount !== null && loggedInAccount !== undefined;
   const trackingAllowed = isTasteProfileTrackingAllowed(
@@ -107,12 +177,14 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
       <MainHeader title={t('title')} />
       <MainWrapper>
         <MainSidebarLayout>
-          <SideContent />
           <MainColumnStack>
             <MediaListChips
               chips={RECOMMENDATION_CHIPS}
               page="recommendations"
               selected={chip}
+              trailing={
+                <ViewSelector setViewSelected={setViewSelected} viewSelected={viewSelected} />
+              }
               urlChip={urlChip}
             />
             {!signedIn ? (
@@ -149,24 +221,12 @@ export function RecommendationsPageClient({ chip, urlChip }: RecommendationsPage
             ) : null}
             {signedIn && shown.status === 'loading' ? <MediaListLoadingSpinner /> : null}
             {items.length > 0 ? (
-              <ul className={styles.list}>
-                {items.map((item) => {
-                  const title = item.channel.title?.trim() || tMisc('untitled');
-                  return (
-                    <li key={item.channel.id_text} className={styles.row}>
-                      <Link className={styles.title} href={showPath(chip, item.channel.id_text)}>
-                        {title}
-                      </Link>
-                      <span
-                        aria-label={t('strength', { level: item.strength })}
-                        className={styles.strength}
-                      >
-                        {item.strength}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <RecommendationNodes
+                chip={chip}
+                items={items}
+                untitled={tMisc('untitled')}
+                viewSelected={viewSelected}
+              />
             ) : null}
           </MainColumnStack>
         </MainSidebarLayout>

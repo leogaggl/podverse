@@ -20,7 +20,19 @@ name: Library Playlists Authoring
 - assertVisible:
     id: library-playlists-screen
 
-# Library list chips: My / Followed.
+# Library list chips: My / Followed, and a medium filter that starts on All.
+- assertVisible:
+    id: library-playlists-medium-button
+- tapOn:
+    id: library-playlists-medium-button
+- assertVisible:
+    id: library-playlists-medium-all
+- assertVisible:
+    id: library-playlists-medium-av
+- assertVisible:
+    id: library-playlists-medium-music
+- tapOn:
+    id: library-playlists-medium-all
 - assertVisible:
     id: library-playlists-type-private
 - tapOn:

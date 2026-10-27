@@ -400,7 +400,7 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
             selectedKey={selectedTab}
             testId="add-by-rss-episode-detail-chips"
           />
-          <DetailListWrapper>
+          <DetailListWrapper fill={selectedTab === 'transcript'}>
             {selectedTab === 'summary' &&
               (description ? (
                 <CoreEpisodeSummary
@@ -443,7 +443,7 @@ export const AddByRSSEpisodePageClient: React.FC<AddByRSSEpisodePageClientProps>
                 {chaptersTranscriptError ? (
                   <NoResults message={chaptersTranscriptError} />
                 ) : (
-                  <ItemTranscript autoScrollOn={false} rows={transcriptRows} />
+                  <ItemTranscript rows={transcriptRows} />
                 )}
                 <WebLoadingSpinnerOverlay isLoading={chaptersTranscriptLoading} />
               </>

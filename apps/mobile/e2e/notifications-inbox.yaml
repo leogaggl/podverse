@@ -134,28 +134,45 @@ name: Notifications Inbox
     id: more-settings-notifications-screen
 - takeScreenshot: more-settings-notification-auto-enable-toggled
 
-# Banner switches are stored on this device. They do not open the apply dialog. Livestream
-# Scheduled starts off; the second tap leaves that default in place for the rest of this process.
+# Optional Push and Banner appear only while the category base switch is on. Media categories
+# default on, so their Banner rows are visible. Product Updates defaults off, so its Banner stays
+# hidden. Locked system categories always show Banner. Toggle Livestream Banner twice so the
+# device preference ends where it started.
 - scrollUntilVisible:
     element:
-      id: more-settings-banner-notification-livestream-scheduled-switch
+      id: more-settings-banner-notification-livestream-switch
     direction: DOWN
     timeout: ${TIMEOUT_SLOW}
 - assertVisible:
-    id: more-settings-banner-notifications-card
+    id: more-settings-media-notifications-card
 - assertVisible:
-    id: more-settings-banner-notification-new-item-switch
+    id: more-settings-notification-new-content
 - assertVisible:
-    id: more-settings-banner-notification-livestream-started-switch
+    id: more-settings-notification-new-content-push
+- assertVisible:
+    id: more-settings-banner-notification-new-content-switch
+- assertVisible:
+    id: more-settings-banner-notification-livestream-switch
 - tapOn:
-    id: more-settings-banner-notification-livestream-scheduled-switch
+    id: more-settings-banner-notification-livestream-switch
 - tapOn:
-    id: more-settings-banner-notification-livestream-scheduled-switch
+    id: more-settings-banner-notification-livestream-switch
 - assertNotVisible:
     id: more-settings-notifications-apply-dialog
+- scrollUntilVisible:
+    element:
+      id: more-settings-notification-product-update
+    direction: DOWN
+    timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: more-settings-system-notifications-card
+- assertNotVisible:
+    id: more-settings-banner-notification-product-update-switch
 - scrollUntilVisible:
     element:
       id: more-settings-banner-notification-general
     direction: DOWN
     timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: more-settings-banner-notification-general-switch
 - takeScreenshot: more-settings-banner-notifications

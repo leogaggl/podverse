@@ -127,10 +127,20 @@ describe('toAddByRssItemSections', () => {
     });
 
     expect(sections.chapters.map((row) => row.id_text)).toEqual(['intro', 'topic']);
-    expect(sections.transcriptText).toBe('Spoken words.');
+    expect(sections.transcriptRows).toEqual([]);
   });
 
   it('uses an empty transcript when the response omits one', () => {
-    expect(toAddByRssItemSections({ chapters: [] }).transcriptText).toBe('');
+    expect(toAddByRssItemSections({ chapters: [] }).transcriptRows).toEqual([]);
+  });
+
+  it('parses transcript text into rows when present', () => {
+    const transcriptText = JSON.stringify({
+      version: '1.0.0',
+      segments: [{ speaker: 'Host', startTime: 0, endTime: 2, body: 'Spoken words.' }],
+    });
+    const sections = toAddByRssItemSections({ chapters: [], transcriptText });
+    expect(sections.transcriptRows).toHaveLength(1);
+    expect(sections.transcriptRows[0]?.body).toBe('Spoken words.');
   });
 });

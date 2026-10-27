@@ -76,6 +76,12 @@ object PodverseAudioEngine {
    */
   var onVideoCapabilityChanged: ((Boolean) -> Unit)? = null
 
+  /** Width and height of the current video frame, or 0 when the item has no video. */
+  var onVideoSizeChanged: ((Int, Int) -> Unit)? = null
+
+  /** Fired when ExoPlayer's playing flag changes. */
+  var onPlaybackPlayingChanged: ((Boolean) -> Unit)? = null
+
   private var player: ExoPlayer? = null
   private var appContext: Context? = null
   /** Shared pool for protected-media loads; each load derives a client with its own authenticator. */
@@ -570,6 +576,9 @@ object PodverseAudioEngine {
     if (d == C.TIME_UNSET || d < 0) 0.0 else d / 1000.0
   }
 
+  /** True while ExoPlayer is rendering frames or audio. Main-thread safe. */
+  fun isPlaybackActive(): Boolean = onMainSync { player?.isPlaying == true }
+
   /**
    * Tear down the current item and stop the foreground service. The player instance is released here
    * while keeping the service/session available for app-closed car binding.
@@ -584,6 +593,8 @@ object PodverseAudioEngine {
       player?.stop()
       publish(PlaybackState.IDLE)
       onVideoCapabilityChanged?.invoke(false)
+      onVideoSizeChanged?.invoke(0, 0)
+      onPlaybackPlayingChanged?.invoke(false)
     }
   }
 
@@ -637,6 +648,7 @@ object PodverseAudioEngine {
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+      onPlaybackPlayingChanged?.invoke(isPlaying)
       if (isPlaying) {
         publish(PlaybackState.PLAYING)
         startProgressUpdates()
@@ -657,7 +669,13 @@ object PodverseAudioEngine {
     override fun onVideoSizeChanged(videoSize: VideoSize) {
       // Report capability so the surface host hides itself for audio-only items.
       val hasVideo = videoSize != VideoSize.UNKNOWN && videoSize.width > 0 && videoSize.height > 0
-      onMain { onVideoCapabilityChanged?.invoke(hasVideo) }
+      onMain {
+        onVideoCapabilityChanged?.invoke(hasVideo)
+        onVideoSizeChanged?.invoke(
+          if (hasVideo) videoSize.width else 0,
+          if (hasVideo) videoSize.height else 0,
+        )
+      }
     }
   }
 

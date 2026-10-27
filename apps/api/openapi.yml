@@ -1333,6 +1333,7 @@ components:
             - about
             - faq
             - clip-how-to
+            - developer
           example: faq
         locale:
           type: string
@@ -6085,6 +6086,7 @@ paths:
               - about
               - faq
               - clip-how-to
+              - developer
       responses:
         "200":
           description: Successful response

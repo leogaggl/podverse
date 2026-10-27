@@ -47,7 +47,7 @@ export const segmentsRepository = {
   ): Promise<AddByRssItemSections> => {
     const urls = addByRssItemSectionUrls(input.itemBundle);
     if (urls === null) {
-      return { chapters: [], transcriptText: '' };
+      return { chapters: [], transcriptRows: [] };
     }
 
     let credentials: AddByRssCredentials | null = null;

@@ -368,24 +368,25 @@ account's queue).
 empty, `#media-player` drops `media-player-active` and the bar is hidden.
 Playback Devices renders only when two or more devices are connected.
 
-| Situation                                | Content                                                          | Caption                                         | Progress                                                     | Controls                                                                                      |
-| ---------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Another device plays a non-live item     | `displayState.resource`, then its records                        | Playing on {device}                             | remote estimate over `duration_seconds`; one seek on release | play/pause, jumps, previous/next, speed in Settings, Add to Playlist, Share, Playback Devices |
-| Another device is starting the item      | same                                                             | Starting on {device}                            | estimate, not advancing                                      | same                                                                                          |
-| Playing device pauses                    | same                                                             | Paused on {device}                              | frozen estimate                                              | same                                                                                          |
-| Another tab of this browser (any status) | same                                                             | Playing in Another Tab                          | same as that status                                          | same                                                                                          |
-| Another device plays a livestream        | same                                                             | Playing on {device} (or Paused on, Starting on) | Live label                                                   | play/pause, previous/next, Add to Playlist, Share, Playback Devices                           |
-| Narrow layout, music                     | same                                                             | same                                            | same                                                         | previous/next instead of jumps; no Add to Playlist                                            |
-| Narrow layout, other media               | same                                                             | same                                            | same                                                         | jumps instead of previous/next; no Add to Playlist. A livestream shows neither                |
-| Playing device stops (`resource` null)   | bar hidden                                                       | —                                               | —                                                            | —                                                                                             |
-| Playing device leaves presence           | local queue head, paused; bar stays hidden if the queue is empty | none                                            | local                                                        | local                                                                                         |
-| Transfer pending (any role)              | as the role shows                                                | Sending to {device}…                            | as the role shows                                            | as the role shows                                                                             |
+| Situation                                | Content                                                          | Caption                                         | Progress                                                     | Controls                                                                                                                           |
+| ---------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Another device plays a non-live item     | `displayState.resource`, then its records                        | Playing on {device}                             | remote estimate over `duration_seconds`; one seek on release | play/pause, jumps, previous/next, speed and Share in More, Add to Playlist, Playback Devices                                       |
+| Another device is starting the item      | same                                                             | Starting on {device}                            | estimate, not advancing                                      | same                                                                                                                               |
+| Playing device pauses                    | same                                                             | Paused on {device}                              | frozen estimate                                              | same                                                                                                                               |
+| Another tab of this browser (any status) | same                                                             | Playing in Another Tab                          | same as that status                                          | same                                                                                                                               |
+| Another device plays a livestream        | same                                                             | Playing on {device} (or Paused on, Starting on) | Live label                                                   | play/pause, previous/next, Add to Playlist, Share in More, Playback Devices                                                        |
+| Narrow layout                            | same                                                             | same                                            | same                                                         | play/pause, jumps when the item can skip, Playback Devices. Previous/next, Add to Playlist, and More are on the full-screen player |
+| Playing device stops (`resource` null)   | bar hidden                                                       | —                                               | —                                                            | —                                                                                                                                  |
+| Playing device leaves presence           | local queue head, paused; bar stays hidden if the queue is empty | none                                            | local                                                        | local                                                                                                                              |
+| Transfer pending (any role)              | as the role shows                                                | Sending to {device}…                            | as the role shows                                            | as the role shows                                                                                                                  |
 
-The narrow bar is `MediaPlayerButtonsMobile`. Desktop and the
-full-screen player keep previous/next for a livestream and hide jumps
-and Settings, because seek and rate are not allowed for a live item.
-The narrow non-music bar only has room for jumps, so a live item there
-shows play/pause, Share, and Playback Devices.
+The narrow bar is `MediaPlayerButtonsMobile`. It shows play/pause, jump
+back and jump forward when the item can skip, and Playback Devices when
+two or more devices are connected. Add to Playlist, More, and
+previous/next stay on the desktop bar and the full-screen player.
+Desktop and the full-screen player keep previous/next for a livestream
+and hide jumps, because seek is not allowed for a live item. More on a
+livestream omits playback speed and the sleep timer and keeps Share.
 
 Also in the remote view:
 
@@ -402,8 +403,10 @@ Also in the remote view:
   remote resource is `ready` (a now-playing queue row matches the hash
   and this tab can resolve an index item). A database item stays
   enabled while records load; a failed load shows one error toast.
-- Share: shown in every role, including while this browser plays. It
-  opens the existing share modal. In the remote role it uses the loaded
+- Share: a row in More on the desktop bar and the full-screen player,
+  in every role, including while this browser plays. The narrow bar
+  does not show More. Share opens the existing share modal. In the remote
+  role it uses the loaded
   records (and the chapter the strip names, when that chapter is in the
   loaded list). It is disabled for an Add by RSS item (no public page),
   from the summary ref, before records load. A load that is not ready
@@ -430,9 +433,9 @@ commands. `seek` and `set_rate` are not sent for a live item.
 | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | Play/pause button, Space                                                                    | `pause` while status is `playing` or `loading`; `play` while `paused`                                       | `usePlayerTransport`, `mediaPlayerWindowKeyDown.ts`           |
 | Jump buttons, arrow keys                                                                    | absolute `seek` from the estimate (arrows ±10s), clamped to the playing device's duration; nothing for live | `usePlayerTransport`, `mediaPlayerWindowKeyDown.ts`           |
-| Previous/next (desktop, narrow, and full screen), including long press                      | `previous` or `next`                                                                                        | `useTrackPreviousButtonActions`, `useTrackNextButtonActions`  |
+| Previous/next (desktop and full screen), including long press                               | `previous` or `next`                                                                                        | `useTrackPreviousButtonActions`, `useTrackNextButtonActions`  |
 | Progress click or drag                                                                      | one `seek` on mouseup                                                                                       | `RemoteMediaPlayerProgress.tsx`                               |
-| Speed in Settings                                                                           | `set_rate`                                                                                                  | `usePlayerTransport`                                          |
+| Speed in More                                                                               | `set_rate`                                                                                                  | `usePlayerTransport`                                          |
 | Add to Playlist                                                                             | playlist modal with the loaded records; nothing sent                                                        | `PlaylistAddToButton.tsx`                                     |
 | Current remote chapter's play button                                                        | `play` or `pause`                                                                                           | `ListItemChapterRow.tsx`, `ItemChapterHeaderPlaySection.tsx`  |
 | Pick the item already playing there, with no start time                                     | `play` or `pause`                                                                                           | `useMediaPlayerResourceUpdate`, `usePlayAddByRSS`             |

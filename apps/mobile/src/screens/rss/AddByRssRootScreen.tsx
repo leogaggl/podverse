@@ -167,8 +167,9 @@ function LibraryFeedListItem({
 }
 
 /**
- * Add by RSS library: Home-style chips for followed feeds only. Adding a feed is a plus in the
- * title bar. Pull-to-refresh refreshes these feeds alone; Home pull still refreshes everything.
+ * Add by RSS library: Home-style chips for followed feeds only. Adding a feed is a circled plus
+ * in the title bar. Pull-to-refresh refreshes these feeds alone; Home pull still refreshes
+ * everything.
  */
 export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
   const { t } = useTranslation();
@@ -367,7 +368,7 @@ export function AddByRssRootScreen({ navigation }: AddByRssRootScreenProps) {
         <HeaderBarActions>
           <HeaderBarAction
             accessibilityLabel={t('features.add_feed.add_feed')}
-            icon="add"
+            icon="add-circle-outline"
             onPress={handleAddPress}
             testID="rss-add-button"
           />

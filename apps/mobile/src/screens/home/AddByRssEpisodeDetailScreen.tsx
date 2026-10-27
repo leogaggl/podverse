@@ -1,15 +1,22 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { FlatList } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { DTOItemChapter } from '@podverse/helpers';
+import type { DTOItemChapter, TranscriptRow } from '@podverse/helpers';
 import { chapterSectionHasImages } from '@podverse/helpers';
 
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
-import { DescriptionText, ItemChapterRow, PeoplePane } from '../../components/content';
+import {
+  DescriptionText,
+  ItemChapterRow,
+  PeoplePane,
+  TranscriptFollowBar,
+  TranscriptListRow,
+} from '../../components/content';
 import type { SectionChipItem } from '../../components/form';
 import { SectionChipRow } from '../../components/form';
 import { FillList } from '../../components/primitives';
@@ -18,11 +25,14 @@ import { ListEmpty } from '../../components/state/ListEmpty';
 import { ListError } from '../../components/state/ListError';
 import { LoadingSection } from '../../components/state/LoadingSection';
 import { useAddByRssPlayback } from '../../hooks/useAddByRssPlayback';
+import { useTranscriptFollowControls } from '../../hooks/useTranscriptFollowControls';
+import { useTranscriptListAutoscroll } from '../../hooks/useTranscriptListAutoscroll';
 import { toAddByRssItemPlaybackResourceData } from '../../lib/addByRss/domain';
 import { addByRssItemSectionUrls } from '../../lib/addByRss/itemSections';
 import { addByRssPlaybackMediaId } from '../../lib/addByRss/resourceData';
 import { OFFLINE_UNAVAILABLE_MESSAGE_KEY } from '../../lib/offlineModeViews';
 import { usePlayingChapterIdText } from '../../playback/usePlayingChapterIdText';
+import { usePlayingTranscriptIndex } from '../../playback/usePlayingTranscriptIndex';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { listHeaderStackGap, screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
@@ -43,7 +53,13 @@ type AddByRssEpisodeDetailScreenProps = NativeStackScreenProps<
   'AddByRssEpisodeDetail'
 >;
 
-const addByRssEpisodeChapterKeyExtractor = (chapter: DTOItemChapter): string => chapter.id_text;
+type AddByRssEpisodePaneRow =
+  | { type: 'chapter'; id: string; chapter: DTOItemChapter }
+  | { type: 'follow-bar'; id: string }
+  | { type: 'transcript'; id: string; index: number; row: TranscriptRow };
+
+const TRANSCRIPT_FOLLOW_BAR_ID = 'transcript-follow-bar';
+const addByRssEpisodePaneKeyExtractor = (row: AddByRssEpisodePaneRow): string => row.id;
 
 /**
  * The Add by RSS counterpart of `EpisodeDetailScreen`, built from the parsed feed on the device.
@@ -115,10 +131,6 @@ export function AddByRssEpisodeDetailScreen({
           color: tokens.text.link,
           marginTop: tokens.spacing.sm,
         },
-        transcript: {
-          ...typography.body,
-          color: themeStyles.textPrimary.color,
-        },
       }),
     [themeStyles, tokens]
   );
@@ -165,6 +177,11 @@ export function AddByRssEpisodeDetailScreen({
     () => (activeTab === 'chapters' && sections !== null ? sections.chapters : []),
     [activeTab, sections]
   );
+  const transcriptRows = useMemo(
+    () => (activeTab === 'transcript' && sections !== null ? sections.transcriptRows : []),
+    [activeTab, sections]
+  );
+  const listRef = useRef<FlatList<AddByRssEpisodePaneRow>>(null);
   const chapterListShowsImages = chapterSectionHasImages(chapterRows);
   const chapterItemMediaId = useMemo(() => {
     if (feed === null || mappedFeed === null || episode === null) {
@@ -174,13 +191,62 @@ export function AddByRssEpisodeDetailScreen({
       toAddByRssItemPlaybackResourceData(feed, mappedFeed, episode.itemBundle, episode.itemIndex)
     );
   }, [episode, feed, mappedFeed]);
+  const {
+    autoScrollOn,
+    filteredRows: filteredTranscriptRows,
+    filterTerm,
+    setFilterTerm,
+    toggleAutoScroll,
+  } = useTranscriptFollowControls({
+    itemMediaId: chapterItemMediaId,
+    rows: transcriptRows,
+  });
+  const playingTranscriptIndex = usePlayingTranscriptIndex({
+    itemMediaId: chapterItemMediaId,
+    rows: filteredTranscriptRows,
+  });
+  const transcriptStickyOffset = activeTab === 'transcript' && transcriptRows.length > 0 ? 1 : 0;
+  const {
+    onScrollToIndexFailed: onTranscriptScrollToIndexFailed,
+    onViewableItemsChanged: onTranscriptViewableItemsChanged,
+    viewabilityConfig: transcriptViewabilityConfig,
+  } = useTranscriptListAutoscroll({
+    activeIndex: playingTranscriptIndex,
+    autoScrollOn: autoScrollOn && activeTab === 'transcript',
+    dataIndexOffset: transcriptStickyOffset,
+    listRef,
+  });
+  const listRows = useMemo((): AddByRssEpisodePaneRow[] => {
+    if (activeTab === 'chapters') {
+      return chapterRows.map((chapter) => ({
+        chapter,
+        id: chapter.id_text,
+        type: 'chapter' as const,
+      }));
+    }
+    if (activeTab === 'transcript') {
+      if (transcriptRows.length === 0) {
+        return [];
+      }
+      return [
+        { id: TRANSCRIPT_FOLLOW_BAR_ID, type: 'follow-bar' as const },
+        ...filteredTranscriptRows.map((row, index) => ({
+          id: `transcript-${index}`,
+          index,
+          row,
+          type: 'transcript' as const,
+        })),
+      ];
+    }
+    return [];
+  }, [activeTab, chapterRows, filteredTranscriptRows, transcriptRows.length]);
   const playingChapterIdText = usePlayingChapterIdText({
     chapters: chapterRows,
     itemMediaId: chapterItemMediaId,
   });
   const listExtraData = `${activeTab}:${sections === null ? 'none' : 'loaded'}:${
     playingChapterIdText ?? 'none'
-  }`;
+  }:${playingTranscriptIndex}:${autoScrollOn}:${filterTerm}`;
 
   const actionTarget = useMemo(() => {
     if (feed === null || mappedFeed === null || episode === null) {
@@ -233,17 +299,55 @@ export function AddByRssEpisodeDetailScreen({
     setTab(nextTab);
   }, []);
 
-  const renderChapterRow = useCallback(
-    ({ item: chapter }: { item: DTOItemChapter }) => (
-      <ItemChapterRow
-        chapter={chapter}
-        fallbackImageUrl={episode?.imageUrl ?? null}
-        isPlaying={chapter.id_text === playingChapterIdText}
-        showImages={chapterListShowsImages}
-        testID="add-by-rss-episode-detail-chapter-row"
-      />
-    ),
-    [chapterListShowsImages, episode, playingChapterIdText]
+  const renderPaneRow = useCallback(
+    ({ item }: { item: AddByRssEpisodePaneRow }) => {
+      if (item.type === 'follow-bar') {
+        return (
+          <TranscriptFollowBar
+            autoScrollOn={autoScrollOn}
+            filterTestID="add-by-rss-episode-detail-transcript-filter"
+            onChangeFilterTerm={setFilterTerm}
+            onToggleAutoScroll={toggleAutoScroll}
+            term={filterTerm}
+            toggleTestID="add-by-rss-episode-detail-transcript-autoscroll"
+          />
+        );
+      }
+      if (item.type === 'transcript') {
+        return (
+          <TranscriptListRow
+            body={item.row.body}
+            highlighted={item.index === playingTranscriptIndex}
+            speaker={item.row.speaker}
+            startTimeFormatted={item.row.startTimeFormatted}
+            testID={
+              item.index === 0
+                ? 'add-by-rss-episode-detail-tab-transcript-content'
+                : `add-by-rss-episode-detail-transcript-row-${item.index}`
+            }
+          />
+        );
+      }
+      return (
+        <ItemChapterRow
+          chapter={item.chapter}
+          fallbackImageUrl={episode?.imageUrl ?? null}
+          isPlaying={item.chapter.id_text === playingChapterIdText}
+          showImages={chapterListShowsImages}
+          testID="add-by-rss-episode-detail-chapter-row"
+        />
+      );
+    },
+    [
+      autoScrollOn,
+      chapterListShowsImages,
+      episode,
+      filterTerm,
+      playingChapterIdText,
+      playingTranscriptIndex,
+      setFilterTerm,
+      toggleAutoScroll,
+    ]
   );
 
   const noticeKey = actionNoticeKey ?? playbackNoticeKey;
@@ -286,16 +390,12 @@ export function AddByRssEpisodeDetailScreen({
     listFooter = <LoadingSection testID={`add-by-rss-episode-detail-tab-loading-${activeTab}`} />;
   } else if (isSectionTab && activeTab === 'transcript' && sections !== null) {
     listFooter =
-      sections.transcriptText === '' ? (
+      sections.transcriptRows.length === 0 ? (
         <ListEmpty
           messageKey="info.transcript.no_transcript"
           testID="add-by-rss-episode-detail-tab-empty-transcript"
         />
-      ) : (
-        <Text style={styles.transcript} testID="add-by-rss-episode-detail-tab-transcript-content">
-          {sections.transcriptText}
-        </Text>
-      );
+      ) : null;
   } else if (isSectionTab && sections !== null) {
     listFooter =
       chapterRows.length === 0 ? (
@@ -376,16 +476,27 @@ export function AddByRssEpisodeDetailScreen({
             </View>
           }
           contentContainerStyle={styles.listContent}
-          data={chapterRows}
+          data={listRows}
           extraData={listExtraData}
-          keyExtractor={addByRssEpisodeChapterKeyExtractor}
-          renderItem={renderChapterRow}
+          keyExtractor={addByRssEpisodePaneKeyExtractor}
+          onScrollToIndexFailed={
+            activeTab === 'transcript' ? onTranscriptScrollToIndexFailed : undefined
+          }
+          onViewableItemsChanged={
+            activeTab === 'transcript' ? onTranscriptViewableItemsChanged : undefined
+          }
+          ref={listRef}
+          renderItem={renderPaneRow}
+          stickyHeaderIndices={transcriptStickyOffset > 0 ? [0] : undefined}
           style={styles.list}
           testID={
             activeTab === 'chapters'
               ? 'add-by-rss-episode-detail-chapter-list'
-              : 'add-by-rss-episode-detail-list'
+              : activeTab === 'transcript'
+                ? 'add-by-rss-episode-detail-transcript-list'
+                : 'add-by-rss-episode-detail-list'
           }
+          viewabilityConfig={activeTab === 'transcript' ? transcriptViewabilityConfig : undefined}
         />
       ) : null}
       {addToPlaylistSheet}

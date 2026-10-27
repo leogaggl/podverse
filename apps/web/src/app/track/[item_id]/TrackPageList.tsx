@@ -39,7 +39,7 @@ export const TrackPageList: React.FC<TrackPageListProps> = ({
   ssrCanShowBoosts,
 }) => {
   const tV4VBoostMessages = useTranslations('v4v.boost_messages');
-  const { filterParams, isLoading, transcriptRows, autoScrollOn } = useTrackPageContext();
+  const { filterParams, isLoading, transcriptRows } = useTrackPageContext();
   const { type } = filterParams;
   const clock = useDescriptionClockPlayback({
     channel: ssrChannel,
@@ -57,7 +57,7 @@ export const TrackPageList: React.FC<TrackPageListProps> = ({
   });
 
   return (
-    <DetailListWrapper>
+    <DetailListWrapper fill={type === 'transcript'}>
       {type === 'summary' && (
         <CoreEpisodeSummary
           description={ssrItem.item_description?.value}
@@ -76,9 +76,7 @@ export const TrackPageList: React.FC<TrackPageListProps> = ({
           refreshTrigger={refreshTrigger}
         />
       )}
-      {type === 'transcript' && (
-        <ItemTranscript autoScrollOn={autoScrollOn} rows={transcriptRows} />
-      )}
+      {type === 'transcript' && <ItemTranscript rows={transcriptRows} />}
       <WebLoadingSpinnerOverlay isLoading={isLoading} />
     </DetailListWrapper>
   );

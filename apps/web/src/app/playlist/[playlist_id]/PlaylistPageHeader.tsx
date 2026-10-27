@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaShare } from 'react-icons/fa6';
+import { FaShareNodes } from 'react-icons/fa6';
 
 import type { DTOPlaylist } from '@podverse/helpers';
 
@@ -42,7 +42,7 @@ export const PlaylistPageHeader: React.FC<PlaylistPageHeaderProps> = ({ playlist
             title={tFeatures('share')}
             color="secondary"
           >
-            <FaShare />
+            <FaShareNodes />
           </IconButton>
           <SubscribeButton entity={playlist} kind="playlist" onEdit={handleEditClick} />
         </div>

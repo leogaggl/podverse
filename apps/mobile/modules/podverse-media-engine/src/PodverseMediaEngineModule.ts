@@ -64,6 +64,15 @@ export type PodverseMediaEngineNativeModule = {
   animateVideoSurface(toTargetId: string, durationMs: number): void;
   /** JS-desired video-surface visibility; gated by native video capability. */
   setVideoSurfaceVisible(visible: boolean): void;
+  /**
+   * Video fullscreen is on screen. Enables picture-in-picture when the viewer leaves the app and
+   * starts physical-orientation samples. Does not move the surface; `animateVideoSurface` does.
+   */
+  setVideoFullscreen(enabled: boolean): void;
+  /** True when the phone itself is sideways, independent of the interface lock. */
+  isPhysicalDeviceLandscape(): boolean;
+  /** True when the shared surface is showing video frames. */
+  isVideoPresented(): boolean;
   writeQueueSnapshotAv(payloadJson: string): Promise<void>;
   writeQueueSnapshotMusic(payloadJson: string): Promise<void>;
   /** Play order after the playing item, for native advance while JS is not running. */

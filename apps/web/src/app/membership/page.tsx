@@ -8,7 +8,7 @@ import {
   formatDateAbbrev,
   getAccountSignupModeCapabilities,
 } from '@podverse/helpers';
-import { MainColumnStack, MainHeader, MainSidebarLayout, SideContent } from '@podverse/ui';
+import { MainColumnStack, MainHeader, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { getConfig } from '../../config';
@@ -169,65 +169,68 @@ export default async function MembershipPage() {
       <MainHeader title={t('membership')} />
       <MainWrapper>
         <MainSidebarLayout>
-          <SideContent />
           <MainColumnStack>
-            <div className={styles.lead}>
-              {showPremiumExpiry && membershipExpiresAt !== null ? (
-                <section className={styles.expiryBanner} data-testid="membership-expiry">
-                  <p className={styles.expiryTier}>{t('premium')}</p>
-                  <p className={styles.expiryLabel}>{tSettingsMembership('expires_on')}</p>
-                  <p className={styles.expiryDate}>
-                    {formatDateAbbrev(membershipExpiresAt, locale)}
+            <div className={styles.content} data-testid="membership-content">
+              <div className={styles.lead}>
+                {showPremiumExpiry && membershipExpiresAt !== null ? (
+                  <section className={styles.expiryBanner} data-testid="membership-expiry">
+                    <p className={styles.expiryTier}>{t('premium')}</p>
+                    <p className={styles.expiryLabel}>{tSettingsMembership('expires_on')}</p>
+                    <p className={styles.expiryDate}>
+                      {formatDateAbbrev(membershipExpiresAt, locale)}
+                    </p>
+                  </section>
+                ) : null}
+
+                {intro !== '' ? <p className={styles.contactLine}>{intro}</p> : null}
+
+                {showPurchaseActions ? (
+                  <MembershipCTA loggedIn={ssrLoggedInAccount !== null} tier={membership.tier} />
+                ) : null}
+
+                {contactLine !== null ? (
+                  <p className={styles.contactLine} data-testid="membership-contact">
+                    {contactLine}
                   </p>
+                ) : null}
+              </div>
+
+              {showPurchaseActions && errorMessage && (
+                <section className={styles.errorSection}>
+                  <p>{errorMessage}</p>
                 </section>
-              ) : null}
+              )}
 
-              {intro !== '' ? <p className={styles.contactLine}>{intro}</p> : null}
-
-              {showPurchaseActions ? (
-                <MembershipCTA loggedIn={ssrLoggedInAccount !== null} tier={membership.tier} />
-              ) : null}
-
-              {contactLine !== null ? (
-                <p className={styles.contactLine} data-testid="membership-contact">
-                  {contactLine}
-                </p>
-              ) : null}
-            </div>
-
-            {showPurchaseActions && errorMessage && (
-              <section className={styles.errorSection}>
-                <p>{errorMessage}</p>
-              </section>
-            )}
-
-            {showPurchaseActions && pricingData && (
-              <section className={styles.pricingSection}>
-                <div className={styles.pricingPlan}>
-                  <h3 className={styles.planTitle}>{t('pricing_monthly')}</h3>
-                  <div className={styles.planPrice}>
-                    ${pricingData.costMonthly}
-                    <span className={styles.planPeriod}>{t('pricing_per_month')}</span>
-                  </div>
-                </div>
-                <div className={styles.pricingPlan}>
-                  <h3 className={styles.planTitle}>{t('pricing_annually')}</h3>
-                  <div className={styles.planPriceContainer}>
+              {showPurchaseActions && pricingData && (
+                <section className={styles.pricingSection}>
+                  <div className={styles.pricingPlan}>
+                    <h3 className={styles.planTitle}>{t('pricing_monthly')}</h3>
                     <div className={styles.planPrice}>
-                      ${pricingData.costAnnually}
-                      <span className={styles.planPeriod}>{t('pricing_per_year')}</span>
+                      ${pricingData.costMonthly}
+                      <span className={styles.planPeriod}>{t('pricing_per_month')}</span>
                     </div>
-                    {pricingData.annuallySavingsPercent > 0 && (
-                      <div className={styles.savingsBadge}>
-                        {t('pricing_save_percent', { percent: pricingData.annuallySavingsPercent })}
-                      </div>
-                    )}
                   </div>
-                </div>
-              </section>
-            )}
+                  <div className={styles.pricingPlan}>
+                    <h3 className={styles.planTitle}>{t('pricing_annually')}</h3>
+                    <div className={styles.planPriceContainer}>
+                      <div className={styles.planPrice}>
+                        ${pricingData.costAnnually}
+                        <span className={styles.planPeriod}>{t('pricing_per_year')}</span>
+                      </div>
+                      {pricingData.annuallySavingsPercent > 0 && (
+                        <div className={styles.savingsBadge}>
+                          {t('pricing_save_percent', {
+                            percent: pricingData.annuallySavingsPercent,
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
 
-            <MembershipComparison initial={comparison} showHeading />
+              <MembershipComparison initial={comparison} showHeading />
+            </div>
           </MainColumnStack>
         </MainSidebarLayout>
       </MainWrapper>

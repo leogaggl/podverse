@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { getCopyMarkdownDetails, getCopyMarkdownIntro, parseCopyMarkdown } from './copyMarkdown.js';
+import {
+  apiDocsUrl,
+  apiDocsYamlUrl,
+  copyMarkdownAppLinkTarget,
+  getCopyMarkdownDetails,
+  getCopyMarkdownIntro,
+  parseCopyMarkdown,
+} from './copyMarkdown.js';
 
 describe('parseCopyMarkdown', () => {
   it('parses heading, paragraphs, list, and a link', () => {
@@ -155,6 +162,70 @@ describe('parseCopyMarkdown', () => {
     ]);
   });
 
+  it('parses an allowlisted app link token', () => {
+    const blocks = parseCopyMarkdown('Open the [API Reference]({{api_reference}}).');
+
+    expect(blocks).toEqual([
+      {
+        type: 'paragraph',
+        spans: [
+          { type: 'text', text: 'Open the ' },
+          { type: 'app_link', key: 'api_reference', text: 'API Reference' },
+          { type: 'text', text: '.' },
+        ],
+      },
+    ]);
+  });
+
+  it('leaves an unknown app link token as plain text', () => {
+    const blocks = parseCopyMarkdown('See [later]({{not_a_real_link}}) today.');
+
+    expect(blocks).toEqual([
+      {
+        type: 'paragraph',
+        spans: [
+          { type: 'text', text: 'See ' },
+          { type: 'text', text: 'later' },
+          { type: 'text', text: ' today.' },
+        ],
+      },
+    ]);
+  });
+
+  it('parses a described link block', () => {
+    const blocks = parseCopyMarkdown(
+      [
+        'Before.',
+        '',
+        '{{described_link:api_reference}}',
+        'API Reference',
+        'Opens the interactive API reference served by this server.',
+        '{{/described_link}}',
+        '',
+        'After.',
+      ].join('\n')
+    );
+
+    expect(blocks).toEqual([
+      { type: 'paragraph', spans: [{ type: 'text', text: 'Before.' }] },
+      {
+        type: 'described_link',
+        key: 'api_reference',
+        title: 'API Reference',
+        description: 'Opens the interactive API reference served by this server.',
+      },
+      { type: 'paragraph', spans: [{ type: 'text', text: 'After.' }] },
+    ]);
+  });
+
+  it('drops a described link with an unknown key', () => {
+    const blocks = parseCopyMarkdown(
+      ['{{described_link:nope}}', 'Title', 'Description.', '{{/described_link}}'].join('\n')
+    );
+
+    expect(blocks).toEqual([]);
+  });
+
   it('drops unknown directive lines', () => {
     const blocks = parseCopyMarkdown(['Before.', '', '{{future_widget}}', '', 'After.'].join('\n'));
 
@@ -162,6 +233,36 @@ describe('parseCopyMarkdown', () => {
       { type: 'paragraph', spans: [{ type: 'text', text: 'Before.' }] },
       { type: 'paragraph', spans: [{ type: 'text', text: 'After.' }] },
     ]);
+  });
+});
+
+describe('copyMarkdownAppLinkTarget', () => {
+  it('appends /docs after removing one trailing slash from the API base', () => {
+    expect(apiDocsUrl('http://localhost:4030/api/v2/')).toBe('http://localhost:4030/api/v2/docs');
+    expect(apiDocsUrl('http://localhost:4030/api/v2')).toBe('http://localhost:4030/api/v2/docs');
+    expect(copyMarkdownAppLinkTarget('api_reference', 'http://localhost:4030/api/v2/')).toEqual({
+      href: 'http://localhost:4030/api/v2/docs',
+      external: true,
+    });
+  });
+
+  it('appends /docs.yaml after removing one trailing slash from the API base', () => {
+    expect(apiDocsYamlUrl('http://localhost:4030/api/v2/')).toBe(
+      'http://localhost:4030/api/v2/docs.yaml'
+    );
+    expect(copyMarkdownAppLinkTarget('api_spec', 'http://localhost:4030/api/v2')).toEqual({
+      href: 'http://localhost:4030/api/v2/docs.yaml',
+      external: true,
+    });
+  });
+
+  it('points Developer settings at the settings tab on this site', () => {
+    expect(copyMarkdownAppLinkTarget('settings_developer', 'http://localhost:4030/api/v2')).toEqual(
+      {
+        href: '/settings?tab=developer',
+        external: false,
+      }
+    );
   });
 });
 

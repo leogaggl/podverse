@@ -19,7 +19,10 @@ import {
 import type { PlaylistsPageSearchParams } from './playlistsListSsr';
 import { searchParamsSchema } from './playlistsListSsr';
 import { PlaylistsPageClient } from './PlaylistsPageClient';
-import { getPlaylistsPageFilterParams } from './PlaylistsPageDropdownConfig';
+import {
+  DEFAULT_PLAYLISTS_PAGE_MEDIUM,
+  getPlaylistsPageFilterParams,
+} from './PlaylistsPageDropdownConfig';
 
 export type PlaylistsPageProps = {
   searchParams: Promise<PlaylistsPageSearchParams>;
@@ -112,7 +115,7 @@ function parseSearchParams(
       currentType: guarded.type ?? 'public',
       currentSort: guarded.sort ?? 'top',
       currentRange: guarded.range,
-      currentMedium: cookieDefaults?.medium ?? 'av',
+      currentMedium: cookieDefaults?.medium ?? DEFAULT_PLAYLISTS_PAGE_MEDIUM,
     };
   }
 
@@ -138,7 +141,7 @@ function parseSearchParams(
       type: guarded.type ?? 'public',
       sort: guarded.sort ?? 'top',
       range: guarded.range,
-      medium: data.medium ?? cookieDefaults?.medium ?? 'av',
+      medium: data.medium ?? cookieDefaults?.medium ?? DEFAULT_PLAYLISTS_PAGE_MEDIUM,
     },
     isAuthenticated
   );

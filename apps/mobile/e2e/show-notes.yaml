@@ -68,21 +68,12 @@ name: Show Notes Flow
     timeout: ${TIMEOUT_SLOW}
 - tapOn:
     id: full-player-section-summary
-
-# The Summary sits in the pane sheet below the fold. The sheet can peek in while its text is still
-# off screen, so the swipe continues until that text is visible. Playback keeps the clock moving,
-# so each swipe settles on a bound.
-- repeat:
-    times: 6
-    while:
-      notVisible:
-        id: full-player-summary-text
-    commands:
-      - swipe:
-          from:
-            id: full-player-sections
-          direction: UP
-          waitToSettleTimeoutMs: 1000
+# The chip tap scrolls the outer column. The title leaving the screen means the sheet is up;
+# Summary text can peek before that scroll finishes. Playback keeps the clock moving.
+- extendedWaitUntil:
+    notVisible:
+      id: full-player-title
+    timeout: ${TIMEOUT_SLOW}
 - extendedWaitUntil:
     visible:
       id: full-player-summary-text

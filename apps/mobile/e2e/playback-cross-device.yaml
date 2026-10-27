@@ -2,9 +2,10 @@ appId: com.podverse.app.next
 name: Playback Cross Device
 ---
 # Another device is playing a chaptered episode. The flow checks the mini player and its chapter
-# strip, the device menu, the full player (title link, status under the chapter, previous and
-# next, Share, Add to Playlist), the playing chapter on the episode screen, a list row, bringing
-# playback to this phone, and the notice when a transfer does not start.
+# strip, the full player (title link, status under the chapter, previous and next, Share, Add to
+# Playlist, and the device menu), the playing chapter on the episode screen, a list row, bringing
+# playback to this phone, and the notice when a transfer does not start. The device button is on
+# the full player only.
 #
 # Maestro drives one phone. scripts/playback-other-device.js is the second device: it signs in
 # as "E2E Other Device", checks in, and claims playback through the API.
@@ -47,21 +48,9 @@ name: Playback Cross Device
     id: now-playing-segment-title
     containsDescendants:
       - text: "Topic A"
-- assertVisible:
+- assertNotVisible:
     id: mini-player-devices
 - takeScreenshot: playback-cross-device-mini-player
-
-- tapOn:
-    id: mini-player-devices
-- assertVisible:
-    id: mini-player-devices-sheet
-- assertVisible:
-    id: mini-player-devices-sheet-this-device
-- assertVisible:
-    text: "E2E Other Device"
-- takeScreenshot: playback-cross-device-menu
-- tapOn:
-    id: mini-player-devices-sheet-cancel
 
 - tapOn:
     id: mini-player
@@ -97,6 +86,17 @@ name: Playback Cross Device
 - assertNotVisible:
     id: full-player-sleep-timer
 - takeScreenshot: playback-cross-device-full-player
+- tapOn:
+    id: full-player-devices
+- assertVisible:
+    id: full-player-devices-sheet
+- assertVisible:
+    id: full-player-devices-sheet-this-device
+- assertVisible:
+    text: "E2E Other Device"
+- takeScreenshot: playback-cross-device-menu
+- tapOn:
+    id: full-player-devices-sheet-cancel
 - tapOn:
     id: full-player-close
 
@@ -141,13 +141,17 @@ name: Playback Cross Device
     env:
       E2E_OTHER_DEVICE_ACTION: check-in
 - tapOn:
-    id: mini-player-devices
+    id: mini-player
 - tapOn:
-    id: mini-player-devices-sheet-this-device
+    id: full-player-devices
+- tapOn:
+    id: full-player-devices-sheet-this-device
 - extendedWaitUntil:
     visible:
       id: playback-active-e2e
     timeout: ${TIMEOUT_SLOWEST}
+- tapOn:
+    id: full-player-close
 - assertNotVisible:
     id: mini-player-remote-status
 - takeScreenshot: playback-cross-device-taken-over
@@ -157,9 +161,13 @@ name: Playback Cross Device
     env:
       E2E_OTHER_DEVICE_ACTION: check-in
 - tapOn:
-    id: mini-player-devices
+    id: mini-player
+- tapOn:
+    id: full-player-devices
 - tapOn:
     text: "E2E Other Device"
+- tapOn:
+    id: full-player-close
 # The host script does not claim, so "Sending to…" stays up until the transfer times out.
 # The match ends in .* so the ellipsis does not have to be typed.
 - assertVisible:

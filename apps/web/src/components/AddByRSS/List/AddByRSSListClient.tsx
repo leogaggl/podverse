@@ -383,7 +383,8 @@ export const AddByRSSListClient: React.FC<AddByRSSListClientProps> = ({
 
             {isLoading && !isUpdating ? (
               <MediaListLoadingSpinner />
-            ) : readyFeeds.length === 0 &&
+            ) : loggedInAccount &&
+              readyFeeds.length === 0 &&
               (!showsNeedsCredentialsSection || needsCredentials.length === 0) ? (
               <NoResults
                 message={tFeatures(

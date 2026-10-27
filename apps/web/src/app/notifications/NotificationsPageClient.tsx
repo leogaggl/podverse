@@ -4,13 +4,15 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { DTOAccountNotification, NotificationCategoryValues } from '@podverse/helpers';
+import type { AccountNotificationLineLabels, DTOAccountNotification } from '@podverse/helpers';
 import {
   ACCOUNT_NOTIFICATION_STREAM_EVENT,
+  accountNotificationImageUrl,
+  formatAccountNotificationLine,
   getRelativeTimeParts,
   resolveNotificationDestinationFromPayload,
 } from '@podverse/helpers';
-import { MainHeader } from '@podverse/ui';
+import { FormMaxWidth, Image, MainColumnStack, MainHeader, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { Pagination } from '../../components/Pagination/Pagination';
@@ -39,14 +41,8 @@ type NotificationListLoadResult =
   | { status: 'failed'; requestId: number }
   | { status: 'stale' };
 
-const CATEGORY_LABEL_KEYS: Record<NotificationCategoryValues, string> = {
-  'new-content': 'category_new_content',
-  livestream: 'category_livestream',
-  'product-update': 'category_product_update',
-  maintenance: 'category_maintenance',
-  'terms-of-service': 'category_terms_of_service',
-  general: 'category_general',
-};
+/** Source edge requested for the thumbnail. The slot wrapper is what draws the size. */
+const NOTIFICATION_ARTWORK_SOURCE_SIZE = 160;
 
 function getRelativeTimeLabel(isoDate: string): string {
   const parts = getRelativeTimeParts(isoDate);
@@ -71,6 +67,23 @@ function mergeLiveRows(
 
 export function NotificationsPageClient() {
   const tNotifications = useTranslations('notifications_page');
+  const lineLabels = useMemo<AccountNotificationLineLabels>(
+    () => ({
+      livestream: tNotifications('line_livestream'),
+      'livestream-scheduled': tNotifications('line_livestream_scheduled'),
+      'livestream-started': tNotifications('line_livestream_started'),
+      new: tNotifications('line_new_content'),
+      'new-album': tNotifications('line_new_album'),
+      'new-episode': tNotifications('line_new_episode'),
+      'new-podcast': tNotifications('line_new_podcast'),
+      'new-track': tNotifications('line_new_track'),
+      'new-video': tNotifications('line_new_video'),
+      'new-video-channel': tNotifications('line_new_video_channel'),
+      'podcast-index-feed': tNotifications('line_podcast_index_feed'),
+      systemUpdate: tNotifications('line_system_update'),
+    }),
+    [tNotifications]
+  );
   const { subscribeToNotificationStream } = useNotifications();
   const [state, setState] = useState<NotificationsListState>(INITIAL_STATE);
   const [isLoading, setIsLoading] = useState(true);
@@ -216,81 +229,80 @@ export function NotificationsPageClient() {
     }
   };
 
-  // A row stays in the section it had when it arrived. Read events update the badge and do not
-  // move rows between Unread and Earlier during this visit.
-  const partitionedRows = useMemo(() => {
-    const unreadRows: DTOAccountNotification[] = [];
-    const earlierRows: DTOAccountNotification[] = [];
-    for (const item of state.items) {
-      if (item.is_unread) {
-        unreadRows.push(item);
-      } else {
-        earlierRows.push(item);
-      }
-    }
-    return { unreadRows, earlierRows };
-  }, [state.items]);
-
   return (
     <>
       <MainHeader title={tNotifications('title')} />
       <MainWrapper>
-        <div className={styles.listWrapper}>
-          <p className={styles.recentActivityNote}>{tNotifications('recent_activity_note')}</p>
-          {isLoading ? <p className={styles.empty}>{tNotifications('loading')}</p> : null}
-          {!isLoading && state.items.length === 0 ? (
-            <p className={styles.empty}>{tNotifications('empty')}</p>
-          ) : null}
-
-          {!isLoading && state.items.length > 0 ? (
-            <Pagination
-              currentPage={state.page}
-              setPage={onPageChange}
-              totalPages={state.totalPages}
-            >
-              <div className={styles.rows}>
-                {partitionedRows.unreadRows.length > 0 ? (
-                  <h2 className={styles.sectionHeading}>{tNotifications('unread_section')}</h2>
+        <MainSidebarLayout>
+          <MainColumnStack>
+            <FormMaxWidth>
+              <div className={styles.listWrapper}>
+                {isLoading ? <p className={styles.empty}>{tNotifications('loading')}</p> : null}
+                {!isLoading && state.items.length === 0 ? (
+                  <p className={styles.empty}>{tNotifications('empty')}</p>
                 ) : null}
-                {partitionedRows.unreadRows.map((row) => (
-                  <NotificationRow key={row.id} row={row} />
-                ))}
 
-                {partitionedRows.earlierRows.length > 0 ? (
-                  <h2 className={styles.sectionHeading}>{tNotifications('earlier_section')}</h2>
+                {!isLoading && state.items.length > 0 ? (
+                  <Pagination
+                    currentPage={state.page}
+                    setPage={onPageChange}
+                    totalPages={state.totalPages}
+                  >
+                    <div className={styles.rows}>
+                      {state.items.map((row) => (
+                        <NotificationRow key={row.id} labels={lineLabels} row={row} />
+                      ))}
+                    </div>
+                  </Pagination>
                 ) : null}
-                {partitionedRows.earlierRows.map((row) => (
-                  <NotificationRow key={row.id} row={row} />
-                ))}
               </div>
-            </Pagination>
-          ) : null}
-        </div>
+            </FormMaxWidth>
+          </MainColumnStack>
+        </MainSidebarLayout>
       </MainWrapper>
     </>
   );
 
-  function NotificationRow({ row }: { row: DTOAccountNotification }) {
-    const categoryKey = CATEGORY_LABEL_KEYS[row.category];
+  function NotificationRow({
+    labels,
+    row,
+  }: {
+    labels: AccountNotificationLineLabels;
+    row: DTOAccountNotification;
+  }) {
     const destination = resolveNotificationDestinationFromPayload({
       ...(row.payload ?? {}),
       link_path: row.link_path,
     });
     const linkPath = destination.kind === 'home' ? ROUTES.NOTIFICATIONS : destination.webPath;
+    const line = formatAccountNotificationLine(row, labels);
+    const timeLabel = getRelativeTimeLabel(row.created_at);
 
     return (
-      <article className={styles.row}>
-        <div className={styles.rowTop}>
-          <span className={styles.categoryPill}>{tNotifications(categoryKey)}</span>
-          <span className={styles.timeText}>{getRelativeTimeLabel(row.created_at)}</span>
-        </div>
-        <h3 className={styles.title}>
-          <Link href={linkPath}>{row.title}</Link>
-        </h3>
-        <p className={styles.body}>
-          {row.body !== null && row.body !== '' ? row.body : tNotifications('no_body')}
-        </p>
-      </article>
+      <Link className={styles.entry} href={linkPath}>
+        {row.is_unread ? (
+          <span className={styles.unreadAnnouncer}>{tNotifications('unread_section')}</span>
+        ) : null}
+        <span aria-hidden="true" className={styles.unreadSlot}>
+          {row.is_unread ? <span className={styles.unreadDot} data-unread="true" /> : null}
+        </span>
+        <span className={styles.row}>
+          <span className={styles.artwork}>
+            <Image
+              alt=""
+              className={styles.image}
+              fill
+              height={NOTIFICATION_ARTWORK_SOURCE_SIZE}
+              src={accountNotificationImageUrl(row.payload)}
+              width={NOTIFICATION_ARTWORK_SOURCE_SIZE}
+            />
+          </span>
+          <span className={styles.copy}>
+            <span className={styles.line}>{line}</span>
+            {timeLabel !== '' ? <span className={styles.timeText}>{timeLabel}</span> : null}
+          </span>
+        </span>
+      </Link>
     );
   }
 }

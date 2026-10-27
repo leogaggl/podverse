@@ -9,10 +9,12 @@ import {
   bannerNotificationDragOffset,
   shouldDismissBannerNotificationSwipe,
 } from '../../notifications/bannerNotificationSwipe';
+import { NOTIFICATION_ARTWORK_SIZE } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
 import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { Card } from '../primitives/Card';
+import { CoverImage } from '../primitives/CoverImage';
 
 /** Off-screen offset shared by the enter start and the leave end. */
 const BANNER_NOTIFICATION_OFFSCREEN_Y = -240;
@@ -27,6 +29,11 @@ const bannerNotificationAccessibilityLabel = (title: string, body: string | null
 };
 
 const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) => ({
+  artwork: {
+    borderWidth: 0,
+    height: NOTIFICATION_ARTWORK_SIZE,
+    width: NOTIFICATION_ARTWORK_SIZE,
+  },
   body: {
     flex: 1,
     flexShrink: 1,
@@ -51,11 +58,11 @@ const createStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) => ({
     padding: tokens.spacing.lg,
   },
   summary: {
-    ...typography.body,
+    ...typography.caption,
     color: themeStyles.textSecondary.color,
   },
   title: {
-    ...typography.subheading,
+    ...typography.body,
     color: themeStyles.textPrimary.color,
   },
 });
@@ -413,6 +420,7 @@ export type BannerNotificationProps = {
   notificationId: number;
   title: string;
   body: string | null;
+  imageUrl: string | null;
   dismissLabel: string;
   accessibilityHint: string;
   onPress: () => void;
@@ -420,7 +428,8 @@ export type BannerNotificationProps = {
 };
 
 /**
- * One banner card. Title and body are the summary to show. The card slides down, stays briefly,
+ * One banner card. The title is the notification line and the body is the relative time under it.
+ * The card slides down, stays briefly,
  * and leaves upward. A swipe up, the Dismiss control, and the timer leave without opening the
  * notification. A tap opens it, then leaves. Reduce Motion skips the slide. A finger on the card
  * pauses the timer until it lifts.
@@ -429,6 +438,7 @@ export function BannerNotification({
   accessibilityHint,
   body,
   dismissLabel,
+  imageUrl,
   notificationId,
   onClosed,
   onPress,
@@ -510,6 +520,12 @@ export function BannerNotification({
       >
         <Card padded={false}>
           <View style={styles.row}>
+            <CoverImage
+              decodeEdge={NOTIFICATION_ARTWORK_SIZE}
+              opensViewer={false}
+              style={styles.artwork}
+              uri={imageUrl}
+            />
             <Pressable
               accessibilityHint={accessibilityHint}
               accessibilityLabel={accessibilityLabel}

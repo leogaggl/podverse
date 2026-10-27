@@ -2,7 +2,7 @@
 
 import type { DTOQueue } from '@podverse/helpers';
 import type { QueryParamsHistory } from '@podverse/helpers-requests';
-import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
+import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { HistoryPageContextProvider } from './HistoryPageContext';
@@ -23,7 +23,6 @@ export function HistoryPageClient(props: HistoryPageClientProps) {
       <HistoryPageHeader />
       <MainWrapper>
         <MainSidebarLayout>
-          <SideContent />
           <MainColumnStack>
             <HistoryPageListHeader />
             <HistoryPageList />

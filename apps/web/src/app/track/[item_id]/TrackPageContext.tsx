@@ -17,8 +17,6 @@ interface TrackPageContextType {
   setFilterParams: (params: QueryParamsItemMusic) => void;
   transcriptRows: TranscriptRow[];
   setTranscriptRows: (transcriptRows: TranscriptRow[]) => void;
-  autoScrollOn: boolean;
-  setAutoScrollOn: (autoScrollOn: boolean) => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
 }
@@ -38,7 +36,6 @@ export const TrackPageContextProvider = ({
   const [filterParams, setFilterParams] = useState<QueryParamsItemMusic>(initialQueryParams);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [transcriptRows, setTranscriptRows] = useState<TranscriptRow[]>([]);
-  const [autoScrollOn, setAutoScrollOn] = useState<boolean>(true);
   const { loggedInAccount } = useAccount();
   const apiRequestService = getApiRequestService();
 
@@ -79,8 +76,6 @@ export const TrackPageContextProvider = ({
         setFilterParams,
         transcriptRows,
         setTranscriptRows,
-        autoScrollOn,
-        setAutoScrollOn,
         isLoading,
         setIsLoading,
       }}

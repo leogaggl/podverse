@@ -309,7 +309,9 @@
     }
   },
   "media_player": {
-    "chapter_tooltip": "Κεφάλαιο: {title}"
+    "chapter_tooltip": "Κεφάλαιο: {title}",
+    "enter_video_full_screen": "Πλήρης οθόνη",
+    "exit_video_full_screen": "Έξοδος από την πλήρη οθόνη"
   },
   "misc": {
     "clear": "Εκκαθάριση"

@@ -16,7 +16,8 @@ public class PodverseMediaEngineModule: Module {
     // Native → JS events.
     Events(
       "playbackState", "progress", "ended", "error", "stalled", "sourceChanged",
-      "remoteTrackCommand", "podverseCarPlayDidConnect")
+      "remoteTrackCommand", "podverseCarPlayDidConnect", "videoPresented", "deviceOrientation",
+      "pictureInPicture")
 
     // Forward engine events to JS while this module (and the JS runtime) is alive. When JS is not
     // running, the engine still plays and updates the lock screen / car now-playing on its own.
@@ -26,6 +27,18 @@ public class PodverseMediaEngineModule: Module {
         { [weak self] event, payload in
           self?.sendEvent(event.rawValue, payload)
         }, owner: self)
+      PodverseVideoSurfaceHost.shared.onVideoPresentedChanged = { [weak self] presented in
+        self?.sendEvent("videoPresented", ["presented": presented])
+      }
+      PodverseVideoSurfaceHost.shared.onPictureInPictureChanged = { [weak self] active, restore in
+        self?.sendEvent("pictureInPicture", ["active": active, "restore": restore])
+      }
+      PodverseDeviceOrientation.shared.onChange = { [weak self] landscape in
+        self?.sendEvent("deviceOrientation", ["landscape": landscape])
+      }
+      self.sendEvent(
+        "videoPresented",
+        ["presented": PodverseVideoSurfaceHost.shared.isVideoPresented()])
       self.carPlayConnectObserver = NotificationCenter.default.addObserver(
         forName: .podverseCarPlayDidConnect, object: nil, queue: .main
       ) { [weak self] _ in
@@ -128,6 +141,23 @@ public class PodverseMediaEngineModule: Module {
     // JS-desired visibility; the host only shows when the item also has video frames.
     Function("setVideoSurfaceVisible") { (visible: Bool) in
       PodverseVideoSurfaceHost.shared.setVisible(visible)
+    }
+
+    Function("setVideoFullscreen") { (enabled: Bool) in
+      PodverseVideoSurfaceHost.shared.setFullscreenActive(enabled)
+      if enabled {
+        PodverseDeviceOrientation.shared.start()
+      } else {
+        PodverseDeviceOrientation.shared.stop()
+      }
+    }
+
+    Function("isPhysicalDeviceLandscape") { () -> Bool in
+      return PodverseDeviceOrientation.shared.isLandscape
+    }
+
+    Function("isVideoPresented") { () -> Bool in
+      return PodverseVideoSurfaceHost.shared.isVideoPresented()
     }
 
     // --- Native-cache write hooks.

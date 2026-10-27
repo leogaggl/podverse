@@ -148,6 +148,16 @@ export function CopyMarkdown({
             </View>
           );
         }
+        if (block.type === 'described_link') {
+          return (
+            <View key={`described-link-${blockIndex}`} style={{ marginBottom: tokens.spacing.lg }}>
+              <Text style={{ ...typography.prose, color: textColor, fontWeight: '700' }}>
+                {block.title}
+              </Text>
+              <Text style={{ ...typography.prose, color: textColor }}>{block.description}</Text>
+            </View>
+          );
+        }
         return (
           <Text
             key={`paragraph-${blockIndex}`}

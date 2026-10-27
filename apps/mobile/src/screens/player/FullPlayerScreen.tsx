@@ -29,6 +29,7 @@ import type {
   DTOItem,
   DTOItemChapter,
   DTOItemSoundbite,
+  TranscriptRow,
 } from '@podverse/helpers/dto';
 import { formatHHMMSS } from '@podverse/helpers/time';
 import type { PlaybackTarget } from '@podverse/playback-core';
@@ -45,6 +46,8 @@ import {
   FundingLinksSection,
   PeoplePane,
   toAboutPersonFromItem,
+  TranscriptFollowBar,
+  TranscriptListRow,
 } from '../../components/content';
 import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
 import { MenuSelectChip, SectionChipRow } from '../../components/form';
@@ -87,11 +90,16 @@ import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscri
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { useActionError } from '../../feedback/ActionErrorProvider';
 import { useAddByRssArtistIndexVersion } from '../../hooks/useAddByRssArtistIndexVersion';
+import { useFirstSubscribePushPrompt } from '../../hooks/useFirstSubscribePushPrompt';
 import { useItemDescription } from '../../hooks/useItemDescription';
 import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
 import { usePrimaryQueue } from '../../hooks/usePrimaryQueue';
 import { useQueueMutations } from '../../hooks/useQueueMutations';
 import { useQueueResources } from '../../hooks/useQueueResources';
+import { getReduceMotionSnapshot } from '../../hooks/useReduceMotion';
+import { useTranscriptFollowControls } from '../../hooks/useTranscriptFollowControls';
+import { useTranscriptListAutoscroll } from '../../hooks/useTranscriptListAutoscroll';
+import { resolveSupportedLocale } from '../../i18n/locale';
 import { resolveAddByRssLiveItemKey } from '../../lib/addByRss/liveItemDetail';
 import { addByRssEpisodeItemKey } from '../../lib/addByRss/localResourceData';
 import { isAddByRssLivestreamResourceData } from '../../lib/addByRss/resourceData';
@@ -132,6 +140,8 @@ import { hasEpisodeChaptersForTrackButtons } from '../../playback/previousAction
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import { useNowPlayingChapters } from '../../playback/useNowPlayingChapters';
 import { usePlayingChapterIdText } from '../../playback/usePlayingChapterIdText';
+import { usePlayingTranscriptIndex } from '../../playback/usePlayingTranscriptIndex';
+import { isVideoFullscreenActive } from '../../playback/videoFullscreenStore';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
 import { DEFAULT_EPISODE_TAB, EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -210,7 +220,8 @@ type FullPlayerSheet = 'more' | 'sleep' | 'speed' | null;
 type FullPlayerPaneRow =
   | { type: 'chapter'; id: string; chapter: DTOItemChapter }
   | { type: 'clip'; id: string; clip: DTOClip }
-  | { type: 'soundbite'; id: string; index: number; soundbite: DTOItemSoundbite };
+  | { type: 'soundbite'; id: string; index: number; soundbite: DTOItemSoundbite }
+  | { type: 'transcript'; id: string; index: number; row: TranscriptRow };
 
 const CLIP_SORT_LABEL_KEYS: Record<EpisodeClipSort, string> = {
   oldest: 'filters.sort.oldest',
@@ -225,6 +236,11 @@ ignoreFullPlayerBoundedNestedListWarning();
 
 const scrollOuterToTop = (scroll: ScrollViewInstance | null): void => {
   scroll?.scrollTo({ animated: false, y: 0 });
+};
+
+/** The outer column's end puts the chips at the top and the sheet in the rest of the viewport. */
+const scrollOuterToPane = (scroll: ScrollViewInstance | null): void => {
+  scroll?.scrollToEnd({ animated: !getReduceMotionSnapshot() });
 };
 
 const scrollPaneListToTop = (list: FlatList<FullPlayerPaneRow> | null): void => {
@@ -305,13 +321,18 @@ export function FullPlayerScreen({
   onOpenQueue,
   onOpenV4v,
 }: FullPlayerScreenProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { height: windowHeight, isTablet, width: windowWidth } = useResponsive();
   const { fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { styles: themeStyles, tokens, uiTheme } = useTheme();
   const { boostSheet, openBoost } = useBoostSheet();
-  const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const { accessToken, account, clearSession, refreshToken, setTokens, status } = useAuth();
+  const {
+    askIfNeeded,
+    applyAfterFollow,
+    dialog: firstSubscribePushDialog,
+  } = useFirstSubscribePushPrompt();
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const { autoQueueConfig } = useAutoQueue();
   const { fetchQueueForMedium } = usePrimaryQueue();
@@ -610,7 +631,7 @@ export function FullPlayerScreen({
     soundbiteRows,
     supportedTabs,
     tabErrorKey,
-    transcriptText,
+    transcriptRows,
   } = useEpisodeSectionPanes({
     episode: episodeForPanes,
     itemIdText: currentItemIdText,
@@ -675,13 +696,39 @@ export function FullPlayerScreen({
     chapters: paneChapterRows,
     itemMediaId: paneItemMediaId,
   });
+  const paneTranscriptRows =
+    addByRssItemResourceData === null
+      ? transcriptRows
+      : (addByRssSections.sections?.transcriptRows ?? []);
+  const {
+    autoScrollOn,
+    filteredRows: filteredTranscriptRows,
+    filterTerm,
+    setFilterTerm,
+    toggleAutoScroll,
+  } = useTranscriptFollowControls({
+    itemMediaId: paneItemMediaId,
+    rows: paneTranscriptRows,
+  });
+  const playingTranscriptIndex = usePlayingTranscriptIndex({
+    itemMediaId: paneItemMediaId,
+    rows: filteredTranscriptRows,
+  });
+  const {
+    onScrollToIndexFailed: onTranscriptScrollToIndexFailed,
+    onViewableItemsChanged: onTranscriptViewableItemsChanged,
+    viewabilityConfig: transcriptViewabilityConfig,
+  } = useTranscriptListAutoscroll({
+    activeIndex: playingTranscriptIndex,
+    autoScrollOn: autoScrollOn && activeTab === 'transcript',
+    dataIndexOffset: 0,
+    listRef: paneListRef,
+  });
   const paneListExtraData = `${activeTab}-${isTabLoading}-${addByRssPaneState ?? 'none'}-${
     playingChapterIdText ?? 'none'
-  }`;
-  const paneTranscriptText =
-    addByRssItemResourceData === null
-      ? transcriptText
-      : (addByRssSections.sections?.transcriptText ?? '');
+  }-${playingTranscriptIndex}-${autoScrollOn}-${filterTerm}`;
+  const showTranscriptFollowBar =
+    activeTab === 'transcript' && paneTranscriptRows.length > 0 && addByRssPaneState === null;
   const paneResetKey = addByRssSections.key ?? currentItemIdText;
 
   useEffect(() => {
@@ -794,8 +841,24 @@ export function FullPlayerScreen({
         type: 'soundbite',
       }));
     }
+    if (activeTab === 'transcript') {
+      return filteredTranscriptRows.map((row, index) => ({
+        id: `transcript-${index}`,
+        index,
+        row,
+        type: 'transcript' as const,
+      }));
+    }
     return [];
-  }, [activeTab, addByRssItemResourceData, clipRows, isTabLoading, paneChapterRows, soundbiteRows]);
+  }, [
+    activeTab,
+    addByRssItemResourceData,
+    clipRows,
+    filteredTranscriptRows,
+    isTabLoading,
+    paneChapterRows,
+    soundbiteRows,
+  ]);
   const paneRows =
     !hasSections || !isPrefsHydrated || playerTabs.length === 0 ? EMPTY_PANE_ROWS : listRows;
 
@@ -889,6 +952,9 @@ export function FullPlayerScreen({
         list: {
           flex: 1,
         },
+        paneListFill: {
+          flexGrow: 1,
+        },
         // Frame around the scroller. Padding here stays on screen; padding on the list only
         // appears at the end of the content.
         proseFrame: {
@@ -901,7 +967,7 @@ export function FullPlayerScreen({
         },
         pane: {
           paddingHorizontal: tokens.spacing.lg,
-          // Same top inset as a chapter row. Summary and transcript take this from `proseFrame`
+          // Same top inset as a chapter row. Summary takes vertical inset from `proseFrame`
           // instead, so the bottom edge keeps the same inset while the text scrolls.
           paddingTop: tokens.spacing.base,
         },
@@ -1022,6 +1088,9 @@ export function FullPlayerScreen({
   useEffect(() => {
     nativePlaybackBridge.animateVideoSurface('full', ROOT_SLIDE_UP_ANIMATION_MS);
     return () => {
+      if (isVideoFullscreenActive()) {
+        return;
+      }
       nativePlaybackBridge.animateVideoSurface('mini', ROOT_SLIDE_UP_ANIMATION_MS);
     };
   }, []);
@@ -1071,6 +1140,10 @@ export function FullPlayerScreen({
     scrollOuterToTop(outerScrollRef.current);
     scrollPaneListToTop(paneListRef.current);
   }, [currentItemIdText]);
+
+  useEffect(() => {
+    scrollPaneListToTop(paneListRef.current);
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1151,6 +1224,14 @@ export function FullPlayerScreen({
     setChipStripHeight((current) => (Math.abs(current - height) < 1 ? current : height));
   }, []);
 
+  const handleSelectSection = useCallback(
+    (tab: EpisodeTab) => {
+      selectTab(tab);
+      scrollOuterToPane(outerScrollRef.current);
+    },
+    [selectTab]
+  );
+
   const handlePlay = () => {
     void resume();
   };
@@ -1178,10 +1259,11 @@ export function FullPlayerScreen({
     }
 
     void (async () => {
-      setIsSavingSubscription(true);
       setActionNoticeKey(null);
-      try {
-        if (isSubscribed) {
+
+      if (isSubscribed) {
+        setIsSavingSubscription(true);
+        try {
           const result = await subscriptionsRepository.unsubscribe({
             accountSync: status === 'authenticated' ? authContext : undefined,
             idText: channel.id_text,
@@ -1192,23 +1274,35 @@ export function FullPlayerScreen({
           if (result.serverError) {
             setActionNoticeKey('errors.generic');
           }
+        } finally {
+          setIsSavingSubscription(false);
+        }
+        return;
+      }
+
+      const entry = mapDirectoryChannelToSubscribed(channel);
+      if (entry === null) {
+        setActionNoticeKey('errors.generic');
+        return;
+      }
+
+      if (status === 'authenticated' && isTierKnown) {
+        const access = evaluateFeature('subscribe_sync');
+        if (!access.allowed) {
+          openGate(access.reason);
           return;
         }
+      }
 
-        const entry = mapDirectoryChannelToSubscribed(channel);
-        if (entry === null) {
-          setActionNoticeKey('errors.generic');
-          return;
-        }
+      let pushChoice: Awaited<ReturnType<typeof askIfNeeded>> = null;
+      let accountIdText: string | null = null;
+      if (status === 'authenticated') {
+        accountIdText = account?.id_text ?? null;
+        pushChoice = accountIdText === null ? null : await askIfNeeded(accountIdText);
+      }
 
-        if (status === 'authenticated' && isTierKnown) {
-          const access = evaluateFeature('subscribe_sync');
-          if (!access.allowed) {
-            openGate(access.reason);
-            return;
-          }
-        }
-
+      setIsSavingSubscription(true);
+      try {
         if (status === 'authenticated') {
           try {
             await requestWithMobileAuthRefresh(authContext, async (api) =>
@@ -1221,6 +1315,16 @@ export function FullPlayerScreen({
             setActionNoticeKey('errors.generic');
             return;
           }
+
+          if (accountIdText !== null) {
+            await applyAfterFollow({
+              accountIdText,
+              auth: authContext,
+              channelIdText: channel.id_text,
+              choice: pushChoice,
+              locale: resolveSupportedLocale(i18n.language),
+            });
+          }
         }
 
         await subscriptionsRepository.subscribeLocal(entry);
@@ -1231,10 +1335,14 @@ export function FullPlayerScreen({
       }
     })();
   }, [
+    account?.id_text,
+    applyAfterFollow,
+    askIfNeeded,
     authContext,
     channel,
     evaluateFeature,
     handleGateError,
+    i18n.language,
     isSavingSubscription,
     isSubscribed,
     isTierKnown,
@@ -1371,7 +1479,7 @@ export function FullPlayerScreen({
         (activeTab === 'chapters' && chapterRows.length > 0) ||
         (activeTab === 'soundbites' && soundbiteRows.length > 0) ||
         (activeTab === 'clips' && clipRows.length > 0) ||
-        (activeTab === 'transcript' && transcriptText.length > 0);
+        (activeTab === 'transcript' && paneTranscriptRows.length > 0);
       if (!hasCachedBody) {
         body = (
           <View style={styles.pane}>
@@ -1448,20 +1556,14 @@ export function FullPlayerScreen({
           testIDPrefix="full-player"
         />
       );
-    } else if (body === null && activeTab === 'transcript') {
+    } else if (body === null && activeTab === 'transcript' && paneTranscriptRows.length === 0) {
       body = (
-        <View style={styles.paneProse} testID="full-player-transcript-pane">
+        <View style={styles.pane} testID="full-player-transcript-pane">
           <View style={styles.column}>
-            {paneTranscriptText.length === 0 ? (
-              <ListEmpty
-                messageKey="info.transcript.no_transcript"
-                testID="full-player-empty-transcript"
-              />
-            ) : (
-              <Text style={styles.paneText} testID="full-player-transcript-text">
-                {paneTranscriptText}
-              </Text>
-            )}
+            <ListEmpty
+              messageKey="info.transcript.no_transcript"
+              testID="full-player-empty-transcript"
+            />
           </View>
         </View>
       );
@@ -1537,7 +1639,7 @@ export function FullPlayerScreen({
     onRequestLogin,
     paneChapterRows.length,
     paneResetKey,
-    paneTranscriptText,
+    paneTranscriptRows.length,
     retryAddByRssSections,
     soundbiteRows.length,
     styles.actionNotice,
@@ -1552,7 +1654,6 @@ export function FullPlayerScreen({
     summaryPreview,
     t,
     tabErrorKey,
-    transcriptText,
   ]);
 
   const chipStrip =
@@ -1572,7 +1673,7 @@ export function FullPlayerScreen({
                 />
               ) : undefined
             }
-            onSelect={selectTab}
+            onSelect={handleSelectSection}
             selectedKey={activeTab}
             testID="full-player-sections"
           />
@@ -1825,27 +1926,64 @@ export function FullPlayerScreen({
           {chipStrip}
           {hasSections ? (
             <FullPlayerPaneSheet height={layout.paneSheetHeight} marginBottom={sheetBottomGap}>
-              <View
-                style={
-                  activeTab === 'summary' || activeTab === 'transcript'
-                    ? styles.proseFrame
-                    : styles.list
-                }
-              >
+              <View style={activeTab === 'summary' ? styles.proseFrame : styles.list}>
+                {showTranscriptFollowBar ? (
+                  <TranscriptFollowBar
+                    autoScrollOn={autoScrollOn}
+                    filterTestID="full-player-transcript-filter"
+                    onChangeFilterTerm={setFilterTerm}
+                    onToggleAutoScroll={toggleAutoScroll}
+                    paddingHorizontal={tokens.spacing.lg}
+                    term={filterTerm}
+                    toggleTestID="full-player-transcript-autoscroll"
+                  />
+                ) : null}
                 <FlatList
                   ListFooterComponent={renderPaneFooter}
                   alwaysBounceVertical={false}
                   bounces={false}
+                  contentContainerStyle={
+                    activeTab === 'summary' ||
+                    (activeTab === 'transcript' && paneTranscriptRows.length === 0) ||
+                    isTabLoading ||
+                    tabErrorKey !== null ||
+                    addByRssPaneState !== null
+                      ? styles.paneListFill
+                      : undefined
+                  }
                   data={paneRows}
                   extraData={paneListExtraData}
                   keyExtractor={(row) => row.id}
                   nestedScrollEnabled
                   onEndReached={activeTab === 'clips' ? handleClipsEndReached : undefined}
                   onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
+                  onScrollToIndexFailed={
+                    activeTab === 'transcript' ? onTranscriptScrollToIndexFailed : undefined
+                  }
+                  onViewableItemsChanged={
+                    activeTab === 'transcript' ? onTranscriptViewableItemsChanged : undefined
+                  }
                   overScrollMode="never"
                   ref={paneListRef}
                   removeClippedSubviews={LIST_REMOVE_CLIPPED_SUBVIEWS}
                   renderItem={({ item: row }) => {
+                    if (row.type === 'transcript') {
+                      return (
+                        <TranscriptListRow
+                          body={row.row.body}
+                          highlighted={row.index === playingTranscriptIndex}
+                          paddingHorizontal={tokens.spacing.lg}
+                          speaker={row.row.speaker}
+                          startTimeFormatted={row.row.startTimeFormatted}
+                          testID={
+                            row.index === 0
+                              ? 'full-player-transcript-text'
+                              : `full-player-transcript-row-${row.index}`
+                          }
+                        />
+                      );
+                    }
+
                     if (row.type === 'chapter') {
                       const artwork = resolveChapterRowArtwork(
                         row.chapter,
@@ -1927,6 +2065,9 @@ export function FullPlayerScreen({
                   showsVerticalScrollIndicator
                   style={styles.list}
                   testID="full-player-section-list"
+                  viewabilityConfig={
+                    activeTab === 'transcript' ? transcriptViewabilityConfig : undefined
+                  }
                 />
               </View>
             </FullPlayerPaneSheet>
@@ -1964,6 +2105,7 @@ export function FullPlayerScreen({
       />
       {addToPlaylistSheet}
       {boostSheet}
+      {firstSubscribePushDialog}
     </View>
   );
 }

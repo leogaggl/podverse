@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDateAbbrev } from '@podverse/helpers';
+import { formatDateTimeAbbrev } from '@podverse/helpers';
 
 import { itemDetailDateLabel } from './itemDetailDateLabel';
 
@@ -12,7 +12,7 @@ describe('itemDetailDateLabel', () => {
     const fromDate = itemDetailDateLabel(asDate, 'en-US');
 
     expect(fromString).toBe(fromDate);
-    expect(fromString).toBe(formatDateAbbrev(asDate, 'en-US'));
+    expect(fromString).toBe(formatDateTimeAbbrev(asDate, 'en-US'));
   });
 
   it('returns null when the date is absent or unparseable', () => {

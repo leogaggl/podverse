@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { NotificationCategoryEnum } from '@podverse/helpers';
 
 import {
+  applyBannerCategoryEnabled,
   bannerKindForNotification,
   bannerNotificationCopy,
   DEFAULT_BANNER_NOTIFICATION_ENABLED,
+  isBannerCategoryEnabled,
+  reconcileLivestreamBannerKinds,
   resolveBannerNotificationEnabled,
   shouldShowBannerNotification,
 } from './bannerNotificationPolicy';
@@ -97,11 +100,11 @@ describe('bannerKindForNotification', () => {
 });
 
 describe('banner notification defaults', () => {
-  it('turns on New Item and Livestream Started and leaves the other five off', () => {
+  it('turns on New Item and both Livestream kinds and leaves the other four off', () => {
     expect(DEFAULT_BANNER_NOTIFICATION_ENABLED).toEqual({
       'new-item': true,
       'livestream-started': true,
-      'livestream-scheduled': false,
+      'livestream-scheduled': true,
       'product-update': false,
       maintenance: false,
       'terms-of-service': false,
@@ -116,16 +119,41 @@ describe('banner notification defaults', () => {
     const stored = {
       'new-item': false,
       'livestream-scheduled': true,
+      'livestream-started': false,
       extra: true,
     };
 
     expect(resolveBannerNotificationEnabled(stored)).toEqual({
       ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
       'new-item': false,
+      'livestream-started': true,
       'livestream-scheduled': true,
     });
     expect(DEFAULT_BANNER_NOTIFICATION_ENABLED['new-item']).toBe(true);
-    expect(DEFAULT_BANNER_NOTIFICATION_ENABLED['livestream-scheduled']).toBe(false);
+    expect(DEFAULT_BANNER_NOTIFICATION_ENABLED['livestream-scheduled']).toBe(true);
+  });
+});
+
+describe('banner category switches', () => {
+  it('treats Livestream as on when either stored kind is on', () => {
+    const startedOnly = {
+      ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
+      'livestream-started': true,
+      'livestream-scheduled': false,
+    };
+    expect(isBannerCategoryEnabled(NotificationCategoryEnum.Livestream, startedOnly)).toBe(true);
+    expect(reconcileLivestreamBannerKinds(startedOnly)['livestream-scheduled']).toBe(true);
+  });
+
+  it('moves both Livestream kinds together when the category switch changes', () => {
+    const next = applyBannerCategoryEnabled(
+      NotificationCategoryEnum.Livestream,
+      false,
+      DEFAULT_BANNER_NOTIFICATION_ENABLED
+    );
+    expect(next['livestream-started']).toBe(false);
+    expect(next['livestream-scheduled']).toBe(false);
+    expect(isBannerCategoryEnabled(NotificationCategoryEnum.Livestream, next)).toBe(false);
   });
 });
 

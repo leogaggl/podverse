@@ -119,9 +119,19 @@ describe('getCategoriesForCommand', () => {
     );
   });
 
-  it('maps devSeedLocalUserContent to Base and ORM', () => {
+  it('maps devSeedLocalUserContent to the parser stack', () => {
     expect(sortCategories(getCategoriesForCommand('devSeedLocalUserContent'))).toEqual(
-      sortCategories(new Set([CATEGORY_BASE, CATEGORY_ORM]))
+      sortCategories(
+        new Set([
+          CATEGORY_BASE,
+          CATEGORY_ORM,
+          CATEGORY_MQ,
+          CATEGORY_PARSER,
+          CATEGORY_PODCAST_INDEX,
+          CATEGORY_WEB_NOTIFICATIONS,
+          CATEGORY_KEYVALDB,
+        ])
+      )
     );
   });
 

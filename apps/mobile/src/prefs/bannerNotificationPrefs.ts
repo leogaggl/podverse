@@ -1,8 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { NotificationCategoryValues } from '@podverse/helpers';
+
 import type { BannerNotificationKind } from '../notifications/bannerNotificationPolicy';
 import {
+  applyBannerCategoryEnabled,
   BANNER_NOTIFICATION_KINDS,
+  isBannerCategoryEnabled,
   resolveBannerNotificationEnabled,
 } from '../notifications/bannerNotificationPolicy';
 
@@ -108,9 +112,17 @@ export const hydrateBannerNotificationPrefs = async (): Promise<void> => {
     return;
   }
 
-  snapshot = Object.freeze(parseStoredBannerNotificationEnabled(raw));
+  const resolved = parseStoredBannerNotificationEnabled(raw);
+  snapshot = Object.freeze(resolved);
   hydrated = true;
   notifyBannerNotificationPrefs();
+
+  if (raw !== null) {
+    const serialized = JSON.stringify(resolved);
+    if (serialized !== raw) {
+      await AsyncStorage.setItem(BANNER_NOTIFICATION_PREFS_KEY, serialized);
+    }
+  }
 };
 
 /** Update the cache and notify, then write the full map of every kind. */
@@ -121,6 +133,25 @@ export const setBannerNotificationEnabled = async (
   generation += 1;
   const next = { ...getBannerNotificationEnabled() };
   next[kind] = enabled;
+  snapshot = Object.freeze(next);
+  hydrated = true;
+  notifyBannerNotificationPrefs();
+  await AsyncStorage.setItem(BANNER_NOTIFICATION_PREFS_KEY, JSON.stringify(next));
+};
+
+export const getBannerNotificationCategoryEnabled = (
+  category: NotificationCategoryValues
+): boolean => {
+  return isBannerCategoryEnabled(category, getBannerNotificationEnabled());
+};
+
+/** Turn every kind under a category on or off together (Livestream includes Scheduled and Started). */
+export const setBannerNotificationCategoryEnabled = async (
+  category: NotificationCategoryValues,
+  enabled: boolean
+): Promise<void> => {
+  generation += 1;
+  const next = applyBannerCategoryEnabled(category, enabled, getBannerNotificationEnabled());
   snapshot = Object.freeze(next);
   hydrated = true;
   notifyBannerNotificationPrefs();

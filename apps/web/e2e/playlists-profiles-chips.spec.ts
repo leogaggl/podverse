@@ -12,14 +12,33 @@ test.describe('Playlists and Profiles chip rows', () => {
     page,
   }, testInfo) => {
     await test.step('My Playlists, Subscribed, and Global are followed by Filter and Sort, and My Playlists sorts A-Z', async () => {
+      await page.setViewportSize({ width: 1280, height: 720 });
       await page.goto('/playlists');
       await expectAppPath(page, '/playlists');
       await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
+      const createPlaylist = page.getByRole('button', { name: 'Create Playlist', exact: true });
+      await expect(createPlaylist).toBeVisible();
       await expect(
-        page.getByRole('button', { name: 'Create Playlist', exact: true })
-      ).toBeVisible();
+        page.locator('header').getByRole('button', { name: 'Create Playlist', exact: true })
+      ).toHaveCount(0);
 
+      const chips = page.getByTestId('playlists-type-chips');
       const typeItems = page.getByTestId('playlists-type-chips-items');
+      const createBox = await createPlaylist.boundingBox();
+      const chipsBox = await chips.boundingBox();
+      expect(createBox, 'Create Playlist is in the layout').not.toBeNull();
+      expect(chipsBox, 'chip row is in the layout').not.toBeNull();
+      if (createBox !== null && chipsBox !== null) {
+        expect(createBox.x).toBeGreaterThanOrEqual(chipsBox.x + chipsBox.width - 1);
+        const chipFace = await typeItems.getByRole('button').first().boundingBox();
+        expect(chipFace, 'a type chip is in the layout').not.toBeNull();
+        if (chipFace !== null) {
+          const createMid = createBox.y + createBox.height / 2;
+          const chipMid = chipFace.y + chipFace.height / 2;
+          expect(Math.abs(createMid - chipMid)).toBeLessThanOrEqual(1);
+        }
+      }
+
       await expect(typeItems.getByRole('button')).toHaveText([
         'My Playlists',
         'Subscribed',
@@ -32,7 +51,7 @@ test.describe('Playlists and Profiles chip rows', () => {
 
       const trailing = page.getByTestId('playlists-type-chips-trailing');
       await expect(
-        trailing.getByRole('button', { name: 'Filter: Podcasts', exact: true })
+        trailing.getByRole('button', { name: 'Filter: All', exact: true })
       ).toBeVisible();
       const sortButton = trailing.getByRole('button', { name: /^Sort: / });
       await expect(sortButton).toHaveAccessibleName('Sort: Week');
@@ -52,6 +71,38 @@ test.describe('Playlists and Profiles chip rows', () => {
     });
   });
 
+  test('On a narrow window Create Playlist sits above the chips and aligns to their start', async ({
+    page,
+  }, testInfo) => {
+    await test.step('Create Playlist is out of the title row and above the chips', async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto('/playlists');
+      await expectAppPath(page, '/playlists');
+      const createPlaylist = page.getByRole('button', { name: 'Create Playlist', exact: true });
+      const chips = page.getByTestId('playlists-type-chips');
+      await expect(createPlaylist).toBeVisible();
+      await expect(
+        page.locator('header').getByRole('button', { name: 'Create Playlist', exact: true })
+      ).toHaveCount(0);
+
+      const createBox = await createPlaylist.boundingBox();
+      const chipsBox = await chips.boundingBox();
+      expect(createBox, 'Create Playlist is in the layout').not.toBeNull();
+      expect(chipsBox, 'chip row is in the layout').not.toBeNull();
+      if (createBox !== null && chipsBox !== null) {
+        expect(createBox.y + createBox.height).toBeLessThanOrEqual(chipsBox.y);
+        expect(Math.abs(createBox.x - chipsBox.x)).toBeLessThanOrEqual(4);
+      }
+
+      await capturePageLoad(
+        page,
+        testInfo,
+        'Create Playlist sits above the chips on a narrow window.',
+        createPlaylist
+      );
+    });
+  });
+
   test('Choosing Music in the Filter chip keeps the type chips and names the medium', async ({
     page,
   }, testInfo) => {
@@ -60,7 +111,11 @@ test.describe('Playlists and Profiles chip rows', () => {
       await expectAppPath(page, '/playlists');
       await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
 
-      await page.getByRole('button', { name: 'Filter: Podcasts', exact: true }).click();
+      await page.getByRole('button', { name: 'Filter: All', exact: true }).click();
+      await expect(page.getByRole('menuitemradio', { name: 'All', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('menuitemradio', { name: 'Podcasts', exact: true })
+      ).toBeVisible();
       const musicItem = page.getByRole('menuitemradio', { name: 'Music', exact: true });
       await expect(musicItem).toBeVisible();
       await expect(page.getByTestId('playlists-type-chips').getByRole('menu')).toHaveCount(0);
@@ -68,6 +123,8 @@ test.describe('Playlists and Profiles chip rows', () => {
 
       const filterChip = page.getByRole('button', { name: 'Filter: Music', exact: true });
       await expect(filterChip).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Filter: Music', exact: true })).toBeVisible();
       await expect(
         page
           .getByTestId('playlists-type-chips-items')
@@ -77,7 +134,7 @@ test.describe('Playlists and Profiles chip rows', () => {
       await capturePageLoad(
         page,
         testInfo,
-        'The Filter chip reads Music and Global stays pressed.',
+        'The Filter chip still reads Music after a reload, and Global stays pressed.',
         filterChip
       );
     });

@@ -16,6 +16,7 @@ export const MANAGED_COPY_UPDATED_AT: Readonly<Record<ManagedCopySlug, string>> 
   about: '2026-09-26',
   faq: '2026-09-17',
   'clip-how-to': '2026-09-17',
+  developer: '2026-10-26',
 };
 
 export function resolveManagedCopyContentDir(): string {

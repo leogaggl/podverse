@@ -2,7 +2,7 @@
 
 import type { DTOQueue } from '@podverse/helpers';
 import type { QueryParamsQueues } from '@podverse/helpers-requests';
-import { MainColumnStack, MainSidebarLayout, SideContent } from '@podverse/ui';
+import { MainColumnStack, MainSidebarLayout } from '@podverse/ui';
 
 import { MainWrapper } from '../../components/Main/MainWrapper';
 import { QueuesPageContextProvider } from './QueuesPageContext';
@@ -23,7 +23,6 @@ export function QueuesPageClient(props: QueuesPageClientProps) {
       <QueuesPageHeader />
       <MainWrapper>
         <MainSidebarLayout>
-          <SideContent />
           <MainColumnStack>
             <QueuesPageListHeader />
             <QueuesPageList />

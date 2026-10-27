@@ -2,7 +2,13 @@
 
 import { useTranslations } from 'next-intl';
 import React from 'react';
-import { FaCircleDollarToSlot, FaCommentDollar, FaGlobe, FaRss, FaShare } from 'react-icons/fa6';
+import {
+  FaCircleDollarToSlot,
+  FaCommentDollar,
+  FaGlobe,
+  FaRss,
+  FaShareNodes,
+} from 'react-icons/fa6';
 
 import type {
   DTOChannel,
@@ -101,7 +107,7 @@ export const HeaderButtons: React.FC<HeaderButtonsProps> = ({
         title={tFeatures('share')}
         color="secondary"
       >
-        <FaShare />
+        <FaShareNodes />
       </IconButton>
       {(channel?.channel_fundings?.length ?? 0) > 0 && (
         <IconButton

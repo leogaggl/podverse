@@ -31,6 +31,8 @@ import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChr
 import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscriptionsMerge';
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { useChannelNotifications } from '../../hooks/useChannelNotifications';
+import { useFirstSubscribePushPrompt } from '../../hooks/useFirstSubscribePushPrompt';
+import { resolveSupportedLocale } from '../../i18n/locale';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
@@ -131,10 +133,15 @@ const SECTION_COMPONENTS: Record<PodcastTab, ComponentType<PodcastSectionPanePro
  * that header (`mobile-screen-layout`).
  */
 export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { tokens } = useTheme();
   const { boostSheet, openBoost } = useBoostSheet();
-  const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const { accessToken, account, clearSession, refreshToken, setTokens, status } = useAuth();
+  const {
+    askIfNeeded,
+    applyAfterFollow,
+    dialog: firstSubscribePushDialog,
+  } = useFirstSubscribePushPrompt();
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const {
     podcastId,
@@ -493,10 +500,11 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       return;
     }
 
-    setIsSavingSubscription(true);
     setSubscriptionNoticeKey(null);
-    try {
-      if (isSubscribed) {
+
+    if (isSubscribed) {
+      setIsSavingSubscription(true);
+      try {
         const result = await subscriptionsRepository.unsubscribe({
           accountSync: isSignedIn ? authContext : undefined,
           idText: podcastId,
@@ -507,22 +515,35 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
         if (result.serverError) {
           setSubscriptionNoticeKey('errors.generic');
         }
+      } finally {
+        setIsSavingSubscription(false);
+      }
+      return;
+    }
+
+    const entry = channel === null ? null : mapDirectoryChannelToSubscribed(channel);
+    if (entry === null) {
+      setSubscriptionNoticeKey('errors.generic');
+      return;
+    }
+
+    let pushChoice: Awaited<ReturnType<typeof askIfNeeded>> = null;
+    let accountIdText: string | null = null;
+
+    if (isSignedIn) {
+      const access = evaluateFeature('subscribe_sync');
+      if (!access.allowed) {
+        openGate(access.reason);
         return;
       }
 
-      const entry = channel === null ? null : mapDirectoryChannelToSubscribed(channel);
-      if (entry === null) {
-        setSubscriptionNoticeKey('errors.generic');
-        return;
-      }
+      accountIdText = account?.id_text ?? null;
+      pushChoice = accountIdText === null ? null : await askIfNeeded(accountIdText);
+    }
 
+    setIsSavingSubscription(true);
+    try {
       if (isSignedIn) {
-        const access = evaluateFeature('subscribe_sync');
-        if (!access.allowed) {
-          openGate(access.reason);
-          return;
-        }
-
         try {
           await requestWithMobileAuthRefresh(authContext, async (api) =>
             api.reqAccountFollowChannel({ channel_id_text: podcastId })
@@ -534,6 +555,16 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
           setSubscriptionNoticeKey('errors.generic');
           return;
         }
+
+        if (accountIdText !== null) {
+          await applyAfterFollow({
+            accountIdText,
+            auth: authContext,
+            channelIdText: podcastId,
+            choice: pushChoice,
+            locale: resolveSupportedLocale(i18n.language),
+          });
+        }
       }
 
       await subscriptionsRepository.subscribeLocal(entry);
@@ -543,10 +574,14 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
       setIsSavingSubscription(false);
     }
   }, [
+    account?.id_text,
+    applyAfterFollow,
+    askIfNeeded,
     authContext,
     channel,
     evaluateFeature,
     handleGateError,
+    i18n.language,
     isSavingSubscription,
     isSignedIn,
     isSubscribed,
@@ -775,6 +810,7 @@ export function PodcastDetailScreen({ navigation, route }: PodcastDetailScreenPr
         testID="podcast-detail-screen"
       />
       {boostSheet}
+      {firstSubscribePushDialog}
     </>
   );
 }

@@ -1,4 +1,10 @@
-import type { DTOClip, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers/dto';
+import type {
+  DTOClip,
+  DTOItemChapter,
+  DTOItemSoundbite,
+  TranscriptRow,
+} from '@podverse/helpers/dto';
+import { parseTranscriptRowsOrEmpty } from '@podverse/helpers/transcript';
 
 import { emptyIfNotFound } from '../../lib/apiErrorStatus';
 import { listResponseHasMore } from '../../lib/pagination/pagedList';
@@ -48,7 +54,7 @@ export const loadEpisodeClipsPane = async (
 
 export const loadEpisodeTranscriptPane = async (
   run: () => Promise<{ data: string | null }>
-): Promise<string> => {
+): Promise<TranscriptRow[]> => {
   const response = await emptyIfNotFound(run, EMPTY_TRANSCRIPT);
-  return response.data ?? '';
+  return parseTranscriptRowsOrEmpty(response.data);
 };

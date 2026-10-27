@@ -254,7 +254,7 @@ export const AddByRSSArtistsPageClient: React.FC<AddByRSSArtistsPageClientProps>
               </Pagination>
             ) : pagedFeeds.length > 0 ? (
               <AddByRSSArtistNodes feeds={pagedFeeds} viewSelected={viewSelected} />
-            ) : isLoading ? null : (
+            ) : isLoading || !loggedInAccount ? null : (
               <NoResults message={tFeatures('add_by_rss.no_feeds_music')} />
             )}
             {isLoading && pagedFeeds.length === 0 ? <MediaListLoadingSpinner /> : null}

@@ -22,7 +22,6 @@ import { MarqueeText } from '../primitives/MarqueeText';
 import { MiniPlayerArtwork } from './MiniPlayerArtwork';
 import { MiniPlayerProgress } from './MiniPlayerProgress';
 import { MiniPlayerRemoteArtwork, MiniPlayerRemoteProgress } from './MiniPlayerRemote';
-import { PlaybackDeviceButton } from './PlaybackDeviceButton';
 import { PlayerTransportButton } from './PlayerTransportButton';
 
 type MiniPlayerProps = {
@@ -187,7 +186,6 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
             </MarqueeText>
           ) : null}
         </View>
-        <PlaybackDeviceButton appearance="mini" testID="mini-player-devices" />
         <View style={styles.transport}>
           <PlayerTransportButton
             appearance="bare"

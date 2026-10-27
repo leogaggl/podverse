@@ -24,6 +24,8 @@ const mockNotification = {
   expires_at: '2026-09-23T10:00:00.000Z',
 } as const;
 
+const mockNotificationLine = `System update: ${mockNotification.title} – ${mockNotification.body}`;
+
 const IDLE_NOTIFICATION_STREAM_BODY = 'retry: 600000\n\n';
 
 function sseEvent(name: string, data: unknown, id?: number): string {
@@ -184,27 +186,14 @@ test.describe('Notifications inbox', () => {
 
     await page.goto(ROUTES.NOTIFICATIONS);
     await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
-    const unreadHeading = page.getByRole('heading', { level: 2, name: 'Unread' });
-    const rowHeading = page.getByRole('heading', { level: 3, name: mockNotification.title });
-    await expect(unreadHeading).toBeVisible();
+    const rowHeading = page.getByRole('link', { name: mockNotificationLine });
     await expect(rowHeading).toBeVisible();
-    expect(
-      await rowHeading.evaluate((heading, sectionTitle) => {
-        const section = [...document.querySelectorAll('h2')].find(
-          (item) => item.textContent === sectionTitle
-        );
-        if (section === undefined) {
-          return false;
-        }
-        return (section.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-      }, 'Unread')
-    ).toBe(true);
-
-    // The inbox says what it is, so a purged notification reads as an old one aging out rather than
-    // as something the app lost.
+    await expect(page.getByRole('heading', { level: 2, name: 'Unread' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 2, name: 'Earlier' })).toHaveCount(0);
     await expect(
       page.getByText('Recent activity. Older notifications are cleared automatically.')
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(rowHeading.locator('[data-unread="true"]')).toBeVisible();
 
     await expect(page.getByRole('status', { name: '2 unread notifications' })).toHaveCount(0);
 
@@ -293,7 +282,9 @@ test.describe('Notifications inbox', () => {
     await page.goto(ROUTES.NOTIFICATIONS);
     await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
 
-    const notificationLink = page.getByRole('link', { name: episodeNotification.title });
+    const notificationLink = page.getByRole('link', {
+      name: `New episode: ${episodeNotification.body} – ${episodeNotification.title}`,
+    });
     await expect(notificationLink).toBeVisible();
 
     const episodeTitle = page.getByRole('heading', {
@@ -455,7 +446,7 @@ test.describe('Notifications inbox', () => {
       );
     });
 
-    test('When a new notification arrives while the inbox is open, it appears at the top under Unread and is marked read.', async ({
+    test('When a new notification arrives while the inbox is open, it appears at the top and is marked read.', async ({
       page,
     }, testInfo) => {
       let markReadOneCalls = 0;
@@ -551,26 +542,29 @@ test.describe('Notifications inbox', () => {
       await loginE2eUser(page);
       await page.goto(ROUTES.NOTIFICATIONS);
       await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
-      const existingHeading = page.getByRole('heading', { level: 3, name: mockNotification.title });
+      const existingHeading = page.getByRole('link', { name: mockNotificationLine });
       await expect(existingHeading).toBeVisible();
 
-      const newHeading = page.getByRole('heading', { level: 3, name: 'New episode just dropped' });
-      const unreadHeading = page.getByRole('heading', { level: 2, name: 'Unread' });
+      const newHeading = page.getByRole('link', {
+        name: 'System update: New episode just dropped – Large playlists now load without paging.',
+      });
       await actionAndCapture(
         page,
         testInfo,
-        'When a new notification arrives while the inbox is open, it appears at the top under Unread and is marked read.',
+        'When a new notification arrives while the inbox is open, it appears at the top and is marked read.',
         async () => {
           gate.open();
           await expect(newHeading).toBeVisible();
-          await expect(unreadHeading).toBeVisible();
+          await expect(newHeading.locator('[data-unread="true"]')).toBeVisible();
           expect(
             await newHeading.evaluate((heading, existingTitle) => {
-              const headings = [...document.querySelectorAll('h3')];
-              const existingIndex = headings.findIndex(
-                (item) => item.textContent?.trim() === existingTitle
+              const rows = [...document.querySelectorAll('a')].filter((item) =>
+                (item.textContent ?? '').includes('System update:')
               );
-              const newIndex = headings.indexOf(heading);
+              const existingIndex = rows.findIndex((item) =>
+                item.textContent?.includes(existingTitle)
+              );
+              const newIndex = rows.indexOf(heading);
               return existingIndex !== -1 && newIndex !== -1 && newIndex < existingIndex;
             }, mockNotification.title)
           ).toBe(true);

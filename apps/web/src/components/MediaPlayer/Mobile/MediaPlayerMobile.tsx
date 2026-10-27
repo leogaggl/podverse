@@ -9,11 +9,11 @@ export const MediaPlayerMobile = () => {
   return (
     <div className={styles.playerMobile}>
       <MediaPlayerSegmentStrip variant="mobile" />
+      <MediaPlayerControlsMobile />
       <div className={styles.infoSection}>
         <MediaPlayerInfoMobile />
         <MediaPlayerButtonsMobile />
       </div>
-      <MediaPlayerControlsMobile />
     </div>
   );
 };

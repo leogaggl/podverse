@@ -9,6 +9,7 @@ import { ItemService } from '@podverse/orm';
 import { limitNotificationsPerParse } from './notificationParseLimit.js';
 import type { ItemNotificationData } from './sharedNotificationHelpers.js';
 import {
+  buildItemNotificationPayload,
   createInAppNotificationsForAccounts,
   getBestImageUrl,
   getDevicesForNotificationType,
@@ -138,12 +139,7 @@ async function sendLiveItemNotificationsForStatus(
       body: itemNotification.channelTitle,
       category: NotificationCategoryEnum.Livestream,
       linkPath: getInAppNotificationLinkPath(itemNotification),
-      payload: {
-        channelIdText: itemNotification.channelIdText,
-        itemIdText: itemNotification.itemIdText,
-        mediumId: itemNotification.mediumId,
-        type: itemNotification.messageType,
-      },
+      payload: buildItemNotificationPayload(itemNotification),
       title: getInAppNotificationTitle(itemNotification.messageType, itemNotification.itemTitle),
     });
   }

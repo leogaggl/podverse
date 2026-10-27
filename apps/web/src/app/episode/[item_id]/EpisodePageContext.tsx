@@ -41,8 +41,6 @@ interface EpisodePageContextType {
   setTotalPages: (totalPages: number) => void;
   transcriptRows: TranscriptRow[];
   setTranscriptRows: (transcriptRows: TranscriptRow[]) => void;
-  autoScrollOn: boolean;
-  setAutoScrollOn: (autoScrollOn: boolean) => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
 }
@@ -95,7 +93,6 @@ export const EpisodePageContextProvider = ({
   const [transcriptRows, setTranscriptRows] = useState<TranscriptRow[]>(
     cachedState?.data?.transcriptRows ?? []
   );
-  const [autoScrollOn, setAutoScrollOn] = useState<boolean>(true);
   const { loggedInAccount } = useAccount();
 
   useSortPref({
@@ -243,8 +240,6 @@ export const EpisodePageContextProvider = ({
         setTotalPages,
         transcriptRows,
         setTranscriptRows,
-        autoScrollOn,
-        setAutoScrollOn,
         isLoading,
         setIsLoading,
       }}

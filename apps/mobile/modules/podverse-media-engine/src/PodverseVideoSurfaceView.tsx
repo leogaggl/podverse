@@ -1,9 +1,10 @@
 /**
  * RN component for the ONE shared native video surface.
  *
- * Mini player and full player each mount one of these with a `targetId` (`mini` / `full`). The
+ * Mini player, full player, and video fullscreen each mount one of these with a `targetId`
+ * (`mini` / `full` / `fullscreen`). The
  * native `PodverseVideoSurfaceView` registers itself with `PodverseVideoSurfaceHost`, which
- * reparents the single `AVPlayerLayer` (iOS) / `SurfaceView` (Android) into whichever is the active
+ * reparents the single `AVPlayerLayer` (iOS) / `TextureView` (Android) into whichever is the active
  * target. Because this view lives in the RN tree, the surface renders with correct z-order even when
  * the full player is a native-stack modal.
  *

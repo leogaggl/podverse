@@ -73,12 +73,12 @@ describe('episodeSectionPaneLoaders', () => {
     ).resolves.toEqual({ hasMore: false, rows: [] });
   });
 
-  it('reads nested 404 transcripts as empty text', async () => {
+  it('reads nested 404 transcripts as empty rows', async () => {
     await expect(
       loadEpisodeTranscriptPane(async () => {
         throw notFoundError;
       })
-    ).resolves.toBe('');
+    ).resolves.toEqual([]);
   });
 
   it('filters non-table-of-contents chapters out of chapter rows', async () => {
@@ -118,12 +118,15 @@ describe('episodeSectionPaneLoaders', () => {
     ).resolves.toEqual({ hasMore: true, rows: [clip] });
   });
 
-  it('returns transcript text when present', async () => {
-    await expect(
-      loadEpisodeTranscriptPane(async () => ({
-        data: 'Transcript',
-      }))
-    ).resolves.toBe('Transcript');
+  it('parses transcript text into rows when present', async () => {
+    const data = JSON.stringify({
+      version: '1.0.0',
+      segments: [{ speaker: 'Host', startTime: 1, endTime: 3, body: 'Transcript' }],
+    });
+    const rows = await loadEpisodeTranscriptPane(async () => ({ data }));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.body).toBe('Transcript');
+    expect(rows[0]?.speaker).toBe('Host');
   });
 
   it('returns soundbites from a normal response', async () => {

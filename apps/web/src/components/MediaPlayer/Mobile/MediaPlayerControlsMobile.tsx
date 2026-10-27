@@ -8,9 +8,13 @@ export const MediaPlayerControlsMobile = () => {
   const remote = useRemotePlayerDisplay();
   const showProgress = remote === null || remote.controls.showsProgress;
 
+  if (showProgress) {
+    return <MediaPlayerProgress layoutVariant="edge" />;
+  }
+
   return (
-    <div className={styles.controls}>
-      {showProgress ? <MediaPlayerProgress /> : <RemoteLiveLabel />}
+    <div className={styles.liveEdge}>
+      <RemoteLiveLabel />
     </div>
   );
 };

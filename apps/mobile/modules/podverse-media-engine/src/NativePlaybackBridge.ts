@@ -63,6 +63,16 @@ export interface NativePlaybackBridge {
    * rectangle. Never loads/destroys or resets the playhead.
    */
   setVideoSurfaceVisible(visible: boolean): void;
+  /**
+   * Video fullscreen is on screen. The native host may start picture-in-picture when the app
+   * backgrounds, and it samples the phone's physical orientation. The surface move itself is
+   * {@link animateVideoSurface} with target `fullscreen`.
+   */
+  setVideoFullscreen(enabled: boolean): void;
+  /** True when the phone itself is sideways, independent of the interface lock. */
+  isPhysicalDeviceLandscape(): boolean;
+  /** True when the shared surface is showing video frames. */
+  isVideoPresented(): boolean;
 }
 
 /**

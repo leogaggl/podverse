@@ -526,7 +526,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
       await expect(page.getByRole('tab', { name: 'My Playlists' })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'My Playlists', exact: true })).toHaveCount(0);
       await expect(
-        chipTrailing(page).getByRole('button', { name: 'Filter: Podcasts', exact: true })
+        chipTrailing(page).getByRole('button', { name: 'Filter: All', exact: true })
       ).toBeVisible();
       await expect(sortChip(page)).toHaveAccessibleName('Sort: Week');
       await sortChip(page).click();
@@ -1011,7 +1011,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         );
       });
 
-      await test.step('Add Feed and Check for Updates sit above the chips, and choosing Oldest updates the Sort chip', async () => {
+      await test.step('Add Feed and Check for Updates share the chip row when it fits, stack above it when it does not, and choosing Oldest updates the Sort chip', async () => {
         const actions = page.locator('#mainOuterWrapper').getByTestId('add-by-rss-list-actions');
         const addFeed = actions.getByRole('button', { name: 'Add Feed', exact: true });
         const checkUpdates = actions.getByRole('button', {
@@ -1028,23 +1028,61 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
         ).toHaveCount(0);
 
         const chips = page.getByTestId('media-list-chips');
-        const actionsBox = await actions.boundingBox();
-        const chipsBox = await chips.boundingBox();
-        const addFeedBox = await addFeed.boundingBox();
-        const checkUpdatesBox = await checkUpdates.boundingBox();
-        expect(actionsBox, 'actions row is in the layout').not.toBeNull();
-        expect(chipsBox, 'chip row is in the layout').not.toBeNull();
-        expect(addFeedBox, 'Add Feed is in the layout').not.toBeNull();
-        expect(checkUpdatesBox, 'Check for Updates is in the layout').not.toBeNull();
+        await page.setViewportSize({ width: 1600, height: 900 });
+        const wideActionsBox = await actions.boundingBox();
+        const wideChipsBox = await chips.boundingBox();
+        const wideAddFeedBox = await addFeed.boundingBox();
+        const wideCheckUpdatesBox = await checkUpdates.boundingBox();
+        expect(wideActionsBox, 'actions row is in the layout').not.toBeNull();
+        expect(wideChipsBox, 'chip row is in the layout').not.toBeNull();
+        expect(wideAddFeedBox, 'Add Feed is in the layout').not.toBeNull();
+        expect(wideCheckUpdatesBox, 'Check for Updates is in the layout').not.toBeNull();
         if (
-          actionsBox !== null &&
-          chipsBox !== null &&
-          addFeedBox !== null &&
-          checkUpdatesBox !== null
+          wideActionsBox !== null &&
+          wideChipsBox !== null &&
+          wideAddFeedBox !== null &&
+          wideCheckUpdatesBox !== null
         ) {
-          expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(chipsBox.y);
-          expect(addFeedBox.x).toBeLessThan(checkUpdatesBox.x);
+          expect(wideActionsBox.x).toBeGreaterThanOrEqual(wideChipsBox.x + wideChipsBox.width - 1);
+          expect(wideActionsBox.y).toBeLessThan(wideChipsBox.y + wideChipsBox.height);
+          expect(wideChipsBox.y).toBeLessThan(wideActionsBox.y + wideActionsBox.height);
+          expect(wideAddFeedBox.x).toBeLessThan(wideCheckUpdatesBox.x);
+          expect(Math.abs(wideAddFeedBox.y - wideCheckUpdatesBox.y)).toBeLessThanOrEqual(4);
+          const wideChipFace = await chips
+            .getByRole('button', { name: 'Podcasts', exact: true })
+            .boundingBox();
+          expect(wideChipFace, 'Podcasts chip is in the layout').not.toBeNull();
+          if (wideChipFace !== null) {
+            const addMid = wideAddFeedBox.y + wideAddFeedBox.height / 2;
+            const chipMid = wideChipFace.y + wideChipFace.height / 2;
+            expect(Math.abs(addMid - chipMid)).toBeLessThanOrEqual(1);
+          }
         }
+
+        await page.setViewportSize({ width: 390, height: 844 });
+        const narrowActionsBox = await actions.boundingBox();
+        const narrowChipsBox = await chips.boundingBox();
+        const narrowAddFeedBox = await addFeed.boundingBox();
+        const narrowCheckUpdatesBox = await checkUpdates.boundingBox();
+        expect(narrowActionsBox, 'actions row is in the layout').not.toBeNull();
+        expect(narrowChipsBox, 'chip row is in the layout').not.toBeNull();
+        expect(narrowAddFeedBox, 'Add Feed is in the layout').not.toBeNull();
+        expect(narrowCheckUpdatesBox, 'Check for Updates is in the layout').not.toBeNull();
+        if (
+          narrowActionsBox !== null &&
+          narrowChipsBox !== null &&
+          narrowAddFeedBox !== null &&
+          narrowCheckUpdatesBox !== null
+        ) {
+          expect(narrowActionsBox.y + narrowActionsBox.height).toBeLessThanOrEqual(
+            narrowChipsBox.y
+          );
+          expect(Math.abs(narrowActionsBox.x - narrowChipsBox.x)).toBeLessThanOrEqual(4);
+          expect(narrowAddFeedBox.x).toBeLessThan(narrowCheckUpdatesBox.x);
+          expect(Math.abs(narrowAddFeedBox.y - narrowCheckUpdatesBox.y)).toBeLessThanOrEqual(4);
+        }
+
+        await page.setViewportSize({ width: 1280, height: 720 });
 
         const trailing = page.getByTestId('media-list-chips-trailing');
         const sortButton = trailing.getByRole('button', { name: 'Sort: Recent', exact: true });
@@ -1071,12 +1109,7 @@ test.describe('Subscribed, Browse, and Add by RSS chips pages', () => {
           trailing.getByRole('button', { name: 'Sort: Oldest', exact: true })
         ).toBeVisible();
 
-        await capturePageLoad(
-          page,
-          testInfo,
-          'Add Feed and Check for Updates sit above the chips, and the Sort chip shows Oldest.',
-          actions
-        );
+        await capturePageLoad(page, testInfo, 'The Sort chip shows Oldest.', actions);
       });
 
       await test.step('Add Feed opens the add-feed page', async () => {

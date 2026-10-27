@@ -65,7 +65,7 @@ const config: ExpoConfig = {
     },
   },
   version: packageJson.version,
-  orientation: 'portrait',
+  orientation: 'default',
   icon: './assets/app-icons/podverse-icon.png',
   userInterfaceStyle: 'automatic',
   scheme: deepLinkSchemes,
@@ -181,6 +181,8 @@ const config: ExpoConfig = {
     // unavailable. A FOSS prebuild must also exclude `expo-iap` from autolinking so the native
     // module is not compiled into the binary.
     ...storeBillingPlugins,
+    ['expo-screen-orientation', { initialOrientation: 'PORTRAIT_UP' }],
+    './plugins/withPodverseVideoPlayback',
   ],
 };
 

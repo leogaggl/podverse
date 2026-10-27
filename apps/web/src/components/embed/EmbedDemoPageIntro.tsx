@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { FaShare } from 'react-icons/fa6';
+import { FaShareNodes } from 'react-icons/fa6';
 
 import { useConfig } from '../../contexts/Config';
 
@@ -22,7 +22,7 @@ export function EmbedDemoPageIntro({ configuredCount }: EmbedDemoPageIntroProps)
           brand_name: config.public.brand.name,
           shareIcon: () => (
             <span aria-hidden="true" className={styles.shareIconInline}>
-              <FaShare />
+              <FaShareNodes />
             </span>
           ),
         })}

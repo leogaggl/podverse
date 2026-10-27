@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
-import { FaPlus, FaRss } from 'react-icons/fa6';
+import { FaCirclePlus, FaRss } from 'react-icons/fa6';
 
 import type { PodcastByIdFeed } from '@podverse/helpers';
 import {
@@ -154,7 +154,7 @@ export const PodcastIndexFeedInfo: React.FC<PodcastIndexFeedInfoProps> = ({ podc
             className={styles.addFeedButton}
             isLoading={isLoading}
           >
-            <FaPlus className={styles.buttonIcon} />
+            <FaCirclePlus className={styles.buttonIcon} />
             {tFeatures('add_feed.add_feed')}
           </Button>
           <Button

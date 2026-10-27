@@ -1,6 +1,6 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -11,7 +11,7 @@ import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
 import type { AuthRequestDeps } from '../../auth/authRequestWithRefresh';
 import { requestWithMobileAuthRefresh } from '../../auth/authRequestWithRefresh';
-import { Button, CoverImage, FillList, ListRow } from '../../components/primitives';
+import { Button, FillList } from '../../components/primitives';
 import { CallToActionSection } from '../../components/state/CallToActionSection';
 import { ListEmpty } from '../../components/state/ListEmpty';
 import { LoadingSection } from '../../components/state/LoadingSection';
@@ -25,12 +25,24 @@ import {
   getEnclosingTabNavigation,
   MORE_STACK_ROUTES,
 } from '../../navigation';
+import type { HomeViewMode } from '../../prefs/homeListPrefs';
+import { DEFAULT_HOME_VIEW_MODE } from '../../prefs/homeListPrefs';
 import { getTasteProfileAgreementCurrentVersion } from '../../tasteProfileConsent/tasteProfileConsentGate';
-import { LIST_ROW_ARTWORK_SIZE } from '../../theme/screenLayout';
+import { screenBodyInsets } from '../../theme/screenLayout';
 import { typography } from '../../theme/typography';
+import { useFeedListColumns } from '../../theme/useFeedListColumns';
 import { useTheme } from '../../theme/useTheme';
+import type { HomeFeedRowData } from '../home/homeFeedData';
+import { HomeFeedGridCell } from '../home/HomeFeedGridCell';
+import { HomeFeedRow } from '../home/HomeFeedRow';
 import { MediaTypeSelector } from '../home/MediaTypeSelector';
-import { readRecommendationChip, writeRecommendationChip } from './recommendationsListPrefs';
+import {
+  readRecommendationChip,
+  readRecommendationViewMode,
+  writeRecommendationChip,
+  writeRecommendationViewMode,
+} from './recommendationsListPrefs';
+import { RecommendationsOverflowMenu } from './RecommendationsOverflowMenu';
 
 const CHIPS = ['podcasts', 'albums', 'artists'] as const satisfies readonly RecommendationChip[];
 
@@ -39,13 +51,6 @@ const CHIP_LABEL_KEYS: Record<RecommendationChip, string> = {
   artists: 'media.music.artists',
   podcasts: 'media.podcast.podcasts',
 };
-
-const coverStyles = StyleSheet.create({
-  image: {
-    height: LIST_ROW_ARTWORK_SIZE,
-    width: LIST_ROW_ARTWORK_SIZE,
-  },
-});
 
 type LoadState =
   | { status: 'idle' }
@@ -81,6 +86,16 @@ function openShow(
   );
 }
 
+function recommendationRow(item: DTOAccountRecommendation, untitled: string): HomeFeedRowData {
+  const title = item.channel.title?.trim() || untitled;
+  return {
+    id: item.channel.id_text,
+    imageUrl: primaryChannelListArtworkUrl(item.channel.channel_images),
+    subtitle: null,
+    title,
+  };
+}
+
 export function RecommendationsScreen() {
   const { t } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
@@ -88,7 +103,9 @@ export function RecommendationsScreen() {
   const { onRequestLogin } = useAuthPrompt();
   const auth = useAuth();
   const [chip, setChip] = useState<RecommendationChip>('podcasts');
+  const chipRef = useRef<RecommendationChip>('podcasts');
   const [chipReady, setChipReady] = useState(false);
+  const [viewMode, setViewMode] = useState<HomeViewMode>(DEFAULT_HOME_VIEW_MODE);
   const [retryCount, setRetryCount] = useState(0);
   const [state, setState] = useState<LoadState>({ status: 'idle' });
   const signedIn = auth.status === 'authenticated' && auth.account !== null;
@@ -106,11 +123,14 @@ export function RecommendationsScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      void readRecommendationChip().then((stored) => {
+      void readRecommendationChip().then(async (stored) => {
+        const mode = await readRecommendationViewMode(stored);
         if (cancelled) {
           return;
         }
+        chipRef.current = stored;
         setChip(stored);
+        setViewMode(mode);
         setChipReady(true);
       });
       return () => {
@@ -159,56 +179,127 @@ export function RecommendationsScreen() {
     ])
   );
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        note: {
-          gap: tokens.spacing.md,
-          padding: tokens.spacing.lg,
-        },
-        noteText: {
-          ...typography.body,
-          color: themeStyles.textSecondary.color,
-        },
-        screen: {
-          flex: 1,
-        },
-        strength: {
-          ...typography.body,
-          color: themeStyles.textPrimary.color,
-        },
-      }),
-    [themeStyles, tokens]
-  );
+  const items = state.status === 'ready' ? state.items : [];
+  const isGridView = viewMode === 'grid' && items.length > 0;
+  const { cellWidth, columns, onListLayout } = useFeedListColumns({
+    gap: tokens.spacing.md,
+    horizontalInset: tokens.spacing.lg,
+    isGridView,
+  });
+
+  const styles = useMemo(() => {
+    const bodyInsets = screenBodyInsets(tokens.spacing);
+
+    return StyleSheet.create({
+      columnCell: {
+        width: cellWidth,
+      },
+      columnWrapper: {
+        gap: tokens.spacing.md,
+      },
+      content: {
+        flexGrow: 1,
+        paddingBottom: tokens.spacing.lg,
+        paddingHorizontal: bodyInsets.paddingHorizontal,
+      },
+      note: {
+        gap: tokens.spacing.md,
+        paddingBottom: tokens.spacing.lg,
+      },
+      noteText: {
+        ...typography.body,
+        color: themeStyles.textSecondary.color,
+      },
+      screen: {
+        backgroundColor: themeStyles.screen.backgroundColor,
+        flex: 1,
+      },
+      selectorSection: {
+        ...bodyInsets,
+      },
+    });
+  }, [cellWidth, themeStyles, tokens]);
 
   const selectChip = useCallback((next: RecommendationChip) => {
+    chipRef.current = next;
     setChip(next);
     void writeRecommendationChip(next);
+    void readRecommendationViewMode(next).then((mode) => {
+      if (chipRef.current === next) {
+        setViewMode(mode);
+      }
+    });
   }, []);
 
-  const items = state.status === 'ready' ? state.items : [];
-  const header = (
-    <View>
-      <MediaTypeSelector
-        labelKeys={CHIP_LABEL_KEYS}
-        onChange={selectChip}
-        selectedMediaType={chip}
-        testIDPrefix="recommendations"
-        types={CHIPS}
-      />
-      {signedIn && !trackingAllowed && items.length > 0 ? (
-        <View style={styles.note}>
-          <Text style={styles.noteText}>{t('features.recommendations.paused')}</Text>
-          <Button
-            label={t('features.recommendations.enable')}
-            onPress={openSettings}
-            testID="recommendations-taste-profile-settings"
-            variant="secondary"
-          />
-        </View>
-      ) : null}
-    </View>
+  const handleViewModeChange = useCallback((nextViewMode: HomeViewMode) => {
+    setViewMode(nextViewMode);
+    void writeRecommendationViewMode(chipRef.current, nextViewMode);
+  }, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <RecommendationsOverflowMenu onViewModeChange={handleViewModeChange} viewMode={viewMode} />
+      ),
+    });
+  }, [handleViewModeChange, navigation, viewMode]);
+
+  const rows = useMemo(
+    () => items.map((item) => recommendationRow(item, t('misc.untitled'))),
+    [items, t]
   );
+
+  const openRow = useCallback(
+    (row: HomeFeedRowData) => {
+      const item = items.find((candidate) => candidate.channel.id_text === row.id);
+      if (item === undefined) {
+        return;
+      }
+      openShow(navigation, chip, item);
+    },
+    [chip, items, navigation]
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: HomeFeedRowData }) => {
+      if (isGridView) {
+        return (
+          <View style={styles.columnCell}>
+            <HomeFeedGridCell
+              artworkEdge={cellWidth}
+              onPress={openRow}
+              row={item}
+              testID={`recommendations-row-${item.id}`}
+            />
+          </View>
+        );
+      }
+
+      return (
+        <HomeFeedRow
+          mediaType={chip}
+          onPlayPress={openRow}
+          onPress={openRow}
+          row={item}
+          testID={`recommendations-row-${item.id}`}
+        />
+      );
+    },
+    [cellWidth, chip, isGridView, openRow, styles.columnCell]
+  );
+
+  const header =
+    signedIn && !trackingAllowed && items.length > 0 ? (
+      <View style={styles.note}>
+        <Text style={styles.noteText}>{t('features.recommendations.paused')}</Text>
+        <Button
+          label={t('features.recommendations.enable')}
+          onPress={openSettings}
+          testID="recommendations-taste-profile-settings"
+          variant="secondary"
+        />
+      </View>
+    ) : null;
 
   const empty = !signedIn ? (
     <CallToActionSection
@@ -240,41 +331,26 @@ export function RecommendationsScreen() {
 
   return (
     <View style={styles.screen} testID="recommendations-screen">
+      <View style={styles.selectorSection}>
+        <MediaTypeSelector
+          labelKeys={CHIP_LABEL_KEYS}
+          onChange={selectChip}
+          selectedMediaType={chip}
+          testIDPrefix="recommendations"
+          types={CHIPS}
+        />
+      </View>
       <FillList
-        data={items}
-        keyExtractor={(item) => item.channel.id_text}
         ListEmptyComponent={empty}
         ListHeaderComponent={header}
-        renderItem={({ item }) => {
-          const title = item.channel.title?.trim() || t('misc.untitled');
-          return (
-            <ListRow
-              leading={
-                <CoverImage
-                  decodeEdge={LIST_ROW_ARTWORK_SIZE}
-                  opensViewer={false}
-                  style={coverStyles.image}
-                  uri={primaryChannelListArtworkUrl(item.channel.channel_images)}
-                />
-              }
-              onPress={() => {
-                openShow(navigation, chip, item);
-              }}
-              testID={`recommendations-row-${item.channel.id_text}`}
-              title={title}
-              trailing={
-                <Text
-                  accessibilityLabel={t('features.recommendations.strength', {
-                    level: item.strength,
-                  })}
-                  style={styles.strength}
-                >
-                  {item.strength}
-                </Text>
-              }
-            />
-          );
-        }}
+        columnWrapperStyle={columns > 1 ? styles.columnWrapper : undefined}
+        contentContainerStyle={styles.content}
+        data={rows}
+        key={`cols-${columns}`}
+        keyExtractor={(item) => item.id}
+        numColumns={columns}
+        onLayout={onListLayout}
+        renderItem={renderItem}
       />
     </View>
   );

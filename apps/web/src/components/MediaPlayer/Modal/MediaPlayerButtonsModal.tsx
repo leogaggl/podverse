@@ -9,7 +9,6 @@ import { PlaybackDevicesButton } from '../Buttons/PlaybackDevicesButton';
 import { PlaylistAddToButton } from '../Buttons/PlaylistAddToButton';
 import { RepeatButton } from '../Buttons/RepeatButton';
 import { SettingsButton } from '../Buttons/SettingsButton';
-import { ShareButton } from '../Buttons/ShareButton';
 import { ShuffleButton } from '../Buttons/ShuffleButton';
 
 import styles from '../../../styles/components/MediaPlayer/Modal/MediaPlayerButtonsModal.module.scss';
@@ -19,7 +18,6 @@ export const MediaPlayerButtonsModal = () => {
   const { activeQueue } = useQueues();
   const remote = useRemotePlayerDisplay();
   const medium_id = activeQueue?.medium_id || MediumEnum.AV;
-  const showSettings = remote === null || remote.controls.canSetRate;
 
   return (
     <div className={styles.buttons}>
@@ -28,7 +26,6 @@ export const MediaPlayerButtonsModal = () => {
           <>
             <AlternateEnclosureButton />
             <PlaylistAddToButton />
-            <ShareButton />
             {medium_id === MediumEnum.AV && !mpAddByRSS && <ClipButton />}
             <RepeatButton />
             <ShuffleButton />
@@ -38,8 +35,7 @@ export const MediaPlayerButtonsModal = () => {
         ) : (
           <>
             <PlaylistAddToButton />
-            <ShareButton />
-            {showSettings && <SettingsButton />}
+            <SettingsButton />
             <PlaybackDevicesButton />
           </>
         )}

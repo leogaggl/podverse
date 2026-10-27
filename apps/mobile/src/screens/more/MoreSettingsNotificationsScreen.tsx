@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DTOAccountNotificationPreference } from '@podverse/helpers';
-import { NotificationCategoryEnum } from '@podverse/helpers';
+import {
+  getDefaultNotificationCategoryPreference,
+  NotificationCategoryEnum,
+} from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
 import { useAuth } from '../../auth/AuthProvider';
@@ -24,13 +27,10 @@ import { resolveSupportedLocale } from '../../i18n/locale';
 import { NOTIFICATION_TYPE_ROWS } from '../../lib/notifications/notificationTypeRows';
 import { useMembershipGate } from '../../membership/MembershipGateProvider';
 import {
-  BANNER_NOTIFICATION_KIND_LABEL_KEY,
-  BANNER_NOTIFICATION_KINDS,
-} from '../../notifications/bannerNotificationPolicy';
-import {
+  getBannerNotificationCategoryEnabled,
   getBannerNotificationEnabled,
   hydrateBannerNotificationPrefs,
-  setBannerNotificationEnabled,
+  setBannerNotificationCategoryEnabled,
   subscribeBannerNotificationPrefs,
 } from '../../prefs/bannerNotificationPrefs';
 import { registerFcmDeviceForAccount } from '../../push/fcmDeviceSync';
@@ -56,7 +56,7 @@ type NotificationPreferenceRow = {
   labelKey: string;
 };
 
-const NOTIFICATION_PREFERENCE_ROWS: readonly NotificationPreferenceRow[] = [
+const MEDIA_NOTIFICATION_PREFERENCE_ROWS: readonly NotificationPreferenceRow[] = [
   {
     category: NotificationCategoryEnum.NewContent,
     descriptionKey: 'settings.notifications.category_new_content_description',
@@ -69,6 +69,9 @@ const NOTIFICATION_PREFERENCE_ROWS: readonly NotificationPreferenceRow[] = [
     forceInAppEnabled: false,
     labelKey: 'settings.notifications.category_livestream',
   },
+];
+
+const SYSTEM_NOTIFICATION_PREFERENCE_ROWS: readonly NotificationPreferenceRow[] = [
   {
     category: NotificationCategoryEnum.ProductUpdate,
     descriptionKey: 'settings.notifications.category_product_update_description',
@@ -116,10 +119,7 @@ export function MoreSettingsNotificationsScreen() {
   const [pendingDefault, setPendingDefault] = useState<boolean>(false);
   const [pendingType, setPendingType] = useState<SyncedNotificationType | null>(null);
   const [affectedCount, setAffectedCount] = useState(0);
-  const bannerNotificationEnabled = useSyncExternalStore(
-    subscribeBannerNotificationPrefs,
-    getBannerNotificationEnabled
-  );
+  useSyncExternalStore(subscribeBannerNotificationPrefs, getBannerNotificationEnabled);
 
   const selectedLocale = resolveSupportedLocale(i18n.language);
   const pushProvider = getMobileConfig().pushProvider;
@@ -440,6 +440,10 @@ export function MoreSettingsNotificationsScreen() {
         insetCopy: {
           paddingHorizontal: tokens.spacing.lg,
         },
+        optionalPreferenceRows: {
+          gap: 0,
+          paddingLeft: tokens.spacing.md,
+        },
         permissionHint: {
           gap: tokens.spacing.sm,
           paddingBottom: tokens.spacing.lg,
@@ -470,6 +474,13 @@ export function MoreSettingsNotificationsScreen() {
           marginTop: tokens.spacing.lg,
           paddingTop: tokens.spacing.lg,
         },
+        preferenceHint: {
+          ...typography.caption,
+          color: themeStyles.textSecondary.color,
+          paddingHorizontal: tokens.spacing.lg,
+          paddingTop: tokens.spacing.xs,
+        },
+
         sectionDescription: {
           ...typography.body,
           color: themeStyles.textSecondary.color,
@@ -481,7 +492,9 @@ export function MoreSettingsNotificationsScreen() {
         },
         typeDefaults: {
           gap: settingsCardInnerGap(tokens.spacing),
+          paddingBottom: tokens.spacing.lg,
           paddingHorizontal: tokens.spacing.lg,
+          paddingTop: tokens.spacing.lg,
         },
         warningLinkButton: {
           alignSelf: 'flex-start',
@@ -506,6 +519,100 @@ export function MoreSettingsNotificationsScreen() {
       }),
     [themeStyles, tokens]
   );
+
+  const renderPreferenceRows = (
+    rows: readonly NotificationPreferenceRow[],
+    options: { showFooterHints: boolean }
+  ) => {
+    return rows.map((row, index) => {
+      const preference =
+        notificationPreferences.find((candidate) => candidate.category === row.category) ?? null;
+      const defaultInApp = getDefaultNotificationCategoryPreference(row.category).in_app_enabled;
+      // Signed out, every switch stays off. Product defaults apply only after login.
+      const categoryEnabled = !isAuthenticated
+        ? false
+        : row.forceInAppEnabled
+          ? true
+          : (preference?.in_app_enabled ?? defaultInApp);
+      const showOptionalChannels = categoryEnabled;
+      const accountPushEnabled = preference?.push_enabled ?? false;
+      const pushSwitchValue = accountPushEnabled && pushDeliveryReady === true;
+      const pushDeliveryBlocksToggle = pushProvider !== 'fcm' && pushDeliveryReady !== true;
+      const showPushAsterisk = showOptionalChannels && showPushRequirement;
+      const isFirst = index === 0;
+      const isLast = index === rows.length - 1;
+      const showFooter =
+        options.showFooterHints &&
+        isLast &&
+        !showNotificationPermissionHint &&
+        !showPushRequirement;
+
+      return (
+        <View
+          key={row.category}
+          style={[
+            isFirst ? styles.preferenceGroupFirst : styles.preferenceGroupRest,
+            showFooter ? styles.preferenceGroupLast : null,
+            isLast && !options.showFooterHints ? styles.preferenceGroupLast : null,
+          ]}
+        >
+          <Text style={styles.preferenceDescription}>{t(row.descriptionKey)}</Text>
+          <SettingsSwitchRow
+            disabled={row.forceInAppEnabled}
+            onValueChange={(nextValue) => {
+              void handleNotificationPreferenceToggle({
+                category: row.category,
+                channel: 'in_app',
+                enabled: nextValue,
+                forceInAppEnabled: row.forceInAppEnabled,
+              });
+            }}
+            testID={`more-settings-notification-${row.category}`}
+            title={t(row.labelKey)}
+            value={categoryEnabled}
+          />
+          {row.category === NotificationCategoryEnum.ProductUpdate ? (
+            <Text style={styles.preferenceHint}>
+              {t('settings.notifications.product_update_enable_hint')}
+            </Text>
+          ) : null}
+          {showOptionalChannels ? (
+            <View style={styles.optionalPreferenceRows}>
+              <SettingsSwitchRow
+                accessibilityHint={showPushAsterisk ? t(pushRequirementKey) : undefined}
+                disabled={!isAuthenticated || pushDeliveryBlocksToggle}
+                onValueChange={(nextValue) => {
+                  void handleNotificationPreferenceToggle({
+                    category: row.category,
+                    channel: 'push',
+                    enabled: nextValue,
+                    forceInAppEnabled: row.forceInAppEnabled,
+                  });
+                }}
+                testID={`more-settings-notification-${row.category}-push`}
+                title={t('settings.notifications.preference_push')}
+                titleMarker={showPushAsterisk ? '*' : undefined}
+                value={pushSwitchValue}
+              />
+              <SettingsSwitchRow
+                onValueChange={(next) => {
+                  if (!isAuthenticated) {
+                    showNotificationLoginAlert();
+                    return;
+                  }
+                  void setBannerNotificationCategoryEnabled(row.category, next);
+                }}
+                switchTestID={`more-settings-banner-notification-${row.category}-switch`}
+                testID={`more-settings-banner-notification-${row.category}`}
+                title={t('settings.notifications.preference_banner')}
+                value={getBannerNotificationCategoryEnabled(row.category)}
+              />
+            </View>
+          ) : null}
+        </View>
+      );
+    });
+  };
 
   return (
     <MobileScreenContainer testID="more-settings-notifications-screen">
@@ -542,7 +649,12 @@ export function MoreSettingsNotificationsScreen() {
         visible={applyDialog !== null}
       />
       <View style={styles.cardStack}>
-        <Card padded={false} testID="more-settings-notification-defaults-card">
+        <Card padded={false} testID="more-settings-notification-when-subscribe-card">
+          <View style={styles.cardIntro}>
+            <Text style={styles.sectionHeading}>
+              {t('settings.notifications.when_i_subscribe_section')}
+            </Text>
+          </View>
           <SettingsSwitchRow
             onValueChange={(nextValue) => {
               void handleAutoEnableOnSubscribeToggle(nextValue);
@@ -556,6 +668,9 @@ export function MoreSettingsNotificationsScreen() {
               {t('settings.notifications.auto_enable_on_subscribe_help')}
             </SettingsRowDescription>
           </SettingsSwitchRow>
+        </Card>
+
+        <Card padded={false} testID="more-settings-notification-types-card">
           <View style={styles.typeDefaults}>
             <Text style={styles.sectionHeading}>
               {t('settings.notifications.type_defaults_section')}
@@ -576,74 +691,29 @@ export function MoreSettingsNotificationsScreen() {
             />
           ))}
         </Card>
-        <Card padded={false} testID="more-settings-notifications-card">
+
+        <Card padded={false} testID="more-settings-media-notifications-card">
           <View style={styles.cardIntro}>
-            <Text style={styles.sectionHeading}>{t('settings.notifications.notifications')}</Text>
+            <Text style={styles.sectionHeading}>
+              {t('settings.notifications.media_notifications_section')}
+            </Text>
             <Text style={styles.sectionDescription}>
-              {t('settings.notifications.preference_section_help')}
+              {t('settings.notifications.media_notifications_section_help')}
             </Text>
           </View>
-          {NOTIFICATION_PREFERENCE_ROWS.map((row, index) => {
-            const preference =
-              notificationPreferences.find((candidate) => candidate.category === row.category) ??
-              null;
-            const inAppEnabled = row.forceInAppEnabled
-              ? true
-              : (preference?.in_app_enabled ?? true);
-            const pushEnabled = preference?.push_enabled ?? false;
-            const pushDeliveryBlocksToggle = pushProvider !== 'fcm' && pushDeliveryReady !== true;
-            const isFirst = index === 0;
-            const isLast = index === NOTIFICATION_PREFERENCE_ROWS.length - 1;
+          {renderPreferenceRows(MEDIA_NOTIFICATION_PREFERENCE_ROWS, { showFooterHints: false })}
+        </Card>
 
-            return (
-              <View
-                key={row.category}
-                style={[
-                  isFirst ? styles.preferenceGroupFirst : styles.preferenceGroupRest,
-                  isLast && !showNotificationPermissionHint && !showPushRequirement
-                    ? styles.preferenceGroupLast
-                    : null,
-                ]}
-              >
-                <Text style={styles.preferenceDescription}>{t(row.descriptionKey)}</Text>
-                <SettingsSwitchRow
-                  disabled={row.forceInAppEnabled}
-                  onValueChange={(nextValue) => {
-                    void handleNotificationPreferenceToggle({
-                      category: row.category,
-                      channel: 'in_app',
-                      enabled: nextValue,
-                      forceInAppEnabled: row.forceInAppEnabled,
-                    });
-                  }}
-                  testID={`more-settings-notification-${row.category}-in-app`}
-                  title={t(row.labelKey)}
-                  value={inAppEnabled}
-                />
-                <SettingsSwitchRow
-                  accessibilityHint={showPushRequirement ? t(pushRequirementKey) : undefined}
-                  disabled={!isAuthenticated || pushDeliveryBlocksToggle}
-                  onValueChange={(nextValue) => {
-                    void handleNotificationPreferenceToggle({
-                      category: row.category,
-                      channel: 'push',
-                      enabled: nextValue,
-                      forceInAppEnabled: row.forceInAppEnabled,
-                    });
-                  }}
-                  testID={`more-settings-notification-${row.category}-push`}
-                  title={t('settings.notifications.preference_push')}
-                  titleMarker={showPushRequirement ? '*' : undefined}
-                  value={pushEnabled}
-                />
-                {row.category === NotificationCategoryEnum.ProductUpdate ? (
-                  <Text style={[styles.warningText, styles.insetCopy]}>
-                    {t('settings.notifications.product_update_disable_hint')}
-                  </Text>
-                ) : null}
-              </View>
-            );
-          })}
+        <Card padded={false} testID="more-settings-system-notifications-card">
+          <View style={styles.cardIntro}>
+            <Text style={styles.sectionHeading}>
+              {t('settings.notifications.system_notifications_section')}
+            </Text>
+            <Text style={styles.sectionDescription}>
+              {t('settings.notifications.system_notifications_section_help')}
+            </Text>
+          </View>
+          {renderPreferenceRows(SYSTEM_NOTIFICATION_PREFERENCE_ROWS, { showFooterHints: true })}
           {showPushRequirement ? (
             <Text
               style={styles.pushRequirement}
@@ -675,27 +745,6 @@ export function MoreSettingsNotificationsScreen() {
               ) : null}
             </View>
           ) : null}
-        </Card>
-        <Card padded={false} testID="more-settings-banner-notifications-card">
-          <View style={styles.cardIntro}>
-            <Text style={styles.sectionHeading}>{t('settings.notifications.banner_section')}</Text>
-            <Text style={styles.sectionDescription}>
-              {t('settings.notifications.banner_section_help')}
-            </Text>
-          </View>
-          {BANNER_NOTIFICATION_KINDS.map((kind, index) => (
-            <SettingsSwitchRow
-              key={kind}
-              onValueChange={(next) => {
-                void setBannerNotificationEnabled(kind, next);
-              }}
-              showDivider={index > 0}
-              switchTestID={`more-settings-banner-notification-${kind}-switch`}
-              testID={`more-settings-banner-notification-${kind}`}
-              title={t(BANNER_NOTIFICATION_KIND_LABEL_KEY[kind])}
-              value={bannerNotificationEnabled[kind]}
-            />
-          ))}
         </Card>
       </View>
       {errorMessageKey !== null ? (

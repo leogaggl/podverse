@@ -1,3 +1,10 @@
 .wrapper {
   margin-top: var(--spacing-2xl);
 }
+
+.wrapperFill {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}

@@ -26,7 +26,7 @@ export const DEFAULT_NOTIFICATION_CATEGORY_PREFERENCES = {
     push_enabled: true,
   },
   [NotificationCategoryEnum.ProductUpdate]: {
-    in_app_enabled: true,
+    in_app_enabled: false,
     push_enabled: false,
   },
   [NotificationCategoryEnum.Maintenance]: {

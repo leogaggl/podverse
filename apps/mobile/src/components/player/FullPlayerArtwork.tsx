@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { DTOItemChapter } from '@podverse/helpers/dto';
@@ -6,7 +6,12 @@ import type { DTOItemChapter } from '@podverse/helpers/dto';
 import { PodverseVideoSurfaceView } from '../../../modules/podverse-media-engine';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { useActiveNowPlayingChapter } from '../../playback/useNowPlayingChapters';
+import {
+  getVideoPresentedSnapshot,
+  subscribeVideoPresented,
+} from '../../playback/videoFullscreenStore';
 import { CoverImage } from '../primitives/CoverImage';
+import { FullPlayerVideoChrome } from './FullPlayerVideoChrome';
 import { resolvePlayerChapterArtworkUri } from './playerChapterArtwork';
 
 type FullPlayerArtworkProps = {
@@ -29,6 +34,7 @@ export function FullPlayerArtwork({
   chapters,
 }: FullPlayerArtworkProps) {
   const { activeTarget, nowPlaying } = usePlaybackSession();
+  const videoPresented = useSyncExternalStore(subscribeVideoPresented, getVideoPresentedSnapshot);
   const activeChapter = useActiveNowPlayingChapter(chapters);
 
   const imageUri = resolvePlayerChapterArtworkUri({
@@ -73,6 +79,7 @@ export function FullPlayerArtwork({
       <View pointerEvents="box-none" style={styles.viewerSquare} testID="full-player-video-surface">
         <CoverImage
           accessibilityLabel={accessibilityLabel}
+          opensViewer={!videoPresented}
           style={styles.artwork}
           testID="full-player-artwork"
           uri={imageUri}
@@ -81,6 +88,7 @@ export function FullPlayerArtwork({
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <PodverseVideoSurfaceView style={StyleSheet.absoluteFill} targetId="full" />
         </View>
+        {videoPresented ? <FullPlayerVideoChrome /> : null}
       </View>
     </View>
   );

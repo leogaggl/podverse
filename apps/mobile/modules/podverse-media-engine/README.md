@@ -111,7 +111,9 @@ The Expo module only sets an `eventSink` to forward events to JS while JS is ali
   changes; `onPlayerReplaced` lets the video surface rebind. It is still one player at a time.
 - **Video in the background:** the video surface detaches its `AVPlayerLayer` when the app enters
   the background (iOS pauses a layer-bound player otherwise) and reattaches it on foreground, so a
-  video item keeps playing as audio with the screen locked.
+  video item keeps playing as audio with the screen locked. Fullscreen is the exception: the layer
+  stays attached so the system can move it into picture-in-picture. If that window does not start,
+  the layer detaches and audio continues.
 
 ### iOS CarPlay scene (12.7–12.10)
 

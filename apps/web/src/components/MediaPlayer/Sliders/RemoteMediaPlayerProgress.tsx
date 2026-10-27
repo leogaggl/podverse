@@ -1,5 +1,6 @@
 'use client';
 
+import classNames from 'classnames';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { formatHHMMSS } from '@podverse/helpers';
@@ -14,6 +15,7 @@ import styles from '../../../styles/components/MediaPlayer/Sliders/MediaPlayerPr
 type RemoteMediaPlayerProgressProps = {
   remote: RemotePlayerDisplay;
   includeMobileTime?: boolean;
+  layoutVariant?: 'default' | 'edge';
 };
 
 /**
@@ -23,6 +25,7 @@ type RemoteMediaPlayerProgressProps = {
 export const RemoteMediaPlayerProgress: React.FC<RemoteMediaPlayerProgressProps> = ({
   remote,
   includeMobileTime,
+  layoutVariant = 'default',
 }) => {
   const estimated = useRemotePlaybackPositionSeconds(true) ?? 0;
   const { seekTo } = usePlayerTransport();
@@ -106,9 +109,18 @@ export const RemoteMediaPlayerProgress: React.FC<RemoteMediaPlayerProgressProps>
   const ratio = duration > 0 ? clampRatio(shown / duration) : 0;
   const durationLabel = duration > 0 ? formatHHMMSS(duration) : '';
 
+  const showClock = layoutVariant === 'default';
+
   return (
-    <div className={styles.mediaPlayerProgress}>
-      <span className={styles.mediaPlayerProgressTime}>{formatHHMMSS(shown)}</span>
+    <div
+      className={classNames(
+        styles.mediaPlayerProgress,
+        layoutVariant === 'edge' && styles.mediaPlayerProgressEdge
+      )}
+    >
+      {showClock ? (
+        <span className={styles.mediaPlayerProgressTime}>{formatHHMMSS(shown)}</span>
+      ) : null}
       <div
         className={styles.customProgressBar}
         ref={barRef}
@@ -127,7 +139,9 @@ export const RemoteMediaPlayerProgress: React.FC<RemoteMediaPlayerProgressProps>
           <div className={styles.progressRemaining} style={{ width: `${(1 - ratio) * 100}%` }} />
         </div>
       </div>
-      <span className={styles.mediaPlayerProgressDuration}>{durationLabel}</span>
+      {showClock ? (
+        <span className={styles.mediaPlayerProgressDuration}>{durationLabel}</span>
+      ) : null}
       {includeMobileTime && (
         <div className={styles.mobileTimeWrapper}>
           <span className={styles.mediaPlayerProgressTimeMobile}>{formatHHMMSS(shown)}</span>

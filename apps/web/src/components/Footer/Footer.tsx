@@ -30,6 +30,7 @@ export const Footer: React.FC = () => {
   const tFeatures = useTranslations('features');
   const tSocials = useTranslations('socials');
   const tContact = useTranslations('contact');
+  const tSettings = useTranslations('settings');
 
   return (
     <FooterLayout
@@ -55,6 +56,7 @@ export const Footer: React.FC = () => {
           <Link href={ROUTES.ABOUT}>{tInfo('about')}</Link>
           <Link href={ROUTES.DONATE}>{tMisc('donate')}</Link>
           <Link href={ROUTES.FAQ}>{tMisc('faq')}</Link>
+          <Link href={ROUTES.DEVELOPER}>{tSettings('developer.developer')}</Link>
           <Link href={ROUTES.TERMS}>{tMisc('terms')}</Link>
           <Link href={ROUTES.MEMBERSHIP}>{tMembership('premium')}</Link>
           {/* <Link disabled href={ROUTES.MOBILE_APP}>{tMisc("mobile")}</Link> */}

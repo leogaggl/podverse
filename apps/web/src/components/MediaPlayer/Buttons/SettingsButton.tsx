@@ -2,18 +2,20 @@
 
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { FaGear } from 'react-icons/fa6';
+import { FaEllipsis } from 'react-icons/fa6';
 
 import { getPlaybackTranslationKey } from '@podverse/helpers';
 import type { DropdownMenuPanelItem } from '@podverse/ui';
 import { DropdownMenuPanel, useDropdownKeyboardNavigation } from '@podverse/ui';
 
 import { usePlayerTransport } from '../../../hooks/usePlayerTransport';
+import { useRemotePlayerDisplay } from '../../../hooks/useRemotePlayerDisplay';
 import {
   getSleepTimerMinutes,
   setSleepTimerMinutes,
   subscribeSleepTimer,
 } from '../sleepTimerState';
+import { usePlayerShareAction } from './usePlayerShareAction';
 
 import styles from '../../../styles/components/MediaPlayer/Buttons/SettingsButton.module.scss';
 
@@ -21,7 +23,12 @@ export const SettingsButton = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const { playbackSpeed, cyclePlaybackSpeed } = usePlayerTransport();
+  const remote = useRemotePlayerDisplay();
+  const { canShare, openShare } = usePlayerShareAction();
+  const tMedia = useTranslations('media');
+  const tFeatures = useTranslations('features');
   const tMediaPlayer = useTranslations('media_player');
+  const showRateAndSleep = remote === null || remote.controls.canSetRate;
   const sleepMinutes = useSyncExternalStore(
     subscribeSleepTimer,
     getSleepTimerMinutes,
@@ -39,7 +46,8 @@ export const SettingsButton = () => {
           ? tMediaPlayer('sleep_timer.minutes_60')
           : tMediaPlayer('sleep_timer.off');
 
-  const itemCount = menuPage === 'sleep' ? 4 : 2;
+  const rootItemCount = (showRateAndSleep ? 2 : 0) + (canShare ? 1 : 0);
+  const itemCount = menuPage === 'sleep' ? 4 : rootItemCount;
 
   const { open, setOpen, focusedIndex, setFocusedIndex, handleButtonKeyDown, handleMenuKeyDown } =
     useDropdownKeyboardNavigation({
@@ -68,23 +76,40 @@ export const SettingsButton = () => {
   };
 
   const rootItems: DropdownMenuPanelItem[] = [
-    {
-      label: tMediaPlayer('playback_speed.playback_speed_with_value', {
-        speed: tMediaPlayer(`playback_speed.speeds.${getPlaybackTranslationKey(playbackSpeed)}`),
-      }),
-      onClick: () => {
-        cyclePlaybackSpeed();
-        closeMenu();
-      },
-    },
-    {
-      dismissOnSelect: false,
-      label: tMediaPlayer('sleep_timer.sleep_timer_with_value', { value: sleepValueLabel }),
-      onClick: () => {
-        setMenuPage('sleep');
-        setFocusedIndexRef.current(0);
-      },
-    },
+    ...(showRateAndSleep
+      ? [
+          {
+            label: tMediaPlayer('playback_speed.playback_speed_with_value', {
+              speed: tMediaPlayer(
+                `playback_speed.speeds.${getPlaybackTranslationKey(playbackSpeed)}`
+              ),
+            }),
+            onClick: () => {
+              cyclePlaybackSpeed();
+              closeMenu();
+            },
+          },
+          {
+            dismissOnSelect: false,
+            label: tMediaPlayer('sleep_timer.sleep_timer_with_value', { value: sleepValueLabel }),
+            onClick: () => {
+              setMenuPage('sleep');
+              setFocusedIndexRef.current(0);
+            },
+          },
+        ]
+      : []),
+    ...(canShare
+      ? [
+          {
+            label: tFeatures('share'),
+            onClick: () => {
+              openShare();
+              closeMenu();
+            },
+          },
+        ]
+      : []),
   ];
 
   const sleepItems: DropdownMenuPanelItem[] = [
@@ -125,6 +150,10 @@ export const SettingsButton = () => {
     }
   }, [open]);
 
+  if (rootItemCount === 0) {
+    return null;
+  }
+
   return (
     <div className={styles.settingsDropdownWrapper}>
       <button
@@ -132,12 +161,12 @@ export const SettingsButton = () => {
         className={styles.settingsButton}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={tMediaPlayer('player_settings')}
+        aria-label={tMedia('more_options')}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={handleButtonKeyDown}
         type="button"
       >
-        <FaGear aria-hidden />
+        <FaEllipsis aria-hidden />
       </button>
       <DropdownMenuPanel
         menuItems={menuItems}

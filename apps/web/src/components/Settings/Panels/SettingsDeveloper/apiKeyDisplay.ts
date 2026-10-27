@@ -6,10 +6,14 @@ import type {
 } from '@podverse/helpers';
 import {
   API_KEY_RESOURCES,
+  apiDocsUrl,
+  apiDocsYamlUrl,
   apiKeyResourceSupportsAction,
   crudMaskToActions,
   findApiKeyPresetId,
 } from '@podverse/helpers';
+
+export { apiDocsUrl, apiDocsYamlUrl };
 
 export type ApiKeyPermissionSummary =
   | { kind: 'preset'; presetId: ApiKeyPresetId }
@@ -110,21 +114,4 @@ export function apiKeyActionLabelKey(action: CrudAction): ApiKeyActionLabelKey {
       throw new Error(`Unknown API key action: ${String(unexpected)}`);
     }
   }
-}
-
-/** Interactive API reference. One trailing slash on the base is removed before `/docs`. */
-export function apiDocsUrl(apiBaseUrl: string): string {
-  return `${withoutOneTrailingSlash(apiBaseUrl)}/docs`;
-}
-
-/** Raw OpenAPI document. One trailing slash on the base is removed before `/docs.yaml`. */
-export function apiDocsYamlUrl(apiBaseUrl: string): string {
-  return `${withoutOneTrailingSlash(apiBaseUrl)}/docs.yaml`;
-}
-
-function withoutOneTrailingSlash(apiBaseUrl: string): string {
-  if (apiBaseUrl.endsWith('/')) {
-    return apiBaseUrl.slice(0, -1);
-  }
-  return apiBaseUrl;
 }

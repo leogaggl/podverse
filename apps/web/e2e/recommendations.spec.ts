@@ -29,6 +29,13 @@ test.describe('Recommendations page', () => {
     await page.goto('/recommendations');
     const chrome = page.locator('[data-appearance="web"]');
     await expect(chrome.getByRole('heading', { level: 1, name: 'Recommendations' })).toBeVisible();
+    const layoutButton = page.getByTestId('view-selector-button');
+    await expect(layoutButton).toBeVisible();
+    await expect(page.getByTestId('media-list-sort-button')).toHaveCount(0);
+    await layoutButton.click();
+    await expect(page.getByRole('menuitemradio', { name: 'List View' })).toBeVisible();
+    await expect(page.getByRole('menuitemradio', { name: 'Grid View' })).toBeVisible();
+    await page.keyboard.press('Escape');
     const loginPrompt = page.getByText('Log in to use this feature.');
     await expect(loginPrompt).toBeVisible();
     await capturePageLoad(

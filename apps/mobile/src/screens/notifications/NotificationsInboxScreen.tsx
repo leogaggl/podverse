@@ -2,16 +2,15 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TextStyle, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { DTOAccountNotification } from '@podverse/helpers';
-import { getRelativeTimeParts, NotificationCategoryEnum } from '@podverse/helpers';
+import { accountNotificationImageUrl, formatAccountNotificationLine } from '@podverse/helpers';
 
 import { useAuthPrompt } from '../../auth/AuthPromptContext';
 import { useAuth } from '../../auth/AuthProvider';
-import { Card } from '../../components/primitives/Card';
+import { CoverImage } from '../../components/primitives/CoverImage';
 import { FillList } from '../../components/primitives/FillList';
 import { VerticalCenter } from '../../components/primitives/VerticalCenter';
 import { HeaderBarChrome } from '../../components/screen/HeaderBarChrome';
@@ -31,6 +30,10 @@ import {
 } from '../../lib/pagination/pagedList';
 import type { RootStackParamList } from '../../navigation';
 import { ROOT_STACK_ROUTES } from '../../navigation';
+import {
+  accountNotificationLineLabels,
+  formatNotificationRelativeTime,
+} from '../../notifications/accountNotificationLineLabels';
 import { markNotificationReadById } from '../../notifications/notificationReadActions';
 import {
   getNotificationsInboxCache,
@@ -44,79 +47,130 @@ import {
 } from '../../notifications/notificationStreamStore';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import { openAccountNotificationLink } from '../../push/openAccountNotificationLink';
-import { screenBodyInsets } from '../../theme/screenLayout';
+import {
+  listRowArtworkGap,
+  NOTIFICATION_INBOX_ARTWORK_SIZE,
+  screenBodyInsets,
+} from '../../theme/screenLayout';
+import { typography } from '../../theme/typography';
 import { useTheme } from '../../theme/useTheme';
+import type { ThemedStylesTheme } from '../../theme/useThemedStyles';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 
 const FIRST_PAGE = 1;
-
-const CATEGORY_LABEL_KEYS: Record<NotificationCategoryEnum, string> = {
-  [NotificationCategoryEnum.General]: 'settings.notifications.category_general',
-  [NotificationCategoryEnum.Livestream]: 'settings.notifications.category_livestream',
-  [NotificationCategoryEnum.Maintenance]: 'settings.notifications.category_maintenance',
-  [NotificationCategoryEnum.NewContent]: 'settings.notifications.category_new_content',
-  [NotificationCategoryEnum.ProductUpdate]: 'settings.notifications.category_product_update',
-  [NotificationCategoryEnum.TermsOfService]: 'settings.notifications.category_terms_of_service',
-};
 
 type NotificationsInboxScreenProps = NativeStackScreenProps<
   RootStackParamList,
   'NotificationsInbox'
 >;
 
-type InboxRowStyles = {
-  body: TextStyle;
-  category: TextStyle;
-  rowCard: ViewStyle;
-  sectionHeading: TextStyle;
-  time: TextStyle;
-  title: TextStyle;
-};
-
 const inboxRowKeyExtractor = (item: DTOAccountNotification): string => String(item.id);
 
+const createInboxRowStyles = ({ styles: themeStyles, tokens }: ThemedStylesTheme) =>
+  StyleSheet.create({
+    artwork: {
+      borderWidth: 0,
+      height: NOTIFICATION_INBOX_ARTWORK_SIZE,
+      width: NOTIFICATION_INBOX_ARTWORK_SIZE,
+    },
+    entry: {
+      alignItems: 'center',
+      borderRadius: 0,
+      flexDirection: 'row',
+      gap: tokens.spacing.md,
+    },
+    copy: {
+      flex: 1,
+      flexDirection: 'column',
+      gap: tokens.spacing.xs,
+    },
+    line: {
+      ...typography.body,
+      color: themeStyles.textPrimary.color,
+    },
+    row: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      gap: listRowArtworkGap(tokens.spacing),
+    },
+    separator: {
+      borderRadius: 0,
+      borderTopColor: themeStyles.border.borderColor,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      marginTop: tokens.spacing.lg,
+      paddingTop: tokens.spacing.lg,
+    },
+    time: {
+      ...typography.caption,
+      color: themeStyles.textSecondary.color,
+    },
+    unreadDot: {
+      backgroundColor: tokens.text.accent,
+      borderRadius: tokens.radii.round,
+      height: tokens.spacing.md,
+      width: tokens.spacing.md,
+    },
+    unreadSlot: {
+      height: tokens.spacing.md,
+      width: tokens.spacing.md,
+    },
+  });
+
+function InboxNotificationSeparator() {
+  const styles = useThemedStyles(createInboxRowStyles);
+  return <View style={styles.separator} />;
+}
+
 function InboxNotificationRow({
-  formatRelativeTime,
   item,
   onPress,
-  showEarlierHeading,
-  styles,
 }: {
-  formatRelativeTime: (isoDate: string) => string;
   item: DTOAccountNotification;
   onPress: (notification: DTOAccountNotification) => void;
-  showEarlierHeading: boolean;
-  styles: InboxRowStyles;
 }) {
   const { t } = useTranslation();
+  const styles = useThemedStyles(createInboxRowStyles);
   const handlePress = useCallback(() => {
     void onPress(item);
   }, [item, onPress]);
-  const categoryLabelKey =
-    CATEGORY_LABEL_KEYS[item.category] ?? 'settings.notifications.category_general';
+  const line = formatAccountNotificationLine(item, accountNotificationLineLabels(t));
+  const timeLabel = formatNotificationRelativeTime(item.created_at, t);
+  const unreadLabel = item.is_unread ? t('notifications.section.unread') : '';
+  const accessibilityLabel = [unreadLabel, line, timeLabel]
+    .filter((part) => part !== '')
+    .join(', ');
 
   return (
-    <>
-      {showEarlierHeading ? (
-        <Text style={styles.sectionHeading}>{t('notifications.section.earlier')}</Text>
-      ) : null}
-      <View style={styles.rowCard}>
-        <Card>
-          <Pressable
-            accessibilityLabel={item.title}
-            accessibilityRole="button"
-            onPress={handlePress}
-            testID={`notifications-inbox-row-${item.id}`}
-          >
-            <Text style={styles.title}>{item.title}</Text>
-            {item.body !== null && item.body !== '' ? (
-              <Text style={styles.body}>{item.body}</Text>
-            ) : null}
-            <Text style={styles.category}>{t(categoryLabelKey)}</Text>
-            <Text style={styles.time}>{formatRelativeTime(item.created_at)}</Text>
-          </Pressable>
-        </Card>
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={styles.entry}
+      testID={`notifications-inbox-row-${item.id}`}
+    >
+      <View style={styles.unreadSlot}>
+        {item.is_unread ? <View style={styles.unreadDot} /> : null}
       </View>
-    </>
+      <View style={styles.row}>
+        <CoverImage
+          decodeEdge={NOTIFICATION_INBOX_ARTWORK_SIZE}
+          opensViewer={false}
+          style={styles.artwork}
+          uri={accountNotificationImageUrl(item.payload)}
+        />
+        <View style={styles.copy}>
+          <Text numberOfLines={2} style={styles.line}>
+            {line}
+          </Text>
+          {timeLabel !== '' ? (
+            <Text numberOfLines={1} style={styles.time}>
+              {timeLabel}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -134,9 +188,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [loadMoreErrorKey, setLoadMoreErrorKey] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(
-    () => getNotificationsInboxCache()?.unreadCount ?? 0
-  );
   const [page, setPage] = useState(() => getNotificationsInboxCache()?.page ?? FIRST_PAGE);
   const [totalPages, setTotalPages] = useState(
     () => getNotificationsInboxCache()?.totalPages ?? FIRST_PAGE
@@ -164,17 +215,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        body: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginTop: tokens.spacing.xs,
-        },
-        category: {
-          color: tokens.text.accent,
-          fontSize: 12,
-          fontWeight: '600',
-          marginTop: tokens.spacing.xs,
-        },
         container: {
           backgroundColor: themeStyles.screen.backgroundColor,
           flex: 1,
@@ -185,31 +225,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
         },
         listFooter: {
           marginTop: tokens.spacing.lg,
-        },
-        recentActivityNote: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 13,
-          marginBottom: tokens.spacing.md,
-        },
-        rowCard: {
-          marginBottom: tokens.spacing.sm,
-        },
-        sectionHeading: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 15,
-          fontWeight: '700',
-          marginBottom: tokens.spacing.sm,
-          marginTop: tokens.spacing.md,
-        },
-        time: {
-          color: themeStyles.textSecondary.color,
-          fontSize: 12,
-          marginTop: tokens.spacing.xs,
-        },
-        title: {
-          color: themeStyles.textPrimary.color,
-          fontSize: 15,
-          fontWeight: '600',
         },
       }),
     [insets.bottom, themeStyles, tokens]
@@ -227,7 +242,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
     async (nextPage: number, mode: 'replace' | 'append') => {
       if (status !== 'authenticated') {
         setNotifications([]);
-        setUnreadCount(0);
         setPage(FIRST_PAGE);
         setTotalPages(FIRST_PAGE);
         setErrorKey(null);
@@ -241,7 +255,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
         const cached = getNotificationsInboxCache();
         if (cached !== null) {
           setNotifications(cached.items);
-          setUnreadCount(cached.unreadCount);
           setPage(cached.page);
           setTotalPages(cached.totalPages);
         }
@@ -274,7 +287,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
             ? nextData.items
             : appendUniqueBy(previous, nextData.items, inboxRowKeyExtractor)
         );
-        setUnreadCount(nextData.unreadCount);
         setPage(nextData.page);
         setTotalPages(nextData.totalPages);
         const cached = getNotificationsInboxCache();
@@ -321,7 +333,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
 
     if (status !== 'authenticated') {
       setNotifications([]);
-      setUnreadCount(0);
       setPage(FIRST_PAGE);
       setTotalPages(FIRST_PAGE);
       setErrorKey(null);
@@ -334,7 +345,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
       const cached = getNotificationsInboxCache();
       if (cached !== null) {
         setNotifications(cached.items);
-        setUnreadCount(cached.unreadCount);
         setPage(cached.page);
         setTotalPages(cached.totalPages);
       }
@@ -349,22 +359,34 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
     setIsLoading(true);
     setErrorKey(null);
     try {
-      await notificationsRepository.markRead(requestContext);
-      setNotificationUnreadCount(0);
       const nextData = await notificationsRepository.list(requestContext, { page: FIRST_PAGE });
-      let items = nextData.items;
-      for (const held of liveRowsDuringLoadRef.current) {
-        items = prependLiveNotification(items, held);
-      }
+      const withHeld = (rows: DTOAccountNotification[]): DTOAccountNotification[] => {
+        let next = rows;
+        for (const held of liveRowsDuringLoadRef.current) {
+          next = prependLiveNotification(next, held);
+        }
+        return next;
+      };
+      const items = withHeld(nextData.items);
       setNotifications(items);
-      setUnreadCount(nextData.unreadCount);
       setPage(nextData.page);
       setTotalPages(nextData.totalPages);
+      let marked = false;
+      try {
+        await notificationsRepository.markRead(requestContext);
+        setNotificationUnreadCount(0);
+        marked = true;
+      } catch (error) {
+        console.warn('Could not mark notifications read', error);
+      }
+      const cachedItems = withHeld(items);
       setNotificationsInboxCache({
-        items,
+        items: marked
+          ? cachedItems.map((item) => (item.is_unread ? { ...item, is_unread: false } : item))
+          : cachedItems,
         page: nextData.page,
         totalPages: nextData.totalPages,
-        unreadCount: nextData.unreadCount,
+        unreadCount: marked ? 0 : nextData.unreadCount,
       });
     } catch (error) {
       console.warn('Could not refresh notifications inbox', error);
@@ -426,27 +448,7 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
     void openAccountNotificationLink(notification);
   }, []);
 
-  const formatRelativeTime = useCallback(
-    (isoDate: string): string => {
-      const parts = getRelativeTimeParts(isoDate);
-      if (parts === null) {
-        return '';
-      }
-      if (parts.value === 0) {
-        return t('notifications_page.relative_time_just_now');
-      }
-
-      const direction = parts.value < 0 ? 'ago' : 'from_now';
-      const count = Math.abs(parts.value);
-      return t(`notifications_page.relative_time_${parts.unit}s_${direction}`, { count });
-    },
-    [t]
-  );
-
   const canLoadMore = page < totalPages;
-  const earlierSectionStartIndex = Math.min(unreadCount, notifications.length);
-  const hasUnreadSection = earlierSectionStartIndex > 0;
-  const hasEarlierSection = notifications.length > earlierSectionStartIndex;
   const hasRows = notifications.length > 0;
 
   const handleEndReached = useLoadMoreOnEndReached({
@@ -469,21 +471,6 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
   const handleRetryInbox = useCallback(() => {
     void loadFirstPageAndMarkRead();
   }, [loadFirstPageAndMarkRead]);
-
-  const sectionHeader = useMemo(
-    () =>
-      hasRows ? (
-        <>
-          <Text style={styles.recentActivityNote}>
-            {t('notifications_page.recent_activity_note')}
-          </Text>
-          {hasUnreadSection ? (
-            <Text style={styles.sectionHeading}>{t('notifications.section.unread')}</Text>
-          ) : null}
-        </>
-      ) : null,
-    [hasRows, hasUnreadSection, styles.recentActivityNote, styles.sectionHeading, t]
-  );
 
   const listEmpty = useMemo(
     () =>
@@ -548,35 +535,11 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
     styles.listFooter,
   ]);
 
-  const inboxRowStyles = useMemo<InboxRowStyles>(
-    () => ({
-      body: styles.body,
-      category: styles.category,
-      rowCard: styles.rowCard,
-      sectionHeading: styles.sectionHeading,
-      time: styles.time,
-      title: styles.title,
-    }),
-    [styles.body, styles.category, styles.rowCard, styles.sectionHeading, styles.time, styles.title]
-  );
-
   const renderItem = useCallback(
-    ({ item, index }: { item: DTOAccountNotification; index: number }) => (
-      <InboxNotificationRow
-        formatRelativeTime={formatRelativeTime}
-        item={item}
-        onPress={handleNotificationPress}
-        showEarlierHeading={index === earlierSectionStartIndex && hasEarlierSection}
-        styles={inboxRowStyles}
-      />
+    ({ item }: { item: DTOAccountNotification }) => (
+      <InboxNotificationRow item={item} onPress={handleNotificationPress} />
     ),
-    [
-      earlierSectionStartIndex,
-      formatRelativeTime,
-      handleNotificationPress,
-      hasEarlierSection,
-      inboxRowStyles,
-    ]
+    [handleNotificationPress]
   );
 
   return (
@@ -589,12 +552,11 @@ export function NotificationsInboxScreen({ navigation }: NotificationsInboxScree
         title={t('nav.tab.notifications')}
       />
       <FillList
+        ItemSeparatorComponent={InboxNotificationSeparator}
         ListEmptyComponent={listEmpty}
         ListFooterComponent={listFooter}
-        ListHeaderComponent={sectionHeader}
         contentContainerStyle={styles.content}
         data={notifications}
-        extraData={`${earlierSectionStartIndex}:${hasEarlierSection}`}
         keyExtractor={inboxRowKeyExtractor}
         onEndReached={handleEndReached}
         onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}

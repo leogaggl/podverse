@@ -14,7 +14,10 @@ import { getFilterDefaultsForPage } from '../../utils/localSettings/localSetting
 import type { MediaListSearchParams, MediaListSsr } from '../_media-lists/mediaListSsr';
 import { firstMediaListSearchParam } from '../_media-lists/mediaListSsr';
 import type { PlaylistsListProps } from './PlaylistsPageClient';
-import { getPlaylistsPageFilterParams } from './PlaylistsPageDropdownConfig';
+import {
+  DEFAULT_PLAYLISTS_PAGE_MEDIUM,
+  getPlaylistsPageFilterParams,
+} from './PlaylistsPageDropdownConfig';
 
 export const searchParamsSchema = z.object({
   page: z
@@ -95,7 +98,7 @@ function resolveBrowseParams(
       page: 1,
       sort: cookieDefaults?.sort ?? 'top',
       range: cookieDefaults?.range ?? 'week',
-      medium: cookieDefaults?.medium ?? 'av',
+      medium: cookieDefaults?.medium ?? DEFAULT_PLAYLISTS_PAGE_MEDIUM,
     };
   }
 
@@ -103,6 +106,6 @@ function resolveBrowseParams(
     page: parsed.data.page,
     sort: parsed.data.sort ?? cookieDefaults?.sort ?? 'top',
     range: parsed.data.range ?? cookieDefaults?.range ?? 'week',
-    medium: parsed.data.medium ?? cookieDefaults?.medium ?? 'av',
+    medium: parsed.data.medium ?? cookieDefaults?.medium ?? DEFAULT_PLAYLISTS_PAGE_MEDIUM,
   };
 }

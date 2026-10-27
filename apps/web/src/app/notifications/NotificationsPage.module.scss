@@ -1,69 +1,111 @@
+@use '../../styles/mixins/lineClamp' as *;
+
 .listWrapper {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xl);
 }
 
-.sectionHeading {
-  margin: 0;
-  color: var(--text-color-primary);
-}
-
 .rows {
   display: flex;
   flex-direction: column;
+}
+
+.entry + .entry {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-color-opaque);
+}
+
+.entry {
+  position: relative;
+  display: flex;
+  align-items: center;
   gap: var(--spacing-md);
+  // The unread column plus this gap is the left inset. The end padding matches it.
+  padding-inline-end: var(--spacing-lg);
+  color: inherit;
+  text-decoration: none;
+  border-radius: 0;
+}
+
+.unreadSlot {
+  flex-shrink: 0;
+  width: var(--spacing-md);
+  height: var(--spacing-md);
+}
+
+.unreadDot {
+  display: block;
+  width: var(--spacing-md);
+  height: var(--spacing-md);
+  border-radius: 50%;
+  background-color: var(--text-color-accent);
+}
+
+.unreadAnnouncer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .row {
+  // Two title lines, the gap, the time line, and a little extra so the art covers the stack.
+  --notification-artwork-size: calc(
+    var(--font-size-base) * var(--text-line-height) * 2 + var(--spacing-xs) + var(--font-size-xs) *
+      var(--text-line-height) + var(--spacing-sm)
+  );
+
   display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--spacing-xl);
+  min-width: 0;
+}
+
+.artwork {
+  flex-shrink: 0;
+  width: var(--notification-artwork-size);
+  height: var(--notification-artwork-size);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+}
+
+.copy {
+  display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-lg);
-  border: var(--border-width) solid var(--border-color-primary);
-  border-radius: var(--border-radius);
-  background: var(--background-color-secondary);
+  gap: var(--spacing-xs);
+  min-width: 0;
 }
 
-.rowTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--spacing-md);
-}
+.line {
+  @include line-clamp(2);
 
-.categoryPill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--spacing-sm);
-  height: 1.25rem;
-  border-radius: 999px;
-  background: var(--color-background-tertiary);
   color: var(--text-color-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-base);
+  line-height: var(--text-line-height);
 }
 
 .timeText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-color-secondary);
   font-size: var(--font-size-xs);
-}
-
-.title {
-  margin: 0;
-}
-
-.body {
-  margin: 0;
-  color: var(--text-color-secondary);
+  line-height: var(--text-line-height);
 }
 
 .empty {
   margin: 0;
   color: var(--text-color-secondary);
-}
-
-.recentActivityNote {
-  margin: 0;
-  color: var(--text-color-secondary);
-  font-size: var(--font-size-sm);
 }

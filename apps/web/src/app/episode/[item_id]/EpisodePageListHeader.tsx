@@ -5,7 +5,6 @@ import React from 'react';
 
 import type { QueryParamsItemSort, QueryParamsItemType } from '@podverse/helpers-requests';
 import type { ChipRowItem } from '@podverse/ui';
-import { Button } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
 import { ListSortChip } from '../../../components/ListSortChip/ListSortChip';
@@ -28,12 +27,11 @@ export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
   ssrHasTranscripts,
   ssrCanShowBoosts,
 }) => {
-  const { filterParams, setFilterParams, autoScrollOn, setAutoScrollOn } = useEpisodePageContext();
+  const { filterParams, setFilterParams } = useEpisodePageContext();
   const { type, sort, range } = filterParams;
   const tFilters = useTranslations('filters');
   const tInfo = useTranslations('info');
   const tFeatures = useTranslations('features');
-  const tMisc = useTranslations('misc');
   const tValue = useTranslations('value');
 
   const items: ChipRowItem<QueryParamsItemType>[] = [
@@ -121,12 +119,6 @@ export const EpisodePageListHeader: React.FC<EpisodePageListHeaderProps> = ({
         testId="episode-detail-sort"
         value={soundbiteSort}
       />
-    );
-  } else if (type === 'transcript') {
-    trailing = (
-      <Button onClick={() => setAutoScrollOn(!autoScrollOn)} variant="mini">
-        {autoScrollOn ? tMisc('autoscroll.autoscroll_on') : tMisc('autoscroll.autoscroll_off')}
-      </Button>
     );
   }
 

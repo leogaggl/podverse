@@ -277,3 +277,335 @@
 - Who notices: anyone typing on Search, Home's subscription filter, a podcast or add-by-RSS
   detail filter, or the Add by RSS library filter
 - Operator steps: none
+
+## Recommendations uses the same list and grid as Subscriptions and Browse
+
+- Surfaces: web, mobile
+- Change: Recommendations shows podcast, album, and artist artwork in the same list or grid as
+  Subscriptions and Browse. A layout control switches between them and is remembered per chip on
+  that device. There is no sort control. On web the empty column to the right of the list is gone,
+  so the list uses the full content width. The 1–5 strength number is no longer drawn on each row.
+- Who notices: anyone opening Recommendations, signed in or not
+- Operator steps: none
+
+## Player More menu, circled add, and a shorter narrow bar
+
+- Surfaces: web, mobile
+- Change: The player settings gear on web is a horizontal More menu on the now-playing bar and
+  the full player. Share is a row in that menu. Share icons that stay on the page use the same
+  connected-nodes glyph as the mobile player. Add to Playlist, Create Playlist, and Add Feed use
+  a circled plus, and mobile Add by RSS and Create Playlist do too. On a narrow web window the
+  now-playing bar keeps play, jump back, jump forward, and device switch when more than one
+  device is connected. Add, More, track skip, and the other controls are on the full player.
+- Who notices: anyone using the web player, and mobile users adding a feed or creating a playlist
+- Operator steps: none
+
+## Narrow web player progress sits on the top edge
+
+- Surfaces: web
+- Change: On a narrow window, the now-playing bar draws playback progress as a thin line along
+  its top edge, including while a chapter or clip strip is showing above the bar. The progress
+  row that sat under the title and buttons is gone, and the bar is shorter by that row. Wider
+  windows keep the progress line and times under the transport buttons. Seeking still works from
+  the top line.
+- Who notices: anyone playing audio or video in a narrow browser window
+- Operator steps: none
+
+## Notifications inbox is a bordered row with one line of text
+
+- Surfaces: web, mobile, parser, i18n
+- Change: Each inbox notification is a bordered row with no fill, a left image (item artwork, then
+  channel artwork, then the placeholder), and one line such as
+  "New episode: Channel – Item" or "System update: …". Livestreams say started or scheduled.
+  "New content" is only used when the medium is unknown. Web keeps the list at the same max width
+  as other forms, with the usual page inset. New notifications store the image URL and titles on
+  the payload; older rows still format from their existing title and body. The inbox has no intro
+  sentence and no Unread or Earlier headings. A blue dot on the left marks rows that were unread
+  when the list opened. The relative time sits on a smaller line under the title, and the artwork
+  is centered on that text stack. The mobile arrival banner uses that same title and time stack.
+- Who notices: anyone opening Notifications on web or mobile
+- Operator steps: none
+
+## Local user-content seed starts the parser
+
+- Surfaces: workers
+- Change: `workers:seed_local_user_content` now starts the same parser stack as the other dev
+  parse commands, including the Podcast Index client. Without that, the command could write the
+  dummy system notifications but could not fetch or parse feeds.
+- Who notices: operators seeding a local database
+- Operator steps: run `npm run workers:seed_local_user_content` again after workers rebuild
+
+## Local user-content seed includes inbox notifications
+
+- Surfaces: workers
+- Change: `workers:seed_local_user_content` parses a small Podcast Index set when the local
+  database is missing podcasts, music, a publisher-music feed, or a video feed, then writes one
+  inbox notification of every type for each local login (`local-trial`, `local-premium`, and
+  `dummy01`–`dummy06`). Content rows use the parsed show, episode, track, album, livestream, or
+  Podcast Index id. Product update, maintenance, terms of service, and general are dummy copy.
+  General is marked read. Re-running the command does not duplicate those rows.
+- Who notices: operators seeding a local database for manual testing
+- Operator steps: from the repo root, `npm run workers:seed_local_user_content` after local
+  accounts exist and Podcast Index keys are in the workers env
+
+## Add by RSS empty state waits for login
+
+- Surfaces: web, i18n
+- Change: Add by RSS no longer shows an empty-library banner while signed out (podcasts,
+  episodes, artists, albums, and tracks). After login, an empty podcast or episode list says
+  "No personal RSS feeds added yet."
+- Who notices: signed-out visitors on Add by RSS, and signed-in listeners with no personal RSS feeds
+- Operator steps: none
+
+## Queues and History use the full content width
+
+- Surfaces: web
+- Change: Queues and History no longer reserve an empty column on the right of the list. The
+  list, including the signed-out login prompt, spans the content area.
+- Who notices: anyone opening Queues or History on a wide window
+- Operator steps: none
+
+## Signed-out My Clips stays on the page and asks for login
+
+- Surfaces: web
+- Change: My Clips (`/my-profile?tab=clips`) and a direct visit to My Profile no longer send a
+  signed-out listener back to the home page. The page stays put, titled My Clips or My Profile,
+  and says "Log in to use this feature." with a Login button that opens the login dialog.
+- Who notices: signed-out visitors who open My Clips or My Profile
+- Operator steps: none
+
+## Membership page content is centered
+
+- Surfaces: web
+- Change: The membership page keeps its contact line, purchase actions, feature table, and
+  trial limitations in one column, centered in the page, instead of stretching them across the
+  content area.
+- Who notices: anyone opening Membership on the website
+- Operator steps: none
+
+## Playlists filter includes All and remembers the last choice
+
+- Surfaces: web, mobile
+- Change: The Playlists medium filter offers All, Podcasts, and Music. All is selected until a
+  listener picks Podcasts or Music. The website remembers that choice in the local-settings
+  cookie (Playlists and Browse Playlists separately). The phone remembers it with the other
+  playlist list filters, and the list loads with that medium next time.
+- Who notices: anyone opening Playlists on the website or in the app
+- Operator steps: none
+
+## Playlist and Add by RSS actions share the chip row
+
+- Surfaces: web
+- Change: Create Playlist sits at the far right of the playlist chips when the row is wide
+  enough, and above those chips, aligned to the left, when it is not. It is no longer in the
+  page title row. Add Feed and Check for Updates follow the same layout on Add by RSS. The
+  space above that first control matches History.
+- Who notices: anyone opening Playlists or Add by RSS on the website
+- Operator steps: none
+
+## Chip-row actions line up with the chips
+
+- Surfaces: web
+- Change: Create Playlist, Add Feed, and Check for Updates sit on the same vertical center as
+  the chips beside them. The space under the row stays below the whole row.
+- Who notices: anyone opening Playlists or Add by RSS on a wide window
+- Operator steps: none
+
+## Add by RSS actions stay one group and match Create Playlist
+
+- Surfaces: web
+- Change: Add Feed and Check for Updates stay on one line and move together when that line
+  wraps above the chips. They use the same compact outline button as Create Playlist.
+- Who notices: anyone opening Add by RSS on the website
+- Operator steps: none
+
+## Public Developer page
+
+- Surfaces: web, api
+- Change: The website footer links to a public Developer page. The page explains API keys
+  (create one in Settings after sign-in, shown once, membership required, what a key cannot do).
+  API Reference and OpenAPI Spec are the same described-link cards used in Settings. The body is
+  served from `GET /managed-copy/developer`, so the wording can change
+  without an app release.
+- Who notices: anyone opening Developer from the website footer, signed in or not
+- Operator steps: none
+
+## Notification thumbnails sit just above the text
+
+- Surfaces: web, mobile
+- Change: Inbox artwork is a little taller than the title line plus the time line, instead of
+  the media-list cover size. An empty artwork mark fills that same slot. Inbox rows are
+  separated by a straight hairline, with the same space above the line as below it. The in-app banner
+  uses the same thumbnail size.
+- Who notices: anyone opening Notifications on the website or in the app, and anyone who sees
+  an in-app banner
+- Operator steps: none
+
+## Channel notifications name the publisher feed
+
+- Surfaces: web, mobile, workers
+- Change: A new podcast, new video channel, new album, or Podcast Index preview names the new
+  show or album, then an em dash, then the publisher feed title. Inbox titles wrap to two lines,
+  and the artwork grows to cover that stack. The in-app banner stays one line. The local seed
+  follows Middle Season, writes New album from an album that publisher lists, and writes the
+  Podcast Index preview from another album it lists without parsing that album. New content uses
+  a different episode than New episode. New podcast and New video channel are left out until
+  Podcast Index has a publisher feed of that medium. Re-running the seed replaces the seeded
+  notification rows.
+- Who notices: anyone opening Notifications, and operators seeding a local database
+- Operator steps: from the repo root, after workers rebuild, `npm run workers:seed_local_user_content`
+
+## Notification rows use both side insets
+
+- Surfaces: web
+- Change: The notifications list spans the content column. Each row ends at the same inset from
+  the right edge as it starts from the left, instead of stopping at the form width and leaving
+  the rest of the column empty.
+- Who notices: anyone opening Notifications on the website
+- Operator steps: none
+
+## Item dates include the publish time
+
+- Surfaces: web, mobile
+- Change: Episode, track, clip, chapter, soundbite, and livestream dates on the website and in
+  the app now include the local time beside the year (`Oct 26, 2026 - 11:16 PM`). The clock is the
+  device timezone, with no zone abbreviation. Podcast, album, and artist dates stay as the day
+  only. Membership, session, and playlist dates stay as the day only.
+- Who notices: anyone looking at an item that shares its publish day with another item in the
+  same feed
+- Operator steps: none
+
+## Full player chips sit lower
+
+- Surfaces: mobile
+- Change: On the full player, the section chips (Summary, Clips, Chapters, Transcript) and the
+  pane under them sit one page gutter (16) lower. A sliver of the pane still shows at the bottom
+  edge, in the home-indicator inset, as the color that says the pane can be swiped up. The artwork
+  takes the space the chips gave up. The scrolled sheet still fills the screen under the chips.
+- Who notices: anyone who opens the full player
+- Operator steps: none
+
+## Notifications stay within the settings form width
+
+- Surfaces: web
+- Change: The notifications list uses `FormMaxWidth`, the same 640px cap as settings forms
+  (`--form-max-width-md`). Rows no longer stretch across the content column. Text ends the same
+  distance inside the row hairline as the artwork starts, so a long title does not run into the
+  divider.
+- Who notices: anyone opening Notifications on a wide window
+- Operator steps: none
+
+## Readable transcripts on mobile; web list fills to the footer
+
+- Surfaces: mobile, web
+- Change: The full player, episode detail, track detail, and Add by RSS transcript panes parse
+  transcript files into speaker rows and show them in a virtualized list instead of dumping the
+  raw file into one text block (which left the player sheet looking empty while loading or when
+  empty). On the website, the transcript list keeps a 400px floor and grows down to the page
+  footer when the episode column has room; a gap separates the search field from the list.
+- Who notices: anyone opening a Transcript tab with a linked transcript on mobile or web
+- Operator steps: none
+
+## Transcripts have no row hairlines
+
+- Surfaces: mobile
+- Change: Transcript cues on the full player, episode detail, track detail, and Add by RSS item
+  panes no longer draw a hairline between rows. The vertical padding between cues stays. Web
+  transcript rows already had that padding and no line.
+- Who notices: anyone reading a transcript on mobile
+- Operator steps: none
+
+## Video full screen and picture-in-picture
+
+- Surfaces: mobile
+- Change: While a video is playing in the full player, tapping the picture no longer opens the
+  artwork viewer. The tap fades in a Full Screen button at the bottom right of the video. That
+  button fills the screen, turns the phone sideways, and then lets the phone rotate between
+  sideways and upright until you leave. Leaving the app from that full-screen video puts the
+  video in the system picture-in-picture window on iPhone and Android. Closing that window keeps
+  the audio going. Tapping it to come back returns to full screen.
+- Who notices: anyone playing a video episode
+- Operator steps: rebuild the iOS and Android dev clients so the native player and orientation
+  changes are included
+
+## Full player section chips open the pane
+
+- Surfaces: mobile
+- Change: Tapping Summary, Clips, Chapters, Official Clips, Transcript, People, or Funding on
+  the full player scrolls the screen so that pane fills the space under the chips. Tapping the
+  chip that is already selected does the same. Reduce Motion jumps to the pane. Changing the
+  playing item still returns to the player.
+- Who notices: anyone using the section chips on the full player
+- Operator steps: none
+
+## Switch device stays on the full player
+
+- Surfaces: mobile
+- Change: The switch-device control shows only when two or more of the member's devices are
+  connected, and only on the full-screen player. The mini player does not show it.
+- Who notices: anyone playing on a phone while another signed-in device is connected
+- Operator steps: none
+
+## Notification settings sections and first-subscribe push prompt
+
+- Surfaces: mobile, web
+- Change: Notification settings are grouped into When I Subscribe, Notification Types, Media
+  Notifications, and System Notifications. On the phone, each category has In-App, Push, and
+  Banner; Banner for Livestream moves Scheduled and Started together. Push shows on only when the
+  account preference and this device can deliver. The first signed-in Subscribe on a podcast,
+  album, or artist asks Enable Push or In-App Only before the follow; either answer turns on
+  in-app alerts for that channel, and later Subscribes on that device for that account do not ask
+  again.
+- Who notices: anyone opening notification settings or subscribing while signed in
+- Operator steps: none
+
+## Category notification switch reveals Push and Banner
+
+- Surfaces: mobile, web
+- Change: Each media and system notification category is one base switch. Turning it on means
+  inbox delivery for that category. Push (web and mobile) and Banner (mobile only) appear only
+  while the category is on. Push shows a permission asterisk only when this device cannot deliver
+  yet. Product Updates defaults off for new accounts; Maintenance, Terms of Service, and General
+  stay locked on. Banner prefs stay on the phone.
+- Who notices: anyone opening notification settings
+- Operator steps: none
+
+## Transcript follow, highlight, and filter
+
+- Surfaces: web, mobile, helpers, ui
+- Change: The cue that contains the playhead is orange on web and mobile whether Autoscroll is
+  on or off. Autoscroll (default on for the visit) scrolls that cue into view only when it is
+  off screen. A filter and the Autoscroll On/Off control sit on one pinned row at the top of the
+  transcript pane on episode, track/lyrics, Add by RSS, and the full player. Catalog web pages
+  move the toggle out of the section-chip header into that row; Add by RSS web gets the same
+  controls.
+- Who notices: anyone opening a transcript or lyrics tab while something is playing
+- Operator steps: none
+
+## First-subscribe push prompt loads
+
+- Surfaces: mobile
+- Change: The first-subscribe push dialog hook is a `.tsx` module, so Metro can parse its
+  JSX. Podcast, album, artist, and the full player no longer stop on launch with
+  `Unexpected token` in `useFirstSubscribePushPrompt`.
+- Who notices: anyone opening the app after that prompt was added
+- Operator steps: reload the dev client
+
+## Signed-out notification settings stay off
+
+- Surfaces: mobile
+- Change: More → Settings → Notifications shows every category switch off until the
+  person is logged in. Push and Banner stay hidden until a category is on. Tapping a
+  switch still asks them to log in. The login dialog's button reads OK (`misc.ok`).
+  Logged-in accounts keep their saved switches. Delivery still requires a membership
+  that has not expired.
+- Who notices: anyone opening notification settings while signed out
+- Operator steps: none
+
+## In-app banner reads the account notification
+
+- Surfaces: mobile
+- Change: The banner's relative time, artwork, and title come from the account notification on
+  the queue item. The queue wrapper only carries the id and a short copy pair.
+- Who notices: anyone who sees an in-app notification banner
+- Operator steps: none

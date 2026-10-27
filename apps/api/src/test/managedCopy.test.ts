@@ -59,6 +59,17 @@ describe('GET /managed-copy/:slug', () => {
     expect(res.body.markdown).toContain('start with Trial status');
   });
 
+  it('returns developer markdown without auth', async () => {
+    const res = await request(app).get(`${managedCopyBase}/developer`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.slug).toBe('developer');
+    expect(res.body.updated_at).toBe(MANAGED_COPY_UPDATED_AT.developer);
+    expect(res.body.markdown).toContain('{{described_link:api_reference}}');
+    expect(res.body.markdown).toContain('Creating a key requires a membership.');
+    expect(res.body.markdown).not.toContain('{brand_name}');
+  });
+
   it('returns clip-how-to markdown without auth', async () => {
     const res = await request(app).get(`${managedCopyBase}/clip-how-to`);
 

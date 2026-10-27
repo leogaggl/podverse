@@ -62,6 +62,10 @@ name: Add By RSS Track Flow
       id: add-by-rss-track-detail-tab-transcript-content
       text: ".*Magni valetudo odio.*"
     timeout: ${TIMEOUT_SLOWER}
+- assertVisible:
+    id: add-by-rss-track-detail-transcript-filter-input
+- assertVisible:
+    id: add-by-rss-track-detail-transcript-autoscroll
 - takeScreenshot: add-by-rss-track-detail-lyrics
 - runFlow: shared/stack-back.yaml
 # A track row tap plays; it does not open the page.
@@ -81,23 +85,21 @@ name: Add By RSS Track Flow
     timeout: ${TIMEOUT_FAST}
 - tapOn:
     id: full-player-section-transcript
-# The sheet peeks under the player. Swipes on the chip strip raise the outer column so the
-# transcript text is on screen. Playback keeps the clock moving, so each swipe settles on a bound.
-- swipe:
-    from:
-      id: full-player-sections
-    direction: UP
-    waitToSettleTimeoutMs: 1000
-- swipe:
-    from:
-      id: full-player-sections
-    direction: UP
-    waitToSettleTimeoutMs: 1000
+# The chip tap scrolls the outer column. The title link leaving means the transcript sheet is
+# up; the cue can still be loading. Playback keeps the clock moving.
+- extendedWaitUntil:
+    notVisible:
+      id: full-player-title-link
+    timeout: ${TIMEOUT_SLOW}
 - extendedWaitUntil:
     visible:
       id: full-player-transcript-text
       text: ".*Magni valetudo odio.*"
     timeout: ${TIMEOUT_SLOW}
+- assertVisible:
+    id: full-player-transcript-filter-input
+- assertVisible:
+    id: full-player-transcript-autoscroll
 # Swipes on the chip strip drive the outer scroller. Direction down brings the title back.
 - repeat:
     times: 4

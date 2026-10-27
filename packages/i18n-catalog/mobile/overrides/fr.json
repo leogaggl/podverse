@@ -309,7 +309,9 @@
     }
   },
   "media_player": {
-    "chapter_tooltip": ""
+    "chapter_tooltip": "",
+    "enter_video_full_screen": "",
+    "exit_video_full_screen": ""
   },
   "misc": {
     "clear": ""

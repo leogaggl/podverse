@@ -174,7 +174,7 @@ export function FullPlayerUtilityRow({
       ) : null}
       {showDeviceSlot ? (
         <View style={styles.slot}>
-          <PlaybackDeviceButton appearance="full" testID="full-player-devices" />
+          <PlaybackDeviceButton testID="full-player-devices" />
         </View>
       ) : null}
       {showLocalControls ? (

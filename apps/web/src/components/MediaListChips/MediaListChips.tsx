@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { useEffect, useOptimistic, useTransition } from 'react';
 
-import { ChipRow } from '@podverse/ui';
+import { ChipRow, ChipRowWithActions } from '@podverse/ui';
 
 import type { MediaListChip, MediaListChipsPage } from '../../utils/mediaListChips';
 import {
@@ -32,6 +32,13 @@ type MediaListChipsProps = MediaListChipsConfig & {
    * Sort, then the gear. Mount each only when the selected chip can use it.
    */
   trailing?: ReactNode;
+  /**
+   * Page actions ahead of the chips. They share the chip row when the line is wide enough, and
+   * sit above it, aligned to the start, when it is not.
+   */
+  actions?: ReactNode;
+  /** Marks the actions group for tests. */
+  actionsTestId?: string;
 };
 
 /**
@@ -41,7 +48,15 @@ type MediaListChipsProps = MediaListChipsConfig & {
  * stay hidden. The row keeps its horizontal offset and focus across that render. The last chip
  * clicked wins.
  */
-export function MediaListChips({ page, chips, selected, urlChip, trailing }: MediaListChipsProps) {
+export function MediaListChips({
+  page,
+  chips,
+  selected,
+  urlChip,
+  trailing,
+  actions,
+  actionsTestId,
+}: MediaListChipsProps) {
   const t = useTranslations();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -74,18 +89,36 @@ export function MediaListChips({ page, chips, selected, urlChip, trailing }: Med
     });
   };
 
+  const hasActions = typeof actions !== 'boolean' && actions !== undefined && actions !== null;
+  const chipRow = (
+    <ChipRow
+      className={classNames(
+        !hasActions && styles.chipRow,
+        !hasActions && isPending && styles.chipRowPending
+      )}
+      items={chips.map((chip) => ({ key: chip, label: t(MEDIA_LIST_CHIP_LABEL_KEYS[chip]) }))}
+      memoryKey={`media-list-chips-${page}`}
+      onSelect={onSelect}
+      selectedKey={shownChip}
+      testId="media-list-chips"
+      trailing={trailing}
+      trailingHidden={isPending}
+    />
+  );
+
   return (
     <>
-      <ChipRow
-        className={classNames(styles.chipRow, isPending && styles.chipRowPending)}
-        items={chips.map((chip) => ({ key: chip, label: t(MEDIA_LIST_CHIP_LABEL_KEYS[chip]) }))}
-        memoryKey={`media-list-chips-${page}`}
-        onSelect={onSelect}
-        selectedKey={shownChip}
-        testId="media-list-chips"
-        trailing={trailing}
-        trailingHidden={isPending}
-      />
+      {hasActions ? (
+        <ChipRowWithActions
+          actions={actions}
+          actionsTestId={actionsTestId}
+          className={classNames(styles.chipRow, isPending && styles.chipRowPending)}
+        >
+          {chipRow}
+        </ChipRowWithActions>
+      ) : (
+        chipRow
+      )}
       {isPending ? <MediaListLoadingSpinner className={styles.pendingLoading} /> : null}
     </>
   );

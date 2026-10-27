@@ -4,13 +4,18 @@ import { useTranslations } from 'next-intl';
 import React, { useRef, useState } from 'react';
 
 import type { DTOAccount, DTOChannel, DTOPlaylist } from '@podverse/helpers';
-import { Button } from '@podverse/ui';
+import { Button, Modal } from '@podverse/ui';
 
 import { useAccount } from '../../../contexts/Account';
 import { useModals } from '../../../contexts/Modals';
 import { getApiRequestService } from '../../../factories/apiRequestService';
 import { useMembershipGate } from '../../../hooks/useMembershipGate';
 import { followedDirectoryArtistAlbumIdTexts } from '../../../lib/artistUnsubscribe';
+import type { FirstSubscribePushChoice } from '../../../lib/notifications/firstSubscribePushPrompt';
+import {
+  applyFirstSubscribePushChoice,
+  hasAnsweredFirstSubscribePushPrompt,
+} from '../../../lib/notifications/firstSubscribePushPrompt';
 import { UnsubscribeArtistModal } from './UnsubscribeArtistModal';
 
 import styles from '../../../styles/components/Common/Media/Header/SubscribeButton.module.scss';
@@ -32,6 +37,7 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
   const tFeatures = useTranslations('features');
   const tInstructions = useTranslations('instructions');
   const tMisc = useTranslations('misc');
+  const tSettings = useTranslations('settings');
   const { loggedInAccount, setLoggedInAccount } = useAccount();
   const { setModalLoginRequired } = useModals();
   const { tryHandleMembershipGateError } = useMembershipGate();
@@ -40,12 +46,48 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
     'artist_only' | 'artist_and_albums' | null
   >(null);
   const artistPromptInFlight = useRef(false);
+  const [pushPromptChannelIdText, setPushPromptChannelIdText] = useState<string | null>(null);
+  const [pushPromptBusy, setPushPromptBusy] = useState(false);
+  const pushPromptInFlight = useRef(false);
 
   if (kind === 'podcast' || kind === 'artist' || kind === 'album') {
     const channel = entity as DTOChannel;
     const isSubscribed = loggedInAccount?.account_following_channels?.some(
       (account_following_channel) => account_following_channel.channel_id === channel.id
     );
+
+    const completeSubscribeWithPushChoice = async (choice: FirstSubscribePushChoice) => {
+      if (
+        pushPromptInFlight.current ||
+        loggedInAccount === null ||
+        pushPromptChannelIdText === null
+      ) {
+        return;
+      }
+      pushPromptInFlight.current = true;
+      setPushPromptBusy(true);
+      const channelIdText = pushPromptChannelIdText;
+      const accountIdText = loggedInAccount.id_text;
+      try {
+        const updatedAccount = await apiRequestService.reqAccountFollowChannel({
+          channel_id_text: channelIdText,
+        });
+        await setLoggedInAccount(updatedAccount);
+        await applyFirstSubscribePushChoice({
+          accountIdText,
+          channelIdText,
+          choice,
+        });
+      } catch (error) {
+        if (!tryHandleMembershipGateError(error)) {
+          throw error;
+        }
+      } finally {
+        pushPromptInFlight.current = false;
+        setPushPromptBusy(false);
+        setPushPromptChannelIdText(null);
+      }
+    };
 
     const toggleSubscribe = async () => {
       if (!loggedInAccount) {
@@ -72,6 +114,8 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
             channel_id_text: channel.id_text,
           });
           await setLoggedInAccount(updatedAccount);
+        } else if (!hasAnsweredFirstSubscribePushPrompt(loggedInAccount.id_text)) {
+          setPushPromptChannelIdText(channel.id_text);
         } else {
           const updatedAccount = await apiRequestService.reqAccountFollowChannel({
             channel_id_text: channel.id_text,
@@ -137,6 +181,44 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
             void runArtistUnsubscribe('artist_and_albums');
           }}
         />
+        <Modal
+          ariaLabel={tSettings('notifications.first_subscribe_push_title')}
+          closeButtonAriaLabel={tMisc('close_modal')}
+          header={tSettings('notifications.first_subscribe_push_title')}
+          isOpen={pushPromptChannelIdText !== null}
+          onClose={() => {
+            if (pushPromptBusy) {
+              return;
+            }
+            void completeSubscribeWithPushChoice('in_app_only');
+          }}
+        >
+          <Modal.Body>
+            <p>{tSettings('notifications.first_subscribe_push_body')}</p>
+          </Modal.Body>
+          <Modal.Actions>
+            <Button
+              disabled={pushPromptBusy}
+              onClick={() => {
+                void completeSubscribeWithPushChoice('in_app_only');
+              }}
+              type="button"
+              variant="secondary"
+            >
+              {tSettings('notifications.first_subscribe_in_app_only')}
+            </Button>
+            <Button
+              disabled={pushPromptBusy}
+              onClick={() => {
+                void completeSubscribeWithPushChoice('enable_push');
+              }}
+              type="button"
+              variant="primary"
+            >
+              {tSettings('notifications.first_subscribe_enable_push')}
+            </Button>
+          </Modal.Actions>
+        </Modal>
       </>
     );
   } else if (kind === 'playlist') {

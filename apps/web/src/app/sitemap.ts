@@ -9,6 +9,7 @@ const STATIC_SITEMAP_PATHS = [
   '/videos',
   '/profiles',
   '/about',
+  '/developer',
   '/contact',
   '/terms',
   '/donate',

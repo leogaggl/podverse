@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import {
   E2E_EMBED_PLAYLIST_ID_TEXT,
@@ -37,13 +37,11 @@ test.describe('Web SEO noindex routes', () => {
     });
   });
 
-  test('guest my-profile route remains non-indexable even when it redirects', async ({
+  test('guest my-profile route stays on the page and remains non-indexable', async ({
     request,
   }) => {
     const response = await request.get('/my-profile', { maxRedirects: 0 });
-    if (response.status() >= 300 && response.status() < 400) {
-      return;
-    }
+    expect(response.status()).toBeLessThan(300);
 
     const html = await response.text();
     expectRobotsNoindex(html);

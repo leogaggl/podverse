@@ -10,9 +10,10 @@ import type {
 } from '@podverse/helpers';
 import {
   AccountNotificationTypeEnum,
+  getDefaultNotificationCategoryPreference,
   NotificationCategoryEnum as NotificationCategoryEnumValues,
 } from '@podverse/helpers';
-import { Button, CheckboxField, Divider, Modal, SwitchButton } from '@podverse/ui';
+import { Button, Divider, Modal, SwitchButton } from '@podverse/ui';
 
 import { useAccount } from '../../../../contexts/Account';
 import { useModals } from '../../../../contexts/Modals';
@@ -25,6 +26,55 @@ import { usePushChannelControls } from './usePushChannelControls';
 import styles from '../../../../styles/components/Settings/Panels/SettingsNotifications/SettingsNotifications.module.scss';
 
 const PUSH_REQUIREMENT_ID = 'notification-push-requirement';
+
+type PreferenceMetaRow = {
+  category: NotificationCategoryEnum;
+  titleKey: string;
+  descriptionKey: string;
+  forceInAppEnabled: boolean;
+};
+
+const MEDIA_PREFERENCE_ROWS: readonly PreferenceMetaRow[] = [
+  {
+    category: NotificationCategoryEnumValues.NewContent,
+    titleKey: 'category_new_content',
+    descriptionKey: 'category_new_content_description',
+    forceInAppEnabled: false,
+  },
+  {
+    category: NotificationCategoryEnumValues.Livestream,
+    titleKey: 'category_livestream',
+    descriptionKey: 'category_livestream_description',
+    forceInAppEnabled: false,
+  },
+];
+
+const SYSTEM_PREFERENCE_ROWS: readonly PreferenceMetaRow[] = [
+  {
+    category: NotificationCategoryEnumValues.ProductUpdate,
+    titleKey: 'category_product_update',
+    descriptionKey: 'category_product_update_description',
+    forceInAppEnabled: false,
+  },
+  {
+    category: NotificationCategoryEnumValues.Maintenance,
+    titleKey: 'category_maintenance',
+    descriptionKey: 'category_maintenance_description',
+    forceInAppEnabled: true,
+  },
+  {
+    category: NotificationCategoryEnumValues.TermsOfService,
+    titleKey: 'category_terms_of_service',
+    descriptionKey: 'category_terms_of_service_description',
+    forceInAppEnabled: true,
+  },
+  {
+    category: NotificationCategoryEnumValues.General,
+    titleKey: 'category_general',
+    descriptionKey: 'category_general_description',
+    forceInAppEnabled: true,
+  },
+];
 
 export function SettingsNotifications() {
   const { disableWebPush, enableWebPush, loadingWebPush, registered, upRegistered } =
@@ -46,55 +96,6 @@ export function SettingsNotifications() {
   const [affectedCount, setAffectedCount] = useState(0);
 
   const pushMethodRegistered = registered || upRegistered;
-
-  type PreferenceMetaRow = {
-    category: NotificationCategoryEnum;
-    titleKey: string;
-    descriptionKey: string;
-    forceInAppEnabled: boolean;
-  };
-
-  const preferenceRows = useMemo<PreferenceMetaRow[]>(
-    () => [
-      {
-        category: NotificationCategoryEnumValues.NewContent,
-        titleKey: 'category_new_content',
-        descriptionKey: 'category_new_content_description',
-        forceInAppEnabled: false,
-      },
-      {
-        category: NotificationCategoryEnumValues.Livestream,
-        titleKey: 'category_livestream',
-        descriptionKey: 'category_livestream_description',
-        forceInAppEnabled: false,
-      },
-      {
-        category: NotificationCategoryEnumValues.ProductUpdate,
-        titleKey: 'category_product_update',
-        descriptionKey: 'category_product_update_description',
-        forceInAppEnabled: false,
-      },
-      {
-        category: NotificationCategoryEnumValues.Maintenance,
-        titleKey: 'category_maintenance',
-        descriptionKey: 'category_maintenance_description',
-        forceInAppEnabled: true,
-      },
-      {
-        category: NotificationCategoryEnumValues.TermsOfService,
-        titleKey: 'category_terms_of_service',
-        descriptionKey: 'category_terms_of_service_description',
-        forceInAppEnabled: true,
-      },
-      {
-        category: NotificationCategoryEnumValues.General,
-        titleKey: 'category_general',
-        descriptionKey: 'category_general_description',
-        forceInAppEnabled: true,
-      },
-    ],
-    []
-  );
 
   type NotificationTypeMetaRow = {
     labelKey: string;
@@ -276,6 +277,18 @@ export function SettingsNotifications() {
       : (params.nextInAppEnabled ?? existing.in_app_enabled);
     const nextPushEnabled = params.nextPushEnabled ?? existing.push_enabled;
 
+    if (params.nextPushEnabled === true && !pushMethodRegistered) {
+      await enableWebPush();
+      const permissionGranted =
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'granted';
+      if (!permissionGranted) {
+        setLoadingFor(loadingKey, false);
+        return;
+      }
+    }
+
     await withLoading(loadingKey, async () => {
       try {
         const updated = await getApiRequestService().reqNotificationPreferencesUpdate({
@@ -298,30 +311,82 @@ export function SettingsNotifications() {
     setLoadingFor(loadingKey, false);
   };
 
+  const renderPreferenceRows = (rows: readonly PreferenceMetaRow[]) => {
+    return rows.map((row) => {
+      const pref = preferences.find((p) => p.category === row.category);
+      const preferenceLoadingKey = `notification-preferences.${row.category}`;
+      const defaultInApp = getDefaultNotificationCategoryPreference(row.category).in_app_enabled;
+      const categoryEnabled = row.forceInAppEnabled ? true : (pref?.in_app_enabled ?? defaultInApp);
+      const showOptionalChannels = categoryEnabled;
+      const accountPushEnabled = pref?.push_enabled ?? false;
+      const pushChecked = accountPushEnabled && pushMethodRegistered;
+      const showPushAsterisk = showOptionalChannels && !pushMethodRegistered;
+
+      return (
+        <div className={styles.preferenceRow} key={row.category}>
+          <div className={styles.preferenceRowHeader}>
+            <p className={styles.preferenceDescription}>
+              {tSettings(`notifications.${row.descriptionKey}`)}
+            </p>
+            {row.category === NotificationCategoryEnumValues.ProductUpdate ? (
+              <p className={styles.preferenceHint}>
+                {tSettings('notifications.product_update_enable_hint')}
+              </p>
+            ) : null}
+          </div>
+          <div className={styles.preferenceControls}>
+            <SwitchButton
+              id={`notifications-${row.category}`}
+              checked={categoryEnabled}
+              label={tSettings(`notifications.${row.titleKey}`)}
+              loading={!!loadingMap[preferenceLoadingKey]}
+              onChange={(checked) => {
+                if (row.forceInAppEnabled) {
+                  return;
+                }
+                void updatePreference({
+                  category: row.category,
+                  nextInAppEnabled: checked,
+                  forceInAppEnabled: row.forceInAppEnabled,
+                });
+              }}
+              stateOffLabel={tMisc('off')}
+              stateOnLabel={tMisc('on')}
+            />
+            {showOptionalChannels ? (
+              <SwitchButton
+                id={`notifications-${row.category}-push`}
+                aria-describedby={showPushAsterisk ? PUSH_REQUIREMENT_ID : undefined}
+                checked={pushChecked}
+                label={
+                  showPushAsterisk
+                    ? `${tSettings('notifications.preference_push')} *`
+                    : tSettings('notifications.preference_push')
+                }
+                loading={!!loadingMap[preferenceLoadingKey] || loadingWebPush}
+                onChange={(checked) =>
+                  void updatePreference({
+                    category: row.category,
+                    nextPushEnabled: checked,
+                    forceInAppEnabled: row.forceInAppEnabled,
+                  })
+                }
+                stateOffLabel={tMisc('off')}
+                stateOnLabel={tMisc('on')}
+              />
+            ) : null}
+          </div>
+        </div>
+      );
+    });
+  };
+
   return (
     <>
-      <SwitchButton
-        id="webpush"
-        label={tSettings('notifications.web_push')}
-        checked={registered}
-        onChange={async (next) => {
-          if (next) {
-            await enableWebPush();
-          } else {
-            await disableWebPush();
-          }
-        }}
-        loading={loadingWebPush}
-        helpAriaLabel={tMisc('more_info')}
-        helpText={tSettings('notifications.web_push_help')}
-        aria-describedby="webpush-help"
-        stateOffLabel={tMisc('off')}
-        stateOnLabel={tMisc('on')}
-      />
-
-      <Divider withSpacing />
-
       <SettingsSection>
+        <h3 className={styles.preferencesHeading}>
+          {tSettings('notifications.when_i_subscribe_section')}
+        </h3>
         <SwitchButton
           id="notification-auto-enable-on-subscribe"
           label={tSettings('notifications.auto_enable_on_subscribe')}
@@ -360,67 +425,47 @@ export function SettingsNotifications() {
 
       <Divider withSpacing />
 
+      <SwitchButton
+        id="webpush"
+        label={tSettings('notifications.web_push')}
+        checked={registered}
+        onChange={async (next) => {
+          if (next) {
+            await enableWebPush();
+          } else {
+            await disableWebPush();
+          }
+        }}
+        loading={loadingWebPush}
+        helpAriaLabel={tMisc('more_info')}
+        helpText={tSettings('notifications.web_push_help')}
+        aria-describedby="webpush-help"
+        stateOffLabel={tMisc('off')}
+        stateOnLabel={tMisc('on')}
+      />
+
+      <Divider withSpacing />
+
       <SettingsSection>
         <h3 className={styles.preferencesHeading}>
-          {tSettings('notifications.preference_section')}
+          {tSettings('notifications.media_notifications_section')}
         </h3>
         <p className={styles.preferencesSubheading}>
-          {tSettings('notifications.preference_section_help')}
+          {tSettings('notifications.media_notifications_section_help')}
         </p>
-        {preferenceRows.map((row) => {
-          const pref = preferences.find((p) => p.category === row.category);
-          const preferenceLoadingKey = `notification-preferences.${row.category}`;
-          const inAppChecked = row.forceInAppEnabled ? true : (pref?.in_app_enabled ?? true);
-          const pushChecked = pref?.push_enabled ?? false;
+        {renderPreferenceRows(MEDIA_PREFERENCE_ROWS)}
+      </SettingsSection>
 
-          return (
-            <div className={styles.preferenceRow} key={row.category}>
-              <div className={styles.preferenceRowHeader}>
-                <h4 className={styles.preferenceTitle}>
-                  {tSettings(`notifications.${row.titleKey}`)}
-                </h4>
-                <p className={styles.preferenceDescription}>
-                  {tSettings(`notifications.${row.descriptionKey}`)}
-                </p>
-                {row.category === NotificationCategoryEnumValues.ProductUpdate ? (
-                  <p className={styles.preferenceHint}>
-                    {tSettings('notifications.product_update_disable_hint')}
-                  </p>
-                ) : null}
-              </div>
-              <div className={styles.preferenceControls}>
-                <CheckboxField
-                  id={`notifications-${row.category}-in-app`}
-                  checked={inAppChecked}
-                  disabled={row.forceInAppEnabled || !!loadingMap[preferenceLoadingKey]}
-                  label={tSettings('notifications.preference_in_app')}
-                  onChange={(checked) =>
-                    void updatePreference({
-                      category: row.category,
-                      nextInAppEnabled: checked,
-                      forceInAppEnabled: row.forceInAppEnabled,
-                    })
-                  }
-                />
-                <CheckboxField
-                  id={`notifications-${row.category}-push`}
-                  checked={pushChecked}
-                  describedBy={pushMethodRegistered ? undefined : PUSH_REQUIREMENT_ID}
-                  disabled={!pushMethodRegistered || !!loadingMap[preferenceLoadingKey]}
-                  label={tSettings('notifications.preference_push')}
-                  marker={pushMethodRegistered ? undefined : '*'}
-                  onChange={(checked) =>
-                    void updatePreference({
-                      category: row.category,
-                      nextPushEnabled: checked,
-                      forceInAppEnabled: row.forceInAppEnabled,
-                    })
-                  }
-                />
-              </div>
-            </div>
-          );
-        })}
+      <Divider withSpacing />
+
+      <SettingsSection>
+        <h3 className={styles.preferencesHeading}>
+          {tSettings('notifications.system_notifications_section')}
+        </h3>
+        <p className={styles.preferencesSubheading}>
+          {tSettings('notifications.system_notifications_section_help')}
+        </p>
+        {renderPreferenceRows(SYSTEM_PREFERENCE_ROWS)}
         {pushMethodRegistered ? null : (
           <p className={styles.pushRequirement} id={PUSH_REQUIREMENT_ID}>
             <span aria-hidden="true">* </span>

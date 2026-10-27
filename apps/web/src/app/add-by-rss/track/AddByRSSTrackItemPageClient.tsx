@@ -381,7 +381,7 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
             selectedKey={selectedTab}
             testId="add-by-rss-track-detail-chips"
           />
-          <DetailListWrapper>
+          <DetailListWrapper fill={selectedTab === 'transcript'}>
             {selectedTab === 'summary' &&
               (description ? (
                 <CoreEpisodeSummary
@@ -405,7 +405,7 @@ export const AddByRSSTrackItemPageClient: React.FC<AddByRSSTrackItemPageClientPr
                 {transcriptError ? (
                   <NoResults message={transcriptError} />
                 ) : (
-                  <ItemTranscript autoScrollOn={false} rows={transcriptRows} />
+                  <ItemTranscript rows={transcriptRows} />
                 )}
                 <WebLoadingSpinnerOverlay isLoading={transcriptLoading} />
               </>

@@ -2,6 +2,8 @@ export { Chip } from './Chip';
 export type { ChipProps, ChipVariant } from './Chip';
 export { ChipRow } from './ChipRow';
 export type { ChipRowItem, ChipRowProps } from './ChipRow';
+export { ChipRowWithActions } from './ChipRowWithActions';
+export type { ChipRowWithActionsProps } from './ChipRowWithActions';
 export { MenuChip } from './MenuChip';
 export type { MenuChipOption, MenuChipProps } from './MenuChip';
 export { SortChip } from './SortChip';

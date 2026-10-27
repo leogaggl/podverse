@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatDateAbbrev } from '@podverse/helpers';
+import { formatDateAbbrev, formatDateTimeAbbrev } from '@podverse/helpers';
 import type { DTOItem } from '@podverse/helpers/dto';
 
 import { DownloadRowControl } from '../../components/download/DownloadRowControl';
@@ -291,7 +291,8 @@ const useMetadataAnnouncements = (
 
 const useUpdatedLabel = (
   updatedAt: string | number | null | undefined,
-  fallbackMs: number | null | undefined
+  fallbackMs: number | null | undefined,
+  includeTime: boolean
 ): string | null => {
   const { i18n } = useTranslation();
 
@@ -303,8 +304,11 @@ const useUpdatedLabel = (
       return null;
     }
 
-    return formatDateAbbrev(new Date(epochMs), i18n.language);
-  }, [fallbackMs, i18n.language, updatedAt]);
+    const instant = new Date(epochMs);
+    return includeTime
+      ? formatDateTimeAbbrev(instant, i18n.language)
+      : formatDateAbbrev(instant, i18n.language);
+  }, [fallbackMs, i18n.language, includeTime, updatedAt]);
 };
 
 const useDurationLabel = (duration: string | null | undefined, hidden: boolean): string | null => {
@@ -387,9 +391,13 @@ export const HomeFeedRow = memo(function HomeFeedRow({
   const showInlineTrackMore = customActions === undefined && mediaType === 'tracks';
   const { liveLabel, unseenSpoken } = useMetadataAnnouncements(row.metadata);
   const unseenBadge = row.metadata?.unseenBadge ?? null;
-  const updatedLabel = useUpdatedLabel(row.updatedAt, row.metadata?.latestItemPubDateMs);
-  const isLive = row.metadata?.isLive === true;
   const isChannelList = isChannelListMediaType(mediaType);
+  const updatedLabel = useUpdatedLabel(
+    row.updatedAt,
+    row.metadata?.latestItemPubDateMs,
+    !isChannelList
+  );
+  const isLive = row.metadata?.isLive === true;
   const showItemDot = itemRowShowsUnseenDot(isChannelList, row.updatedAt, itemLastSeenAtMs);
   const showArtwork = showChannelContext && row.removed !== true;
   const contextLineVisible = showContextLine ?? showChannelContext;

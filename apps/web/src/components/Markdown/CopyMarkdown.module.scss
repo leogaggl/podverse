@@ -52,3 +52,11 @@
 .prose strong {
   font-weight: var(--font-weight-bold);
 }
+
+.describedLink {
+  margin-bottom: var(--spacing-lg);
+}
+
+.describedLink:last-child {
+  margin-bottom: 0;
+}

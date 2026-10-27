@@ -4,6 +4,7 @@ import { AppState, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { DTOAccountNotification } from '@podverse/helpers';
+import { accountNotificationImageUrl, formatAccountNotificationLine } from '@podverse/helpers';
 
 import type { AuthStatus } from '../auth/AuthProvider';
 import { useAuth } from '../auth/AuthProvider';
@@ -18,6 +19,10 @@ import {
 } from '../prefs/bannerNotificationPrefs';
 import { openAccountNotificationLink } from '../push/openAccountNotificationLink';
 import { useTheme } from '../theme/useTheme';
+import {
+  accountNotificationLineLabels,
+  formatNotificationRelativeTime,
+} from './accountNotificationLineLabels';
 import type { BannerNotificationKind } from './bannerNotificationPolicy';
 import {
   clearBannerNotificationQueue,
@@ -192,8 +197,9 @@ export function BannerNotificationHost() {
       <View pointerEvents="box-none" style={slotStyle}>
         <BannerNotification
           accessibilityHint={t('settings.notifications.banner_open_hint')}
-          body={visible.body}
+          body={formatNotificationRelativeTime(visible.notification.created_at, t) || null}
           dismissLabel={t('settings.notifications.banner_dismiss')}
+          imageUrl={accountNotificationImageUrl(visible.notification.payload)}
           notificationId={visible.id}
           onClosed={() => {
             dismissVisibleBannerNotification();
@@ -205,7 +211,10 @@ export function BannerNotificationHost() {
             }
             void openAccountNotificationLink(notification);
           }}
-          title={visible.title}
+          title={formatAccountNotificationLine(
+            visible.notification,
+            accountNotificationLineLabels(t)
+          )}
         />
       </View>
     </View>

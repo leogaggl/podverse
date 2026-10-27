@@ -1,4 +1,7 @@
 import type { QueryParamsQueueMedium } from '@podverse/helpers';
+
+/** Playlists of every medium. A stored `av` or `music` choice overrides this. */
+export const DEFAULT_PLAYLISTS_PAGE_MEDIUM: QueryParamsQueueMedium = 'all';
 import type {
   QueryParamsPlaylistsType,
   QueryParamsStatsRange,

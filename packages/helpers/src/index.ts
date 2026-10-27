@@ -35,6 +35,7 @@ export * from './lib/adminAccountCredentialsLimits.js';
 export * from './lib/adminNotificationCampaign.js';
 export * from './lib/appRoutes.js';
 export * from './lib/notificationDestination.js';
+export * from './lib/accountNotificationLine.js';
 export * from './lib/accountNotificationType.js';
 export * from './lib/array.js';
 export * from './lib/channelItunesType.js';

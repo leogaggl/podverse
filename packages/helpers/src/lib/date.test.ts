@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addUtcMonthsClamped,
+  formatDateTimeAbbrev,
   formatDateTimeAbbrevOrFallback,
   fromDatetimeLocalInputValue,
   getRelativeTimeParts,
@@ -45,6 +46,26 @@ describe('addUtcMonthsClamped', () => {
     const base = new Date('2026-08-31T23:59:59.999Z');
     const result = addUtcMonthsClamped(base, 1);
     expect(result.toISOString()).toBe('2026-09-30T23:59:59.999Z');
+  });
+});
+
+describe('formatDateTimeAbbrev', () => {
+  it('places the local time after the year and omits a zone name', () => {
+    const instant = new Date(2026, 9, 26, 23, 16, 0, 0);
+    const locale = 'en-US';
+    const datePart = new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(instant);
+    const timePart = new Intl.DateTimeFormat(locale, {
+      hour: 'numeric',
+      hour12: true,
+      minute: '2-digit',
+    }).format(instant);
+
+    expect(formatDateTimeAbbrev(instant, locale)).toBe(`${datePart} - ${timePart}`);
+    expect(formatDateTimeAbbrev(instant, locale)).not.toMatch(/\bat\b/i);
   });
 });
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import React from 'react';
 
-import { formatDateAbbrev, mergeDTOItemThenChannelImageCandidates } from '@podverse/helpers';
+import { formatDateTimeAbbrev, mergeDTOItemThenChannelImageCandidates } from '@podverse/helpers';
 import { SkeletonFlashImage } from '@podverse/ui';
 
 import { IMAGES } from '../../../../constants/images';
@@ -41,7 +41,7 @@ export const CommonEpisodeListGridNode: React.FC<EpisodeListGridNodeProps> = ({
         <div className={styles.title}>{item.title}</div>
         {showChannelInfo && <div className={styles.channelTitle}>{channel?.title}</div>}
         {item.pub_date && (
-          <span className={styles.lastPubDate}>{formatDateAbbrev(item.pub_date, locale)}</span>
+          <span className={styles.lastPubDate}>{formatDateTimeAbbrev(item.pub_date, locale)}</span>
         )}
       </div>
     </Link>

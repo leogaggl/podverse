@@ -10,6 +10,7 @@ import type {
   DTOItem,
   DTOItemChapter,
   DTOItemSoundbite,
+  TranscriptRow,
 } from '@podverse/helpers';
 import { chapterSectionHasImages, primaryChannelListArtworkUrl } from '@podverse/helpers';
 import { formatHHMMSS } from '@podverse/helpers/time';
@@ -22,6 +23,8 @@ import {
   ItemChapterRow,
   PeoplePane,
   toAboutPersonFromItem,
+  TranscriptFollowBar,
+  TranscriptListRow,
 } from '../../components/content';
 import type { MenuSelectChipOption, SectionChipItem } from '../../components/form';
 import { MenuSelectChip, SectionChipRow } from '../../components/form';
@@ -38,6 +41,8 @@ import { playbackContentRepository } from '../../data/repositories/playbackConte
 import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChromeFlagsRepository';
 import { useItemDescription } from '../../hooks/useItemDescription';
 import { useLoadMoreOnEndReached } from '../../hooks/useLoadMoreOnEndReached';
+import { useTranscriptFollowControls } from '../../hooks/useTranscriptFollowControls';
+import { useTranscriptListAutoscroll } from '../../hooks/useTranscriptListAutoscroll';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
 import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
@@ -56,6 +61,7 @@ import { buildPodcastDetailParams, CHANNEL_BROWSE_STACK_ROUTES } from '../../nav
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
 import { usePlayingChapterIdText } from '../../playback/usePlayingChapterIdText';
+import { usePlayingTranscriptIndex } from '../../playback/usePlayingTranscriptIndex';
 import type { EpisodeClipSort, EpisodeTab } from '../../prefs/detailListPrefs';
 import { EPISODE_CLIP_SORT_OPTIONS } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -80,7 +86,11 @@ type EpisodeDetailScreenProps = NativeStackScreenProps<
 type EpisodePaneRow =
   | { type: 'chapter'; id: string; chapter: DTOItemChapter }
   | { type: 'clip'; id: string; clip: DTOClip }
-  | { type: 'soundbite'; id: string; index: number; soundbite: DTOItemSoundbite };
+  | { type: 'follow-bar'; id: string }
+  | { type: 'soundbite'; id: string; index: number; soundbite: DTOItemSoundbite }
+  | { type: 'transcript'; id: string; index: number; row: TranscriptRow };
+
+const TRANSCRIPT_FOLLOW_BAR_ID = 'transcript-follow-bar';
 
 const CLIP_SORT_LABEL_KEYS: Record<EpisodeClipSort, string> = {
   oldest: 'filters.sort.oldest',
@@ -225,10 +235,6 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           ...typography.caption,
           color: tokens.text.link,
           marginTop: tokens.spacing.sm,
-        },
-        transcript: {
-          ...typography.body,
-          color: themeStyles.textPrimary.color,
         },
       }),
     [themeStyles, tokens]
@@ -412,7 +418,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     soundbiteRows,
     supportedTabs,
     tabErrorKey,
-    transcriptText,
+    transcriptRows,
   } = useEpisodeSectionPanes({
     episode,
     itemIdText: episodeId,
@@ -425,9 +431,34 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     chapters: chapterRows,
     itemMediaId: episode?.id_text ?? null,
   });
+  const {
+    autoScrollOn,
+    filteredRows: filteredTranscriptRows,
+    filterTerm,
+    setFilterTerm,
+    toggleAutoScroll,
+  } = useTranscriptFollowControls({
+    itemMediaId: episode?.id_text ?? null,
+    rows: transcriptRows,
+  });
+  const playingTranscriptIndex = usePlayingTranscriptIndex({
+    itemMediaId: episode?.id_text ?? null,
+    rows: filteredTranscriptRows,
+  });
+  const transcriptStickyOffset = activeTab === 'transcript' && transcriptRows.length > 0 ? 1 : 0;
+  const {
+    onScrollToIndexFailed: onTranscriptScrollToIndexFailed,
+    onViewableItemsChanged: onTranscriptViewableItemsChanged,
+    viewabilityConfig: transcriptViewabilityConfig,
+  } = useTranscriptListAutoscroll({
+    activeIndex: playingTranscriptIndex,
+    autoScrollOn: autoScrollOn && activeTab === 'transcript',
+    dataIndexOffset: transcriptStickyOffset,
+    listRef,
+  });
   const listExtraData = `${activeTab}:${clipSort}:${clipHasMore}:${isTabLoading}:${
     playingChapterIdText ?? 'none'
-  }`;
+  }:${playingTranscriptIndex}:${autoScrollOn}:${filterTerm}`;
 
   useEffect(() => {
     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
@@ -534,8 +565,30 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
         type: 'soundbite',
       }));
     }
+    if (activeTab === 'transcript') {
+      if (transcriptRows.length === 0) {
+        return [];
+      }
+      return [
+        { id: TRANSCRIPT_FOLLOW_BAR_ID, type: 'follow-bar' as const },
+        ...filteredTranscriptRows.map((row, index) => ({
+          id: `transcript-${index}`,
+          index,
+          row,
+          type: 'transcript' as const,
+        })),
+      ];
+    }
     return [];
-  }, [activeTab, chapterRows, clipRows, isTabLoading, soundbiteRows]);
+  }, [
+    activeTab,
+    chapterRows,
+    clipRows,
+    filteredTranscriptRows,
+    isTabLoading,
+    soundbiteRows,
+    transcriptRows.length,
+  ]);
 
   const podcastTitle = channel?.title ?? channelTitle ?? t('media.podcast.podcast');
   const canOpenPodcast = channel !== null && channel.id_text.length > 0;
@@ -691,7 +744,7 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
         (activeTab === 'chapters' && chapterRows.length > 0) ||
         (activeTab === 'soundbites' && soundbiteRows.length > 0) ||
         (activeTab === 'clips' && clipRows.length > 0) ||
-        (activeTab === 'transcript' && transcriptText.length > 0);
+        (activeTab === 'transcript' && transcriptRows.length > 0);
       if (!hasCachedBody) {
         return (
           <ListEmpty
@@ -748,16 +801,12 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     }
 
     if (activeTab === 'transcript') {
-      return transcriptText.length === 0 ? (
+      return transcriptRows.length === 0 ? (
         <ListEmpty
           messageKey="info.transcript.no_transcript"
           testID="episode-detail-tab-empty-transcript"
         />
-      ) : (
-        <Text style={styles.transcript} testID="episode-detail-tab-transcript-content">
-          {transcriptText}
-        </Text>
-      );
+      ) : null;
     }
 
     if (activeTab === 'chapters' && chapterRows.length === 0) {
@@ -820,14 +869,26 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
     soundbiteRows.length,
     styles.description,
     styles.showMore,
-    styles.transcript,
     t,
     tabErrorKey,
-    transcriptText,
+    transcriptRows.length,
   ]);
 
   const renderItem = useCallback(
     ({ item: row }: { item: EpisodePaneRow }) => {
+      if (row.type === 'follow-bar') {
+        return (
+          <TranscriptFollowBar
+            autoScrollOn={autoScrollOn}
+            filterTestID="episode-detail-transcript-filter"
+            onChangeFilterTerm={setFilterTerm}
+            onToggleAutoScroll={toggleAutoScroll}
+            term={filterTerm}
+            toggleTestID="episode-detail-transcript-autoscroll"
+          />
+        );
+      }
+
       if (row.type === 'chapter') {
         return (
           <ItemChapterRow
@@ -851,6 +912,22 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
         );
       }
 
+      if (row.type === 'transcript') {
+        return (
+          <TranscriptListRow
+            body={row.row.body}
+            highlighted={row.index === playingTranscriptIndex}
+            speaker={row.row.speaker}
+            startTimeFormatted={row.row.startTimeFormatted}
+            testID={
+              row.index === 0
+                ? 'episode-detail-tab-transcript-content'
+                : `episode-detail-transcript-row-${row.index}`
+            }
+          />
+        );
+      }
+
       return (
         <EpisodeClipRow
           clip={row.clip}
@@ -861,13 +938,18 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
       );
     },
     [
+      autoScrollOn,
       chapterFallbackImageUrl,
       chapterListShowsImages,
+      filterTerm,
       handleClipPlay,
-      playingChapterIdText,
       handleClipQueue,
       handleClipRowPress,
       handleSoundbitePlay,
+      playingChapterIdText,
+      playingTranscriptIndex,
+      setFilterTerm,
+      toggleAutoScroll,
     ]
   );
 
@@ -901,8 +983,15 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
           keyExtractor={episodePaneRowKeyExtractor}
           onEndReached={activeTab === 'clips' ? handleClipsEndReached : undefined}
           onEndReachedThreshold={LIST_END_REACHED_THRESHOLD}
+          onScrollToIndexFailed={
+            activeTab === 'transcript' ? onTranscriptScrollToIndexFailed : undefined
+          }
+          onViewableItemsChanged={
+            activeTab === 'transcript' ? onTranscriptViewableItemsChanged : undefined
+          }
           ref={listRef}
           renderItem={renderItem}
+          stickyHeaderIndices={transcriptStickyOffset > 0 ? [0] : undefined}
           style={styles.list}
           testID={
             activeTab === 'clips'
@@ -911,8 +1000,11 @@ export function EpisodeDetailScreen({ navigation, route }: EpisodeDetailScreenPr
                 ? 'episode-detail-chapter-list'
                 : activeTab === 'soundbites'
                   ? 'episode-detail-soundbite-list'
-                  : 'episode-detail-list'
+                  : activeTab === 'transcript'
+                    ? 'episode-detail-transcript-list'
+                    : 'episode-detail-list'
           }
+          viewabilityConfig={activeTab === 'transcript' ? transcriptViewabilityConfig : undefined}
         />
       ) : null}
       {addToPlaylistSheet}

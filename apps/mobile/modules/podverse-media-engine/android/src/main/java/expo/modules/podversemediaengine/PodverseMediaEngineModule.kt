@@ -20,7 +20,7 @@ class PodverseMediaEngineModule : Module() {
     // Native → JS events.
     Events(
       "playbackState", "progress", "ended", "error", "stalled", "sourceChanged",
-      "remoteTrackCommand")
+      "remoteTrackCommand", "videoPresented", "deviceOrientation", "pictureInPicture")
 
     // Forward engine events to JS while this module (and the JS runtime) is alive. When JS is not
     // running, the engine still plays and updates the media notification on its own.
@@ -30,6 +30,18 @@ class PodverseMediaEngineModule : Module() {
         { name, body -> this@PodverseMediaEngineModule.sendEvent(name, body) },
         this@PodverseMediaEngineModule,
       )
+      PodverseVideoSurfaceHost.onVideoPresentedChanged = { presented ->
+        this@PodverseMediaEngineModule.sendEvent("videoPresented", mapOf("presented" to presented))
+      }
+      PodverseVideoSurfaceHost.onPictureInPictureChanged = { active, restore ->
+        this@PodverseMediaEngineModule.sendEvent(
+          "pictureInPicture",
+          mapOf("active" to active, "restore" to restore),
+        )
+      }
+      PodverseDeviceOrientation.onChange = { landscape ->
+        this@PodverseMediaEngineModule.sendEvent("deviceOrientation", mapOf("landscape" to landscape))
+      }
     }
 
     OnDestroy {
@@ -130,6 +142,38 @@ class PodverseMediaEngineModule : Module() {
     // JS-desired visibility; the host only shows when the item also has video frames.
     Function("setVideoSurfaceVisible") { visible: Boolean ->
       PodverseVideoSurfaceHost.setVisible(visible)
+    }
+
+    Function("setVideoFullscreen") { enabled: Boolean ->
+      val activity = appContext.currentActivity
+      PodverseVideoSurfaceHost.setFullscreenActive(enabled, activity)
+      val context = reactContext()
+      if (enabled) {
+        PodverseDeviceOrientation.start(context)
+      } else {
+        PodverseDeviceOrientation.stop()
+      }
+    }
+
+    Function("isPhysicalDeviceLandscape") {
+      PodverseDeviceOrientation.isLandscape(reactContext())
+    }
+
+    Function("isVideoPresented") {
+      PodverseVideoSurfaceHost.isVideoPresented()
+    }
+
+    OnUserLeavesActivity {
+      val activity = appContext.currentActivity ?: return@OnUserLeavesActivity
+      PodverseVideoSurfaceHost.onUserLeaveHint(activity)
+    }
+
+    OnActivityEntersForeground {
+      val activity = appContext.currentActivity ?: return@OnActivityEntersForeground
+      PodverseVideoSurfaceHost.setFullscreenActive(
+        PodverseVideoSurfaceHost.isFullscreenActive(),
+        activity,
+      )
     }
 
     // --- Native-cache write hooks.

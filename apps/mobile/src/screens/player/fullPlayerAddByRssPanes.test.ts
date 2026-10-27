@@ -117,7 +117,7 @@ describe('resolveFullPlayerAddByRssPaneState', () => {
         activeTab: 'chapters',
         offlineModeEnabled: true,
         snapshot: readySnapshot({
-          sections: { chapters: [], transcriptText: 'Loaded' },
+          sections: { chapters: [], transcriptRows: [] },
           sectionsStatus: 'loaded',
         }),
       }),

@@ -13,6 +13,7 @@ export const ROUTES = {
   CHECKOUT: '/checkout',
   CHECKOUT_SUCCESS: '/checkout/success',
   CONTACT: '/contact',
+  DEVELOPER: '/developer',
   DONATE: '/donate',
   EMBED: '/embed',
   EMBED_BUILDER: '/embed/builder',

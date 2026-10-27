@@ -50,7 +50,8 @@ guards on web's bridge (see **media-player-architecture**).
 - iOS resumes after an interruption only if audio was playing when it began. Do not auto-resume a
   user who had paused.
 - Android pauses on becoming noisy and holds a network wake lock (`WAKE_LOCK`). Keep both.
-- iOS video detaches its `AVPlayerLayer` in the background so playback continues as audio.
+- iOS video detaches its `AVPlayerLayer` in the background so playback continues as audio,
+  except while fullscreen picture-in-picture is taking the layer.
 - Full policy: `modules/podverse-media-engine/README.md`.
 
 ## Playback policy flow
@@ -270,11 +271,16 @@ nothing is sticky or overlay-pinned. Once the sheet fills the viewport under the
 radius on screen), outer scroll stops; remaining Summary / chapters / clips scroll inside
 `FullPlayerPaneSheet`. Returning to the player is an outer gesture on the chips (or iOS status-bar
 `scrollsToTop` on the outer scroller). Chips sit above the sheet and line up with that sheet's
-outer border, not the inset pane text. A chip tap swaps the pane only; it does not scroll.
+outer border, not the inset pane text. A chip tap swaps the pane and scrolls the outer column
+to its end, so the sheet fills the screen under the chips. Reduce Motion jumps there. Tapping
+the chip that is already selected still scrolls. A new item still returns the outer column to
+the player.
 `FULL_PLAYER_REGION_BOTTOM_PADDING` separates the utility row from those chips. First paint peeks
 the measured chip strip at the fold (`resolveFullPlayerLayout` reserves the strip plus the bottom
-safe-area inset) — Summary copy and list rows require a scroll. The artwork is the band that gives
-way, so short viewports and large OS text sizes shrink the square instead of moving the chips.
+safe-area inset, minus `FULL_PLAYER_FOLD_DROP`). The drop lowers the chips and the pane; the inset
+that remains is the pane color at the bottom edge. Summary copy and list rows require a scroll.
+The artwork is the band that gives way, so short viewports and large OS text sizes shrink the
+square instead of moving the chips.
 
 - Use `resolveFullPlayerLayout` in `apps/mobile/src/screens/player/fullPlayerLayout.ts` for all
   region and `paneSheetHeight` math (pass `sheetBottomInset` from `tokens.spacing.md`).
@@ -299,7 +305,7 @@ way, so short viewports and large OS text sizes shrink the square instead of mov
   `rotate-right`), matching web's `FaRotateLeft` / `FaRotateRight`.
 - Pane loading and chip visibility come from `useEpisodeSectionPanes` so episode detail and full
   player stay in lockstep on Summary, Clips, Chapters, Official clips, and Transcript. A chip tap
-  swaps the pane only; it does not scroll.
+  swaps the pane and scrolls the outer column so the sheet is on screen.
 - Sleep timer, playback speed, up next, and More actions open sheets (`MoreMenu` surfaces), not
   inline expansion.
 

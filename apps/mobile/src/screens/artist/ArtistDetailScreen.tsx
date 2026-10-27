@@ -43,6 +43,8 @@ import { sectionChromeFlagsRepository } from '../../data/repositories/sectionChr
 import { mapDirectoryChannelToSubscribed } from '../../data/repositories/subscriptionsMerge';
 import { subscriptionsRepository } from '../../data/repositories/subscriptionsRepository';
 import { useChannelNotifications } from '../../hooks/useChannelNotifications';
+import { useFirstSubscribePushPrompt } from '../../hooks/useFirstSubscribePushPrompt';
+import { resolveSupportedLocale } from '../../i18n/locale';
 import { resolveInitialSubscribed } from '../../lib/channelActionChrome';
 import { homeFeedRefresh } from '../../lib/home/homeFeedRefresh';
 import { replaceScreenIfMerged } from '../../lib/mergeRedirectNavigation';
@@ -291,9 +293,14 @@ const toPodrollEntries = (response: RemoteItemsResponse): PodrollEntry[] => {
 };
 
 export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { styles: themeStyles, tokens } = useTheme();
-  const { accessToken, clearSession, refreshToken, setTokens, status } = useAuth();
+  const { accessToken, account, clearSession, refreshToken, setTokens, status } = useAuth();
+  const {
+    askIfNeeded,
+    applyAfterFollow,
+    dialog: firstSubscribePushDialog,
+  } = useFirstSubscribePushPrompt();
   const { enabled: offlineModeEnabled } = useOfflineMode();
   const {
     artistId,
@@ -609,10 +616,11 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
       return;
     }
 
-    setIsSavingSubscription(true);
     setSubscriptionNoticeKey(null);
-    try {
-      if (isSubscribed) {
+
+    if (isSubscribed) {
+      setIsSavingSubscription(true);
+      try {
         const result = await unsubscribeArtist({
           idText: artistId,
           source: 'directory',
@@ -632,28 +640,40 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
         if (result.serverError) {
           setSubscriptionNoticeKey('errors.generic');
         }
+      } finally {
+        setIsSavingSubscription(false);
+      }
+      return;
+    }
+
+    if (channel === null) {
+      setSubscriptionNoticeKey('errors.generic');
+      return;
+    }
+
+    const entry = mapDirectoryChannelToSubscribed(channel);
+    if (entry === null) {
+      setSubscriptionNoticeKey('errors.generic');
+      return;
+    }
+
+    if (isSignedIn && isTierKnown) {
+      const access = evaluateFeature('subscribe_sync');
+      if (!access.allowed) {
+        openGate(access.reason);
         return;
       }
+    }
 
-      if (channel === null) {
-        setSubscriptionNoticeKey('errors.generic');
-        return;
-      }
+    let pushChoice: Awaited<ReturnType<typeof askIfNeeded>> = null;
+    let accountIdText: string | null = null;
+    if (isSignedIn) {
+      accountIdText = account?.id_text ?? null;
+      pushChoice = accountIdText === null ? null : await askIfNeeded(accountIdText);
+    }
 
-      const entry = mapDirectoryChannelToSubscribed(channel);
-      if (entry === null) {
-        setSubscriptionNoticeKey('errors.generic');
-        return;
-      }
-
-      if (isSignedIn && isTierKnown) {
-        const access = evaluateFeature('subscribe_sync');
-        if (!access.allowed) {
-          openGate(access.reason);
-          return;
-        }
-      }
-
+    setIsSavingSubscription(true);
+    try {
       if (isSignedIn) {
         try {
           await requestWithMobileAuthRefresh(authContext, async (api) =>
@@ -666,6 +686,16 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
           setSubscriptionNoticeKey('errors.generic');
           return;
         }
+
+        if (accountIdText !== null) {
+          await applyAfterFollow({
+            accountIdText,
+            auth: authContext,
+            channelIdText: artistId,
+            choice: pushChoice,
+            locale: resolveSupportedLocale(i18n.language),
+          });
+        }
       }
 
       await subscriptionsRepository.subscribeLocal(entry);
@@ -675,13 +705,17 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
       setIsSavingSubscription(false);
     }
   }, [
+    account?.id_text,
     albumsAdded,
+    applyAfterFollow,
+    askIfNeeded,
     artistId,
     artistTitle,
     authContext,
     channel,
     evaluateFeature,
     handleGateError,
+    i18n.language,
     isSavingSubscription,
     isSignedIn,
     isSubscribed,
@@ -1198,6 +1232,7 @@ export function ArtistDetailScreen({ navigation, route }: ArtistDetailScreenProp
       />
       {boostSheet}
       {artistUnsubscribeDialog}
+      {firstSubscribePushDialog}
     </>
   );
 }

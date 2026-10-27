@@ -357,6 +357,29 @@ export async function getDevicesForNotificationType(
   };
 }
 
+export function buildItemNotificationPayload(
+  itemNotification: ItemNotificationData,
+  extra?: Record<string, unknown>
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    channelIdText: itemNotification.channelIdText,
+    channelTitle: itemNotification.channelTitle,
+    itemIdText: itemNotification.itemIdText,
+    itemTitle: itemNotification.itemTitle,
+    mediumId: itemNotification.mediumId,
+    type: itemNotification.messageType,
+  };
+  if (itemNotification.imageUrl !== null && itemNotification.imageUrl !== '') {
+    payload.imageUrl = itemNotification.imageUrl;
+  }
+  if (extra !== undefined) {
+    for (const [key, value] of Object.entries(extra)) {
+      payload[key] = value;
+    }
+  }
+  return payload;
+}
+
 export function getInAppNotificationTitle(
   messageType: NotificationMessageType,
   messageText: string

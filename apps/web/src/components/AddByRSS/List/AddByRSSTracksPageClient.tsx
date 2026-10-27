@@ -307,7 +307,7 @@ export const AddByRSSTracksPageClient: React.FC<AddByRSSTracksPageClientProps> =
               </Pagination>
             ) : items.length > 0 ? (
               <AddByRSSTrackNodes items={items} viewSelected={viewSelected} sortOrder={sort} />
-            ) : isLoading ? null : (
+            ) : isLoading || !loggedInAccount ? null : (
               <NoResults message={tFeatures('add_by_rss.no_feeds_music')} />
             )}
             {isLoading && items.length === 0 ? <MediaListLoadingSpinner /> : null}

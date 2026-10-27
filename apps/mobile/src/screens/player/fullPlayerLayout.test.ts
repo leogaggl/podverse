@@ -8,6 +8,7 @@ import {
   FULL_PLAYER_CHIP_HEADER_HEIGHT,
   FULL_PLAYER_CONTROL_STACK_GAP,
   FULL_PLAYER_CONTROL_STACK_GAP_COUNT,
+  FULL_PLAYER_FOLD_DROP,
   FULL_PLAYER_PROGRESS_BLOCK_HEIGHT,
   FULL_PLAYER_REGION_BOTTOM_PADDING,
   FULL_PLAYER_REGION_GAP,
@@ -127,21 +128,38 @@ describe('resolveFullPlayerLayout', () => {
     expect(layout.artworkSize).toBeLessThan(resolveFullPlayerLayout(phoneInput).artworkSize);
   });
 
-  it('peeks the chip strip plus the bottom safe area so pane content stays off-screen', () => {
+  it('lowers the chips by one page gutter and keeps the rest of the inset as pane color', () => {
     const layout = resolveFullPlayerLayout(phoneInput);
-    expect(layout.peekHeight).toBe(FULL_PLAYER_CHIP_HEADER_HEIGHT + phoneInput.safeAreaBottom);
+    const paneReveal = phoneInput.safeAreaBottom - FULL_PLAYER_FOLD_DROP;
+    expect(FULL_PLAYER_FOLD_DROP).toBe(16);
+    expect(paneReveal).toBeGreaterThan(0);
+    expect(layout.peekHeight).toBe(FULL_PLAYER_CHIP_HEADER_HEIGHT + paneReveal);
+    expect(layout.playerRegionHeight).toBe(
+      resolveFullPlayerLayout({ ...phoneInput, safeAreaBottom: 0 }).playerRegionHeight - paneReveal
+    );
   });
 
   it('reserves a measured chip strip taller than the default-text-size constant', () => {
     const chipStripHeight = FULL_PLAYER_CHIP_HEADER_HEIGHT + 30;
     const layout = resolveFullPlayerLayout({ ...phoneInput, chipStripHeight });
-    expect(layout.peekHeight).toBe(chipStripHeight + phoneInput.safeAreaBottom);
+    const paneReveal = phoneInput.safeAreaBottom - FULL_PLAYER_FOLD_DROP;
+    expect(layout.peekHeight).toBe(chipStripHeight + paneReveal);
     expect(layout.artworkSize).toBeLessThan(resolveFullPlayerLayout(phoneInput).artworkSize);
   });
 
   it('ignores a measured chip strip shorter than the constant', () => {
     const layout = resolveFullPlayerLayout({ ...phoneInput, chipStripHeight: 10 });
-    expect(layout.peekHeight).toBe(FULL_PLAYER_CHIP_HEADER_HEIGHT + phoneInput.safeAreaBottom);
+    expect(layout.peekHeight).toBe(
+      FULL_PLAYER_CHIP_HEADER_HEIGHT + phoneInput.safeAreaBottom - FULL_PLAYER_FOLD_DROP
+    );
+  });
+
+  it('stops the fold at the bottom edge when the safe area is shorter than the drop', () => {
+    const layout = resolveFullPlayerLayout({
+      ...phoneInput,
+      safeAreaBottom: FULL_PLAYER_FOLD_DROP - 4,
+    });
+    expect(layout.peekHeight).toBe(FULL_PLAYER_CHIP_HEADER_HEIGHT);
   });
 
   it('collapses peek height when there are no sections', () => {
@@ -182,7 +200,7 @@ describe('resolveFullPlayerLayout', () => {
     // plus the player region, so max scroll equals playerRegionHeight.
     expect(strip + layout.paneSheetHeight + bottomGap).toBe(phoneInput.viewportHeight);
     expect(layout.playerRegionHeight).toBe(
-      phoneInput.viewportHeight - strip - phoneInput.safeAreaBottom
+      phoneInput.viewportHeight - strip - (phoneInput.safeAreaBottom - FULL_PLAYER_FOLD_DROP)
     );
   });
 

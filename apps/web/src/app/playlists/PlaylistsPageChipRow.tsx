@@ -1,9 +1,12 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { FaCirclePlus } from 'react-icons/fa6';
 
+import type { QueryParamsQueueMedium } from '@podverse/helpers';
 import type { ChipRowItem, MenuChipOption } from '@podverse/ui';
-import { ChipRow, MenuChip } from '@podverse/ui';
+import { Button, ChipRow, ChipRowWithActions, MenuChip } from '@podverse/ui';
 
 import type { MediaListChipsConfig } from '../../components/MediaListChips/MediaListChips';
 import { MediaListChips } from '../../components/MediaListChips/MediaListChips';
@@ -11,12 +14,14 @@ import { MediaListTrailingChips } from '../../components/MediaListChips/MediaLis
 import { usePlaylistsPageContext } from './PlaylistsPageContext';
 import { getPlaylistsPageSortOptions } from './PlaylistsPageDropdownConfig';
 
+import styles from '../../styles/app/playlists/PlaylistsHeader.module.scss';
 import chipRowStyles from '../../styles/components/MediaListChips/MediaListChips.module.scss';
 
 type PlaylistsTypeKey = 'private' | 'private_followed' | 'public';
 
 export function PlaylistsPageChipRow({ chipsConfig }: { chipsConfig?: MediaListChipsConfig }) {
-  const { filterParams, setFilterParams } = usePlaylistsPageContext();
+  const { filterParams, listScope, setFilterParams } = usePlaylistsPageContext();
+  const router = useRouter();
   const tFeatures = useTranslations('features');
   const tFilters = useTranslations('filters');
   const tMedia = useTranslations('media');
@@ -32,9 +37,16 @@ export function PlaylistsPageChipRow({ chipsConfig }: { chipsConfig?: MediaListC
     setFilterParams({ ...filterParams, type, sort: 'a_z', range: null, page: 1 });
   }
 
-  const medium = filterParams.medium === 'music' ? 'music' : 'av';
-  const mediumLabel = medium === 'music' ? tMedia('music.music') : tMedia('podcast.podcasts');
-  const mediumOptions: MenuChipOption<'av' | 'music'>[] = [
+  const medium: QueryParamsQueueMedium =
+    filterParams.medium === 'av' || filterParams.medium === 'music' ? filterParams.medium : 'all';
+  const mediumLabel =
+    medium === 'music'
+      ? tMedia('music.music')
+      : medium === 'av'
+        ? tMedia('podcast.podcasts')
+        : tFilters('type.all');
+  const mediumOptions: MenuChipOption<QueryParamsQueueMedium>[] = [
+    { value: 'all', label: tFilters('type.all') },
     { value: 'av', label: tMedia('podcast.podcasts') },
     { value: 'music', label: tMedia('music.music') },
   ];
@@ -64,18 +76,36 @@ export function PlaylistsPageChipRow({ chipsConfig }: { chipsConfig?: MediaListC
     </>
   );
 
+  const createPlaylist =
+    listScope === 'browse' ? undefined : (
+      <Button variant="mini" onClick={() => router.push('/playlist/create')}>
+        {tFeatures('playlist.create_playlist')}
+        <FaCirclePlus className={styles.icon} />
+      </Button>
+    );
+
   if (chipsConfig !== undefined) {
-    return <MediaListChips {...chipsConfig} trailing={trailing} />;
+    return <MediaListChips {...chipsConfig} actions={createPlaylist} trailing={trailing} />;
   }
 
-  return (
+  const typeRow = (
     <ChipRow
-      className={chipRowStyles.chipRow}
+      className={createPlaylist === undefined ? chipRowStyles.chipRow : undefined}
       items={typeItems}
       onSelect={handleTypeChange}
       selectedKey={filterParams.type}
       testId="playlists-type-chips"
       trailing={trailing}
     />
+  );
+
+  if (createPlaylist === undefined) {
+    return typeRow;
+  }
+
+  return (
+    <ChipRowWithActions actions={createPlaylist} className={chipRowStyles.chipRow}>
+      {typeRow}
+    </ChipRowWithActions>
   );
 }

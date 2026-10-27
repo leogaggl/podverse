@@ -11,8 +11,30 @@ releases.
 
 ## Current served documents
 
+- About (`about`)
 - FAQ (`faq`)
 - Make Clip how-to (`clip-how-to`)
+- Developer (`developer`)
+
+## App link tokens
+
+A markdown link can name a destination without a host. The surface resolves the token.
+
+- `[label]({{api_reference}})` — interactive API docs for this server
+- `[label]({{api_spec}})` — raw OpenAPI document for this server
+- `[label]({{settings_developer}})` — Settings, Developer tab
+
+Any other `{{…}}` href stays plain text.
+
+A described link is the bordered title-and-sentence card (`DescribedLink` on web). The first line
+is the title. The following lines are the sentence. The key names the same destinations:
+
+```markdown
+{{described_link:api_reference}}
+API Reference
+Opens the interactive API reference served by this server.
+{{/described_link}}
+```
 
 ## Legal documents
 

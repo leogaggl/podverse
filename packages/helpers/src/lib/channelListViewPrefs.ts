@@ -2,8 +2,9 @@ import type { QueryParamsMedium } from './medium.js';
 import type { SortPrefScope } from './sortPrefs.js';
 
 /**
- * Channel lists that can draw as an artwork grid. Home, Browse, and the web directory each keep
- * their own list/grid for these types — podcasts on Home is not podcasts on Browse.
+ * Channel lists that can draw as an artwork grid. Home, Browse, Recommendations, and the web
+ * directory each keep their own list/grid for these types. Podcasts on Home, Browse, and
+ * Recommendations are three separate choices.
  */
 export const CHANNEL_LIST_VIEW_MODE_TYPES = ['albums', 'artists', 'podcasts'] as const;
 
@@ -53,6 +54,19 @@ export const HOME_LIST_VIEW_MODE_SCOPE_ALBUMS: SortPrefScope = {
 };
 export const HOME_LIST_VIEW_MODE_SCOPE_ALL: SortPrefScope = { kind: 'list', name: 'home-all' };
 
+export const RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS: SortPrefScope = {
+  kind: 'list',
+  name: 'recommendations-podcasts',
+};
+export const RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_ARTISTS: SortPrefScope = {
+  kind: 'list',
+  name: 'recommendations-artists',
+};
+export const RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_ALBUMS: SortPrefScope = {
+  kind: 'list',
+  name: 'recommendations-albums',
+};
+
 export const directoryListViewModeScope = (type: ChannelListViewModeType): SortPrefScope => {
   if (type === 'artists') {
     return DIRECTORY_LIST_VIEW_MODE_SCOPE_ARTISTS;
@@ -71,6 +85,16 @@ export const browseListViewModeScope = (type: ChannelListViewModeType): SortPref
     return BROWSE_LIST_VIEW_MODE_SCOPE_ALBUMS;
   }
   return BROWSE_LIST_VIEW_MODE_SCOPE_PODCASTS;
+};
+
+export const recommendationsListViewModeScope = (type: ChannelListViewModeType): SortPrefScope => {
+  if (type === 'artists') {
+    return RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_ARTISTS;
+  }
+  if (type === 'albums') {
+    return RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_ALBUMS;
+  }
+  return RECOMMENDATIONS_LIST_VIEW_MODE_SCOPE_PODCASTS;
 };
 
 export const homeListViewModeScopeForMedium = (medium: QueryParamsMedium): SortPrefScope => {

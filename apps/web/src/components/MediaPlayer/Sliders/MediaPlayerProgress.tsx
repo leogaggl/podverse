@@ -27,7 +27,7 @@ type MediaPlayerProgressProps = {
   overrideHighlightStartTime?: number | null;
   overrideHighlightEndTime?: number | null;
   includeMobileTime?: boolean;
-  layoutVariant?: 'default' | 'embed';
+  layoutVariant?: 'default' | 'embed' | 'edge';
   showChapterMarkers?: boolean;
   showChapterHoverTooltip?: boolean;
 };
@@ -196,14 +196,17 @@ const LocalMediaPlayerProgress: React.FC<MediaPlayerProgressProps> = ({
     handleBarTouchEnd();
   };
 
+  const showClock = layoutVariant === 'default';
+
   return (
     <div
       className={classNames(
         styles.mediaPlayerProgress,
-        layoutVariant === 'embed' && styles.mediaPlayerProgressEmbed
+        layoutVariant === 'embed' && styles.mediaPlayerProgressEmbed,
+        layoutVariant === 'edge' && styles.mediaPlayerProgressEdge
       )}
     >
-      {layoutVariant !== 'embed' ? (
+      {showClock ? (
         <span className={styles.mediaPlayerProgressTime}>{formatHHMMSS(mpCurrentTime)}</span>
       ) : null}
       <div
@@ -253,7 +256,7 @@ const LocalMediaPlayerProgress: React.FC<MediaPlayerProgressProps> = ({
           percent={tooltipPercent}
         />
       ) : null}
-      {layoutVariant !== 'embed' ? (
+      {showClock ? (
         <span className={styles.mediaPlayerProgressDuration}>{formatHHMMSS(mpDuration)}</span>
       ) : null}
       {includeMobileTime && (
@@ -274,7 +277,11 @@ export const MediaPlayerProgress: React.FC<MediaPlayerProgressProps> = (props) =
   const remote = useRemotePlayerDisplay();
   if (remote !== null && !props.isClipForm && props.layoutVariant !== 'embed') {
     return (
-      <RemoteMediaPlayerProgress remote={remote} includeMobileTime={props.includeMobileTime} />
+      <RemoteMediaPlayerProgress
+        remote={remote}
+        includeMobileTime={props.includeMobileTime}
+        layoutVariant={props.layoutVariant === 'edge' ? 'edge' : 'default'}
+      />
     );
   }
   return <LocalMediaPlayerProgress {...props} />;

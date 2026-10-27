@@ -32,6 +32,27 @@
   object-fit: contain;
 }
 
+// The parent is the slot. The picture fills that slot, so an empty-artwork mark and a loaded
+// cover share one box.
+.fillFrame {
+  box-sizing: border-box;
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.fillImage {
+  display: block;
+  height: 100%;
+  left: 0;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
 .imagePlaceholderFluid {
   aspect-ratio: 1 / 1;
   height: auto !important;

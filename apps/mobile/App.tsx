@@ -1,3 +1,4 @@
+import { lockAsync, OrientationLock } from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
@@ -12,6 +13,7 @@ import { CrossDevicePlaybackNotice } from './src/components/feedback/CrossDevice
 import { ForcedLogoutNotice } from './src/components/feedback/ForcedLogoutNotice';
 import { MembershipExpiredBanner } from './src/components/feedback/MembershipExpiredBanner';
 import { OverlayA11yShield, OverlayHostProvider, OverlayOutlet } from './src/components/overlay';
+import { VideoPlaybackChromeBridge } from './src/components/player/VideoPlaybackChromeBridge';
 import { ShareSheetPassthroughOverlay } from './src/components/share/ShareSheetPassthroughOverlay';
 import { hydrateCustomApiEndpoint } from './src/config/customApiEndpoint';
 import { AutoQueueProvider } from './src/contexts/AutoQueueProvider';
@@ -61,6 +63,10 @@ export default function App() {
   const [isI18nReady, setIsI18nReady] = useState(false);
   const [isCustomApiReady, setIsCustomApiReady] = useState(false);
   const [pendingDeepLinkUrl, setPendingDeepLinkUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    void lockAsync(OrientationLock.PORTRAIT_UP).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     // Open the offline-first DB in the background; do not gate render on it so a migration
@@ -292,7 +298,7 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
     (authMode === 'login' || authMode === 'signup' || authMode === 'forgot-password');
 
   return (
-    <>
+    <View style={styles.appRoot}>
       {status === 'unknown' ? null : (
         <AuthPromptProvider
           onRequestLogin={() => {
@@ -373,7 +379,8 @@ function AppBody({ onConsumePendingDeepLink, pendingDeepLinkUrl }: AppBodyProps)
       </Modal>
       <E2eQuickLogin />
       <StatusBar style={statusBarStyle} />
-    </>
+      <VideoPlaybackChromeBridge />
+    </View>
   );
 }
 

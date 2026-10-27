@@ -264,8 +264,8 @@ player shows (`useNowPlayingChapters`), so the segment strip, the full player ba
 line 1, status on line 2), and the chapter rows (`usePlayingChapterIdText`) use the other
 device's estimated position while remote.
 
-The device button (`PlaybackDeviceButton`) shows with two or more connected devices and opens the
-device menu. `CrossDevicePlaybackNotice` (mounted in `App.tsx`) shows transfers and controls that
+The device button (`PlaybackDeviceButton`) shows on the full player when two or more devices are
+connected, and opens the device menu. It is not on the mini player. `CrossDevicePlaybackNotice` (mounted in `App.tsx`) shows transfers and controls that
 did not reach the other device as a dialog; web shows a toast for the same failures, on purpose.
 The lock screen, media notification, CarPlay, and Android Auto show only the phone's own player.
 Signed-out users and non-members never see any of this; availability stays `off`. Maestro:

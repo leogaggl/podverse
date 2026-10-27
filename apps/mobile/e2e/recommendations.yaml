@@ -42,5 +42,19 @@ name: Recommendations
     id: more-nav-recommendations
 - assertVisible:
     id: recommendations-screen
+- assertNotVisible:
+    id: browse-sort-button
+- assertVisible:
+    id: recommendations-overflow-trigger
+- tapOn:
+    id: recommendations-overflow-trigger
+- extendedWaitUntil:
+    visible:
+      id: recommendations-overflow-view-list
+    timeout: ${TIMEOUT_FAST}
+- assertVisible:
+    id: recommendations-overflow-view-grid
+- tapOn:
+    id: recommendations-overflow-menu-cancel
 - assertVisible: "Recommendations appear after you listen, on the next nightly update."
 - takeScreenshot: recommendations-check-back

@@ -51,7 +51,6 @@ export const EpisodePageList: React.FC<EpisodePageListProps> = ({
     itemSoundbites,
     totalPages,
     transcriptRows,
-    autoScrollOn,
   } = useEpisodePageContext();
   const { page, type } = filterParams;
   const clock = useDescriptionClockPlayback({
@@ -68,7 +67,7 @@ export const EpisodePageList: React.FC<EpisodePageListProps> = ({
   });
 
   return (
-    <DetailListWrapper>
+    <DetailListWrapper fill={type === 'transcript'}>
       {type === 'summary' && (
         <CoreEpisodeSummary
           description={ssrItem.item_description?.value}
@@ -119,9 +118,7 @@ export const EpisodePageList: React.FC<EpisodePageListProps> = ({
           refreshTrigger={refreshTrigger}
         />
       )}
-      {type === 'transcript' && (
-        <ItemTranscript autoScrollOn={autoScrollOn} rows={transcriptRows} />
-      )}
+      {type === 'transcript' && <ItemTranscript rows={transcriptRows} />}
       <WebLoadingSpinnerOverlay isLoading={isLoading} />
     </DetailListWrapper>
   );

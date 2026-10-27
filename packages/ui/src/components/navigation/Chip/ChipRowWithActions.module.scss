@@ -1,0 +1,30 @@
+// Actions are first in the DOM. `order` paints the chips first on a shared line, and
+// wrap-reverse places a wrapped actions line above the chips, at the start of that line.
+// The actions group does not wrap inside itself: every button in it moves together.
+.layout {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  align-items: center;
+  column-gap: var(--spacing-lg);
+  row-gap: var(--spacing-lg);
+}
+
+.chips {
+  order: 1;
+  flex: 1 1 max-content;
+  max-width: 100%;
+  min-width: min(100%, max-content);
+}
+
+.actions {
+  order: 2;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--spacing-md);
+  width: max-content;
+  max-width: 100%;
+  min-width: min(100%, max-content);
+}

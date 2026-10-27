@@ -174,7 +174,7 @@ export type RemoteTrackCommandEvent = {
  * Named layout targets the single video surface can occupy.
  * There is only ever one surface; these ids select which registered rect it moves to.
  */
-export type VideoSurfaceTargetId = 'mini' | 'full';
+export type VideoSurfaceTargetId = 'mini' | 'full' | 'fullscreen';
 
 /**
  * Layout rect for a video surface target, in **density-independent window coordinates** (the same
@@ -205,6 +205,25 @@ export type NativeRawPlaybackEvents = {
   remoteTrackCommand: (event: RemoteTrackCommandEvent) => void;
   /** iOS only: the CarPlay scene connected. Background car sync listens for it. */
   podverseCarPlayDidConnect: () => void;
+  /** The shared surface is showing video frames. */
+  videoPresented: (event: VideoPresentedEvent) => void;
+  /** Physical device attitude while video fullscreen is active. Flat orientations are omitted. */
+  deviceOrientation: (event: DeviceOrientationEvent) => void;
+  /** System picture-in-picture window. `restore` is true when the viewer tapped the window to return. */
+  pictureInPicture: (event: PictureInPictureEvent) => void;
+};
+
+export type VideoPresentedEvent = {
+  presented: boolean;
+};
+
+export type DeviceOrientationEvent = {
+  landscape: boolean;
+};
+
+export type PictureInPictureEvent = {
+  active: boolean;
+  restore: boolean;
 };
 
 /**

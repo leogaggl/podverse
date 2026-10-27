@@ -5,7 +5,6 @@ import React from 'react';
 
 import type { QueryParamsItemMusicType } from '@podverse/helpers-requests';
 import type { ChipRowItem } from '@podverse/ui';
-import { Button } from '@podverse/ui';
 
 import { CommonDetailListHeader } from '../../../components/Common/List/CommonDetailListHeader';
 import { useTrackPageContext } from './TrackPageContext';
@@ -21,10 +20,9 @@ export const TrackPageListHeader: React.FC<TrackPageListHeaderProps> = ({
   ssrHasTranscripts,
   ssrCanShowBoosts,
 }) => {
-  const { filterParams, setFilterParams, autoScrollOn, setAutoScrollOn } = useTrackPageContext();
+  const { filterParams, setFilterParams } = useTrackPageContext();
   const { type } = filterParams;
   const tInfo = useTranslations('info');
-  const tMisc = useTranslations('misc');
   const tValue = useTranslations('value');
 
   const items: ChipRowItem<QueryParamsItemMusicType>[] = [
@@ -63,13 +61,7 @@ export const TrackPageListHeader: React.FC<TrackPageListHeaderProps> = ({
       }}
       selectedKey={type}
       testId="track-detail-chips"
-      trailing={
-        type === 'transcript' ? (
-          <Button onClick={() => setAutoScrollOn(!autoScrollOn)} variant="mini">
-            {autoScrollOn ? tMisc('autoscroll.autoscroll_on') : tMisc('autoscroll.autoscroll_off')}
-          </Button>
-        ) : null
-      }
+      trailing={null}
     />
   );
 };

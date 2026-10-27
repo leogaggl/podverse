@@ -29,6 +29,15 @@ test.describe('Episode show notes', () => {
     await expect(heading).toBeVisible();
     await captureVerifiedElement(page, testInfo, heading, 'Summary shows the seeded heading');
 
+    const publishTime = main.getByText(/\d{1,2}:\d{2}\s*[AP]M/).first();
+    await expect(publishTime).toBeVisible();
+    await captureVerifiedElement(
+      page,
+      testInfo,
+      publishTime,
+      'Episode header includes the publish time'
+    );
+
     const linkListItem = main.getByRole('listitem').filter({ hasText: 'Episode Transcript' });
     await expect(linkListItem).toBeVisible();
     await captureVerifiedElement(page, testInfo, linkListItem, 'Summary shows the seeded list');

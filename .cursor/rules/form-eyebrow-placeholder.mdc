@@ -22,7 +22,7 @@ catalog key, or the same user-facing words with only punctuation changed (`Filte
   - an obvious **example** (`you@example.com`, `https://example.com/feed.xml`)
   - **`Optional`** / **`Required`** (`misc.optional` / `misc.required`)
   - the **default if left blank** (`Anonymous`)
-  - a short **instruction** (`At least 8 characters`, `Type your email`, `Type a title`)
+  - a short **instruction** (`At least 8 characters`, `Type your email`, `Filter by title`)
 - Confirm-password may reuse the password placeholder while keeping a distinct eyebrow
   (`Confirm password` + `Password` / password hint).
 

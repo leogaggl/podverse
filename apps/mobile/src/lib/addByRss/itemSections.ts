@@ -1,4 +1,5 @@
-import type { DTOItemChapter } from '@podverse/helpers';
+import type { DTOItemChapter, TranscriptRow } from '@podverse/helpers/dto';
+import { parseTranscriptRowsOrEmpty } from '@podverse/helpers/transcript';
 import type {
   AddByRSSChapterResponse,
   ReqAccountAddByRSSChaptersTranscriptParams,
@@ -11,10 +12,10 @@ import {
 
 import type { AddByRssCredentials } from './credentials';
 
-/** Chapters and transcript text for one Add by RSS item, as its episode page shows them. */
+/** Chapters and transcript rows for one Add by RSS item, as its episode page shows them. */
 export type AddByRssItemSections = {
   chapters: DTOItemChapter[];
-  transcriptText: string;
+  transcriptRows: TranscriptRow[];
 };
 
 export type AddByRssItemSectionUrls = {
@@ -62,5 +63,5 @@ export const toAddByRssItemSections = (response: {
   chapters: mapAddByRSSChaptersToDTOItemChapters(response.chapters).filter(
     (chapter) => chapter.table_of_contents !== false
   ),
-  transcriptText: response.transcriptText ?? '',
+  transcriptRows: parseTranscriptRowsOrEmpty(response.transcriptText),
 });

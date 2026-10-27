@@ -280,11 +280,18 @@ export type {
 } from './components/navigation/TableOfContents/index';
 export { ButtonTabs } from './components/navigation/ButtonTabs/ButtonTabs';
 export type { ButtonTab, ButtonTabsProps } from './components/navigation/ButtonTabs/ButtonTabs';
-export { Chip, ChipRow, MenuChip, SortChip } from './components/navigation/Chip/index';
+export {
+  Chip,
+  ChipRow,
+  ChipRowWithActions,
+  MenuChip,
+  SortChip,
+} from './components/navigation/Chip/index';
 export type {
   ChipProps,
   ChipRowItem,
   ChipRowProps,
+  ChipRowWithActionsProps,
   ChipVariant,
   MenuChipOption,
   MenuChipProps,

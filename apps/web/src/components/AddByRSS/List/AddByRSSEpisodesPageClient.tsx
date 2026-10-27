@@ -315,7 +315,7 @@ export const AddByRSSEpisodesPageClient: React.FC<AddByRSSEpisodesPageClientProp
                 viewSelected={viewSelected}
                 sortOrder={sort}
               />
-            ) : isLoading ? null : (
+            ) : isLoading || !loggedInAccount ? null : (
               <NoResults message={tFeatures('add_by_rss.no_feeds_podcast')} />
             )}
             {isLoading && items.length === 0 ? <MediaListLoadingSpinner /> : null}

@@ -1,5 +1,21 @@
 @use '../../../variables/breakpoints' as *;
 
-.controls {
-  display: flex;
+.liveEdge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.liveEdge > div {
+  height: var(--spacing-base);
+  min-height: 0;
+  align-items: flex-start;
+}
+
+.liveEdge span {
+  font-size: var(--font-size-2xs);
+  line-height: 1;
 }

@@ -154,3 +154,35 @@
     display: none;
   }
 }
+
+// Narrow now-playing bar: a full-bleed line on the top edge. The hit target is taller than the
+// line and overlaps the bar's top padding, so the line does not add a row under the controls.
+.mediaPlayerProgressEdge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  margin-bottom: 0;
+  flex-direction: row;
+}
+
+.mediaPlayerProgressEdge .customProgressBar {
+  align-items: flex-start;
+  height: var(--spacing-base);
+  margin: 0;
+}
+
+.mediaPlayerProgressEdge .customProgressBarInner {
+  flex: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 0;
+}
+
+.mediaPlayerProgressEdge .mobileTimeWrapper,
+.mediaPlayerProgressEdge .mediaPlayerProgressTime,
+.mediaPlayerProgressEdge .mediaPlayerProgressDuration {
+  display: none;
+}

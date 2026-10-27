@@ -9,6 +9,18 @@ import type { ThemeTokens } from '@podverse/design-tokens';
 export const LIST_ROW_ARTWORK_SIZE = 78;
 
 /**
+ * Square edge for the in-app banner thumbnail. A little taller than one title line plus the
+ * time line: body 21, the xs gap, and caption 16.
+ */
+export const NOTIFICATION_ARTWORK_SIZE = 44;
+
+/**
+ * Square edge for an inbox row. Two body lines, the xs gap, the caption, and a little extra
+ * so the art covers that stack. The banner stays on `NOTIFICATION_ARTWORK_SIZE`.
+ */
+export const NOTIFICATION_INBOX_ARTWORK_SIZE = 64;
+
+/**
  * Inset above and below the artwork on a podcast, album, or artist row. With
  * `LIST_ROW_ARTWORK_SIZE` the row is 98pt: the date, title, and footer sit inside the artwork,
  * and each hairline sits this far from the art.

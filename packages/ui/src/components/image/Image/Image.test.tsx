@@ -152,6 +152,22 @@ describe('Image', () => {
     expect(inner?.classList.contains('caller-image')).toBe(false);
   });
 
+  it('fills the parent slot instead of stamping a pixel edge on the empty artwork', () => {
+    const { container } = renderWithRuntime(
+      <Image alt="Episode" fill height={88} src={null} width={88} />
+    );
+
+    const outer = container.firstElementChild as HTMLElement;
+    const placeholderImage = screen.getByTestId('next-image');
+
+    expect(outer.style.width).toBe('');
+    expect(outer.style.height).toBe('');
+    expect(outer.classList.contains(moduleClass(styles.fillFrame))).toBe(true);
+    expect(outer.classList.contains(moduleClass(styles.placeholderOuter))).toBe(true);
+    expect(placeholderImage.classList.contains(moduleClass(styles.fillImage))).toBe(true);
+    expect(placeholderImage.parentElement).toBe(outer);
+  });
+
   it('keeps the fluid slot class on the outer box for a list grid slot', () => {
     const { container } = renderWithRuntime(
       <Image alt="Episode" className="caller-image" height={600} src={null} width={600} />

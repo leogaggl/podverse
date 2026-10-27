@@ -29,6 +29,11 @@ export interface ImageProps {
   width: number;
   height?: number;
   className?: string;
+  /**
+   * Fill the parent slot. `width` and `height` stay the source size for the request. The
+   * picture, loaded or empty, is the size of this frame.
+   */
+  fill?: boolean;
   skipProxy?: boolean;
   /**
    * Without it, the image loads lazily and decodes asynchronously, so remote artwork never holds
@@ -51,6 +56,7 @@ export const Image: React.FC<ImageProps> = ({
   width,
   height,
   className,
+  fill = false,
   skipProxy,
   priority,
   enableSkeletonFlash = false,
@@ -152,6 +158,38 @@ export const Image: React.FC<ImageProps> = ({
   const placeholderHeight = Math.round((renderedHeight * 2) / 2.5);
   const showPlaceholder =
     resolvedChain.length === 0 || attemptIndex >= resolvedChain.length || rawSrc === undefined;
+  const finalSrc =
+    showPlaceholder || rawSrc === undefined
+      ? placeholderSrc
+      : (directResolvedSrc ?? (useProxy ? proxyPathPrefix + encodeURIComponent(rawSrc) : rawSrc));
+  const skeletonClass = enableSkeletonFlash && !loaded ? styles.skeletonBg : undefined;
+
+  if (fill) {
+    return (
+      <div
+        className={classNames(
+          styles.fillFrame,
+          showPlaceholder && styles.placeholderOuter,
+          className
+        )}
+      >
+        <NextImage
+          key={`${chainId}-${attemptIndex}-${directResolvedSrc ?? ''}`}
+          src={finalSrc}
+          alt={alt}
+          width={width}
+          height={renderedHeight}
+          className={classNames(skeletonClass, styles.fillImage)}
+          onError={showPlaceholder ? undefined : onLoadFailure}
+          onLoad={showPlaceholder ? undefined : handleLoad}
+          priority={priority}
+          loading={priority === true ? undefined : 'lazy'}
+          decoding="async"
+          unoptimized={nextImageUnoptimized}
+        />
+      </div>
+    );
+  }
 
   if (showPlaceholder) {
     return (
@@ -186,11 +224,6 @@ export const Image: React.FC<ImageProps> = ({
       </div>
     );
   }
-
-  const finalSrc =
-    directResolvedSrc ?? (useProxy ? proxyPathPrefix + encodeURIComponent(rawSrc) : rawSrc);
-
-  const skeletonClass = enableSkeletonFlash && !loaded ? styles.skeletonBg : undefined;
 
   return (
     <NextImage

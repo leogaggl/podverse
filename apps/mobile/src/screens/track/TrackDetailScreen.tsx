@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { FlatList } from 'react-native';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import type { DTOChannel, DTOItem, DTOVerifiedPublisher } from '@podverse/helpers';
+import type { DTOChannel, DTOItem, DTOVerifiedPublisher, TranscriptRow } from '@podverse/helpers';
 import { joinVerifiedPublisherTitles, primaryChannelListArtworkUrl } from '@podverse/helpers';
 
 import { requestWithMobileAuthRefresh } from '../../auth';
@@ -18,6 +18,8 @@ import {
   PeoplePane,
   toAboutPersonFromItem,
   TrackDetailHeader,
+  TranscriptFollowBar,
+  TranscriptListRow,
 } from '../../components/content';
 import type { SectionChipItem } from '../../components/form';
 import { SectionChipRow } from '../../components/form';
@@ -36,6 +38,8 @@ import { downloadActionLabelKey, runDownloadAction } from '../../downloads/downl
 import { useDownloadAction } from '../../downloads/useDownloads';
 import { useActionError } from '../../feedback/ActionErrorProvider';
 import { useItemDescription } from '../../hooks/useItemDescription';
+import { useTranscriptFollowControls } from '../../hooks/useTranscriptFollowControls';
+import { useTranscriptListAutoscroll } from '../../hooks/useTranscriptListAutoscroll';
 import { shouldReplaceCachedValue } from '../../lib/cachedValue';
 import { cacheItemDescriptionFromDetail } from '../../lib/content/itemDescriptionAccess';
 import { formatPlaybackDurationLabel } from '../../lib/formatPlaybackDurationLabel';
@@ -54,6 +58,7 @@ import {
 } from '../../navigation';
 import { usePlaybackSession } from '../../playback/PlaybackProvider';
 import { useItemDescriptionClock } from '../../playback/useItemDescriptionClock';
+import { usePlayingTranscriptIndex } from '../../playback/usePlayingTranscriptIndex';
 import type { TrackTab } from '../../prefs/detailListPrefs';
 import { DEFAULT_TRACK_TAB } from '../../prefs/detailListPrefs';
 import { useOfflineMode } from '../../prefs/offlineMode';
@@ -72,10 +77,13 @@ import { TRACK_TAB_LABEL_KEYS } from './trackTabs';
 
 type TrackDetailScreenProps = NativeStackScreenProps<ChannelBrowseStackParamList, 'TrackDetail'>;
 
-type TrackTabRow = { id: string };
+type TrackTabRow =
+  | { id: string; type: 'follow-bar' }
+  | { id: string; type: 'placeholder' }
+  | { id: string; index: number; row: TranscriptRow; type: 'transcript' };
 const EMPTY_TRACK_TAB_ROWS: TrackTabRow[] = [];
+const TRANSCRIPT_FOLLOW_BAR_ID = 'transcript-follow-bar';
 const trackTabRowKeyExtractor = (row: TrackTabRow): string => row.id;
-const renderTrackTabItem = (): null => null;
 
 const formatProgressTimeLabel = (
   progress: EpisodePlaybackProgress,
@@ -248,7 +256,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     cachedItemChrome?.hasPeople === true
   );
   const [activeTab, setActiveTab] = useState<TrackTab>(DEFAULT_TRACK_TAB);
-  const [transcriptText, setTranscriptText] = useState('');
+  const [transcriptRows, setTranscriptRows] = useState<TranscriptRow[]>([]);
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [transcriptErrorKey, setTranscriptErrorKey] = useState<string | null>(null);
   const { playbackNoticeKey, runMarkAsPlayedAction, runPlayAction, runQueueAction } =
@@ -287,10 +295,6 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
           ...typography.caption,
           color: tokens.text.link,
           marginTop: tokens.spacing.sm,
-        },
-        transcript: {
-          ...typography.body,
-          color: themeStyles.textPrimary.color,
         },
       }),
     [themeStyles, tokens]
@@ -393,7 +397,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
 
   useEffect(() => {
     setActiveTab(DEFAULT_TRACK_TAB);
-    setTranscriptText('');
+    setTranscriptRows([]);
     setTranscriptErrorKey(null);
     setIsTranscriptLoading(false);
   }, [trackId]);
@@ -417,7 +421,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
   const hasPeople = track !== null ? (track.item_persons?.length ?? 0) > 0 : previewHasPeople;
   const supportedTabs = useMemo<TrackTab[]>(() => {
     const tabs: TrackTab[] = ['summary'];
-    if (hasTranscript || transcriptText.length > 0) {
+    if (hasTranscript || transcriptRows.length > 0) {
       tabs.push('transcript');
     }
     if (hasFunding) {
@@ -427,7 +431,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
       tabs.push('people');
     }
     return tabs;
-  }, [hasFunding, hasPeople, hasTranscript, transcriptText.length]);
+  }, [hasFunding, hasPeople, hasTranscript, transcriptRows.length]);
 
   useEffect(() => {
     if (!supportedTabs.includes(activeTab)) {
@@ -442,10 +446,10 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     setIsTranscriptLoading(true);
     setTranscriptErrorKey(null);
     try {
-      const transcript = await loadEpisodeTranscriptPane(async () =>
+      const rows = await loadEpisodeTranscriptPane(async () =>
         requestWithMobileAuthRefresh(authContext, async (api) => api.reqItemTranscriptGet(trackId))
       );
-      setTranscriptText(transcript);
+      setTranscriptRows(rows);
     } catch {
       setTranscriptErrorKey('errors.generic');
     } finally {
@@ -454,11 +458,11 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
   }, [authContext, offlineModeEnabled, trackId]);
 
   useEffect(() => {
-    if (activeTab !== 'transcript' || transcriptText.length > 0) {
+    if (activeTab !== 'transcript' || transcriptRows.length > 0) {
       return;
     }
     void loadTranscript();
-  }, [activeTab, loadTranscript, transcriptText.length]);
+  }, [activeTab, loadTranscript, transcriptRows.length]);
 
   useEffect(() => {
     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
@@ -600,9 +604,100 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
   }, [loadTrack]);
 
   const handleRetryTranscript = useCallback(() => {
-    setTranscriptText('');
+    setTranscriptRows([]);
     void loadTranscript();
   }, [loadTranscript]);
+
+  const {
+    autoScrollOn,
+    filteredRows: filteredTranscriptRows,
+    filterTerm,
+    setFilterTerm,
+    toggleAutoScroll,
+  } = useTranscriptFollowControls({
+    itemMediaId: track?.id_text ?? trackId,
+    rows: transcriptRows,
+  });
+  const playingTranscriptIndex = usePlayingTranscriptIndex({
+    itemMediaId: track?.id_text ?? trackId,
+    rows: filteredTranscriptRows,
+  });
+  const transcriptStickyOffset =
+    activeTab === 'transcript' &&
+    transcriptRows.length > 0 &&
+    !isTranscriptLoading &&
+    transcriptErrorKey === null
+      ? 1
+      : 0;
+  const {
+    onScrollToIndexFailed: onTranscriptScrollToIndexFailed,
+    onViewableItemsChanged: onTranscriptViewableItemsChanged,
+    viewabilityConfig: transcriptViewabilityConfig,
+  } = useTranscriptListAutoscroll({
+    activeIndex: playingTranscriptIndex,
+    autoScrollOn: autoScrollOn && activeTab === 'transcript',
+    dataIndexOffset: transcriptStickyOffset,
+    listRef,
+  });
+  const listExtraData = `${activeTab}:${playingTranscriptIndex}:${autoScrollOn}:${filterTerm}`;
+
+  const listRows = useMemo((): TrackTabRow[] => {
+    if (activeTab !== 'transcript' || isTranscriptLoading || transcriptErrorKey !== null) {
+      return EMPTY_TRACK_TAB_ROWS;
+    }
+    if (transcriptRows.length === 0) {
+      return EMPTY_TRACK_TAB_ROWS;
+    }
+    return [
+      { id: TRANSCRIPT_FOLLOW_BAR_ID, type: 'follow-bar' as const },
+      ...filteredTranscriptRows.map((row, index) => ({
+        id: `transcript-${index}`,
+        index,
+        row,
+        type: 'transcript' as const,
+      })),
+    ];
+  }, [
+    activeTab,
+    filteredTranscriptRows,
+    isTranscriptLoading,
+    transcriptErrorKey,
+    transcriptRows.length,
+  ]);
+
+  const renderTrackTabItem = useCallback(
+    ({ item }: { item: TrackTabRow }) => {
+      if (item.type === 'follow-bar') {
+        return (
+          <TranscriptFollowBar
+            autoScrollOn={autoScrollOn}
+            filterTestID="track-detail-transcript-filter"
+            onChangeFilterTerm={setFilterTerm}
+            onToggleAutoScroll={toggleAutoScroll}
+            term={filterTerm}
+            toggleTestID="track-detail-transcript-autoscroll"
+          />
+        );
+      }
+      if (item.type !== 'transcript') {
+        return null;
+      }
+      return (
+        <TranscriptListRow
+          body={item.row.body}
+          highlighted={item.index === playingTranscriptIndex}
+          speaker={item.row.speaker}
+          startTimeFormatted={item.row.startTimeFormatted}
+          testID={
+            item.index === 0
+              ? 'track-detail-transcript-content'
+              : `track-detail-transcript-row-${item.index}`
+          }
+        />
+      );
+    },
+    [autoScrollOn, filterTerm, playingTranscriptIndex, setFilterTerm, toggleAutoScroll]
+  );
 
   const headerArtworkUri =
     primaryChannelListArtworkUrl(channel?.channel_images) ??
@@ -745,7 +840,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         />
       );
     }
-    if (offlineModeEnabled && transcriptText.length === 0) {
+    if (offlineModeEnabled && transcriptRows.length === 0) {
       return (
         <ListEmpty
           messageKey={OFFLINE_UNAVAILABLE_MESSAGE_KEY}
@@ -753,7 +848,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         />
       );
     }
-    if (transcriptText.length === 0) {
+    if (transcriptRows.length === 0) {
       return (
         <ListEmpty
           messageKey="info.transcript.no_transcript"
@@ -761,11 +856,7 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
         />
       );
     }
-    return (
-      <Text style={styles.transcript} testID="track-detail-transcript-content">
-        {transcriptText}
-      </Text>
-    );
+    return null;
   }, [
     activeTab,
     description,
@@ -776,12 +867,11 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
     offlineModeEnabled,
     styles.description,
     styles.showMore,
-    styles.transcript,
     t,
     track,
     trackId,
     transcriptErrorKey,
-    transcriptText,
+    transcriptRows.length,
   ]);
 
   const refreshControl = useMemo(
@@ -813,12 +903,21 @@ export function TrackDetailScreen({ navigation, route }: TrackDetailScreenProps)
           ListFooterComponent={paneFooter}
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.content}
-          data={EMPTY_TRACK_TAB_ROWS}
+          data={listRows}
+          extraData={listExtraData}
           keyExtractor={trackTabRowKeyExtractor}
+          onScrollToIndexFailed={
+            activeTab === 'transcript' ? onTranscriptScrollToIndexFailed : undefined
+          }
+          onViewableItemsChanged={
+            activeTab === 'transcript' ? onTranscriptViewableItemsChanged : undefined
+          }
           ref={listRef}
           refreshControl={refreshControl}
           renderItem={renderTrackTabItem}
-          testID="track-detail-list"
+          stickyHeaderIndices={transcriptStickyOffset > 0 ? [0] : undefined}
+          testID={activeTab === 'transcript' ? 'track-detail-transcript-list' : 'track-detail-list'}
+          viewabilityConfig={activeTab === 'transcript' ? transcriptViewabilityConfig : undefined}
         />
       ) : null}
       {addToPlaylistSheet}

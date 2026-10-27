@@ -13,8 +13,6 @@ import { MediaListChips } from '../../MediaListChips/MediaListChips';
 import type { ViewSelectedOption } from '../../ViewSelector/ViewSelector';
 import { ViewSelector } from '../../ViewSelector/ViewSelector';
 
-import styles from '../../../styles/components/AddByRSS/List/AddByRSSListToolbar.module.scss';
-
 type AddByRSSListHeaderProps = {
   title: string;
 };
@@ -72,16 +70,20 @@ export function AddByRSSListToolbar({
     );
 
   return (
-    <>
-      <div className={styles.actions} data-testid="add-by-rss-list-actions">
-        <Button onClick={() => router.push(ROUTES.ADD_BY_RSS_ADD)} variant="primary">
-          {tFeatures('add_feed.add_feed')}
-        </Button>
-        <Button isLoading={isUpdating} onClick={onCheckUpdates} variant="primary">
-          {tFeatures('add_by_rss.check_updates')}
-        </Button>
-      </div>
-      <MediaListChips {...chipsConfig} trailing={trailing} />
-    </>
+    <MediaListChips
+      {...chipsConfig}
+      actions={
+        <>
+          <Button onClick={() => router.push(ROUTES.ADD_BY_RSS_ADD)} variant="mini">
+            {tFeatures('add_feed.add_feed')}
+          </Button>
+          <Button isLoading={isUpdating} onClick={onCheckUpdates} variant="mini">
+            {tFeatures('add_by_rss.check_updates')}
+          </Button>
+        </>
+      }
+      actionsTestId="add-by-rss-list-actions"
+      trailing={trailing}
+    />
   );
 }

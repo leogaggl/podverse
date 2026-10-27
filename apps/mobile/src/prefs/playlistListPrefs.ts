@@ -1,5 +1,5 @@
-import type { SortPrefScope } from '@podverse/helpers';
-import { pickSortPrefToken } from '@podverse/helpers';
+import type { QueryParamsQueueMedium, SortPrefScope } from '@podverse/helpers';
+import { pickSortPrefToken, QUERY_PARAMS_QUEUE_MEDIUMS } from '@podverse/helpers';
 import type {
   QueryParamsStatsRange,
   QueryParamsSubscribedFullSort,
@@ -22,15 +22,19 @@ export type PlaylistListSort = QueryParamsSubscribedFullSort;
 export const PLAYLIST_LIST_RANGE_OPTIONS = QUERY_PARAMS_STATS_RANGE_VALUES;
 export type PlaylistListRange = QueryParamsStatsRange;
 
+export type PlaylistListMedium = QueryParamsQueueMedium;
+
 export const DEFAULT_PLAYLIST_LIST_TYPE: PlaylistListType = 'private';
 export const DEFAULT_PLAYLIST_LIST_SORT: PlaylistListSort = 'recent';
 export const DEFAULT_PLAYLIST_LIST_RANGE: PlaylistListRange = 'week';
+export const DEFAULT_PLAYLIST_LIST_MEDIUM: PlaylistListMedium = 'all';
 
 const isPlaylistListType = (value: string): value is PlaylistListType => {
   return PLAYLIST_LIST_TYPES.some((candidate) => candidate === value);
 };
 
 export type PlaylistListPrefs = {
+  medium: PlaylistListMedium;
   range: PlaylistListRange;
   sort: PlaylistListSort;
   type: PlaylistListType;
@@ -53,8 +57,13 @@ export const readPlaylistListPrefs = async (): Promise<PlaylistListPrefs> => {
     PLAYLIST_LIST_RANGE_OPTIONS,
     DEFAULT_PLAYLIST_LIST_RANGE
   );
+  const medium = pickSortPrefToken(
+    stored?.mediaType,
+    QUERY_PARAMS_QUEUE_MEDIUMS,
+    DEFAULT_PLAYLIST_LIST_MEDIUM
+  );
 
-  return { range, sort, type };
+  return { medium, range, sort, type };
 };
 
 export const writePlaylistListType = async (type: PlaylistListType): Promise<void> => {
@@ -67,4 +76,10 @@ export const writePlaylistListSort = async (sort: PlaylistListSort): Promise<voi
 
 export const writePlaylistListRange = async (range: PlaylistListRange): Promise<void> => {
   await writeSortPref(PLAYLIST_LIST_SCOPE, { range, sort: 'top' });
+};
+
+export const writePlaylistListMedium = async (medium: PlaylistListMedium): Promise<void> => {
+  await writeSortPref(PLAYLIST_LIST_SCOPE, {
+    mediaType: medium === DEFAULT_PLAYLIST_LIST_MEDIUM ? undefined : medium,
+  });
 };

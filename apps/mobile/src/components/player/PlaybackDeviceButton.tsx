@@ -12,28 +12,20 @@ import {
   usePlaybackDeviceSwitchVisible,
 } from '../../playback/crossDevice/useCrossDevicePlayerDisplay';
 import { FULL_PLAYER_UTILITY_ICON_SIZE } from '../../screens/player/fullPlayerLayout';
-import { LIST_ROW_ACTION_ICON_SIZE } from '../../theme/screenLayout';
 import { useTheme } from '../../theme/useTheme';
-import type { ButtonSize } from '../primitives/Button';
 import { Button } from '../primitives/Button';
 import { PlaybackDeviceSheet } from './PlaybackDeviceSheet';
 
 type PlaybackDeviceButtonProps = {
-  /** Icon size and button size follow the host row. */
-  appearance: 'mini' | 'full';
   testID: string;
 };
 
 /**
- * Opens the device menu when two or more of the member's devices are connected. Mini matches
- * `PlayerTransportButton` with `appearance="bare"` (`sm`, bare glyph size) so it shares that
- * control's hit height. Full matches the utility row (`lg`, utility glyph size). A pending move
- * keeps those bounds and shows the button spinner.
+ * Opens the device menu on the full player when two or more of the member's devices are
+ * connected. Size matches the utility row (`lg`, utility glyph size). A pending move keeps
+ * those bounds and shows the button spinner.
  */
-export function PlaybackDeviceButton({
-  appearance,
-  testID,
-}: PlaybackDeviceButtonProps): JSX.Element | null {
+export function PlaybackDeviceButton({ testID }: PlaybackDeviceButtonProps): JSX.Element | null {
   const isVisible = usePlaybackDeviceSwitchVisible();
   const view = useCrossDevicePlaybackView();
   const deviceLabel = usePlaybackDeviceLabel();
@@ -55,9 +47,7 @@ export function PlaybackDeviceButton({
     return null;
   }
 
-  const isFull = appearance === 'full';
-  const size: ButtonSize = isFull ? 'lg' : 'sm';
-  const iconSize = isFull ? FULL_PLAYER_UTILITY_ICON_SIZE : LIST_ROW_ACTION_ICON_SIZE;
+  const iconSize = FULL_PLAYER_UTILITY_ICON_SIZE;
   const transfer = view.transfer;
   const isPending = transfer !== null;
   const targetEntry =
@@ -90,7 +80,7 @@ export function PlaybackDeviceButton({
         label={label}
         loading={isPending}
         onPress={handlePress}
-        size={size}
+        size="lg"
         testID={testID}
         variant="ghost"
       />

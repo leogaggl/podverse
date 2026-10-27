@@ -334,7 +334,9 @@
     }
   },
   "media_player": {
-    "chapter_tooltip": "Chapter: {title}"
+    "chapter_tooltip": "Chapter: {title}",
+    "enter_video_full_screen": "Full Screen",
+    "exit_video_full_screen": "Exit Full Screen"
   },
   "misc": {
     "clear": "Clear"

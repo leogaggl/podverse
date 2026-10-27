@@ -309,7 +309,9 @@
     }
   },
   "media_player": {
-    "chapter_tooltip": "Capítulo: {title}"
+    "chapter_tooltip": "Capítulo: {title}",
+    "enter_video_full_screen": "Pantalla completa",
+    "exit_video_full_screen": "Salir de pantalla completa"
   },
   "misc": {
     "clear": "Borrar"

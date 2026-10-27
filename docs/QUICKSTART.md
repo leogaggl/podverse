@@ -379,10 +379,23 @@ file. Trending and the Podcasting 2.0 helper set are spoken-word only.
 
 `workers:seed_local_user_content` gives the operator login accounts and
 `dummy01`–`dummy06` overlapping follows, public AV clips (15–30s in the first
-90s), and public playlists. It does not write stats. Idempotent. Requires the
-dummy rows from `local-dev-accounts.sql` (re-run `make local_db_init` if those
-emails are missing). Run it after parse so clips and playlists exist before
-stats.
+90s), public playlists, and inbox notifications. Content notifications use
+titles and links from parsed shows. New content and New episode use different
+episodes. New album comes from the Middle Season publisher feed and one album
+it lists (Podcast Index 8039141). The Podcast Index preview row is another
+album that feed lists (6651863) and is not parsed. New podcast and New video
+channel are omitted until Podcast Index has a publisher feed of that medium;
+the inbox line for those types is the same shape as New album. When the
+database is missing a shape, the command parses a small Podcast Index set
+first: four Podcasting 2.0 shows (including live items), two music albums,
+the Middle Season publisher feed, the album above, and one video-medium feed
+if none is stored. It does not write stats. A re-run replaces the seeded
+notification rows so titles stay current, and does not duplicate follows,
+clips, or playlists. Requires the dummy rows from `local-dev-accounts.sql`
+(re-run `make local_db_init` if those emails are missing) and Podcast Index
+keys for any feed it still has to parse. Run it before
+`workers:seed_simulated_stats`. The larger parse commands above are optional
+when you want a bigger catalog than that small set.
 
 `workers:seed_simulated_stats` writes 31 days of simulated daily listener
 totals (and one older day, so all-time differs from month) for public channels,

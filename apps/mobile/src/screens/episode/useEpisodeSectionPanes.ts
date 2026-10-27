@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { DTOClip, DTOItem, DTOItemChapter, DTOItemSoundbite } from '@podverse/helpers/dto';
+import type {
+  DTOClip,
+  DTOItem,
+  DTOItemChapter,
+  DTOItemSoundbite,
+  TranscriptRow,
+} from '@podverse/helpers/dto';
 
 import { requestWithMobileAuthRefresh, useAuth } from '../../auth';
 import type { ItemSectionChromeFlags } from '../../lib/sectionChromeFlags';
@@ -45,7 +51,7 @@ type UseEpisodeSectionPanesResult = {
   soundbiteRows: DTOItemSoundbite[];
   supportedTabs: EpisodeTab[];
   tabErrorKey: string | null;
-  transcriptText: string;
+  transcriptRows: TranscriptRow[];
 };
 
 const createLoadedTabs = (): LoadedTabs => ({
@@ -79,7 +85,7 @@ export function useEpisodeSectionPanes({
   const [chapterRows, setChapterRows] = useState<DTOItemChapter[]>([]);
   const [soundbiteRows, setSoundbiteRows] = useState<DTOItemSoundbite[]>([]);
   const [clipRows, setClipRows] = useState<DTOClip[]>([]);
-  const [transcriptText, setTranscriptText] = useState('');
+  const [transcriptRows, setTranscriptRows] = useState<TranscriptRow[]>([]);
   const [loadedTabs, setLoadedTabs] = useState<LoadedTabs>(createLoadedTabs);
 
   const supportedTabs = useMemo(
@@ -99,7 +105,7 @@ export function useEpisodeSectionPanes({
     setChapterRows([]);
     setSoundbiteRows([]);
     setClipRows([]);
-    setTranscriptText('');
+    setTranscriptRows([]);
     setLoadedTabs(createLoadedTabs());
     clipGenerationRef.current += 1;
     clipPageRef.current = 0;
@@ -217,7 +223,7 @@ export function useEpisodeSectionPanes({
           setClipRows(clips.rows);
           setClipHasMore(clips.hasMore);
         } else if (tab === 'transcript') {
-          const transcript = await loadEpisodeTranscriptPane(async () =>
+          const rows = await loadEpisodeTranscriptPane(async () =>
             requestWithMobileAuthRefresh(
               {
                 accessToken,
@@ -228,7 +234,7 @@ export function useEpisodeSectionPanes({
               async (api) => api.reqItemTranscriptGet(itemIdText)
             )
           );
-          setTranscriptText(transcript);
+          setTranscriptRows(rows);
         }
 
         setLoadedTabs((previous) => ({
@@ -377,6 +383,6 @@ export function useEpisodeSectionPanes({
     soundbiteRows,
     supportedTabs,
     tabErrorKey,
-    transcriptText,
+    transcriptRows,
   };
 }

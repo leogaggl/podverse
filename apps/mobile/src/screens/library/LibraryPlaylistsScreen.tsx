@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import { useTranslation } from 'react-i18next';
 import { RefreshControl, StyleSheet, View } from 'react-native';
 
-import type { DTOPlaylist } from '@podverse/helpers';
+import type { DTOPlaylist, QueryParamsQueueMedium } from '@podverse/helpers';
 import type {
   QueryParamsStatsRange,
   QueryParamsSubscribedFullSort,
@@ -29,12 +29,14 @@ import type { LibraryStackParamList } from '../../navigation';
 import { LIBRARY_STACK_ROUTES } from '../../navigation';
 import { useOfflineMode } from '../../prefs/offlineMode';
 import {
+  DEFAULT_PLAYLIST_LIST_MEDIUM,
   DEFAULT_PLAYLIST_LIST_RANGE,
   DEFAULT_PLAYLIST_LIST_SORT,
   DEFAULT_PLAYLIST_LIST_TYPE,
   PLAYLIST_LIST_RANGE_OPTIONS,
   PLAYLIST_LIST_SORT_OPTIONS,
   readPlaylistListPrefs,
+  writePlaylistListMedium,
   writePlaylistListRange,
   writePlaylistListSort,
   writePlaylistListType,
@@ -104,6 +106,9 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
   const [selectedRange, setSelectedRange] = useState<QueryParamsStatsRange>(
     DEFAULT_PLAYLIST_LIST_RANGE
   );
+  const [selectedMedium, setSelectedMedium] = useState<QueryParamsQueueMedium>(
+    DEFAULT_PLAYLIST_LIST_MEDIUM
+  );
   const [isPrefsReady, setIsPrefsReady] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -162,6 +167,15 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
     [t]
   );
 
+  const mediumOptions = useMemo<readonly MenuSelectChipOption<QueryParamsQueueMedium>[]>(
+    () => [
+      { label: t('filters.type.all'), value: 'all' },
+      { label: t('media.podcast.podcasts'), value: 'av' },
+      { label: t('media.music.music'), value: 'music' },
+    ],
+    [t]
+  );
+
   const sortOptions = useMemo<readonly MenuSelectChipOption<QueryParamsSubscribedFullSort>[]>(
     () =>
       PLAYLIST_LIST_SORT_OPTIONS.map((sort) => ({
@@ -214,7 +228,7 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
       setErrorKey(null);
       try {
         const params = {
-          medium: 'all' as const,
+          medium: selectedMedium,
           page,
           range: selectedSort === 'top' ? selectedRange : null,
           sort: selectedSort,
@@ -262,6 +276,7 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
       listKind,
       offlineModeEnabled,
       playlists.length,
+      selectedMedium,
       selectedRange,
       selectedSort,
       selectedType,
@@ -286,6 +301,7 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
       setSelectedType(prefs.type);
       setSelectedSort(prefs.sort);
       setSelectedRange(prefs.range);
+      setSelectedMedium(prefs.medium);
       setIsPrefsReady(true);
     })();
 
@@ -299,7 +315,15 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
       return;
     }
     void reloadFirstPage(false);
-  }, [isPrefsReady, reloadFirstPage, selectedRange, selectedSort, selectedType, status]);
+  }, [
+    isPrefsReady,
+    reloadFirstPage,
+    selectedMedium,
+    selectedRange,
+    selectedSort,
+    selectedType,
+    status,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -352,6 +376,12 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
     void writePlaylistListRange(range);
   }, []);
 
+  const handleMediumChange = useCallback((medium: QueryParamsQueueMedium) => {
+    setSelectedMedium(medium);
+    setIsLoading(true);
+    void writePlaylistListMedium(medium);
+  }, []);
+
   const handleCreatePress = useCallback(() => {
     if (isTierKnown) {
       const access = evaluateFeature('add_by_rss_add');
@@ -370,7 +400,7 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
           ? () => (
               <HeaderBarAction
                 accessibilityLabel={t('features.playlist.create_playlist')}
-                icon="add"
+                icon="add-circle-outline"
                 onPress={handleCreatePress}
                 testID="library-playlists-create"
               />
@@ -472,6 +502,14 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
     () => (
       <>
         <MenuSelectChip
+          heading={t('filters.screen.filter_heading')}
+          menuTitle={t('filters.screen.filter_heading')}
+          onSelect={handleMediumChange}
+          options={mediumOptions}
+          testID="library-playlists-medium"
+          value={selectedMedium}
+        />
+        <MenuSelectChip
           heading={t('filters.screen.sort_heading')}
           menuTitle={t('filters.screen.sort_heading')}
           onSelect={handleSortChange}
@@ -491,7 +529,18 @@ export function LibraryPlaylistsScreen({ navigation }: LibraryPlaylistsScreenPro
         ) : null}
       </>
     ),
-    [handleRangeChange, handleSortChange, rangeOptions, selectedRange, selectedSort, sortOptions, t]
+    [
+      handleMediumChange,
+      handleRangeChange,
+      handleSortChange,
+      mediumOptions,
+      rangeOptions,
+      selectedMedium,
+      selectedRange,
+      selectedSort,
+      sortOptions,
+      t,
+    ]
   );
 
   const loadPlaylists = useCallback(async () => {

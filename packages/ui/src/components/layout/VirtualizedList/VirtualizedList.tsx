@@ -5,6 +5,8 @@ import { useEffect, useRef } from 'react';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import { Virtuoso } from 'react-virtuoso';
 
+import { resolveTranscriptScrollAlign } from '@podverse/helpers/transcript';
+
 export type VirtualizedListProps<T> = {
   items: T[];
   height: number;
@@ -21,6 +23,7 @@ export function VirtualizedList<T>({
   autoScrollOn,
 }: VirtualizedListProps<T>) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const visibleRangeRef = useRef<{ startIndex: number; endIndex: number } | null>(null);
 
   const safeItems = items ?? [];
   const itemCount = safeItems.length;
@@ -38,6 +41,25 @@ export function VirtualizedList<T>({
     if (highlightedIndex === undefined) {
       return;
     }
+
+    const visible = visibleRangeRef.current;
+    if (visible !== null) {
+      const align = resolveTranscriptScrollAlign({
+        activeIndex: highlightedIndex,
+        visibleEndIndex: visible.endIndex,
+        visibleStartIndex: visible.startIndex,
+      });
+      if (align === null) {
+        return;
+      }
+      virtuosoRef.current.scrollToIndex({
+        index: highlightedIndex,
+        align,
+        behavior: 'smooth',
+      });
+      return;
+    }
+
     virtuosoRef.current.scrollToIndex({
       index: highlightedIndex,
       align: 'start',
@@ -54,6 +76,12 @@ export function VirtualizedList<T>({
       ref={virtuosoRef}
       style={{ height }}
       totalCount={itemCount}
+      rangeChanged={(range) => {
+        visibleRangeRef.current = {
+          endIndex: range.endIndex,
+          startIndex: range.startIndex,
+        };
+      }}
       itemContent={(index: number) => {
         const item = safeItems[index];
         return item ? renderItem(item, index) : null;

@@ -40,16 +40,17 @@ export const formatDateTimeAbbrev = (
     typeof date === 'string' || typeof date === 'number'
       ? new Date(typeof date === 'number' && date < 1e12 ? date * 1000 : date)
       : date;
-  const formatter = new Intl.DateTimeFormat(localeString, {
+  const datePart = new Intl.DateTimeFormat(localeString, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+  }).format(d);
+  const timePart = new Intl.DateTimeFormat(localeString, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZoneName: 'short',
-  });
-  return formatter.format(d);
+  }).format(d);
+  return `${datePart} - ${timePart}`;
 };
 
 export function formatDateTimeAbbrevOrFallback(

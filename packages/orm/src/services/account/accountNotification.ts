@@ -177,6 +177,43 @@ export class AccountNotificationService {
     });
   }
 
+  /** `payload.localSeedKey` values on this account's rows. Empty when none were seeded. */
+  async listLocalSeedKeys(account_id: number): Promise<string[]> {
+    const result: unknown = await this.repositoryRead.query(
+      `
+      SELECT n.payload->>'localSeedKey' AS local_seed_key
+      FROM account_notification AS n
+      WHERE n.account_id = $1
+        AND n.payload->>'localSeedKey' IS NOT NULL
+      `,
+      [account_id]
+    );
+    const rows = readQueryResultRows(result) ?? [];
+    const keys: string[] = [];
+    for (const row of rows) {
+      if (typeof row !== 'object' || row === null) {
+        continue;
+      }
+      const key: unknown = Reflect.get(row, 'local_seed_key');
+      if (typeof key === 'string' && key !== '') {
+        keys.push(key);
+      }
+    }
+    return keys;
+  }
+
+  /** Removes rows this command wrote, so a later seed can replace their titles and links. */
+  async deleteLocalSeedRows(account_id: number): Promise<number> {
+    const result = await this.repositoryReadWrite
+      .createQueryBuilder()
+      .delete()
+      .from(AccountNotification)
+      .where('account_id = :account_id', { account_id })
+      .andWhere("payload->>'localSeedKey' IS NOT NULL")
+      .execute();
+    return result.affected ?? 0;
+  }
+
   /** Every row the account has, read or not. Pagination counts pages from this. */
   async countForAccount(account_id: number): Promise<number> {
     return this.repositoryRead.count({ where: { account_id } });

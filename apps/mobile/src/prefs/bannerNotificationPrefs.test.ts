@@ -73,7 +73,7 @@ describe('bannerNotificationPrefs', () => {
 
   it('keeps a saved kind across a fresh hydrate and leaves the other defaults', async () => {
     const first = await loadBannerNotificationPrefs();
-    await first.setBannerNotificationEnabled('livestream-scheduled', true);
+    await first.setBannerNotificationEnabled('product-update', true);
     expect(first.isBannerNotificationPrefsHydrated()).toBe(true);
 
     const raw = asyncStorageMock.store.get(BANNER_NOTIFICATION_PREFS_KEY);
@@ -81,7 +81,7 @@ describe('bannerNotificationPrefs', () => {
     if (typeof raw === 'string') {
       expect(JSON.parse(raw)).toEqual({
         ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
-        'livestream-scheduled': true,
+        'product-update': true,
       });
     }
 
@@ -91,6 +91,26 @@ describe('bannerNotificationPrefs', () => {
 
     expect(second.getBannerNotificationEnabled()).toEqual({
       ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
+      'product-update': true,
+    });
+  });
+
+  it('turns both livestream kinds on when a stored pair disagrees', async () => {
+    asyncStorageMock.store.set(
+      BANNER_NOTIFICATION_PREFS_KEY,
+      JSON.stringify({
+        ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
+        'livestream-started': true,
+        'livestream-scheduled': false,
+      })
+    );
+
+    const prefs = await loadBannerNotificationPrefs();
+    await prefs.hydrateBannerNotificationPrefs();
+
+    expect(prefs.getBannerNotificationEnabled()).toEqual({
+      ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
+      'livestream-started': true,
       'livestream-scheduled': true,
     });
   });
@@ -117,7 +137,7 @@ describe('bannerNotificationPrefs', () => {
     const hydrate = prefs.hydrateBannerNotificationPrefs();
     expect(pendingReads).toHaveLength(1);
 
-    await prefs.setBannerNotificationEnabled('livestream-scheduled', true);
+    await prefs.setBannerNotificationEnabled('product-update', true);
     const releaseRead = pendingReads[0];
     if (releaseRead === undefined) {
       throw new Error('hydrate did not read storage');
@@ -128,7 +148,7 @@ describe('bannerNotificationPrefs', () => {
     expect(prefs.isBannerNotificationPrefsHydrated()).toBe(true);
     expect(prefs.getBannerNotificationEnabled()).toEqual({
       ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
-      'livestream-scheduled': true,
+      'product-update': true,
     });
   });
 });

@@ -125,7 +125,8 @@ test.describe('Media player across two signed-in browsers', () => {
           EPISODE_TITLE
         );
         await expectPersistentPlayerPlaying(deviceA.page, true);
-        await expect(playerButton(deviceA.page, 'Share')).toBeVisible();
+        await expect(playerButton(deviceA.page, 'More Options')).toBeVisible();
+        await expect(visiblePlayerButton(deviceA.page, 'Share')).toHaveCount(0);
         await expect(playerDevicesButton(deviceA.page)).toHaveCount(0);
       });
 
@@ -225,12 +226,10 @@ test.describe('Media player across two signed-in browsers', () => {
       });
 
       await test.step('When browser B changes playback speed from player settings, browser A applies that speed.', async () => {
-        await playerButton(deviceB.page, 'Player Settings').click();
-        const speedButton = deviceB.page
-          .locator('aside#media-player button[aria-label^="Playback Speed:"]:visible')
-          .first();
-        await expect(speedButton).toBeVisible();
-        await speedButton.click();
+        await playerButton(deviceB.page, 'More Options').click();
+        const speedItem = deviceB.page.getByRole('menuitem', { name: /^Playback Speed:/ });
+        await expect(speedItem).toBeVisible();
+        await speedItem.click();
         await expect
           .poll(
             async () => {
@@ -445,6 +444,12 @@ test.describe('Media player across two signed-in browsers', () => {
       await expect(visiblePlayerButton(deviceB.page, JUMP_FORWARD_LABEL)).toHaveCount(0);
       await expect(visiblePlayerButton(deviceB.page, JUMP_BACK_LABEL)).toHaveCount(0);
       await expect(visiblePlayerButton(deviceB.page, 'Player Settings')).toHaveCount(0);
+      await playerButton(deviceB.page, 'More Options').click();
+      await expect(deviceB.page.getByRole('menuitem', { name: /^Playback Speed:/ })).toHaveCount(0);
+      await expect(
+        deviceB.page.getByRole('menuitem', { name: 'Share', exact: true })
+      ).toBeVisible();
+      await deviceB.page.keyboard.press('Escape');
       await capturePageLoad(
         deviceB.page,
         testInfo,
@@ -653,7 +658,8 @@ test.describe('Media player across two signed-in browsers', () => {
       await deviceB.page.keyboard.press('Escape');
       await expect(addDialog).toHaveCount(0);
 
-      await playerButton(deviceB.page, 'Share').click();
+      await playerButton(deviceB.page, 'More Options').click();
+      await deviceB.page.getByRole('menuitem', { name: 'Share', exact: true }).click();
       const shareDialog = deviceB.page.getByRole('dialog', { name: 'Share' });
       await expect(shareDialog).toBeVisible();
       await deviceB.page.keyboard.press('Escape');
@@ -685,7 +691,7 @@ test.describe('Media player across two signed-in browsers', () => {
     }
   });
 
-  test('When a remote browser is narrow, podcasts show jump controls and music tracks show previous and next controls.', async ({
+  test('When a remote browser is narrow, the bar shows jump controls and track skip stays on the full player.', async ({
     browser,
   }, testInfo) => {
     // Two signed-in contexts, plus cross-device presence leave wait, can exceed the default test budget.
@@ -707,23 +713,33 @@ test.describe('Media player across two signed-in browsers', () => {
       await expectHomeLoaded(deviceB.page);
       await expect(playerButton(deviceB.page, JUMP_BACK_LABEL)).toBeVisible();
       await expect(playerButton(deviceB.page, JUMP_FORWARD_LABEL)).toBeVisible();
+      await expect(playerButton(deviceB.page, 'Pause')).toBeVisible();
+      await expect(playerDevicesButton(deviceB.page)).toBeVisible();
       await expect(visiblePlayerButton(deviceB.page, 'Skip to Previous')).toHaveCount(0);
       await expect(visiblePlayerButton(deviceB.page, 'Skip to Next')).toHaveCount(0);
+      await expect(visiblePlayerButton(deviceB.page, 'More Options')).toHaveCount(0);
+      await expect(visiblePlayerButton(deviceB.page, 'Share')).toHaveCount(0);
+      await expect(visiblePlayerButton(deviceB.page, 'Add to Playlist')).toHaveCount(0);
       await capturePageLoad(
         deviceB.page,
         testInfo,
-        'On a narrow remote podcast view, jump controls are shown and skip-track controls stay hidden.',
+        'On a narrow remote podcast view, the bar shows play, jumps, and device switch.',
         playerButton(deviceB.page, JUMP_FORWARD_LABEL)
       );
 
       await openTrackAndPlay(deviceA.page, E2E_MUSIC_TRACK_ONE_ID_TEXT, TRACK_ONE_TITLE);
       await expectTrackLoaded(deviceA.page, E2E_MUSIC_TRACK_ONE_ID_TEXT, TRACK_ONE_TITLE);
       await expectMediaPlayerTitleVisible(deviceB.page, TRACK_ONE_TITLE, { timeout: 20_000 });
-      await expect(playerButton(deviceB.page, 'Skip to Previous')).toBeVisible();
-      await expect(playerButton(deviceB.page, 'Skip to Next')).toBeVisible();
-      await expect(visiblePlayerButton(deviceB.page, JUMP_BACK_LABEL)).toHaveCount(0);
-      await expect(visiblePlayerButton(deviceB.page, JUMP_FORWARD_LABEL)).toHaveCount(0);
-      await playerButton(deviceB.page, 'Skip to Next').click();
+      await expect(playerButton(deviceB.page, JUMP_BACK_LABEL)).toBeVisible();
+      await expect(playerButton(deviceB.page, JUMP_FORWARD_LABEL)).toBeVisible();
+      await expect(visiblePlayerButton(deviceB.page, 'Skip to Previous')).toHaveCount(0);
+      await expect(visiblePlayerButton(deviceB.page, 'Skip to Next')).toHaveCount(0);
+      await deviceB.page.getByTestId('media-player-bar-title-mobile').click();
+      const fullscreenDialog = deviceB.page.getByRole('dialog', {
+        name: 'Fullscreen Media Player',
+      });
+      await expect(fullscreenDialog).toBeVisible();
+      await fullscreenDialog.getByRole('button', { name: 'Skip to Next' }).click();
       await expectMediaPlayerTitleVisible(deviceA.page, TRACK_TWO_TITLE, { timeout: 20_000 });
     } finally {
       await closeSignedInDevices(devicesToClose);

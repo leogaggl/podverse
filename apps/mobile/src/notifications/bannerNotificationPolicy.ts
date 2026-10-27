@@ -24,11 +24,26 @@ export type BannerNotificationKind = (typeof BANNER_NOTIFICATION_KINDS)[number];
 export const DEFAULT_BANNER_NOTIFICATION_ENABLED: Record<BannerNotificationKind, boolean> = {
   'new-item': true,
   'livestream-started': true,
-  'livestream-scheduled': false,
+  'livestream-scheduled': true,
   'product-update': false,
   maintenance: false,
   'terms-of-service': false,
   general: false,
+};
+
+/**
+ * Settings shows one Banner switch per category. Livestream's two stored kinds move together.
+ */
+export const BANNER_KINDS_BY_CATEGORY: Record<
+  NotificationCategoryValues,
+  readonly BannerNotificationKind[]
+> = {
+  [NotificationCategoryEnum.NewContent]: ['new-item'],
+  [NotificationCategoryEnum.Livestream]: ['livestream-started', 'livestream-scheduled'],
+  [NotificationCategoryEnum.ProductUpdate]: ['product-update'],
+  [NotificationCategoryEnum.Maintenance]: ['maintenance'],
+  [NotificationCategoryEnum.TermsOfService]: ['terms-of-service'],
+  [NotificationCategoryEnum.General]: ['general'],
 };
 
 /** Catalog keys so Settings and this list stay on the same strings. */
@@ -40,6 +55,45 @@ export const BANNER_NOTIFICATION_KIND_LABEL_KEY: Record<BannerNotificationKind, 
   maintenance: 'settings.notifications.category_maintenance',
   'terms-of-service': 'settings.notifications.category_terms_of_service',
   general: 'settings.notifications.category_general',
+};
+
+export const isBannerCategoryEnabled = (
+  category: NotificationCategoryValues,
+  enabled: Readonly<Record<BannerNotificationKind, boolean>>
+): boolean => {
+  return BANNER_KINDS_BY_CATEGORY[category].some((kind) => enabled[kind]);
+};
+
+export const applyBannerCategoryEnabled = (
+  category: NotificationCategoryValues,
+  nextEnabled: boolean,
+  current: Readonly<Record<BannerNotificationKind, boolean>>
+): Record<BannerNotificationKind, boolean> => {
+  const next: Record<BannerNotificationKind, boolean> = { ...current };
+  for (const kind of BANNER_KINDS_BY_CATEGORY[category]) {
+    next[kind] = nextEnabled;
+  }
+  return next;
+};
+
+/**
+ * Livestream Scheduled and Started share one Settings switch. When stored values disagree, both
+ * become on if either was on.
+ */
+export const reconcileLivestreamBannerKinds = (
+  enabled: Record<BannerNotificationKind, boolean>
+): Record<BannerNotificationKind, boolean> => {
+  const started = enabled['livestream-started'];
+  const scheduled = enabled['livestream-scheduled'];
+  if (started === scheduled) {
+    return enabled;
+  }
+  const either = started || scheduled;
+  return {
+    ...enabled,
+    'livestream-started': either,
+    'livestream-scheduled': either,
+  };
 };
 
 const BANNER_BODY_PREVIEW_MAX_CHARS = 140;
@@ -119,18 +173,16 @@ export const resolveBannerNotificationEnabled = (
     ...DEFAULT_BANNER_NOTIFICATION_ENABLED,
   };
 
-  if (stored === null) {
-    return resolved;
-  }
-
-  for (const kind of BANNER_NOTIFICATION_KINDS) {
-    const value = stored[kind];
-    if (typeof value === 'boolean') {
-      resolved[kind] = value;
+  if (stored !== null) {
+    for (const kind of BANNER_NOTIFICATION_KINDS) {
+      const value = stored[kind];
+      if (typeof value === 'boolean') {
+        resolved[kind] = value;
+      }
     }
   }
 
-  return resolved;
+  return reconcileLivestreamBannerKinds(resolved);
 };
 
 export const bannerNotificationCopy = (notification: {

@@ -34,7 +34,6 @@ const BASE_ORM_COMMANDS = [
   'accountContentLogPurge',
   'accountSessionPurge',
   'archiveAll',
-  'devSeedLocalUserContent',
   'devStatsSeedSimulatedPopularity',
   'statsEventPartitionsMaintain',
   'statsPopularityRefresh',
@@ -84,6 +83,7 @@ const BASE_ORM_PARSER_PODCAST_INDEX_COMMANDS = [
   'devParserRSSParseMusicMediumFeeds',
   'devParserRSSParsePodcasting20Feeds',
   'devParserRSSParseTrendingFeeds',
+  'devSeedLocalUserContent',
   'seedEmbedDemoShowcaseFeeds',
 ] as const;
 
@@ -107,6 +107,7 @@ export const ACCOUNT_NOTIFICATION_WRITER_COMMANDS = [
   'devParserRSSParseMusicMediumFeeds',
   'devParserRSSParsePodcasting20Feeds',
   'devParserRSSParseTrendingFeeds',
+  'devSeedLocalUserContent',
   'seedEmbedDemoShowcaseFeeds',
 ] as const;
 

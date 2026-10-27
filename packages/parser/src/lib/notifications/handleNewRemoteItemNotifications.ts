@@ -16,6 +16,7 @@ import {
 } from './remoteAlbumNotification.js';
 import type { ItemNotificationData } from './sharedNotificationHelpers.js';
 import {
+  buildItemNotificationPayload,
   createInAppNotificationsForAccounts,
   getDevicesForNotificationType,
   getInAppNotificationLinkPath,
@@ -197,13 +198,10 @@ export async function handleNewRemoteItemNotifications(
       body: itemNotification.channelTitle,
       category: NotificationCategoryEnum.NewContent,
       linkPath: getInAppNotificationLinkPath(itemNotification),
-      payload: {
-        channelIdText: itemNotification.channelIdText,
-        itemIdText: itemNotification.itemIdText,
-        mediumId: itemNotification.mediumId,
-        ...(resolved.kind === 'podcast-index' ? { podcastIndexId: resolved.podcastIndexId } : {}),
-        type: itemNotification.messageType,
-      },
+      payload: buildItemNotificationPayload(
+        itemNotification,
+        resolved.kind === 'podcast-index' ? { podcastIndexId: resolved.podcastIndexId } : undefined
+      ),
       title: getInAppNotificationTitle(itemNotification.messageType, itemNotification.itemTitle),
     });
 

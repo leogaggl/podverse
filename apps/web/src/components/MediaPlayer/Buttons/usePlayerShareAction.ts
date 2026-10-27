@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl';
 import { useRef } from 'react';
-import { FaShare } from 'react-icons/fa6';
 
 import type { DTOItemChapter } from '@podverse/helpers';
 
@@ -22,8 +21,6 @@ import {
 import { selectItemChapterForTime } from '../../../lib/playback';
 import type { MediaPlayerSegmentStripSegment } from '../../../utils/mediaPlayer/mediaPlayerSegmentStrip';
 import { showToast } from '../../Toast/Toast';
-
-import styles from '../../../styles/components/MediaPlayer/Buttons/ShareButton.module.scss';
 
 /**
  * The chapter the strip is naming, when that chapter is in the loaded list.
@@ -61,17 +58,18 @@ function currentRemoteRefKey(): string | null {
   return ref === null ? null : playbackResourceRefKey(ref);
 }
 
-export const ShareButton = () => {
+/** Opens the share modal for the item in the player. Add by RSS has no public page. */
+export function usePlayerShareAction(): { canShare: boolean; openShare: () => void } {
   const { mpChannel, mpClip, mpItem, mpItemChapter, mpItemSoundbite } = useMediaPlayer();
   const { setModalShare } = useModals();
   const remote = useRemotePlayerDisplay();
   const remoteResource = useRemotePlayerResource();
   const tFeatures = useTranslations('features');
   const remoteClickInFlightRef = useRef(false);
-  const disabled =
+  const canShare =
     remote !== null
-      ? remote.resource.ref.kind === 'add_by_rss'
-      : mpChannel === null && mpItem === null;
+      ? remote.resource.ref.kind !== 'add_by_rss'
+      : mpChannel !== null || mpItem !== null;
 
   const openRemoteShare = async () => {
     if (remoteClickInFlightRef.current) {
@@ -128,7 +126,10 @@ export const ShareButton = () => {
     }
   };
 
-  const onClick = () => {
+  const openShare = () => {
+    if (!canShare) {
+      return;
+    }
     if (remote === null) {
       setModalShare({
         channel: mpChannel,
@@ -144,15 +145,5 @@ export const ShareButton = () => {
     void openRemoteShare();
   };
 
-  return (
-    <button
-      aria-label={tFeatures('share')}
-      className={styles.shareButton}
-      disabled={disabled}
-      onClick={onClick}
-      type="button"
-    >
-      <FaShare aria-hidden />
-    </button>
-  );
-};
+  return { canShare, openShare };
+}

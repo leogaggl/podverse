@@ -1,6 +1,6 @@
-import { formatDateAbbrev } from '@podverse/helpers';
+import { formatDateTimeAbbrev } from '@podverse/helpers';
 
-/** Abbreviated publish date for an item detail header, or null when absent or unparseable. */
+/** Publish date and local time for an item detail header, or null when absent or unparseable. */
 export const itemDetailDateLabel = (
   pubDate: Date | string | null | undefined,
   language: string
@@ -15,5 +15,5 @@ export const itemDetailDateLabel = (
   if (Number.isNaN(parsed.getTime())) {
     return null;
   }
-  return formatDateAbbrev(parsed, language);
+  return formatDateTimeAbbrev(parsed, language);
 };

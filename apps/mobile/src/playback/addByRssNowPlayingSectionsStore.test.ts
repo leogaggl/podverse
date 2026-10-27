@@ -52,7 +52,7 @@ const sections: AddByRssItemSections = {
       web_url: null,
     },
   ]),
-  transcriptText: '',
+  transcriptRows: [],
 };
 
 type Context = { token: string };

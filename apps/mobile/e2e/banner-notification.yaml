@@ -18,7 +18,7 @@ name: Banner Notification
     timeout: ${TIMEOUT_FAST}
 - assertVisible:
     id: banner-notification-title
-    text: "E2E Banner"
+    text: "New episode: E2E Show – E2E Banner"
 - takeScreenshot: banner-notification-visible
 - swipe:
     from:

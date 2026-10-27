@@ -68,25 +68,32 @@ test.describe('Settings: notification subscribe defaults', () => {
     await test.step('Open the notifications settings tab and verify subscribe-default controls.', async () => {
       await page.goto('/settings?tab=notifications');
       await expect(page).toHaveURL(/\/settings\?tab=notifications/);
+      await expect(page.getByRole('heading', { name: 'When I Subscribe' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Notification Types' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Media Notifications' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'System Notifications' })).toBeVisible();
       await expect(autoEnable).toBeVisible();
       await expect(newItem).toBeVisible();
       await expect(livestreamScheduled).toBeVisible();
       await expect(livestreamStarted).toBeVisible();
       await expect(page.getByRole('switch', { name: 'Unified Push' })).toHaveCount(0);
-      const pushPreferences = page.getByRole('checkbox', { name: 'Push' });
+      await expect(page.getByRole('switch', { name: 'New Content' })).toBeVisible();
+      await expect(page.getByRole('switch', { name: 'Livestream' })).toBeVisible();
+      await expect(page.getByRole('switch', { name: 'Product Updates' })).toBeVisible();
+      const pushPreferences = page.getByRole('switch', { name: /Push/ });
       await expect(pushPreferences.first()).toBeVisible();
       const pushCount = await pushPreferences.count();
-      expect(pushCount).toBeGreaterThan(0);
-      for (let index = 0; index < pushCount; index += 1) {
-        await expect(pushPreferences.nth(index)).toBeDisabled();
-      }
+      // Media categories and locked system categories show Push; Product Updates stays off by
+      // default so its Push row stays hidden until the base switch is on.
+      expect(pushCount).toBeGreaterThanOrEqual(5);
+      await expect(page.getByRole('switch', { name: 'Banner' })).toHaveCount(0);
+      await expect(page.getByRole('switch', { name: 'In-App' })).toHaveCount(0);
       await expect(page.getByText('Enable Web Push or Unified Push first.')).toBeVisible();
 
       await capturePageLoad(
         page,
         testInfo,
-        'The notifications tab shows auto-enable on subscribe and the three type defaults.',
+        'The notifications tab shows category switches with Push revealed when a category is on.',
         autoEnable
       );
     });

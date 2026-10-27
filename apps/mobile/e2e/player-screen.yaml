@@ -41,28 +41,17 @@ name: Player screen flow
 
 - tapOn:
     id: full-player-section-chapters
+# The chip tap scrolls the outer column until the player title has left the screen, which is the
+# sheet filling the viewport under the chips. Playback keeps the clock moving, so the wait is the
+# settle. A peeking sliver of the sheet is already on screen before that scroll finishes.
+- extendedWaitUntil:
+    notVisible:
+      id: full-player-title
+    timeout: ${TIMEOUT_SLOW}
 - extendedWaitUntil:
     notVisible:
       id: full-player-pane-loading-chapters
     timeout: ${TIMEOUT_SLOWER}
-
-# Outer scroll brings the height-locked sheet on screen (chips at top, bottom radius visible).
-# A center swipe lands on the chapter list once the sheet covers the middle of the screen, so it
-# moves that list and leaves the sheet short of the bottom edge. The chip strip sits in the outer
-# scroller. Android clips the sheet's bounds to the screen, so a sliver already counts as visible
-# and the swipe does not run. Playback keeps the clock moving, so each swipe settles on a bound
-# instead of a still frame.
-- repeat:
-    times: 4
-    while:
-      notVisible:
-        id: full-player-pane-sheet
-    commands:
-      - swipe:
-          from:
-            id: full-player-sections
-          direction: UP
-          waitToSettleTimeoutMs: 1000
 - assertVisible:
     id: full-player-pane-sheet
 - assertVisible:

@@ -359,9 +359,9 @@ const WORKER_COMMAND_DEFS: readonly WorkerCommandDef[] = [
   },
   {
     name: 'devSeedLocalUserContent',
-    label: 'Dev: seed local user follows, clips, and playlists',
+    label: 'Dev: seed local user content and notifications',
     description:
-      'Idempotent local content for dummyNN@podverse.local plus operator login accounts: follows, public AV clips, and playlists. Run workers:seed_simulated_stats afterward for Top lists.',
+      'Idempotent local content for dummyNN@podverse.local plus operator login accounts: follows, public AV clips, playlists, and inbox notifications linked to parsed feeds. A publisher channel notice names the new show and the publisher feed. Podcast and video publisher rows are omitted until Podcast Index has those feeds. Re-running replaces the seeded notification rows. Parses a small Podcast Index set when those feeds are missing. Run workers:seed_simulated_stats afterward for Top lists.',
     category: 'dev',
     risk: 'dev_only',
     example_cli: 'npm run workers:seed_local_user_content',

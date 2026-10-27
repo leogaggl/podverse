@@ -1,8 +1,8 @@
 import type { TranscriptRow } from '@podverse/helpers';
 
 /**
- * Parses transcript string into rows. Transcriptator (he, xmldom, etc.) is
- * loaded only when this is first called (transcript tab), not in the main bundle.
+ * Parses transcript string into rows. Transcriptator is loaded only when this is
+ * first called (transcript tab), not in the main bundle.
  */
 export const getTranscriptRowsFromTranscriptString = async (
   data?: string | null
@@ -12,7 +12,7 @@ export const getTranscriptRowsFromTranscriptString = async (
   }
 
   try {
-    const { parseTranscriptRows } = await import('./transcriptParser');
+    const { parseTranscriptRows } = await import('@podverse/helpers/transcript');
     return parseTranscriptRows(data) ?? [];
   } catch (error) {
     console.error('getParsedTranscript error:', error);

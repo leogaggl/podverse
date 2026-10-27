@@ -134,6 +134,10 @@
     "./timeConstants": {
       "types": "./dist/lib/timeConstants.d.ts",
       "default": "./dist/lib/timeConstants.js"
+    },
+    "./transcript": {
+      "types": "./dist/lib/transcript/index.d.ts",
+      "default": "./dist/lib/transcript/index.js"
     }
   },
   "files": [
@@ -157,6 +161,7 @@
     "date-fns": "^4.4.0",
     "he": "^2.0.0",
     "tldts": "^7.4.18",
+    "transcriptator": "^1.1.4",
     "uuid": "^14.0.3"
   },
   "devDependencies": {

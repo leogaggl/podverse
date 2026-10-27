@@ -6,7 +6,7 @@ import React from 'react';
 
 import {
   buildDTOChannelImageLoadCandidates,
-  formatDateAbbrev,
+  formatDateTimeAbbrev,
   isDescriptionTruncated,
   prependDistinctImageCandidate,
 } from '@podverse/helpers';
@@ -263,7 +263,7 @@ export const AddByRSSDetailClient: React.FC<AddByRSSDetailClientProps> = ({
                       <div className={styles.itemTitle}>{bundle.item.title}</div>
                       {bundle.item.pub_date && (
                         <div className={styles.itemDate}>
-                          {formatDateAbbrev(bundle.item.pub_date, locale)}
+                          {formatDateTimeAbbrev(bundle.item.pub_date, locale)}
                         </div>
                       )}
                     </li>
