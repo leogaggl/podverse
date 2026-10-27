@@ -2,11 +2,15 @@ import type { NativeStackNavigationOptions } from '@react-navigation/native-stac
 import { Platform } from 'react-native';
 
 /**
- * Duration for every root slide-up / slide-down (full player, image viewer, V4V, and the
- * mini↔full video surface reparent). One number so those motions cannot drift apart. Faster than
- * the native-stack default (~350ms) so the cover feels immediate without snapping.
+ * Duration for every root slide-up / slide-down (full player, image viewer, V4V, Search,
+ * notifications, and the mini↔full video surface reparent). One number so those motions cannot
+ * drift apart. Faster than the native-stack default (~350ms) so the cover feels immediate
+ * without snapping.
  */
 export const ROOT_SLIDE_UP_ANIMATION_MS = 250;
+
+/** Root route name for the Search card. Shared so the Search root header can dismiss that card. */
+export const ROOT_SEARCH_ROUTE_NAME = 'Search';
 
 /**
  * Slide-up root screens. A card that enters from the bottom covers the window flush like a tab

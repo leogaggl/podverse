@@ -9,7 +9,7 @@ name: Queue Add
 - runFlow: shared/login-seeded-user.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -40,6 +40,8 @@ name: Queue Add
 - takeScreenshot: queue-add-after-queue-tap
 
 # Navigate to the Library queue screen and confirm the item is present as an upcoming row.
+# Search covers the tab bar until the card is dismissed.
+- runFlow: shared/dismiss-search-drill.yaml
 - tapOn:
     id: tab-my-library
 - assertVisible:

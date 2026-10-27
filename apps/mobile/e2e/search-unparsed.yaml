@@ -10,7 +10,7 @@ name: Search Unparsed Feed Preview
 - runFlow: shared/login-seeded-user.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - takeScreenshot: search-unparsed-screen-initial

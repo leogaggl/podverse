@@ -7,7 +7,7 @@ name: Search Flow
 - runFlow: shared/login-seeded-user.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - assertVisible:

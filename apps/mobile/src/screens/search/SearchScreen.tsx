@@ -115,7 +115,7 @@ export function SearchScreen({ navigation, route }: SearchScreenProps) {
     };
   }, []);
 
-  // Home's "nothing subscribed yet" button sends the user here to type something, so the field
+  // Home's search control and empty-state button send the user here to type something, so the field
   // starts empty and focused. An optional medium selects All / Music first. The request is consumed
   // immediately, otherwise coming back from a result would wipe the query the user just ran.
   useFocusEffect(

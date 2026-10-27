@@ -6,14 +6,14 @@ import { usePlaybackSession } from './PlaybackProvider';
 import { getPlaybackSourceMarker, subscribePlaybackSourceMarker } from './playbackSourceMarker';
 
 /**
- * E2E-only playback status markers in tab chrome. The mini player has no distinct playing/paused
+ * E2E-only playback status markers above the root navigator. A slide-up card covers the tab
+ * chrome, so these stay on top. The mini player has no distinct playing/paused
  * testID, so auto-queue and load-state flows read these while staying on product screens. Skip-next
  * and complete live on the More E2E Playback screen with the other harness controls.
  * `playback-source-e2e` is `remote` while streaming and `local` after a completed download of that
  * file is what the engine is playing.
  *
- * The node is a 1×1 absolute marker, same as the perf report. It is not part of the bottom-chrome
- * overlay height, and it does not receive touches.
+ * The node is a 1×1 absolute marker, same as the perf report. It does not receive touches.
  */
 export function PlaybackE2eStatus() {
   const { activeTarget, isPlaying, nowPlaying } = usePlaybackSession();

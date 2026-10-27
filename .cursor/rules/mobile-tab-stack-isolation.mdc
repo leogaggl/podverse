@@ -12,13 +12,16 @@ components on more than one stack (duplicative route registration is intentional
 
 ## Do
 
-- Keep Search → preview/add → channel/episode detail **inside the Search stack**.
+- Keep Search → preview/add → channel/episode detail **inside the Search stack**. That stack is
+  root route `Search`, raised from the Home search control. It is not a bottom tab. Dismissing
+  the card closes the stack. Reopening Search starts a new card.
 - Keep Home feed → channel/episode detail **inside the Home stack**.
 - Prefer `navigation.replace(...)` when leaving a stale intermediate screen (e.g. Podcast Index
   “Add podcast” preview after the feed is parsed-ready) so Back does not reopen an invalid state,
-  while still leaving the user on the **same tab’s** detail screen.
-- Preserve stack state when the user switches tabs (returning to Search should restore Search’s
-  hierarchy, not reset to Search root because detail was opened under Home).
+  while still leaving the user on the **same stack’s** detail screen.
+- Preserve stack state when the user switches tabs. Do not move a Search result onto another
+  tab's detail routes. Search is not on a tab stack, so switching tabs is unavailable until the
+  card is dismissed.
 
 ## Don't
 
@@ -30,8 +33,8 @@ components on more than one stack (duplicative route registration is intentional
 ## Why
 
 Users expect tab bars to remember where they left off in that tab. Cross-tab navigation makes
-Back and tab-return feel broken (e.g. Search add completes on Home detail; returning to Search
-lands on Search root instead of the channel they just opened).
+Back and tab-return feel broken (e.g. a Search add completes on a Home feed detail; returning to
+Search lands on Search root instead of the channel they just opened).
 
 ## Related
 

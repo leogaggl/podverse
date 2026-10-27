@@ -19,7 +19,7 @@ name: Engine Audio Spike
 - runFlow: shared/login-seeded-user.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -43,10 +43,12 @@ name: Engine Audio Spike
     id: "home-row-play-.*"
 
 # Network + media load, then the engine reports playing and the orchestrator sets the active target.
+# Search covers the tab bar, so dismiss the card before the mini player can be tapped.
 - extendedWaitUntil:
     visible:
       id: playback-active-e2e
     timeout: ${TIMEOUT_SLOW}
+- runFlow: shared/dismiss-search-drill.yaml
 - assertVisible:
     id: mini-player
 - takeScreenshot: engine-audio-spike-now-playing

@@ -13,7 +13,17 @@ alwaysApply: false
 The bottom tab bar (and tablet left rail) is a stored, device-local order. **More** is always last.
 Hidden content tabs stay registered in the navigator and appear as rows on More.
 
-Factory visible order is **Home, Browse, Search, My Library** (`DEFAULT_VISIBLE_TABS`).
+Factory visible order is **Home, Browse, For Me, My Library** (`DEFAULT_VISIBLE_TABS`).
+The For Me tab is Recommendations. Its bar label is `nav.tab.for_me` ("For Me"). The screen
+title stays `nav.tab.recommendations` ("Recommendations").
+
+Search is not a content tab. It is not in `CONTENT_TAB_IDS`, not a More overflow row, and not a
+row on Settings > Tab Bar. A stored bar that still lists Search is read as Recommendations in
+that slot, and an earlier factory order that included Search is read as the current default.
+The Home search control (`home-search`) raises root route `Search` with
+`ROOT_SLIDE_UP_SCREEN_OPTIONS`. A down caret on Search root dismisses it (testID
+`search-dismiss`). A link whose path is `search` opens that route.
+
 Notifications is not a content tab. It is not in `CONTENT_TAB_IDS`, not a More overflow row,
 and not a row on Settings > Tab Bar. The Home bell is the in-app control that opens the inbox.
 A link or push whose path is `notifications` opens root route `NotificationsInbox`. The unread
@@ -30,13 +40,12 @@ same title case as other chrome. Stack body copy stays sentence case.
   server.
 - Cap visible content tabs at `MAX_VISIBLE_CONTENT_TABS` (4). Adding a fifth replaces the last slot.
 - List overflow tabs on More (`more-nav-<slug>`). Opening a row pushes that tab's stack on the
-  More stack (`MoreOverflowHome`, `MoreOverflowSearch`, `MoreOverflowLibrary`,
-  `MoreOverflowBrowse`, `MoreOverflowRecommendations`). More stays selected and Back returns to
-  More.
+  More stack (`MoreOverflowHome`, `MoreOverflowLibrary`, `MoreOverflowBrowse`,
+  `MoreOverflowRecommendations`). More stays selected and Back returns to More.
 
 ## Do not
 
-- Unmount a tab to hide it (breaks `navigate('Search')` and deep links).
+- Unmount a tab to hide it (breaks `navigate('Browse')` and deep links).
 - Open an overflow row with `tabNavigation.navigate(tabId)`. That focuses a tab whose button is
   hidden, highlights Home, and shows no Back control.
 - Paint the default bar and then swap after AsyncStorage (FOUC).

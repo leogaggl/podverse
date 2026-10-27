@@ -1,6 +1,7 @@
 import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
+import { ROOT_SEARCH_ROUTE_NAME } from '../../navigation/slideUpScreen';
 import { headerBackChoice } from './headerBackChoice';
 import { HeaderBarChrome } from './HeaderBarChrome';
 
@@ -46,9 +47,23 @@ export function ThemedStackHeader({ back, navigation, options }: NativeStackHead
     };
   }
 
+  const parentRouteName = parentState?.routes[parentState.index]?.name;
+  const dismissesSearchSheet =
+    choice === 'parentGoBack' && parentRouteName === ROOT_SEARCH_ROUTE_NAME;
+
   return (
     <HeaderBarChrome
-      backAccessibilityLabel={t('misc.go_back')}
+      backAccessibilityLabel={dismissesSearchSheet ? t('misc.dismiss') : t('misc.go_back')}
+      backIcon={dismissesSearchSheet ? 'chevron-down' : 'chevron-back'}
+      backTestID={dismissesSearchSheet ? 'search-dismiss' : 'stack-header-back'}
+      left={
+        onBack === undefined && options.headerLeft !== undefined
+          ? options.headerLeft({
+              canGoBack: false,
+              tintColor: options.headerTintColor,
+            })
+          : undefined
+      }
       onBack={onBack}
       right={
         options.headerRight === undefined

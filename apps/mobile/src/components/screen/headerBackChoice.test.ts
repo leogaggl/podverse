@@ -28,9 +28,9 @@ describe('headerBackChoice', () => {
   it('uses the parent stack at the first screen of a nested navigator', () => {
     expect(
       headerBackChoice({
-        focusedRouteName: 'MoreOverflowSearch',
+        focusedRouteName: 'SearchRoot',
         hasStackBack: false,
-        initialRouteName: 'MoreOverflowSearch',
+        initialRouteName: 'SearchRoot',
         parentStackCanGoBack: true,
       })
     ).toBe('parentGoBack');

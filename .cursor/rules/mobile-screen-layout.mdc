@@ -39,15 +39,22 @@ per-screen inset under the title bar.
   only. `HomeNotificationsBell` is the first control in Home's `headerRight`
   (`HeaderBarActions`), to the left of `HomeOverflowMenu`. testIDs `home-notifications-bell` and
   `home-notifications-bell-badge`. The same `HomeScreen` mounts under `MoreOverflowHome`, so the
-  bell is there too. No other screen gets this bell. It stays visible signed out and without
+  bell is there too. No other screen gets this bell. The bell stays visible signed out and without
   notifications access. Press goes through `resolveNotificationsBellPress`, then
   `navigateToNotificationsInboxScreen()` or `openGate`. Signed out, that press calls
   `openGate('needs_account')`. Signed in with notifications access denied, it calls `openGate`
   with that reason. While `isTierKnown === false`, press opens the inbox. The inbox is root
-  route `NotificationsInbox` with `ROOT_SLIDE_UP_SCREEN_OPTIONS`. Dismiss testID
-  `notifications-inbox-dismiss`. Link path `notifications` (a link, push tap, or banner tap
-  opens this route; signed out, that path opens the inbox login fill). The unread count is this
-  bell's badge. The More tab does not show it. **Turning notifications on or off for a channel**
+  route `NotificationsInbox` with `ROOT_SLIDE_UP_SCREEN_OPTIONS`. The leading control is a down
+  caret (testID `notifications-inbox-dismiss`, catalog `misc.dismiss`). Link path `notifications`
+  (a link, push tap, or banner tap opens this route; signed out, that path opens the inbox login
+  fill). The unread count is this bell's badge. The More tab does not show it. **Search** is Home
+  only, in `headerLeft` (`HomeSearchButton`, testID `home-search`), the far side from the bell
+  and the overflow menu. `navigateToSearchScreen()` raises root route `Search` with
+  `ROOT_SLIDE_UP_SCREEN_OPTIONS`. The Search root leading control is a down caret (testID
+  `search-dismiss`). Pages pushed on that stack keep a back chevron. No other screen gets this
+  control, and it is not a bottom tab or a Tab Bar settings row. It stays visible signed out.
+  When that Home root shows a back control (Home opened from More), back occupies the leading
+  slot. **Turning notifications on or off for a channel**
   is podcast, album, and artist detail only. Prop `notifications` on `ChannelHeader`, trailing
   on the action row, `layout="inline"`, `CHANNEL_HEADER_SETTINGS_ICON_SIZE`. testIDs
   `podcast-detail-notifications-toggle`, `album-detail-notifications-toggle`, and
@@ -78,8 +85,10 @@ per-screen inset under the title bar.
   bold rows, then a separate opaque quaternary Cancel block (same bold weight). Do not slide or
   fade, do not use a translucent Cancel fill, do not use a centered card, and do not style Cancel
   as a pill.
-- Tab roots use the same title slot (Home, Search, …). Page controls such as Home's media-type
-  pills and Search's field and chips sit in the body under that bar, not inside it.
+- Tab roots use the same title slot (Home, For Me, …). For Me is the Recommendations tab: the
+  bar says For Me and the screen title says Recommendations. Search is not a tab. Its field and
+  chips sit in the body under the Search title, opened from Home's leading header control.
+  Page controls such as Home's media-type pills sit in the body under that bar, not inside it.
 
 ## Page body under the bar
 
@@ -486,6 +495,8 @@ the same reason. Do not rely on the root provider alone for full-screen Modals.
   `LIST_ROW_SHOW_VERTICAL_INSET`, not `spacing.lg` or `spacing.md`.
 - Do not add a Notifications tab, a More row that opens the inbox, or an inbox bell on any
   screen but Home.
+- Do not add a Search tab, a More row that opens Search, or a search control on any screen but
+  Home.
 - Do not put the channel on/off bell in a stack title bar, on an item screen, or inside
   `ChannelHeader` `actions`.
 

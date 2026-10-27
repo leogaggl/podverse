@@ -14,6 +14,8 @@ export type HeaderBarChromeProps = {
   /** Forwarded to {@link HeaderBar}. */
   includeStatusInset?: boolean;
   onBack?: () => void;
+  /** Leading slot when there is no back control. Home uses it for search. */
+  left?: ReactNode;
   right?: ReactNode;
   testID?: string;
   title?: string;
@@ -30,6 +32,7 @@ export function HeaderBarChrome({
   backIcon = 'chevron-back',
   backTestID = 'stack-header-back',
   includeStatusInset = true,
+  left,
   onBack,
   right,
   testID,
@@ -81,6 +84,8 @@ export function HeaderBarChrome({
               testID={backTestID}
             />
           </View>
+        ) : left !== undefined ? (
+          <View style={styles.left}>{left}</View>
         ) : null}
         {title !== undefined && title.length > 0 ? (
           <Text numberOfLines={1} style={styles.title}>

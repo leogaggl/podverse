@@ -12,7 +12,7 @@ name: V4V Placeholder
 
 # Play a seeded episode so the mini player (then full player) is reachable.
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -36,6 +36,7 @@ name: V4V Placeholder
     visible:
       id: playback-active-e2e
     timeout: ${TIMEOUT_SLOW}
+- runFlow: shared/dismiss-search-drill.yaml
 - assertVisible:
     id: mini-player
 

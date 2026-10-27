@@ -1,0 +1,8 @@
+appId: com.podverse.app.next
+---
+# Search is a root card over the tabs. Episode detail is two pushes above Search root.
+# Back to Search root, then the down caret dismisses the card and the tab bar returns.
+- runFlow: stack-back.yaml
+- runFlow: stack-back.yaml
+- tapOn:
+    id: search-dismiss

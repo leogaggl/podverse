@@ -62,7 +62,7 @@ describe('applyHomeContentStackToState', () => {
               index: 2,
               routes: [
                 { name: 'Home', state: { index: 0, routes: [{ name: 'HomeRoot' }] } },
-                { name: 'Search' },
+                { name: 'Recommendations' },
                 { name: 'More' },
               ],
             },

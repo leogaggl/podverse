@@ -14,7 +14,7 @@ name: Playback Resume On Relaunch
 - runFlow: shared/launch-and-connect.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -40,6 +40,7 @@ name: Playback Resume On Relaunch
     visible:
       id: playback-active-e2e
     timeout: ${TIMEOUT_SLOW}
+- runFlow: shared/dismiss-search-drill.yaml
 - assertVisible:
     id: mini-player
 - assertVisible:

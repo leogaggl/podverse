@@ -139,8 +139,10 @@ name: Anonymous Subscriptions Persist
 - takeScreenshot: subscriptions-anonymous-detail-after
 
 # Home now has the subscription, so the empty state is gone and the filter has something to narrow.
+# Search covers the tab bar until the card is dismissed. This screen is one push above Search root.
+- runFlow: shared/stack-back.yaml
 - tapOn:
-    id: tab-home
+    id: search-dismiss
 - assertVisible:
     id: home-screen
 - assertNotVisible:

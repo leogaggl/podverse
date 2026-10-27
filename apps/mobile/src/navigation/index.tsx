@@ -134,7 +134,11 @@ import { resolveMobileDeepLinkAction, resolveMobileDeepLinkState } from './notif
 import { OrderedTabBar } from './OrderedTabBar';
 import type { PodcastDetailRouteParams } from './podcastDetailParams';
 import { buildPodcastDetailParams } from './podcastDetailParams';
-import { MAKE_CLIP_SCREEN_OPTIONS, ROOT_SLIDE_UP_SCREEN_OPTIONS } from './slideUpScreen';
+import {
+  MAKE_CLIP_SCREEN_OPTIONS,
+  ROOT_SEARCH_ROUTE_NAME,
+  ROOT_SLIDE_UP_SCREEN_OPTIONS,
+} from './slideUpScreen';
 import { tabBarIcon } from './tabBarIcon';
 import { useTabLayout } from './TabLayoutProvider';
 import type { TrackDetailRouteParams } from './trackDetailParams';
@@ -247,7 +251,6 @@ export const MORE_STACK_ROUTES = {
   MoreOverflowHome: 'MoreOverflowHome',
   MoreOverflowLibrary: 'MoreOverflowLibrary',
   MoreOverflowRecommendations: 'MoreOverflowRecommendations',
-  MoreOverflowSearch: 'MoreOverflowSearch',
   MorePublicProfile: 'MorePublicProfile',
   MoreProfile: 'MoreProfile',
   MoreProfileEdit: 'MoreProfileEdit',
@@ -284,6 +287,7 @@ export const ROOT_STACK_ROUTES = {
   MakeClip: 'MakeClip',
   MainTabs: 'MainTabs',
   NotificationsInbox: 'NotificationsInbox',
+  Search: ROOT_SEARCH_ROUTE_NAME,
   V4vInfo: 'V4vInfo',
 } as const;
 
@@ -429,6 +433,9 @@ const searchTabLinkScreens = {
 const mobileNavigationScreens = {
   FullPlayer: 'player',
   NotificationsInbox: 'notifications',
+  Search: {
+    screens: searchTabLinkScreens,
+  },
   V4vInfo: 'v4v',
   MainTabs: {
     screens: {
@@ -436,7 +443,8 @@ const mobileNavigationScreens = {
         // Home content routes carry the `home/` prefix so they match the scoped paths produced by
         // `mapIncomingPathToScopedPath` (and consumed back by `mapScopedPathToFlatPath`). Without
         // it, `getStateFromPath('/home/podcast/:id')` returns undefined and deep links fall back
-        // to Home. HomeRoot stays the bare `home` segment.
+        // to Home. HomeRoot stays the bare `home` segment. Search is a root slide-up, so its
+        // `search` paths live on that root route, not under Home.
         screens: homeTabLinkScreens,
       },
       More: {
@@ -455,9 +463,6 @@ const mobileNavigationScreens = {
           MoreOverflowRecommendations: {
             screens: prefixScreenPaths(recommendationsTabLinkScreens, OVERFLOW_LINK_PREFIX),
           },
-          MoreOverflowSearch: {
-            screens: prefixScreenPaths(searchTabLinkScreens, OVERFLOW_LINK_PREFIX),
-          },
         },
       },
       'My Library': {
@@ -468,9 +473,6 @@ const mobileNavigationScreens = {
       },
       Recommendations: {
         screens: recommendationsTabLinkScreens,
-      },
-      Search: {
-        screens: searchTabLinkScreens,
       },
     },
   },
@@ -543,10 +545,9 @@ export type HomeStackParamList = ChannelBrowseStackParamList &
 export type SearchStackParamList = ChannelBrowseStackParamList &
   AddByRssDetailStackParamList & {
     /**
-     * `autoFocus` is a request from another tab (Home's empty state) to start a fresh search: the
-     * field is cleared and focused so the user can type straight away. Tapping the Search tab
-     * directly omits it and keeps whatever was already there.
-     * `medium` optionally selects the All / Music chip (and persists it) before the field focuses.
+     * `autoFocus` clears the field and focuses it. Home's search control and empty-state button
+     * send it. `medium` optionally selects the All / Music chip (and persists it) before the field
+     * focuses. Both are consumed on focus so returning from a result keeps the query.
      */
     SearchRoot: { autoFocus?: boolean; medium?: 'all' | 'music' } | undefined;
   };
@@ -596,7 +597,6 @@ export type MoreStackParamList = {
   MoreOverflowHome: NavigatorScreenParams<HomeStackParamList> | undefined;
   MoreOverflowLibrary: NavigatorScreenParams<LibraryStackParamList> | undefined;
   MoreOverflowRecommendations: NavigatorScreenParams<BrowseStackParamList> | undefined;
-  MoreOverflowSearch: NavigatorScreenParams<SearchStackParamList> | undefined;
   MorePublicProfile: { accountIdText: string };
   MoreProfile: undefined;
   MoreProfileEdit: undefined;
@@ -642,13 +642,13 @@ export type RootStackParamList = {
   // to More ▸ Membership via `navigateToMembershipScreen()`.
   MainTabs: NavigatorScreenParams<MobileTabParamList> | undefined;
   NotificationsInbox: undefined;
+  Search: NavigatorScreenParams<SearchStackParamList> | undefined;
   V4vInfo: undefined;
 };
 
 /** Bottom-tab route names, used for type-safe cross-tab navigation (e.g. Home → My Library). */
 export type MobileTabParamList = {
   Home: NavigatorScreenParams<HomeStackParamList> | undefined;
-  Search: NavigatorScreenParams<SearchStackParamList> | undefined;
   Browse: NavigatorScreenParams<BrowseStackParamList> | undefined;
   Recommendations: NavigatorScreenParams<BrowseStackParamList> | undefined;
   'My Library': NavigatorScreenParams<LibraryStackParamList> | undefined;
@@ -980,19 +980,14 @@ export function getEnclosingTabNavigation(
   return undefined;
 }
 
-type ContentTabOpenTarget =
-  | {
-      tabId: 'Browse';
-      params: NonNullable<NavigatorScreenParams<BrowseStackParamList>>;
-    }
-  | {
-      tabId: 'Search';
-      params: NonNullable<NavigatorScreenParams<SearchStackParamList>>;
-    };
+type ContentTabOpenTarget = {
+  tabId: 'Browse';
+  params: NonNullable<NavigatorScreenParams<BrowseStackParamList>>;
+};
 
 /**
- * Open Search or Browse. A visible tab switches in the tab bar. A tab listed on More is pushed
- * on the More stack so Back returns there.
+ * Open Browse. A visible tab switches in the tab bar. A tab listed on More is pushed on the More
+ * stack so Back returns there.
  */
 export function navigateToContentTab(
   navigation: NavigationProp<ParamListBase>,
@@ -1005,19 +1000,7 @@ export function navigateToContentTab(
   }
 
   if (visibleTabIds.includes(target.tabId)) {
-    if (target.tabId === 'Search') {
-      tabNavigation.navigate('Search', target.params);
-      return;
-    }
     tabNavigation.navigate('Browse', target.params);
-    return;
-  }
-
-  if (target.tabId === 'Search') {
-    tabNavigation.navigate('More', {
-      params: target.params,
-      screen: MORE_STACK_ROUTES.MoreOverflowSearch,
-    });
     return;
   }
 
@@ -1071,6 +1054,16 @@ export function navigateToNotificationsInboxScreen(): void {
     return;
   }
   rootNavigationRef.navigate(ROOT_STACK_ROUTES.NotificationsInbox);
+}
+
+export function navigateToSearchScreen(params?: SearchStackParamList['SearchRoot']): void {
+  if (!rootNavigationRef.isReady()) {
+    return;
+  }
+  rootNavigationRef.navigate(ROOT_STACK_ROUTES.Search, {
+    params,
+    screen: SEARCH_STACK_ROUTES.SearchRoot,
+  });
 }
 
 function HomeStackNavigator() {
@@ -1495,11 +1488,6 @@ function MoreStackNavigator({
         options={moreOverflowScreenOptions}
       />
       <MoreStack.Screen
-        component={SearchStackNavigator}
-        name={MORE_STACK_ROUTES.MoreOverflowSearch}
-        options={moreOverflowScreenOptions}
-      />
-      <MoreStack.Screen
         component={LibraryStackNavigator}
         name={MORE_STACK_ROUTES.MoreOverflowLibrary}
         options={moreOverflowScreenOptions}
@@ -1799,9 +1787,6 @@ function MoreRootScreen({
       case 'Recommendations':
         navigation.navigate(MORE_STACK_ROUTES.MoreOverflowRecommendations);
         return;
-      case 'Search':
-        navigation.navigate(MORE_STACK_ROUTES.MoreOverflowSearch);
-        return;
     }
   };
 
@@ -2087,13 +2072,9 @@ function TabScaffold({
               overlayHeight > 0 ? { marginTop: -overlayHeight } : null,
             ]}
           >
-            <PlaybackE2eStatus />
-            <NotificationStreamE2eStatus />
-            <PerfE2eReport />
             {/*
               Persistent bottom chrome above tabs, outermost first: sync → Offline Mode → current
-              clip/chapter → mini player. Playback, notification stream, and perf markers are
-              absolute and are not part of that height. Sync sits at the top of the stack because it comes and
+              clip/chapter → mini player. Sync sits at the top of the stack because it comes and
               goes on its own schedule, so its arrival pushes only itself instead of shifting the
               bars a listener is aiming at. The negative top margin equals that stack's height, so
               the scene above the tab bar does not resize when a bar appears. The stack overlaps
@@ -2118,16 +2099,6 @@ function TabScaffold({
           tabBarLabel: t('nav.tab.home'),
         }}
         component={HomeStackNavigator}
-      />
-      <Tab.Screen
-        component={SearchStackNavigator}
-        name="Search"
-        options={{
-          tabBarButton: tabBarButtonFor('Search'),
-          tabBarButtonTestID: visibleTabSet.has('Search') ? 'tab-search' : undefined,
-          tabBarIcon: tabBarIcon('search'),
-          tabBarLabel: t('features.search.search'),
-        }}
       />
       <Tab.Screen
         component={LibraryStackNavigator}
@@ -2159,7 +2130,7 @@ function TabScaffold({
             ? 'tab-recommendations'
             : undefined,
           tabBarIcon: tabBarIcon('recommendations'),
-          tabBarLabel: t('nav.tab.recommendations'),
+          tabBarLabel: t('nav.tab.for_me'),
         }}
       />
       <Tab.Screen
@@ -2185,8 +2156,7 @@ function TabScaffold({
   // The tablet tab bar is a left rail, so there is no bottom column for the bar to sit above. A
   // full-width strip under the whole navigator is the equivalent position, and it carries the
   // home-indicator inset itself because nothing sits beneath it here. Order matches phone:
-  // sync → Offline Mode → current clip/chapter → mini player. Playback, notification stream, and
-  // perf markers are absolute and are not part of that height. The negative top margin is the
+  // sync → Offline Mode → current clip/chapter → mini player. The negative top margin is the
   // variable strips only, so the safe-area padding stays reserved and the scene does not resize
   // when a bar appears.
   const scaffold = !isTabletLayout ? (
@@ -2205,9 +2175,6 @@ function TabScaffold({
           },
         ]}
       >
-        <PlaybackE2eStatus />
-        <NotificationStreamE2eStatus />
-        <PerfE2eReport />
         <GlobalActivityBar />
         <OfflineModeBanner />
         <NowPlayingSegmentBar />
@@ -2222,6 +2189,12 @@ function TabScaffold({
     </BottomChromeOverlayHeightProvider>
   );
 }
+
+const rootNavigationStyles = StyleSheet.create({
+  host: {
+    flex: 1,
+  },
+});
 
 const tabScaffoldStyles = StyleSheet.create({
   tabletBottomChrome: {
@@ -2262,74 +2235,84 @@ export function MobileTabNavigator({
       ref={rootNavigationRef}
       theme={navigationTheme}
     >
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name={ROOT_STACK_ROUTES.MainTabs}>
-          {(props) => (
-            <TabScaffold
-              onOpenFullPlayer={() => {
-                props.navigation.navigate(ROOT_STACK_ROUTES.FullPlayer);
-              }}
-              onRequestLogin={onRequestLogin}
-              onRequestLogout={onRequestLogout}
-              onRequestSignUp={onRequestSignUp}
-            />
-          )}
-        </RootStack.Screen>
-        <RootStack.Screen
-          name={ROOT_STACK_ROUTES.FullPlayer}
-          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
-        >
-          {(props) => (
-            <FullPlayerScreen
-              onOpenContent={(request) => {
-                openFullPlayerContent(props.navigation, request, visibleTabIds);
-              }}
-              onOpenItem={(request) => {
-                openFullPlayerItem(props.navigation, request, visibleTabIds);
-              }}
-              onClose={() => {
-                if (props.navigation.canGoBack()) {
-                  props.navigation.goBack();
-                  return;
-                }
-                props.navigation.navigate(ROOT_STACK_ROUTES.MainTabs);
-              }}
-              onOpenMakeClip={(params) => {
-                props.navigation.navigate(ROOT_STACK_ROUTES.MakeClip, params);
-              }}
-              onOpenQueue={() => {
-                returnToMainTabs(props.navigation, {
-                  params: { screen: LIBRARY_STACK_ROUTES.LibraryQueue },
-                  screen: 'My Library',
-                });
-              }}
-              onOpenV4v={() => {
-                props.navigation.navigate(ROOT_STACK_ROUTES.V4vInfo);
-              }}
-            />
-          )}
-        </RootStack.Screen>
-        <RootStack.Screen
-          component={MakeClipScreen}
-          name={ROOT_STACK_ROUTES.MakeClip}
-          options={MAKE_CLIP_SCREEN_OPTIONS}
-        />
-        <RootStack.Screen
-          component={V4vInfoScreen}
-          name={ROOT_STACK_ROUTES.V4vInfo}
-          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
-        />
-        <RootStack.Screen
-          component={ImageViewerScreen}
-          name={ROOT_STACK_ROUTES.ImageViewer}
-          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
-        />
-        <RootStack.Screen
-          component={NotificationsInboxScreen}
-          name={ROOT_STACK_ROUTES.NotificationsInbox}
-          options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
-        />
-      </RootStack.Navigator>
+      <View style={rootNavigationStyles.host}>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name={ROOT_STACK_ROUTES.MainTabs}>
+            {(props) => (
+              <TabScaffold
+                onOpenFullPlayer={() => {
+                  props.navigation.navigate(ROOT_STACK_ROUTES.FullPlayer);
+                }}
+                onRequestLogin={onRequestLogin}
+                onRequestLogout={onRequestLogout}
+                onRequestSignUp={onRequestSignUp}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen
+            name={ROOT_STACK_ROUTES.FullPlayer}
+            options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+          >
+            {(props) => (
+              <FullPlayerScreen
+                onOpenContent={(request) => {
+                  openFullPlayerContent(props.navigation, request, visibleTabIds);
+                }}
+                onOpenItem={(request) => {
+                  openFullPlayerItem(props.navigation, request, visibleTabIds);
+                }}
+                onClose={() => {
+                  if (props.navigation.canGoBack()) {
+                    props.navigation.goBack();
+                    return;
+                  }
+                  props.navigation.navigate(ROOT_STACK_ROUTES.MainTabs);
+                }}
+                onOpenMakeClip={(params) => {
+                  props.navigation.navigate(ROOT_STACK_ROUTES.MakeClip, params);
+                }}
+                onOpenQueue={() => {
+                  returnToMainTabs(props.navigation, {
+                    params: { screen: LIBRARY_STACK_ROUTES.LibraryQueue },
+                    screen: 'My Library',
+                  });
+                }}
+                onOpenV4v={() => {
+                  props.navigation.navigate(ROOT_STACK_ROUTES.V4vInfo);
+                }}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen
+            component={MakeClipScreen}
+            name={ROOT_STACK_ROUTES.MakeClip}
+            options={MAKE_CLIP_SCREEN_OPTIONS}
+          />
+          <RootStack.Screen
+            component={V4vInfoScreen}
+            name={ROOT_STACK_ROUTES.V4vInfo}
+            options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+          />
+          <RootStack.Screen
+            component={ImageViewerScreen}
+            name={ROOT_STACK_ROUTES.ImageViewer}
+            options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+          />
+          <RootStack.Screen
+            component={NotificationsInboxScreen}
+            name={ROOT_STACK_ROUTES.NotificationsInbox}
+            options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+          />
+          <RootStack.Screen
+            component={SearchStackNavigator}
+            name={ROOT_STACK_ROUTES.Search}
+            options={ROOT_SLIDE_UP_SCREEN_OPTIONS}
+          />
+        </RootStack.Navigator>
+        <PlaybackE2eStatus />
+        <NotificationStreamE2eStatus />
+        <PerfE2eReport />
+      </View>
     </NavigationContainer>
   );
 }

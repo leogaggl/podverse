@@ -609,3 +609,23 @@
   the queue item. The queue wrapper only carries the id and a short copy pair.
 - Who notices: anyone who sees an in-app notification banner
 - Operator steps: none
+
+## For Me replaces the Search tab
+
+- Surfaces: mobile
+- Change: The bottom bar is Home, Browse, For Me, My Library, and More. For Me opens
+  Recommendations (the screen title stays Recommendations). Search is no longer a tab and is
+  not in Tab Bar settings. A magnifying glass in the top left of Home opens Search. A saved tab
+  order that still has Search shows Recommendations in that slot. An older default order that
+  included Search is replaced with the new default.
+- Who notices: anyone using the bottom bar or opening Search
+- Operator steps: none
+
+## Search and notifications rise from the bottom
+
+- Surfaces: mobile
+- Change: The Home search icon and the Home notifications bell each raise a screen from the
+  bottom. A down caret in the upper left dismisses it.
+- Who notices: anyone opening Search or notifications from Home
+- Operator steps: none
+  I want to leave you running with a job unattended, and I am hoping you can give your best effort to get it done safely and correctly. But if at any point you think you are in real danger of doing something wrong, you should stop immediately. And when I say do something wrong, I mean do something wrong. You're seriously a problem anyway. I want you to take whatever steps are needed to sync develop to staging so we have a new version, and I also want you to update kpodcastdj.com so Alpha wants. The new version is verifiably published as an image. Then I want you to update and push to the KPodcastDJ repo and also run any Kubernetes related commands you need to to verify that the deployment happened to alpha and was successful. If you have any questions before proceeding, ask me. Otherwise, tell me if you are ready to go.

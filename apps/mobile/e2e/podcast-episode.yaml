@@ -7,7 +7,7 @@ name: Podcast Episode Flow
 - runFlow: shared/login-seeded-user.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - takeScreenshot: podcast-episode-search-tab
@@ -93,7 +93,9 @@ name: Podcast Episode Flow
 
 # --- Sections: a chip swaps what the list holds without leaving the screen ---
 # Reached by deep link because these assertions are about one known channel's sections rather than
-# whatever Podcast Index returned for the search above.
+# whatever Podcast Index returned for the search above. Search covers the window, so dismiss
+# the card before the link opens on Home.
+- runFlow: shared/dismiss-search-drill.yaml
 - openLink: podverse-next://podcast/e2ePodChnl001
 - runFlow: shared/confirm-ios-open-dialog.yaml
 - extendedWaitUntil:

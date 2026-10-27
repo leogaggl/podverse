@@ -8,12 +8,12 @@ import {
 } from './notificationStreamStore';
 
 /**
- * E2E-only marker in tab chrome: `notification-stream-e2e` reads the account event stream's
- * connection (`idle`, `connecting`, `open`, `retrying`, or `stopped`), so flows can wait for a
- * real stream to reach its first event.
+ * E2E-only marker above the root navigator: `notification-stream-e2e` reads the account event
+ * stream's connection (`idle`, `connecting`, `open`, `retrying`, or `stopped`), so flows can wait
+ * for a real stream to reach its first event.
  *
- * The node is a 1×1 absolute marker, same as the playback and perf markers. It is not part of the
- * bottom-chrome overlay height, and it does not receive touches.
+ * The node is a 1×1 absolute marker, same as the playback and perf markers. It does not receive
+ * touches.
  */
 export function NotificationStreamE2eStatus() {
   const connection = useSyncExternalStore(

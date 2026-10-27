@@ -104,7 +104,7 @@ name: Membership Gate
 # model resolves `directory_add_by_rss` as allowed and lets the request through. Trial-vs-Premium
 # capability differences stay server-authoritative, so the real 403 is still what gates this.
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:

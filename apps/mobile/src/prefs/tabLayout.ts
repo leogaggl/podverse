@@ -6,32 +6,30 @@ import { moveItem } from '../lib/reorder/moveItem';
  * Device-local tab bar layout. More is always last and is not stored. Hidden content tabs stay
  * registered in the navigator so deep links still resolve, and they appear as rows on More.
  * Opening a row pushes that tab's stack on the More navigator. An unknown stored id is dropped
- * when the bar is read.
+ * when the bar is read. Search is not a tab. A stored Search slot becomes Recommendations.
  */
-export const CONTENT_TAB_IDS = [
-  'Home',
-  'Browse',
-  'Search',
-  'My Library',
-  'Recommendations',
-] as const;
+export const CONTENT_TAB_IDS = ['Home', 'Browse', 'Recommendations', 'My Library'] as const;
 
 export type ContentTabId = (typeof CONTENT_TAB_IDS)[number];
 
 export const DEFAULT_VISIBLE_TABS: readonly ContentTabId[] = [
   'Home',
   'Browse',
-  'Search',
+  'Recommendations',
   'My Library',
 ];
 
 /** Earlier factory bars. Treated as unset so a later default order reaches existing devices. */
-const PREVIOUS_DEFAULT_VISIBLE_TABS: readonly (readonly ContentTabId[])[] = [
+const PREVIOUS_DEFAULT_VISIBLE_TABS: readonly (readonly string[])[] = [
   ['Home', 'Search', 'My Library', 'Browse'],
   ['Home', 'Search', 'Browse', 'My Library'],
+  ['Home', 'Browse', 'Search', 'My Library'],
 ];
 
-const isSameTabOrder = (left: readonly ContentTabId[], right: readonly ContentTabId[]): boolean => {
+/** Removed from the bar. A custom order keeps this slot as Recommendations. */
+const RETIRED_SEARCH_TAB_ID = 'Search';
+
+const isSameTabOrder = (left: readonly string[], right: readonly string[]): boolean => {
   return left.length === right.length && left.every((tabId, index) => tabId === right[index]);
 };
 
@@ -44,7 +42,6 @@ export const TAB_TEST_ID_SLUG: Record<ContentTabId, string> = {
   Home: 'home',
   'My Library': 'my-library',
   Recommendations: 'recommendations',
-  Search: 'search',
 };
 
 export const isContentTabId = (value: string): value is ContentTabId => {
@@ -55,9 +52,6 @@ export const tabLabelKey = (tabId: ContentTabId | 'More'): string => {
   if (tabId === 'Home') {
     return 'nav.tab.home';
   }
-  if (tabId === 'Search') {
-    return 'features.search.search';
-  }
   if (tabId === 'My Library') {
     return 'nav.tab.my_library';
   }
@@ -65,7 +59,7 @@ export const tabLabelKey = (tabId: ContentTabId | 'More'): string => {
     return 'nav.tab.browse';
   }
   if (tabId === 'Recommendations') {
-    return 'nav.tab.recommendations';
+    return 'nav.tab.for_me';
   }
   return 'nav.tab.more';
 };
@@ -81,23 +75,41 @@ export const parseVisibleTabs = (raw: string | null): ContentTabId[] => {
       return [...DEFAULT_VISIBLE_TABS];
     }
 
-    const seen = new Set<ContentTabId>();
-    const result: ContentTabId[] = [];
+    const seenStored = new Set<string>();
+    const stored: string[] = [];
     for (const item of parsed) {
-      if (typeof item !== 'string' || !isContentTabId(item) || seen.has(item)) {
+      if (typeof item !== 'string' || seenStored.has(item)) {
         continue;
       }
-      seen.add(item);
-      result.push(item);
+      if (item !== RETIRED_SEARCH_TAB_ID && !isContentTabId(item)) {
+        continue;
+      }
+      seenStored.add(item);
+      stored.push(item);
+    }
+
+    if (
+      stored.length === 0 ||
+      PREVIOUS_DEFAULT_VISIBLE_TABS.some((previous) => isSameTabOrder(stored, previous))
+    ) {
+      return [...DEFAULT_VISIBLE_TABS];
+    }
+
+    const seen = new Set<ContentTabId>();
+    const result: ContentTabId[] = [];
+    for (const item of stored) {
+      const tabId = item === RETIRED_SEARCH_TAB_ID ? 'Recommendations' : item;
+      if (!isContentTabId(tabId) || seen.has(tabId)) {
+        continue;
+      }
+      seen.add(tabId);
+      result.push(tabId);
       if (result.length === MAX_VISIBLE_CONTENT_TABS) {
         break;
       }
     }
 
-    if (
-      result.length === 0 ||
-      PREVIOUS_DEFAULT_VISIBLE_TABS.some((previous) => isSameTabOrder(result, previous))
-    ) {
+    if (result.length === 0) {
       return [...DEFAULT_VISIBLE_TABS];
     }
 

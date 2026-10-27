@@ -32,14 +32,7 @@ name: Recommendations
     timeout: ${TIMEOUT_SLOW}
 
 - tapOn:
-    id: tab-more
-- scrollUntilVisible:
-    element:
-      id: more-nav-recommendations
-    direction: DOWN
-    timeout: ${TIMEOUT_SLOW}
-- tapOn:
-    id: more-nav-recommendations
+    id: tab-recommendations
 - assertVisible:
     id: recommendations-screen
 - assertNotVisible:

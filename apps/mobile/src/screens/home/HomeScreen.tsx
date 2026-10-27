@@ -48,7 +48,7 @@ import {
   buildTrackDetailParams,
   HOME_STACK_ROUTES,
   navigateToContentTab,
-  SEARCH_STACK_ROUTES,
+  navigateToSearchScreen,
 } from '../../navigation';
 import { useTabLayout } from '../../navigation/TabLayoutProvider';
 import type {
@@ -120,6 +120,7 @@ import { homeItemDownloadItem, homeItemShareResource } from './homeItemRowAction
 import { HomeNotificationsBell } from './HomeNotificationsBell';
 import { HomeOverflowMenu } from './HomeOverflowMenu';
 import { mergeDownloadedCountsIntoHomeRows } from './homeRowMetadata';
+import { HomeSearchButton } from './HomeSearchButton';
 import { HomeSortChip } from './HomeSortChip';
 import { MediaTypeSelector } from './MediaTypeSelector';
 import type { QueueActionPosition } from './useHomeRowPlayback';
@@ -624,20 +625,13 @@ export function HomeScreen() {
     writeHomeFilterTerm(term);
   }, []);
 
-  const handleSearchPress = useCallback(
-    (medium: 'all' | 'music' = 'all') => {
-      // Search opens at its root with an empty, focused field. A visible Search tab switches in
-      // the tab bar; when Search is listed on More, it is pushed on that stack.
-      navigateToContentTab(navigation, visibleTabIds, {
-        params: {
-          params: { autoFocus: true, medium },
-          screen: SEARCH_STACK_ROUTES.SearchRoot,
-        },
-        tabId: 'Search',
-      });
-    },
-    [navigation, visibleTabIds]
-  );
+  const openSearch = useCallback(() => {
+    navigateToSearchScreen({ autoFocus: true });
+  }, []);
+
+  const handleSearchPress = useCallback((medium: 'all' | 'music' = 'all') => {
+    navigateToSearchScreen({ autoFocus: true, medium });
+  }, []);
 
   const handleBrowsePress = useCallback(
     (mediaType: BrowseMediaType) => {
@@ -1094,6 +1088,7 @@ export function HomeScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerLeft: () => <HomeSearchButton onPress={openSearch} />,
       headerRight: () => (
         <HeaderBarActions>
           <HomeNotificationsBell />
@@ -1113,6 +1108,7 @@ export function HomeScreen() {
     handleMarkAllSeen,
     handleViewModeChange,
     navigation,
+    openSearch,
     showMarkAllSeen,
   ]);
 

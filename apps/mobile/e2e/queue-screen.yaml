@@ -10,7 +10,7 @@ name: Queue screen flow
 # Add one row to the AV queue so the loaded list and swipe-remove path have a known row.
 # The seeded podcast queue already has rows; the flow clears them before the empty state.
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -35,7 +35,8 @@ name: Queue screen flow
 - tapOn:
     id: "media-row-action-queue-last-.*"
 
-# Library -> Queue load with rows.
+# Library -> Queue load with rows. Search covers the tab bar until the card is dismissed.
+- runFlow: shared/dismiss-search-drill.yaml
 - tapOn:
     id: tab-my-library
 - assertVisible:

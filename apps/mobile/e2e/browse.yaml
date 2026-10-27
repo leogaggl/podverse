@@ -1,10 +1,10 @@
 appId: com.podverse.app.next
 name: Browse Tab And Tab Bar Pref
 ---
-# Default bar is Home / Browse / Search / My Library / More. Recommendations lives in More.
+# Default bar is Home / Browse / For Me / My Library / More. Search is the Home header control.
+# Settings does not list Search. For Me is already on the bar.
 # Browse is one chip row: directory types in a stable order, then Categories and the
 # popularity range (filter chrome) only when the current type can use them. The sort chip is last.
-# Settings can swap Recommendations onto the bar (replaces the last visible content tab).
 
 - runFlow: shared/launch-and-connect.yaml
 - runFlow: shared/login-seeded-user.yaml
@@ -415,17 +415,22 @@ name: Browse Tab And Tab Bar Pref
 - takeScreenshot: browse-tab-bar-settings
 - assertNotVisible:
     id: more-settings-tab-bar-add-notifications
-- tapOn:
-    id: more-settings-tab-bar-add-recommendations
+- assertNotVisible:
+    id: more-settings-tab-bar-visible-search
+- assertNotVisible:
+    id: more-settings-tab-bar-overflow-search
+- assertVisible:
+    id: more-settings-tab-bar-visible-recommendations
 - runFlow:
     file: shared/stack-back.yaml
 - runFlow:
     file: shared/stack-back.yaml
-# addVisibleTab appends Recommendations and drops the last content tab, My Library.
 - assertVisible:
     id: tab-recommendations
 - assertVisible:
     id: tab-browse
-- assertNotVisible:
+- assertVisible:
     id: tab-my-library
+- assertNotVisible:
+    id: tab-search
 - takeScreenshot: browse-tab-bar-recommendations-visible

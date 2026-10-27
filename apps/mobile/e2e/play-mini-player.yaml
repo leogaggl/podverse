@@ -15,7 +15,7 @@ name: Play Mini Player
 - runFlow: shared/login-seeded-user.yaml
 
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -40,10 +40,12 @@ name: Play Mini Player
     id: "home-row-play-.*"
 
 # Network + media load, then the orchestrator sets the active target synchronously in JS state.
+# Search covers the tab bar, so dismiss the card before the mini player can be tapped.
 - extendedWaitUntil:
     visible:
       id: playback-active-e2e
     timeout: ${TIMEOUT_SLOW}
+- runFlow: shared/dismiss-search-drill.yaml
 - assertVisible:
     id: mini-player
 # Title (marquee) and transport both render on the bar itself, so a layout regression in either
@@ -72,8 +74,6 @@ name: Play Mini Player
 
 # Seeded resume fixtures are ~60s. Android panel checks can run long enough for natural `ended`
 # → stop → clearNowPlaying (idle full player). Pause so panel asserts are not racing EOF.
-# Do not wait on `playback-active-e2e` here — it sits under the nav tree and is not visible while
-# the full player covers the screen.
 - tapOn:
     id: full-player-play-pause
 - assertVisible:

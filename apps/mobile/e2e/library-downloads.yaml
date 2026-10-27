@@ -22,7 +22,7 @@ name: Library Downloads Offline Play
 # Navigate to a seeded podcast the account does not follow, so the completed file
 # lands on Home under Downloaded only (not on a subscribed row).
 - tapOn:
-    id: tab-search
+    id: home-search
 - assertVisible:
     id: search-screen
 - tapOn:
@@ -55,8 +55,6 @@ name: Library Downloads Offline Play
       id: playback-source-e2e
       text: remote
     timeout: ${TIMEOUT_SLOW}
-- assertVisible:
-    id: mini-player
 
 # Download the episode that is streaming. Completion swaps the engine onto the local file
 # without stopping playback.
@@ -81,6 +79,8 @@ name: Library Downloads Offline Play
 
 # The completed download appears in My Library -> Downloads. Finished jobs are not in-progress,
 # so the Downloads row and My Library tab badges stay hidden. Storage chrome is not on this screen.
+# Search covers the tab bar until the card is dismissed.
+- runFlow: shared/dismiss-search-drill.yaml
 - tapOn:
     id: tab-my-library
 - assertVisible:
